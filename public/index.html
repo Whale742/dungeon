@@ -61,9 +61,15 @@
             <p>1～5 人即時協作連線，自帶 10 種遠古 Boss、致命機關、技能抗性與裝備成長！</p>
           </div>
 
-          <div class="form-group">
-            <label for="inputPlayerName">冒險者姓名：</label>
-            <input type="text" id="inputPlayerName" placeholder="請輸入你的勇者名字..." maxlength="12">
+          <div class="entry-profile-config">
+            <div class="entry-avatar-wrapper clickable-avatar" id="btnEntryAvatar" title="點擊選擇或更換個人頭貼">
+              <div class="entry-avatar-preview" id="entryAvatarPreview">👤</div>
+              <span class="entry-avatar-badge" title="更換頭貼">📷</span>
+            </div>
+            <div class="form-group entry-name-group">
+              <label for="inputPlayerName">冒險者姓名：</label>
+              <input type="text" id="inputPlayerName" placeholder="請輸入你的勇者名字..." maxlength="12">
+            </div>
           </div>
 
           <div class="entry-actions">
@@ -285,8 +291,8 @@
         </div>
       </section>
 
-      <!-- 永久存在的底部戰況日誌視窗 -->
-      <section class="combat-log-section">
+      <!-- 底部戰況日誌視窗 (登入/發起組隊畫面隱藏，進入大廳選角色時顯示) -->
+      <section class="combat-log-section hidden" id="combatLogSection">
         <div class="log-card card">
           <div class="log-header">
             <span class="log-title">📜 即時戰況與冒險日誌</span>
@@ -361,12 +367,23 @@
 
         <!-- 標籤切換 -->
         <div class="avatar-tabs">
-          <button type="button" class="avatar-tab active" id="tabEmojiBtn" data-tab="emoji">😀 表情符號</button>
+          <button type="button" class="avatar-tab active" id="tabHeroBtn" data-tab="hero">🎭 職業原本頭貼</button>
+          <button type="button" class="avatar-tab" id="tabEmojiBtn" data-tab="emoji">😀 表情符號</button>
           <button type="button" class="avatar-tab" id="tabUploadBtn" data-tab="upload">📁 上傳照片</button>
         </div>
 
+        <!-- 分頁 0: 職業原本頭貼 -->
+        <div class="avatar-tab-content active" id="tabHeroContent">
+          <div class="hero-avatar-picker-container">
+            <p class="hero-picker-hint">點選職業經典原畫作為你的個人頭貼：</p>
+            <div class="hero-avatar-grid" id="heroAvatarGrid">
+              <!-- 動態渲染 5 大職業官方頭貼選項 -->
+            </div>
+          </div>
+        </div>
+
         <!-- 分頁 1: 表情符號 -->
-        <div class="avatar-tab-content active" id="tabEmojiContent">
+        <div class="avatar-tab-content" id="tabEmojiContent">
           <div class="emoji-picker-container">
             <div class="emoji-categories">
               <span class="emoji-cat-title">🛡️ 冒險與職業</span>

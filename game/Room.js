@@ -4,7 +4,7 @@
 import { CLASSES, LOOT_TABLE, ENCOUNTERS, ROUTES, getRandomRoutes, equipItemToPlayer } from './constants.js';
 
 export class Room {
-  constructor(code, leaderSocket, leaderName, io) {
+  constructor(code, leaderSocket, leaderName, io, leaderAvatar = null) {
     this.code = code;
     this.io = io;
     this.leaderId = leaderSocket.id;
@@ -29,10 +29,10 @@ export class Room {
     this.logs = [];
 
     // 加入第一位玩家（隊長）
-    this.addPlayer(leaderSocket, leaderName);
+    this.addPlayer(leaderSocket, leaderName, leaderAvatar);
   }
 
-  addPlayer(socket, name) {
+  addPlayer(socket, name, avatar = null) {
     if (this.memberIds.length >= 5 && !this.memberIds.includes(socket.id)) {
       return { success: false, message: '房間已滿員（上限 5 人）' };
     }
@@ -48,7 +48,7 @@ export class Room {
       id: socket.id,
       name: name || `勇者_${socket.id.slice(0, 4)}`,
       role: null,
-      customAvatar: null,
+      customAvatar: avatar || null,
       hp: 100,
       maxHp: 100,
       bonusAtk: 0,

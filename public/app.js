@@ -140,6 +140,8 @@ const elements = {
   btnCreateRoom: document.getElementById('btnCreateRoom'),
   inputRoomCode: document.getElementById('inputRoomCode'),
   btnJoinRoom: document.getElementById('btnJoinRoom'),
+  btnEntryAvatar: document.getElementById('btnEntryAvatar'),
+  entryAvatarPreview: document.getElementById('entryAvatarPreview'),
 
   // Lobby
   lobbyMemberCount: document.getElementById('lobbyMemberCount'),
@@ -155,10 +157,13 @@ const elements = {
   btnCloseAvatarModal: document.getElementById('btnCloseAvatarModal'),
   modalAvatarPreview: document.getElementById('modalAvatarPreview'),
   modalAvatarTypeLabel: document.getElementById('modalAvatarTypeLabel'),
+  tabHeroBtn: document.getElementById('tabHeroBtn'),
   tabEmojiBtn: document.getElementById('tabEmojiBtn'),
   tabUploadBtn: document.getElementById('tabUploadBtn'),
+  tabHeroContent: document.getElementById('tabHeroContent'),
   tabEmojiContent: document.getElementById('tabEmojiContent'),
   tabUploadContent: document.getElementById('tabUploadContent'),
+  heroAvatarGrid: document.getElementById('heroAvatarGrid'),
   emojiGridAdventure: document.getElementById('emojiGridAdventure'),
   emojiGridCreatures: document.getElementById('emojiGridCreatures'),
   emojiGridWeapons: document.getElementById('emojiGridWeapons'),
@@ -228,6 +233,7 @@ const elements = {
   btnRestartLobby: document.getElementById('btnRestartLobby'),
 
   // Logs & Chat
+  combatLogSection: document.getElementById('combatLogSection'),
   combatLogWindow: document.getElementById('combatLogWindow'),
   chatInput: document.getElementById('chatInput'),
   btnSendChat: document.getElementById('btnSendChat'),
@@ -266,6 +272,7 @@ socket.on('init:constants', (data) => {
   classesData = data.classes || {};
   routesData = data.routes || [];
   renderRoleSelectionGrid();
+  renderHeroAvatarPickerGrid();
 });
 
 socket.on('room:update', (state) => {
@@ -309,6 +316,15 @@ function switchView(viewName) {
       elements.views[key].classList.remove('active');
     }
   });
+
+  // 發起組隊頁面 (entry) 隱藏戰況日誌，進入選角色 (lobby) 及後續頁面時顯示
+  if (elements.combatLogSection) {
+    if (viewName === 'entry') {
+      elements.combatLogSection.classList.add('hidden');
+    } else {
+      elements.combatLogSection.classList.remove('hidden');
+    }
+  }
 }
 
 // 渲染整體畫面
@@ -441,7 +457,7 @@ function renderLobby(me, isLeader) {
         <div class="member-info-col">
           <div class="member-avatar-wrapper clickable-avatar" id="btnMemberMyAvatar" title="點擊更換個人頭貼">
             ${getPlayerAvatarHtml(p, 'member-role-avatar')}
-            <span class="member-avatar-edit-icon" title="更換頭貼">📷</span>
+            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${roleInfo.emoji}</span>` : ''}
           </div>
           <div class="member-name-group">
             ${isEditingMyName ? `
@@ -464,9 +480,6 @@ function renderLobby(me, isLeader) {
               <span class="member-role-tag">
                 ${roleInfo ? escapeHtml(roleInfo.name) : '<span class="role-unselected">未選職</span>'}
               </span>
-              <button type="button" class="btn-chip-avatar" id="btnChipChangeAvatar" title="選擇表情符號或上傳自訂頭貼">
-                🖼️ 換頭貼
-              </button>
             </div>
           </div>
         </div>
@@ -475,15 +488,10 @@ function renderLobby(me, isLeader) {
         </div>
       `;
 
-      // 綁定 (你) 的頭貼與按鈕事件
+      // 綁定 (你) 的頭貼點擊換頭貼事件
       const avatarWrap = div.querySelector('#btnMemberMyAvatar');
       if (avatarWrap) {
         avatarWrap.addEventListener('click', openAvatarModal);
-      }
-
-      const chipAvatar = div.querySelector('#btnChipChangeAvatar');
-      if (chipAvatar) {
-        chipAvatar.addEventListener('click', openAvatarModal);
       }
 
       const btnTriggerRename = div.querySelector('#btnTriggerInlineRename');
@@ -542,6 +550,7 @@ function renderLobby(me, isLeader) {
         <div class="member-info-col">
           <div class="member-avatar-wrapper">
             ${getPlayerAvatarHtml(p, 'member-role-avatar')}
+            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${roleInfo.emoji}</span>` : ''}
           </div>
           <div class="member-name-group">
             <span class="member-name">
@@ -610,7 +619,6 @@ function renderRoleSelectionGrid() {
         ${conf.avatar ? `
           <div class="role-card-avatar-wrap">
             <img src="${conf.avatar}" alt="${conf.name}" class="role-card-avatar" loading="lazy">
-            <span class="role-card-emoji-badge">${conf.emoji}</span>
           </div>
         ` : `
           <div class="role-card-top">
@@ -1076,10 +1084,11 @@ elements.btnCreateRoom.addEventListener('click', () => {
   const name = elements.inputPlayerName.value.trim() || '勇者無名';
   myName = name;
   localStorage.setItem('dungeon_player_name', name);
+  const savedAvatar = localStorage.getItem('dungeon_custom_avatar') || null;
   initAudio();
   playSound('click');
 
-  socket.emit('room:create', { name }, (res) => {
+  socket.emit('room:create', { name, avatar: savedAvatar }, (res) => {
     if (res.success) {
       currentRoomCode = res.roomCode;
     } else {
@@ -1098,10 +1107,11 @@ elements.btnJoinRoom.addEventListener('click', () => {
   }
   myName = name;
   localStorage.setItem('dungeon_player_name', name);
+  const savedAvatar = localStorage.getItem('dungeon_custom_avatar') || null;
   initAudio();
   playSound('click');
 
-  socket.emit('room:join', { name, code }, (res) => {
+  socket.emit('room:join', { name, code, avatar: savedAvatar }, (res) => {
     if (!res.success) {
       alert(res.message);
     }
@@ -1464,6 +1474,20 @@ function getMyPlayer() {
   return roomState.players.find(p => p.id === myId) || null;
 }
 
+function updateEntryAvatarPreview() {
+  if (!elements.entryAvatarPreview) return;
+  const savedAvatar = localStorage.getItem('dungeon_custom_avatar');
+  if (savedAvatar) {
+    if (savedAvatar.startsWith('data:image/') || savedAvatar.startsWith('http') || savedAvatar.startsWith('/')) {
+      elements.entryAvatarPreview.innerHTML = `<img src="${savedAvatar}" alt="avatar">`;
+    } else {
+      elements.entryAvatarPreview.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:26px;">${escapeHtml(savedAvatar)}</span>`;
+    }
+  } else {
+    elements.entryAvatarPreview.innerHTML = '👤';
+  }
+}
+
 function updateModalPreview(avatar) {
   const me = getMyPlayer();
   const roleInfo = (me && me.role) ? classesData[me.role] : null;
@@ -1471,7 +1495,12 @@ function updateModalPreview(avatar) {
   if (!elements.modalAvatarPreview || !elements.modalAvatarTypeLabel) return;
 
   if (avatar) {
-    if (avatar.startsWith('data:image/') || avatar.startsWith('http') || avatar.startsWith('/')) {
+    // 檢查是否為官方職業頭像
+    const matchedClass = Object.values(classesData).find(c => c.avatar === avatar);
+    if (matchedClass) {
+      elements.modalAvatarPreview.innerHTML = `<img src="${avatar}" alt="${matchedClass.name}">`;
+      elements.modalAvatarTypeLabel.textContent = `已選擇：職業頭貼【${matchedClass.name}】`;
+    } else if (avatar.startsWith('data:image/') || avatar.startsWith('http') || avatar.startsWith('/')) {
       elements.modalAvatarPreview.innerHTML = `<img src="${avatar}" alt="preview">`;
       elements.modalAvatarTypeLabel.textContent = '已選擇：自訂照片';
     } else {
@@ -1493,13 +1522,55 @@ function updateModalPreview(avatar) {
   }
 }
 
+function renderHeroAvatarPickerGrid() {
+  if (!elements.heroAvatarGrid || !classesData || Object.keys(classesData).length === 0) return;
+  elements.heroAvatarGrid.innerHTML = '';
+
+  Object.entries(classesData).forEach(([roleKey, conf]) => {
+    if (!conf.avatar) return;
+    const item = document.createElement('div');
+    item.className = `hero-avatar-option ${pendingAvatar === conf.avatar ? 'selected' : ''}`;
+    item.setAttribute('data-avatar', conf.avatar);
+    item.innerHTML = `
+      <div class="hero-avatar-circle">
+        <img src="${conf.avatar}" alt="${conf.name}" loading="lazy">
+      </div>
+      <span class="hero-avatar-name">${conf.name}</span>
+    `;
+
+    item.addEventListener('click', () => {
+      pendingAvatar = conf.avatar;
+      document.querySelectorAll('.hero-avatar-option').forEach(el => el.classList.remove('selected'));
+      document.querySelectorAll('.emoji-option-btn').forEach(b => b.classList.remove('selected'));
+      item.classList.add('selected');
+      updateModalPreview(pendingAvatar);
+      playSound('click');
+    });
+
+    elements.heroAvatarGrid.appendChild(item);
+  });
+}
+
 function openAvatarModal() {
   const me = getMyPlayer();
   pendingAvatar = me ? me.customAvatar : (localStorage.getItem('dungeon_custom_avatar') || null);
   updateModalPreview(pendingAvatar);
+
+  renderHeroAvatarPickerGrid();
+
   if (elements.avatarModalOverlay) {
     elements.avatarModalOverlay.classList.remove('hidden');
   }
+
+  // 標記已選的 Hero 頭像
+  document.querySelectorAll('.hero-avatar-option').forEach(opt => {
+    if (pendingAvatar && opt.getAttribute('data-avatar') === pendingAvatar) {
+      opt.classList.add('selected');
+    } else {
+      opt.classList.remove('selected');
+    }
+  });
+
   // 標記已選的 Emoji (如果是單一 emoji)
   document.querySelectorAll('.emoji-option-btn').forEach(btn => {
     if (pendingAvatar && btn.textContent === pendingAvatar) {
@@ -1517,21 +1588,27 @@ function closeAvatarModal() {
 }
 
 function switchAvatarTab(tab) {
-  if (tab === 'emoji') {
-    if (elements.tabEmojiBtn) elements.tabEmojiBtn.classList.add('active');
-    if (elements.tabUploadBtn) elements.tabUploadBtn.classList.remove('active');
-    if (elements.tabEmojiContent) elements.tabEmojiContent.classList.add('active');
-    if (elements.tabUploadContent) elements.tabUploadContent.classList.remove('active');
-  } else {
-    if (elements.tabEmojiBtn) elements.tabEmojiBtn.classList.remove('active');
-    if (elements.tabUploadBtn) elements.tabUploadBtn.classList.add('active');
-    if (elements.tabEmojiContent) elements.tabEmojiContent.classList.remove('active');
-    if (elements.tabUploadContent) elements.tabUploadContent.classList.add('active');
-  }
+  const tabs = {
+    hero: { btn: elements.tabHeroBtn, content: elements.tabHeroContent },
+    emoji: { btn: elements.tabEmojiBtn, content: elements.tabEmojiContent },
+    upload: { btn: elements.tabUploadBtn, content: elements.tabUploadContent }
+  };
+
+  Object.keys(tabs).forEach(key => {
+    const item = tabs[key];
+    if (key === tab) {
+      if (item.btn) item.btn.classList.add('active');
+      if (item.content) item.content.classList.add('active');
+    } else {
+      if (item.btn) item.btn.classList.remove('active');
+      if (item.content) item.content.classList.remove('active');
+    }
+  });
 }
 
 function selectModalEmoji(emoji, btnElement) {
   pendingAvatar = emoji;
+  document.querySelectorAll('.hero-avatar-option').forEach(el => el.classList.remove('selected'));
   document.querySelectorAll('.emoji-option-btn').forEach(b => b.classList.remove('selected'));
   if (btnElement) btnElement.classList.add('selected');
   updateModalPreview(pendingAvatar);
@@ -1562,6 +1639,7 @@ function handleAvatarFileUpload(file) {
 
       const dataUrl = canvas.toDataURL('image/webp', 0.85);
       pendingAvatar = dataUrl;
+      document.querySelectorAll('.hero-avatar-option').forEach(el => el.classList.remove('selected'));
       document.querySelectorAll('.emoji-option-btn').forEach(b => b.classList.remove('selected'));
       updateModalPreview(pendingAvatar);
       playSound('click');
@@ -1578,11 +1656,16 @@ function saveCustomAvatar(avatar) {
     localStorage.removeItem('dungeon_custom_avatar');
   }
 
-  socket.emit('player:update_avatar', { avatar }, (res) => {
-    if (res && !res.success) {
-      alert(res.message || '更新頭貼失敗');
-    }
-  });
+  // 同步更新發起組隊頁面之頭貼預覽
+  updateEntryAvatarPreview();
+
+  if (roomState) {
+    socket.emit('player:update_avatar', { avatar }, (res) => {
+      if (res && !res.success) {
+        alert(res.message || '更新頭貼失敗');
+      }
+    });
+  }
 
   closeAvatarModal();
   playSound('click');
@@ -1613,10 +1696,12 @@ function initAvatarModal() {
   populateEmojiGrid(elements.emojiGridWeapons, weaponEmojis);
 
   // Tab 切換
+  if (elements.tabHeroBtn) elements.tabHeroBtn.addEventListener('click', () => switchAvatarTab('hero'));
   if (elements.tabEmojiBtn) elements.tabEmojiBtn.addEventListener('click', () => switchAvatarTab('emoji'));
   if (elements.tabUploadBtn) elements.tabUploadBtn.addEventListener('click', () => switchAvatarTab('upload'));
 
-  // 開啟 Modal (亦可點擊頂部玩家徽章)
+  // 開啟 Modal (登入頁面頭貼、頂部玩家徽章)
+  if (elements.btnEntryAvatar) elements.btnEntryAvatar.addEventListener('click', openAvatarModal);
   if (elements.playerBadge) elements.playerBadge.addEventListener('click', openAvatarModal);
 
   // 關閉 Modal
@@ -1682,6 +1767,7 @@ function initAvatarModal() {
   if (elements.btnResetAvatarDefault) {
     elements.btnResetAvatarDefault.addEventListener('click', () => {
       pendingAvatar = null;
+      document.querySelectorAll('.hero-avatar-option').forEach(el => el.classList.remove('selected'));
       document.querySelectorAll('.emoji-option-btn').forEach(b => b.classList.remove('selected'));
       updateModalPreview(null);
       playSound('click');
@@ -1696,5 +1782,6 @@ function initAvatarModal() {
   }
 }
 
-// 啟動初始化頭貼視窗
+// 啟動初始化頭貼視窗與發起組隊頁面之頭貼預覽
 initAvatarModal();
+updateEntryAvatarPreview();

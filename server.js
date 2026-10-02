@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
   socket.emit('init:constants', { classes: CLASSES, routes: ROUTES });
 
   // 1. 建立房間
-  socket.on('room:create', ({ name }, callback) => {
+  socket.on('room:create', ({ name, avatar }, callback) => {
     try {
       const existingCode = socketToRoom.get(socket.id);
       if (existingCode && rooms.has(existingCode)) {
@@ -60,7 +60,7 @@ io.on('connection', (socket) => {
       }
 
       const code = generateRoomCode();
-      const room = new Room(code, socket, name, io);
+      const room = new Room(code, socket, name, io, avatar);
       rooms.set(code, room);
       socketToRoom.set(socket.id, code);
 
@@ -75,7 +75,7 @@ io.on('connection', (socket) => {
   });
 
   // 2. 加入房間
-  socket.on('room:join', ({ code, name }, callback) => {
+  socket.on('room:join', ({ code, name, avatar }, callback) => {
     try {
       const roomCode = String(code).trim().toUpperCase();
       const room = rooms.get(roomCode);
@@ -87,7 +87,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const result = room.addPlayer(socket, name);
+      const result = room.addPlayer(socket, name, avatar);
       if (result.success) {
         socketToRoom.set(socket.id, roomCode);
         console.log(`[加入] 玩家 ${name} 加入房間 ${roomCode}`);
