@@ -607,17 +607,21 @@ function renderRoleSelectionGrid() {
   elements.roleSelectionGrid.innerHTML = '';
 
   Object.entries(classesData).forEach(([roleKey, conf]) => {
-    // 檢查是否被其他人選走
-    const owner = roomState?.players?.find(p => p.role === roleKey);
-    const isTakenByOther = owner && owner.id !== myId;
+    // 找出所有選擇此職業的隊友（職業可重複選擇）
+    const choosers = (roomState?.players || []).filter(p => p.role === roleKey);
     const isSelectedByMe = myRole === roleKey;
 
     const card = document.createElement('div');
-    card.className = `role-card ${isSelectedByMe ? 'selected' : ''} ${isTakenByOther ? 'disabled' : ''}`;
+    card.className = `role-card ${isSelectedByMe ? 'selected' : ''}`;
 
-    let buttonText = '選擇此職業';
-    if (isSelectedByMe) buttonText = '✓ 已選擇';
-    if (isTakenByOther) buttonText = `🔒 已被 ${owner.name} 選擇`;
+    let buttonText = isSelectedByMe ? '✓ 已選擇' : '選擇此職業';
+
+    let choosersHtml = '';
+    if (choosers.length > 0) {
+      choosersHtml = `<div class="role-card-choosers" style="margin-top:6px; font-size:0.75rem; color:#f59e0b; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+        <span>👥</span> <span>已選隊友: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
+      </div>`;
+    }
 
     card.innerHTML = `
       <div class="role-card-inner">
@@ -635,14 +639,14 @@ function renderRoleSelectionGrid() {
           <span class="role-card-hp">HP: ${conf.maxHp}</span>
         </div>
         <p class="role-card-desc">${conf.desc}</p>
+        ${choosersHtml}
       </div>
-      <button class="btn ${isSelectedByMe ? 'btn-success' : 'btn-primary'} role-card-btn" ${isTakenByOther ? 'disabled' : ''}>
+      <button class="btn ${isSelectedByMe ? 'btn-success' : 'btn-primary'} role-card-btn">
         ${buttonText}
       </button>
     `;
 
     card.addEventListener('click', () => {
-      if (isTakenByOther) return;
       playSound('click');
       socket.emit('player:select_role', { roleKey }, (res) => {
         if (!res.success) {
@@ -658,7 +662,7 @@ function renderRoleSelectionGrid() {
 // 2. 渲染路線分歧
 function renderRouteChoice(me, isLeader) {
   elements.routeFloorNum.textContent = roomState.floor;
-  elements.routeDiffPercent.textContent = Math.round((roomState.floor - 1) * 5);
+  elements.routeDiffPercent.textContent = Math.round((roomState.floor - 1) * 20);
 
   if (isLeader) {
     elements.routeStatusText.innerHTML = '👑 <strong>請隊長點擊下方卡片決定小隊前進路線：</strong>';
@@ -782,12 +786,32 @@ function renderBattle(me, isLeader) {
     elements.monsterUltName.classList.remove('ult-alert');
   }
 
-  // 戰士護盾提示
-  if (roomState.warriorShieldTurn === 1 || roomState.warriorShieldTurn === 2) {
+  // 怪物劇毒狀態提示
+  if (elements.monsterBuffsRow) {
+    let buffHtml = '';
+    if (monster.poisonTurns > 0) {
+      buffHtml += `<span class="buff-badge tag-poison">🧪 劇毒 (${monster.poisonTurns} 回合 / 每回合-3)</span>`;
+    }
+    elements.monsterBuffsRow.innerHTML = buffHtml;
+  }
+
+  // 護盾與隊伍增益提示
+  const activeShieldBadges = [];
+  if (roomState.warriorShieldTurn === 1) {
+    activeShieldBadges.push('🛡️ 壁壘守護：第1回合阻擋90%傷害！');
+  } else if (roomState.warriorShieldTurn === 2) {
+    activeShieldBadges.push('🛡️ 壁壘守護：第2回合阻擋40%傷害！');
+  }
+  if (roomState.alcShieldTurns > 0) {
+    activeShieldBadges.push(`⚗️ 命運護盾：持續 ${roomState.alcShieldTurns} 回合阻擋 70% 傷害！`);
+  }
+  if (roomState.alcVulnerableNextTurn) {
+    activeShieldBadges.push('⚠️ 試劑反噬：下回合受傷增加 20%！');
+  }
+
+  if (activeShieldBadges.length > 0) {
     elements.shieldNoticeBadge.classList.remove('hidden');
-    elements.shieldNoticeBadge.textContent = roomState.warriorShieldTurn === 1
-      ? '🛡️ 壁壘守護：第1回合阻擋90%傷害！'
-      : '🛡️ 壁壘守護：第2回合阻擋40%傷害！';
+    elements.shieldNoticeBadge.textContent = activeShieldBadges.join(' | ');
   } else {
     elements.shieldNoticeBadge.classList.add('hidden');
   }
@@ -817,8 +841,15 @@ function renderTeammatesGrid(me) {
     const tags = [];
     if (isDead) tags.push('<span class="status-tag tag-dead">🪦 陣亡</span>');
     if (p.bleedTurns > 0) tags.push(`<span class="status-tag tag-bleed">🩸 撕裂x${p.bleedTurns}</span>`);
+    if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">🧪 中毒x${p.poisonTurns}</span>`);
     if (p.stunnedNextTurn) tags.push('<span class="status-tag tag-stun">💫 脫力</span>');
+    if (p.isSurrendered) tags.push('<span class="status-tag tag-surrender">🐺 臣服中</span>');
     if (p.isStealthed) tags.push('<span class="status-tag tag-stealth">💨 匿蹤</span>');
+    if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">🐺 狼人(${p.druidFormTurns}R)</span>`);
+    if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">🌳 樹精(${p.druidFormTurns}R)</span>`);
+    if (p.minion) tags.push(`<span class="status-tag tag-minion">🐾 ${escapeHtml(p.minion.name)}(${p.minion.hp}/${p.minion.maxHp})</span>`);
+    if (roomState.alcShieldTurns > 0) tags.push('<span class="status-tag tag-shield">🛡️ 命運護盾(-70%)</span>');
+    if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
 
     // 裝備列表
     const equipItems = Object.entries(p.equipCounts || {})
@@ -836,8 +867,8 @@ function renderTeammatesGrid(me) {
           <span>${escapeHtml(p.name)}</span>
           ${isThisMe ? '<span style="color:#2563eb; font-weight: 700;">(你)</span>' : ''}
         </span>
-        <span class="action-status-dot ${p.hasActed || isDead || p.stunnedNextTurn ? 'ready' : 'waiting'}">
-          ${isDead ? '陣亡' : (p.stunnedNextTurn ? '虛弱' : (p.hasActed ? '✓ 就緒' : '⏳ 思考'))}
+        <span class="action-status-dot ${p.hasActed || isDead || p.stunnedNextTurn || p.isSurrendered ? 'ready' : 'waiting'}">
+          ${isDead ? '陣亡' : (p.isSurrendered ? '臣服' : (p.stunnedNextTurn ? '虛弱' : (p.hasActed ? '✓ 就緒' : '⏳ 思考')))}
         </span>
       </div>
       <div class="teammate-hp-bg">
@@ -861,17 +892,37 @@ function renderMyActionBar(me) {
   const roleConfig = classesData[me.role];
   elements.myRoleEmoji.innerHTML = getPlayerAvatarHtml(me, 'my-role-avatar-img');
   elements.myRoleName.textContent = roleConfig.name;
-  elements.myHpSummary.textContent = `HP: ${me.hp}/${me.maxHp}`;
+
+  // 狀態簡報（包含狼人/樹精/僕從狀態）
+  let stanceHtml = '';
+  if (me.druidForm === 'werewolf') {
+    stanceHtml += ` <span class="badge-form-wolf">🐺 狼人形態 (+20傷，剩餘${me.druidFormTurns}R)</span>`;
+  } else if (me.druidForm === 'treant') {
+    stanceHtml += ` <span class="badge-form-treant">🌳 樹精形態 (-5傷/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+  }
+  if (me.minion) {
+    stanceHtml += ` <span class="badge-minion">🐾 僕從: ${escapeHtml(me.minion.name)} (❤️ ${me.minion.hp}/${me.minion.maxHp} | ⚔️ ${me.minion.atk})</span>`;
+  }
+
+  elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
   elements.myAtkSummary.textContent = `+${me.bonusAtk} 攻`;
 
   const isDead = me.hp <= 0;
   const isStunned = me.stunnedNextTurn;
+  const isSurrendered = me.isSurrendered;
 
   // 狀態提醒
   if (isDead) {
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '🪦 你已倒地陣亡，等待奇蹟甦生...';
     elements.mySkillsRow.innerHTML = '<div style="color:#dc2626; font-weight: 600; padding: 10px;">你已倒下，本回合無法行動。</div>';
+    return;
+  }
+
+  if (isSurrendered) {
+    elements.myActionStatus.className = 'action-status-badge';
+    elements.myActionStatus.textContent = '🐺 你陷入【暗影魔狼族長】的血脈壓制臣服狀態，無法行動！';
+    elements.mySkillsRow.innerHTML = '<div style="color:#b45309; font-weight: 700; padding: 12px; font-size: 1rem;">👑🐺 源自靈魂深處的始祖狼王威壓讓你跪地臣服，全身無法動彈，直到暗影魔狼族長倒下！</div>';
     return;
   }
 
@@ -894,8 +945,25 @@ function renderMyActionBar(me) {
 
   // 渲染自身所有技能
   roleConfig.skills.forEach(skill => {
-    const cd = me.cooldowns[skill.id] || 0;
-    const isCoolingDown = cd > 0;
+    let cd = me.cooldowns[skill.id] || 0;
+    let isCoolingDown = cd > 0;
+    let cdBadgeText = `CD: ${cd}`;
+
+    // 德魯伊形態轉變：若處於變身期間，顯示剩餘回合且無法再次變身
+    if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
+      isCoolingDown = true;
+      cdBadgeText = `變身中 (${me.druidFormTurns}R)`;
+    }
+
+    // 德魯伊僕從召喚：小樹精與幼狼共用 CD 2
+    if (skill.id === 'dru_summon_treant' || skill.id === 'dru_summon_wolf') {
+      const minionCd = Math.max(me.cooldowns['dru_summon_treant'] || 0, me.cooldowns['dru_summon_wolf'] || 0);
+      if (minionCd > 0) {
+        isCoolingDown = true;
+        cdBadgeText = `CD: ${minionCd}`;
+      }
+    }
+
     const isSelected = (currentPendingAction === skill.id);
 
     const btn = document.createElement('button');
@@ -905,7 +973,7 @@ function renderMyActionBar(me) {
     btn.innerHTML = `
       <div class="skill-btn-title">
         <span>${skill.label}</span>
-        ${isCoolingDown ? `<span class="skill-cd-badge">CD: ${cd}</span>` : ''}
+        ${isCoolingDown ? `<span class="skill-cd-badge">${cdBadgeText}</span>` : ''}
       </div>
       <div class="skill-btn-desc">${skill.desc}</div>
     `;
@@ -1344,12 +1412,24 @@ function triggerHitOnTeammate(playerId, value, dodged = false, stealthed = false
 socket.on('battle:visual_events', ({ events, round, monsterKilled }) => {
   if (!events || events.length === 0) return;
 
-  // 1. 回合初流血傷害
+  // 1. 回合初流血與劇毒傷害
   events.filter(e => e.type === 'bleed').forEach(e => {
     const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
     if (card) {
       const container = card.querySelector('.floating-text-container');
       spawnFloatingText(container, `🩸 -${e.value}`, 'damage');
+    }
+  });
+
+  events.filter(e => e.type === 'poison_damage').forEach(e => {
+    if (e.target === 'monster') {
+      spawnFloatingText(elements.monsterFloatingContainer, `🧪 -${e.value}`, 'poison');
+    } else {
+      const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
+      if (card) {
+        const container = card.querySelector('.floating-text-container');
+        spawnFloatingText(container, `🧪 -${e.value}`, 'poison');
+      }
     }
   });
 
@@ -1360,7 +1440,7 @@ socket.on('battle:visual_events', ({ events, round, monsterKilled }) => {
 
   // 3. 玩家行動序列 (依序呈現打擊刀光與光芒)
   const playerActions = events.filter(e =>
-    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal'].includes(e.type)
+    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
   );
 
   playerActions.forEach((ev, idx) => {
@@ -1402,6 +1482,30 @@ socket.on('battle:visual_events', ({ events, round, monsterKilled }) => {
       } else if (ev.type === 'heal') {
         triggerHealOnTeammate(ev.targetId, ev.value);
         playSound('heal');
+      } else if (ev.type === 'self_damage') {
+        const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
+        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `自傷 -${ev.value}`, 'damage');
+      } else if (ev.type === 'alc_shield') {
+        triggerShieldOnTeam('🛡️ 命運護盾 70%減傷！');
+        playSound('heal');
+      } else if (ev.type === 'transform_wolf') {
+        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 變身狼人!', 'buff');
+        playSound('hit');
+      } else if (ev.type === 'transform_treant') {
+        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🌳 變身樹精!', 'heal');
+        playSound('heal');
+      } else if (ev.type === 'surrender') {
+        const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
+        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 狼王威壓·臣服!', 'dodge');
+      } else if (ev.type === 'summon_minion') {
+        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 召喚${ev.minionName}!`, 'buff');
+        playSound('magic');
+      } else if (ev.type === 'minion_hit') {
+        const card = document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
+        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 僕從抵擋 -${ev.value}`, 'shield');
       }
     }, idx * 280);
   });

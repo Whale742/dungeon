@@ -16,6 +16,8 @@ export class Room {
     this.floor = 1;
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
+    this.alcShieldTurns = 0;
+    this.alcVulnerableNextTurn = false;
     this.currentMonster = null;
     this.currentEvent = null; // 寶箱或陷阱事件資訊
     this.checkpointChoice = null;
@@ -33,8 +35,8 @@ export class Room {
   }
 
   addPlayer(socket, name, avatar = null) {
-    if (this.memberIds.length >= 5 && !this.memberIds.includes(socket.id)) {
-      return { success: false, message: '房間已滿員（上限 5 人）' };
+    if (this.memberIds.length >= 10 && !this.memberIds.includes(socket.id)) {
+      return { success: false, message: '房間已滿員（上限 10 人）' };
     }
     if (this.state !== 'LOBBY') {
       return { success: false, message: '遊戲已經開始，無法加入！' };
@@ -70,6 +72,12 @@ export class Room {
       isStealthed: false,
       stunnedNextTurn: false,
       bleedTurns: 0,
+      poisonTurns: 0,
+      poisonDmg: 0,
+      druidForm: null,
+      druidFormTurns: 0,
+      isSurrendered: false,
+      minion: null,
       bardHealGroupBonus: 0,
       bardHealSingleBonus: 0,
       nextTurnStunFlag: false,
@@ -77,7 +85,7 @@ export class Room {
     };
 
     socket.join(this.code);
-    this.addLog(`👋 **${this.players[socket.id].name}** 加入了小隊（當前人數: ${this.memberIds.length}/5）`, 'info');
+    this.addLog(`👋 **${this.players[socket.id].name}** 加入了小隊（當前人數: ${this.memberIds.length}/10）`, 'info');
     this.broadcastState();
     return { success: true };
   }
@@ -160,11 +168,6 @@ export class Room {
     if (!player) return { success: false, message: '玩家不存在' };
     if (!CLASSES[roleKey]) return { success: false, message: '無效的職業' };
 
-    // 檢查職業是否已被其他人選擇
-    const isTaken = Object.values(this.players).some(p => p.id !== socketId && p.role === roleKey);
-    if (isTaken) {
-      return { success: false, message: `【${CLASSES[roleKey].name}】已被隊友選走！` };
-    }
 
     player.role = roleKey;
     player.hp = CLASSES[roleKey].maxHp;
@@ -206,7 +209,7 @@ export class Room {
     this.state = 'CHOOSING_ROUTE';
     this.currentEvent = null;
     this.currentRoutes = getRandomRoutes(4); // 每次從 6 個選項中隨機抽出 4 個
-    this.addLog(`🧭【第 ${this.floor} 層】分歧抉擇：請隊長選擇前進路線！(敵方強度加成：+${Math.round((this.floor - 1) * 5)}%)`, 'info');
+    this.addLog(`🧭【第 ${this.floor} 層】分歧抉擇：請隊長選擇前進路線！(敵方強度加成：+${Math.round((this.floor - 1) * 20)}%)`, 'info');
     
     // 30 秒自動倒數
     this.setTimer(30, () => {
@@ -255,12 +258,10 @@ export class Room {
     const drop = eligibleLoots[Math.floor(Math.random() * eligibleLoots.length)];
 
     let equipOwner = null;
-    for (const p of Object.values(this.players)) {
-      if (p.role === drop.role) {
-        equipOwner = p;
-        equipItemToPlayer(p, drop);
-        break;
-      }
+    const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
+    if (matchingPlayers.length > 0) {
+      equipOwner = matchingPlayers[Math.floor(Math.random() * matchingPlayers.length)];
+      equipItemToPlayer(equipOwner, drop);
     }
 
     this.currentEvent = {
@@ -327,9 +328,9 @@ export class Room {
   handleBattleEvent() {
     const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
     const playerCount = this.memberIds.length;
-    const hpPlayerMultiplier = 1 + (playerCount - 1) * 0.25;
+    const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
     const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
-    const floorMultiplier = 1 + (this.floor - 1) * 0.05;
+    const floorMultiplier = 1 + (this.floor - 1) * 0.20;
 
     const scaledHp = Math.floor(baseMonster.hp * hpPlayerMultiplier * floorMultiplier);
     const scaledAtk = Math.max(5, Math.floor(baseMonster.attack * atkPlayerMultiplier * floorMultiplier));
@@ -343,18 +344,32 @@ export class Room {
       maxHp: scaledHp,
       baseHp: baseMonster.hp,
       resistance: baseMonster.resistance,
-      ultName: baseMonster.ultName
+      ultName: baseMonster.ultName,
+      poisonTurns: 0,
+      poisonDmg: 0
     };
 
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
+    this.alcShieldTurns = 0;
+    this.alcVulnerableNextTurn = false;
 
     for (const p of Object.values(this.players)) {
       p.bleedTurns = 0;
+      p.poisonTurns = 0;
+      p.poisonDmg = 0;
       p.stunnedNextTurn = false;
       p.nextTurnStunFlag = false;
       p.cannotCrit = false;
       p.isStealthed = false;
+      p.isSurrendered = false;
+      if (p.druidForm === 'treant') {
+        p.maxHp -= 60;
+        p.hp = Math.min(p.hp, p.maxHp);
+      }
+      p.druidForm = null;
+      p.druidFormTurns = 0;
+      p.minion = null;
     }
 
     this.addLog(`⚔️ **遭遇強敵！【${this.currentMonster.name}】擋住了去路！**`, 'warning');
@@ -371,7 +386,7 @@ export class Room {
 
     this.state = 'IN_BATTLE';
     for (const p of Object.values(this.players)) {
-      p.action = null;
+      p.action = p.isSurrendered ? 'skip' : null;
       p.targetPlayerId = null;
       p.isStealthed = false;
     }
@@ -386,7 +401,7 @@ export class Room {
       if (this.state === 'IN_BATTLE') {
         this.addLog('⏱️ 回合時間截止，未行動者自動跳過回合！', 'warning');
         for (const p of Object.values(this.players)) {
-          if (p.hp > 0 && !p.stunnedNextTurn && !p.action) {
+          if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && !p.action) {
             p.action = 'skip';
           }
         }
@@ -403,6 +418,7 @@ export class Room {
     if (!player) return { success: false, message: '玩家不存在' };
     if (player.hp <= 0) return { success: false, message: '你已陣亡，無法行動' };
     if (player.stunnedNextTurn) return { success: false, message: '你處於脫力虛脫中，本回合無法行動' };
+    if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
 
     if (actionId !== 'skip') {
       const roleConfig = CLASSES[player.role];
@@ -415,6 +431,13 @@ export class Room {
       } else {
         const skill = roleConfig.skills.find(s => s.id === actionId);
         if (!skill) return { success: false, message: '無效的技能' };
+        if (actionId === 'dru_transform' && player.druidFormTurns > 0) {
+          return { success: false, message: '當前形態轉變仍在持續中，結束後方可再次變身！' };
+        }
+        if ((actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') &&
+            ((player.cooldowns['dru_summon_treant'] || 0) > 0 || (player.cooldowns['dru_summon_wolf'] || 0) > 0)) {
+          return { success: false, message: '自然呼喚技能冷卻中！' };
+        }
         if ((player.cooldowns[actionId] || 0) > 0) return { success: false, message: '該技能冷卻中' };
       }
     }
@@ -429,7 +452,7 @@ export class Room {
 
   checkTurnCompletion() {
     const allDone = Object.values(this.players)
-      .filter(p => p.hp > 0 && !p.stunnedNextTurn)
+      .filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered)
       .every(p => p.action !== null);
 
     if (allDone) {
@@ -439,7 +462,75 @@ export class Room {
     }
   }
 
-  // 100% 完整移植 index.js 的戰鬥結算
+  // 擊敗怪物勝利結算
+  handleMonsterVictory(monster = this.currentMonster, log = [], visualEvents = []) {
+    if (!monster) return;
+    monster.hp = 0;
+    log.push({ text: `🎉 **${monster.name} 倒下了！小隊成功突破第 ${this.floor} 層！**`, type: 'loot' });
+
+    for (const p of Object.values(this.players)) {
+      p.stunnedNextTurn = false;
+      p.bleedTurns = 0;
+      p.poisonTurns = 0;
+      p.isSurrendered = false;
+      if (p.druidForm === 'treant') {
+        p.maxHp -= 60;
+        p.hp = Math.min(p.hp, p.maxHp);
+      }
+      p.druidForm = null;
+      p.druidFormTurns = 0;
+      p.minion = null;
+
+      // 戰鬥結束後直接刷新全角色所有技能 CD
+      if (p.cooldowns) {
+        for (const skillId of Object.keys(p.cooldowns)) {
+          p.cooldowns[skillId] = 0;
+        }
+      }
+
+      // 暗中提升詩人1技能數值
+      if (p.role === 'bard') {
+        p.bardHealGroupBonus = (p.bardHealGroupBonus || 0) + 2;
+        p.bardHealSingleBonus = (p.bardHealSingleBonus || 0) + 2;
+      }
+    }
+
+    this.alcShieldTurns = 0;
+    this.alcVulnerableNextTurn = false;
+
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0) {
+        p.maxHp += 10;
+        p.bonusAtk += 5;
+        const healAmt = Math.max(1, Math.round(p.maxHp * 0.2));
+        p.hp = Math.min(p.maxHp, p.hp + 10 + healAmt);
+        log.push({ text: `💪 **${p.name}** HP上限 +10、攻擊力 +5，並恢復了 ${healAmt} 生命（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
+      }
+    }
+
+    const activeRoles = Object.values(this.players).map(p => p.role);
+    const eligibleLoots = LOOT_TABLE.filter(l => activeRoles.includes(l.role));
+    const drop = eligibleLoots[Math.floor(Math.random() * eligibleLoots.length)];
+
+    let equipOwner = null;
+    const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
+    if (matchingPlayers.length > 0) {
+      equipOwner = matchingPlayers[Math.floor(Math.random() * matchingPlayers.length)];
+      equipItemToPlayer(equipOwner, drop);
+    }
+
+    log.push({ text: `🎁 **【戰利品掉落】獲得裝備：【${drop.name}】**（${drop.desc}），由 **${equipOwner ? equipOwner.name : '未知'}** 立即裝備！`, type: 'loot' });
+
+    log.forEach(l => this.addLog(l.text, l.type));
+    this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+    this.broadcastState();
+
+    this.setTimer(4, () => {
+      this.advanceToNextFloorOrCheckpoint();
+    });
+  }
+
+  // 戰鬥結算
   resolveTurnActions() {
     this.clearTimer();
     const monster = this.currentMonster;
@@ -452,9 +543,9 @@ export class Room {
     let assassinDidCrit = false;
     let bardBuffActive = false;
 
-    // 0. 特性觸發：基礎血量 < 100 的怪物在回合開始造成撕裂傷害
+    // 0. 特性觸發：基礎血量 < 100 的怪物在回合開始造成撕裂傷害 (套用 20% 層數加成)
     if (monster.baseHp < 100) {
-      const bleedDmg = Math.floor(2 * (1 + (this.floor - 1) * 0.05));
+      const bleedDmg = Math.floor(2 * (1 + (this.floor - 1) * 0.20));
       for (const p of Object.values(this.players)) {
         if (p.hp > 0 && p.bleedTurns > 0) {
           p.hp -= bleedDmg;
@@ -470,9 +561,49 @@ export class Room {
       }
     }
 
+    // 0.5 劇毒傷害結算 (回合初各受 3 點毒傷)
+    if (monster.hp > 0 && monster.poisonTurns > 0) {
+      const pDmg = 3;
+      monster.hp -= pDmg;
+      monster.poisonTurns -= 1;
+      visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
+      if (monster.hp <= 0) {
+        log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
+        this.handleMonsterVictory(monster, log, visualEvents);
+        return;
+      } else {
+        log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合）`, type: 'damage' });
+      }
+    }
+
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && p.poisonTurns > 0) {
+        const pDmg = 3;
+        p.hp -= pDmg;
+        p.poisonTurns -= 1;
+        visualEvents.push({ type: 'poison_damage', target: p.id, value: pDmg });
+        if (p.hp <= 0) {
+          p.hp = 0;
+          log.push({ text: `🧪 **${p.name}** 劇毒發作受到 **${pDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
+        } else {
+          log.push({ text: `🧪 **${p.name}** 劇毒灼燒受到 **${pDmg}** 點毒素傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘中毒: ${p.poisonTurns} 回合）`, type: 'damage' });
+        }
+      }
+    }
+
+    // 檢查回合初是否全員倒下
+    const aliveAfterDot = Object.values(this.players).filter(p => p.hp > 0);
+    if (aliveAfterDot.length === 0) {
+      log.forEach(l => this.addLog(l.text, l.type));
+      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: false });
+      this.broadcastState();
+      this.setTimer(3, () => this.handleGameOver());
+      return;
+    }
+
     // 1. 詩人增傷 50%，受傷降低 25%，使敵方雙抗降至 65%
     for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && !p.stunnedNextTurn && p.action === 'b_buff') {
+      if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'b_buff') {
         bardDmgMultiplier = 1.5;
         bardDmgReduction = 0.75;
         bardBuffActive = true;
@@ -497,8 +628,29 @@ export class Room {
       return { dmg: Math.max(1, finalDmg), isResisted, resistPercent: Math.round(resistRate * 100) };
     };
 
+    // 1.5 僕從每回合自動攻擊一次
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && p.minion && p.minion.hp > 0) {
+        const raw = Math.floor(p.minion.atk * bardDmgMultiplier);
+        const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
+        monster.hp -= dmg;
+        const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+        log.push({ text: `🐾 **${p.name}** 的僕從【${p.minion.name}】主動出擊，對怪物造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
+        visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: p.minion.name });
+        if (monster.hp <= 0) {
+          this.handleMonsterVictory(monster, log, visualEvents);
+          return;
+        }
+      }
+    }
+
     // 2. 玩家行動結算
     for (const p of Object.values(this.players)) {
+      if (p.isSurrendered) {
+        log.push({ text: `🐺 **${p.name}** 陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！`, type: 'warning' });
+        continue;
+      }
+
       if (p.stunnedNextTurn) {
         log.push({ text: `💫 **${p.name}** 處於脫力虛脫狀態，本回合無法行動，正在努力調整呼吸！`, type: 'warning' });
         continue;
@@ -512,14 +664,17 @@ export class Room {
       }
 
       if (!p.action) {
-        log.push({ text: `⏳ **${p.name}** (${CLASSES[p.role].name}) 猶豫不決，本回合發呆！`, type: 'warning' });
+        log.push({ text: `⏳ **${p.name}** (${CLASSES[p.role]?.name || '勇者'}) 猶豫不決，本回合發呆！`, type: 'warning' });
         continue;
       }
 
       switch (p.action) {
         case 'basic': {
-          const dmgType = (p.role === 'mage' || p.role === 'bard') ? 'mag' : 'phys';
-          const raw = Math.floor((10 + p.bonusAtk) * bardDmgMultiplier);
+          const dmgType = (p.role === 'mage' || p.role === 'bard' || p.role === 'alchemist') ? 'mag' : 'phys';
+          let baseAtk = 10;
+          if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk += 20;
+          if (p.role === 'druid' && p.druidForm === 'treant') baseAtk = Math.max(1, baseAtk - 5);
+          const raw = Math.floor((baseAtk + p.bonusAtk) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, dmgType);
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
@@ -651,6 +806,126 @@ export class Room {
           }
           break;
         }
+
+        // 鍊金術士技能
+        case 'alc_acid': {
+          const raw = Math.floor((40 + p.bonusAtk) * bardDmgMultiplier);
+          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
+          monster.hp -= dmg;
+          p.hp = Math.max(0, p.hp - 15);
+          const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
+          log.push({ text: `⚗️ **${p.name}** 投擲【腐蝕強酸瓶】，強酸侵蝕造成 **${dmg}** 點【魔法】傷害！${resNote} 自身受到 **15** 點自傷！（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
+          visualEvents.push({ type: 'self_damage', targetId: p.id, value: 15 });
+          if (p.hp <= 0) {
+            log.push({ text: `💥 **${p.name}** 因強酸自傷過重倒地陣亡！💀`, type: 'damage' });
+          }
+          break;
+        }
+
+        case 'alc_poison': {
+          const raw = Math.floor((20 + p.bonusAtk) * bardDmgMultiplier);
+          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
+          monster.hp -= dmg;
+          p.hp = Math.max(0, p.hp - 5);
+          monster.poisonTurns = 2;
+          monster.poisonDmg = 3;
+          for (const pl of Object.values(this.players)) {
+            if (pl.hp > 0) {
+              pl.poisonTurns = 2;
+              pl.poisonDmg = 3;
+            }
+          }
+          const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
+          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote} 自身受到 **5** 點自傷！濃烈毒霧覆蓋全場，**敵我雙方皆陷入劇毒（後續2回合每回合初各受3點毒傷）**！`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '劇毒煙霧瓶' });
+          visualEvents.push({ type: 'self_damage', targetId: p.id, value: 5 });
+          if (p.hp <= 0) {
+            log.push({ text: `💥 **${p.name}** 因毒霧自傷倒地陣亡！💀`, type: 'damage' });
+          }
+          break;
+        }
+
+        case 'alc_fate': {
+          for (const pl of Object.values(this.players)) {
+            pl.bleedTurns = 0;
+            pl.poisonTurns = 0;
+          }
+          const isSuccess = Math.random() < 0.5;
+          if (isSuccess) {
+            for (const pl of Object.values(this.players)) {
+              if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 40);
+            }
+            this.alcShieldTurns = 2;
+            log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **40** HP，並獲得持續 **2** 回合的 **70% 減傷護盾**！🛡️`, type: 'buff' });
+            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 40, singleTargetId: null, singleValue: 0 });
+            visualEvents.push({ type: 'alc_shield', turns: 2 });
+          } else {
+            for (const pl of Object.values(this.players)) {
+              if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 10);
+            }
+            this.alcVulnerableNextTurn = true;
+            log.push({ text: `💥⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金失敗】**！雖然淨化了負面效果並全體回復 **10** 點生命，但試劑反噬爆炸，**下回合全隊受傷增加 20%**！⚠️`, type: 'warning' });
+            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 10, singleTargetId: null, singleValue: 0 });
+          }
+          break;
+        }
+
+        // 德魯伊技能
+        case 'dru_transform': {
+          const isWerewolf = Math.random() < 0.5;
+          p.druidFormTurns = 2;
+          if (isWerewolf) {
+            p.druidForm = 'werewolf';
+            p.hp = Math.max(1, p.hp - 20);
+            log.push({ text: `🐺 **${p.name}** 仰天長嘯發動【形態轉變】—— 化身為 **【狼人】**（扣除20點生命保底1，造成傷害全部+20，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+            visualEvents.push({ type: 'transform_wolf', sourceId: p.id });
+
+            // 特殊彩蛋：若遭遇 BOSS【暗影魔狼族長】
+            if (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長')) {
+              p.isSurrendered = true;
+              log.push({ text: `👑🐺 **【特殊彩蛋：狼王血脈壓制！】** 遭遇 BOSS【暗影魔狼族長】！至高狼王血脈壓制降臨，**${p.name}** 靈魂顫慄直接陷入【臣服狀態】，整場戰鬥無法行動直到 BOSS 倒下！`, type: 'warning' });
+              visualEvents.push({ type: 'surrender', targetId: p.id });
+            } else {
+              // 變身當回合立即觸發一次強化普攻（造成 30 傷害）
+              const raw = Math.floor((30 + p.bonusAtk) * bardDmgMultiplier);
+              const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
+              monster.hp -= dmg;
+              const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+              log.push({ text: `🩸🐾 狼人 **${p.name}** 變身同時觸發【強化普攻】，狂暴利爪重創怪物造成 **${dmg}** 點【物理】傷害！${resNote}`, type: 'combat' });
+              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: true, label: '狼人強化普攻' });
+            }
+          } else {
+            p.druidForm = 'treant';
+            p.maxHp += 60;
+            p.hp += 60;
+            log.push({ text: `🌳 **${p.name}** 紮根於地發動【形態轉變】—— 化身為 **【樹精】**（最大生命與當前生命+60，造成傷害-5，變身期間替全體隊友主動吸收50%受到傷害，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+            visualEvents.push({ type: 'transform_treant', sourceId: p.id });
+          }
+          break;
+        }
+
+        case 'dru_summon_treant': {
+          p.minion = { type: 'treant', name: '小樹精', hp: 15, maxHp: 15, atk: 1 };
+          p.cooldowns['dru_summon_treant'] = 2;
+          p.cooldowns['dru_summon_wolf'] = 2;
+          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】(HP 15 / 攻擊 1)！每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
+          visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: '小樹精' });
+          break;
+        }
+
+        case 'dru_summon_wolf': {
+          p.minion = { type: 'wolf', name: '幼狼', hp: 5, maxHp: 5, atk: 10 };
+          p.cooldowns['dru_summon_treant'] = 2;
+          p.cooldowns['dru_summon_wolf'] = 2;
+          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】(HP 5 / 攻擊 10)！每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
+          visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: '幼狼' });
+          break;
+        }
+      }
+
+      if (monster.hp <= 0) {
+        break; // 擊殺怪物跳出玩家行動
       }
     }
 
@@ -688,63 +963,30 @@ export class Room {
           }
         }
       }
-    }
 
-    // 5. 判定怪物擊殺（戰鬥勝利結算：技能 CD 全部刷新歸零）
-    if (monster.hp <= 0) {
-      monster.hp = 0;
-      log.push({ text: `🎉 **${monster.name} 倒下了！小隊成功突破第 ${this.floor} 層！**`, type: 'loot' });
-      
-      for (const p of Object.values(this.players)) {
-        p.stunnedNextTurn = false;
-        p.bleedTurns = 0;
-        
-        // 戰鬥結束後直接刷新全角色所有技能 CD
-        if (p.cooldowns) {
-          for (const skillId of Object.keys(p.cooldowns)) {
-            p.cooldowns[skillId] = 0;
+      // 德魯伊技能 CD 與變身持續時間處理
+      if (p.role === 'druid') {
+        if (p.action === 'dru_summon_treant' || p.action === 'dru_summon_wolf') {
+          p.cooldowns['dru_summon_treant'] = 2;
+          p.cooldowns['dru_summon_wolf'] = 2;
+        }
+        if (p.druidFormTurns > 0) {
+          p.druidFormTurns -= 1;
+          if (p.druidFormTurns === 0 && p.druidForm) {
+            if (p.druidForm === 'treant') {
+              p.maxHp -= 60;
+              p.hp = Math.min(p.hp, p.maxHp);
+            }
+            log.push({ text: `🌿 **${p.name}** 的形態轉變持續時間結束，解除變身回復正常人身狀態。`, type: 'info' });
+            p.druidForm = null;
           }
         }
-
-        // 暗中提升詩人1技能數值
-        if (p.role === 'bard') {
-          p.bardHealGroupBonus = (p.bardHealGroupBonus || 0) + 2;
-          p.bardHealSingleBonus = (p.bardHealSingleBonus || 0) + 2;
-        }
       }
+    }
 
-      for (const p of Object.values(this.players)) {
-        if (p.hp > 0) {
-          p.maxHp += 10;
-          p.bonusAtk += 5;
-          const healAmt = Math.max(1, Math.round(p.maxHp * 0.2));
-          p.hp = Math.min(p.maxHp, p.hp + 10 + healAmt);
-          log.push({ text: `💪 **${p.name}** HP上限 +10、攻擊力 +5，並恢復了 ${healAmt} 生命（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
-        }
-      }
-
-      const activeRoles = Object.values(this.players).map(p => p.role);
-      const eligibleLoots = LOOT_TABLE.filter(l => activeRoles.includes(l.role));
-      const drop = eligibleLoots[Math.floor(Math.random() * eligibleLoots.length)];
-
-      let equipOwner = null;
-      for (const p of Object.values(this.players)) {
-        if (p.role === drop.role) {
-          equipOwner = p;
-          equipItemToPlayer(p, drop);
-          break;
-        }
-      }
-
-      log.push({ text: `🎁 **【戰利品掉落】獲得裝備：【${drop.name}】**（${drop.desc}），由 **${equipOwner ? equipOwner.name : '未知'}** 立即裝備！`, type: 'loot' });
-
-      log.forEach(l => this.addLog(l.text, l.type));
-      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
-      this.broadcastState();
-
-      this.setTimer(4, () => {
-        this.advanceToNextFloorOrCheckpoint();
-      });
+    // 5. 判定怪物擊殺
+    if (monster.hp <= 0) {
+      this.handleMonsterVictory(monster, log, visualEvents);
       return;
     }
 
@@ -760,9 +1002,26 @@ export class Room {
     }
 
     const effectiveBaseAtk = Math.max(5, baseDamageCalc - monsterAttackReduction);
-
     const aoeDmgRaw = Math.max(1, Math.floor(effectiveBaseAtk * 0.5));
     const scatterDmgPool = Math.max(1, effectiveBaseAtk - aoeDmgRaw);
+
+    // 僕從優先替全隊擋下怪物的隨機分散/彈射傷害
+    let remainingScatter = scatterDmgPool;
+    for (const owner of Object.values(this.players)) {
+      if (remainingScatter <= 0) break;
+      if (owner.minion && owner.minion.hp > 0) {
+        const absorb = Math.min(owner.minion.hp, remainingScatter);
+        owner.minion.hp -= absorb;
+        remainingScatter -= absorb;
+        visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
+        if (owner.minion.hp <= 0) {
+          log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${owner.minion.name}】挺身為全隊擋下 **${absorb}** 點彈射傷害，隨後力竭消散！💀`, type: 'warning' });
+          owner.minion = null;
+        } else {
+          log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${owner.minion.name}】優先替全隊擋下 **${absorb}** 點彈射傷害！（僕從 HP: ${owner.minion.hp}/${owner.minion.maxHp}）`, type: 'buff' });
+        }
+      }
+    }
 
     let shieldDamageMod = 1.0;
     if (this.warriorShieldTurn === 1) {
@@ -775,10 +1034,15 @@ export class Room {
       this.warriorShieldTurn = 0;
     }
 
+    let alcShieldMod = (this.alcShieldTurns > 0) ? 0.30 : 1.0;
+    let alcVulnMod = this.alcVulnerableNextTurn ? 1.20 : 1.0;
+
     const calculateDamageToPlayer = (player, rawDamage) => {
       let finalDmg = rawDamage;
       if (player.role === 'assassin') finalDmg = Math.floor(finalDmg * CLASSES.assassin.vulnerableMod);
       if (shieldDamageMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * shieldDamageMod));
+      if (alcShieldMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * alcShieldMod));
+      if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * alcVulnMod);
       if (bardDmgReduction < 1.0) finalDmg = Math.floor(finalDmg * bardDmgReduction);
       return Math.max(1, finalDmg);
     };
@@ -787,7 +1051,7 @@ export class Room {
     const playerRawScatter = {};
     livingPlayers.forEach(p => { playerRawScatter[p.id] = 0; });
 
-    let remainingDmg = scatterDmgPool;
+    let remainingDmg = remainingScatter;
     while (remainingDmg > 0 && livingPlayers.length > 0) {
       const randomTarget = livingPlayers[Math.floor(Math.random() * livingPlayers.length)];
       const stepDmg = Math.min(remainingDmg, Math.floor(Math.random() * 4) + 2);
@@ -795,7 +1059,9 @@ export class Room {
       remainingDmg -= stepDmg;
     }
 
+    const treantDruid = Object.values(this.players).find(p => p.hp > 0 && p.druidForm === 'treant');
     const monsterHits = [];
+
     for (const p of Object.values(this.players)) {
       if (p.hp <= 0) continue;
 
@@ -812,7 +1078,23 @@ export class Room {
       }
 
       const totalRawAssigned = aoeDmgRaw + (playerRawScatter[p.id] || 0);
-      const totalTakenDmg = calculateDamageToPlayer(p, totalRawAssigned);
+      let totalTakenDmg = calculateDamageToPlayer(p, totalRawAssigned);
+
+      // 樹精替全體隊友主動吸收 50% 受到傷害
+      if (treantDruid && treantDruid.id !== p.id && totalTakenDmg > 0 && treantDruid.hp > 0) {
+        const absorbedDmg = Math.floor(totalTakenDmg * 0.5);
+        totalTakenDmg -= absorbedDmg;
+        treantDruid.hp -= absorbedDmg;
+        log.push({ text: `🌳 **${treantDruid.name}** (樹精) 伸展藤蔓為 **${p.name}** 承受吸收了 **${absorbedDmg}** 點傷害！（❤️ 樹精剩餘HP: ${treantDruid.hp}/${treantDruid.maxHp}）`, type: 'buff' });
+        monsterHits.push({ targetId: treantDruid.id, value: absorbedDmg, isDead: treantDruid.hp <= 0, shieldMod: shieldDamageMod });
+        if (treantDruid.hp <= 0) {
+          treantDruid.hp = 0;
+          treantDruid.maxHp -= 60;
+          treantDruid.druidForm = null;
+          treantDruid.druidFormTurns = 0;
+          log.push({ text: `💥 **${treantDruid.name}** 因替隊友吸收過量重創，樹精形態破滅倒下！💀`, type: 'damage' });
+        }
+      }
 
       p.hp -= totalTakenDmg;
 
@@ -823,12 +1105,18 @@ export class Room {
       if (p.hp <= 0) {
         p.hp = 0;
         p.bleedTurns = 0;
+        p.poisonTurns = 0;
         log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
       } else {
         log.push({ text: `💢 **${p.name}** 受到 **${totalTakenDmg}** 點傷害（❤️ ${p.hp}/${p.maxHp}）`, type: 'damage' });
       }
       monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: p.hp <= 0, shieldMod: shieldDamageMod });
     }
+
+    if (this.alcShieldTurns > 0) {
+      this.alcShieldTurns -= 1;
+    }
+    this.alcVulnerableNextTurn = false;
 
     visualEvents.push({
       type: 'monster_attack',
@@ -893,6 +1181,8 @@ export class Room {
     for (const p of Object.values(this.players)) {
       if (p.hp > 0) p.hp = p.maxHp;
       p.bleedTurns = 0;
+      p.poisonTurns = 0;
+      p.poisonDmg = 0;
     }
     this.addLog(`✨【神聖泉水休整】全體角色生命值完全回滿！重振旗鼓，踏向更深層！`, 'heal');
     this.floor += 1;
@@ -916,6 +1206,8 @@ export class Room {
     this.currentMonster = null;
     this.currentEvent = null;
     this.warriorShieldTurn = 0;
+    this.alcShieldTurns = 0;
+    this.alcVulnerableNextTurn = false;
     this.gameOverReason = null;
 
     for (const p of Object.values(this.players)) {
@@ -933,6 +1225,12 @@ export class Room {
       p.isStealthed = false;
       p.stunnedNextTurn = false;
       p.bleedTurns = 0;
+      p.poisonTurns = 0;
+      p.poisonDmg = 0;
+      p.druidForm = null;
+      p.druidFormTurns = 0;
+      p.isSurrendered = false;
+      p.minion = null;
       p.bardHealGroupBonus = 0;
       p.bardHealSingleBonus = 0;
       p.nextTurnStunFlag = false;
@@ -1060,10 +1358,15 @@ export class Room {
       floor: this.floor,
       battleRound: this.battleRound,
       warriorShieldTurn: this.warriorShieldTurn,
+      alcShieldTurns: this.alcShieldTurns || 0,
+      alcVulnerableNextTurn: this.alcVulnerableNextTurn || false,
       isPaused: this.isPaused,
       timerRemaining: timerRemaining,
       gameOverReason: this.gameOverReason,
-      currentMonster: this.currentMonster,
+      currentMonster: this.currentMonster ? {
+        ...this.currentMonster,
+        poisonTurns: this.currentMonster.poisonTurns || 0
+      } : null,
       currentEvent: this.currentEvent,
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
       players: Object.values(this.players).map(p => ({
@@ -1075,10 +1378,18 @@ export class Room {
         maxHp: p.maxHp,
         bonusAtk: p.bonusAtk,
         equipCounts: p.equipCounts,
-        cooldowns: p.cooldowns,
+        cooldowns: {
+          ...p.cooldowns,
+          dru_transform: (p.druidFormTurns || 0)
+        },
         isStealthed: p.isStealthed,
         stunnedNextTurn: p.stunnedNextTurn,
         bleedTurns: p.bleedTurns,
+        poisonTurns: p.poisonTurns || 0,
+        druidForm: p.druidForm || null,
+        druidFormTurns: p.druidFormTurns || 0,
+        isSurrendered: p.isSurrendered || false,
+        minion: p.minion ? { ...p.minion } : null,
         cannotCrit: p.cannotCrit,
         hasActed: p.action !== null, // 只透露是否已下達指令，暗中保密指令內容
         connected: p.connected
