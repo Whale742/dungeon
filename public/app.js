@@ -13,6 +13,10 @@ let classesData = {};
 let routesData = [];
 let soundEnabled = true;
 
+// 大廳成員卡片行內修改暱稱狀態
+let isEditingMyName = false;
+let editingNameValue = '';
+
 // 本回合暫存選擇
 let currentPendingAction = null;
 let currentPendingTarget = null;
@@ -140,11 +144,6 @@ const elements = {
   // Lobby
   lobbyMemberCount: document.getElementById('lobbyMemberCount'),
   lobbyMemberList: document.getElementById('lobbyMemberList'),
-  inputLobbyRename: document.getElementById('inputLobbyRename'),
-  btnLobbyRename: document.getElementById('btnLobbyRename'),
-  btnOpenAvatarModal: document.getElementById('btnOpenAvatarModal'),
-  btnTriggerAvatarModal: document.getElementById('btnTriggerAvatarModal'),
-  lobbyMyAvatarPreview: document.getElementById('lobbyMyAvatarPreview'),
   roleSelectionGrid: document.getElementById('roleSelectionGrid'),
   btnStartGame: document.getElementById('btnStartGame'),
   leaderStartArea: document.getElementById('leaderStartArea'),
@@ -405,15 +404,6 @@ function renderApp() {
 function renderLobby(me, isLeader) {
   elements.lobbyMemberCount.textContent = roomState.players.length;
 
-  if (me && elements.inputLobbyRename && document.activeElement !== elements.inputLobbyRename) {
-    elements.inputLobbyRename.value = me.name;
-  }
-
-  // 更新大廳個人頭貼預覽
-  if (me && elements.lobbyMyAvatarPreview) {
-    elements.lobbyMyAvatarPreview.innerHTML = getPlayerAvatarHtml(me, 'member-role-avatar');
-  }
-
   // 渲染小隊成員
   elements.lobbyMemberList.innerHTML = '';
   roomState.players.forEach(p => {
@@ -423,35 +413,132 @@ function renderLobby(me, isLeader) {
 
     const div = document.createElement('div');
     div.className = `member-item ${isThisMe ? 'is-me' : ''}`;
-    div.innerHTML = `
-      <div class="member-info-col">
-        <div class="member-avatar-wrapper ${isThisMe ? 'clickable-avatar' : ''}" title="${isThisMe ? '點擊更換頭貼' : ''}">
-          ${getPlayerAvatarHtml(p, 'member-role-avatar')}
-          ${isThisMe ? '<span class="member-avatar-edit-icon" title="更換頭貼">📷</span>' : ''}
-        </div>
-        <div class="member-name-group">
-          <span class="member-name">
-            ${isThisLeader ? '<span class="crown-tag" title="隊長">👑</span>' : ''}
-            ${escapeHtml(p.name)}
-            ${isThisMe ? '<span style="font-size: 0.75rem; color: #2563eb; font-weight: 700;">(你)</span>' : ''}
-          </span>
-          <span class="member-role-tag">
-            ${roleInfo ? `${roleInfo.name}` : '<span style="color: #64748b; font-style: italic;">未選職</span>'}
-          </span>
-        </div>
-      </div>
-      <div>
-        <span class="member-status-tag ${roleInfo ? 'ready' : 'waiting'}">
-          ${roleInfo ? '✅ 已就緒' : '⏳ 選職中'}
-        </span>
-      </div>
-    `;
 
     if (isThisMe) {
-      const avatarWrap = div.querySelector('.clickable-avatar');
+      div.innerHTML = `
+        <div class="member-info-col">
+          <div class="member-avatar-wrapper clickable-avatar" id="btnMemberMyAvatar" title="點擊更換個人頭貼">
+            ${getPlayerAvatarHtml(p, 'member-role-avatar')}
+            <span class="member-avatar-edit-icon" title="更換頭貼">📷</span>
+          </div>
+          <div class="member-name-group">
+            ${isEditingMyName ? `
+              <div class="member-inline-rename-form">
+                <input type="text" class="inline-rename-input" id="inputInlineRename" value="${escapeHtml(editingNameValue !== '' ? editingNameValue : p.name)}" maxlength="12" placeholder="輸入暱稱...">
+                <button type="button" class="btn-micro-action btn-save-name" id="btnSaveInlineRename" title="確認修改">✓</button>
+                <button type="button" class="btn-micro-action btn-cancel-name" id="btnCancelInlineRename" title="取消">✕</button>
+              </div>
+            ` : `
+              <div class="member-name-row">
+                <span class="member-name">
+                  ${isThisLeader ? '<span class="crown-tag" title="隊長">👑</span>' : ''}
+                  <span class="member-name-text">${escapeHtml(p.name)}</span>
+                  <span class="me-tag">(你)</span>
+                </span>
+                <button type="button" class="btn-icon-rename" id="btnTriggerInlineRename" title="修改暱稱">✏️</button>
+              </div>
+            `}
+            <div class="member-sub-actions">
+              <span class="member-role-tag">
+                ${roleInfo ? escapeHtml(roleInfo.name) : '<span class="role-unselected">未選職</span>'}
+              </span>
+              <button type="button" class="btn-chip-avatar" id="btnChipChangeAvatar" title="選擇表情符號或上傳自訂頭貼">
+                🖼️ 換頭貼
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="member-status-col">
+          <span class="member-status-tag ${roleInfo ? 'ready' : 'waiting'}">
+            ${roleInfo ? '✅ 已就緒' : '⏳ 選職中'}
+          </span>
+        </div>
+      `;
+
+      // 綁定 (你) 的頭貼與按鈕事件
+      const avatarWrap = div.querySelector('#btnMemberMyAvatar');
       if (avatarWrap) {
         avatarWrap.addEventListener('click', openAvatarModal);
       }
+
+      const chipAvatar = div.querySelector('#btnChipChangeAvatar');
+      if (chipAvatar) {
+        chipAvatar.addEventListener('click', openAvatarModal);
+      }
+
+      const btnTriggerRename = div.querySelector('#btnTriggerInlineRename');
+      if (btnTriggerRename) {
+        btnTriggerRename.addEventListener('click', () => {
+          isEditingMyName = true;
+          editingNameValue = p.name;
+          renderLobby(me, isLeader);
+        });
+      }
+
+      if (isEditingMyName) {
+        const renameInput = div.querySelector('#inputInlineRename');
+        const btnSave = div.querySelector('#btnSaveInlineRename');
+        const btnCancel = div.querySelector('#btnCancelInlineRename');
+
+        if (renameInput) {
+          renameInput.addEventListener('input', (e) => {
+            editingNameValue = e.target.value;
+          });
+          renameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submitInlineRename(renameInput.value);
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              isEditingMyName = false;
+              editingNameValue = '';
+              renderLobby(me, isLeader);
+            }
+          });
+          setTimeout(() => {
+            if (renameInput && document.activeElement !== renameInput) {
+              renameInput.focus();
+              renameInput.select();
+            }
+          }, 30);
+        }
+
+        if (btnSave) {
+          btnSave.addEventListener('click', () => {
+            if (renameInput) submitInlineRename(renameInput.value);
+          });
+        }
+
+        if (btnCancel) {
+          btnCancel.addEventListener('click', () => {
+            isEditingMyName = false;
+            editingNameValue = '';
+            renderLobby(me, isLeader);
+          });
+        }
+      }
+    } else {
+      div.innerHTML = `
+        <div class="member-info-col">
+          <div class="member-avatar-wrapper">
+            ${getPlayerAvatarHtml(p, 'member-role-avatar')}
+          </div>
+          <div class="member-name-group">
+            <span class="member-name">
+              ${isThisLeader ? '<span class="crown-tag" title="隊長">👑</span>' : ''}
+              <span class="member-name-text">${escapeHtml(p.name)}</span>
+            </span>
+            <span class="member-role-tag">
+              ${roleInfo ? escapeHtml(roleInfo.name) : '<span class="role-unselected">未選職</span>'}
+            </span>
+          </div>
+        </div>
+        <div class="member-status-col">
+          <span class="member-status-tag ${roleInfo ? 'ready' : 'waiting'}">
+            ${roleInfo ? '✅ 已就緒' : '⏳ 選職中'}
+          </span>
+        </div>
+      `;
     }
 
     elements.lobbyMemberList.appendChild(div);
@@ -1080,11 +1167,11 @@ elements.btnToggleLog.addEventListener('click', () => {
 });
 
 // ==========================================
-// 大廳隊伍修改暱稱功能
 // ==========================================
-function handleLobbyRename() {
-  if (!elements.inputLobbyRename) return;
-  const newName = elements.inputLobbyRename.value.trim();
+// 大廳成員卡片：修改暱稱功能
+// ==========================================
+function submitInlineRename(newName) {
+  newName = (newName || '').trim();
   if (!newName) {
     alert('暱稱不能為空！');
     return;
@@ -1099,19 +1186,12 @@ function handleLobbyRename() {
       myName = res.newName;
       localStorage.setItem('dungeon_player_name', res.newName);
       elements.playerNameText.textContent = res.newName;
+      isEditingMyName = false;
+      editingNameValue = '';
       playSound('click');
     } else {
       alert(res.message);
     }
-  });
-}
-
-if (elements.btnLobbyRename) {
-  elements.btnLobbyRename.addEventListener('click', handleLobbyRename);
-}
-if (elements.inputLobbyRename) {
-  elements.inputLobbyRename.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleLobbyRename();
   });
 }
 
@@ -1518,9 +1598,7 @@ function initAvatarModal() {
   if (elements.tabEmojiBtn) elements.tabEmojiBtn.addEventListener('click', () => switchAvatarTab('emoji'));
   if (elements.tabUploadBtn) elements.tabUploadBtn.addEventListener('click', () => switchAvatarTab('upload'));
 
-  // 開啟 Modal
-  if (elements.btnOpenAvatarModal) elements.btnOpenAvatarModal.addEventListener('click', openAvatarModal);
-  if (elements.btnTriggerAvatarModal) elements.btnTriggerAvatarModal.addEventListener('click', openAvatarModal);
+  // 開啟 Modal (亦可點擊頂部玩家徽章)
   if (elements.playerBadge) elements.playerBadge.addEventListener('click', openAvatarModal);
 
   // 關閉 Modal

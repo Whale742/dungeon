@@ -598,98 +598,136 @@ input[type="text"]::placeholder {
   line-height: 1.4;
 }
 
-/* 玩家檔案欄 (更換頭貼 & 修改暱稱) */
-.lobby-profile-bar {
+/* 整合後的玩家個人卡片樣式與即時修改暱稱、換頭貼控制項 */
+.member-name-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  margin-bottom: 14px;
+  gap: 6px;
 }
 
-.profile-avatar-trigger {
-  position: relative;
-  width: 44px;
-  height: 44px;
+.me-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(37, 99, 235, 0.12);
+  padding: 1px 6px;
   border-radius: var(--radius-pill);
+  line-height: 1.2;
+  display: inline-block;
+}
+
+.btn-icon-rename {
+  background: transparent;
+  border: none;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: transform var(--duration-fast) var(--ease-standard);
+  padding: 2px 4px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: var(--radius-xs);
+  opacity: 0.75;
+  transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.profile-avatar-trigger:hover {
-  transform: scale(1.06);
+.btn-icon-rename:hover {
+  opacity: 1;
+  background: rgba(15, 23, 42, 0.08);
+  transform: scale(1.1);
 }
 
-.current-avatar-preview {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-border);
+.member-inline-rename-form {
   display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inline-rename-input {
+  width: 100px;
+  padding: 2px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.btn-micro-action {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  box-shadow: var(--shadow-sm);
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.current-avatar-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.avatar-edit-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
+.btn-save-name {
   background: var(--color-primary);
   color: #fff;
-  font-size: 10px;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-pill);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
-.profile-inputs-wrap {
-  flex: 1;
-  min-width: 0;
+.btn-save-name:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
-.profile-rename-row {
+.btn-cancel-name {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-cancel-name:hover {
+  background: #e2e8f0;
+}
+
+.member-sub-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 3px;
 }
 
-.rename-label {
-  font-size: 12px;
+.btn-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
   font-weight: 600;
+  padding: 2px 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  white-space: nowrap;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  box-shadow: var(--shadow-sm);
+  line-height: 1.2;
 }
 
-.profile-rename-row input {
-  flex: 1;
-  min-width: 110px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  font-size: 13px;
-  background: var(--color-surface);
-  color: var(--color-text-primary);
+.btn-chip-avatar:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  transform: translateY(-1px);
+}
+
+.role-unselected {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.member-status-col {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .member-list {
