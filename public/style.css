@@ -883,23 +883,39 @@ input[type="text"]::placeholder {
   font-weight: 500;
 }
 
-.member-status-tag {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 10px;
+.member-status-icon {
+  width: 26px;
+  height: 26px;
   border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: default;
+  transition: transform var(--duration-fast) var(--ease-standard),
+              background var(--duration-fast) var(--ease-standard);
 }
 
-.member-status-tag.ready {
-  background: rgba(22, 163, 74, 0.1);
+.member-status-icon.ready {
+  background: rgba(22, 163, 74, 0.12);
   color: var(--color-success);
-  border: 1px solid rgba(22, 163, 74, 0.2);
+  border: 1.5px solid rgba(22, 163, 74, 0.35);
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.12);
 }
 
-.member-status-tag.waiting {
-  background: rgba(245, 158, 11, 0.1);
+.member-status-icon.waiting {
+  background: rgba(245, 158, 11, 0.12);
   color: var(--color-warning);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.12);
+}
+
+.member-status-icon svg {
+  display: block;
+}
+
+.member-status-icon:hover {
+  transform: scale(1.1);
 }
 
 .lobby-footer {

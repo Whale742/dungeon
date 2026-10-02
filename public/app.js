@@ -400,6 +400,28 @@ function renderApp() {
   renderLogs();
 }
 
+// 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職: 黃色驚嘆號，無文字)
+function renderMemberStatusBadge(roleInfo) {
+  if (roleInfo) {
+    return `
+      <span class="member-status-icon ready" title="已就緒" aria-label="已就緒">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </span>
+    `;
+  } else {
+    return `
+      <span class="member-status-icon waiting" title="尚未選職" aria-label="尚未選職">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="13"></line>
+          <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
+        </svg>
+      </span>
+    `;
+  }
+}
+
 // 1. 渲染大廳
 function renderLobby(me, isLeader) {
   elements.lobbyMemberCount.textContent = roomState.players.length;
@@ -449,9 +471,7 @@ function renderLobby(me, isLeader) {
           </div>
         </div>
         <div class="member-status-col">
-          <span class="member-status-tag ${roleInfo ? 'ready' : 'waiting'}">
-            ${roleInfo ? '✅ 已就緒' : '⏳ 選職中'}
-          </span>
+          ${renderMemberStatusBadge(roleInfo)}
         </div>
       `;
 
@@ -534,9 +554,7 @@ function renderLobby(me, isLeader) {
           </div>
         </div>
         <div class="member-status-col">
-          <span class="member-status-tag ${roleInfo ? 'ready' : 'waiting'}">
-            ${roleInfo ? '✅ 已就緒' : '⏳ 選職中'}
-          </span>
+          ${renderMemberStatusBadge(roleInfo)}
         </div>
       `;
     }
