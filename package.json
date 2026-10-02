@@ -1,0 +1,28 @@
+{
+  "name": "dungeon-rpg-web",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "rpg",
+    "socketio",
+    "multiplayer",
+    "turn-based"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Multiplayer Web Turn-Based Dungeon RPG",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}

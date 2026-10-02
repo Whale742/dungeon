@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地城深淵 (Dungeon Abyss) - 多人連線 RPG</title>
+  <link rel="icon" type="image/webp" href="/icon/icon.webp">
+  <link rel="apple-touch-icon" href="/icon/icon.webp">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app" class="game-container">
+    <!-- 頂部導航欄 -->
+    <header class="app-header">
+      <div class="logo">
+        <span class="icon"><img src="/icon/icon.webp" alt="Dungeon Abyss" class="logo-img"></span>
+        <div class="title-group">
+          <h1>地城深淵 <span class="en-sub">DUNGEON ABYSS</span></h1>
+          <p class="subtitle">多人連線回合制地城探險 RPG</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div id="roomBadge" class="badge room-badge hidden">
+          房號：<span id="roomCodeText">-----</span>
+          <button id="copyRoomBtn" class="btn-icon" title="複製房間代碼">📋</button>
+        </div>
+        <div id="playerBadge" class="badge player-badge hidden">
+          <span id="playerRoleIcon">⚔️</span>
+          <span id="playerNameText">冒險者</span>
+        </div>
+        <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">⏸️ 暫停</button>
+        <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">🏳️ 放棄挑戰</button>
+        <button id="soundToggleBtn" class="btn-icon" title="切換音效">🔊</button>
+      </div>
+    </header>
+
+    <!-- 暫停提示橫幅 -->
+    <div id="pauseOverlay" class="pause-banner hidden">
+      <span class="pause-banner-text">⏸️ <strong>遊戲暫停中</strong> (行動倒數計時已凍結)</span>
+      <button id="btnResumeGameBanner" class="btn btn-tiny btn-success">▶️ 繼續冒險</button>
+    </div>
+
+    <!-- 主內容區：根據狀態切換視圖 -->
+    <main class="main-content">
+
+      <!-- 視圖 1：登入與建立/加入房間畫面 -->
+      <section id="viewEntry" class="view-panel active">
+        <div class="card entry-card">
+          <div class="entry-hero">
+            <div class="hero-avatars-row">
+              <img src="/photo/Warrior.webp" class="hero-intro-avatar" alt="戰士" title="戰士">
+              <img src="/photo/Mage.webp" class="hero-intro-avatar" alt="法師" title="法師">
+              <img src="/photo/Archer.webp" class="hero-intro-avatar" alt="弓箭手" title="弓箭手">
+              <img src="/photo/Assassin.webp" class="hero-intro-avatar" alt="刺客" title="刺客">
+              <img src="/photo/Bard.webp" class="hero-intro-avatar" alt="吟遊詩人" title="吟遊詩人">
+            </div>
+            <h2>集結勇者，挑戰深淵巨獸</h2>
+            <p>1～5 人即時協作連線，自帶 10 種遠古 Boss、致命機關、技能抗性與裝備成長！</p>
+          </div>
+
+          <div class="form-group">
+            <label for="inputPlayerName">冒險者姓名：</label>
+            <input type="text" id="inputPlayerName" placeholder="請輸入你的勇者名字..." maxlength="12">
+          </div>
+
+          <div class="entry-actions">
+            <button id="btnCreateRoom" class="btn btn-primary btn-large">
+              <span class="btn-icon-inner">⚔️</span> 發起組隊 (建立房間)
+            </button>
+            <div class="divider"><span>或輸入隊伍代碼</span></div>
+            <div class="join-group">
+              <input type="text" id="inputRoomCode" placeholder="5碼房間代碼 (如: A8K9X)" maxlength="5">
+              <button id="btnJoinRoom" class="btn btn-secondary">
+                <span class="btn-icon-inner">✋</span> 加入隊伍
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 2：大廳等待與選職畫面 -->
+      <section id="viewLobby" class="view-panel">
+        <div class="lobby-layout">
+          <!-- 隊伍成員列表 -->
+          <div class="card team-card">
+            <div class="card-header card-header-stacked">
+              <div class="header-title-block">
+                <h3>👥 冒險小隊名單 (<span id="lobbyMemberCount">1</span>/5)</h3>
+                <span class="card-tip">隊長可隨時啟程，1~5人皆可出發</span>
+              </div>
+            </div>
+            <!-- 大廳個人檔案設定：修改暱稱與更換頭貼 -->
+            <div class="lobby-profile-bar">
+              <div class="profile-avatar-trigger" id="btnOpenAvatarModal" title="點擊更換個人頭貼">
+                <div class="current-avatar-preview" id="lobbyMyAvatarPreview">👤</div>
+                <span class="avatar-edit-badge" title="更換頭貼">📷</span>
+              </div>
+              <div class="profile-inputs-wrap">
+                <div class="profile-rename-row">
+                  <span class="rename-label">你的暱稱：</span>
+                  <input type="text" id="inputLobbyRename" placeholder="輸入新暱稱..." maxlength="12">
+                  <button id="btnLobbyRename" class="btn btn-secondary btn-tiny">✏️ 修改</button>
+                  <button id="btnTriggerAvatarModal" class="btn btn-primary btn-tiny">🖼️ 換頭貼</button>
+                </div>
+              </div>
+            </div>
+            <div id="lobbyMemberList" class="member-list">
+              <!-- 動態渲染成員 -->
+            </div>
+
+            <div class="lobby-footer">
+              <div id="leaderStartArea" class="leader-actions">
+                <button id="btnStartGame" class="btn btn-danger btn-large full-width" disabled>
+                  🚀 全員就緒，出發探險！
+                </button>
+                <p id="startRequirementText" class="start-tip">尚有隊友未完成選職</p>
+              </div>
+              <div id="memberWaitArea" class="member-actions hidden">
+                <div class="pulse-waiting">⏳ 等待隊長啟程出發...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 職業選擇面版 -->
+          <div class="card roles-card">
+            <div class="card-header">
+              <h3>🎭 選擇你的英雄職業 (各職業唯一)</h3>
+              <span class="card-tip">點擊卡片選擇職業</span>
+            </div>
+            <div id="roleSelectionGrid" class="roles-grid">
+              <!-- 動態渲染 5 個職業 -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 3：路線分歧抉擇畫面 -->
+      <section id="viewRoute" class="view-panel">
+        <div class="card route-card">
+          <div class="route-header">
+            <div class="floor-badge">第 <span id="routeFloorNum">1</span> 層</div>
+            <h2>🧭 前方岔路抉擇</h2>
+            <p class="route-desc">
+              前方出現了四條岔路，每一條都散發著未知的氣息...<br>
+              <span class="buff-highlight">本層敵方強度加成：+<span id="routeDiffPercent">0</span>%</span>
+            </p>
+            <div id="routeTimerBar" class="timer-container">
+              <div class="timer-bar" id="routeTimerProgress"></div>
+              <span class="timer-text" id="routeTimerText">倒數 30 秒</span>
+            </div>
+          </div>
+
+          <div id="routeStatusText" class="route-prompt">👑 請隊長決定小隊前進路線：</div>
+
+          <div id="routeOptionsGrid" class="route-grid">
+            <!-- 4 條路線按鈕 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 4：事件卡片 (寶箱 / 陷阱) -->
+      <section id="viewEvent" class="view-panel">
+        <div class="card event-card" id="eventCardBox">
+          <div class="event-icon" id="eventIcon">🎁</div>
+          <h2 id="eventTitle">發現遠古寶箱！</h2>
+          <div id="eventDetails" class="event-details">
+            <!-- 動態事件內容 -->
+          </div>
+          <div class="event-footer">
+            <div class="pulse-waiting">⏳ 整理裝備中，即將前往下一層...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 5：戰鬥畫面 -->
+      <section id="viewBattle" class="view-panel">
+        <div class="battle-layout">
+          <!-- 上方：怪物與戰場資訊 -->
+          <div class="card monster-card" id="monsterCard">
+            <div class="monster-header">
+              <div class="monster-badge">第 <span id="battleFloorNum">1</span> 層 · 第 <span id="battleRoundNum">1</span> 回合</div>
+              <div class="round-timer" id="battleTimerWrap">
+                ⏱️ 行動倒數：<span id="battleTimerCount">30</span>s
+              </div>
+            </div>
+
+            <div class="monster-body">
+              <div class="monster-avatar-wrap" id="monsterAvatarWrap">
+                <div class="monster-avatar" id="monsterAvatar">👾</div>
+                <div id="monsterSlashOverlay" class="slash-overlay"></div>
+                <div id="monsterMagicOverlay" class="magic-overlay"></div>
+                <div id="monsterFloatingContainer" class="floating-text-container"></div>
+              </div>
+              <div class="monster-info">
+                <div class="monster-title-row">
+                  <h2 id="monsterName">地底熔岩巨像</h2>
+                  <div id="monsterResTag" class="res-tag res-phys">🛡️ 高階物理抗性 (-70%)</div>
+                </div>
+                <p id="monsterDesc" class="monster-desc">岩石外殼極為厚重！</p>
+                
+                <div class="hp-bar-container">
+                  <div class="hp-bar-label">
+                    <span>魔物生命值</span>
+                    <span id="monsterHpText">100 / 100</span>
+                  </div>
+                  <div class="hp-bar-bg">
+                    <div id="monsterHpFill" class="hp-bar-fill monster-fill" style="width: 100%;"></div>
+                  </div>
+                </div>
+
+                <div class="monster-threat-row">
+                  <div class="threat-item">
+                    <span class="threat-label">基礎反擊：</span>
+                    <span id="monsterAtkText" class="threat-val">10 點</span>
+                  </div>
+                  <div class="threat-item" id="ultWarningBox">
+                    <span class="threat-label">蓄力必殺：</span>
+                    <span id="monsterUltName" class="threat-val ult-alert">崩山滅世重砸 (1.35x)</span>
+                  </div>
+                </div>
+                <div id="monsterBuffsRow" class="monster-buffs"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 中間：隊友全員即時狀態欄 -->
+          <div class="card teammates-card">
+            <div class="card-header mini-header">
+              <h4>👥 冒險隊友狀態</h4>
+              <span id="shieldNoticeBadge" class="buff-badge hidden">🛡️ 壁壘守護生效中</span>
+            </div>
+            <div id="battleTeammatesGrid" class="teammates-grid">
+              <!-- 動態隊友卡片 -->
+            </div>
+          </div>
+
+          <!-- 下方：玩家專屬操作面板 -->
+          <div class="card player-action-card" id="playerActionCard">
+            <div class="action-card-header">
+              <div class="player-header-left">
+                <span id="myRoleEmoji">🛡️</span>
+                <span id="myRoleName">戰士</span>
+                <span class="player-hp-summary" id="myHpSummary">HP: 120/120</span>
+                <span class="player-atk-summary" id="myAtkSummary">+0 攻</span>
+              </div>
+              <div id="myActionStatus" class="action-status-badge">
+                <span>請指定本回合行動</span>
+              </div>
+            </div>
+
+            <!-- 專屬技能按鈕列 -->
+            <div id="mySkillsRow" class="skills-row">
+              <!-- 動態技能按鈕 -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 6：深淵休息站 (每5層 Checkpoint) -->
+      <section id="viewCheckpoint" class="view-panel">
+        <div class="card checkpoint-card">
+          <div class="checkpoint-hero">✨ 🏰 ⛲</div>
+          <h2>【第 <span id="cpFloorNum">5</span> 層 - 深淵休息站】</h2>
+          <p class="checkpoint-desc">
+            恭喜小隊成功突破至此！前方湧現神聖結界泉水。<br>
+            飲下泉水全員生命將 <strong>100% 完全回滿</strong> 並清除一切流血負面狀態！
+          </p>
+
+          <div id="cpLeaderControls" class="checkpoint-actions">
+            <button id="btnCpContinue" class="btn btn-success btn-large">
+              🔥 全員回滿血，繼續挑戰深淵！
+            </button>
+            <button id="btnCpEnd" class="btn btn-warning btn-large">
+              🏆 榮耀結算，滿載寶物安全撤出！
+            </button>
+          </div>
+          <div id="cpMemberNotice" class="pulse-waiting hidden">
+            ⏳ 等待隊長做出前進或撤退的抉擇...
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 7：全滅結算 / 勝利結算 -->
+      <section id="viewEnd" class="view-panel">
+        <div class="card end-card" id="endCardBox">
+          <div class="end-icon" id="endIcon">🏆</div>
+          <h2 id="endTitle">冒險結束</h2>
+          <p id="endSubtitle" class="end-subtitle"></p>
+          <div id="endStatsBox" class="end-stats">
+            <!-- 統計清單 -->
+          </div>
+          <div class="end-actions">
+            <button id="btnRestartLobby" class="btn btn-primary btn-large">
+              🔄 重回大廳，再次組隊
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 永久存在的底部戰況日誌視窗 -->
+      <section class="combat-log-section">
+        <div class="log-card card">
+          <div class="log-header">
+            <span class="log-title">📜 即時戰況與冒險日誌</span>
+            <div class="log-actions">
+              <button id="btnClearLog" class="btn-tiny" title="清空日誌">清空</button>
+              <button id="btnToggleLog" class="btn-tiny" title="最小化/展開">折疊</button>
+            </div>
+          </div>
+          <div id="combatLogWindow" class="log-window">
+            <div class="log-line info">🏰 歡迎來到地城深淵！請發起組隊或加入好友房間。</div>
+          </div>
+          <div class="chat-input-bar">
+            <input type="text" id="chatInput" placeholder="輸入小隊發言... (Enter 送出)" maxlength="60">
+            <button id="btnSendChat" class="btn btn-tiny">送出</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 詩人技能專用：目標選擇 Modal -->
+    <div id="targetModal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h3 id="targetModalTitle">選擇目標</h3>
+        <p id="targetModalDesc">請點選要施加效果的隊友：</p>
+        <div id="targetModalList" class="target-list">
+          <!-- 動態目標選項 -->
+        </div>
+        <button id="btnCancelTarget" class="btn btn-secondary full-width">取消</button>
+      </div>
+    </div>
+
+    <!-- 結束戰鬥操作 Modal -->
+    <div id="endBattleModal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h3>🏳️ 放棄挑戰 / 中止冒險</h3>
+        <p style="color: var(--color-text-secondary); font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px;">
+          確定要提前中止本次地城冒險嗎？<br>
+          <strong style="color: var(--color-danger);">⚠️ 注意：未滿 5 層中途結束將直接判定為【挑戰失敗】！</strong><br>
+          只有突破第 5 層抵達「深淵休息站」後，方可選擇安全撤退並保留榮耀。
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+          <button id="btnConfirmRetreat" class="btn btn-danger full-width">
+            🏳️ 確認放棄，判定挑戰失敗
+          </button>
+        </div>
+        <button id="btnCancelEndBattle" class="btn btn-secondary full-width">返回戰鬥</button>
+      </div>
+    </div>
+
+    <!-- 更換頭貼 Modal -->
+    <div id="avatarModalOverlay" class="modal-overlay hidden">
+      <div class="modal-card avatar-modal">
+        <div class="modal-header">
+          <div>
+            <h3>🖼️ 自訂冒險者頭貼</h3>
+            <p class="modal-subtitle">挑選喜愛的 Emoji 或自由上傳照片作為專屬頭貼</p>
+          </div>
+          <button type="button" class="btn-close-modal" id="btnCloseAvatarModal">✕</button>
+        </div>
+
+        <!-- 即時預覽區 -->
+        <div class="avatar-live-preview-section">
+          <div class="avatar-big-preview-wrap">
+            <div class="avatar-big-preview" id="modalAvatarPreview">👤</div>
+          </div>
+          <div class="preview-meta">
+            <span class="preview-title">頭貼即時預覽</span>
+            <span class="preview-hint" id="modalAvatarTypeLabel">尚未選擇自訂頭貼</span>
+          </div>
+        </div>
+
+        <!-- 標籤切換 -->
+        <div class="avatar-tabs">
+          <button type="button" class="avatar-tab active" id="tabEmojiBtn" data-tab="emoji">😀 表情符號</button>
+          <button type="button" class="avatar-tab" id="tabUploadBtn" data-tab="upload">📁 上傳照片</button>
+        </div>
+
+        <!-- 分頁 1: 表情符號 -->
+        <div class="avatar-tab-content active" id="tabEmojiContent">
+          <div class="emoji-picker-container">
+            <div class="emoji-categories">
+              <span class="emoji-cat-title">🛡️ 冒險與職業</span>
+              <div class="emoji-grid" id="emojiGridAdventure"></div>
+
+              <span class="emoji-cat-title">🐾 幻獸與靈魂</span>
+              <div class="emoji-grid" id="emojiGridCreatures"></div>
+
+              <span class="emoji-cat-title">⚔️ 符文與神兵</span>
+              <div class="emoji-grid" id="emojiGridWeapons"></div>
+            </div>
+
+            <div class="custom-emoji-row">
+              <span>或輸入任意 Emoji：</span>
+              <input type="text" id="customEmojiInput" placeholder="例如 🦄" maxlength="4">
+              <button type="button" id="btnApplyCustomEmoji" class="btn btn-secondary btn-tiny">套用</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分頁 2: 上傳照片 -->
+        <div class="avatar-tab-content" id="tabUploadContent">
+          <div class="upload-dropzone" id="avatarDropzone">
+            <div class="dropzone-icon">📷</div>
+            <p class="dropzone-text"><strong>點擊選擇圖片</strong> 或拖放照片至此</p>
+            <p class="dropzone-sub">支援 JPG、PNG、WebP、GIF（自動裁切為圓形高清頭貼）</p>
+            <input type="file" id="avatarFileInput" accept="image/*" style="display: none;">
+            <button type="button" id="btnBrowseFile" class="btn btn-secondary btn-small">📁 瀏覽本地相片</button>
+          </div>
+        </div>
+
+        <!-- 底部按鈕 -->
+        <div class="modal-footer">
+          <button type="button" id="btnResetAvatarDefault" class="btn btn-ghost btn-small">↺ 重設為職業預設</button>
+          <div class="modal-footer-right">
+            <button type="button" id="btnCancelAvatar" class="btn btn-secondary btn-small">取消</button>
+            <button type="button" id="btnSaveAvatar" class="btn btn-primary btn-small">確認套用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Socket.io 客戶端腳本 -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- 主應用邏輯腳本 -->
+  <script src="app.js"></script>
+</body>
+</html>
