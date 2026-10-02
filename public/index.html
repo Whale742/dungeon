@@ -23,17 +23,16 @@
         </div>
       </div>
       <div class="header-status">
-        <div id="roomBadge" class="badge room-badge hidden">
-          房號：<span id="roomCodeText">-----</span>
-          <button id="copyRoomBtn" class="btn-icon" title="複製房間代碼">📋</button>
-        </div>
-        <div id="playerBadge" class="badge player-badge hidden">
-          <span id="playerRoleIcon">⚔️</span>
-          <span id="playerNameText">冒險者</span>
+        <div id="roomBadge" class="room-code-display hidden">
+          <span class="room-code-label">房號：</span>
+          <span id="roomCodeText" class="room-code-clickable" title="點擊直接複製房號">-----</span>
+          <span id="roomCopyToast" class="room-copy-toast hidden">已複製！</span>
         </div>
         <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">⏸️ 暫停</button>
         <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">🏳️ 放棄挑戰</button>
-        <button id="soundToggleBtn" class="btn-icon" title="切換音效">🔊</button>
+        <button id="soundToggleBtn" class="btn-sound-toggle" title="切換音效">
+          <img id="soundToggleImg" src="/sound/sound.webp" alt="音效" class="sound-toggle-img">
+        </button>
       </div>
     </header>
 
@@ -374,11 +373,16 @@
 
         <!-- 分頁 0: 職業原本頭貼 -->
         <div class="avatar-tab-content active" id="tabHeroContent">
-          <div class="hero-avatar-picker-container">
-            <p class="hero-picker-hint">點選職業經典原畫作為你的個人頭貼：</p>
-            <div class="hero-avatar-grid" id="heroAvatarGrid">
-              <!-- 動態渲染 5 大職業官方頭貼選項 -->
+          <div class="hero-role-avatar-container">
+            <div id="heroRoleOptionCard" class="hero-role-option-card" title="點擊選用所選職業官方頭貼">
+              <div class="hero-role-preview-circle" id="heroRoleOptionPreview">👤</div>
+              <div class="hero-role-option-details">
+                <div class="hero-role-option-title" id="heroRoleOptionTitle">職業官方專屬頭貼</div>
+                <div class="hero-role-option-desc" id="heroRoleOptionDesc">自動隨你選擇的職業切換專屬立繪頭像</div>
+                <span class="hero-role-badge-tag" id="heroRoleOptionBadge">點擊選用</span>
+              </div>
             </div>
+            <p class="hero-role-help-note">💡 說明：選甚麼職業即會使用該職業專屬頭貼，無法跨職業使用其他職業立繪。</p>
           </div>
         </div>
 

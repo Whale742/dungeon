@@ -26,6 +26,7 @@ app.use('/photo', express.static(path.join(__dirname, 'photo')));
 app.use('/BOSS', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/boss', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/icon', express.static(path.join(__dirname, 'public', 'icon')));
+app.use('/sound', express.static(path.join(__dirname, 'public', 'sound')));
 
 // 遊戲房間登錄表 (code -> Room)
 const rooms = new Map();

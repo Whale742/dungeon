@@ -44,11 +44,21 @@ export class Room {
       this.memberIds.push(socket.id);
     }
 
+    let cleanAvatar = null;
+    if (typeof avatar === 'string') {
+      const trimmed = avatar.trim();
+      if (trimmed.startsWith('data:image/')) {
+        cleanAvatar = trimmed;
+      } else if (!trimmed.startsWith('/photo/')) {
+        cleanAvatar = trimmed.slice(0, 8);
+      }
+    }
+
     this.players[socket.id] = {
       id: socket.id,
       name: name || `勇者_${socket.id.slice(0, 4)}`,
       role: null,
-      customAvatar: avatar || null,
+      customAvatar: cleanAvatar,
       hp: 100,
       maxHp: 100,
       bonusAtk: 0,
@@ -132,8 +142,8 @@ export class Room {
           return { success: false, message: '圖片檔案過大，請選擇較小的圖片！' };
         }
         cleanAvatar = trimmed;
-      } else if (trimmed) {
-        // emoji 或字串
+      } else if (!trimmed.startsWith('/photo/')) {
+        // emoji 或自訂文字
         cleanAvatar = trimmed.slice(0, 8);
       }
     }
