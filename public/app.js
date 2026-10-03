@@ -275,7 +275,9 @@ const elements = {
 
   // Logs & Floating Chat
   combatLogWindow: document.getElementById('combatLogWindow'),
+  battleLogCard: document.getElementById('battleLogCard'),
   btnClearLog: document.getElementById('btnClearLog'),
+  btnToggleLog: document.getElementById('btnToggleLog'),
   floatingChatContainer: document.getElementById('floatingChatContainer'),
   floatingChatBtn: document.getElementById('floatingChatBtn'),
   chatUnreadBadge: document.getElementById('chatUnreadBadge'),
@@ -295,6 +297,12 @@ const elements = {
   targetModalDesc: document.getElementById('targetModalDesc'),
   targetModalList: document.getElementById('targetModalList'),
   btnCancelTarget: document.getElementById('btnCancelTarget'),
+  minionDetailModal: document.getElementById('minionDetailModal'),
+  minionDetailTitle: document.getElementById('minionDetailTitle'),
+  minionDetailSubtitle: document.getElementById('minionDetailSubtitle'),
+  minionDetailList: document.getElementById('minionDetailList'),
+  btnCloseMinionModal: document.getElementById('btnCloseMinionModal'),
+  btnConfirmMinionModal: document.getElementById('btnConfirmMinionModal'),
 
   // Pause & End Battle Controls
   btnPauseGame: document.getElementById('btnPauseGame'),
@@ -868,7 +876,7 @@ function renderRouteChoice(me, isLeader) {
   if (elements.routeMainTitle) {
     elements.routeMainTitle.innerHTML = `【第 <span>${roomState.floor}</span> 層・迷霧分歧點】`;
   }
-  elements.routeDiffPercent.textContent = Math.round((roomState.floor - 1) * 20);
+  elements.routeDiffPercent.textContent = roomState.floorDifficultyPercent !== undefined ? roomState.floorDifficultyPercent : Math.round((roomState.floor - 1) * 10);
 
   const livingPlayers = (roomState.players || []).filter(p => p.hp > 0);
   const myVoteId = roomState.routeVotes ? roomState.routeVotes[myId] : null;
@@ -1103,7 +1111,7 @@ function renderTeammatesGrid(me) {
     if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">🐺 狼人(${p.druidFormTurns}R)</span>`);
     if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">🌳 樹精(${p.druidFormTurns}R)</span>`);
     if (p.druidForm === 'tree') tags.push(`<span class="status-tag tag-treant">🪵 古樹(${p.druidFormTurns}R)</span>`);
-    if (p.minion) tags.push(`<span class="status-tag tag-minion">🐾 ${escapeHtml(p.minion.name)}(${p.minion.hp}/${p.minion.maxHp})</span>`);
+    if (p.alcAcidEquipHalvedTurns > 0) tags.push(`<span class="status-tag tag-vuln">⚗️ 裝備減半(${p.alcAcidEquipHalvedTurns}R)</span>`);
     if (roomState.alcShieldTurns > 0) tags.push('<span class="status-tag tag-shield">🛡️ 命運護盾(-70%)</span>');
     if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
     else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 下回合易傷(+20%)</span>');
@@ -1139,7 +1147,58 @@ function renderTeammatesGrid(me) {
       <div class="equip-list" title="${escapeHtml(equipNames)}">🎒 [裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
     `;
     elements.battleTeammatesGrid.appendChild(card);
+
+    // 德魯伊召喚物暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
+    if (p.minions && p.minions.length > 0) {
+      const minionCard = document.createElement('div');
+      minionCard.className = 'teammate-card teammate-card-minion';
+      minionCard.setAttribute('data-player-id', p.id + '_minions');
+      minionCard.setAttribute('data-minion-owner-id', p.id);
+      minionCard.setAttribute('title', '點擊展開僕從詳細資訊');
+
+      const totalHp = p.minions.reduce((sum, m) => sum + (m.hp || 0), 0);
+      const totalMaxHp = p.minions.reduce((sum, m) => sum + (m.maxHp || 0), 0);
+      const totalAtk = p.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
+      const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
+
+      minionCard.innerHTML = `
+        <div class="floating-text-container"></div>
+        <div class="teammate-top">
+          <span class="teammate-name-group">
+            <span style="font-size: 18px;">🐾</span>
+            <span>${escapeHtml(p.name)}的僕從</span>
+            <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看僕從詳細資訊">(${p.minions.length}/3)</button>
+          </span>
+        </div>
+        <div class="teammate-hp-bg">
+          <div class="teammate-hp-fill" style="width: ${totalHpPct}%;"></div>
+        </div>
+        <div class="teammate-stats-sub">
+          <span>❤️ ${totalHp}/${totalMaxHp}</span>
+          <span>⚔️ ${totalAtk} 攻</span>
+        </div>
+      `;
+
+      minionCard.addEventListener('click', () => {
+        showMinionDetailModal(p);
+      });
+
+      elements.battleTeammatesGrid.appendChild(minionCard);
+
+      // 若目前詳細小視窗正好開啟且為該德魯伊，同步更新即時數值
+      if (activeViewingMinionOwnerId === p.id && elements.minionDetailModal && !elements.minionDetailModal.classList.contains('hidden')) {
+        showMinionDetailModal(p);
+      }
+    }
   });
+
+  // 如果當前開啟的僕從視窗所屬玩家已無僕從，自動關閉小視窗
+  if (activeViewingMinionOwnerId) {
+    const owner = (roomState.players || []).find(x => x.id === activeViewingMinionOwnerId);
+    if (!owner || !owner.minions || owner.minions.length === 0) {
+      hideMinionDetailModal();
+    }
+  }
 }
 
 // 玩家專屬技能列
@@ -1250,22 +1309,24 @@ function renderMyActionBar(me) {
       cdBadgeText = `變身中 (${me.druidFormTurns}R)`;
     }
 
-    // 德魯伊僕從召喚：小樹精與幼狼共用 CD 2
+    // 德魯伊僕從召喚：召喚物技能無 CD，但最高召喚 3 隻
     if (skill.id === 'dru_summon_treant' || skill.id === 'dru_summon_wolf') {
-      const minionCd = Math.max(me.cooldowns['dru_summon_treant'] || 0, me.cooldowns['dru_summon_wolf'] || 0);
-      if (minionCd > 0) {
+      const minionCount = (me.minions || []).length;
+      if (minionCount >= 3) {
         isCoolingDown = true;
-        cdBadgeText = `CD: ${minionCd}`;
+        cdBadgeText = '僕從已滿(3/3)';
       }
     }
 
     let skillDesc = skill.desc;
     if (me.role === 'alchemist' && skill.id === 'alc_fate') {
       const hasDebuff = (me.bleedTurns > 0 || (me.poisonTurns || 0) > 0 || me.stunnedNextTurn || me.isSurrendered || me.cannotCrit);
+      const hasBurette = (me.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管');
       if (!hasDebuff) {
         skillDesc = '🌿【身無異常·溫和調和】為全員穩定回復 15 點生命（無反噬風險，CD 2）';
       } else {
-        skillDesc = '⚠️【身負異常·命運煉成】驅散負面效果。50%大成功(全員回血40+2回合70%減傷)；50%失敗(全員回血10+下回合全隊受傷+20%)（CD 2）';
+        const failRateTxt = hasBurette ? '35%大成功 / 65%失敗(滴管加成)' : '50%大成功 / 50%失敗';
+        skillDesc = `⚠️【身負異常·命運煉成】驅散負面效果。${failRateTxt}（大成功：全員回血40+2回合70%減傷；失敗：全員回血10+下回合全隊受傷+20%）（CD 2）`;
       }
     }
 
@@ -1395,6 +1456,82 @@ function openTargetModal(type, targetList) {
 elements.btnCancelTarget.addEventListener('click', () => {
   elements.targetModal.classList.add('hidden');
 });
+
+// ==========================================
+// 德魯伊僕從詳細資訊 Modal 邏輯
+// ==========================================
+let activeViewingMinionOwnerId = null;
+
+function showMinionDetailModal(player) {
+  if (!player || !player.minions || player.minions.length === 0) return;
+  if (!elements.minionDetailModal) return;
+
+  activeViewingMinionOwnerId = player.id;
+  const totalHp = player.minions.reduce((sum, m) => sum + (m.hp || 0), 0);
+  const totalMaxHp = player.minions.reduce((sum, m) => sum + (m.maxHp || 0), 0);
+  const totalAtk = player.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
+
+  if (elements.minionDetailTitle) {
+    elements.minionDetailTitle.innerHTML = `🐾 <span>${escapeHtml(player.name)} 的僕從隊伍 (${player.minions.length}/3)</span>`;
+  }
+  if (elements.minionDetailSubtitle) {
+    elements.minionDetailSubtitle.textContent = `合計生命 ❤️ ${totalHp}/${totalMaxHp} · 合計攻擊力 ⚔️ ${totalAtk} 點`;
+  }
+
+  if (elements.minionDetailList) {
+    elements.minionDetailList.innerHTML = player.minions.map((m, idx) => {
+      const mHpPct = Math.max(0, Math.min(100, Math.round((m.hp / m.maxHp) * 100)));
+      const isWolf = m.type === 'wolf';
+      const icon = isWolf ? '🐺' : '🌱';
+      const typeBadge = isWolf ? '<span class="minion-detail-badge wolf">🐺 幼狼</span>' : '<span class="minion-detail-badge">🌱 小樹精</span>';
+      const desc = isWolf 
+        ? '🐾 <strong>每回合自動攻擊 10 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。' 
+        : '🌱 <strong>每回合自動攻擊 1 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。';
+
+      return `
+        <div class="minion-detail-item">
+          <div class="minion-detail-item-header">
+            <span class="name">${icon} <strong>${escapeHtml(m.name)} #${idx + 1}</strong></span>
+            ${typeBadge}
+          </div>
+          <div class="teammate-hp-bg" style="margin: 6px 0;">
+            <div class="teammate-hp-fill" style="width: ${mHpPct}%;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #166534;">
+            <span>❤️ 生命：${m.hp} / ${m.maxHp} (${mHpPct}%)</span>
+            <span>⚔️ 攻擊力：${m.atk} 攻</span>
+          </div>
+          <div class="minion-detail-desc">
+            ${desc}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  elements.minionDetailModal.classList.remove('hidden');
+}
+
+function hideMinionDetailModal() {
+  activeViewingMinionOwnerId = null;
+  if (elements.minionDetailModal) {
+    elements.minionDetailModal.classList.add('hidden');
+  }
+}
+
+if (elements.btnCloseMinionModal) {
+  elements.btnCloseMinionModal.addEventListener('click', hideMinionDetailModal);
+}
+if (elements.btnConfirmMinionModal) {
+  elements.btnConfirmMinionModal.addEventListener('click', hideMinionDetailModal);
+}
+if (elements.minionDetailModal) {
+  elements.minionDetailModal.addEventListener('click', (e) => {
+    if (e.target === elements.minionDetailModal) {
+      hideMinionDetailModal();
+    }
+  });
+}
 
 // 5. 渲染深淵休息站
 function renderCheckpoint(me, isLeader) {
@@ -1762,6 +1899,16 @@ if (elements.btnClearLog) {
   });
 }
 
+// 折疊/展開事件表按鈕
+if (elements.btnToggleLog) {
+  elements.btnToggleLog.addEventListener('click', () => {
+    if (elements.battleLogCard) {
+      const isCollapsed = elements.battleLogCard.classList.toggle('collapsed');
+      elements.btnToggleLog.textContent = isCollapsed ? '展開' : '折疊';
+    }
+  });
+}
+
 // 點擊聊天室外部收起聊天視窗
 document.addEventListener('click', (e) => {
   if (isChatOpen && elements.chatPopupCard && elements.floatingChatBtn) {
@@ -1957,7 +2104,7 @@ function playSinglePlayerVisualEvent(ev) {
     if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 召喚${ev.minionName}!`, 'buff');
     playSound('magic');
   } else if (ev.type === 'minion_hit') {
-    const card = document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
+    const card = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${ev.ownerId}"]`) || document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
     if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 僕從抵擋 -${ev.value}`, 'shield');
   }
 }

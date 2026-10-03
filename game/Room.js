@@ -15,7 +15,9 @@ import {
   getPlayerSkills,
   STORY_TEXTS,
   ROUTE_STORIES,
-  BATTLE_NARRATIVES
+  BATTLE_NARRATIVES,
+  getFloorDifficultyBonusPercent,
+  getFloorDifficultyMultiplier
 } from './constants.js';
 
 export class Room {
@@ -29,6 +31,7 @@ export class Room {
     // 遊戲狀態機: 'LOBBY' | 'PROLOGUE' | 'CHOOSING_ROUTE' | 'TRANSITION' | 'EVENT' | 'IN_BATTLE' | 'CHECKPOINT' | 'GAME_OVER' | 'VICTORY'
     this.state = 'LOBBY';
     this.floor = 1;
+    this.battlesInCurrentCycle = 0; // 每5層保底戰鬥計數器
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
     this.alcShieldTurns = 0;
@@ -47,6 +50,7 @@ export class Room {
     this.monsterStunnedThisRound = false;
     this.frenzyTeamDrainTurns = 0;
     this.frenzyTeamDrainNextTurn = false;
+    this.isWolfSurrenderGameOver = false;
 
     this.turnTimer = null;
     this.timerEndsAt = null;
@@ -73,6 +77,20 @@ export class Room {
     player.warriorVulnerableNextTurn = false;
     player.archerNoDodgeTurns = 0;
     player.archerNoDodgeNextTurn = false;
+  }
+
+  selectEquipOwner(matchingPlayers) {
+    if (!matchingPlayers || matchingPlayers.length === 0) return null;
+    if (matchingPlayers.length === 1) return matchingPlayers[0];
+
+    let minCount = Infinity;
+    for (const p of matchingPlayers) {
+      const count = (p.equips || []).length;
+      if (count < minCount) minCount = count;
+    }
+
+    const candidates = matchingPlayers.filter(p => (p.equips || []).length === minCount);
+    return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
   addPlayer(socket, name, avatar = null) {
@@ -119,8 +137,11 @@ export class Room {
       druidForm: null,
       druidFormTurns: 0,
       druidRegenBonus: 0,
+      werewolfMaxHpDeducted: 0,
       isSurrendered: false,
+      minions: [],
       minion: null,
+      alcAcidEquipHalvedTurns: 0,
       bardHealGroupBonus: 0,
       bardHealSingleBonus: 0,
       nextTurnStunFlag: false,
@@ -242,6 +263,7 @@ export class Room {
     }
 
     this.floor = 1;
+    this.battlesInCurrentCycle = 0;
     this.state = 'PROLOGUE';
     this.addLog(`📜 **${STORY_TEXTS.prologue.title}**`, 'info');
     STORY_TEXTS.prologue.paragraphs.forEach(p => this.addLog(p, 'info'));
@@ -364,14 +386,27 @@ export class Room {
   }
 
   resolveRouteChoice(route) {
-    const rand = Math.random();
+    const floorInCycle = ((this.floor - 1) % 5) + 1; // 1 ~ 5
+    const floorsRemainingInCycle = 5 - floorInCycle + 1; // 5 ~ 1
+    const battlesNeeded = Math.max(0, 2 - (this.battlesInCurrentCycle || 0));
+
     let outcomeType = 'battle';
-    if (rand < 0.25) {
-      outcomeType = 'treasure';
-    } else if (rand < 0.5) {
-      outcomeType = 'trap';
-    } else {
+    if (battlesNeeded >= floorsRemainingInCycle) {
+      // 每5層保底至少2次戰鬥事件觸發
       outcomeType = 'battle';
+    } else {
+      const rand = Math.random();
+      if (rand < 0.25) {
+        outcomeType = 'treasure';
+      } else if (rand < 0.5) {
+        outcomeType = 'trap';
+      } else {
+        outcomeType = 'battle';
+      }
+    }
+
+    if (outcomeType === 'battle') {
+      this.battlesInCurrentCycle = (this.battlesInCurrentCycle || 0) + 1;
     }
 
     const routeData = ROUTE_STORIES[route.id] || ROUTE_STORIES['route_trail'];
@@ -416,20 +451,41 @@ export class Room {
       if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + healAmt);
     }
 
-    const activeRoles = Object.values(this.players).map(p => p.role);
-    const eligibleLoots = LOOT_TABLE.filter(l => activeRoles.includes(l.role));
-    const drop = (eligibleLoots.length > 0)
-      ? eligibleLoots[Math.floor(Math.random() * eligibleLoots.length)]
+    const activeRoles = new Set(Object.values(this.players).map(p => p.role).filter(Boolean));
+    const unplayedLoots = LOOT_TABLE.filter(l => !activeRoles.has(l.role));
+    const playedLoots = LOOT_TABLE.filter(l => activeRoles.has(l.role));
+
+    // 寶箱及戰鬥成功後可能會有低機率(15%)出現沒有玩家玩的職業裝備
+    const isUnplayedDrop = unplayedLoots.length > 0 && Math.random() < 0.15;
+
+    if (isUnplayedDrop) {
+      const drop = unplayedLoots[Math.floor(Math.random() * unplayedLoots.length)];
+      this.currentEvent = {
+        type: 'treasure',
+        title: outcomeData ? outcomeData.title : `🎁【第 ${this.floor} 層】發現遠古寶箱！`,
+        story: outcomeData ? outcomeData.story : '',
+        healAmt: healAmt,
+        drop: null,
+        ownerName: '無',
+        ownerId: null
+      };
+      this.addLog(`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`, 'loot');
+      this.addLog(`💨 沒玩家玩這個職業，系統幫你們把【${drop.name}】丟掉嘍`, 'warning');
+      this.broadcastState();
+      this.setTimer(4, () => {
+        this.advanceToNextFloorOrCheckpoint();
+      });
+      return;
+    }
+
+    const drop = (playedLoots.length > 0)
+      ? playedLoots[Math.floor(Math.random() * playedLoots.length)]
       : LOOT_TABLE[Math.floor(Math.random() * LOOT_TABLE.length)];
 
-    let equipOwner = null;
     const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
-    if (matchingPlayers.length > 0) {
-      equipOwner = matchingPlayers[Math.floor(Math.random() * matchingPlayers.length)];
-    } else {
-      const living = Object.values(this.players).filter(p => p.hp > 0);
-      equipOwner = living[Math.floor(Math.random() * living.length)] || Object.values(this.players)[0];
-    }
+    const equipOwner = this.selectEquipOwner(matchingPlayers) ||
+      this.selectEquipOwner(Object.values(this.players).filter(p => p.hp > 0)) ||
+      Object.values(this.players)[0];
 
     this.currentEvent = {
       type: 'treasure',
@@ -472,7 +528,9 @@ export class Room {
   // 陷阱事件
   handleTrapEvent(outcomeData = null) {
     this.state = 'EVENT';
-    const trapDmg = 18;
+    // 陷阱事件傷害：1~5層15點傷害，6~10層18點傷害，以此類推
+    const cycle = Math.floor((this.floor - 1) / 5);
+    const trapDmg = 15 + cycle * 3;
     const trapLogs = [];
 
     for (const p of Object.values(this.players)) {
@@ -521,7 +579,8 @@ export class Room {
     const playerCount = this.memberIds.length;
     const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
     const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
-    const floorMultiplier = 1 + (this.floor - 1) * 0.20;
+    // 敵方難度加成：1~5層每層+10%，6~10層每層+15%，以此類推
+    const floorMultiplier = getFloorDifficultyMultiplier(this.floor);
 
     const scaledHp = Math.floor(baseMonster.hp * hpPlayerMultiplier * floorMultiplier);
     const scaledAtk = Math.max(5, Math.floor(baseMonster.attack * atkPlayerMultiplier * floorMultiplier));
@@ -546,6 +605,7 @@ export class Room {
     this.alcVulnerableTurns = 0;
     this.alcVulnerableNextTurn = false;
     this.isNarrating = false;
+    this.isWolfSurrenderGameOver = false;
 
     for (const p of Object.values(this.players)) {
       p.bleedTurns = 0;
@@ -560,9 +620,15 @@ export class Room {
         p.maxHp -= 100;
         p.hp = Math.min(p.hp, p.maxHp);
       }
+      if (p.druidForm === 'werewolf' && p.werewolfMaxHpDeducted) {
+        p.maxHp += p.werewolfMaxHpDeducted;
+        p.werewolfMaxHpDeducted = 0;
+      }
       p.druidForm = null;
       p.druidFormTurns = 0;
+      p.minions = [];
       p.minion = null;
+      p.alcAcidEquipHalvedTurns = 0;
     }
 
     if (outcomeData && outcomeData.story) {
@@ -576,6 +642,14 @@ export class Room {
     this.clearTimer();
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) {
+      this.handleGameOver();
+      return;
+    }
+
+    // 檢查德魯伊狼王臣服失敗判定：若生還者皆處於狼王臣服無法行動，且遭遇暗影魔狼族長
+    const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
+    if (canFightLiving.length === 0 && this.currentMonster && (this.currentMonster.name === '暗影魔狼族長' || this.currentMonster.name.includes('暗影魔狼族長'))) {
+      this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 德魯伊處於狼王臣服狀態無法行動，且隊伍已無其他能戰鬥的生還隊友，冒險直接判定挑戰失敗！`, 'damage');
       this.handleGameOver();
       return;
     }
@@ -692,9 +766,15 @@ export class Room {
         p.maxHp -= 100;
         p.hp = Math.min(p.hp, p.maxHp);
       }
+      if (p.druidForm === 'werewolf' && p.werewolfMaxHpDeducted) {
+        p.maxHp += p.werewolfMaxHpDeducted;
+        p.werewolfMaxHpDeducted = 0;
+      }
       p.druidForm = null;
       p.druidFormTurns = 0;
+      p.minions = [];
       p.minion = null;
+      p.alcAcidEquipHalvedTurns = 0;
 
       // 戰鬥結束後直接刷新全角色所有技能 CD
       if (p.cooldowns) {
@@ -729,29 +809,37 @@ export class Room {
       }
     }
 
-    const activeRoles = Object.values(this.players).map(p => p.role);
-    const eligibleLoots = LOOT_TABLE.filter(l => activeRoles.includes(l.role));
-    const drop = (eligibleLoots.length > 0)
-      ? eligibleLoots[Math.floor(Math.random() * eligibleLoots.length)]
-      : LOOT_TABLE[Math.floor(Math.random() * LOOT_TABLE.length)];
+    const activeRoles = new Set(Object.values(this.players).map(p => p.role).filter(Boolean));
+    const unplayedLoots = LOOT_TABLE.filter(l => !activeRoles.has(l.role));
+    const playedLoots = LOOT_TABLE.filter(l => activeRoles.has(l.role));
 
+    // 寶箱及戰鬥成功後可能會有低機率(15%)出現沒有玩家玩的職業裝備
+    const isUnplayedDrop = unplayedLoots.length > 0 && Math.random() < 0.15;
+    let drop = null;
     let equipOwner = null;
-    const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
-    if (matchingPlayers.length > 0) {
-      equipOwner = matchingPlayers[Math.floor(Math.random() * matchingPlayers.length)];
-    } else {
-      const living = Object.values(this.players).filter(p => p.hp > 0);
-      equipOwner = living[Math.floor(Math.random() * living.length)] || Object.values(this.players)[0];
-    }
 
-    if (equipOwner) {
-      this.pendingDrop = {
-        drop: drop,
-        ownerId: equipOwner.id,
-        ownerName: equipOwner.name,
-        source: 'battle'
-      };
-      log.push({ text: `🎁 **【戰利品掉落】獲得裝備：【${drop.name}】**（${drop.desc}），等待 **${equipOwner.name}** 抉擇是否穿戴！`, type: 'loot' });
+    if (isUnplayedDrop) {
+      drop = unplayedLoots[Math.floor(Math.random() * unplayedLoots.length)];
+      log.push({ text: `💨 沒玩家玩這個職業，系統幫你們把【${drop.name}】丟掉嘍`, type: 'warning' });
+    } else {
+      drop = (playedLoots.length > 0)
+        ? playedLoots[Math.floor(Math.random() * playedLoots.length)]
+        : LOOT_TABLE[Math.floor(Math.random() * LOOT_TABLE.length)];
+
+      const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
+      equipOwner = this.selectEquipOwner(matchingPlayers) ||
+        this.selectEquipOwner(Object.values(this.players).filter(p => p.hp > 0)) ||
+        Object.values(this.players)[0];
+
+      if (equipOwner) {
+        this.pendingDrop = {
+          drop: drop,
+          ownerId: equipOwner.id,
+          ownerName: equipOwner.name,
+          source: 'battle'
+        };
+        log.push({ text: `🎁 **【戰利品掉落】獲得裝備：【${drop.name}】**（${drop.desc}），等待 **${equipOwner.name}** 抉擇是否穿戴！`, type: 'loot' });
+      }
     }
 
     log.forEach(l => this.addLog(l.text, l.type));
@@ -841,9 +929,9 @@ export class Room {
     let assassinDidCrit = false;
     let bardBuffActive = false;
 
-    // 0. 特性觸發：基礎血量 < 100 的怪物在回合開始造成撕裂傷害 (套用 20% 層數加成)
+    // 0. 特性觸發：基礎血量 < 100 的怪物在回合開始造成撕裂傷害 (套用難度層數加成)
     if (monster.baseHp < 100) {
-      const bleedDmg = Math.floor(2 * (1 + (this.floor - 1) * 0.20));
+      const bleedDmg = Math.floor(2 * getFloorDifficultyMultiplier(this.floor));
       for (const p of Object.values(this.players)) {
         if (p.hp > 0 && p.bleedTurns > 0) {
           p.bleedTurns -= 1;
@@ -944,6 +1032,17 @@ export class Room {
       return;
     }
 
+    // 檢查德魯伊狼王臣服失敗判定：隊友若因流血/劇毒倒下，生還者僅剩臣服德魯伊
+    const canFightAfterDot = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
+    if (canFightAfterDot.length === 0 && (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長'))) {
+      log.push({ text: `👑🐺💀 **【血脈臣服·全隊潰敗】** 隊友皆因流血/劇毒倒下，生還的德魯伊處於狼王臣服狀態無法行動，小隊直接判定挑戰失敗！`, type: 'damage' });
+      log.forEach(l => this.addLog(l.text, l.type));
+      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: false });
+      this.broadcastState();
+      this.setTimer(3, () => this.handleGameOver());
+      return;
+    }
+
     if (monster.hp <= 0) {
       this.handleMonsterVictory(monster, log, visualEvents);
       return;
@@ -990,10 +1089,14 @@ export class Room {
         const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
         if (resCount > 0) {
           for (const owner of Object.values(this.players)) {
-            if (owner.hp > 0 && owner.minion && owner.minion.hp > 0) {
-              const healAmt = 3 * resCount;
-              owner.minion.hp = Math.min(owner.minion.maxHp, owner.minion.hp + healAmt);
-              log.push({ text: `🌿 【自然共鳴】為 **${owner.name}** 的僕從【${owner.minion.name}】回復了 **${healAmt}** 點生命！（🐾 ${owner.minion.hp}/${owner.minion.maxHp}）`, type: 'heal' });
+            if (owner.hp > 0 && owner.minions && owner.minions.length > 0) {
+              for (const m of owner.minions) {
+                if (m.hp > 0) {
+                  const healAmt = 3 * resCount;
+                  m.hp = Math.min(m.maxHp, m.hp + healAmt);
+                  log.push({ text: `🌿 【自然共鳴】為 **${owner.name}** 的僕從【${m.name}】回復了 **${healAmt}** 點生命！（🐾 ${m.hp}/${m.maxHp}）`, type: 'heal' });
+                }
+              }
             }
           }
         }
@@ -1049,32 +1152,45 @@ export class Room {
       return { dmg: Math.max(1, finalDmg), isResisted, resistPercent: Math.round(resistRate * 100) };
     };
 
-    // 1.5 僕從每回合自動攻擊一次
+    // 1.5 僕從每回合自動攻擊一次 (活著時自動施放攻擊)
     for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && p.minion && p.minion.hp > 0) {
-        const raw = Math.floor(p.minion.atk * bardDmgMultiplier);
-        const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
-        monster.hp -= dmg;
-        const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
-        log.push({ text: `🐾 **${p.name}** 的僕從【${p.minion.name}】主動出擊，對怪物造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
-        visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: p.minion.name });
-        if (monster.hp <= 0) {
-          const livingPlayers = Object.values(this.players).filter(pl => pl.hp > 0);
-          if (livingPlayers.length === 0) {
-            log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
-            log.forEach(l => this.addLog(l.text, l.type));
-            this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
-            this.broadcastState();
-            this.setTimer(3, () => this.handleGameOver());
-            return;
+      if (p.hp > 0 && p.minions && p.minions.length > 0) {
+        for (const m of p.minions) {
+          if (m.hp > 0 && monster.hp > 0) {
+            const raw = Math.floor(m.atk * bardDmgMultiplier);
+            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
+            monster.hp -= dmg;
+            const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+            log.push({ text: `🐾 **${p.name}** 的僕從【${m.name}】主動出擊，對怪物造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: m.name });
+            if (monster.hp <= 0) {
+              const livingPlayers = Object.values(this.players).filter(pl => pl.hp > 0);
+              if (livingPlayers.length === 0) {
+                log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+                log.forEach(l => this.addLog(l.text, l.type));
+                this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+                this.broadcastState();
+                this.setTimer(3, () => this.handleGameOver());
+                return;
+              }
+              this.handleMonsterVictory(monster, log, visualEvents);
+              return;
+            }
           }
-          this.handleMonsterVictory(monster, log, visualEvents);
-          return;
         }
       }
     }
 
     // 2. 玩家行動結算
+    const getEffectiveBonusAtk = (pl) => {
+      let bonus = pl.bonusAtk;
+      if (pl.alcAcidEquipHalvedTurns > 0) {
+        const equipAtk = (pl.equips || []).reduce((sum, eq) => sum + (eq.bonusAtk || 0), 0);
+        bonus -= Math.floor(equipAtk * 0.5);
+      }
+      return bonus;
+    };
+
     for (const p of Object.values(this.players)) {
       if (p.isSurrendered) {
         log.push({ text: `🐺 **${p.name}** 陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！`, type: 'warning' });
@@ -1109,7 +1225,7 @@ export class Room {
           let baseAtk = 10;
           if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk += 20;
           if (p.role === 'druid' && p.druidForm === 'treant') baseAtk = Math.max(1, baseAtk - 5);
-          const raw = Math.floor((baseAtk + p.bonusAtk) * bardDmgMultiplier);
+          const raw = Math.floor((baseAtk + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, dmgType);
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
@@ -1377,17 +1493,20 @@ export class Room {
 
         // 鍊金術士技能
         case 'alc_acid': {
-          const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管').length;
-          const selfDmg = buretteCount > 0 ? Math.floor(15 * Math.pow(0.5, buretteCount)) : 15;
-          const raw = Math.floor((40 + p.bonusAtk) * bardDmgMultiplier);
+          const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
+          const selfDmg = buretteCount > 0 ? 0 : 15;
+          p.alcAcidEquipHalvedTurns = 2;
+          const raw = Math.floor((40 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           p.hp = Math.max(0, p.hp - selfDmg);
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const buretteNote = buretteCount > 0 ? ' (🧪精密滴定管減免自傷50%)' : '';
-          log.push({ text: `⚗️ **${p.name}** 投擲【腐蝕強酸瓶】，強酸侵蝕造成 **${dmg}** 點【魔法】傷害！${resNote} 自身受到 **${selfDmg}** 點自傷${buretteNote}！（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
+          const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
+          log.push({ text: `⚗️ **${p.name}** 投擲【腐蝕強酸瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}⚠️ 強酸腐蝕自身裝備，裝備效果減半持續 2 回合！（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
-          visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
+          if (selfDmg > 0) {
+            visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
+          }
           if (p.hp <= 0) {
             p.hp = 0;
             this.clearPlayerDebuffs(p);
@@ -1397,9 +1516,9 @@ export class Room {
         }
 
         case 'alc_poison': {
-          const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管').length;
-          const selfDmg = buretteCount > 0 ? Math.floor(5 * Math.pow(0.5, buretteCount)) : 5;
-          const raw = Math.floor((30 + p.bonusAtk) * bardDmgMultiplier);
+          const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
+          const selfDmg = buretteCount > 0 ? 0 : 5;
+          const raw = Math.floor((30 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           p.hp = Math.max(0, p.hp - selfDmg);
@@ -1412,10 +1531,12 @@ export class Room {
             }
           }
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const buretteNote = buretteCount > 0 ? ' (🧪精密滴定管減免自傷50%)' : '';
-          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote} 自身受到 **${selfDmg}** 點自傷${buretteNote}！濃烈毒霧覆蓋全場，**敵我雙方皆陷入劇毒（後續2回合每回合初各受5點毒傷）**！`, type: 'combat' });
+          const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
+          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}濃烈毒霧覆蓋全場，**敵我雙方皆陷入劇毒（後續2回合每回合初各受5點毒傷）**！`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '劇毒煙霧瓶' });
-          visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
+          if (selfDmg > 0) {
+            visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
+          }
           if (p.hp <= 0) {
             p.hp = 0;
             this.clearPlayerDebuffs(p);
@@ -1442,9 +1563,9 @@ export class Room {
               pl.bleedTurns = 0;
               pl.poisonTurns = 0;
             }
-            const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管').length;
-            // 精密滴定管使 2 技能失敗機率提高至 75%（大成功機率 25%）
-            const successRate = buretteCount > 0 ? 0.25 : 0.50;
+            const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
+            // 精密滴管使 2 技能失敗機率改變成 65%（大成功機率 35%），未裝備時為 50%
+            const successRate = buretteCount > 0 ? 0.35 : 0.50;
             const isSuccess = Math.random() < successRate;
             if (isSuccess) {
               for (const pl of Object.values(this.players)) {
@@ -1472,8 +1593,11 @@ export class Room {
           p.druidFormTurns = 2;
           if (isWerewolf) {
             p.druidForm = 'werewolf';
-            p.hp = Math.max(1, p.hp - 20);
-            log.push({ text: `🐺 **${p.name}** 仰天長嘯發動【形態轉變】—— 化身為 **【狼人】**（扣除20點生命保底1，造成傷害全部+20，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+            const deduct = Math.min(20, Math.max(0, p.maxHp - 1));
+            p.werewolfMaxHpDeducted = (p.werewolfMaxHpDeducted || 0) + deduct;
+            p.maxHp -= deduct;
+            p.hp = Math.min(p.hp, p.maxHp);
+            log.push({ text: `🐺 **${p.name}** 仰天長嘯發動【形態轉變】—— 化身為 **【狼人】**（暫時扣除 ${deduct} 點最大生命值，造成傷害全部+20，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
             visualEvents.push({ type: 'transform_wolf', sourceId: p.id });
 
             // 特殊彩蛋：若遭遇 BOSS【暗影魔狼族長】
@@ -1481,9 +1605,19 @@ export class Room {
               p.isSurrendered = true;
               log.push({ text: `👑🐺 **【特殊彩蛋：狼王血脈壓制！】** 遭遇 BOSS【暗影魔狼族長】！至高狼王血脈壓制降臨，**${p.name}** 靈魂顫慄直接陷入【臣服狀態】，整場戰鬥無法行動直到 BOSS 倒下！`, type: 'warning' });
               visualEvents.push({ type: 'surrender', targetId: p.id });
+
+              // 檢查：如果其他隊友都死亡或是只有他一人，直接判定挑戰失敗
+              const otherAbleTeammates = Object.values(this.players).filter(other => other.id !== p.id && other.hp > 0 && !other.isSurrendered);
+              if (otherAbleTeammates.length === 0) {
+                const failReason = Object.keys(this.players).length === 1
+                  ? `德魯伊 **${p.name}** 孤身一人遭遇狼王陷入血脈臣服無法動彈，無人能繼續作戰，冒險直接判定挑戰失敗！`
+                  : `德魯伊 **${p.name}** 陷入狼王血脈臣服，且其餘隊友皆已陣亡，場上已無任何能戰鬥的隊友，冒險直接判定挑戰失敗！`;
+                log.push({ text: `👑🐺💀 **【血脈臣服·全隊潰敗】** ${failReason}`, type: 'damage' });
+                this.isWolfSurrenderGameOver = true;
+              }
             } else {
               // 變身當回合立即觸發一次強化普攻（造成 30 傷害）
-              const raw = Math.floor((30 + p.bonusAtk) * bardDmgMultiplier);
+              const raw = Math.floor((30 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
               const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
               monster.hp -= dmg;
               const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
@@ -1501,24 +1635,68 @@ export class Room {
         }
 
         case 'dru_summon_treant': {
+          if (!p.minions) p.minions = [];
+          if (p.minions.length >= 3) {
+            log.push({ text: `🌱 **${p.name}** 嘗試施展【自然呼喚】，但場上已有 3 隻僕從（已達上限），無法再召喚！`, type: 'warning' });
+            break;
+          }
           const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
           const treantHp = 15 + 5 * resCount;
-          p.minion = { type: 'treant', name: '小樹精', hp: treantHp, maxHp: treantHp, atk: 1 };
-          p.cooldowns['dru_summon_treant'] = 2;
-          p.cooldowns['dru_summon_wolf'] = 2;
-          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】(HP ${treantHp} / 攻擊 1)！每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
+          const newTreant = {
+            id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            type: 'treant',
+            name: '小樹精',
+            hp: treantHp,
+            maxHp: treantHp,
+            atk: 1
+          };
+          p.minions.push(newTreant);
+          p.minion = p.minions[0];
+          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】(HP ${treantHp} / 攻擊 1)！(現有僕從 ${p.minions.length}/3) 每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: '小樹精' });
+
+          // 召喚當回合立即發動攻擊
+          if (monster.hp > 0) {
+            const raw = Math.floor(newTreant.atk * bardDmgMultiplier);
+            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
+            monster.hp -= dmg;
+            const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+            log.push({ text: `🌱🐾 **${newTreant.name}** 登場立即撲向目標攻擊，造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: `${newTreant.name}突擊` });
+          }
           break;
         }
 
         case 'dru_summon_wolf': {
+          if (!p.minions) p.minions = [];
+          if (p.minions.length >= 3) {
+            log.push({ text: `🐺 **${p.name}** 嘗試施展【自然呼喚】，但場上已有 3 隻僕從（已達上限），無法再召喚！`, type: 'warning' });
+            break;
+          }
           const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
           const wolfAtk = 10 + 2 * resCount;
-          p.minion = { type: 'wolf', name: '幼狼', hp: 5, maxHp: 5, atk: wolfAtk };
-          p.cooldowns['dru_summon_treant'] = 2;
-          p.cooldowns['dru_summon_wolf'] = 2;
-          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】(HP 5 / 攻擊 ${wolfAtk})！每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
+          const newWolf = {
+            id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            type: 'wolf',
+            name: '幼狼',
+            hp: 5,
+            maxHp: 5,
+            atk: wolfAtk
+          };
+          p.minions.push(newWolf);
+          p.minion = p.minions[0];
+          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】(HP 5 / 攻擊 ${wolfAtk})！(現有僕從 ${p.minions.length}/3) 每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: '幼狼' });
+
+          // 召喚當回合立即發動攻擊
+          if (monster.hp > 0) {
+            const raw = Math.floor(newWolf.atk * bardDmgMultiplier);
+            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
+            monster.hp -= dmg;
+            const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+            log.push({ text: `🐺🐾 **${newWolf.name}** 登場撕咬撲襲，造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: `${newWolf.name}突擊` });
+          }
           break;
         }
       }
@@ -1576,18 +1754,17 @@ export class Room {
         }
       }
 
-      // 德魯伊技能 CD 與變身持續時間處理
+      // 德魯伊變身持續時間處理
       if (p.role === 'druid') {
-        if (p.action === 'dru_summon_treant' || p.action === 'dru_summon_wolf') {
-          p.cooldowns['dru_summon_treant'] = 2;
-          p.cooldowns['dru_summon_wolf'] = 2;
-        }
         if (p.druidFormTurns > 0) {
           p.druidFormTurns -= 1;
           if (p.druidFormTurns === 0 && p.druidForm) {
             if (p.druidForm === 'treant' || p.druidForm === 'tree') {
               p.maxHp -= 100;
               p.hp = Math.min(p.hp, p.maxHp);
+            } else if (p.druidForm === 'werewolf' && (p.werewolfMaxHpDeducted || 0) > 0) {
+              p.maxHp += p.werewolfMaxHpDeducted;
+              p.werewolfMaxHpDeducted = 0;
             }
             const formName = p.druidForm === 'tree' ? '沉睡古樹' : (p.druidForm === 'werewolf' ? '狼人' : '樹精');
             log.push({ text: `🌿 **${p.name}** 的【${formName}】形態結束，解除變身回復正常人身狀態。`, type: 'info' });
@@ -1595,6 +1772,31 @@ export class Room {
           }
         }
       }
+    }
+
+    // 4.9 檢查德魯伊狼王臣服失敗判定（若其他隊友都死亡或是只有他一人，直接判定挑戰失敗）
+    if (this.isWolfSurrenderGameOver) {
+      this.isWolfSurrenderGameOver = false;
+      narratives.push({
+        type: 'monster',
+        name: monster.name,
+        isUlt: true,
+        text: `👑🐺 **${monster.name}** 傲立俯瞰著臣服顫慄的狼人德魯伊，小隊已無任何再戰之力，挑戰以失敗告終！`
+      });
+      const narrationDuration = Math.max(3, narratives.length * 2.0 + 1.0);
+      log.forEach(l => this.addLog(l.text, l.type));
+      this.io.to(this.code).emit('battle:visual_events', {
+        events: visualEvents,
+        narratives: narratives,
+        round: this.battleRound,
+        monsterKilled: false,
+        duration: narrationDuration
+      });
+      this.broadcastState();
+      this.setTimer(Math.ceil(narrationDuration), () => {
+        this.handleGameOver();
+      });
+      return;
     }
 
     // 5. 判定怪物擊殺與勝負判定
@@ -1676,7 +1878,25 @@ export class Room {
       let remainingScatter = scatterDmgPool;
       for (const owner of Object.values(this.players)) {
         if (remainingScatter <= 0) break;
-        if (owner.minion && owner.minion.hp > 0) {
+        if (owner.minions && owner.minions.length > 0) {
+          for (let mi = owner.minions.length - 1; mi >= 0; mi--) {
+            if (remainingScatter <= 0) break;
+            const m = owner.minions[mi];
+            if (m.hp > 0) {
+              const absorb = Math.min(m.hp, remainingScatter);
+              m.hp -= absorb;
+              remainingScatter -= absorb;
+              visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
+              if (m.hp <= 0) {
+                log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${m.name}】挺身為全隊擋下 **${absorb}** 點彈射傷害，隨後力竭消散！💀`, type: 'warning' });
+                owner.minions.splice(mi, 1);
+              } else {
+                log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${m.name}】優先替全隊擋下 **${absorb}** 點彈射傷害！（僕從 HP: ${m.hp}/${m.maxHp}）`, type: 'buff' });
+              }
+            }
+          }
+          owner.minion = owner.minions[0] || null;
+        } else if (owner.minion && owner.minion.hp > 0) {
           const absorb = Math.min(owner.minion.hp, remainingScatter);
           owner.minion.hp -= absorb;
           remainingScatter -= absorb;
@@ -1807,6 +2027,12 @@ export class Room {
               p.druidForm = null;
               p.druidFormTurns = 0;
             }
+            if (p.druidForm === 'werewolf' && (p.werewolfMaxHpDeducted || 0) > 0) {
+              p.maxHp += p.werewolfMaxHpDeducted;
+              p.werewolfMaxHpDeducted = 0;
+              p.druidForm = null;
+              p.druidFormTurns = 0;
+            }
             log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
             monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: true, shieldMod: shieldDamageMod });
           }
@@ -1836,8 +2062,9 @@ export class Room {
       this.alcVulnerableNextTurn = false;
     }
 
-    // 結算戰士揮砍失衡易傷、弓箭手脫靶失閃
+    // 結算戰士揮砍失衡易傷、弓箭手脫靶失閃、鍊金強酸裝備減半
     for (const pl of Object.values(this.players)) {
+      if (pl.alcAcidEquipHalvedTurns > 0) pl.alcAcidEquipHalvedTurns -= 1;
       if (pl.warriorVulnerableTurns > 0) pl.warriorVulnerableTurns -= 1;
       if (pl.warriorVulnerableNextTurn) {
         pl.warriorVulnerableTurns = 1;
@@ -1876,6 +2103,14 @@ export class Room {
         if (monster.hp <= 0) {
           log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
         }
+        this.handleGameOver();
+        return;
+      }
+
+      // 檢查德魯伊狼王臣服失敗判定：若活著的玩家皆處於臣服狀態（其他隊友皆陣亡或僅有臣服德魯伊）
+      const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
+      if (canFightLiving.length === 0 && (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長'))) {
+        this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 隊伍其他成員皆已戰死，生還的德魯伊仍處於狼王臣服無法行動，場上已無人能繼續作戰，冒險直接判定挑戰失敗！`, 'damage');
         this.handleGameOver();
         return;
       }
@@ -1960,6 +2195,7 @@ export class Room {
     this.routeVotes = {};
     this.pendingDrop = null;
     this.monsterStunnedThisRound = false;
+    this.isWolfSurrenderGameOver = false;
 
     for (const p of Object.values(this.players)) {
       p.hp = p.role ? CLASSES[p.role].maxHp : 100;
@@ -2166,6 +2402,7 @@ export class Room {
       routeVotes: this.routeVotes || {},
       routeVoteCounts: routeVoteCounts,
       pendingDrop: this.pendingDrop || null,
+      floorDifficultyPercent: getFloorDifficultyBonusPercent(this.floor),
       players: Object.values(this.players).map(p => ({
         id: p.id,
         name: p.name,
@@ -2180,6 +2417,8 @@ export class Room {
         votedRouteId: (this.routeVotes && this.routeVotes[p.id]) || null,
         warriorVulnerableTurns: p.warriorVulnerableTurns || 0,
         archerNoDodgeTurns: p.archerNoDodgeTurns || 0,
+        alcAcidEquipHalvedTurns: p.alcAcidEquipHalvedTurns || 0,
+        werewolfMaxHpDeducted: p.werewolfMaxHpDeducted || 0,
         cooldowns: {
           ...p.cooldowns,
           dru_transform: (p.druidFormTurns || 0)
@@ -2191,7 +2430,8 @@ export class Room {
         druidForm: p.druidForm || null,
         druidFormTurns: p.druidFormTurns || 0,
         isSurrendered: p.isSurrendered || false,
-        minion: p.minion ? { ...p.minion } : null,
+        minions: (p.minions || []).map(m => ({ id: m.id, type: m.type, name: m.name, hp: m.hp, maxHp: m.maxHp, atk: m.atk })),
+        minion: (p.minions && p.minions[0]) ? { ...p.minions[0] } : (p.minion ? { ...p.minion } : null),
         cannotCrit: p.cannotCrit,
         hasActed: p.action !== null, // 只透露是否已下達指令，暗中保密指令內容
         connected: p.connected

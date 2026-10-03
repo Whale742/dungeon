@@ -530,6 +530,7 @@ input[type="text"]::placeholder {
 
 .hero-avatars-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: 12px;
@@ -550,6 +551,20 @@ input[type="text"]::placeholder {
 .hero-intro-avatar:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
+}
+
+@media (max-width: 480px) {
+  .hero-avatars-row {
+    gap: 8px;
+    max-width: 200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .hero-intro-avatar {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 .entry-hero h2 {
@@ -1588,22 +1603,16 @@ input[type="text"]::placeholder {
 
 /* 怪物卡片 */
 .monster-card {
-  padding: 16px 22px;
-  height: 235px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  padding: 20px 24px;
 }
 
 .monster-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
 }
 
 .monster-badge {
@@ -1628,15 +1637,13 @@ input[type="text"]::placeholder {
 .monster-body {
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
+  gap: 24px;
 }
 
 .monster-avatar-wrap {
   position: relative;
-  width: 110px;
-  height: 110px;
+  width: 120px;
+  height: 120px;
   background: var(--color-surface-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
@@ -2043,6 +2050,129 @@ input[type="text"]::placeholder {
   text-overflow: ellipsis;
 }
 
+/* 德魯伊召喚物暫時玩家框（固定高度不變高，支援點擊展開詳細資訊） */
+.teammate-card-minion {
+  background: linear-gradient(145deg, rgba(240, 253, 244, 0.95) 0%, rgba(220, 252, 231, 0.95) 100%);
+  border: 1.5px solid #22c55e;
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.teammate-card-minion:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.28);
+}
+
+.teammate-card-minion .teammate-top {
+  color: #15803d;
+}
+
+.minion-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 4px;
+  line-height: 1.2;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  outline: none;
+  user-select: none;
+}
+
+.minion-count-badge:hover {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+  transform: scale(1.08);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+}
+
+/* 德魯伊僕從詳細資訊 Modal */
+.minion-detail-modal {
+  max-width: 440px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 22px 24px;
+}
+
+.minion-detail-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.minion-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-top: 10px;
+}
+
+.minion-detail-item {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.minion-detail-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.minion-detail-item-header .name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #166534;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.minion-detail-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.minion-detail-badge.wolf {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.minion-detail-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  background: rgba(240, 253, 244, 0.6);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  margin-top: 8px;
+}
+
 /* 玩家專屬操作面板 */
 .player-action-card {
   padding: 18px 22px;
@@ -2278,36 +2408,46 @@ input[type="text"]::placeholder {
 }
 
 /* --------------------------------------------------------------------------
-   15. Battle Top Grid (BOSS & 事件表 並列區)
+   15. Floating Battle Log Card (左側綠色框框獨立區塊)
    -------------------------------------------------------------------------- */
-.battle-top-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-@media (max-width: 900px) {
-  .battle-top-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.battle-log-card {
+.floating-log-card {
+  position: fixed;
+  top: 80px;
+  bottom: 24px;
+  right: calc(50vw + 580px + 16px);
+  width: 340px;
+  max-width: calc(50vw - 580px - 32px);
+  z-index: 9980;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: 16px 20px;
-  box-shadow: var(--shadow-card);
-  height: 235px;
   box-sizing: border-box;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.battle-log-card .mini-header {
+.floating-log-card.collapsed {
+  height: 46px !important;
+  bottom: auto !important;
+  overflow: hidden;
+}
+
+.floating-log-card.collapsed .battle-log-window {
+  display: none;
+}
+
+.floating-log-card .mini-header {
   margin-bottom: 8px;
   flex-shrink: 0;
+}
+
+.battle-log-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .battle-log-title {
@@ -2328,13 +2468,13 @@ input[type="text"]::placeholder {
   background: var(--color-surface-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 10px 14px;
-  font-size: 13.5px;
+  padding: 10px 12px;
+  font-size: 13px;
   line-height: 1.6;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 0;
+  margin-top: 4px;
   scroll-behavior: smooth;
 }
 
@@ -2343,7 +2483,7 @@ input[type="text"]::placeholder {
 }
 
 .battle-log-window::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(0, 0, 0, 0.04);
   border-radius: var(--radius-pill);
 }
 
@@ -2353,16 +2493,41 @@ input[type="text"]::placeholder {
 }
 
 .battle-log-window::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+  background: rgba(100, 116, 139, 0.75);
 }
 
-@media (max-width: 900px) {
-  .monster-card {
-    height: auto;
-    min-height: 220px;
+@media (max-width: 1650px) {
+  .floating-log-card {
+    right: auto;
+    left: 20px;
+    bottom: 24px;
+    top: auto;
+    width: 320px;
+    height: 440px;
+    max-height: calc(100vh - 120px);
   }
-  .battle-log-card {
-    height: 200px;
+
+  .floating-log-card.collapsed {
+    height: 46px !important;
+    top: auto !important;
+    bottom: 24px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .floating-log-card {
+    left: 12px;
+    right: auto;
+    bottom: 86px;
+    top: auto;
+    width: min(320px, calc(100vw - 24px));
+    height: 280px;
+  }
+
+  .floating-log-card.collapsed {
+    height: 46px !important;
+    top: auto !important;
+    bottom: 86px !important;
   }
 }
 
@@ -2386,13 +2551,20 @@ input[type="text"]::placeholder {
 .log-line.chat { color: var(--color-text-primary); font-weight: 600; }
 
 /* --------------------------------------------------------------------------
-   15.5 Floating Chat Circle & 30s Speech Bubble
+   15.5 Floating Chat Circle & 30s Speech Bubble (右下角藍色圈圈)
    -------------------------------------------------------------------------- */
 .floating-chat-container {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 9999;
+}
+
+@media (max-width: 600px) {
+  .floating-chat-container {
+    right: 12px;
+    bottom: 20px;
+  }
 }
 
 .floating-chat-btn {

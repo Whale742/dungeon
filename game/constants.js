@@ -72,7 +72,7 @@ export const CLASSES = {
     desc: '【生命 75】神秘調和者。精通強酸爆破、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
       { id: 'basic', label: '基礎打擊', cd: 0, dmgType: 'mag', desc: '【魔法】基礎藥杵打擊（傷害: 10）' },
-      { id: 'alc_acid', label: '1技A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', desc: '【魔法】擲出強酸（傷害: 40，自身受15點自傷，無CD）' },
+      { id: 'alc_acid', label: '1技A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', desc: '【魔法】擲出強酸（傷害: 40，自身受15點自傷且自身裝備效果減半持續2回合，無CD）' },
       { id: 'alc_poison', label: '1技B: 劇毒煙霧瓶', cd: 0, dmgType: 'mag', desc: '【魔法】引爆毒霧（傷害: 30，自身自傷5點，敵我皆陷入劇毒2回合各受5點毒傷，無CD）' },
       { id: 'alc_fate', label: '2技: 命運煉成試劑', cd: 2, desc: '立即驅散我方全體負面效果(流血/中毒)。若自身有異常狀態：50%大成功(全員回血40+2回合70%減傷) / 50%失敗(全員回血10+下回合全隊受傷+20%)；若自身無異常狀態：效果轉為全員穩定回復15點生命（無反噬，CD 2）' }
     ]
@@ -85,9 +85,9 @@ export const CLASSES = {
     desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚僕從（小樹精/幼狼）。',
     skills: [
       { id: 'basic', label: '基礎打擊', cd: 0, dmgType: 'phys', desc: '【物理】自然法杖揮擊（傷害: 10）' },
-      { id: 'dru_transform', label: '1技: 形態轉變', cd: 0, desc: '持續2回合(結束後才可再次變身)：50%狼人(扣20HP/全傷+20/立即30傷強化普攻；遇暗影魔狼族長臣服)；50%樹精(生命+100/減傷20%/每回合初自癒5HP(勝場可加成)/替全隊吸收50%受傷/致命傷免死化為樹木1回合)' },
-      { id: 'dru_summon_treant', label: '2技A: 呼喚小樹精', cd: 2, desc: '【自然呼喚】召喚小樹精(HP 15 / 攻擊 1)，每回合自動攻擊並優先替全隊擋下怪物彈射傷害（共用CD 2）' },
-      { id: 'dru_summon_wolf', label: '2技B: 呼喚幼狼', cd: 2, desc: '【自然呼喚】召喚幼狼(HP 5 / 攻擊 10)，每回合自動攻擊並優先替全隊擋下怪物彈射傷害（共用CD 2）' }
+      { id: 'dru_transform', label: '1技: 形態轉變', cd: 0, desc: '持續2回合(結束後才可再次變身)：50%狼人(暫時扣除20最大生命/全傷+20/立即30傷強化普攻；結束後恢復最大生命；遇暗影魔狼族長臣服)；50%樹精(生命+100/減傷20%/每回合初自癒5HP(勝場可加成)/替全隊吸收50%受傷/致命傷免死化為樹木1回合)' },
+      { id: 'dru_summon_treant', label: '2技A: 呼喚小樹精', cd: 0, desc: '【自然呼喚】召喚小樹精(HP 15 / 攻擊 1，上限3隻，無CD)，登場當回合立即攻擊，每回合自動攻擊並優先替全隊擋下怪物彈射傷害' },
+      { id: 'dru_summon_wolf', label: '2技B: 呼喚幼狼', cd: 0, desc: '【自然呼喚】召喚幼狼(HP 5 / 攻擊 10，上限3隻，無CD)，登場當回合立即攻擊，每回合自動攻擊並優先替全隊擋下怪物彈射傷害' }
     ]
   }
 };
@@ -228,9 +228,9 @@ export const LOOT_TABLE = [
   {
     id: 'alc_burette',
     role: 'alchemist',
-    name: '精密滴定管',
+    name: '精密滴管',
     isSpecial: true,
-    desc: '1技能對自身造成的反噬傷害降低 50%，但2技能失敗機率提高至 75%'
+    desc: '移除腐蝕強酸瓶與劇毒煙霧瓶的自傷效果（劇毒狀態仍保留），但2技能命運煉成失敗機率改變為 65%'
   },
 
   // 德魯伊 (Druid)
@@ -714,3 +714,17 @@ export function getPlayerSkills(player) {
   return baseSkills;
 }
 
+// 敵方難度加成計算：1~5層每層+10%，6~10層每層+15%，以此類推
+export function getFloorDifficultyBonusPercent(floor) {
+  let bonus = 0;
+  for (let f = 2; f <= floor; f++) {
+    const bracket = Math.floor((f - 1) / 5);
+    const rate = 10 + bracket * 5;
+    bonus += rate;
+  }
+  return bonus;
+}
+
+export function getFloorDifficultyMultiplier(floor) {
+  return 1 + (getFloorDifficultyBonusPercent(floor) / 100);
+}

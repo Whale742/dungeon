@@ -212,66 +212,50 @@
       <!-- 視圖 5：戰鬥畫面 -->
       <section id="viewBattle" class="view-panel">
         <div class="battle-layout">
-          <!-- 上方：怪物與戰場事件表並列區 -->
-          <div class="battle-top-grid">
-            <!-- 左側：怪物卡 -->
-            <div class="card monster-card" id="monsterCard">
-              <div class="monster-header">
-                <div class="monster-badge">第 <span id="battleFloorNum">1</span> 層 · 第 <span id="battleRoundNum">1</span> 回合</div>
-                <div class="round-timer" id="battleTimerWrap">
-                  ⏱️ 行動倒數：<span id="battleTimerCount">30</span>s
-                </div>
-              </div>
-
-              <div class="monster-body">
-                <div class="monster-avatar-wrap" id="monsterAvatarWrap">
-                  <div class="monster-avatar" id="monsterAvatar">👾</div>
-                  <div id="monsterSlashOverlay" class="slash-overlay"></div>
-                  <div id="monsterMagicOverlay" class="magic-overlay"></div>
-                  <div id="monsterFloatingContainer" class="floating-text-container"></div>
-                </div>
-                <div class="monster-info">
-                  <div class="monster-title-row">
-                    <h2 id="monsterName">地底熔岩巨像</h2>
-                    <div id="monsterResTag" class="res-tag res-phys">🛡️ 高階物理抗性 (-70%)</div>
-                  </div>
-                  <p id="monsterDesc" class="monster-desc">岩石外殼極為厚重！</p>
-                  
-                  <div class="hp-bar-container">
-                    <div class="hp-bar-label">
-                      <span>魔物生命值</span>
-                      <span id="monsterHpText">100 / 100</span>
-                    </div>
-                    <div class="hp-bar-bg">
-                      <div id="monsterHpFill" class="hp-bar-fill monster-fill" style="width: 100%;"></div>
-                    </div>
-                  </div>
-
-                  <div class="monster-threat-row">
-                    <div class="threat-item">
-                      <span class="threat-label">基礎反擊：</span>
-                      <span id="monsterAtkText" class="threat-val">10 點</span>
-                    </div>
-                    <div class="threat-item" id="ultWarningBox">
-                      <span class="threat-label">蓄力必殺：</span>
-                      <span id="monsterUltName" class="threat-val ult-alert">崩山滅世重砸 (1.35x)</span>
-                    </div>
-                  </div>
-                  <div id="monsterBuffsRow" class="monster-buffs"></div>
-                </div>
+          <!-- 怪物卡 (恢復原尺寸) -->
+          <div class="card monster-card" id="monsterCard">
+            <div class="monster-header">
+              <div class="monster-badge">第 <span id="battleFloorNum">1</span> 層 · 第 <span id="battleRoundNum">1</span> 回合</div>
+              <div class="round-timer" id="battleTimerWrap">
+                ⏱️ 行動倒數：<span id="battleTimerCount">30</span>s
               </div>
             </div>
 
-            <!-- 右側：即時事件表 -->
-            <div class="card battle-log-card" id="battleLogCard">
-              <div class="card-header mini-header">
-                <div class="battle-log-title">
-                  <span>📜 戰況事件表</span>
-                </div>
-                <button id="btnClearLog" class="btn btn-secondary btn-tiny" title="清空當前事件表記錄">清空</button>
+            <div class="monster-body">
+              <div class="monster-avatar-wrap" id="monsterAvatarWrap">
+                <div class="monster-avatar" id="monsterAvatar">👾</div>
+                <div id="monsterSlashOverlay" class="slash-overlay"></div>
+                <div id="monsterMagicOverlay" class="magic-overlay"></div>
+                <div id="monsterFloatingContainer" class="floating-text-container"></div>
               </div>
-              <div id="combatLogWindow" class="log-window battle-log-window">
-                <div class="log-line info">⚔️ 戰鬥開始！請全體隊員下達行動指令。</div>
+              <div class="monster-info">
+                <div class="monster-title-row">
+                  <h2 id="monsterName">地底熔岩巨像</h2>
+                  <div id="monsterResTag" class="res-tag res-phys">🛡️ 高階物理抗性 (-70%)</div>
+                </div>
+                <p id="monsterDesc" class="monster-desc">岩石外殼極為厚重！</p>
+                
+                <div class="hp-bar-container">
+                  <div class="hp-bar-label">
+                    <span>魔物生命值</span>
+                    <span id="monsterHpText">100 / 100</span>
+                  </div>
+                  <div class="hp-bar-bg">
+                    <div id="monsterHpFill" class="hp-bar-fill monster-fill" style="width: 100%;"></div>
+                  </div>
+                </div>
+
+                <div class="monster-threat-row">
+                  <div class="threat-item">
+                    <span class="threat-label">基礎反擊：</span>
+                    <span id="monsterAtkText" class="threat-val">10 點</span>
+                  </div>
+                  <div class="threat-item" id="ultWarningBox">
+                    <span class="threat-label">蓄力必殺：</span>
+                    <span id="monsterUltName" class="threat-val ult-alert">崩山滅世重砸 (1.35x)</span>
+                  </div>
+                </div>
+                <div id="monsterBuffsRow" class="monster-buffs"></div>
               </div>
             </div>
           </div>
@@ -315,6 +299,22 @@
             <div id="mySkillsRow" class="skills-row">
               <!-- 動態技能按鈕 -->
             </div>
+          </div>
+        </div>
+
+        <!-- 左側（綠色框框）獨立即時戰況事件表 -->
+        <div class="card battle-log-card floating-log-card" id="battleLogCard">
+          <div class="card-header mini-header">
+            <div class="battle-log-title">
+              <span>📜 戰況事件表</span>
+            </div>
+            <div class="battle-log-actions">
+              <button id="btnToggleLog" class="btn btn-secondary btn-tiny" title="折疊/展開事件表">折疊</button>
+              <button id="btnClearLog" class="btn btn-secondary btn-tiny" title="清空當前事件表記錄">清空</button>
+            </div>
+          </div>
+          <div id="combatLogWindow" class="log-window battle-log-window">
+            <div class="log-line info">⚔️ 戰鬥開始！請全體隊員下達行動指令。</div>
           </div>
         </div>
       </section>
@@ -521,6 +521,25 @@
         <div class="equip-modal-actions">
           <button id="btnEquipItem" class="btn btn-success btn-large">【穿上】</button>
           <button id="btnDiscardItem" class="btn btn-secondary btn-large">【放棄】</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 德魯伊僕從詳細資訊 Modal -->
+    <div id="minionDetailModal" class="modal-overlay hidden">
+      <div class="modal-card minion-detail-modal">
+        <div class="modal-header">
+          <div>
+            <h3 id="minionDetailTitle">🐾 僕從詳細狀態</h3>
+            <p id="minionDetailSubtitle" class="modal-subtitle">召喚物隊伍即時生命與戰鬥數值</p>
+          </div>
+          <button type="button" class="btn-close-modal" id="btnCloseMinionModal">✕</button>
+        </div>
+        <div id="minionDetailList" class="minion-detail-list">
+          <!-- 動態填入各召喚僕從詳細資訊 -->
+        </div>
+        <div style="margin-top: 18px; text-align: right;">
+          <button type="button" class="btn btn-secondary btn-small" id="btnConfirmMinionModal">關閉</button>
         </div>
       </div>
     </div>
