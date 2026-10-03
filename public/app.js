@@ -206,6 +206,7 @@ const elements = {
   routeTimerText: document.getElementById('routeTimerText'),
   routeStatusText: document.getElementById('routeStatusText'),
   routeOptionsGrid: document.getElementById('routeOptionsGrid'),
+  routeVotersStatusList: document.getElementById('routeVotersStatusList'),
 
   // Event
   eventIcon: document.getElementById('eventIcon'),
@@ -241,8 +242,22 @@ const elements = {
   myRoleName: document.getElementById('myRoleName'),
   myHpSummary: document.getElementById('myHpSummary'),
   myAtkSummary: document.getElementById('myAtkSummary'),
+  myEquipsSummary: document.getElementById('myEquipsSummary'),
   myActionStatus: document.getElementById('myActionStatus'),
   mySkillsRow: document.getElementById('mySkillsRow'),
+
+  // Equipment Drop Modal
+  equipDropModal: document.getElementById('equipDropModal'),
+  equipModalTitle: document.getElementById('equipModalTitle'),
+  equipModalSubtitle: document.getElementById('equipModalSubtitle'),
+  dropItemName: document.getElementById('dropItemName'),
+  dropItemType: document.getElementById('dropItemType'),
+  dropItemDesc: document.getElementById('dropItemDesc'),
+  currentEquipCount: document.getElementById('currentEquipCount'),
+  currentEquipsList: document.getElementById('currentEquipsList'),
+  equipReplaceNotice: document.getElementById('equipReplaceNotice'),
+  btnEquipItem: document.getElementById('btnEquipItem'),
+  btnDiscardItem: document.getElementById('btnDiscardItem'),
 
   // Checkpoint
   cpFloorNum: document.getElementById('cpFloorNum'),
@@ -464,6 +479,86 @@ function renderApp() {
 
   // 更新日誌
   renderLogs();
+
+  // 檢查並渲染戰利品裝備抉擇彈窗 (上限 3 件與手動替換)
+  renderPendingDropModal(me);
+}
+
+let selectedReplaceIndex = -1;
+
+// 渲染戰利品裝備抉擇 / 替換 Modal (上限 3 件)
+function renderPendingDropModal(me) {
+  if (!elements.equipDropModal) return;
+
+  const dropInfo = roomState?.pendingDrop;
+  if (!dropInfo || !me || dropInfo.ownerId !== myId) {
+    elements.equipDropModal.classList.add('hidden');
+    selectedReplaceIndex = -1;
+    return;
+  }
+
+  const drop = dropInfo.drop;
+  elements.equipModalTitle.textContent = `🎁 獲得戰利品裝備：【${drop.name}】！`;
+  elements.equipModalSubtitle.textContent = `你在${dropInfo.source === 'battle' ? '擊敗怪物' : '探索寶箱'}後獲得了這件裝備！請抉擇是否穿戴（每位角色上限 3 件）：`;
+  elements.dropItemName.textContent = drop.name;
+  elements.dropItemType.textContent = drop.type === 'weapon' ? '⚔️ 武器' : (drop.type === 'armor' ? '🛡️ 防具' : '💍 飾品');
+  elements.dropItemDesc.textContent = drop.desc || drop.statDesc || '';
+
+  const myEquips = me.equips || [];
+  elements.currentEquipCount.textContent = myEquips.length;
+  const isFull = myEquips.length >= 3;
+
+  if (isFull) {
+    elements.equipReplaceNotice.classList.remove('hidden');
+  } else {
+    elements.equipReplaceNotice.classList.add('hidden');
+  }
+
+  elements.currentEquipsList.innerHTML = '';
+  if (myEquips.length === 0) {
+    elements.currentEquipsList.innerHTML = '<div style="color: var(--color-text-secondary); font-size: 13.5px; padding: 6px 0;">目前尚未穿戴任何裝備（空間 0/3）。可以直接穿上！</div>';
+  } else {
+    myEquips.forEach((eq, idx) => {
+      const itemEl = document.createElement('div');
+      itemEl.className = `current-equip-item ${selectedReplaceIndex === idx ? 'selected-to-replace' : ''}`;
+      itemEl.innerHTML = `
+        <div class="current-equip-info">
+          <span class="current-equip-name">${escapeHtml(eq.name)}</span>
+          <span class="current-equip-desc">${escapeHtml(eq.desc || eq.statDesc || '')}</span>
+        </div>
+        ${isFull ? `<span class="replace-radio-badge">${selectedReplaceIndex === idx ? '✓ 將替換此件' : '點選以替換'}</span>` : ''}
+      `;
+
+      if (isFull) {
+        itemEl.addEventListener('click', () => {
+          selectedReplaceIndex = idx;
+          playSound('click');
+          renderPendingDropModal(me);
+        });
+      }
+      elements.currentEquipsList.appendChild(itemEl);
+    });
+  }
+
+  elements.btnEquipItem.onclick = () => {
+    if (isFull && (selectedReplaceIndex < 0 || selectedReplaceIndex >= myEquips.length)) {
+      alert('⚠️ 裝備欄已滿 3 件！請先點選上方欲替換卸下的既有裝備。');
+      return;
+    }
+    playSound('heal');
+    socket.emit('equip:choice', { action: 'equip', replaceIndex: selectedReplaceIndex });
+    elements.equipDropModal.classList.add('hidden');
+    selectedReplaceIndex = -1;
+  };
+
+  elements.btnDiscardItem.onclick = () => {
+    playSound('click');
+    socket.emit('equip:choice', { action: 'discard' });
+    elements.equipDropModal.classList.add('hidden');
+    selectedReplaceIndex = -1;
+  };
+
+  elements.equipDropModal.classList.remove('hidden');
 }
 
 // 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職: 黃色驚嘆號，無文字)
@@ -764,7 +859,7 @@ function renderTransition() {
   }
 }
 
-// 2. 渲染路線分歧
+// 2. 渲染路線分歧（全員投票機制，15秒倒數）
 function renderRouteChoice(me, isLeader) {
   elements.routeFloorNum.textContent = roomState.floor;
   if (elements.routeFloorHeaderNum) {
@@ -775,37 +870,73 @@ function renderRouteChoice(me, isLeader) {
   }
   elements.routeDiffPercent.textContent = Math.round((roomState.floor - 1) * 20);
 
-  if (isLeader) {
-    elements.routeStatusText.innerHTML = '👑 <strong>請隊長點擊下方卡片決定小隊前進路線：</strong>';
+  const livingPlayers = (roomState.players || []).filter(p => p.hp > 0);
+  const myVoteId = roomState.routeVotes ? roomState.routeVotes[myId] : null;
+
+  if (myVoteId) {
+    elements.routeStatusText.innerHTML = '🗳️ <strong>你已完成投票！等待隊友投票中...（倒數結束結算最高票，平票或全棄票則隨機指引）</strong>';
+  } else if (me && me.hp <= 0) {
+    elements.routeStatusText.innerHTML = '🪦 <strong>你已陣亡，無法參與本層路線投票。請觀看隊友抉擇...</strong>';
   } else {
-    elements.routeStatusText.innerHTML = '⏳ <strong>隊長正在深思前進路線... 請稍候</strong>';
+    elements.routeStatusText.innerHTML = '🗳️ <strong>請全體存活隊友共同投票（每人限投 1 票，15 秒截止）：</strong>';
   }
 
-  // 倒數計時
-  if (roomState.timerRemaining !== null) {
-    elements.routeTimerText.textContent = `倒數 ${roomState.timerRemaining} 秒`;
-    const pct = Math.max(0, Math.min(100, (roomState.timerRemaining / 30) * 100));
-    elements.routeTimerProgress.style.width = `${pct}%`;
+  // 15 秒倒數計時
+  const secondsLeft = roomState.timerRemaining !== null ? roomState.timerRemaining : 15;
+  elements.routeTimerText.textContent = `倒數 ${secondsLeft} 秒`;
+  const pct = Math.max(0, Math.min(100, (secondsLeft / 15) * 100));
+  elements.routeTimerProgress.style.width = `${pct}%`;
+
+  // 渲染隊員投票狀態標籤欄（純文字名稱與投票狀態，不顯示職業頭貼）
+  if (elements.routeVotersStatusList) {
+    elements.routeVotersStatusList.innerHTML = '';
+    livingPlayers.forEach(p => {
+      const vId = roomState.routeVotes ? roomState.routeVotes[p.id] : null;
+      const pill = document.createElement('div');
+      pill.className = `route-voter-pill ${vId ? 'voted' : 'thinking'}`;
+      if (vId) {
+        const votedRoute = (roomState.currentRoutes || []).find(r => r.id === vId);
+        pill.innerHTML = `<span><strong>${escapeHtml(p.name)}</strong>: ✅ 已投${votedRoute ? '【' + votedRoute.name + '】' : ''}</span>`;
+      } else {
+        pill.innerHTML = `<span><strong>${escapeHtml(p.name)}</strong>: ⏳ 思考中...</span>`;
+      }
+      elements.routeVotersStatusList.appendChild(pill);
+    });
   }
 
+  // 渲染 4 條路線按鈕
   elements.routeOptionsGrid.innerHTML = '';
   const currentRoutes = (roomState.currentRoutes && roomState.currentRoutes.length > 0)
     ? roomState.currentRoutes
     : (routesData && routesData.length > 0 ? routesData.slice(0, 4) : []);
 
   currentRoutes.forEach(route => {
+    const votes = (roomState.routeVoteCounts && roomState.routeVoteCounts[route.id]) || 0;
+    const isMyVote = (myVoteId === route.id);
+    const isDead = Boolean(me && me.hp <= 0);
+
+    const votersForThisRoute = (roomState.players || [])
+      .filter(p => roomState.routeVotes && roomState.routeVotes[p.id] === route.id)
+      .map(p => escapeHtml(p.name));
+
     const item = document.createElement('div');
-    item.className = `route-item ${!isLeader ? 'disabled' : ''}`;
+    item.className = `route-item ${isMyVote ? 'my-vote' : ''} ${isDead ? 'disabled' : ''}`;
     item.innerHTML = `
+      <div class="route-vote-badge">🗳️ ${votes} 票</div>
       <div class="route-icon">${route.icon || '🧭'}</div>
       <div class="route-name">${route.name}</div>
       <div class="route-sub">${route.desc}</div>
+      ${votersForThisRoute.length > 0 ? `
+        <div class="route-voters-tags">
+          ${votersForThisRoute.map(name => `<span class="route-voter-tag">${name}</span>`).join('')}
+        </div>
+      ` : ''}
     `;
 
-    if (isLeader) {
+    if (!isDead) {
       item.addEventListener('click', () => {
         playSound('click');
-        socket.emit('route:select', { routeId: route.id });
+        socket.emit('route:vote', { routeId: route.id });
       });
     }
     elements.routeOptionsGrid.appendChild(item);
@@ -831,14 +962,14 @@ function renderEvent() {
     elements.eventTitle.textContent = ev.title;
     elements.eventDetails.innerHTML = `
       <p style="color: #15803d; font-weight: 700; margin-bottom: 8px;">
-        🧪 治癒藥水：全體存活隊友回復 <strong>${ev.healAmt}</strong> 點生命值！
+        🧪 治癒泉水：全體存活隊友回復 <strong>${ev.healAmt}</strong> 點生命值！
       </p>
       <p style="color: #b45309; font-weight: 700;">
-        💎 獲得裝備：【${ev.drop.name}】
+        💎 發現裝備：【${ev.drop.name}】
       </p>
       <p style="color: #334155; font-size: 0.95rem; margin-top: 6px;">
         • 裝備效果：${ev.drop.desc}<br>
-        • 穿戴者：<strong>${escapeHtml(ev.ownerName)}</strong> 立即裝備上了此道具！
+        • 獲得者：<strong>${escapeHtml(ev.ownerName)}</strong> 正在抉擇是否穿戴（手動穿脫/替換，上限3件）！
       </p>
     `;
     playSound('heal');
@@ -965,6 +1096,8 @@ function renderTeammatesGrid(me) {
     if (p.bleedTurns > 0) tags.push(`<span class="status-tag tag-bleed">🩸 撕裂x${p.bleedTurns}</span>`);
     if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">🧪 中毒x${p.poisonTurns}</span>`);
     if (p.stunnedNextTurn) tags.push('<span class="status-tag tag-stun">💫 脫力</span>');
+    if (p.warriorVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 斬擊失衡受傷+20%</span>');
+    if (p.archerNoDodgeTurns > 0) tags.push('<span class="status-tag tag-stun">🏹 箭矢脫靶失閃(0%)</span>');
     if (p.isSurrendered) tags.push('<span class="status-tag tag-surrender">🐺 臣服中</span>');
     if (p.isStealthed) tags.push('<span class="status-tag tag-stealth">💨 匿蹤</span>');
     if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">🐺 狼人(${p.druidFormTurns}R)</span>`);
@@ -975,10 +1108,10 @@ function renderTeammatesGrid(me) {
     if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
     else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 下回合易傷(+20%)</span>');
 
-    // 裝備列表
-    const equipItems = Object.entries(p.equipCounts || {})
-      .map(([name, count]) => count > 1 ? `${name} x${count}` : name)
-      .join(', ');
+    // 裝備列表 (清晰呈現 [裝備 X/3]: 裝備1, 裝備2)
+    const pEquips = p.equips || [];
+    const equipCount = pEquips.length;
+    const equipNames = equipCount > 0 ? pEquips.map(e => e.name).join(', ') : '無';
 
     const card = document.createElement('div');
     card.className = `teammate-card ${isThisMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
@@ -1003,7 +1136,7 @@ function renderTeammatesGrid(me) {
         <span>+${p.bonusAtk} 攻</span>
       </div>
       <div class="teammate-tags">${tags.join('')}</div>
-      ${equipItems ? `<div class="equip-list" title="${equipItems}">🎒 ${equipItems}</div>` : ''}
+      <div class="equip-list" title="${escapeHtml(equipNames)}">🎒 [裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
     `;
     elements.battleTeammatesGrid.appendChild(card);
   });
@@ -1032,6 +1165,28 @@ function renderMyActionBar(me) {
 
   elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
   elements.myAtkSummary.textContent = `+${me.bonusAtk} 攻`;
+
+  // 玩家當前裝備列表 [裝備 X/3]
+  const myEquips = me.equips || [];
+  const myEquipCount = myEquips.length;
+  if (elements.myEquipsSummary) {
+    if (myEquipCount === 0) {
+      elements.myEquipsSummary.innerHTML = `🎒 [裝備 0/3]: 無`;
+    } else {
+      const itemsHtml = myEquips.map((e, idx) => 
+        `<span class="equip-pill">${escapeHtml(e.name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`
+      ).join(', ');
+      elements.myEquipsSummary.innerHTML = `🎒 [裝備 ${myEquipCount}/3]: ${itemsHtml}`;
+
+      elements.myEquipsSummary.querySelectorAll('.unequip-btn').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-equip-index'), 10);
+          socket.emit('equip:unequip', { index: idx });
+        });
+      });
+    }
+  }
 
   const isDead = me.hp <= 0;
   const isStunned = me.stunnedNextTurn;
@@ -1081,8 +1236,10 @@ function renderMyActionBar(me) {
 
   elements.mySkillsRow.innerHTML = '';
 
-  // 渲染自身所有技能
-  roleConfig.skills.forEach(skill => {
+  // 渲染自身所有技能（支援雙手劍替換狂怒重劈與精靈木提琴替換催眠夜曲/狂亂殺戮曲）
+  const activeSkills = (me.availableSkills && me.availableSkills.length > 0) ? me.availableSkills : roleConfig.skills;
+
+  activeSkills.forEach(skill => {
     let cd = me.cooldowns[skill.id] || 0;
     let isCoolingDown = cd > 0;
     let cdBadgeText = `CD: ${cd}`;

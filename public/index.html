@@ -157,21 +157,24 @@
             <div class="route-atmosphere-text">
               <p>腳下的石磚路在此處斷裂，前方地勢錯綜複雜，瀰漫著不詳的陰暗薄霧。</p>
               <p>隱約間能聽見遠處傳來的低沉嘶吼、風穿過石隙的尖銳呼嘯，甚至還有金屬反光的微弱閃爍……</p>
-              <p class="route-lead-warning">機遇與毀滅僅有一線之隔，請隊長為小隊指引前進的方向！</p>
+              <p class="route-lead-warning" id="routeVoteDescText">機遇與毀滅僅有一線之隔，請全員共同投票決定前進方向！（15 秒倒數）</p>
             </div>
             <div class="buff-highlight-wrap">
               <span class="buff-highlight">本層敵方強度加成：+<span id="routeDiffPercent">0</span>%</span>
             </div>
             <div id="routeTimerBar" class="timer-container">
               <div class="timer-bar" id="routeTimerProgress"></div>
-              <span class="timer-text" id="routeTimerText">倒數 30 秒</span>
+              <span class="timer-text" id="routeTimerText">倒數 15 秒</span>
             </div>
           </div>
 
-          <div id="routeStatusText" class="route-prompt">👑 請隊長決定小隊前進路線：</div>
+          <div id="routeStatusText" class="route-prompt">🗳️ 全體存活隊友共同投票（每人限投 1 票，倒數結束最高票前進）：</div>
+
+          <!-- 全體隊員投票狀態標籤欄 -->
+          <div id="routeVotersStatusList" class="route-voters-status-list"></div>
 
           <div id="routeOptionsGrid" class="route-grid">
-            <!-- 4 條路線按鈕 -->
+            <!-- 4 條路線按鈕，每張按鈕即時顯示即時得票數與投票玩家 -->
           </div>
         </div>
       </section>
@@ -301,6 +304,7 @@
                 <span id="myRoleName">戰士</span>
                 <span class="player-hp-summary" id="myHpSummary">HP: 120/120</span>
                 <span class="player-atk-summary" id="myAtkSummary">+0 攻</span>
+                <span class="player-equips-summary" id="myEquipsSummary">[裝備 0/3]: 無</span>
               </div>
               <div id="myActionStatus" class="action-status-badge">
                 <span>請指定本回合行動</span>
@@ -472,6 +476,51 @@
             <button type="button" id="btnCancelAvatar" class="btn btn-secondary btn-small">取消</button>
             <button type="button" id="btnSaveAvatar" class="btn btn-primary btn-small">確認套用</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 戰利品裝備抉擇 / 替換 Modal -->
+    <div id="equipDropModal" class="modal-overlay hidden">
+      <div class="modal-card equip-modal-card">
+        <div class="equip-modal-header">
+          <span class="equip-modal-icon">🎁</span>
+          <div>
+            <h3 id="equipModalTitle">獲得戰利品裝備！</h3>
+            <p id="equipModalSubtitle" class="equip-modal-subtitle">請決定是否穿戴此裝備（每位角色上限 3 件）：</p>
+          </div>
+        </div>
+
+        <!-- 掉落新裝備展示卡 -->
+        <div class="drop-item-card" id="dropItemCard">
+          <div class="drop-item-header">
+            <span class="drop-item-badge">✨ 新獲得裝備</span>
+            <span class="drop-item-type" id="dropItemType">⚔️ 武器</span>
+          </div>
+          <div class="drop-item-name" id="dropItemName">鋼鐵聖劍</div>
+          <div class="drop-item-desc" id="dropItemDesc">攻擊傷害 +5</div>
+        </div>
+
+        <!-- 當前已裝備列表 (上限 3 件) -->
+        <div class="current-equips-section">
+          <div class="current-equips-header">
+            <span>🎒 當前已穿戴裝備 (<span id="currentEquipCount">0</span>/3 件)</span>
+            <span class="equip-stack-hint">💡 相同裝備可重複穿戴且數值疊加</span>
+          </div>
+          <div id="currentEquipsList" class="current-equips-list">
+            <!-- 動態填入當前裝備 -->
+          </div>
+        </div>
+
+        <!-- 滿 3 件時替換提示 -->
+        <div id="equipReplaceNotice" class="equip-replace-notice hidden">
+          ⚠️ 裝備欄已滿 3 件！若要穿上新裝備，請點選上方欲替換卸下的舊裝備。
+        </div>
+
+        <!-- 操作按鈕 -->
+        <div class="equip-modal-actions">
+          <button id="btnEquipItem" class="btn btn-success btn-large">【穿上】</button>
+          <button id="btnDiscardItem" class="btn btn-secondary btn-large">【放棄】</button>
         </div>
       </div>
     </div>

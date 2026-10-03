@@ -154,12 +154,39 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 5. 隊長選擇路線
+  // 5. 路線投票機制 (全員投票，15秒倒數)
+  socket.on('route:vote', ({ routeId }, callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.voteRoute(socket.id, routeId);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 兼容舊版本 route:select
   socket.on('route:select', ({ routeId }, callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.selectRoute(socket.id, routeId);
+    const res = room.voteRoute(socket.id, routeId);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 5.1 裝備領取/放棄/替換抉擇
+  socket.on('equip:choice', ({ action, replaceIndex }, callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.handleEquipChoice(socket.id, action, replaceIndex);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 5.2 裝備手動卸下
+  socket.on('equip:unequip', ({ index }, callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.handleUnequip(socket.id, index);
     if (typeof callback === 'function') callback(res);
   });
 

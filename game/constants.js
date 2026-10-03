@@ -9,8 +9,8 @@ export const CLASSES = {
     desc: '【生命 120】前排坦鋒。具備強大的守護壁壘，全技能皆為物理傷害。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '【物理】揮動武器打擊（傷害: 10）' },
-      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', desc: '【物理】堅定重斬（傷害: 15，無CD）' },
-      { id: 'w_shield', label: '壁壘守護', cd: 2, desc: '第1回合阻擋90%傷害，第2回合阻擋40%，第3回合失效（需休息2回合）' }
+      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', desc: '【物理】堅定重斬（80%造成18傷害；20%揮砍失衡僅造成5傷害且下回合自身受傷+20%，無CD）' },
+      { id: 'w_shield', label: '壁壘守護', cd: 2, desc: '【防護】阻擋90%傷害（25%盾牌龜裂CD額外延長1回合），第2回合阻擋40%（CD 2）' }
     ]
   },
   mage: {
@@ -21,8 +21,8 @@ export const CLASSES = {
     desc: '【生命 80】遠程法系。站樁高爆發與生命汲取，全技能皆為魔法傷害。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '【魔法】引導微光魔法打擊（傷害: 10）' },
-      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', desc: '【魔法】引爆奧術轟出巨額傷害（傷害: 40，需休息1回合）' },
-      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', desc: '【魔法】造成 15~20 傷害，吸取該傷害 20% 生命（需休息1回合）' }
+      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', desc: '【魔法】奧術轟擊（75%造成45傷害；25%法力走火造成10傷害且自身承受10點反噬傷害，CD 1）' },
+      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', desc: '【魔法】極端浮動吸血（造成 1~40 浮動傷害，吸取該傷害 20% 生命，CD 1）' }
     ]
   },
   archer: {
@@ -34,8 +34,8 @@ export const CLASSES = {
     desc: '【生命 80】遠程敏捷。常駐 40% 閃避，普攻與1技能為物理，2技能為魔法。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '【物理】拉弓射出基礎箭矢（傷害: 10）' },
-      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', desc: '【物理】百步穿楊狙擊（傷害: 30，需休息1回合）' },
-      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', desc: '【魔法】附魔箭雨壓制（傷害: 20，削弱怪物 10 點攻擊，需休息1回合）' }
+      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', desc: '【物理】破甲狙擊（80%造成35傷害；20%箭矢脫靶造成0傷害且自身下回合失去閃避率，CD 1）' },
+      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', desc: '【魔法】箭雨壓制（造成20傷害並削弱怪物10點攻擊；20%狂風亂流誤傷隨機存活隊友10傷害，CD 1）' }
     ]
   },
   assassin: {
@@ -60,8 +60,8 @@ export const CLASSES = {
     desc: '【生命 70】團隊核心輔助。普攻為魔法傷害，精通全體群療、增傷減傷與奇蹟甦生。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '【魔法】撥動琴弦引導音波魔法打擊（傷害: 10）' },
-      { id: 'b_heal', label: '治癒頌歌', cd: 1, desc: '全體回血，指定一名隊友額外回復生命（需休息1回合）' },
-      { id: 'b_buff', label: '狂熱協奏', cd: 1, desc: '激勵全隊：增傷 50%、減傷 25%，且削弱敵方雙抗至 65%（需休息1回合）' }
+      { id: 'b_heal', label: '治癒頌歌', cd: 1, desc: '【生命頌歌】（80%回復全體22/專注目標額外28；20%刺耳走音全體僅能回復5生命，CD 1）' },
+      { id: 'b_buff', label: '狂熱協奏', cd: 1, desc: '【激勵樂章】全隊增傷50%、減傷25%並削弱抗性；25%狂熱透支結算時全體隊友各扣5點生命（CD 1）' }
     ]
   },
   alchemist: {
@@ -92,20 +92,162 @@ export const CLASSES = {
   }
 };
 
-// 裝備池 (12種)
+// 完整重構裝備池 (共 19 種專屬裝備)
 export const LOOT_TABLE = [
-  { role: 'warrior', name: '重鋼巨劍', bonusAtk: 12, desc: '戰士攻擊傷害 +12' },
-  { role: 'warrior', name: '荊棘重鎧', bonusHp: 30, desc: '戰士最大生命值 +30' },
-  { role: 'mage', name: '虛空魔杖', bonusAtk: 15, desc: '法師攻擊傷害 +15' },
-  { role: 'mage', name: '大魔導護符', bonusHp: 20, desc: '法師最大生命值 +20' },
-  { role: 'archer', name: '破甲獵弓', bonusAtk: 12, desc: '弓箭手狙擊傷害 +12' },
-  { role: 'archer', name: '靈巧披風', bonusHp: 20, desc: '弓箭手最大生命值 +20' },
-  { role: 'assassin', name: '染毒刺刃', bonusAtk: 10, desc: '刺客基礎攻擊 +10（暴擊時翻倍）' },
-  { role: 'assassin', name: '暗影皮甲', bonusHp: 25, desc: '刺客最大生命值 +25' },
-  { role: 'bard', name: '精靈木豎琴', bonusAtk: 10, desc: '詩人音律傷害 +10' },
-  { role: 'bard', name: '祝福絲綢袍', bonusHp: 25, desc: '詩人最大生命值 +25' },
-  { role: 'alchemist', name: '賢者燒瓶', bonusAtk: 12, desc: '鍊金術士藥劑傷害 +12' },
-  { role: 'druid', name: '荒野守護符', bonusHp: 30, desc: '德魯伊最大生命值 +30' }
+  // 戰士 (Warrior)
+  {
+    id: 'w_sword',
+    role: 'warrior',
+    name: '鋼鐵聖劍',
+    bonusAtk: 5,
+    desc: '攻擊傷害 +5'
+  },
+  {
+    id: 'w_armor',
+    role: 'warrior',
+    name: '荊棘重鎧',
+    bonusHp: 30,
+    bonusAtk: -5,
+    desc: '最大生命 +30，但造成的傷害 -5'
+  },
+  {
+    id: 'w_greatsword',
+    role: 'warrior',
+    name: '雙手劍',
+    isSpecial: true,
+    desc: '原本2技能護盾失效，替換為攻擊技能【狂怒重劈】；1技能與2技能基礎傷害分別提升為 25 與 40'
+  },
+
+  // 法師 (Mage)
+  {
+    id: 'm_wand',
+    role: 'mage',
+    name: '虛空魔杖',
+    bonusAtk: 15,
+    desc: '法師攻擊傷害 +15'
+  },
+  {
+    id: 'm_amulet',
+    role: 'mage',
+    name: '大魔導護符',
+    bonusHp: 20,
+    desc: '法師最大生命值 +20'
+  },
+  {
+    id: 'm_robe',
+    role: 'mage',
+    name: '嗜血法袍',
+    bonusHp: -20,
+    bonusAtk: 20,
+    isSpecial: true,
+    desc: '最大生命 -20，攻擊傷害 +20。1、2技能額外造成目標最大生命 10% 傷害並為全體隊友吸血（上限不超過該次實際加成傷害）'
+  },
+
+  // 弓箭手 (Archer)
+  {
+    id: 'a_bow',
+    role: 'archer',
+    name: '破甲獵弓',
+    bonusAtk: 12,
+    desc: '弓箭手攻擊傷害 +12'
+  },
+  {
+    id: 'a_cloak',
+    role: 'archer',
+    name: '靈巧披風',
+    bonusHp: 20,
+    desc: '弓箭手最大生命值 +20'
+  },
+  {
+    id: 'a_archangel_bow',
+    role: 'archer',
+    name: '大天使重弓',
+    bonusAtk: 20,
+    dodgePenalty: 0.20,
+    desc: '攻擊傷害 +20，但閃避機率降低 20%'
+  },
+
+  // 刺客 (Assassin)
+  {
+    id: 's_blade',
+    role: 'assassin',
+    name: '染毒刺刃',
+    bonusAtk: -10,
+    bonusCrit: 0.30,
+    desc: '基礎傷害 -10，但暴擊率提升 30%'
+  },
+  {
+    id: 's_armor',
+    role: 'assassin',
+    name: '暗影皮甲',
+    bonusHp: -10,
+    bonusDodge: 0.10,
+    desc: '閃避機率 +10%，最大生命 -10'
+  },
+
+  // 吟遊詩人 (Bard)
+  {
+    id: 'b_harp',
+    role: 'bard',
+    name: '精靈木豎琴',
+    isSpecial: true,
+    desc: '1技能與2技能的效果數值皆提升 10%'
+  },
+  {
+    id: 'b_robe',
+    role: 'bard',
+    name: '祝福絲綢袍',
+    bonusHp: 15,
+    isSpecial: true,
+    desc: '最大生命 +15。每回合初自動為全隊當前生命最低的隊友補血，補血量為詩人最大生命值的 5%'
+  },
+  {
+    id: 'b_violin',
+    role: 'bard',
+    name: '精靈木提琴',
+    bonusAtk: 10,
+    isSpecial: true,
+    desc: '攻擊傷害 +10。原本1、2技能失效，1技能替換為【催眠夜曲】(15傷害+30%機率使敵方本回合無法行動)；2技能替換為【狂亂殺戮曲】(20傷害，我方全體下回合扣20%最大生命，但全隊傷害提升70%)'
+  },
+
+  // 鍊金術士 (Alchemist)
+  {
+    id: 'alc_flask',
+    role: 'alchemist',
+    name: '賢者燒瓶',
+    bonusAtk: 12,
+    desc: '藥劑傷害 +12'
+  },
+  {
+    id: 'alc_robe',
+    role: 'alchemist',
+    name: '防護生化袍',
+    bonusHp: 20,
+    desc: '最大生命 +20'
+  },
+  {
+    id: 'alc_burette',
+    role: 'alchemist',
+    name: '精密滴定管',
+    isSpecial: true,
+    desc: '1技能對自身造成的反噬傷害降低 50%，但2技能失敗機率提高至 75%'
+  },
+
+  // 德魯伊 (Druid)
+  {
+    id: 'dru_amulet',
+    role: 'druid',
+    name: '荒野守護符',
+    bonusHp: 30,
+    desc: '德魯伊最大生命值 +30'
+  },
+  {
+    id: 'dru_resonance',
+    role: 'druid',
+    name: '自然共鳴',
+    isSpecial: true,
+    desc: '每回合初為所有存活僕從回復 3 點生命；小樹精最大生命 +5；幼狼造成傷害 +2'
+  }
 ];
 
 // 怪物庫 (10種)
@@ -427,6 +569,12 @@ export const BATTLE_NARRATIVES = {
         return `🐾 **${name}** 灑下自然種子引導生機，一隻活潑歡快的小樹精破土而出，揮舞木棒誓死護衛隊伍！`;
       case 'dru_summon_wolf':
         return `🐺 **${name}** 吹響獸骨狼哨，一隻雙眼幽綠、矯健靈活的自然幼狼自虛空中竄出撲向戰場！`;
+      case 'w_cleave':
+        return `⚔️ **${name}** 狂怒爆發，雙手緊握巨劍掀起狂烈風暴，帶著千鈞之勢轟出【狂怒重劈】！`;
+      case 'b_nocturne':
+        return `🪕 **${name}** 撫弄琴弦奏響空靈幽邃的【催眠夜曲】，魔性催眠音律宛如夢魘低語，直穿靈魂深處！`;
+      case 'b_frenzy':
+        return `🪕 **${name}** 琴弦狂亂震顫，奏響浴血的【狂亂殺戮曲】！刺骨殺意激發了全員潛能，戰意癲狂飆升！`;
       default:
         return `⚔️ **${name}** 發動了行動！`;
     }
@@ -439,19 +587,130 @@ export function getRandomRoutes(count = 4) {
   return shuffled.slice(0, count);
 }
 
-export function equipItemToPlayer(player, drop) {
-  player.equipCounts[drop.name] = (player.equipCounts[drop.name] || 0) + 1;
-  if (drop.bonusAtk) player.bonusAtk += drop.bonusAtk;
-  if (drop.bonusHp) {
-    player.maxHp += drop.bonusHp;
-    player.hp += drop.bonusHp;
+// 裝備數值套用
+export function applyEquipStats(player, item) {
+  if (!player || !item) return;
+  if (item.bonusAtk) player.bonusAtk += item.bonusAtk;
+  if (item.bonusHp) {
+    player.maxHp += item.bonusHp;
+    if (item.bonusHp > 0) {
+      player.hp += item.bonusHp;
+    } else {
+      player.hp = Math.min(player.hp, player.maxHp);
+      player.hp = Math.max(1, player.hp);
+    }
   }
 }
 
+// 卸除裝備數值扣減
+export function removeEquipStats(player, item) {
+  if (!player || !item) return;
+  if (item.bonusAtk) player.bonusAtk -= item.bonusAtk;
+  if (item.bonusHp) {
+    player.maxHp -= item.bonusHp;
+    player.hp = Math.min(player.hp, player.maxHp);
+    player.hp = Math.max(1, player.hp);
+  }
+}
+
+// 穿上裝備（支援上限 3 件與指定位置替換）
+export function equipItemToPlayer(player, drop, replaceIndex = -1) {
+  if (!player) return null;
+  if (!player.equips) player.equips = [];
+  if (!player.equipCounts) player.equipCounts = {};
+
+  let replacedItem = null;
+  if (player.equips.length >= 3 && replaceIndex >= 0 && replaceIndex < player.equips.length) {
+    replacedItem = player.equips[replaceIndex];
+    removeEquipStats(player, replacedItem);
+    player.equips[replaceIndex] = drop;
+    applyEquipStats(player, drop);
+  } else if (player.equips.length < 3) {
+    player.equips.push(drop);
+    applyEquipStats(player, drop);
+  }
+
+  // 刷新計數字典以相容舊代碼
+  player.equipCounts = {};
+  for (const eq of player.equips) {
+    player.equipCounts[eq.name] = (player.equipCounts[eq.name] || 0) + 1;
+  }
+  return replacedItem;
+}
+
+// 手動卸下裝備
+export function unequipItemFromPlayer(player, index) {
+  if (!player || !player.equips || index < 0 || index >= player.equips.length) return null;
+  const removed = player.equips.splice(index, 1)[0];
+  if (removed) {
+    removeEquipStats(player, removed);
+    player.equipCounts = {};
+    for (const eq of player.equips) {
+      player.equipCounts[eq.name] = (player.equipCounts[eq.name] || 0) + 1;
+    }
+  }
+  return removed;
+}
+
+// 格式化玩家裝備顯示：[裝備 2/3]: 鋼鐵聖劍, 荊棘重鎧
 export function formatPlayerEquips(player) {
-  const entries = Object.entries(player.equipCounts || {});
-  if (entries.length === 0) return '';
-  const list = entries.map(([name, count]) => count > 1 ? `${name} x${count}` : name);
-  return ` [裝備: ${list.join(', ')}]`;
+  const equips = player.equips || [];
+  const count = equips.length;
+  if (count === 0) return '[裝備 0/3]';
+  const list = equips.map(e => e.name).join(', ');
+  return `[裝備 ${count}/3]: ${list}`;
+}
+
+// 依據玩家職業與裝備動態取得可用技能庫（支援特殊裝備技能替換）
+export function getPlayerSkills(player) {
+  if (!player || !player.role || !CLASSES[player.role]) return [];
+  const baseSkills = CLASSES[player.role].skills.map(s => ({ ...s }));
+  const equips = player.equips || [];
+
+  if (player.role === 'warrior') {
+    const hasGreatsword = equips.some(e => e.id === 'w_greatsword' || e.name === '雙手劍');
+    if (hasGreatsword) {
+      const s1 = baseSkills.find(s => s.id === 'w_strike');
+      if (s1) {
+        s1.desc = '【物理】雙手巨劍堅定重斬（80%造成25重傷害；20%揮砍失衡僅造成5傷害且下回合自身受傷+20%，無CD）';
+      }
+      const idx2 = baseSkills.findIndex(s => s.id === 'w_shield');
+      if (idx2 !== -1) {
+        baseSkills[idx2] = {
+          id: 'w_cleave',
+          label: '狂怒重劈',
+          cd: 2,
+          dmgType: 'phys',
+          desc: '【物理】狂暴揮動雙手巨劍重劈魔物（基礎傷害: 40，CD 2）'
+        };
+      }
+    }
+  } else if (player.role === 'bard') {
+    const hasViolin = equips.some(e => e.id === 'b_violin' || e.name === '精靈木提琴');
+    if (hasViolin) {
+      const idx1 = baseSkills.findIndex(s => s.id === 'b_heal');
+      if (idx1 !== -1) {
+        baseSkills[idx1] = {
+          id: 'b_nocturne',
+          label: '催眠夜曲',
+          cd: 1,
+          dmgType: 'mag',
+          desc: '【魔法】幽邃催眠曲（造成15傷害，30%機率使敵方本回合陷入沉睡無法行動，CD 1）'
+        };
+      }
+      const idx2 = baseSkills.findIndex(s => s.id === 'b_buff');
+      if (idx2 !== -1) {
+        baseSkills[idx2] = {
+          id: 'b_frenzy',
+          label: '狂亂殺戮曲',
+          cd: 1,
+          dmgType: 'mag',
+          desc: '【魔法】狂亂殺戮樂章（造成20傷害，全隊傷害暴增70%，但下回合全隊扣除20%最大生命，CD 1）'
+        };
+      }
+    }
+  }
+
+  return baseSkills;
 }
 

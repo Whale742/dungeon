@@ -3298,3 +3298,294 @@ input[type="text"]::placeholder {
   }
 }
 
+/* --------------------------------------------------------------------------
+   18. 路線全員投票機制 (15秒倒數)
+   -------------------------------------------------------------------------- */
+.route-voters-status-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin: 12px auto 20px auto;
+  max-width: 680px;
+}
+
+.route-voter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  transition: all 0.25s ease;
+}
+
+.route-voter-pill.voted {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #15803d;
+}
+
+.route-voter-pill.thinking {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #b45309;
+}
+
+.route-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.route-item.my-vote {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: 0 0 0 2px var(--color-primary), var(--shadow-md);
+}
+
+.route-vote-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.route-voters-tags {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.route-voter-tag {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   19. 裝備池重構、手動穿脫與上限 3 件
+   -------------------------------------------------------------------------- */
+.player-equips-summary {
+  font-size: 13px;
+  font-weight: 700;
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.equip-modal-card {
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  padding: 28px 24px;
+}
+
+.equip-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.equip-modal-icon {
+  font-size: 2.2rem;
+}
+
+.equip-modal-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.drop-item-card {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.95) 0%, rgba(253, 230, 138, 0.95) 100%);
+  border: 2px solid #f59e0b;
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin: 18px 0;
+  text-align: left;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+}
+
+.drop-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.drop-item-badge {
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.drop-item-type {
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.drop-item-name {
+  font-size: 19px;
+  font-weight: 800;
+  color: #78350f;
+  margin-bottom: 4px;
+}
+
+.drop-item-desc {
+  font-size: 14px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.current-equips-section {
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.current-equips-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.equip-stack-hint {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  font-weight: normal;
+}
+
+.current-equips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.current-equip-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.current-equip-item:hover {
+  border-color: var(--color-primary);
+}
+
+.current-equip-item.selected-to-replace {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: 0 0 0 2px #ef4444;
+}
+
+.current-equip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.current-equip-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.current-equip-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.replace-radio-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+}
+
+.current-equip-item.selected-to-replace .replace-radio-badge {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.equip-replace-notice {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.equip-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.equip-modal-actions .btn {
+  flex: 1;
+}
+
+.unequip-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.unequip-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
