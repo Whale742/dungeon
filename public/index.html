@@ -129,16 +129,39 @@
         </div>
       </section>
 
+      <!-- 視圖 2.5：深淵啟程開場畫面 -->
+      <section id="viewPrologue" class="view-panel">
+        <div class="card prologue-card">
+          <div class="prologue-icon">🗝️ 🏰 ⚡</div>
+          <h2 id="prologueTitle" class="prologue-title">【深淵啟程・命運之扉開啟】</h2>
+          <div id="prologueTextBody" class="prologue-text-body">
+            <p>厚重的黑曜石大門在刺耳的摩擦聲中緩緩敞開，古老腐朽的塵埃隨之撲面而來。</p>
+            <p>火把微弱的橘光照亮了腳下斑駁的石階，空氣中瀰漫著潮濕的青苔、生鏽鐵器與隱約的血腥氣味。</p>
+            <p>身後的退路已被封死，冒險小隊握緊了手中的武器與符文，深吸一口氣，正式踏入這座沉睡千年的深淵地城！</p>
+          </div>
+          <div class="prologue-actions">
+            <button id="btnSkipPrologue" class="btn btn-primary btn-large">
+              ⚔️ 踏入深淵・展開冒險
+            </button>
+            <div id="prologueCountdown" class="pulse-waiting">⏳ 命運之輪轉動中... (7 秒後自動踏入)</div>
+          </div>
+        </div>
+      </section>
+
       <!-- 視圖 3：路線分歧抉擇畫面 -->
       <section id="viewRoute" class="view-panel">
         <div class="card route-card">
           <div class="route-header">
             <div class="floor-badge">第 <span id="routeFloorNum">1</span> 層</div>
-            <h2>🧭 前方岔路抉擇</h2>
-            <p class="route-desc">
-              前方出現了四條岔路，每一條都散發著未知的氣息...<br>
+            <h2 id="routeMainTitle">【第 <span id="routeFloorHeaderNum">1</span> 層・迷霧分歧點】</h2>
+            <div class="route-atmosphere-text">
+              <p>腳下的石磚路在此處斷裂，前方地勢錯綜複雜，瀰漫著不詳的陰暗薄霧。</p>
+              <p>隱約間能聽見遠處傳來的低沉嘶吼、風穿過石隙的尖銳呼嘯，甚至還有金屬反光的微弱閃爍……</p>
+              <p class="route-lead-warning">機遇與毀滅僅有一線之隔，請隊長為小隊指引前進的方向！</p>
+            </div>
+            <div class="buff-highlight-wrap">
               <span class="buff-highlight">本層敵方強度加成：+<span id="routeDiffPercent">0</span>%</span>
-            </p>
+            </div>
             <div id="routeTimerBar" class="timer-container">
               <div class="timer-bar" id="routeTimerProgress"></div>
               <span class="timer-text" id="routeTimerText">倒數 30 秒</span>
@@ -153,11 +176,27 @@
         </div>
       </section>
 
+      <!-- 視圖 3.5：踏入層數打字機轉場畫面 -->
+      <section id="viewTransition" class="view-panel">
+        <div class="card transition-card">
+          <h1 id="transitionTypewriterTitle" class="typewriter-title">將進入第 1 層</h1>
+          <div class="transition-route-tag" id="transitionRouteTag">🐾 路線：羊腸小徑</div>
+          <div class="transition-story-box">
+            <div id="transitionStoryTitle" class="transition-story-title">【羊腸小徑】</div>
+            <p id="transitionStoryText" class="transition-story-text">正在撥開迷霧探索前路...</p>
+          </div>
+          <div class="transition-footer">
+            <div class="pulse-waiting">⏳ 正在深入深淵迷宮...</div>
+          </div>
+        </div>
+      </section>
+
       <!-- 視圖 4：事件卡片 (寶箱 / 陷阱) -->
       <section id="viewEvent" class="view-panel">
         <div class="card event-card" id="eventCardBox">
           <div class="event-icon" id="eventIcon">🎁</div>
           <h2 id="eventTitle">發現遠古寶箱！</h2>
+          <div id="eventStoryText" class="event-story-text"></div>
           <div id="eventDetails" class="event-details">
             <!-- 動態事件內容 -->
           </div>
@@ -170,52 +209,77 @@
       <!-- 視圖 5：戰鬥畫面 -->
       <section id="viewBattle" class="view-panel">
         <div class="battle-layout">
-          <!-- 上方：怪物與戰場資訊 -->
-          <div class="card monster-card" id="monsterCard">
-            <div class="monster-header">
-              <div class="monster-badge">第 <span id="battleFloorNum">1</span> 層 · 第 <span id="battleRoundNum">1</span> 回合</div>
-              <div class="round-timer" id="battleTimerWrap">
-                ⏱️ 行動倒數：<span id="battleTimerCount">30</span>s
+          <!-- 上方：怪物與戰場事件表並列區 -->
+          <div class="battle-top-grid">
+            <!-- 左側：怪物卡 -->
+            <div class="card monster-card" id="monsterCard">
+              <div class="monster-header">
+                <div class="monster-badge">第 <span id="battleFloorNum">1</span> 層 · 第 <span id="battleRoundNum">1</span> 回合</div>
+                <div class="round-timer" id="battleTimerWrap">
+                  ⏱️ 行動倒數：<span id="battleTimerCount">30</span>s
+                </div>
+              </div>
+
+              <div class="monster-body">
+                <div class="monster-avatar-wrap" id="monsterAvatarWrap">
+                  <div class="monster-avatar" id="monsterAvatar">👾</div>
+                  <div id="monsterSlashOverlay" class="slash-overlay"></div>
+                  <div id="monsterMagicOverlay" class="magic-overlay"></div>
+                  <div id="monsterFloatingContainer" class="floating-text-container"></div>
+                </div>
+                <div class="monster-info">
+                  <div class="monster-title-row">
+                    <h2 id="monsterName">地底熔岩巨像</h2>
+                    <div id="monsterResTag" class="res-tag res-phys">🛡️ 高階物理抗性 (-70%)</div>
+                  </div>
+                  <p id="monsterDesc" class="monster-desc">岩石外殼極為厚重！</p>
+                  
+                  <div class="hp-bar-container">
+                    <div class="hp-bar-label">
+                      <span>魔物生命值</span>
+                      <span id="monsterHpText">100 / 100</span>
+                    </div>
+                    <div class="hp-bar-bg">
+                      <div id="monsterHpFill" class="hp-bar-fill monster-fill" style="width: 100%;"></div>
+                    </div>
+                  </div>
+
+                  <div class="monster-threat-row">
+                    <div class="threat-item">
+                      <span class="threat-label">基礎反擊：</span>
+                      <span id="monsterAtkText" class="threat-val">10 點</span>
+                    </div>
+                    <div class="threat-item" id="ultWarningBox">
+                      <span class="threat-label">蓄力必殺：</span>
+                      <span id="monsterUltName" class="threat-val ult-alert">崩山滅世重砸 (1.35x)</span>
+                    </div>
+                  </div>
+                  <div id="monsterBuffsRow" class="monster-buffs"></div>
+                </div>
               </div>
             </div>
 
-            <div class="monster-body">
-              <div class="monster-avatar-wrap" id="monsterAvatarWrap">
-                <div class="monster-avatar" id="monsterAvatar">👾</div>
-                <div id="monsterSlashOverlay" class="slash-overlay"></div>
-                <div id="monsterMagicOverlay" class="magic-overlay"></div>
-                <div id="monsterFloatingContainer" class="floating-text-container"></div>
+            <!-- 右側：即時事件表 -->
+            <div class="card battle-log-card" id="battleLogCard">
+              <div class="card-header mini-header">
+                <div class="battle-log-title">
+                  <span>📜 戰況事件表</span>
+                </div>
+                <button id="btnClearLog" class="btn btn-secondary btn-tiny" title="清空當前事件表記錄">清空</button>
               </div>
-              <div class="monster-info">
-                <div class="monster-title-row">
-                  <h2 id="monsterName">地底熔岩巨像</h2>
-                  <div id="monsterResTag" class="res-tag res-phys">🛡️ 高階物理抗性 (-70%)</div>
-                </div>
-                <p id="monsterDesc" class="monster-desc">岩石外殼極為厚重！</p>
-                
-                <div class="hp-bar-container">
-                  <div class="hp-bar-label">
-                    <span>魔物生命值</span>
-                    <span id="monsterHpText">100 / 100</span>
-                  </div>
-                  <div class="hp-bar-bg">
-                    <div id="monsterHpFill" class="hp-bar-fill monster-fill" style="width: 100%;"></div>
-                  </div>
-                </div>
-
-                <div class="monster-threat-row">
-                  <div class="threat-item">
-                    <span class="threat-label">基礎反擊：</span>
-                    <span id="monsterAtkText" class="threat-val">10 點</span>
-                  </div>
-                  <div class="threat-item" id="ultWarningBox">
-                    <span class="threat-label">蓄力必殺：</span>
-                    <span id="monsterUltName" class="threat-val ult-alert">崩山滅世重砸 (1.35x)</span>
-                  </div>
-                </div>
-                <div id="monsterBuffsRow" class="monster-buffs"></div>
+              <div id="combatLogWindow" class="log-window battle-log-window">
+                <div class="log-line info">⚔️ 戰鬥開始！請全體隊員下達行動指令。</div>
               </div>
             </div>
+          </div>
+
+          <!-- 戰況交鋒即時特寫廣播面板 -->
+          <div id="battleNarrativeBox" class="card battle-narrative-card hidden">
+            <div class="narrative-header">
+              <span class="narrative-tag">⚔️ 戰況交鋒即時特寫</span>
+              <span class="narrative-status-note">📜 戰況敘述進行中，行動準備中...</span>
+            </div>
+            <div id="battleNarrativeText" class="battle-narrative-text"></div>
           </div>
 
           <!-- 中間：隊友全員即時狀態欄 -->
@@ -288,26 +352,6 @@
             <button id="btnRestartLobby" class="btn btn-primary btn-large">
               🔄 重回大廳，再次組隊
             </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 底部戰況日誌視窗 (登入/發起組隊畫面隱藏，進入大廳選角色時顯示) -->
-      <section class="combat-log-section hidden" id="combatLogSection">
-        <div class="log-card card">
-          <div class="log-header">
-            <span class="log-title">📜 即時戰況與冒險日誌</span>
-            <div class="log-actions">
-              <button id="btnClearLog" class="btn-tiny" title="清空日誌">清空</button>
-              <button id="btnToggleLog" class="btn-tiny" title="最小化/展開">折疊</button>
-            </div>
-          </div>
-          <div id="combatLogWindow" class="log-window">
-            <div class="log-line info">🏰 歡迎來到地城深淵！請發起組隊或加入好友房間。</div>
-          </div>
-          <div class="chat-input-bar">
-            <input type="text" id="chatInput" placeholder="輸入小隊發言... (Enter 送出)" maxlength="60">
-            <button id="btnSendChat" class="btn btn-tiny">送出</button>
           </div>
         </div>
       </section>
@@ -432,6 +476,42 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- 右下角懸浮聊天室與訊息氣泡組件 -->
+  <div id="floatingChatContainer" class="floating-chat-container hidden">
+    <!-- 收到其他玩家新訊息時維持30秒的氣泡 -->
+    <div id="chatToastBubble" class="chat-speech-bubble hidden">
+      <div class="chat-bubble-header">
+        <span class="chat-bubble-sender" id="chatBubbleSender">💬 隊友發言</span>
+        <button id="btnCloseChatBubble" class="chat-bubble-close" title="關閉氣泡">✕</button>
+      </div>
+      <div class="chat-bubble-body" id="chatBubbleText">訊息內容...</div>
+      <div class="chat-bubble-timer-bar"></div>
+    </div>
+
+    <!-- 懸浮聊天室彈出視窗 -->
+    <div id="chatPopupCard" class="chat-popup-card hidden">
+      <div class="chat-popup-header">
+        <div class="chat-popup-title">
+          <span>💬 小隊聊天室</span>
+        </div>
+        <button id="btnCloseChatPopup" class="btn-circle-close" title="收起聊天室">✕</button>
+      </div>
+      <div class="chat-messages-area" id="chatMessageList">
+        <div class="chat-empty-hint">尚無小隊發言，點擊下方輸入框開始溝通！</div>
+      </div>
+      <div class="chat-popup-input-bar">
+        <input type="text" id="chatInput" placeholder="輸入小隊發言... (Enter 送出)" maxlength="80">
+        <button id="btnSendChat" class="btn btn-primary btn-chat-send">送出</button>
+      </div>
+    </div>
+
+    <!-- 右下角圓形聊天按鈕 -->
+    <button id="floatingChatBtn" class="floating-chat-btn" title="開啟小隊聊天室">
+      <img src="/icon/chat.svg" alt="Chat" class="floating-chat-icon">
+      <span id="chatUnreadBadge" class="chat-unread-badge hidden">0</span>
+    </button>
   </div>
 
   <!-- Socket.io 客戶端腳本 -->

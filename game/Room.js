@@ -1,7 +1,7 @@
 // 遊戲房間管理核心 (Game Room Engine)
 // 100% 完整移植 index.js 中的戰鬥演算法、職業技能、裝備、怪物抗性與傷害拆分機制
 
-import { CLASSES, LOOT_TABLE, ENCOUNTERS, ROUTES, getRandomRoutes, equipItemToPlayer } from './constants.js';
+import { CLASSES, LOOT_TABLE, ENCOUNTERS, ROUTES, getRandomRoutes, equipItemToPlayer, STORY_TEXTS, ROUTE_STORIES, BATTLE_NARRATIVES } from './constants.js';
 
 export class Room {
   constructor(code, leaderSocket, leaderName, io, leaderAvatar = null) {
@@ -11,15 +11,18 @@ export class Room {
     this.memberIds = [leaderSocket.id];
     this.players = {}; // socket.id -> player object
     
-    // 遊戲狀態機: 'LOBBY' | 'CHOOSING_ROUTE' | 'EVENT' | 'IN_BATTLE' | 'CHECKPOINT' | 'GAME_OVER' | 'VICTORY'
+    // 遊戲狀態機: 'LOBBY' | 'PROLOGUE' | 'CHOOSING_ROUTE' | 'TRANSITION' | 'EVENT' | 'IN_BATTLE' | 'CHECKPOINT' | 'GAME_OVER' | 'VICTORY'
     this.state = 'LOBBY';
     this.floor = 1;
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
     this.alcShieldTurns = 0;
+    this.alcVulnerableTurns = 0;
     this.alcVulnerableNextTurn = false;
     this.currentMonster = null;
     this.currentEvent = null; // 寶箱或陷阱事件資訊
+    this.currentTransition = null; // 踏入第X層之轉場資訊
+    this.isNarrating = false; // 戰況交鋒敘述中（鎖定玩家技能選擇）
     this.checkpointChoice = null;
     this.gameOverReason = null; // 'abandon' | 'wipe' | null
     
@@ -29,9 +32,21 @@ export class Room {
     this.isPaused = false;
     this.pausedRemainingSeconds = null;
     this.logs = [];
+    this.chatMessages = [];
 
     // 加入第一位玩家（隊長）
     this.addPlayer(leaderSocket, leaderName, leaderAvatar);
+  }
+
+  clearPlayerDebuffs(player) {
+    if (!player) return;
+    player.bleedTurns = 0;
+    player.poisonTurns = 0;
+    player.poisonDmg = 0;
+    player.cannotCrit = false;
+    player.isSurrendered = false;
+    player.stunnedNextTurn = false;
+    player.nextTurnStunFlag = false;
   }
 
   addPlayer(socket, name, avatar = null) {
@@ -76,6 +91,7 @@ export class Room {
       poisonDmg: 0,
       druidForm: null,
       druidFormTurns: 0,
+      druidRegenBonus: 0,
       isSurrendered: false,
       minion: null,
       bardHealGroupBonus: 0,
@@ -193,7 +209,25 @@ export class Room {
     }
 
     this.floor = 1;
-    this.addLog(`🏰 **隊員全數就緒，地城之門開啟！小隊踏入深淵第 1 層！**`, 'info');
+    this.state = 'PROLOGUE';
+    this.addLog(`📜 **${STORY_TEXTS.prologue.title}**`, 'info');
+    STORY_TEXTS.prologue.paragraphs.forEach(p => this.addLog(p, 'info'));
+
+    // 7 秒後自動進入第 1 層路線選擇，隊長亦可點擊跳過開場
+    this.setTimer(7, () => {
+      if (this.state === 'PROLOGUE') {
+        this.startRouteSelection();
+      }
+    });
+
+    this.broadcastState();
+    return { success: true };
+  }
+
+  skipPrologue(socketId) {
+    if (this.state !== 'PROLOGUE') return { success: false, message: '目前不是開場階段' };
+    if (socketId !== this.leaderId) return { success: false, message: '只有隊長能跳過開場！' };
+    this.clearTimer();
     this.startRouteSelection();
     return { success: true };
   }
@@ -208,14 +242,17 @@ export class Room {
 
     this.state = 'CHOOSING_ROUTE';
     this.currentEvent = null;
+    this.currentTransition = null;
     this.currentRoutes = getRandomRoutes(4); // 每次從 6 個選項中隨機抽出 4 個
-    this.addLog(`🧭【第 ${this.floor} 層】分歧抉擇：請隊長選擇前進路線！(敵方強度加成：+${Math.round((this.floor - 1) * 20)}%)`, 'info');
+    this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】請隊長選擇前進路線！(敵方強度加成：+${Math.round((this.floor - 1) * 20)}%)`, 'info');
     
     // 30 秒自動倒數
     this.setTimer(30, () => {
       if (this.state === 'CHOOSING_ROUTE') {
         this.addLog('⏱️ 隊長猶豫不決，小隊盲目摸黑向前前進！', 'warning');
-        this.resolveRouteChoice();
+        const activeRoutes = this.currentRoutes || ROUTES;
+        const randomRoute = activeRoutes[Math.floor(Math.random() * activeRoutes.length)];
+        this.resolveRouteChoice(randomRoute);
       }
     });
 
@@ -230,23 +267,57 @@ export class Room {
     const activeRoutes = this.currentRoutes || ROUTES;
     const route = activeRoutes.find(r => r.id === routeId) || ROUTES.find(r => r.id === routeId) || activeRoutes[0];
     this.addLog(`👣 隊長帶領隊伍走向：**${route.name}**！`, 'info');
-    this.resolveRouteChoice();
+    this.resolveRouteChoice(route);
     return { success: true };
   }
 
-  resolveRouteChoice() {
+  resolveRouteChoice(route) {
     const rand = Math.random();
+    let outcomeType = 'battle';
     if (rand < 0.25) {
-      this.handleTreasureEvent();
+      outcomeType = 'treasure';
     } else if (rand < 0.5) {
-      this.handleTrapEvent();
+      outcomeType = 'trap';
     } else {
-      this.handleBattleEvent();
+      outcomeType = 'battle';
     }
+
+    const routeData = ROUTE_STORIES[route.id] || ROUTE_STORIES['route_trail'];
+    const outcomeData = routeData[outcomeType];
+
+    this.state = 'TRANSITION';
+    this.currentTransition = {
+      floor: this.floor,
+      title: `將進入第 ${this.floor} 層`,
+      routeId: route.id,
+      routeName: route.name,
+      routeIcon: route.icon,
+      outcomeType: outcomeType,
+      storyTitle: outcomeData.title,
+      storyText: outcomeData.story
+    };
+
+    this.addLog(`📜 **${this.currentTransition.title}**（路線：${route.name}）`, 'info');
+    this.addLog(outcomeData.story, outcomeType === 'treasure' ? 'loot' : (outcomeType === 'trap' ? 'damage' : 'warning'));
+
+    this.broadcastState();
+
+    // 播放打字機標題與敘述轉場（持續 5 秒），隨後正式展開事件或戰鬥
+    this.setTimer(5, () => {
+      if (this.state === 'TRANSITION') {
+        if (outcomeType === 'treasure') {
+          this.handleTreasureEvent(outcomeData);
+        } else if (outcomeType === 'trap') {
+          this.handleTrapEvent(outcomeData);
+        } else {
+          this.handleBattleEvent(outcomeData);
+        }
+      }
+    });
   }
 
   // 寶箱事件
-  handleTreasureEvent() {
+  handleTreasureEvent(outcomeData = null) {
     this.state = 'EVENT';
     const healAmt = 25;
     for (const p of Object.values(this.players)) {
@@ -266,13 +337,14 @@ export class Room {
 
     this.currentEvent = {
       type: 'treasure',
-      title: `🎁【第 ${this.floor} 層】發現遠古寶箱！`,
+      title: outcomeData ? outcomeData.title : `🎁【第 ${this.floor} 層】發現遠古寶箱！`,
+      story: outcomeData ? outcomeData.story : '',
       healAmt: healAmt,
       drop: drop,
       ownerName: equipOwner ? equipOwner.name : '未知'
     };
 
-    this.addLog(`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，由 **${equipOwner.name}** 裝備！`, 'loot');
+    this.addLog(`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，由 **${equipOwner ? equipOwner.name : '勇者'}** 裝備！`, 'loot');
     this.broadcastState();
 
     this.setTimer(4, () => {
@@ -281,7 +353,7 @@ export class Room {
   }
 
   // 陷阱事件
-  handleTrapEvent() {
+  handleTrapEvent(outcomeData = null) {
     this.state = 'EVENT';
     const trapDmg = 18;
     const trapLogs = [];
@@ -297,6 +369,7 @@ export class Room {
       p.hp -= trapDmg;
       if (p.hp <= 0) {
         p.hp = 0;
+        this.clearPlayerDebuffs(p);
         trapLogs.push(`💥 **${p.name}** 受到 **${trapDmg}** 點陷阱重創，不幸身亡！💀`);
       } else {
         trapLogs.push(`💢 **${p.name}** 受到 **${trapDmg}** 點陷阱傷害！（❤️ ${p.hp}/${p.maxHp}）`);
@@ -305,7 +378,8 @@ export class Room {
 
     this.currentEvent = {
       type: 'trap',
-      title: `⚠️【第 ${this.floor} 層】致命陷阱！`,
+      title: outcomeData ? outcomeData.title : `⚠️【第 ${this.floor} 層】致命陷阱！`,
+      story: outcomeData ? outcomeData.story : '',
       details: trapLogs
     };
 
@@ -325,7 +399,7 @@ export class Room {
   }
 
   // 戰鬥事件
-  handleBattleEvent() {
+  handleBattleEvent(outcomeData = null) {
     const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
     const playerCount = this.memberIds.length;
     const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
@@ -352,7 +426,9 @@ export class Room {
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
     this.alcShieldTurns = 0;
+    this.alcVulnerableTurns = 0;
     this.alcVulnerableNextTurn = false;
+    this.isNarrating = false;
 
     for (const p of Object.values(this.players)) {
       p.bleedTurns = 0;
@@ -363,8 +439,8 @@ export class Room {
       p.cannotCrit = false;
       p.isStealthed = false;
       p.isSurrendered = false;
-      if (p.druidForm === 'treant') {
-        p.maxHp -= 60;
+      if (p.druidForm === 'treant' || p.druidForm === 'tree') {
+        p.maxHp -= 100;
         p.hp = Math.min(p.hp, p.maxHp);
       }
       p.druidForm = null;
@@ -372,6 +448,9 @@ export class Room {
       p.minion = null;
     }
 
+    if (outcomeData && outcomeData.story) {
+      this.addLog(`⚠️ **${outcomeData.story}**`, 'warning');
+    }
     this.addLog(`⚔️ **遭遇強敵！【${this.currentMonster.name}】擋住了去路！**`, 'warning');
     this.executeTurn();
   }
@@ -385,8 +464,10 @@ export class Room {
     }
 
     this.state = 'IN_BATTLE';
+    this.isNarrating = false; // 解除敘述鎖定，玩家現在可以選擇技能
+
     for (const p of Object.values(this.players)) {
-      p.action = p.isSurrendered ? 'skip' : null;
+      p.action = (p.isSurrendered || p.druidForm === 'tree') ? 'skip' : null;
       p.targetPlayerId = null;
       p.isStealthed = false;
     }
@@ -398,10 +479,10 @@ export class Room {
 
     // 30 秒回合超時機制
     this.setTimer(30, () => {
-      if (this.state === 'IN_BATTLE') {
+      if (this.state === 'IN_BATTLE' && !this.isNarrating) {
         this.addLog('⏱️ 回合時間截止，未行動者自動跳過回合！', 'warning');
         for (const p of Object.values(this.players)) {
-          if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && !p.action) {
+          if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree' && !p.action) {
             p.action = 'skip';
           }
         }
@@ -414,11 +495,13 @@ export class Room {
 
   submitAction(socketId, actionId, targetPlayerId = null) {
     if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
+    if (this.isNarrating) return { success: false, message: '戰況交鋒敘述進行中，請稍候！' };
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
     if (player.hp <= 0) return { success: false, message: '你已陣亡，無法行動' };
     if (player.stunnedNextTurn) return { success: false, message: '你處於脫力虛脫中，本回合無法行動' };
     if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
+    if (player.druidForm === 'tree') return { success: false, message: '你化身為古樹休眠中，本回合無法行動！' };
 
     if (actionId !== 'skip') {
       const roleConfig = CLASSES[player.role];
@@ -452,7 +535,7 @@ export class Room {
 
   checkTurnCompletion() {
     const allDone = Object.values(this.players)
-      .filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered)
+      .filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree')
       .every(p => p.action !== null);
 
     if (allDone) {
@@ -463,7 +546,22 @@ export class Room {
   }
 
   // 擊敗怪物勝利結算
-  handleMonsterVictory(monster = this.currentMonster, log = [], visualEvents = []) {
+  handleMonsterVictory(monster = this.currentMonster, log = [], visualEvents = [], skipEmit = false) {
+    this.clearTimer();
+    this.isNarrating = false;
+    // 勝負判定：若敵方我方同時血量歸零，優先結算我方血量（判定為敵方勝利）
+    const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
+    if (alivePlayers.length === 0) {
+      log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+      log.forEach(l => this.addLog(l.text, l.type));
+      if (!skipEmit) {
+        this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+      }
+      this.broadcastState();
+      this.setTimer(3, () => this.handleGameOver());
+      return;
+    }
+
     if (!monster) return;
     monster.hp = 0;
     log.push({ text: `🎉 **${monster.name} 倒下了！小隊成功突破第 ${this.floor} 層！**`, type: 'loot' });
@@ -473,8 +571,8 @@ export class Room {
       p.bleedTurns = 0;
       p.poisonTurns = 0;
       p.isSurrendered = false;
-      if (p.druidForm === 'treant') {
-        p.maxHp -= 60;
+      if (p.druidForm === 'treant' || p.druidForm === 'tree') {
+        p.maxHp -= 100;
         p.hp = Math.min(p.hp, p.maxHp);
       }
       p.druidForm = null;
@@ -493,9 +591,15 @@ export class Room {
         p.bardHealGroupBonus = (p.bardHealGroupBonus || 0) + 2;
         p.bardHealSingleBonus = (p.bardHealSingleBonus || 0) + 2;
       }
+
+      // 德魯伊樹精自然回血加成提升（戰鬥成功後加成）
+      if (p.role === 'druid') {
+        p.druidRegenBonus = (p.druidRegenBonus || 0) + 2;
+      }
     }
 
     this.alcShieldTurns = 0;
+    this.alcVulnerableTurns = 0;
     this.alcVulnerableNextTurn = false;
 
     for (const p of Object.values(this.players)) {
@@ -522,7 +626,9 @@ export class Room {
     log.push({ text: `🎁 **【戰利品掉落】獲得裝備：【${drop.name}】**（${drop.desc}），由 **${equipOwner ? equipOwner.name : '未知'}** 立即裝備！`, type: 'loot' });
 
     log.forEach(l => this.addLog(l.text, l.type));
-    this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+    if (!skipEmit) {
+      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+    }
     this.broadcastState();
 
     this.setTimer(4, () => {
@@ -533,9 +639,11 @@ export class Room {
   // 戰鬥結算
   resolveTurnActions() {
     this.clearTimer();
+    this.isNarrating = true;
     const monster = this.currentMonster;
     const log = [];
     const visualEvents = [];
+    const narratives = [];
 
     let bardDmgMultiplier = 1.0;
     let bardDmgReduction = 1.0;
@@ -548,29 +656,55 @@ export class Room {
       const bleedDmg = Math.floor(2 * (1 + (this.floor - 1) * 0.20));
       for (const p of Object.values(this.players)) {
         if (p.hp > 0 && p.bleedTurns > 0) {
-          p.hp -= bleedDmg;
           p.bleedTurns -= 1;
           visualEvents.push({ type: 'bleed', target: p.id, value: bleedDmg });
-          if (p.hp <= 0) {
-            p.hp = 0;
-            log.push({ text: `🩸 **${p.name}** 傷口惡化承受 **${bleedDmg}** 點撕裂傷害，傷重倒地！💀`, type: 'damage' });
+          if (p.hp <= bleedDmg) {
+            if (p.druidForm === 'treant') {
+              p.hp = 1;
+              p.druidForm = 'tree';
+              p.druidFormTurns = 1;
+              p.stunnedNextTurn = true;
+              p.action = 'skip';
+              log.push({ text: `🪵 **${p.name}** 撕裂傷勢致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+              visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+            } else {
+              p.hp = 0;
+              this.clearPlayerDebuffs(p);
+              if (p.druidForm === 'tree') {
+                p.maxHp -= 100;
+                p.druidForm = null;
+                p.druidFormTurns = 0;
+              }
+              log.push({ text: `🩸 **${p.name}** 傷口惡化承受 **${bleedDmg}** 點撕裂傷害，傷重倒地！💀`, type: 'damage' });
+            }
           } else {
-            log.push({ text: `🩸 **${p.name}** 傷口持續撕裂，受到 **${bleedDmg}** 點額外傷害！（剩餘流血: ${p.bleedTurns} 回合）`, type: 'damage' });
+            p.hp -= bleedDmg;
+            log.push({ text: `🩸 **${p.name}** 傷口持續撕裂，受到 **${bleedDmg}** 點額外傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘流血: ${p.bleedTurns} 回合）`, type: 'damage' });
           }
         }
+      }
+    }
+
+    // 0.2 德魯伊樹精/古樹形態自然回復 (每回合開始回復5HP，受戰鬥成功加成)
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && (p.druidForm === 'treant' || p.druidForm === 'tree')) {
+        const regenAmt = 5 + (p.druidRegenBonus || 0);
+        const oldHp = p.hp;
+        p.hp = Math.min(p.maxHp, p.hp + regenAmt);
+        const actualGain = p.hp - oldHp;
+        log.push({ text: `🌿 **${p.name}** (${p.druidForm === 'tree' ? '沉睡古樹' : '樹精'}) 汲取自然精華自然回復 **${actualGain}** 點生命！（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
+        visualEvents.push({ type: 'heal', targetId: p.id, value: actualGain, label: '自然回復' });
       }
     }
 
     // 0.5 劇毒傷害結算 (回合初各受 3 點毒傷)
     if (monster.hp > 0 && monster.poisonTurns > 0) {
       const pDmg = 3;
-      monster.hp -= pDmg;
+      monster.hp = Math.max(0, monster.hp - pDmg);
       monster.poisonTurns -= 1;
       visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
       if (monster.hp <= 0) {
         log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
-        this.handleMonsterVictory(monster, log, visualEvents);
-        return;
       } else {
         log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合）`, type: 'damage' });
       }
@@ -579,31 +713,55 @@ export class Room {
     for (const p of Object.values(this.players)) {
       if (p.hp > 0 && p.poisonTurns > 0) {
         const pDmg = 3;
-        p.hp -= pDmg;
         p.poisonTurns -= 1;
         visualEvents.push({ type: 'poison_damage', target: p.id, value: pDmg });
-        if (p.hp <= 0) {
-          p.hp = 0;
-          log.push({ text: `🧪 **${p.name}** 劇毒發作受到 **${pDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
+        if (p.hp <= pDmg) {
+          if (p.druidForm === 'treant') {
+            p.hp = 1;
+            p.druidForm = 'tree';
+            p.druidFormTurns = 1;
+            p.stunnedNextTurn = true;
+            p.action = 'skip';
+            log.push({ text: `🪵 **${p.name}** 劇毒致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+            visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+          } else {
+            p.hp = 0;
+            this.clearPlayerDebuffs(p);
+            if (p.druidForm === 'tree') {
+              p.maxHp -= 100;
+              p.druidForm = null;
+              p.druidFormTurns = 0;
+            }
+            log.push({ text: `🧪 **${p.name}** 劇毒發作受到 **${pDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
+          }
         } else {
+          p.hp -= pDmg;
           log.push({ text: `🧪 **${p.name}** 劇毒灼燒受到 **${pDmg}** 點毒素傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘中毒: ${p.poisonTurns} 回合）`, type: 'damage' });
         }
       }
     }
 
-    // 檢查回合初是否全員倒下
+    // 勝負判定：若我方全員倒下，即使敵方同時歸零，亦優先結算我方陣亡（敵方勝利）
     const aliveAfterDot = Object.values(this.players).filter(p => p.hp > 0);
     if (aliveAfterDot.length === 0) {
+      if (monster.hp <= 0) {
+        log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+      }
       log.forEach(l => this.addLog(l.text, l.type));
-      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: false });
+      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: monster.hp <= 0 });
       this.broadcastState();
       this.setTimer(3, () => this.handleGameOver());
       return;
     }
 
+    if (monster.hp <= 0) {
+      this.handleMonsterVictory(monster, log, visualEvents);
+      return;
+    }
+
     // 1. 詩人增傷 50%，受傷降低 25%，使敵方雙抗降至 65%
     for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'b_buff') {
+      if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree' && p.action === 'b_buff') {
         bardDmgMultiplier = 1.5;
         bardDmgReduction = 0.75;
         bardBuffActive = true;
@@ -638,6 +796,15 @@ export class Room {
         log.push({ text: `🐾 **${p.name}** 的僕從【${p.minion.name}】主動出擊，對怪物造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
         visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: p.minion.name });
         if (monster.hp <= 0) {
+          const livingPlayers = Object.values(this.players).filter(pl => pl.hp > 0);
+          if (livingPlayers.length === 0) {
+            log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+            log.forEach(l => this.addLog(l.text, l.type));
+            this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+            this.broadcastState();
+            this.setTimer(3, () => this.handleGameOver());
+            return;
+          }
           this.handleMonsterVictory(monster, log, visualEvents);
           return;
         }
@@ -648,6 +815,11 @@ export class Room {
     for (const p of Object.values(this.players)) {
       if (p.isSurrendered) {
         log.push({ text: `🐺 **${p.name}** 陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！`, type: 'warning' });
+        continue;
+      }
+
+      if (p.druidForm === 'tree') {
+        log.push({ text: `🪵 **${p.name}** 化身為樹木休眠中，本回合無法行動！`, type: 'info' });
         continue;
       }
 
@@ -818,55 +990,73 @@ export class Room {
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
           visualEvents.push({ type: 'self_damage', targetId: p.id, value: 15 });
           if (p.hp <= 0) {
+            p.hp = 0;
+            this.clearPlayerDebuffs(p);
             log.push({ text: `💥 **${p.name}** 因強酸自傷過重倒地陣亡！💀`, type: 'damage' });
           }
           break;
         }
 
         case 'alc_poison': {
-          const raw = Math.floor((20 + p.bonusAtk) * bardDmgMultiplier);
+          const raw = Math.floor((30 + p.bonusAtk) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           p.hp = Math.max(0, p.hp - 5);
           monster.poisonTurns = 2;
-          monster.poisonDmg = 3;
+          monster.poisonDmg = 5;
           for (const pl of Object.values(this.players)) {
             if (pl.hp > 0) {
               pl.poisonTurns = 2;
-              pl.poisonDmg = 3;
+              pl.poisonDmg = 5;
             }
           }
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote} 自身受到 **5** 點自傷！濃烈毒霧覆蓋全場，**敵我雙方皆陷入劇毒（後續2回合每回合初各受3點毒傷）**！`, type: 'combat' });
+          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote} 自身受到 **5** 點自傷！濃烈毒霧覆蓋全場，**敵我雙方皆陷入劇毒（後續2回合每回合初各受5點毒傷）**！`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '劇毒煙霧瓶' });
           visualEvents.push({ type: 'self_damage', targetId: p.id, value: 5 });
           if (p.hp <= 0) {
+            p.hp = 0;
+            this.clearPlayerDebuffs(p);
             log.push({ text: `💥 **${p.name}** 因毒霧自傷倒地陣亡！💀`, type: 'damage' });
           }
           break;
         }
 
         case 'alc_fate': {
-          for (const pl of Object.values(this.players)) {
-            pl.bleedTurns = 0;
-            pl.poisonTurns = 0;
-          }
-          const isSuccess = Math.random() < 0.5;
-          if (isSuccess) {
+          const hasAbnormalStatus = (p.poisonTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
+
+          if (!hasAbnormalStatus) {
+            // 身上無異常狀態：2技能效果變成回復 15 點血（全員回復 15 點生命值，不觸發命運反噬）
             for (const pl of Object.values(this.players)) {
-              if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 40);
+              pl.bleedTurns = 0;
+              pl.poisonTurns = 0;
+              if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 15);
             }
-            this.alcShieldTurns = 2;
-            log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **40** HP，並獲得持續 **2** 回合的 **70% 減傷護盾**！🛡️`, type: 'buff' });
-            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 40, singleTargetId: null, singleValue: 0 });
-            visualEvents.push({ type: 'alc_shield', turns: 2 });
+            log.push({ text: `🌿⚗️ **${p.name}** 身上無異常狀態，調配出【溫和調和試劑】！全員穩定回復 **15** 點生命值！`, type: 'heal' });
+            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 15, singleTargetId: null, singleValue: 0 });
           } else {
+            // 身上有異常狀態：驅散全體負面效果 + 命運煉成賭博
             for (const pl of Object.values(this.players)) {
-              if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 10);
+              pl.bleedTurns = 0;
+              pl.poisonTurns = 0;
             }
-            this.alcVulnerableNextTurn = true;
-            log.push({ text: `💥⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金失敗】**！雖然淨化了負面效果並全體回復 **10** 點生命，但試劑反噬爆炸，**下回合全隊受傷增加 20%**！⚠️`, type: 'warning' });
-            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 10, singleTargetId: null, singleValue: 0 });
+            const isSuccess = Math.random() < 0.5;
+            if (isSuccess) {
+              for (const pl of Object.values(this.players)) {
+                if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 40);
+              }
+              this.alcShieldTurns = 2;
+              log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **40** HP，並獲得持續 **2** 回合的 **70% 減傷護盾**！🛡️`, type: 'buff' });
+              visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 40, singleTargetId: null, singleValue: 0 });
+              visualEvents.push({ type: 'alc_shield', turns: 2 });
+            } else {
+              for (const pl of Object.values(this.players)) {
+                if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 10);
+              }
+              this.alcVulnerableNextTurn = true;
+              log.push({ text: `💥⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金失敗】**！雖然淨化了負面效果並全體回復 **10** 點生命，但試劑反噬爆炸，**下回合全隊受傷增加 20%**！⚠️`, type: 'warning' });
+              visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 10, singleTargetId: null, singleValue: 0 });
+            }
           }
           break;
         }
@@ -897,9 +1087,9 @@ export class Room {
             }
           } else {
             p.druidForm = 'treant';
-            p.maxHp += 60;
-            p.hp += 60;
-            log.push({ text: `🌳 **${p.name}** 紮根於地發動【形態轉變】—— 化身為 **【樹精】**（最大生命與當前生命+60，造成傷害-5，變身期間替全體隊友主動吸收50%受到傷害，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+            p.maxHp += 100;
+            p.hp += 100;
+            log.push({ text: `🌳 **${p.name}** 紮根於地發動【形態轉變】—— 化身為 **【樹精】**（最大生命與當前生命+100，減傷20%，每回合初自癒5HP，變身期間替全體隊友主動吸收50%受到傷害，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
             visualEvents.push({ type: 'transform_treant', sourceId: p.id });
           }
           break;
@@ -923,6 +1113,17 @@ export class Room {
           break;
         }
       }
+
+      // 記錄該玩家行動敘述
+      narratives.push({
+        type: 'player',
+        sourceId: p.id,
+        name: p.name,
+        role: p.role,
+        actionId: p.action,
+        text: BATTLE_NARRATIVES.getPlayerSkillNarrative(p, p.action, { isCrit: (p.action === 's_stab' && assassinDidCrit) }),
+        detail: log[log.length - 1]?.text || ''
+      });
 
       if (monster.hp <= 0) {
         break; // 擊殺怪物跳出玩家行動
@@ -973,20 +1174,45 @@ export class Room {
         if (p.druidFormTurns > 0) {
           p.druidFormTurns -= 1;
           if (p.druidFormTurns === 0 && p.druidForm) {
-            if (p.druidForm === 'treant') {
-              p.maxHp -= 60;
+            if (p.druidForm === 'treant' || p.druidForm === 'tree') {
+              p.maxHp -= 100;
               p.hp = Math.min(p.hp, p.maxHp);
             }
-            log.push({ text: `🌿 **${p.name}** 的形態轉變持續時間結束，解除變身回復正常人身狀態。`, type: 'info' });
+            const formName = p.druidForm === 'tree' ? '沉睡古樹' : (p.druidForm === 'werewolf' ? '狼人' : '樹精');
+            log.push({ text: `🌿 **${p.name}** 的【${formName}】形態結束，解除變身回復正常人身狀態。`, type: 'info' });
             p.druidForm = null;
           }
         }
       }
     }
 
-    // 5. 判定怪物擊殺
+    // 5. 判定怪物擊殺與勝負判定
     if (monster.hp <= 0) {
-      this.handleMonsterVictory(monster, log, visualEvents);
+      narratives.push({
+        type: 'kill',
+        name: monster.name,
+        text: `💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`
+      });
+      const narrationDuration = Math.max(5, narratives.length * 2.2 + 1.2);
+      log.forEach(l => this.addLog(l.text, l.type));
+      this.io.to(this.code).emit('battle:visual_events', {
+        events: visualEvents,
+        narratives: narratives,
+        round: this.battleRound,
+        monsterKilled: true,
+        duration: narrationDuration
+      });
+      this.broadcastState();
+
+      this.setTimer(Math.ceil(narrationDuration), () => {
+        const livingPlayers = Object.values(this.players).filter(p => p.hp > 0);
+        if (livingPlayers.length === 0) {
+          log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+          this.handleGameOver();
+          return;
+        }
+        this.handleMonsterVictory(monster, log, visualEvents, true);
+      });
       return;
     }
 
@@ -994,11 +1220,23 @@ export class Room {
     const isUltTurn = (this.battleRound % 3 === 0);
     let baseDamageCalc = monster.attack;
 
+    const monsterTemplate = BATTLE_NARRATIVES.monsters[monster.name] || {
+      normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
+      ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
+    };
+    const monsterNarrative = isUltTurn ? monsterTemplate.ult : monsterTemplate.normal;
+    narratives.push({
+      type: 'monster',
+      name: monster.name,
+      isUlt: isUltTurn,
+      text: monsterNarrative
+    });
+
     if (isUltTurn) {
       baseDamageCalc = Math.floor(baseDamageCalc * 1.35);
-      log.push({ text: `🔥 **${monster.name} 釋放了必殺技【${monster.ultName}】！**`, type: 'warning' });
+      log.push({ text: monsterNarrative, type: 'warning' });
     } else {
-      log.push({ text: `👾 **${monster.name} 發動了反擊！**`, type: 'combat' });
+      log.push({ text: monsterNarrative, type: 'combat' });
     }
 
     const effectiveBaseAtk = Math.max(5, baseDamageCalc - monsterAttackReduction);
@@ -1023,19 +1261,18 @@ export class Room {
       }
     }
 
+    // 在受到傷害時只讀取狀態、不扣減次數，統一交給回合末尾進行倒數
     let shieldDamageMod = 1.0;
     if (this.warriorShieldTurn === 1) {
       shieldDamageMod = 0.1;
       log.push({ text: `🛡️ **【壁壘守護】本回合為全隊阻擋了 90% 的衝擊！**`, type: 'buff' });
-      this.warriorShieldTurn = 2;
     } else if (this.warriorShieldTurn === 2) {
       shieldDamageMod = 0.6;
       log.push({ text: `🛡️ **【壁壘守護】餘威為全隊阻擋了 40% 的傷害！**`, type: 'buff' });
-      this.warriorShieldTurn = 0;
     }
 
     let alcShieldMod = (this.alcShieldTurns > 0) ? 0.30 : 1.0;
-    let alcVulnMod = this.alcVulnerableNextTurn ? 1.20 : 1.0;
+    let alcVulnMod = (this.alcVulnerableTurns > 0) ? 1.20 : 1.0;
 
     const calculateDamageToPlayer = (player, rawDamage) => {
       let finalDmg = rawDamage;
@@ -1044,6 +1281,10 @@ export class Room {
       if (alcShieldMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * alcShieldMod));
       if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * alcVulnMod);
       if (bardDmgReduction < 1.0) finalDmg = Math.floor(finalDmg * bardDmgReduction);
+      // 樹精/古樹形態自帶 20% 減傷
+      if (player.druidForm === 'treant' || player.druidForm === 'tree') {
+        finalDmg = Math.floor(finalDmg * 0.80);
+      }
       return Math.max(1, finalDmg);
     };
 
@@ -1084,15 +1325,20 @@ export class Room {
       if (treantDruid && treantDruid.id !== p.id && totalTakenDmg > 0 && treantDruid.hp > 0) {
         const absorbedDmg = Math.floor(totalTakenDmg * 0.5);
         totalTakenDmg -= absorbedDmg;
-        treantDruid.hp -= absorbedDmg;
-        log.push({ text: `🌳 **${treantDruid.name}** (樹精) 伸展藤蔓為 **${p.name}** 承受吸收了 **${absorbedDmg}** 點傷害！（❤️ 樹精剩餘HP: ${treantDruid.hp}/${treantDruid.maxHp}）`, type: 'buff' });
-        monsterHits.push({ targetId: treantDruid.id, value: absorbedDmg, isDead: treantDruid.hp <= 0, shieldMod: shieldDamageMod });
+        const treantActualDmg = Math.max(1, Math.floor(absorbedDmg * 0.80)); // 樹精減傷20%
+        treantDruid.hp -= treantActualDmg;
+        log.push({ text: `🌳 **${treantDruid.name}** (樹精) 伸展藤蔓為 **${p.name}** 承受吸收了 **${absorbedDmg}** 點傷害（減傷20%後實受 **${treantActualDmg}** 點）！（❤️ 樹精剩餘HP: ${treantDruid.hp}/${treantDruid.maxHp}）`, type: 'buff' });
+        
         if (treantDruid.hp <= 0) {
-          treantDruid.hp = 0;
-          treantDruid.maxHp -= 60;
-          treantDruid.druidForm = null;
-          treantDruid.druidFormTurns = 0;
-          log.push({ text: `💥 **${treantDruid.name}** 因替隊友吸收過量重創，樹精形態破滅倒下！💀`, type: 'damage' });
+          treantDruid.hp = 1;
+          treantDruid.druidForm = 'tree';
+          treantDruid.druidFormTurns = 1;
+          treantDruid.stunnedNextTurn = true;
+          log.push({ text: `🪵 **${treantDruid.name}** 因替隊友承受致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+          visualEvents.push({ type: 'transform_tree', sourceId: treantDruid.id });
+          monsterHits.push({ targetId: treantDruid.id, value: treantActualDmg, isDead: false, shieldMod: shieldDamageMod });
+        } else {
+          monsterHits.push({ targetId: treantDruid.id, value: treantActualDmg, isDead: false, shieldMod: shieldDamageMod });
         }
       }
 
@@ -1103,20 +1349,49 @@ export class Room {
       }
 
       if (p.hp <= 0) {
-        p.hp = 0;
-        p.bleedTurns = 0;
-        p.poisonTurns = 0;
-        log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
+        if (p.druidForm === 'treant') {
+          p.hp = 1;
+          p.druidForm = 'tree';
+          p.druidFormTurns = 1;
+          p.stunnedNextTurn = true;
+          log.push({ text: `🪵 **${p.name}** 受到致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+          visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+          monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: false, shieldMod: shieldDamageMod });
+        } else {
+          p.hp = 0;
+          this.clearPlayerDebuffs(p);
+          if (p.druidForm === 'tree') {
+            p.maxHp -= 100;
+            p.druidForm = null;
+            p.druidFormTurns = 0;
+          }
+          log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
+          monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: true, shieldMod: shieldDamageMod });
+        }
       } else {
         log.push({ text: `💢 **${p.name}** 受到 **${totalTakenDmg}** 點傷害（❤️ ${p.hp}/${p.maxHp}）`, type: 'damage' });
+        monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: false, shieldMod: shieldDamageMod });
       }
-      monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: p.hp <= 0, shieldMod: shieldDamageMod });
+    }
+
+    // 回合末尾統一進行減傷盾與易傷的倒數
+    if (this.warriorShieldTurn === 1) {
+      this.warriorShieldTurn = 2;
+    } else if (this.warriorShieldTurn === 2) {
+      this.warriorShieldTurn = 0;
     }
 
     if (this.alcShieldTurns > 0) {
       this.alcShieldTurns -= 1;
     }
-    this.alcVulnerableNextTurn = false;
+
+    if (this.alcVulnerableTurns > 0) {
+      this.alcVulnerableTurns -= 1;
+    }
+    if (this.alcVulnerableNextTurn) {
+      this.alcVulnerableTurns = 1;
+      this.alcVulnerableNextTurn = false;
+    }
 
     visualEvents.push({
       type: 'monster_attack',
@@ -1126,20 +1401,35 @@ export class Room {
       hits: monsterHits
     });
 
-    this.battleRound += 1;
+    const narrationDuration = Math.max(5, narratives.length * 2.2 + 1.2);
     log.forEach(l => this.addLog(l.text, l.type));
-    this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: false });
+    this.io.to(this.code).emit('battle:visual_events', {
+      events: visualEvents,
+      narratives: narratives,
+      round: this.battleRound,
+      monsterKilled: false,
+      duration: narrationDuration
+    });
     this.broadcastState();
 
-    // 檢查全滅
-    const remainingLiving = Object.values(this.players).filter(p => p.hp > 0);
-    if (remainingLiving.length === 0) {
-      this.setTimer(3, () => this.handleGameOver());
-      return;
-    }
+    this.setTimer(Math.ceil(narrationDuration), () => {
+      // 檢查全滅（勝負判定：若敵方我方同時血量歸零，優先結算我方血量）
+      const remainingLiving = Object.values(this.players).filter(p => p.hp > 0);
+      if (remainingLiving.length === 0) {
+        if (monster.hp <= 0) {
+          log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+        }
+        this.handleGameOver();
+        return;
+      }
 
-    // 準備下一回合
-    this.setTimer(4, () => {
+      if (monster.hp <= 0) {
+        this.handleMonsterVictory(monster, log, visualEvents, true);
+        return;
+      }
+
+      // 準備下一回合
+      this.battleRound += 1;
       this.executeTurn();
     });
   }
@@ -1207,6 +1497,7 @@ export class Room {
     this.currentEvent = null;
     this.warriorShieldTurn = 0;
     this.alcShieldTurns = 0;
+    this.alcVulnerableTurns = 0;
     this.alcVulnerableNextTurn = false;
     this.gameOverReason = null;
 
@@ -1229,6 +1520,7 @@ export class Room {
       p.poisonDmg = 0;
       p.druidForm = null;
       p.druidFormTurns = 0;
+      p.druidRegenBonus = 0;
       p.isSurrendered = false;
       p.minion = null;
       p.bardHealGroupBonus = 0;
@@ -1249,7 +1541,26 @@ export class Room {
     if (!player || !message) return;
     const cleanMsg = String(message).trim().slice(0, 100);
     if (!cleanMsg) return;
+
+    const roleInfo = CLASSES[player.role] || { name: '冒險者', emoji: '👤' };
+    const chatData = {
+      id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      senderId: player.id,
+      senderName: player.name,
+      senderRole: player.role,
+      senderRoleName: roleInfo.name,
+      senderEmoji: roleInfo.emoji,
+      senderAvatar: player.customAvatar || null,
+      message: cleanMsg,
+      time: new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' })
+    };
+
+    if (!this.chatMessages) this.chatMessages = [];
+    this.chatMessages.push(chatData);
+    if (this.chatMessages.length > 80) this.chatMessages.shift();
+
     this.addLog(`💬 **${player.name}**: ${cleanMsg}`, 'chat');
+    this.io.to(this.code).emit('chat:message', chatData);
     this.broadcastState();
   }
 
@@ -1359,6 +1670,7 @@ export class Room {
       battleRound: this.battleRound,
       warriorShieldTurn: this.warriorShieldTurn,
       alcShieldTurns: this.alcShieldTurns || 0,
+      alcVulnerableTurns: this.alcVulnerableTurns || 0,
       alcVulnerableNextTurn: this.alcVulnerableNextTurn || false,
       isPaused: this.isPaused,
       timerRemaining: timerRemaining,
@@ -1368,6 +1680,9 @@ export class Room {
         poisonTurns: this.currentMonster.poisonTurns || 0
       } : null,
       currentEvent: this.currentEvent,
+      currentTransition: this.currentTransition,
+      currentPrologue: (this.state === 'PROLOGUE') ? STORY_TEXTS.prologue : null,
+      isNarrating: this.isNarrating || false,
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
       players: Object.values(this.players).map(p => ({
         id: p.id,
@@ -1394,7 +1709,8 @@ export class Room {
         hasActed: p.action !== null, // 只透露是否已下達指令，暗中保密指令內容
         connected: p.connected
       })),
-      logs: this.logs.slice(-30) // 最近 30 筆日誌
+      logs: this.logs.slice(-30), // 最近 30 筆日誌
+      chatMessages: (this.chatMessages || []).slice(-40) // 最近 40 筆小隊聊天訊息
     };
   }
 

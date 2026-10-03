@@ -1249,6 +1249,16 @@ async function resolveTurnActions(state) {
 
   // 5. 判定怪物擊殺（戰鬥勝利結算：技能 CD 全部刷新歸零）
   if (monster.hp <= 0) {
+    const livingPlayers = Object.values(state.players).filter(p => p.hp > 0);
+    if (livingPlayers.length === 0) {
+      log.push(`\n💀 **敵我雙方同時陣亡！優先結算我方血量，判定為全軍覆沒！**`);
+      activeGames.delete(state.channelId);
+      const wipeEmbed = new EmbedBuilder()
+        .setTitle('💀【全軍覆沒】探險失敗')
+        .setDescription(log.join('\n') + `\n\n小隊在深淵第 **${state.floor}** 層倒下了...`)
+        .setColor(0xEF4444);
+      return sendToChannel(state.channelId, { embeds: [wipeEmbed] });
+    }
     monster.hp = 0;
     log.push(`\n🎉 **${monster.name} 倒下了！小隊成功突破第 ${state.floor} 層！**`);
     
@@ -1331,11 +1341,9 @@ async function resolveTurnActions(state) {
   if (state.warriorShieldTurn === 1) {
     shieldDamageMod = 0.1;
     log.push(`🛡️️ **【壁壘守護】本回合為全隊阻擋了 90% 的衝擊！**`);
-    state.warriorShieldTurn = 2;
   } else if (state.warriorShieldTurn === 2) {
     shieldDamageMod = 0.6;
     log.push(`🛡️ **【壁壘守護】餘威為全隊阻擋了 40% 的傷害！**`);
-    state.warriorShieldTurn = 0;
   }
 
   function calculateDamageToPlayer(player, rawDamage) {
@@ -1387,6 +1395,13 @@ async function resolveTurnActions(state) {
     } else {
       log.push(`💢 **${p.user.username}** 受到 **${totalTakenDmg}** 點傷害（${generateHpBar(p.hp, p.maxHp, 8)} ${p.hp}/${p.maxHp}）`);
     }
+  }
+
+  // 回合末尾統一倒數壁壘守護次數
+  if (state.warriorShieldTurn === 1) {
+    state.warriorShieldTurn = 2;
+  } else if (state.warriorShieldTurn === 2) {
+    state.warriorShieldTurn = 0;
   }
 
   state.battleRound += 1;

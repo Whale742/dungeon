@@ -145,6 +145,15 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
+  // 4.1 隊長點擊踏入地城 (跳過開場)
+  socket.on('prologue:next', (callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.skipPrologue(socket.id);
+    if (typeof callback === 'function') callback(res);
+  });
+
   // 5. 隊長選擇路線
   socket.on('route:select', ({ routeId }, callback) => {
     const code = socketToRoom.get(socket.id);

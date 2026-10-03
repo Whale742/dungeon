@@ -21,6 +21,11 @@ let editingNameValue = '';
 let currentPendingAction = null;
 let currentPendingTarget = null;
 
+// 打字機與戰鬥敘述鎖定狀態
+let currentTypewriterTimer = null;
+let lastTypedTransitionKey = null;
+let isPlayingBattleNarrative = false;
+
 // 音效系統 (Web Audio API)
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
@@ -126,7 +131,9 @@ const elements = {
   views: {
     entry: document.getElementById('viewEntry'),
     lobby: document.getElementById('viewLobby'),
+    prologue: document.getElementById('viewPrologue'),
     route: document.getElementById('viewRoute'),
+    transition: document.getElementById('viewTransition'),
     event: document.getElementById('viewEvent'),
     battle: document.getElementById('viewBattle'),
     checkpoint: document.getElementById('viewCheckpoint'),
@@ -149,6 +156,18 @@ const elements = {
   leaderStartArea: document.getElementById('leaderStartArea'),
   memberWaitArea: document.getElementById('memberWaitArea'),
   startRequirementText: document.getElementById('startRequirementText'),
+
+  // Prologue
+  prologueTitle: document.getElementById('prologueTitle'),
+  prologueTextBody: document.getElementById('prologueTextBody'),
+  btnSkipPrologue: document.getElementById('btnSkipPrologue'),
+  prologueCountdown: document.getElementById('prologueCountdown'),
+
+  // Transition
+  transitionTypewriterTitle: document.getElementById('transitionTypewriterTitle'),
+  transitionRouteTag: document.getElementById('transitionRouteTag'),
+  transitionStoryTitle: document.getElementById('transitionStoryTitle'),
+  transitionStoryText: document.getElementById('transitionStoryText'),
 
   // Avatar Modal
   avatarModalOverlay: document.getElementById('avatarModalOverlay'),
@@ -180,6 +199,8 @@ const elements = {
 
   // Route
   routeFloorNum: document.getElementById('routeFloorNum'),
+  routeFloorHeaderNum: document.getElementById('routeFloorHeaderNum'),
+  routeMainTitle: document.getElementById('routeMainTitle'),
   routeDiffPercent: document.getElementById('routeDiffPercent'),
   routeTimerProgress: document.getElementById('routeTimerProgress'),
   routeTimerText: document.getElementById('routeTimerText'),
@@ -189,12 +210,15 @@ const elements = {
   // Event
   eventIcon: document.getElementById('eventIcon'),
   eventTitle: document.getElementById('eventTitle'),
+  eventStoryText: document.getElementById('eventStoryText'),
   eventDetails: document.getElementById('eventDetails'),
 
   // Battle
   battleFloorNum: document.getElementById('battleFloorNum'),
   battleRoundNum: document.getElementById('battleRoundNum'),
   battleTimerCount: document.getElementById('battleTimerCount'),
+  battleNarrativeBox: document.getElementById('battleNarrativeBox'),
+  battleNarrativeText: document.getElementById('battleNarrativeText'),
   monsterCard: document.getElementById('monsterCard'),
   monsterAvatarWrap: document.getElementById('monsterAvatarWrap'),
   monsterAvatar: document.getElementById('monsterAvatar'),
@@ -234,13 +258,21 @@ const elements = {
   endStatsBox: document.getElementById('endStatsBox'),
   btnRestartLobby: document.getElementById('btnRestartLobby'),
 
-  // Logs & Chat
-  combatLogSection: document.getElementById('combatLogSection'),
+  // Logs & Floating Chat
   combatLogWindow: document.getElementById('combatLogWindow'),
+  btnClearLog: document.getElementById('btnClearLog'),
+  floatingChatContainer: document.getElementById('floatingChatContainer'),
+  floatingChatBtn: document.getElementById('floatingChatBtn'),
+  chatUnreadBadge: document.getElementById('chatUnreadBadge'),
+  chatToastBubble: document.getElementById('chatToastBubble'),
+  chatBubbleSender: document.getElementById('chatBubbleSender'),
+  chatBubbleText: document.getElementById('chatBubbleText'),
+  btnCloseChatBubble: document.getElementById('btnCloseChatBubble'),
+  chatPopupCard: document.getElementById('chatPopupCard'),
+  btnCloseChatPopup: document.getElementById('btnCloseChatPopup'),
+  chatMessageList: document.getElementById('chatMessageList'),
   chatInput: document.getElementById('chatInput'),
   btnSendChat: document.getElementById('btnSendChat'),
-  btnClearLog: document.getElementById('btnClearLog'),
-  btnToggleLog: document.getElementById('btnToggleLog'),
 
   // Modal
   targetModal: document.getElementById('targetModal'),
@@ -282,6 +314,7 @@ socket.on('room:update', (state) => {
   currentRoomCode = state.code;
   renderApp();
   updateHeroRoleOptionUI();
+  syncChatMessages(state.chatMessages);
 });
 
 // 取得玩家頭貼 HTML (自訂頭貼 > 職業預設 > 預設頭像)
@@ -320,12 +353,14 @@ function switchView(viewName) {
     }
   });
 
-  // 發起組隊頁面 (entry) 隱藏戰況日誌，進入選角色 (lobby) 及後續頁面時顯示
-  if (elements.combatLogSection) {
+  // 發起組隊登入頁面 (entry) 隱藏懸浮聊天按鈕，進入選角色 (lobby) 及後續頁面時顯示
+  if (elements.floatingChatContainer) {
     if (viewName === 'entry') {
-      elements.combatLogSection.classList.add('hidden');
+      elements.floatingChatContainer.classList.add('hidden');
+      dismissChatBubble();
+      toggleChat(false);
     } else {
-      elements.combatLogSection.classList.remove('hidden');
+      elements.floatingChatContainer.classList.remove('hidden');
     }
   }
 }
@@ -386,9 +421,19 @@ function renderApp() {
       renderLobby(me, isLeader);
       break;
 
+    case 'PROLOGUE':
+      switchView('prologue');
+      renderPrologue(isLeader);
+      break;
+
     case 'CHOOSING_ROUTE':
       switchView('route');
       renderRouteChoice(me, isLeader);
+      break;
+
+    case 'TRANSITION':
+      switchView('transition');
+      renderTransition();
       break;
 
     case 'EVENT':
@@ -659,9 +704,75 @@ function renderRoleSelectionGrid() {
   });
 }
 
+// 打字機動畫函式 (一個字一個字慢慢出現)
+function typeWriterEffect(element, text, speed = 85, onComplete = null) {
+  if (currentTypewriterTimer) {
+    clearInterval(currentTypewriterTimer);
+    currentTypewriterTimer = null;
+  }
+  element.textContent = '';
+  element.classList.add('typewriter-cursor');
+  let i = 0;
+  currentTypewriterTimer = setInterval(() => {
+    if (i < text.length) {
+      element.textContent += text.charAt(i);
+      i++;
+      if (soundEnabled && i % 2 === 0) playSound('click');
+    } else {
+      clearInterval(currentTypewriterTimer);
+      currentTypewriterTimer = null;
+      setTimeout(() => {
+        element.classList.remove('typewriter-cursor');
+        if (onComplete) onComplete();
+      }, 400);
+    }
+  }, speed);
+}
+
+// 1.5 渲染開場劇情 (深淵啟程)
+function renderPrologue(isLeader) {
+  if (elements.btnSkipPrologue) {
+    elements.btnSkipPrologue.style.display = isLeader ? 'inline-flex' : 'none';
+  }
+  if (roomState.timerRemaining !== null && elements.prologueCountdown) {
+    elements.prologueCountdown.textContent = `⏳ 命運之輪轉動中... (${roomState.timerRemaining} 秒後自動踏入)`;
+  }
+}
+
+// 1.8 渲染進入層數打字機轉場
+function renderTransition() {
+  const trans = roomState.currentTransition;
+  if (!trans) return;
+
+  const key = `${trans.floor}_${trans.routeId}_${trans.outcomeType}`;
+  if (lastTypedTransitionKey !== key) {
+    lastTypedTransitionKey = key;
+    if (elements.transitionRouteTag) {
+      elements.transitionRouteTag.textContent = `${trans.routeIcon || '🧭'} 前往路線：${trans.routeName}`;
+    }
+    if (elements.transitionStoryTitle) {
+      elements.transitionStoryTitle.textContent = trans.storyTitle || `【${trans.routeName}】`;
+    }
+    if (elements.transitionStoryText) {
+      elements.transitionStoryText.textContent = trans.storyText || '正在深入未知迷霧中...';
+    }
+
+    // 以打字機風格呈現標題 (一個字一個字慢慢出現)
+    if (elements.transitionTypewriterTitle) {
+      typeWriterEffect(elements.transitionTypewriterTitle, trans.title || `將進入第 ${trans.floor} 層`, 90);
+    }
+  }
+}
+
 // 2. 渲染路線分歧
 function renderRouteChoice(me, isLeader) {
   elements.routeFloorNum.textContent = roomState.floor;
+  if (elements.routeFloorHeaderNum) {
+    elements.routeFloorHeaderNum.textContent = roomState.floor;
+  }
+  if (elements.routeMainTitle) {
+    elements.routeMainTitle.innerHTML = `【第 <span>${roomState.floor}</span> 層・迷霧分歧點】`;
+  }
   elements.routeDiffPercent.textContent = Math.round((roomState.floor - 1) * 20);
 
   if (isLeader) {
@@ -705,6 +816,15 @@ function renderRouteChoice(me, isLeader) {
 function renderEvent() {
   const ev = roomState.currentEvent;
   if (!ev) return;
+
+  if (elements.eventStoryText) {
+    if (ev.story) {
+      elements.eventStoryText.textContent = ev.story;
+      elements.eventStoryText.style.display = 'block';
+    } else {
+      elements.eventStoryText.style.display = 'none';
+    }
+  }
 
   if (ev.type === 'treasure') {
     elements.eventIcon.textContent = '🎁';
@@ -805,7 +925,9 @@ function renderBattle(me, isLeader) {
   if (roomState.alcShieldTurns > 0) {
     activeShieldBadges.push(`⚗️ 命運護盾：持續 ${roomState.alcShieldTurns} 回合阻擋 70% 傷害！`);
   }
-  if (roomState.alcVulnerableNextTurn) {
+  if (roomState.alcVulnerableTurns > 0) {
+    activeShieldBadges.push(`⚠️ 試劑反噬：本回合受傷增加 20%！`);
+  } else if (roomState.alcVulnerableNextTurn) {
     activeShieldBadges.push('⚠️ 試劑反噬：下回合受傷增加 20%！');
   }
 
@@ -847,9 +969,11 @@ function renderTeammatesGrid(me) {
     if (p.isStealthed) tags.push('<span class="status-tag tag-stealth">💨 匿蹤</span>');
     if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">🐺 狼人(${p.druidFormTurns}R)</span>`);
     if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">🌳 樹精(${p.druidFormTurns}R)</span>`);
+    if (p.druidForm === 'tree') tags.push(`<span class="status-tag tag-treant">🪵 古樹(${p.druidFormTurns}R)</span>`);
     if (p.minion) tags.push(`<span class="status-tag tag-minion">🐾 ${escapeHtml(p.minion.name)}(${p.minion.hp}/${p.minion.maxHp})</span>`);
     if (roomState.alcShieldTurns > 0) tags.push('<span class="status-tag tag-shield">🛡️ 命運護盾(-70%)</span>');
-    if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
+    if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
+    else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 下回合易傷(+20%)</span>');
 
     // 裝備列表
     const equipItems = Object.entries(p.equipCounts || {})
@@ -867,8 +991,8 @@ function renderTeammatesGrid(me) {
           <span>${escapeHtml(p.name)}</span>
           ${isThisMe ? '<span style="color:#2563eb; font-weight: 700;">(你)</span>' : ''}
         </span>
-        <span class="action-status-dot ${p.hasActed || isDead || p.stunnedNextTurn || p.isSurrendered ? 'ready' : 'waiting'}">
-          ${isDead ? '陣亡' : (p.isSurrendered ? '臣服' : (p.stunnedNextTurn ? '虛弱' : (p.hasActed ? '✓ 就緒' : '⏳ 思考')))}
+        <span class="action-status-dot ${p.hasActed || isDead || p.stunnedNextTurn || p.isSurrendered || p.druidForm === 'tree' ? 'ready' : 'waiting'}">
+          ${isDead ? '陣亡' : (p.isSurrendered ? '臣服' : (p.druidForm === 'tree' ? '休眠' : (p.stunnedNextTurn ? '虛弱' : (p.hasActed ? '✓ 就緒' : '⏳ 思考'))))}
         </span>
       </div>
       <div class="teammate-hp-bg">
@@ -898,7 +1022,9 @@ function renderMyActionBar(me) {
   if (me.druidForm === 'werewolf') {
     stanceHtml += ` <span class="badge-form-wolf">🐺 狼人形態 (+20傷，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'treant') {
-    stanceHtml += ` <span class="badge-form-treant">🌳 樹精形態 (-5傷/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant">🌳 樹精形態 (+100HP/減傷20%/自癒5HP/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+  } else if (me.druidForm === 'tree') {
+    stanceHtml += ` <span class="badge-form-treant">🪵 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
   }
   if (me.minion) {
     stanceHtml += ` <span class="badge-minion">🐾 僕從: ${escapeHtml(me.minion.name)} (❤️ ${me.minion.hp}/${me.minion.maxHp} | ⚔️ ${me.minion.atk})</span>`;
@@ -910,6 +1036,8 @@ function renderMyActionBar(me) {
   const isDead = me.hp <= 0;
   const isStunned = me.stunnedNextTurn;
   const isSurrendered = me.isSurrendered;
+  const isTree = me.druidForm === 'tree';
+  const isNarrating = Boolean(roomState.isNarrating || isPlayingBattleNarrative);
 
   // 狀態提醒
   if (isDead) {
@@ -926,6 +1054,13 @@ function renderMyActionBar(me) {
     return;
   }
 
+  if (isTree) {
+    elements.myActionStatus.className = 'action-status-badge';
+    elements.myActionStatus.textContent = '🪵 你受到致命傷化為古樹休眠中，本回合無法行動...';
+    elements.mySkillsRow.innerHTML = '<div style="color:#16a34a; font-weight: 700; padding: 12px; font-size: 1rem;">🪵 沉睡古樹休眠中，正在凝聚自然生機，本回合無法行動！</div>';
+    return;
+  }
+
   if (isStunned) {
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '💫 你處於脫力虛弱狀態，正在喘息休息...';
@@ -933,7 +1068,10 @@ function renderMyActionBar(me) {
     return;
   }
 
-  if (me.hasActed) {
+  if (isNarrating) {
+    elements.myActionStatus.className = 'action-status-badge narrating';
+    elements.myActionStatus.textContent = '📜 雙方戰況交鋒敘述中... (請觀看戰況)';
+  } else if (me.hasActed) {
     elements.myActionStatus.className = 'action-status-badge submitted';
     elements.myActionStatus.textContent = '✅ 已指定行動！等待全體隊友中... (可更換)';
   } else {
@@ -964,18 +1102,28 @@ function renderMyActionBar(me) {
       }
     }
 
+    let skillDesc = skill.desc;
+    if (me.role === 'alchemist' && skill.id === 'alc_fate') {
+      const hasDebuff = (me.bleedTurns > 0 || (me.poisonTurns || 0) > 0 || me.stunnedNextTurn || me.isSurrendered || me.cannotCrit);
+      if (!hasDebuff) {
+        skillDesc = '🌿【身無異常·溫和調和】為全員穩定回復 15 點生命（無反噬風險，CD 2）';
+      } else {
+        skillDesc = '⚠️【身負異常·命運煉成】驅散負面效果。50%大成功(全員回血40+2回合70%減傷)；50%失敗(全員回血10+下回合全隊受傷+20%)（CD 2）';
+      }
+    }
+
     const isSelected = (currentPendingAction === skill.id);
 
     const btn = document.createElement('button');
     btn.className = `skill-btn ${isSelected ? 'selected' : ''}`;
-    btn.disabled = isCoolingDown;
+    btn.disabled = isCoolingDown || isNarrating;
 
     btn.innerHTML = `
       <div class="skill-btn-title">
         <span>${skill.label}</span>
         ${isCoolingDown ? `<span class="skill-cd-badge">${cdBadgeText}</span>` : ''}
       </div>
-      <div class="skill-btn-desc">${skill.desc}</div>
+      <div class="skill-btn-desc">${skillDesc}</div>
     `;
 
     btn.addEventListener('click', () => {
@@ -991,6 +1139,7 @@ function renderMyActionBar(me) {
     if (deadPlayers.length > 0) {
       const reviveBtn = document.createElement('button');
       reviveBtn.className = 'skill-btn skill-revive-btn';
+      reviveBtn.disabled = isNarrating;
       reviveBtn.innerHTML = `
         <div class="skill-btn-title">
           <span>🕊️ 甦生之歌 (復活)</span>
@@ -1000,6 +1149,7 @@ function renderMyActionBar(me) {
       `;
 
       reviveBtn.addEventListener('click', () => {
+        if (roomState?.isNarrating || isPlayingBattleNarrative) return;
         openTargetModal('revive', deadPlayers);
       });
 
@@ -1010,6 +1160,7 @@ function renderMyActionBar(me) {
   // 跳過回合按鈕
   const skipBtn = document.createElement('button');
   skipBtn.className = `skill-btn ${currentPendingAction === 'skip' ? 'selected' : ''}`;
+  skipBtn.disabled = isNarrating;
   skipBtn.innerHTML = `
     <div class="skill-btn-title">
       <span>⏭️ 跳過回合</span>
@@ -1018,6 +1169,7 @@ function renderMyActionBar(me) {
   `;
 
   skipBtn.addEventListener('click', () => {
+    if (roomState?.isNarrating || isPlayingBattleNarrative) return;
     currentPendingAction = 'skip';
     playSound('click');
     socket.emit('battle:action', { actionId: 'skip' });
@@ -1028,6 +1180,7 @@ function renderMyActionBar(me) {
 
 // 點擊技能觸發
 function handleSkillClick(actionId, me) {
+  if (roomState?.isNarrating || isPlayingBattleNarrative) return;
   // 吟遊詩人治癒頌歌：若有多位活著隊友，彈出目標選擇
   if (me.role === 'bard' && actionId === 'b_heal') {
     const alivePlayers = roomState.players.filter(p => p.hp > 0);
@@ -1236,6 +1389,14 @@ elements.btnStartGame.addEventListener('click', () => {
   });
 });
 
+// 跳過開場劇情 (立即踏入深淵)
+if (elements.btnSkipPrologue) {
+  elements.btnSkipPrologue.addEventListener('click', () => {
+    playSound('click');
+    socket.emit('prologue:next');
+  });
+}
+
 // 休息站選擇：繼續
 elements.btnCpContinue.addEventListener('click', () => {
   playSound('heal');
@@ -1260,32 +1421,197 @@ elements.btnRestartLobby.addEventListener('click', () => {
   });
 });
 
-// 發送小隊聊天
+// ==========================================
+// 懸浮聊天室與 30 秒訊息氣泡邏輯
+// ==========================================
+let isChatOpen = false;
+let unreadChatCount = 0;
+let chatBubbleTimer = null;
+const renderedChatIds = new Set();
+
+function toggleChat(open = null) {
+  if (open === null) {
+    isChatOpen = !isChatOpen;
+  } else {
+    isChatOpen = open;
+  }
+
+  if (elements.chatPopupCard) {
+    if (isChatOpen) {
+      elements.chatPopupCard.classList.remove('hidden');
+      dismissChatBubble();
+      unreadChatCount = 0;
+      if (elements.chatUnreadBadge) {
+        elements.chatUnreadBadge.classList.add('hidden');
+        elements.chatUnreadBadge.textContent = '0';
+      }
+      setTimeout(() => {
+        if (elements.chatInput) elements.chatInput.focus();
+      }, 100);
+      scrollChatToBottom();
+    } else {
+      elements.chatPopupCard.classList.add('hidden');
+    }
+  }
+}
+
+function showChatBubble(senderName, message) {
+  if (!elements.chatToastBubble) return;
+  if (elements.chatBubbleSender) {
+    elements.chatBubbleSender.textContent = `💬 ${escapeHtml(senderName)}`;
+  }
+  if (elements.chatBubbleText) {
+    elements.chatBubbleText.textContent = message;
+  }
+
+  // 重啟 30 秒倒數進度條動畫
+  const timerBar = elements.chatToastBubble.querySelector('.chat-bubble-timer-bar');
+  if (timerBar) {
+    timerBar.style.animation = 'none';
+    void timerBar.offsetWidth;
+    timerBar.style.animation = 'bubbleCountdown 30s linear forwards';
+  }
+
+  elements.chatToastBubble.classList.remove('hidden');
+
+  if (chatBubbleTimer) clearTimeout(chatBubbleTimer);
+  chatBubbleTimer = setTimeout(() => {
+    dismissChatBubble();
+  }, 30000);
+}
+
+function dismissChatBubble() {
+  if (chatBubbleTimer) {
+    clearTimeout(chatBubbleTimer);
+    chatBubbleTimer = null;
+  }
+  if (elements.chatToastBubble) {
+    elements.chatToastBubble.classList.add('hidden');
+  }
+}
+
+function renderChatMessage(chatData, scroll = true) {
+  if (!elements.chatMessageList) return;
+  const isMe = chatData.senderId === myId;
+  const row = document.createElement('div');
+  row.className = `chat-msg-row ${isMe ? 'is-me' : 'is-other'}`;
+
+  const roleEmoji = chatData.senderEmoji || '👤';
+  const senderLabel = isMe ? '你' : `${roleEmoji} ${escapeHtml(chatData.senderName)}`;
+  row.innerHTML = `
+    <div class="chat-msg-meta">
+      <span>${senderLabel}</span>
+      <span>${chatData.time || ''}</span>
+    </div>
+    <div class="chat-msg-bubble">${escapeHtml(chatData.message)}</div>
+  `;
+
+  const emptyHint = elements.chatMessageList.querySelector('.chat-empty-hint');
+  if (emptyHint) emptyHint.remove();
+
+  elements.chatMessageList.appendChild(row);
+  if (scroll) scrollChatToBottom();
+}
+
+function scrollChatToBottom() {
+  if (elements.chatMessageList) {
+    elements.chatMessageList.scrollTop = elements.chatMessageList.scrollHeight;
+  }
+}
+
+function syncChatMessages(chatList) {
+  if (!chatList || !Array.isArray(chatList) || !elements.chatMessageList) return;
+  chatList.forEach(chatData => {
+    if (!renderedChatIds.has(chatData.id)) {
+      renderedChatIds.add(chatData.id);
+      renderChatMessage(chatData, false);
+    }
+  });
+}
+
 function sendChat() {
+  if (!elements.chatInput) return;
   const msg = elements.chatInput.value.trim();
   if (!msg) return;
   socket.emit('chat:send', { message: msg });
   elements.chatInput.value = '';
 }
 
-elements.btnSendChat.addEventListener('click', sendChat);
-elements.chatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    sendChat();
+socket.on('chat:message', (chatData) => {
+  if (renderedChatIds.has(chatData.id)) return;
+  renderedChatIds.add(chatData.id);
+  renderChatMessage(chatData, true);
+
+  if (chatData.senderId !== myId) {
+    playSound('click');
+    // 如果聊天室未展開，在右下角圖示上方彈出維持 30 秒的對話氣泡
+    if (!isChatOpen) {
+      showChatBubble(chatData.senderName, chatData.message);
+      unreadChatCount++;
+      if (elements.chatUnreadBadge) {
+        elements.chatUnreadBadge.textContent = unreadChatCount > 9 ? '9+' : unreadChatCount;
+        elements.chatUnreadBadge.classList.remove('hidden');
+      }
+    }
   }
 });
 
-// 清空日誌按鈕
-elements.btnClearLog.addEventListener('click', () => {
-  elements.combatLogWindow.innerHTML = '';
-});
+// 事件綁定
+if (elements.floatingChatBtn) {
+  elements.floatingChatBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleChat();
+  });
+}
 
-// 折疊日誌按鈕
-let logCollapsed = false;
-elements.btnToggleLog.addEventListener('click', () => {
-  logCollapsed = !logCollapsed;
-  elements.combatLogWindow.style.display = logCollapsed ? 'none' : 'flex';
-  elements.btnToggleLog.textContent = logCollapsed ? '展開' : '折疊';
+if (elements.btnCloseChatPopup) {
+  elements.btnCloseChatPopup.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleChat(false);
+  });
+}
+
+if (elements.chatToastBubble) {
+  elements.chatToastBubble.addEventListener('click', (e) => {
+    if (!e.target.closest('#btnCloseChatBubble')) {
+      toggleChat(true);
+    }
+  });
+}
+
+if (elements.btnCloseChatBubble) {
+  elements.btnCloseChatBubble.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dismissChatBubble();
+  });
+}
+
+if (elements.btnSendChat) {
+  elements.btnSendChat.addEventListener('click', sendChat);
+}
+
+if (elements.chatInput) {
+  elements.chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      sendChat();
+    }
+  });
+}
+
+// 清空事件表日誌按鈕
+if (elements.btnClearLog) {
+  elements.btnClearLog.addEventListener('click', () => {
+    if (elements.combatLogWindow) elements.combatLogWindow.innerHTML = '';
+  });
+}
+
+// 點擊聊天室外部收起聊天視窗
+document.addEventListener('click', (e) => {
+  if (isChatOpen && elements.chatPopupCard && elements.floatingChatBtn) {
+    if (!elements.chatPopupCard.contains(e.target) && !elements.floatingChatBtn.contains(e.target)) {
+      toggleChat(false);
+    }
+  }
 });
 
 // ==========================================
@@ -1408,8 +1734,104 @@ function triggerHitOnTeammate(playerId, value, dodged = false, stealthed = false
   }
 }
 
-// 監聽後端結算的戰鬥視覺事件
-socket.on('battle:visual_events', ({ events, round, monsterKilled }) => {
+// 輔助函式：播放單一玩家行動的打擊特效
+function playSinglePlayerVisualEvent(ev) {
+  if (!ev) return;
+  if (ev.type === 'player_attack') {
+    if (ev.dmgType === 'phys') {
+      triggerSlashOnMonster(ev.isCrit);
+      playSound('hit');
+      if (ev.isCrit) {
+        spawnFloatingText(elements.monsterFloatingContainer, `CRIT -${ev.value}!`, 'crit');
+      } else {
+        spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
+      }
+    } else {
+      triggerMagicOnMonster();
+      playSound('magic');
+      spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
+    }
+  } else if (ev.type === 'shield_cast') {
+    triggerShieldOnTeam('🛡️ 築起壁壘守護！');
+    playSound('click');
+  } else if (ev.type === 'stealth') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '💨 煙霧匿蹤', 'dodge');
+  } else if (ev.type === 'heal_group') {
+    playSound('heal');
+    roomState?.players?.forEach(p => {
+      if (p.hp > 0) {
+        let totalHeal = ev.groupValue;
+        if (p.id === ev.singleTargetId) totalHeal += ev.singleValue;
+        triggerHealOnTeammate(p.id, totalHeal);
+      }
+    });
+  } else if (ev.type === 'revive') {
+    playSound('heal');
+    triggerHealOnTeammate(ev.targetId, ev.value);
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🕊️ 甦生 +${ev.value}!`, 'heal');
+  } else if (ev.type === 'heal') {
+    triggerHealOnTeammate(ev.targetId, ev.value);
+    playSound('heal');
+  } else if (ev.type === 'self_damage') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `自傷 -${ev.value}`, 'damage');
+  } else if (ev.type === 'alc_shield') {
+    triggerShieldOnTeam('🛡️ 命運護盾 70%減傷！');
+    playSound('heal');
+  } else if (ev.type === 'transform_wolf') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 變身狼人!', 'buff');
+    playSound('hit');
+  } else if (ev.type === 'transform_treant') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🌳 變身樹精!', 'heal');
+    playSound('heal');
+  } else if (ev.type === 'transform_tree') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🪵 化身古樹(免死)!', 'heal');
+    playSound('heal');
+  } else if (ev.type === 'surrender') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 狼王威壓·臣服!', 'dodge');
+  } else if (ev.type === 'summon_minion') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 召喚${ev.minionName}!`, 'buff');
+    playSound('magic');
+  } else if (ev.type === 'minion_hit') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 僕從抵擋 -${ev.value}`, 'shield');
+  }
+}
+
+// 輔助函式：播放怪物攻擊視覺事件
+function playMonsterVisualEvent(monsterAction) {
+  if (!monsterAction) return;
+  if (elements.monsterCard) {
+    elements.monsterCard.classList.add('shaking');
+    setTimeout(() => elements.monsterCard.classList.remove('shaking'), 450);
+  }
+
+  // 如果有護盾阻擋，先閃出金色盾牌
+  if (monsterAction.shieldMod < 1.0) {
+    const shieldText = monsterAction.shieldMod === 0.1 ? '🛡️ 90% 傷害格擋！' : '🛡️ 40% 傷害格擋！';
+    triggerShieldOnTeam(shieldText);
+  }
+
+  let hadDamage = false;
+  (monsterAction.hits || []).forEach(hit => {
+    triggerHitOnTeammate(hit.targetId, hit.value, hit.dodged, hit.stealthed, monsterAction.shieldMod);
+    if (hit.value > 0) hadDamage = true;
+  });
+
+  if (hadDamage) {
+    playSound('hit');
+  }
+}
+
+// 監聽後端結算的戰鬥視覺事件與戰況交鋒敘述
+socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, duration }) => {
   if (!events || events.length === 0) return;
 
   // 1. 回合初流血與劇毒傷害
@@ -1438,116 +1860,86 @@ socket.on('battle:visual_events', ({ events, round, monsterKilled }) => {
     triggerShieldOnTeam('🪕 狂熱協奏 50%增傷');
   }
 
-  // 3. 玩家行動序列 (依序呈現打擊刀光與光芒)
   const playerActions = events.filter(e =>
-    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
+    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
   );
-
-  playerActions.forEach((ev, idx) => {
-    setTimeout(() => {
-      if (ev.type === 'player_attack') {
-        if (ev.dmgType === 'phys') {
-          triggerSlashOnMonster(ev.isCrit);
-          playSound('hit');
-          if (ev.isCrit) {
-            spawnFloatingText(elements.monsterFloatingContainer, `CRIT -${ev.value}!`, 'crit');
-          } else {
-            spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
-          }
-        } else {
-          triggerMagicOnMonster();
-          playSound('magic');
-          spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
-        }
-      } else if (ev.type === 'shield_cast') {
-        triggerShieldOnTeam('🛡️ 築起壁壘守護！');
-        playSound('click');
-      } else if (ev.type === 'stealth') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '💨 煙霧匿蹤', 'dodge');
-      } else if (ev.type === 'heal_group') {
-        playSound('heal');
-        roomState?.players?.forEach(p => {
-          if (p.hp > 0) {
-            let totalHeal = ev.groupValue;
-            if (p.id === ev.singleTargetId) totalHeal += ev.singleValue;
-            triggerHealOnTeammate(p.id, totalHeal);
-          }
-        });
-      } else if (ev.type === 'revive') {
-        playSound('heal');
-        triggerHealOnTeammate(ev.targetId, ev.value);
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🕊️ 甦生 +${ev.value}!`, 'heal');
-      } else if (ev.type === 'heal') {
-        triggerHealOnTeammate(ev.targetId, ev.value);
-        playSound('heal');
-      } else if (ev.type === 'self_damage') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `自傷 -${ev.value}`, 'damage');
-      } else if (ev.type === 'alc_shield') {
-        triggerShieldOnTeam('🛡️ 命運護盾 70%減傷！');
-        playSound('heal');
-      } else if (ev.type === 'transform_wolf') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 變身狼人!', 'buff');
-        playSound('hit');
-      } else if (ev.type === 'transform_treant') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🌳 變身樹精!', 'heal');
-        playSound('heal');
-      } else if (ev.type === 'surrender') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 狼王威壓·臣服!', 'dodge');
-      } else if (ev.type === 'summon_minion') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 召喚${ev.minionName}!`, 'buff');
-        playSound('magic');
-      } else if (ev.type === 'minion_hit') {
-        const card = document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
-        if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 僕從抵擋 -${ev.value}`, 'shield');
-      }
-    }, idx * 280);
-  });
-
-  // 4. 怪物反擊或勝利擊殺動畫
   const monsterAction = events.find(e => e.type === 'monster_attack');
-  const monsterDelay = Math.max(500, playerActions.length * 280 + 350);
 
-  setTimeout(() => {
-    if (monsterKilled) {
-      playSound('victory');
-      spawnFloatingText(elements.monsterFloatingContainer, '💀 擊殺！VICTORY', 'crit');
-      if (elements.monsterAvatar) {
-        elements.monsterAvatar.classList.add('shaking');
-        setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
-      }
-      return;
+  // 若有後端傳來的精彩交鋒文字敘述 (narratives)
+  if (narratives && narratives.length > 0) {
+    isPlayingBattleNarrative = true;
+    const me = getMyPlayer();
+    if (me) renderMyActionBar(me);
+
+    if (elements.battleNarrativeBox) {
+      elements.battleNarrativeBox.style.display = 'block';
     }
 
-    if (monsterAction) {
-      if (elements.monsterCard) {
-        elements.monsterCard.classList.add('shaking');
-        setTimeout(() => elements.monsterCard.classList.remove('shaking'), 450);
+    const totalMs = Math.max(4000, (duration || 5) * 1000);
+    const stepMs = Math.floor((totalMs - 800) / narratives.length);
+
+    let playerActionIdx = 0;
+    narratives.forEach((nar, idx) => {
+      setTimeout(() => {
+        if (elements.battleNarrativeText) {
+          elements.battleNarrativeText.innerHTML = formatMarkdown(nar.text);
+          elements.battleNarrativeText.classList.remove('narrative-fade');
+          void elements.battleNarrativeText.offsetWidth;
+          elements.battleNarrativeText.classList.add('narrative-fade');
+        }
+
+        if (nar.type === 'player') {
+          const ev = playerActions[playerActionIdx++];
+          if (ev) {
+            playSinglePlayerVisualEvent(ev);
+          }
+        } else if (nar.type === 'monster') {
+          if (monsterAction) {
+            playMonsterVisualEvent(monsterAction);
+          }
+        } else if (nar.type === 'kill') {
+          playSound('victory');
+          spawnFloatingText(elements.monsterFloatingContainer, '💀 擊殺！VICTORY', 'crit');
+          if (elements.monsterAvatar) {
+            elements.monsterAvatar.classList.add('shaking');
+            setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
+          }
+        }
+      }, idx * stepMs);
+    });
+
+    // 敘述結束後，解鎖操作並重整按鈕狀態
+    setTimeout(() => {
+      isPlayingBattleNarrative = false;
+      const meNow = getMyPlayer();
+      if (meNow) renderMyActionBar(meNow);
+    }, totalMs);
+
+  } else {
+    // 舊版快速動畫（Fallback）
+    playerActions.forEach((ev, idx) => {
+      setTimeout(() => {
+        playSinglePlayerVisualEvent(ev);
+      }, idx * 280);
+    });
+
+    const monsterDelay = Math.max(500, playerActions.length * 280 + 350);
+    setTimeout(() => {
+      if (monsterKilled) {
+        playSound('victory');
+        spawnFloatingText(elements.monsterFloatingContainer, '💀 擊殺！VICTORY', 'crit');
+        if (elements.monsterAvatar) {
+          elements.monsterAvatar.classList.add('shaking');
+          setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
+        }
+        return;
       }
 
-      // 如果有護盾阻擋，先閃出金色盾牌
-      if (monsterAction.shieldMod < 1.0) {
-        const shieldText = monsterAction.shieldMod === 0.1 ? '🛡️ 90% 傷害格擋！' : '🛡️ 40% 傷害格擋！';
-        triggerShieldOnTeam(shieldText);
+      if (monsterAction) {
+        playMonsterVisualEvent(monsterAction);
       }
-
-      let hadDamage = false;
-      monsterAction.hits.forEach(hit => {
-        triggerHitOnTeammate(hit.targetId, hit.value, hit.dodged, hit.stealthed, monsterAction.shieldMod);
-        if (hit.value > 0) hadDamage = true;
-      });
-
-      if (hadDamage) {
-        playSound('hit');
-      }
-    }
-  }, monsterDelay);
+    }, monsterDelay);
+  }
 });
 
 // ==========================================
