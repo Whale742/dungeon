@@ -26,6 +26,14 @@ let currentTypewriterTimer = null;
 let lastTypedTransitionKey = null;
 let isPlayingBattleNarrative = false;
 
+// 全域轉場、大字幕與各階段打字機狀態
+let currentActiveStage = null;
+let lastAnnouncedBattleRound = 0;
+let isPrologueTyping = false;
+let prologueCompleted = false;
+let routeNarrativeDoneKey = null;
+let eventDoneKey = null;
+
 // 音效系統 (Web Audio API)
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
@@ -103,6 +111,27 @@ function playSound(type) {
         osc.stop(now + 0.6);
         break;
 
+      case 'type':
+        osc.type = 'triangle';
+        const typeFreq = 950 + (Math.random() * 200 - 100);
+        osc.frequency.setValueAtTime(typeFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(320, now + 0.035);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.035);
+        osc.start(now);
+        osc.stop(now + 0.035);
+        break;
+
+      case 'banner':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.18);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+        break;
+
       case 'gameover':
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(300, now);
@@ -126,6 +155,12 @@ const elements = {
   roomCopyToast: document.getElementById('roomCopyToast'),
   soundToggleBtn: document.getElementById('soundToggleBtn'),
   soundToggleImg: document.getElementById('soundToggleImg'),
+
+  // Cinematic Banner & Transition Curtain
+  screenTransitionCurtain: document.getElementById('screenTransitionCurtain'),
+  stageCinematicBanner: document.getElementById('stageCinematicBanner'),
+  cinematicBannerTitle: document.getElementById('cinematicBannerTitle'),
+  cinematicBannerSub: document.getElementById('cinematicBannerSub'),
 
   // Views
   views: {
@@ -162,6 +197,7 @@ const elements = {
   prologueTextBody: document.getElementById('prologueTextBody'),
   btnSkipPrologue: document.getElementById('btnSkipPrologue'),
   prologueCountdown: document.getElementById('prologueCountdown'),
+  prologueActions: document.querySelector('.prologue-actions'),
 
   // Transition
   transitionTypewriterTitle: document.getElementById('transitionTypewriterTitle'),
@@ -207,6 +243,8 @@ const elements = {
   routeStatusText: document.getElementById('routeStatusText'),
   routeOptionsGrid: document.getElementById('routeOptionsGrid'),
   routeVotersStatusList: document.getElementById('routeVotersStatusList'),
+  routeAtmosphereText: document.querySelector('.route-atmosphere-text'),
+  routeTimerBar: document.getElementById('routeTimerBar'),
 
   // Event
   eventIcon: document.getElementById('eventIcon'),
@@ -437,10 +475,18 @@ function renderApp() {
     }
   }
 
+  // 檢查階段變更並觸發 1 秒轉場與專屬像素大字幕
+  checkStageTransition(roomState);
+
   // 根據房間階段切換視圖
   switch (roomState.state) {
     case 'LOBBY':
       switchView('lobby');
+      prologueCompleted = false;
+      isPrologueTyping = false;
+      routeNarrativeDoneKey = null;
+      eventDoneKey = null;
+      lastAnnouncedBattleRound = 0;
       renderLobby(me, isLeader);
       break;
 
@@ -807,11 +853,26 @@ function renderRoleSelectionGrid() {
   });
 }
 
-// 打字機動畫函式 (一個字一個字慢慢出現)
-function typeWriterEffect(element, text, speed = 85, onComplete = null) {
+// --------------------------------------------------------------------------
+// 全域轉場、大字幕與打字機函式
+// --------------------------------------------------------------------------
+
+// 播放打字機音效 (細緻高頻敲擊)
+function playTypewriterClick() {
+  if (soundEnabled) {
+    playSound('type');
+  }
+}
+
+// 支援單一元素字串打字
+function typeWriterEffect(element, text, speed = 45, onComplete = null) {
   if (currentTypewriterTimer) {
     clearInterval(currentTypewriterTimer);
     currentTypewriterTimer = null;
+  }
+  if (!element) {
+    if (onComplete) onComplete();
+    return;
   }
   element.textContent = '';
   element.classList.add('typewriter-cursor');
@@ -820,25 +881,302 @@ function typeWriterEffect(element, text, speed = 85, onComplete = null) {
     if (i < text.length) {
       element.textContent += text.charAt(i);
       i++;
-      if (soundEnabled && i % 2 === 0) playSound('click');
+      if (i % 2 === 0) playTypewriterClick();
     } else {
       clearInterval(currentTypewriterTimer);
       currentTypewriterTimer = null;
       setTimeout(() => {
         element.classList.remove('typewriter-cursor');
         if (onComplete) onComplete();
-      }, 400);
+      }, 150);
     }
   }, speed);
 }
 
-// 1.5 渲染開場劇情 (深淵啟程)
+// 支援多段落連續打字機效果
+function typeWriterParagraphs(container, paragraphs, speed = 20, onComplete = null) {
+  if (currentTypewriterTimer) {
+    clearInterval(currentTypewriterTimer);
+    currentTypewriterTimer = null;
+  }
+  if (!container || !paragraphs || paragraphs.length === 0) {
+    if (onComplete) onComplete();
+    return;
+  }
+  container.innerHTML = '';
+  let pIdx = 0;
+
+  function typeNext() {
+    if (pIdx >= paragraphs.length) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const pEl = document.createElement('p');
+    pEl.classList.add('typewriter-cursor');
+    container.appendChild(pEl);
+
+    const fullText = paragraphs[pIdx];
+    let charIdx = 0;
+    currentTypewriterTimer = setInterval(() => {
+      if (charIdx < fullText.length) {
+        pEl.textContent += fullText.charAt(charIdx);
+        charIdx++;
+        if (charIdx % 2 === 0) playTypewriterClick();
+      } else {
+        clearInterval(currentTypewriterTimer);
+        currentTypewriterTimer = null;
+        pEl.classList.remove('typewriter-cursor');
+        pIdx++;
+        setTimeout(typeNext, 60);
+      }
+    }, speed);
+  }
+
+  typeNext();
+}
+
+let cinematicBannerTimeout = null;
+
+// 播放全域像素大字幕橫幅 (左側滑入 -> 中間停留1秒 -> 右側滑出)
+function showCinematicBanner({ title, subtitle, theme = 'gold', onFinish = null }) {
+  const banner = elements.stageCinematicBanner;
+  if (!banner) {
+    if (onFinish) onFinish();
+    return;
+  }
+
+  if (cinematicBannerTimeout) {
+    clearTimeout(cinematicBannerTimeout);
+    cinematicBannerTimeout = null;
+  }
+
+  if (elements.cinematicBannerTitle) elements.cinematicBannerTitle.textContent = title;
+  if (elements.cinematicBannerSub) elements.cinematicBannerSub.textContent = subtitle || '';
+
+  // 設置主題樣式 (冒險金、玩家藍、首領紅、營地綠、事件金)
+  banner.className = 'stage-cinematic-banner';
+  if (theme === 'player') banner.classList.add('theme-player');
+  else if (theme === 'boss') banner.classList.add('theme-boss');
+  else if (theme === 'event') banner.classList.add('theme-event');
+  else if (theme === 'camp') banner.classList.add('theme-camp');
+
+  banner.classList.remove('hidden');
+  banner.classList.remove('animating');
+  void banner.offsetWidth; // 強制重繪觸發動畫
+  banner.classList.add('animating');
+
+  playSound('banner');
+
+  // 動畫結束時隱藏並觸發回調 (2.2 秒)
+  cinematicBannerTimeout = setTimeout(() => {
+    banner.classList.add('hidden');
+    banner.classList.remove('animating');
+    cinematicBannerTimeout = null;
+    if (onFinish) onFinish();
+  }, 2200);
+}
+
+let screenTransitionTimeout = null;
+
+// 執行約 1 秒的淡出淡入轉場 (Fade-out -> 切換 -> Fade-in)
+function triggerScreenTransition(duringFadeOut = null, afterFadeIn = null) {
+  const curtain = elements.screenTransitionCurtain;
+  if (!curtain) {
+    if (duringFadeOut) duringFadeOut();
+    if (afterFadeIn) afterFadeIn();
+    return;
+  }
+
+  if (screenTransitionTimeout) {
+    clearTimeout(screenTransitionTimeout);
+    screenTransitionTimeout = null;
+  }
+
+  curtain.classList.remove('hidden');
+  curtain.classList.add('fade-active');
+
+  screenTransitionTimeout = setTimeout(() => {
+    if (duringFadeOut) duringFadeOut();
+    setTimeout(() => {
+      curtain.classList.remove('fade-active');
+      setTimeout(() => {
+        curtain.classList.add('hidden');
+        screenTransitionTimeout = null;
+        if (afterFadeIn) afterFadeIn();
+      }, 450);
+    }, 100);
+  }, 450);
+}
+
+// 計算階段識別唯一鍵值
+function getStageKey(state) {
+  if (!state) return 'NONE';
+  switch (state.state) {
+    case 'LOBBY': return 'LOBBY';
+    case 'PROLOGUE': return 'PROLOGUE';
+    case 'CHOOSING_ROUTE': return `ROUTE_${state.floor}`;
+    case 'TRANSITION': return `TRANSITION_${state.floor}_${state.currentTransition?.routeId || ''}`;
+    case 'EVENT': return `EVENT_${state.floor}_${state.currentEvent?.title || state.currentEvent?.type || ''}`;
+    case 'IN_BATTLE': return `BATTLE_${state.floor}_${state.currentMonster?.name || ''}`;
+    case 'CHECKPOINT': return `CHECKPOINT_${state.floor}`;
+    case 'GAME_OVER': return `GAME_OVER_${state.floor}`;
+    case 'VICTORY': return `VICTORY_${state.floor}`;
+    default: return state.state;
+  }
+}
+
+// 協調階段過場與大字幕
+function checkStageTransition(state) {
+  if (!state) return;
+  const newStage = getStageKey(state);
+  if (newStage === currentActiveStage) return;
+
+  const prevStage = currentActiveStage;
+  currentActiveStage = newStage;
+
+  // 第一次進入大廳或初始無狀態，不觸發全螢幕過場
+  if (prevStage === null || (prevStage === 'NONE' && newStage === 'LOBBY')) {
+    return;
+  }
+
+  // 1 秒淡出淡入轉場
+  triggerScreenTransition();
+
+  // 根據不同階段觸發對應的像素大字幕 (左滑入 -> 中間大幅減速停留1秒 -> 右滑出)
+  switch (state.state) {
+    case 'PROLOGUE':
+      prologueCompleted = false;
+      isPrologueTyping = false;
+      break;
+
+    case 'TRANSITION': {
+      const trans = state.currentTransition;
+      showCinematicBanner({
+        title: `【第 ${trans?.floor || state.floor} 層・深淵探索】`,
+        subtitle: `FLOOR ${trans?.floor || state.floor} · ${trans?.routeName || 'DEEP ABYSS'}`,
+        theme: 'gold'
+      });
+      break;
+    }
+
+    case 'CHOOSING_ROUTE':
+      showCinematicBanner({
+        title: `【第 ${state.floor} 層・迷霧分歧點】`,
+        subtitle: `FLOOR ${state.floor} · ROUTE CHOICE`,
+        theme: 'gold'
+      });
+      break;
+
+    case 'EVENT': {
+      const isTreasure = state.currentEvent?.type === 'treasure';
+      showCinematicBanner({
+        title: isTreasure ? '【遠古寶箱・幸運眷顧】' : '【致命機關・淬毒暗箭】',
+        subtitle: `FLOOR ${state.floor} · DUNGEON EVENT`,
+        theme: 'event'
+      });
+      break;
+    }
+
+    case 'IN_BATTLE':
+      showCinematicBanner({
+        title: '【深淵領主・遭遇戰鬥】',
+        subtitle: `BOSS ENCOUNTER · ${state.currentMonster?.name || 'MONSTER'}`,
+        theme: 'boss',
+        onFinish: () => {
+          // 遭遇戰大字幕結束後，接續第一回合冒險者行動字幕
+          lastAnnouncedBattleRound = 1;
+          showCinematicBanner({
+            title: '【第 1 回合・冒險者行動】',
+            subtitle: 'ROUND 1 · PLAYER PHASE',
+            theme: 'player'
+          });
+        }
+      });
+      lastAnnouncedBattleRound = 1;
+      break;
+
+    case 'CHECKPOINT':
+      showCinematicBanner({
+        title: '【庇護營地・短暫休整】',
+        subtitle: `FLOOR ${state.floor} · SANCTUARY REST`,
+        theme: 'camp'
+      });
+      break;
+  }
+}
+
+// 1.5 渲染開場劇情 (深淵啟程 - 像素大標題打字機 + 快速故事打字機)
 function renderPrologue(isLeader) {
   if (elements.btnSkipPrologue) {
     elements.btnSkipPrologue.style.display = isLeader ? 'inline-flex' : 'none';
   }
   if (roomState.timerRemaining !== null && elements.prologueCountdown) {
     elements.prologueCountdown.textContent = `⏳ 命運之輪轉動中... (${roomState.timerRemaining} 秒後自動踏入)`;
+  }
+
+  // 僅在初次進入時觸發打字機演繹
+  if (!prologueCompleted && !isPrologueTyping) {
+    isPrologueTyping = true;
+    if (elements.prologueActions) {
+      elements.prologueActions.style.opacity = '0';
+      elements.prologueActions.style.pointerEvents = 'none';
+    }
+
+    const titleText = "【深淵啟程・命運之扉開啟】";
+    const paragraphs = [
+      "厚重的黑曜石大門在刺耳的摩擦聲中緩緩敞開，古老腐朽的塵埃隨之撲面而來。",
+      "火把微弱的橘光照亮了腳下斑駁的石階，空氣中瀰漫著潮濕的青苔、生鏽鐵器與隱約的血腥氣味。",
+      "身後的退路已被封死，冒險小隊握緊了手中的武器與符文，深吸一口氣，正式踏入這座沉睡千年的深淵地城！"
+    ];
+
+    // 即時完成打字機輔助函式
+    const finishPrologueImmediately = () => {
+      if (currentTypewriterTimer) {
+        clearInterval(currentTypewriterTimer);
+        currentTypewriterTimer = null;
+      }
+      if (elements.prologueTitle) {
+        elements.prologueTitle.textContent = titleText;
+        elements.prologueTitle.classList.remove('typewriter-cursor');
+      }
+      if (elements.prologueTextBody) {
+        elements.prologueTextBody.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join('');
+      }
+      isPrologueTyping = false;
+      prologueCompleted = true;
+      if (elements.prologueActions) {
+        elements.prologueActions.style.transition = 'opacity 0.4s ease';
+        elements.prologueActions.style.opacity = '1';
+        elements.prologueActions.style.pointerEvents = 'all';
+      }
+    };
+
+    // 點擊開場卡片區域可直接快轉跳過打字機
+    const prologueCard = elements.views.prologue ? elements.views.prologue.querySelector('.prologue-card') : null;
+    if (prologueCard) {
+      const fastForwardHandler = () => {
+        if (isPrologueTyping) {
+          finishPrologueImmediately();
+        }
+        prologueCard.removeEventListener('click', fastForwardHandler);
+      };
+      prologueCard.addEventListener('click', fastForwardHandler);
+    }
+
+    // 先以打字機的形式出現大標題並搭配音效
+    typeWriterEffect(elements.prologueTitle, titleText, 55, () => {
+      if (!isPrologueTyping) return; // 若已被玩家點擊快轉則不再覆蓋
+      // 接著下方以更快的打字機形式出現描述故事
+      typeWriterParagraphs(elements.prologueTextBody, paragraphs, 22, () => {
+        isPrologueTyping = false;
+        prologueCompleted = true;
+        if (elements.prologueActions) {
+          elements.prologueActions.style.transition = 'opacity 0.4s ease';
+          elements.prologueActions.style.opacity = '1';
+          elements.prologueActions.style.pointerEvents = 'all';
+        }
+      });
+    });
   }
 }
 
@@ -856,18 +1194,20 @@ function renderTransition() {
     if (elements.transitionStoryTitle) {
       elements.transitionStoryTitle.textContent = trans.storyTitle || `【${trans.routeName}】`;
     }
-    if (elements.transitionStoryText) {
-      elements.transitionStoryText.textContent = trans.storyText || '正在深入未知迷霧中...';
-    }
 
-    // 以打字機風格呈現標題 (一個字一個字慢慢出現)
+    // 先以打字機風格呈現標題 (一個字一個字慢慢出現)
     if (elements.transitionTypewriterTitle) {
-      typeWriterEffect(elements.transitionTypewriterTitle, trans.title || `將進入第 ${trans.floor} 層`, 90);
+      typeWriterEffect(elements.transitionTypewriterTitle, trans.title || `將進入第 ${trans.floor} 層`, 60, () => {
+        // 接著以更快的打字機呈現故事
+        if (elements.transitionStoryText) {
+          typeWriterEffect(elements.transitionStoryText, trans.storyText || '正在深入未知迷霧中...', 20);
+        }
+      });
     }
   }
 }
 
-// 2. 渲染路線分歧（全員投票機制，15秒倒數）
+// 2. 渲染路線分歧（先字幕再敘述，最後才是操作與倒數計時）
 function renderRouteChoice(me, isLeader) {
   elements.routeFloorNum.textContent = roomState.floor;
   if (elements.routeFloorHeaderNum) {
@@ -894,6 +1234,41 @@ function renderRouteChoice(me, isLeader) {
   elements.routeTimerText.textContent = `倒數 ${secondsLeft} 秒`;
   const pct = Math.max(0, Math.min(100, (secondsLeft / 15) * 100));
   elements.routeTimerProgress.style.width = `${pct}%`;
+
+  // 先字幕再敘述，最後才是操作與倒數計時
+  const routeKey = `ROUTE_FLOOR_${roomState.floor}`;
+  if (routeNarrativeDoneKey !== routeKey) {
+    routeNarrativeDoneKey = routeKey;
+
+    if (elements.routeOptionsGrid) elements.routeOptionsGrid.style.display = 'none';
+    if (elements.routeVotersStatusList) elements.routeVotersStatusList.style.display = 'none';
+    if (elements.routeTimerBar) elements.routeTimerBar.style.display = 'none';
+    if (elements.routeStatusText) elements.routeStatusText.style.display = 'none';
+
+    const routeParagraphs = [
+      "腳下的石磚路在此處斷裂，前方地勢錯綜複雜，瀰漫著不詳的陰暗薄霧。",
+      "隱約間能聽見遠處傳來的低沉嘶吼、風穿過石隙的尖銳呼嘯，甚至還有金屬反光的微弱閃爍……",
+      "機遇與毀滅僅有一線之隔，請全員共同投票決定前進方向！（15 秒倒數）"
+    ];
+
+    typeWriterParagraphs(elements.routeAtmosphereText, routeParagraphs, 16, () => {
+      if (elements.routeOptionsGrid) {
+        elements.routeOptionsGrid.style.display = 'grid';
+        elements.routeOptionsGrid.classList.add('narrative-fade');
+      }
+      if (elements.routeVotersStatusList) {
+        elements.routeVotersStatusList.style.display = 'flex';
+        elements.routeVotersStatusList.classList.add('narrative-fade');
+      }
+      if (elements.routeTimerBar) {
+        elements.routeTimerBar.style.display = 'block';
+        elements.routeTimerBar.classList.add('narrative-fade');
+      }
+      if (elements.routeStatusText) {
+        elements.routeStatusText.style.display = 'block';
+      }
+    });
+  }
 
   // 渲染隊員投票狀態標籤欄（純文字名稱與投票狀態，不顯示職業頭貼）
   if (elements.routeVotersStatusList) {
@@ -951,17 +1326,34 @@ function renderRouteChoice(me, isLeader) {
   });
 }
 
-// 3. 渲染事件 (寶箱 / 陷阱)
+// 3. 渲染事件 (先打字敘述故事，再呈現獎勵機關與倒數)
 function renderEvent() {
   const ev = roomState.currentEvent;
   if (!ev) return;
 
-  if (elements.eventStoryText) {
-    if (ev.story) {
-      elements.eventStoryText.textContent = ev.story;
+  const evKey = `EV_${roomState.floor}_${ev.type}_${ev.title}`;
+  if (eventDoneKey !== evKey) {
+    eventDoneKey = evKey;
+
+    if (elements.eventDetails) elements.eventDetails.style.display = 'none';
+    const evFooter = document.querySelector('.event-footer');
+    if (evFooter) evFooter.style.display = 'none';
+
+    if (elements.eventStoryText && ev.story) {
       elements.eventStoryText.style.display = 'block';
+      typeWriterEffect(elements.eventStoryText, ev.story, 18, () => {
+        if (elements.eventDetails) {
+          elements.eventDetails.style.display = 'block';
+          elements.eventDetails.classList.add('narrative-fade');
+        }
+        if (evFooter) {
+          evFooter.style.display = 'block';
+          evFooter.classList.add('narrative-fade');
+        }
+      });
     } else {
-      elements.eventStoryText.style.display = 'none';
+      if (elements.eventDetails) elements.eventDetails.style.display = 'block';
+      if (evFooter) evFooter.style.display = 'block';
     }
   }
 
@@ -994,13 +1386,23 @@ function renderEvent() {
   }
 }
 
-// 4. 渲染戰鬥畫面
+// 4. 渲染戰鬥畫面 (回合切換時播放清晰冒險者回合字幕)
 function renderBattle(me, isLeader) {
   const monster = roomState.currentMonster;
   if (!monster) return;
 
   elements.battleFloorNum.textContent = roomState.floor;
   elements.battleRoundNum.textContent = roomState.battleRound;
+
+  // 每一回合開始時，以清晰像素字幕呈現冒險者回合
+  if (lastAnnouncedBattleRound !== roomState.battleRound) {
+    lastAnnouncedBattleRound = roomState.battleRound;
+    showCinematicBanner({
+      title: `【第 ${roomState.battleRound} 回合・冒險者行動】`,
+      subtitle: `ROUND ${roomState.battleRound} · PLAYER PHASE`,
+      theme: 'player'
+    });
+  }
 
   // 倒數計時
   if (roomState.timerRemaining !== null) {
@@ -2183,6 +2585,7 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
     const stepMs = Math.floor((totalMs - 800) / narratives.length);
 
     let playerActionIdx = 0;
+    let announcedBossBanner = false;
     narratives.forEach((nar, idx) => {
       setTimeout(() => {
         if (elements.battleNarrativeText) {
@@ -2198,6 +2601,14 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
             playSinglePlayerVisualEvent(ev);
           }
         } else if (nar.type === 'monster') {
+          if (!announcedBossBanner) {
+            announcedBossBanner = true;
+            showCinematicBanner({
+              title: '【首領反擊・敵方行動】',
+              subtitle: `ROUND ${round || roomState?.battleRound || 1} · BOSS PHASE`,
+              theme: 'boss'
+            });
+          }
           if (monsterAction) {
             playMonsterVisualEvent(monsterAction);
           }
@@ -2229,6 +2640,14 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
 
     const monsterDelay = Math.max(500, playerActions.length * 280 + 350);
     setTimeout(() => {
+      if (monsterAction) {
+        showCinematicBanner({
+          title: '【首領反擊・敵方行動】',
+          subtitle: `ROUND ${round || roomState?.battleRound || 1} · BOSS PHASE`,
+          theme: 'boss'
+        });
+      }
+
       if (monsterKilled) {
         playSound('victory');
         spawnFloatingText(elements.monsterFloatingContainer, '💀 擊殺！VICTORY', 'crit');

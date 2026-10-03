@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
   <div id="app" class="game-container">
@@ -45,21 +45,37 @@
     <!-- 主內容區：根據狀態切換視圖 -->
     <main class="main-content">
 
-      <!-- 視圖 1：登入與建立/加入房間畫面 -->
+      <!-- 視圖 1：登入與建立/加入房間畫面 (冒險者公會招募告示板) -->
       <section id="viewEntry" class="view-panel active">
         <div class="card entry-card">
+          <div class="guild-seal-header">
+            <span class="guild-seal-pill">📜 ADVENTURER'S GUILD BULLETIN</span>
+          </div>
+
           <div class="entry-hero">
-            <div class="hero-avatars-row">
-              <img src="/photo/Warrior.webp" class="hero-intro-avatar" alt="戰士" title="戰士">
-              <img src="/photo/Mage.webp" class="hero-intro-avatar" alt="法師" title="法師">
-              <img src="/photo/Archer.webp" class="hero-intro-avatar" alt="弓箭手" title="弓箭手">
-              <img src="/photo/Assassin.webp" class="hero-intro-avatar" alt="刺客" title="刺客">
-              <img src="/photo/Bard.webp" class="hero-intro-avatar" alt="吟遊詩人" title="吟遊詩人">
-              <img src="/photo/Alchemist.webp" class="hero-intro-avatar" alt="鍊金術士" title="鍊金術士">
-              <img src="/photo/Druid.webp" class="hero-intro-avatar" alt="德魯伊" title="德魯伊">
+            <h2 class="entry-title">深淵討伐招募令</h2>
+            <p class="entry-subtitle">冒險者公會・深淵探索與巨獸討伐委託</p>
+
+            <div class="entry-meta-tags">
+              <span class="entry-meta-tag">⚔️ 1～10 人即時協作</span>
+              <span class="entry-meta-tag">🛡️ 7 大英雄職業</span>
+              <span class="entry-meta-tag">🐉 10 尊遠古深淵領主</span>
             </div>
-            <h2>集結勇者，挑戰深淵巨獸</h2>
-            <p>1～10 人即時協作連線，包含 7 大英雄職業（可重複選擇）、10 種遠古 Boss、致命機關、技能抗性與裝備成長！</p>
+
+            <div class="hero-roster-tray">
+              <div class="hero-roster-label">
+                <span>🎖️ 已集結待命職業</span>
+              </div>
+              <div class="hero-avatars-row">
+                <img src="/photo/Warrior.webp" class="hero-intro-avatar" alt="戰士" title="戰士">
+                <img src="/photo/Mage.webp" class="hero-intro-avatar" alt="法師" title="法師">
+                <img src="/photo/Archer.webp" class="hero-intro-avatar" alt="弓箭手" title="弓箭手">
+                <img src="/photo/Assassin.webp" class="hero-intro-avatar" alt="刺客" title="刺客">
+                <img src="/photo/Bard.webp" class="hero-intro-avatar" alt="吟遊詩人" title="吟遊詩人">
+                <img src="/photo/Alchemist.webp" class="hero-intro-avatar" alt="鍊金術士" title="鍊金術士">
+                <img src="/photo/Druid.webp" class="hero-intro-avatar" alt="德魯伊" title="德魯伊">
+              </div>
+            </div>
           </div>
 
           <div class="entry-profile-config">
@@ -68,20 +84,20 @@
               <span class="entry-avatar-badge" title="更換頭貼">📷</span>
             </div>
             <div class="form-group entry-name-group">
-              <label for="inputPlayerName">冒險者姓名：</label>
-              <input type="text" id="inputPlayerName" placeholder="請輸入你的勇者名字..." maxlength="12">
+              <label for="inputPlayerName">冒險者稱號 / 真名：</label>
+              <input type="text" id="inputPlayerName" placeholder="刻下你的冒險者真名..." maxlength="12">
             </div>
           </div>
 
           <div class="entry-actions">
             <button id="btnCreateRoom" class="btn btn-primary btn-large">
-              <span class="btn-icon-inner">⚔️</span> 發起組隊 (建立房間)
+              <span class="btn-icon-inner">⚔️</span> 發起討伐隊伍 (建立房間)
             </button>
-            <div class="divider"><span>或輸入隊伍代碼</span></div>
+            <div class="divider"><span>或出示公會隊伍代碼</span></div>
             <div class="join-group">
-              <input type="text" id="inputRoomCode" placeholder="5碼房間代碼 (如: A8K9X)" maxlength="5">
+              <input type="text" id="inputRoomCode" placeholder="5碼隊伍代碼 (如: A8K9X)" maxlength="5">
               <button id="btnJoinRoom" class="btn btn-secondary">
-                <span class="btn-icon-inner">✋</span> 加入隊伍
+                <span class="btn-icon-inner">🛡️</span> 應徵加入
               </button>
             </div>
           </div>
@@ -580,6 +596,19 @@
       <img src="/icon/chat.svg" alt="Chat" class="floating-chat-icon">
       <span id="chatUnreadBadge" class="chat-unread-badge hidden">0</span>
     </button>
+  </div>
+
+  <!-- 全域畫面淡出淡入轉場遮罩 (約 1 秒) -->
+  <div id="screenTransitionCurtain" class="screen-transition-curtain hidden"></div>
+
+  <!-- 全域像素大字幕橫幅 (左側滑入 -> 中間大幅減速停留 1 秒 -> 右側滑出) -->
+  <div id="stageCinematicBanner" class="stage-cinematic-banner hidden">
+    <div class="cinematic-banner-ornament-top">◆ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ◆</div>
+    <div class="cinematic-banner-content">
+      <div id="cinematicBannerSub" class="cinematic-banner-sub">FLOOR 1 · DEEP ABYSS</div>
+      <h1 id="cinematicBannerTitle" class="cinematic-banner-title">【第 1 層・深淵探索】</h1>
+    </div>
+    <div class="cinematic-banner-ornament-bottom">◆ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ◆</div>
   </div>
 
   <!-- Socket.io 客戶端腳本 -->
