@@ -1,0 +1,149 @@
+.presentation-support-canvas {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  justify-content: center; align-items: center; gap: 22px; padding: 5cqh 4cqw;
+  animation: supportReveal 300ms ease-out both; color: #e2e8f0;
+}
+.presentation-support-canvas.is-exiting { animation: supportExit 300ms ease-in both; }
+.presentation-support-title { font-size: clamp(1.5rem, 3cqw, 2.7rem); letter-spacing: .08em; text-align: center; }
+.presentation-support-actor { height: 22cqh; max-width: 220px; }
+.presentation-support-actor img, .presentation-support-image { width: 100%; height: 100%; object-fit: contain; }
+.presentation-support-targets, .presentation-secondary-targets { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; }
+.presentation-support-targets { max-width: 90cqw; max-height: 48cqh; overflow-y: auto; padding: 15px; }
+.presentation-result-card { width: clamp(95px, 14cqw, 165px); text-align: center; position: relative; }
+.presentation-result-portrait { position: relative; aspect-ratio: 1; }
+.presentation-result-portrait img, .presentation-minion-image { width: 100%; height: 100%; object-fit: contain; }
+.presentation-result-name { font-size: .85rem; margin: 8px 0; }
+.presentation-result-hp-track { height: 7px; background: #1e293b; position: relative; }
+.presentation-result-hp-fill { background: #b91c1c; height: 100%; transition: width 350ms ease-out; }
+.presentation-result-hp-text { font-family: var(--font-stats); font-size: .7rem; margin-top: 8px; }
+.presentation-result-temp { background: #164e63; color: #a5f3fc; font-size: .7rem; position: absolute; right: 0; top: 17px; padding: 3px; }
+.presentation-result-status { margin-top: 12px; }
+.presentation-result-numbers { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.presentation-result-number { position: absolute; inset: 20% -25% auto; font-size: clamp(1rem, 3cqw, 2.2rem); font-weight: 800; text-shadow: 2px 2px #020617; animation: supportFloat 650ms ease-out both; }
+.presentation-result-number.is-damage { color: #f87171; }
+.presentation-result-number.is-magic { color: #c084fc; }
+.presentation-result-number.is-heal { color: #86efac; }
+.presentation-result-number.is-guard, .presentation-result-number.is-miss { color: #67e8f9; }
+.presentation-result-number.is-status, .presentation-result-number.is-nature { color: #c4d49c; font-size: 1rem; }
+.presentation-result-fx { position: absolute; inset: -8%; pointer-events: none; opacity: 0; }
+.is-impacting .presentation-result-fx { background: #ef4444; animation: supportImpact 250ms ease-out both; }
+.is-healing .presentation-result-fx, .is-reviving .presentation-result-fx { background: radial-gradient(ellipse, transparent 35%, #86efac 70%, transparent); animation: supportPulse 550ms ease-out both; }
+.is-guarding .presentation-result-fx, .is-guard-cast .presentation-result-fx { border: 4px solid #67e8f9; animation: supportPulse 650ms ease-out both; }
+.is-shield-broken .presentation-result-fx { clip-path: polygon(0 0, 40% 0, 52% 50%, 45% 100%, 0 100%, 0 0, 60% 0, 100% 0, 100% 100%, 55% 100%, 65% 50%); }
+.is-downed { filter: grayscale(1); opacity: .6; transform: translateY(5px); }
+.is-reviving { animation: supportRevive 600ms ease-out both; }
+.is-dying { animation: supportDeath 650ms ease-in both; }
+.is-protected .presentation-result-portrait, [data-form="treant"] .presentation-result-portrait { outline: 3px solid #365b38; filter: sepia(.25); }
+[data-form="werewolf"] .presentation-result-portrait { outline: 3px solid #a06045; animation: supportWolf 350ms ease-out both; }
+.has-root-link::before { content: ''; position: absolute; width: 120%; height: 3px; left: -100%; top: 45%; background: #76a278; animation: supportPulse 500ms both; }
+.is-intercepting { animation: supportIntercept 250ms ease-out both; }
+.is-evading .presentation-result-hit, .presentation-combat-target-hit.is-evading { animation: supportEvade 350ms ease-out both; }
+.is-stealth-miss .presentation-result-hit, .presentation-combat-target-hit.is-stealth-miss { animation: supportVanish 400ms ease-out both; }
+.presentation-support-outcome, .presentation-combat-outcome { color: #e2e8f0; font-size: 1rem; letter-spacing: .06em; text-align: center; animation: supportReveal 250ms ease-out both; }
+.presentation-combat-outcome { position: absolute; left: 20%; right: 20%; bottom: 12%; }
+.presentation-secondary-targets { position: absolute; left: 30%; right: 30%; bottom: 3%; }
+.presentation-secondary-targets .presentation-result-card { width: 90px; }
+.has-drain-stream::after { content: ''; position: absolute; top: 45%; left: 22%; width: 56%; height: 6px; background: linear-gradient(90deg, #86efac, transparent); animation: supportDrain 220ms ease-out both; }
+.presentation-combat-arrow-projectile.is-miss { top: 30%; transform: rotate(-10deg); }
+.presentation-combat-damage-num.is-miss { color: #cbd5e1; }
+.is-unstable { animation: supportUnstable 280ms steps(3) both; }
+.is-unbalanced { filter: brightness(.8); }
+.is-critical .presentation-combat-impact-overlay { background: #fff4bd; }
+.is-boss-party { padding: 0; }
+.is-boss-party .presentation-support-actor { position: absolute; right: 5cqw; top: 30cqh; height: 35cqh; max-width: 25cqw; }
+.is-boss-party .presentation-support-targets { position: absolute; left: 4cqw; top: 32cqh; width: 63cqw; max-height: 55cqh; }
+.is-boss-party .presentation-combat-intent { position: absolute; left: 15%; top: 30%; width: 70%; text-align: center; }
+.is-boss-party .presentation-result-card { width: clamp(80px, 11cqw, 150px); }
+.is-compact .presentation-support-title { font-family: var(--font-stats), var(--font-body); font-size: 1.7rem; }
+.presentation-compact-minion { position: absolute; left: 10cqw; top: 44cqh; width: 90px; display: flex; flex-direction: column; animation: supportMinion 300ms ease-out both; }
+.presentation-summon-reveal { position: absolute; width: 170px; left: 110%; top: 0; display: flex; flex-direction: column; font-size: .8rem; animation: supportReveal 400ms ease-out both; }
+.is-cleansing .presentation-result-status { animation: supportExit 300ms both; }
+.is-off-key .presentation-support-actor { animation: supportUnstable 300ms steps(3) both; }
+.combat-status { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; color: #cbd5e1; margin: 3px; }
+.combat-status-icon { width: 16px; height: 16px; flex: 0 0 auto; }
+.presentation-victory { position: fixed; inset: 0; background: rgba(2, 6, 14, .72); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5cqh 7cqw; color: #e2e8f0; }
+.presentation-victory-heading { font-family: var(--font-stats); font-size: clamp(2.5rem, 9cqw, 7rem); letter-spacing: .13em; color: #e8cf8e; text-shadow: 4px 4px #35280d; animation: victoryTitle 750ms ease-out both; }
+.presentation-victory-title { text-align: center; }
+.presentation-victory-story { width: min(700px, 80cqw); line-height: 2; font-size: 1.2rem; }
+.presentation-victory-summary { text-align: center; line-height: 1.8; }
+.presentation-victory-summary h2 { font-family: var(--font-stats); }
+.presentation-victory.exit, .presentation-victory-title.exit, .presentation-victory-story.exit { animation: supportExit 500ms ease-in both; }
+.presentation-victory-continue { margin-top: 24px; padding: 14px 30px; color: #e8cf8e; border: 1px solid #847043; background: #111827; cursor: pointer; }
+.presentation-victory-continue:disabled { opacity: .5; cursor: default; }
+@keyframes supportReveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes supportExit { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes supportFloat { 0% { opacity: 0; transform: translateY(8px); } 15%, 65% { opacity: 1; } 100% { opacity: 0; transform: translateY(-28px); } }
+@keyframes supportPulse { 0% { opacity: 0; transform: scale(.8); } 30% { opacity: .8; } 100% { opacity: 0; transform: scale(1.1); } }
+@keyframes supportImpact { from { opacity: .6; } to { opacity: 0; } }
+@keyframes supportEvade { 30% { transform: translateX(16px); } }
+@keyframes supportVanish { 35%, 65% { opacity: .05; filter: blur(3px); } }
+@keyframes supportDeath { to { filter: grayscale(1); opacity: .2; transform: translateY(16px); } }
+@keyframes supportRevive { from { filter: grayscale(1); opacity: .4; transform: translateY(15px); } to { filter: grayscale(0); opacity: 1; transform: translateY(0); } }
+@keyframes supportWolf { 40% { filter: brightness(1.6); transform: scale(1.05); } }
+@keyframes supportIntercept { from { transform: translateX(-40px); } to { transform: translateX(0); } }
+@keyframes supportMinion { from { transform: translateX(-60px); opacity: 0; } to { transform: translateX(20px); opacity: 1; } }
+@keyframes supportDrain { from { transform: scaleX(.1); transform-origin: right; } to { transform: scaleX(1); transform-origin: right; } }
+@keyframes supportUnstable { 25% { transform: translateX(3px); filter: hue-rotate(20deg); } 75% { transform: translateX(-3px); filter: brightness(.7); } }
+@keyframes victoryTitle { from { opacity: 0; transform: translateY(12px); letter-spacing: .19em; } to { opacity: 1; transform: translateY(0); letter-spacing: .13em; } }
+@container combat (max-width: 600px) {
+  .presentation-support-canvas { gap: 14px; }
+  .presentation-support-actor { height: 16cqh; }
+  .presentation-support-targets { gap: 14px; max-height: 55cqh; }
+  .presentation-result-card { width: 110px; }
+  .is-boss-party .presentation-support-actor { height: 23cqh; right: 1cqw; top: 20cqh; max-width: 30cqw; }
+  .is-boss-party .presentation-support-targets { top: 40cqh; left: 3cqw; width: 94cqw; }
+  .is-boss-party .presentation-result-card { width: 110px; }
+  .presentation-summon-reveal { position: relative; left: 0; width: 110px; }
+  .presentation-secondary-targets { left: 20%; right: 20%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .presentation-support-canvas, .is-reviving, .is-intercepting, .presentation-victory-heading { animation-name: supportReveal; }
+}
+
+.presentation-form-reveal { position: absolute; inset: 0; display: grid; place-items: center; background: #18212af0; animation: supportReveal .35s both; }
+.presentation-form-reveal svg { width: 85%; height: 85%; }
+.is-stealth-cast .presentation-support-actor { animation: supportStealth 1.1s both; }
+@keyframes supportStealth { 30% { filter: blur(5px); opacity: .6; } 100% { filter: blur(12px); opacity: .15; } }
+
+.presentation-victory { pointer-events: auto; }
+
+.has-arrow-rain .presentation-result-fx { opacity: 1; background: repeating-linear-gradient(120deg, transparent 0 18px, #a5b4fc 20px 23px, transparent 24px 38px); animation: supportImpact .3s both; }
+.has-claw-hit .presentation-result-fx { opacity: 1; background: repeating-linear-gradient(140deg, transparent 0 20px, #e0dacb 22px 25px, transparent 26px 42px); animation: supportImpact .3s both; }
+.has-poison-cloud .presentation-result-fx { background: radial-gradient(ellipse, #84cc1677, transparent 70%); animation: supportPulse .45s both; }
+[data-reduced-motion="true"] .presentation-result-hit, [data-reduced-motion="true"] .presentation-support-actor { animation-name: supportReveal; }
+
+.is-critical .presentation-combat-cross-slash-fx > div { background: #fff1b8; box-shadow: 0 0 12px #d4ad59; }
+
+/* The shared crimson strip sits behind the party, never over target portraits. */
+.is-boss-party .presentation-combat-strip-wrap { top: 16%; left: 2%; width: 96%; height: 100px; }
+.is-boss-party .presentation-combat-intent { inset: 0; width: 100%; max-width: 100%; display: grid; place-items: center; padding: 0 12px; }
+.is-boss-party .presentation-support-targets { z-index: 930; top: 43%; }
+.is-boss-party .presentation-support-actor { z-index: 930; top: 34%; }
+@container combat (max-width: 600px) {
+ .is-boss-party .presentation-combat-strip-wrap { top: 14%; height: 76px; }
+ .is-boss-party .presentation-support-actor { top: 29%; height: 23%; }
+ .is-boss-party .presentation-support-targets { top: 54%; max-height: 43%; }
+}
+
+.is-boss-party .presentation-combat-strip-wrap { min-height: 0; max-height: none; transform: none; animation: supportBossEntry 300ms ease-out both; }
+@keyframes supportBossEntry { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@container combat (max-width: 600px) {
+ .is-boss-party .presentation-support-actor { top: 26%; height: 20%; }
+ .is-boss-party .presentation-support-targets { top: 46%; max-height: 52%; }
+}
+
+@container combat (max-width: 600px) { .is-boss-party .presentation-support-targets { top: 40%; max-height: 58%; } }
+.presentation-shadow-cue { position: absolute; top: 17%; left: 20%; right: 20%; text-align: center; color: #c4b8d4; z-index: 940; animation: supportFloat 900ms both; }
+.is-shadow-emerging::before, .is-shadow-follow-up::before { content: ''; position: absolute; inset: 20% 0; background: linear-gradient(100deg, transparent, #172035cc, #35263f99, transparent); animation: supportReveal 180ms both; }
+.presentation-shadow-energy { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #81718e; top: calc(30% + var(--shadow-index) * 3%); left: calc(35% + var(--shadow-index) * 2%); animation: shadowAbsorb 350ms both; }
+@keyframes shadowAbsorb { to { transform: translate(-120px, 50px) scale(0); opacity: 0; } }
+.presentation-shadow-assassin { position: absolute; left: 10%; top: 30%; width: min(150px, 25cqw); height: 30%; display: flex; flex-direction: column; align-items: center; color: #c4b8d4; animation: supportIntercept 150ms both; }
+.presentation-shadow-target { position: absolute; right: 12%; top: 32%; }
+.presentation-shadow-stack-gain { color: #c4b8d4; white-space: nowrap; animation: supportFloat 500ms both; }
+.is-shadow-critical { color: #fde68a; font-size: 1rem; top: -25%; }
+.has-shadow-slash::after { content: ''; position: absolute; inset: 15% -10% 30%; background: linear-gradient(135deg, transparent 45%, #e0d4b9 49%, #35405b 53%, transparent 58%); animation: supportImpact 220ms both; }
+.is-shadow-follow-up .presentation-result-hit.is-hit-right { animation: shadowFollowUpKnock 220ms ease-out both; }
+@keyframes shadowFollowUpKnock { 30% { transform: translateX(8px); } 100% { transform: translateX(0); } }
+.is-assassin-hidden { box-shadow: inset 0 0 24px #253047, 0 0 12px #33253a; }
+.is-assassin-hidden img, .is-shadow-evading img { filter: brightness(.65) drop-shadow(8px 0 5px #44324a); }
+.is-shadow-evading { animation: supportVanish 450ms both; }

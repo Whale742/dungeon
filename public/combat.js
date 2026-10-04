@@ -200,6 +200,10 @@ async function playCombatActionPresentation(step, context = {}) {
     if (typeof context.onTiming === 'function') context.onTiming(beat, { timestamp: Date.now(), ...extra });
   };
 
+  const primary = step.results?.find(r => r.kind === 'damage' && r.targetId === 'monster');
+  if (primary) step = { ...step, finalDamage: primary.finalDamage, targetHpBefore: primary.targetBefore.hp, targetHpAfter: primary.targetAfter.hp, targetMaxHp: primary.targetAfter.maxHp, hpSnapshot: primary.hpSnapshot };
+  const outcome = step.outcome || { type: 'normal' };
+  const missed = outcome.type === 'miss' || outcome.type === 'dodge';
   emitTiming('action_start', { step });
 
   const stage = getOrCreateCombatStage();
@@ -228,6 +232,29 @@ async function playCombatActionPresentation(step, context = {}) {
   };
   signal.addEventListener('abort', cleanup, { once: true });
 
+  try {
+  if (step.hiddenBeforeAction || step.consumedStacks > 0) {
+    canvas.classList.add('is-shadow-emerging');
+    const cue = document.createElement('div'); cue.className = 'presentation-shadow-cue';
+    cue.textContent = step.consumedStacks > 0 ? '匿蹤 ×' + step.consumedStacks + ' → 0' : '解除隱身';
+    canvas.appendChild(cue);
+    playSound(step.consumedStacks > 0 ? 'shadow_absorb' : 'air_pass');
+    if (step.consumedStacks > 0) {
+      for (let i = 0; i < Math.min(step.consumedStacks, 12); i++) {
+        const particle = document.createElement('i'); particle.className = 'presentation-shadow-energy';
+        particle.style.setProperty('--shadow-index', i); canvas.appendChild(particle);
+      }
+    }
+    const before = structuredClone(step.hpSnapshotBefore);
+    const actor = before?.players?.find(p => p.id === step.sourceId);
+    if (actor) {
+      actor.isHiddenThisRound = false; actor.stealthBrokenThisRound = true;
+      actor.statuses = (actor.statuses || []).filter(s => s.id !== 'hidden' && s.id !== 'follow_up' && !(step.actionId === 's_smoke' && s.id === 'stealth_stack'));
+      if (step.actionId === 's_smoke') actor.stealthStacks = 0;
+      if (typeof applyHpSnapshot === 'function') applyHpSnapshot(before);
+    }
+    await wait(step.consumedStacks > 0 ? 350 : 200);
+  }
   // 2. 解析 Actor 肖像與名稱 (嚴格使用 Class Portrait 或 Boss Image，禁止 Discord/Generic)
   let actorPortraitHtml = '';
   let actorName = '';
@@ -245,17 +272,17 @@ async function playCombatActionPresentation(step, context = {}) {
     actorPortraitHtml = `<img src="${roleImg}" class="presentation-combat-portrait-img" alt="${roleKey}">`;
     actorName = getClassDisplayName(roleKey);
 
-    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/photo/boss1.webp';
+    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
     targetPortraitHtml = `<img src="${mAvatar}" class="presentation-combat-portrait-img" alt="${escapeHtml(mName)}">`;
     targetName = mName;
 
     targetMaxHp = step.targetMaxHp !== undefined ? step.targetMaxHp : ((typeof roomState !== 'undefined' && roomState?.currentMonster?.maxHp) || step.hpSnapshot?.monster?.maxHp || 120);
     targetHpBefore = step.targetHpBefore !== undefined ? step.targetHpBefore : (step.hpSnapshot?.monster?.hp ?? targetMaxHp);
-    targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (step.hpSnapshot?.monster?.hp ?? Math.max(0, targetHpBefore - (step.finalDamage || step.damage || 30)));
+    targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (step.hpSnapshot?.monster?.hp ?? targetHpBefore);
   } else {
     // Boss 攻擊玩家
-    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/photo/boss1.webp';
+    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
     actorPortraitHtml = `<img src="${mAvatar}" class="presentation-combat-portrait-img" alt="${escapeHtml(mName)}">`;
     actorName = mName;
@@ -274,7 +301,7 @@ async function playCombatActionPresentation(step, context = {}) {
     const targetPlayerObj = (typeof roomState !== 'undefined' && (roomState?.players || []).find(p => p.id === step.targetId));
     targetMaxHp = step.targetMaxHp !== undefined ? step.targetMaxHp : (targetPlayerObj?.maxHp || 120);
     targetHpBefore = step.targetHpBefore !== undefined ? step.targetHpBefore : (targetPlayerObj?.hp ?? targetMaxHp);
-    targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (targetPlayerObj?.hp ?? Math.max(0, targetHpBefore - (step.finalDamage || step.damage || 25)));
+    targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (targetPlayerObj?.hp ?? targetHpBefore);
   }
 
   // 傷害數值來源之唯一定義 (Combat Resolution 產出的 explicit finalDamage)
@@ -290,7 +317,7 @@ async function playCombatActionPresentation(step, context = {}) {
     console.warn(`[CombatPresentation DEV ASSERT] Damage mismatch: finalDamage=${finalDamage} vs hpDelta=${hpDelta}`);
   }
 
-  const isLethal = step.isLethal || targetHpAfter <= 0;
+  const isLethal = !missed && (step.isLethal || targetHpAfter <= 0);
 
   // 3. 組合技能意圖文字 (WHO + ACTION，純文字，無額外 metadata)
   const skillTitle = step.skillName || step.name || (isPlayer ? '普通攻擊' : (step.isUlt ? (step.ultName || '必殺技') : '撕裂猛擊'));
@@ -365,6 +392,9 @@ async function playCombatActionPresentation(step, context = {}) {
 
   // --- STEP 2: 角色攻擊起手與專屬 Attack SFX / FX (Warrior Xing / Mage Bomb / Archer Twang) ---
   emitTiming('anticipation_start');
+  if (outcome.type === 'misfire') actorPositionWrap.classList.add('is-unstable');
+  if (outcome.type === 'imbalance') actorPositionWrap.classList.add('is-unbalanced');
+  if (outcome.type === 'critical') canvas.classList.add('is-critical');
   if (profile.preSfx) {
     playSound(profile.preSfx);
   }
@@ -376,13 +406,13 @@ async function playCombatActionPresentation(step, context = {}) {
   if (profile.fxType === 'arrow_projectile') {
     if (profile.flightSfx) playSound(profile.flightSfx);
     const arrow = document.createElement('div');
-    arrow.className = `presentation-combat-arrow-projectile ${isPlayer ? 'fly-right' : 'fly-left'}`;
+    arrow.className = `presentation-combat-arrow-projectile ${isPlayer ? 'fly-right' : 'fly-left'} ${missed ? 'is-miss' : ''}`;
     arrow.innerHTML = `
       <div class="presentation-combat-arrow-shaft"></div>
       <div class="presentation-combat-arrow-head"></div>
     `;
     canvas.appendChild(arrow);
-    setTimeout(() => arrow.remove(), 250);
+
   }
 
   await wait(timing.anticipation || 250);
@@ -393,6 +423,16 @@ async function playCombatActionPresentation(step, context = {}) {
   const targetBox = targetPositionWrap.querySelector('#combatTargetBox');
   const impactOverlay = targetPositionWrap.querySelector('#combatImpactOverlay');
 
+  if (missed) {
+    playSound('air_pass');
+    if (outcome.type === 'dodge') targetHitEl?.classList.add(outcome.stealth ? 'is-stealth-miss' : 'is-evading');
+    const miss = document.createElement('div');
+    miss.className = 'presentation-combat-damage-num is-miss';
+    miss.textContent = 'MISS';
+    targetBox?.appendChild(miss);
+    emitTiming('miss');
+    await wait(timing.damageDelay || 75);
+  } else {
   // 播放 Impact 命中音效 (音量最高潮)
   playSound(profile.impactSfx || (isMagic ? 'magic_impact' : 'physical_hit'));
 
@@ -427,7 +467,7 @@ async function playCombatActionPresentation(step, context = {}) {
       fx.className = 'presentation-combat-fx presentation-combat-slash-fx';
     }
     targetBox.appendChild(fx);
-    setTimeout(() => fx.remove(), 450);
+
   }
 
   // --- STEP 4: 傷害數字與生命條動態扣除 (Floating Damage & HP Bar Animation) ---
@@ -436,10 +476,10 @@ async function playCombatActionPresentation(step, context = {}) {
 
   const dmgEl = document.createElement('div');
   dmgEl.className = `presentation-combat-damage-num ${isMagic ? 'is-magic' : (isPlayer ? 'is-physical' : 'is-boss')}`;
-  dmgEl.textContent = `-${finalDamage}`;
+  dmgEl.textContent = finalDamage > 0 ? `-${finalDamage}` : 'BLOCK';
   if (targetBox) {
     targetBox.appendChild(dmgEl);
-    setTimeout(() => dmgEl.remove(), Math.round(timing.damageFloat / speed));
+
   }
 
   // HP Bar 動態更新至新血量
@@ -457,6 +497,18 @@ async function playCombatActionPresentation(step, context = {}) {
   emitTiming('hp_update');
   if (step.hpSnapshot && typeof applyHpSnapshot === 'function') {
     applyHpSnapshot(step.hpSnapshot);
+  }
+
+  }
+  if (outcome.type !== 'normal') {
+    const indicator = document.createElement('div');
+    indicator.className = 'presentation-combat-outcome';
+    indicator.textContent = [outcome.label, outcome.secondary].filter(Boolean).join(' · ');
+    canvas.appendChild(indicator);
+    emitTiming('outcome', { outcome: outcome.type });
+  }
+  if (typeof context.onPrimaryResolved === 'function') {
+    await context.onPrimaryResolved({ canvas, actorPositionWrap, targetPositionWrap, wait });
   }
 
   // --- STEP 4.5: 致命一擊與首領沉重倒下演出 (Boss Death Foundation) ---
@@ -492,7 +544,10 @@ async function playCombatActionPresentation(step, context = {}) {
   emitTiming('action_complete');
 
   // 清理畫布節點
-  cleanup();
+  } finally {
+    signal.removeEventListener('abort', cleanup);
+    cleanup();
+  }
 
   if (typeof context.onComplete === 'function') {
     context.onComplete({ completed: true, step });

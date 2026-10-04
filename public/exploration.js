@@ -73,6 +73,12 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
     overlay.classList.add('hidden');
     document.body.classList.remove('presentation-floor-active');
 
+    if (roomState.floorRevival?.results?.length) {
+      await playFloorRevivalPresentation(roomState.floorRevival, { signal });
+      // Floor revival exits before exploration enters; keep the same route owner.
+      presentationManager.setBlocking(true);
+      app.inert = true; chat.inert = true;
+    }
     view.classList.add('exploration-enter');
     revealDestinationView('route');
     await waitForPrologue(EXPLORATION_TIMING.sectionEnter, signal);

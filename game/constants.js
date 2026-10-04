@@ -34,7 +34,7 @@ export const CLASSES = {
     desc: '【生命 80】遠程敏捷。常駐 40% 閃避，普攻與1技能為物理，2技能為魔法。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '拉弓射出基礎箭矢造成物理打擊。' },
-      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '百步穿楊狙擊目標；有機率發生脫靶導致無法造成傷害，並使自身下回合失去閃避能力。' },
+      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '百步穿楊狙擊目標；有機率發生脫靶導致無法造成傷害，並使下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。' },
       { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', tags: ['魔法', '全體', '減益', '高風險'], desc: '召喚範圍附魔箭雨造成魔法傷害並削弱敵方攻擊；有機率受地底氣流干擾誤傷隨機一名隊友。' }
     ]
   },
@@ -42,14 +42,14 @@ export const CLASSES = {
     name: '刺客',
     emoji: '🗡️',
     avatar: '/photo/Assassin.webp',
-    maxHp: 60,
+    maxHp: 50,
     critRate: 0.5,
     vulnerableMod: 1.25,
-    desc: '【生命 60】近戰爆發。自帶 50% 暴擊，全技能皆為物理傷害。',
+    desc: '【生命 50】50% 暴擊；每兩次暴擊獲得匿蹤，隱身可追擊；100% 避開陷阱，輕甲承傷 +25%。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '揮動雙匕進行基礎物理切削。' },
-      { id: 's_stab', label: '暗影刺殺', cd: 1, dmgType: 'phys', tags: ['物理', '單體'], desc: '背刺敵方造成物理傷害。若觸發暴擊則傷害倍增且立即重置冷卻，未暴擊則需正常進入冷卻。' },
-      { id: 's_smoke', label: '煙霧匿蹤', cd: 2, tags: ['護盾'], desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。' }
+      { id: 's_stab', label: '暗影刺殺', cd: 1, dmgType: 'phys', tags: ['物理', '單體'], desc: '基礎 35 點物理傷害，暴擊 70 點。若觸發暴擊則傷害倍增且立即重置冷卻，未暴擊則需正常進入冷卻。' },
+      { id: 's_smoke', label: '暗影爆襲', cd: 2, dmgType: 'phys', tags: ['物理', '單體'], desc: '消耗所有匿蹤，造成基礎 30 點傷害；每層增加基礎傷害的 50%（3 層為 75）。暴擊資格待定。' }
     ]
   },
   bard: {
@@ -174,15 +174,15 @@ export const LOOT_TABLE = [
     name: '染毒刺刃',
     bonusAtk: -10,
     bonusCrit: 0.30,
-    desc: '基礎傷害 -10，但暴擊率提升 30%'
+    desc: '基礎傷害 -10；暴擊率 +30%（不可疊加）；第 2／3 把分別將追擊上限提高至 3／4 次'
   },
   {
     id: 's_armor',
     role: 'assassin',
     name: '暗影皮甲',
     bonusHp: -10,
-    bonusDodge: 0.10,
-    desc: '閃避機率 +10%，最大生命 -10'
+    bonusAtk: 10,
+    desc: '傷害 +10，最大生命 -10'
   },
 
   // 吟遊詩人 (Bard)
@@ -246,7 +246,7 @@ export const LOOT_TABLE = [
     role: 'druid',
     name: '自然共鳴',
     isSpecial: true,
-    desc: '每回合初為所有存活僕從回復 3 點生命；小樹精最大生命 +5；幼狼造成傷害 +2'
+    desc: '小樹精最大生命 +5；幼狼造成傷害 +2'
   }
 ];
 
@@ -550,7 +550,7 @@ export const BATTLE_NARRATIVES = {
         }
         return `🗡️ **${name}** 踏著無聲步伐瞬移至魔物盲點，短匕如毒蛇出洞，狠狠刺入魔物要害！`;
       case 's_smoke':
-        return `💨 **${name}** 擲出特製的暗影煙霧彈，滾滾黑煙瞬間瀰漫，其身形融於黑暗陰影之中避開所有反擊！`;
+        return `💨 **${name}** 將所有匿蹤化為刃上暗影，瞬步爆襲魔物！`;
       case 'b_heal':
         return `🪕 **${name}** 撫琴奏響空靈聖潔的生命頌歌，溫潤如春雨的七彩光環籠罩全場，溫暖的光輝撫平了隊員們的創傷！`;
       case 'b_buff':
@@ -738,7 +738,7 @@ export function getPlayerSkills(player) {
 export function getActionPriority(actionId) {
   if (actionId === 'alc_fate') return 1; // 1. 淨化 (Cleanse)
   if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)
-  if (actionId === 'w_shield' || actionId === 's_smoke') return 3; // 3. 防禦/護盾/免傷 (Defense / Mitigation)
+  if (actionId === 'w_shield') return 3; // 3. 防禦/護盾/免傷 (Defense / Mitigation)
   if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)
   if (actionId === 'b_heal') return 5; // 5. 治療 (Heal)
   if (actionId === 'dru_transform' || actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') return 6; // 6. 變身/召喚 (Transform / Summon)
@@ -853,7 +853,7 @@ export const ROLE_DETAILS = {
         name: '精準狙擊',
         dmgType: '【物理】',
         cd: '1 回合',
-        desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使自身下回合失去閃避能力。'
+        desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。'
       },
       {
         type: '2 技能',
@@ -869,9 +869,9 @@ export const ROLE_DETAILS = {
     enName: 'Assassin',
     emoji: '🗡️',
     avatar: '/photo/Assassin.webp',
-    hp: 60,
+    hp: 50,
     type: '物理 / 近戰刺殺',
-    passive: '常駐 50% 暴擊率（暴擊造成 2 倍傷害）；身著輕甲承受傷害額外增加 25%。',
+    passive: '常駐 50% 暴擊，輕甲承傷 +25%。每 2 次有效暴擊獲得 1 層匿蹤（跨戰鬥保留）。回合初先減 1 層，再判定隱身；隱身免傷，主動攻擊解除當回合隱身。隱身時其他玩家每次正式行動有 50% 機率追擊，基礎上限 2 次、追擊暴擊率 50%。100% 避開陷阱。',
     skills: [
       {
         type: '普攻',
@@ -885,14 +885,14 @@ export const ROLE_DETAILS = {
         name: '暗影刺殺',
         dmgType: '【物理】',
         cd: '1 回合 (暴擊無CD)',
-        desc: '背刺敵方造成 30 點物理傷害。若觸發暴擊則傷害倍增為 60 且立即重置冷卻；未暴擊則需正常進入冷卻 1 回合。'
+        desc: '背刺敵方造成 35 點物理傷害。若觸發暴擊則傷害倍增為 70 且立即重置冷卻；未暴擊則需正常進入冷卻 1 回合。'
       },
       {
         type: '2 技能',
-        name: '煙霧匿蹤',
-        dmgType: '【輔助】',
+        name: '暗影爆襲',
+        dmgType: '【物理】',
         cd: '2 回合',
-        desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。'
+        desc: '消耗所有匿蹤，基礎傷害 30；每層增加 15 點，0／1／2／3／4 層為 30／45／60／75／90。暴擊資格待定。'
       }
     ]
   },
@@ -949,7 +949,7 @@ export const ROLE_DETAILS = {
         name: '腐蝕強酸瓶',
         dmgType: '【魔法】',
         cd: '無 CD',
-        desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果減半持續 2 回合。'
+        desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果在本回合減半，回合結束還原。'
       },
       {
         type: '1 技能 B',
@@ -988,23 +988,30 @@ export const ROLE_DETAILS = {
         name: '形態轉變',
         dmgType: '【變身】',
         cd: '無 CD (持續2回合)',
-        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（扣除 20 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 20%、每回合自癒當前最大生命 5%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
+        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
       },
       {
         type: '2 技能 A',
         name: '召喚小樹精',
         dmgType: '【召喚】',
-        cd: '無 CD (隊伍上限3隻)',
-        desc: '召喚肉盾型樹精僕從（HP 15 / 攻擊 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
+        cd: '無 CD (每位德魯伊上限3隻)',
+        desc: '召喚肉盾型樹精僕從（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
       },
       {
         type: '2 技能 B',
         name: '召喚幼狼',
         dmgType: '【召喚】',
-        cd: '無 CD (隊伍上限3隻)',
-        desc: '召喚敏捷型幼狼僕從（HP 5 / 攻擊 10），每回合自動攻擊並優先替隊伍承受分散傷害。'
+        cd: '無 CD (每位德魯伊上限3隻)',
+        desc: '召喚敏捷型幼狼僕從（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
       }
     ]
   }
 };
 
+// Phase 6 balance decisions confirmed by the user. Rates are fractions.
+export const GAME_BALANCE = Object.freeze({
+  archerMissNextDodgeBonus: 0.20,
+  floorReviveHpRatio: 0.20,
+  werewolfMaxHpReduction: 0.20,
+  treantDamageReduction: 0.30
+});

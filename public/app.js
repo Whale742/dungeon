@@ -53,7 +53,7 @@ const DEFAULT_ROLE_DETAILS = {
     passive: '常駐 40% 閃避率（可完全閃避單體物理打擊與怪物反擊）。',
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '拉弓射出基礎箭矢造成基礎 10 點物理傷害。' },
-      { type: '1 技能', name: '精準狙擊', dmgType: '【物理】', cd: '1 回合', desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使自身下回合失去閃避能力。' },
+      { type: '1 技能', name: '精準狙擊', dmgType: '【物理】', cd: '1 回合', desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。' },
       { type: '2 技能', name: '箭雨壓制', dmgType: '【魔法】', cd: '1 回合', desc: '召喚範圍附魔箭雨造成 20 點魔法傷害並削弱敵方 10 點攻擊力。有 20% 機率受地底氣流干擾誤傷隨機一名隊友 10 點傷害。' }
     ]
   },
@@ -62,13 +62,31 @@ const DEFAULT_ROLE_DETAILS = {
     enName: 'Assassin',
     emoji: '🗡️',
     avatar: '/photo/Assassin.webp',
-    hp: 60,
+    hp: 50,
     type: '物理 / 近戰刺殺',
-    passive: '常駐 50% 暴擊率（暴擊造成 2 倍傷害）；身著輕甲承受傷害額外增加 25%。',
+    passive: '常駐 50% 暴擊，輕甲承傷 +25%。每 2 次有效暴擊獲得 1 層匿蹤（跨戰鬥保留）。回合初先減 1 層，再判定隱身；隱身免傷，主動攻擊解除當回合隱身。隱身時其他玩家每次正式行動有 50% 機率追擊，基礎上限 2 次、追擊暴擊率 50%。100% 避開陷阱。',
     skills: [
-      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '揮動雙匕進行基礎物理切削造成 10 點傷害。' },
-      { type: '1 技能', name: '暗影刺殺', dmgType: '【物理】', cd: '1 回合 (暴擊無CD)', desc: '背刺敵方造成 30 點物理傷害。若觸發暴擊則傷害倍增為 60 且立即重置冷卻；未暴擊則需正常進入冷卻 1 回合。' },
-      { type: '2 技能', name: '煙霧匿蹤', dmgType: '【輔助】', cd: '2 回合', desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。' }
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【物理】',
+        cd: '無 CD',
+        desc: '揮動雙匕進行基礎物理切削造成 10 點傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '暗影刺殺',
+        dmgType: '【物理】',
+        cd: '1 回合 (暴擊無CD)',
+        desc: '背刺敵方造成 35 點物理傷害。若觸發暴擊則傷害倍增為 70 且立即重置冷卻；未暴擊則需正常進入冷卻 1 回合。'
+      },
+      {
+        type: '2 技能',
+        name: '暗影爆襲',
+        dmgType: '【物理】',
+        cd: '2 回合',
+        desc: '消耗所有匿蹤，基礎傷害 30；每層增加 15 點，0／1／2／3／4 層為 30／45／60／75／90。暴擊資格待定。'
+      }
     ]
   },
   bard: {
@@ -95,7 +113,7 @@ const DEFAULT_ROLE_DETAILS = {
     passive: '神秘調和者，精通強酸腐蝕、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。' },
-      { type: '1 技能 A', name: '腐蝕強酸瓶', dmgType: '【魔法】', cd: '無 CD', desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果減半持續 2 回合。' },
+      { type: '1 技能 A', name: '腐蝕強酸瓶', dmgType: '【魔法】', cd: '無 CD', desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果在本回合減半，回合結束還原。' },
       { type: '1 技能 B', name: '劇毒煙霧瓶', dmgType: '【魔法】', cd: '無 CD', desc: '砸碎毒瓶造成 30 點傷害與輕微自傷 5 點，使敵我雙方皆陷入劇毒，全體後續 2 回合每回合初持續承受 5 點毒素傷害。' },
       { type: '2 技能', name: '命運煉成試劑', dmgType: '【驅散/調和】', cd: '2 回合', desc: '立即驅散全隊所有負面狀態（中毒/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。' }
     ]
@@ -110,9 +128,9 @@ const DEFAULT_ROLE_DETAILS = {
     passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '引導自然力量造成基礎 10 點物理傷害。' },
-      { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（扣除 20 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 20%、每回合自癒當前最大生命 5%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
-      { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (隊伍上限3隻)', desc: '召喚肉盾型樹精僕從（HP 15 / 攻擊 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
-      { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (隊伍上限3隻)', desc: '召喚敏捷型幼狼僕從（HP 5 / 攻擊 10），每回合自動攻擊並優先替隊伍承受分散傷害。' }
+      { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
+      { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚肉盾型樹精僕從（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
+      { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚敏捷型幼狼僕從（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
   }
 };
@@ -552,6 +570,7 @@ socket.on('init:constants', (data) => {
 let pendingAuthoritativeState = null;
 
 socket.on('room:update', (state) => {
+  if (combatQueueController && state.state !== 'IN_BATTLE') { combatQueueController.abort(); pendingAuthoritativeState = null; }
   // 若目前正透過 Presentation Queue 逐步演出戰鬥交鋒（A5 規範）
   // 嚴禁以權威狀態直接提前覆蓋演出中的 HP / tempHp / bossHp / death state！
   if (isProcessingPresentationQueue) {
@@ -560,6 +579,7 @@ socket.on('room:update', (state) => {
     return;
   }
   roomState = typeof projectChestDisplayState === 'function' ? projectChestDisplayState(projectTrapDisplayState(state)) : projectTrapDisplayState(state);
+  roomState = projectExpandedDisplayState(roomState);
   currentRoomCode = state.code;
   renderApp();
   updateHeroRoleOptionUI();
@@ -657,6 +677,12 @@ function revealDestinationView(viewName) {
 function renderApp() {
   if (!roomState) return;
 
+  if (victoryPresentationController && (roomState.state !== 'BATTLE_VICTORY' ||
+      roomState.currentVictory?.presentationId !== victoryPresentationController.presentationId)) {
+    victoryPresentationController.abort();
+    victoryPresentationController = null;
+    victoryStartedId = null;
+  }
   if (prologueController && roomState.state !== 'PROLOGUE') {
     prologueController.abort();
   }
@@ -774,6 +800,12 @@ function renderApp() {
       renderBattle(me, isLeader);
       break;
 
+    case 'BATTLE_VICTORY':
+      if (roomState.victoryInteractionReady) renderBattle(me, isLeader);
+      switchView('battle');
+      renderBattleVictory();
+      break;
+
     case 'CHECKPOINT':
       switchView('checkpoint');
       renderCheckpoint(me, isLeader);
@@ -804,6 +836,9 @@ function renderPendingDropModal(me) {
   if (!elements.equipDropModal) return;
 
   const dropInfo = roomState?.pendingDrop;
+  if (roomState?.state === 'BATTLE_VICTORY' && !roomState.victoryInteractionReady) {
+    elements.equipDropModal.classList.add('hidden'); return;
+  }
     // Phase 4: Gate equip modal until chest presentation and reward reveal have settled
   if (roomState?.state === 'EVENT' && roomState.currentEvent?.type === 'treasure') {
     if (chestRewardCompletedId !== roomState.currentEvent.presentationId) {
@@ -1352,6 +1387,7 @@ function checkStageTransition(state) {
     return;
   }
   // Exploration owns its full-screen floor intro and section reveal.
+  if (state.state === 'BATTLE_VICTORY') return;
   if (state.state === 'CHOOSING_ROUTE' ||
       (state.state === 'EVENT' && state.currentEvent?.type === 'trap')) return;
 
@@ -1725,14 +1761,15 @@ function renderBattle(me, isLeader) {
       await playRoundStartBanner(1);
       revealDestinationView('battle');
       await sleep(300); // 技能選擇 UI 進場完成、可互動
-      socket.emit('battle:selection_ready');
+      socket.emit('battle:selection_ready', { round: 1 });
     })();
   } else if (lastAnnouncedBattleRound !== roomState.battleRound && roomState.battleRound > 1) {
-    lastAnnouncedBattleRound = roomState.battleRound;
+    const announcedRound = roomState.battleRound;
+    lastAnnouncedBattleRound = announcedRound;
     (async () => {
-      await playRoundStartBanner(roomState.battleRound);
+      await playRoundStartBanner(announcedRound);
       await sleep(300);
-      socket.emit('battle:selection_ready');
+      socket.emit('battle:selection_ready', { round: announcedRound });
     })();
   }
 
@@ -1838,26 +1875,8 @@ function renderTeammatesGrid(me) {
     if (hpPct < 30) hpClass = 'low';
     else if (hpPct < 60) hpClass = 'mid';
 
-    // 狀態標籤
-    const tags = [];
-    if (isDead) tags.push(`<span class="status-tag tag-dead">${getIconSvg('death')} 陣亡</span>`);
-    if (p.bleedTurns > 0) tags.push(`<span class="status-tag tag-bleed">${getIconSvg('sword')} 撕裂x${p.bleedTurns}</span>`);
-    if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">${getIconSvg('poison')} 中毒(${p.poisonTurns}R / -${p.poisonDmg || 5})</span>`);
-    if (p.stunnedNextTurn) tags.push(`<span class="status-tag tag-stun">${getIconSvg('cooldown')} 脫力</span>`);
-    if (p.warriorVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">斬擊失衡受傷+20%</span>');
-    if (p.archerNoDodgeTurns > 0) tags.push('<span class="status-tag tag-stun">箭矢脫靶失閃(0%)</span>');
-    if (p.isSurrendered) tags.push('<span class="status-tag tag-surrender">臣服中</span>');
-    if (p.isStealthed) tags.push('<span class="status-tag tag-stealth">匿蹤</span>');
-    if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">狼人(${p.druidFormTurns}R)</span>`);
-    if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">樹精(${p.druidFormTurns}R)</span>`);
-    if (p.druidForm === 'tree') tags.push(`<span class="status-tag tag-treant">古樹(${p.druidFormTurns}R)</span>`);
-    if (p.alcAcidEquipHalvedTurns > 0) {
-      const stackTxt = (p.alcAcidStack >= 2) ? '100%無效' : '50%減半';
-      tags.push(`<span class="status-tag tag-vuln">${getIconSvg('poison')} 裝備${stackTxt}(${p.alcAcidEquipHalvedTurns}R)</span>`);
-    }
-    if (roomState.alcShieldTurns > 0) tags.push(`<span class="status-tag tag-shield">${getIconSvg('shield')} 命運護盾(-70%)</span>`);
-    if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">試劑反噬(+20%)</span>');
-    else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">下回合易傷(+20%)</span>');
+    // One authoritative status list; the queue updates this same container.
+    const tags = ['<div class="combat-status-list">' + renderCombatStatuses(p.statuses || []) + '</div>'];
 
     // 裝備列表 (清晰呈現 [裝備 X/3]: 裝備1, 裝備2)
     const pEquips = p.equips || [];
@@ -1865,7 +1884,7 @@ function renderTeammatesGrid(me) {
     const equipNames = equipCount > 0 ? pEquips.map(e => e.name).join(', ') : '無';
 
     const card = document.createElement('div');
-    card.className = `teammate-card ${isThisMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
+    card.className = `teammate-card ${p.isHiddenThisRound && !p.stealthBrokenThisRound ? 'is-assassin-hidden' : ''} ${isThisMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
     card.setAttribute('data-player-id', p.id);
     card.innerHTML = `
       <div class="floating-text-container"></div>
@@ -1876,7 +1895,7 @@ function renderTeammatesGrid(me) {
           ${isThisMe ? '<span style="color:#2563eb; font-weight: 700;">(你)</span>' : ''}
         </span>
         <span class="action-status-dot ${p.isLocked || isDead || p.stunnedNextTurn || p.isSurrendered || p.druidForm === 'tree' ? 'ready' : 'waiting'}">
-          ${isDead ? '陣亡' : (p.isSurrendered ? '臣服' : (p.druidForm === 'tree' ? '休眠' : (p.stunnedNextTurn ? '虛弱' : (p.isLocked ? `${getIconSvg('lock')} 已鎖定` : `${getIconSvg('timer')} 選擇中`))))}
+          ${isDead ? '倒下・本層無法行動' : (p.isSurrendered ? '臣服' : (p.druidForm === 'tree' ? '休眠' : (p.stunnedNextTurn ? '虛弱' : (p.isLocked ? `${getIconSvg('lock')} 已鎖定` : `${getIconSvg('timer')} 選擇中`))))}
         </span>
       </div>
       <div class="teammate-hp-bg">
@@ -3333,8 +3352,9 @@ function updateBattleHudFromSnapshot(snapshot) {
   // 2. 隊友 HP、額外生命、死亡狀態增量更新 (無重繪)
   if (snapshot.players && roomState && roomState.players) {
     roomState.players.forEach(p => {
-      const snapP = snapshot.players[p.id];
+      const snapP = Array.isArray(snapshot.players) ? snapshot.players.find(s => s.id === p.id) : snapshot.players[p.id];
       if (snapP) {
+        Object.assign(p, snapP);
         p.hp = snapP.hp;
         p.tempHp = snapP.tempHp || 0;
         p.displayHp = snapP.displayHp;
@@ -3344,6 +3364,10 @@ function updateBattleHudFromSnapshot(snapshot) {
 
       const card = document.querySelector(`.teammate-card[data-player-id="${p.id}"]`);
       if (card) {
+        let status = card.querySelector('.combat-status-list');
+        if (!status) { status = document.createElement('div'); status.className = 'combat-status-list'; card.appendChild(status); }
+        status.innerHTML = renderCombatStatuses(p.statuses || []);
+        card.classList.toggle('is-assassin-hidden', !!p.isHiddenThisRound && !p.stealthBrokenThisRound && p.hp > 0);
         const isDead = p.hp <= 0;
         if (isDead) {
           card.classList.add('is-dead');
@@ -3387,7 +3411,7 @@ function updateBattleHudFromSnapshot(snapshot) {
         const actionDot = card.querySelector('.action-status-dot');
         if (actionDot && isDead) {
           actionDot.className = 'action-status-dot ready';
-          actionDot.textContent = '陣亡';
+          actionDot.textContent = '倒下・本層無法行動';
         }
       }
     });
@@ -3410,6 +3434,7 @@ function updateBattleHudFromSnapshot(snapshot) {
 // 根據戰鬥邏輯產生的快照精準更新顯示生命，確保演出與數值步調完全一致
 function applyHpSnapshot(snapshot) {
   if (!snapshot) return;
+  if (expandedDisplay) expandedDisplay.snapshot = mergePresentationSnapshot(expandedDisplay.snapshot, snapshot);
   updateBattleHudFromSnapshot(snapshot);
 }
 
@@ -3425,6 +3450,10 @@ async function playPresentationStep(step, round) {
     elements.battleNarrativeText.classList.add('narrative-fade');
   }
 
+  if (step.category) {
+    await playExpandedCombatPresentation(step, activeCombatContext);
+    return;
+  }
   if (step.type === 'player_action' || step.type === 'boss_action') {
     if (typeof playCombatActionPresentation === 'function') {
       await playCombatActionPresentation(step);
@@ -3446,151 +3475,63 @@ async function playPresentationStep(step, round) {
     await sleep(400);
 
   } else if (step.type === 'kill') {
-    hideCombatActionBanner();
-    playSound('victory');
-    spawnFloatingText(elements.monsterFloatingContainer, '擊殺！VICTORY', 'crit');
-    if (elements.monsterAvatar) {
-      elements.monsterAvatar.classList.add('shaking');
-      setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
-    }
-    if (step.hpSnapshot) {
-      updateBattleHudFromSnapshot(step.hpSnapshot);
-    }
-    await sleep(1200);
+    if (step.hpSnapshot) applyHpSnapshot(step.hpSnapshot);
+    await waitForPresentation(300, activeCombatContext.signal);
   }
 }
 
 let isProcessingPresentationQueue = false;
-
-// 依序執行整條 Presentation Queue (P2-R1.1 Section 2: 完整錯誤保護，絕不悄悄中斷或推進)
-async function runPresentationQueue(queue, round, monsterKilled) {
-  if (!queue || queue.length === 0) return;
+let combatQueueController = null;
+let activeCombatContext = {};
+let lastCombatPresentationId = null;
+async function runPresentationQueue(queue, round, monsterKilled, presentationId) {
+  const queueKey = roomState?.code + ':' + presentationId;
+  if (!queue?.length || queueKey === lastCombatPresentationId) return;
+  combatQueueController?.abort();
+  const controller = new AbortController();
+  combatQueueController = controller;
+  lastCombatPresentationId = queueKey;
+  activeCombatContext = { controller, signal: controller.signal };
   isProcessingPresentationQueue = true;
   isPlayingBattleNarrative = true;
   presentationManager.setBlocking(true);
-
-  const me = getMyPlayer();
-  if (me) renderMyActionBar(me);
-
-  if (elements.battleNarrativeBox) {
-    elements.battleNarrativeBox.style.display = 'block';
-  }
-
-  const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
-
+  let completed = false;
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    if (combatQueueController === controller) {
+      combatQueueController = null;
+      isProcessingPresentationQueue = false;
+      isPlayingBattleNarrative = false;
+      presentationManager.setBlocking(false);
+      const stage = document.getElementById('presentationCombatStage');
+      stage?.replaceChildren(); stage?.classList.remove('is-active', 'is-exiting');
+      document.getElementById('app').inert = false;
+    }
+  };
+  controller.signal.addEventListener('abort', cleanup, { once: true });
   try {
-    // 啟用 Phase 5 全螢幕戰鬥舞台
-    if (typeof enterCombatStage === 'function') {
-      await enterCombatStage();
-    }
-
-    let lastStepType = null;
-    for (let i = 0; i < queue.length; i++) {
-      const step = queue[i];
-      if (lastStepType) {
-        if (lastStepType === 'player_action' && step.type === 'player_action') {
-          await sleep(timing.actionGap || 200);
-        } else if (lastStepType === 'player_action' && step.type === 'boss_action') {
-          await sleep(timing.bossGap || 350);
-        }
-      }
+    await enterCombatStage(activeCombatContext);
+    for (const step of queue) {
       await playPresentationStep(step, round);
-      if (step.type === 'player_action' || step.type === 'boss_action') {
-        lastStepType = step.type;
-      }
     }
-
-    hideCombatActionBanner();
-
-    // 退出 Phase 5 全螢幕戰鬥舞台
-    if (typeof exitCombatStage === 'function') {
-      await exitCombatStage();
-    }
-
-    presentationManager.setBlocking(false);
-    isPlayingBattleNarrative = false;
-    isProcessingPresentationQueue = false;
-
-    // 若在演出期間收到了權威狀態更新 (Authoritative State)，現在才安全地套用並渲染最新狀態 (A5 規範)
-    if (pendingAuthoritativeState) {
-      roomState = pendingAuthoritativeState;
-      pendingAuthoritativeState = null;
-      renderApp();
-    } else {
-      const meNow = getMyPlayer();
-      if (meNow) renderMyActionBar(meNow);
-    }
-
-    // 向伺服器確認本客戶端 Presentation Queue 演出播放完畢 (A4 規範)
-    socket.emit('battle:presentation_complete', { round });
+    await exitCombatStage(activeCombatContext);
+    completed = true;
   } catch (error) {
-    console.error('[PresentationQueue] Critical playback error:', error);
-    hideCombatActionBanner();
-    if (typeof exitCombatStage === 'function') {
-      exitCombatStage().catch(() => {});
-    }
-    // 嚴禁解鎖交互，嚴禁向伺服器發送 presentation_complete ACK (P2-R1.1 Section 2)
-    presentationManager.setBlocking(true);
-    isPlayingBattleNarrative = true;
-    isProcessingPresentationQueue = true;
-
-    // 開發者可見錯誤提示
-    const devErr = document.createElement('div');
-    devErr.className = 'dev-presentation-error';
-    devErr.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(220,38,38,0.95); color:#fff; padding:12px 20px; border-radius:8px; z-index:9999; font-weight:700; box-shadow:0 4px 20px rgba(0,0,0,0.5); font-family:monospace;';
-    devErr.innerHTML = `⚠️ Presentation Error: ${escapeHtml(error.message || String(error))}<br><small style="font-size:0.75rem; opacity:0.8;">Presentation paused to protect state. See console.</small>`;
-    document.body.appendChild(devErr);
+    if (error.name !== 'AbortError') console.error('[PresentationQueue]', error);
+  } finally {
+    controller.signal.removeEventListener('abort', cleanup);
+    cleanup();
+  }
+  if (completed && !controller.signal.aborted) {
+    if (pendingAuthoritativeState) { roomState = pendingAuthoritativeState; pendingAuthoritativeState = null; }
+    renderApp();
+    socket.emit('battle:presentation_complete', { round, presentationId });
   }
 }
-
-// 監聽統一有序的 Presentation Queue
-socket.on('battle:presentation_queue', async ({ queue, round, monsterKilled }) => {
-  await runPresentationQueue(queue, round, monsterKilled);
-});
-
-// 監聽回合初效果 (DoT、Regen、Abyssal Corruption、脫力反噬等)
-socket.on('battle:round_start_events', async ({ events, hpSnapshot }) => {
-  if (!events || events.length === 0) return;
-
-  events.forEach(e => {
-    if (e.type === 'bleed') {
-      const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
-      if (card) {
-        const container = card.querySelector('.floating-text-container');
-        spawnFloatingText(container, `-${e.value} (流血)`, 'damage');
-      }
-    } else if (e.type === 'poison_damage') {
-      if (e.target === 'monster') {
-        spawnFloatingText(elements.monsterFloatingContainer, `-${e.value} (劇毒)`, 'poison');
-      } else {
-        const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
-        if (card) {
-          const container = card.querySelector('.floating-text-container');
-          spawnFloatingText(container, `-${e.value} (劇毒)`, 'poison');
-        }
-      }
-    } else if (e.type === 'regen') {
-      const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
-      if (card) {
-        const container = card.querySelector('.floating-text-container');
-        spawnFloatingText(container, `+${e.value} (再生)`, 'heal');
-      }
-    } else if (e.type === 'frenzy_drain') {
-      const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
-      if (card) {
-        const container = card.querySelector('.floating-text-container');
-        spawnFloatingText(container, `-${e.value} (脫力反噬)`, 'damage');
-      }
-    }
-  });
-
-  if (hpSnapshot) {
-    applyHpSnapshot(hpSnapshot);
-  }
-
-  // 等待回合初浮動文字特效顯示完畢，向伺服器發送完成確認 (A6 規範)
-  await sleep(1400);
-  socket.emit('battle:round_start_complete');
+socket.on('battle:presentation_queue', async ({ queue, round, monsterKilled, presentationId }) => {
+  await runPresentationQueue(queue, round, monsterKilled, presentationId);
 });
 
 // 監聽後端結算的戰鬥視覺事件（相容性 Fallback；若 presentation_queue 正在執行則自動略過）

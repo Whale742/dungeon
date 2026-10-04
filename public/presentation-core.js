@@ -38,6 +38,36 @@ class SFXManager {
       const t = ctx.currentTime;
       const masterVol = this.volume;
 
+      // Phase 6 support/outcome identities, shared by production and Lab.
+      const supportVoices = {
+        shadow_gain: [180, 90, .10, 'triangle'], shadow_decay: [130, 70, .05, 'triangle'],
+        shadow_absorb: [280, 60, .14, 'triangle'], shadow_follow_up: [600, 150, .16, 'triangle'],
+        air_pass: [1200, 300, .12, 'triangle'],
+        heal_wave: [392, 784, .35, 'sine'], recovery_chime: [660, 990, .22, 'sine'],
+        shield_apply: [220, 440, .3, 'triangle'], shield_block: [440, 160, .16, 'square'],
+        shield_break: [1800, 180, .25, 'sawtooth'], support_cast: [330, 660, .24, 'triangle'],
+        cleanse: [520, 1040, .3, 'sine'], bard_off_key: [440, 415, .32, 'triangle'],
+        alchemy_success: [523, 1046, .4, 'sine'], alchemy_failure: [370, 92, .3, 'sawtooth'],
+        transform_wolf: [180, 75, .3, 'sawtooth'], transform_treant: [95, 48, .55, 'triangle'],
+        summon_wolf: [240, 120, .24, 'sawtooth'], summon_treant: [140, 65, .45, 'triangle'],
+        minion_attack: [360, 160, .15, 'triangle'], minion_intercept: [180, 80, .18, 'square'],
+        revive_chime: [523, 1569, .45, 'sine']
+      };
+      if (supportVoices[type]) {
+        const [start, end, duration, wave] = supportVoices[type];
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = wave;
+        osc.frequency.setValueAtTime(start, t);
+        osc.frequency.exponentialRampToValueAtTime(end, t + duration);
+        gain.gain.setValueAtTime(.001, t);
+        gain.gain.linearRampToValueAtTime(.24 * masterVol, t + .02);
+        gain.gain.exponentialRampToValueAtTime(.002, t + duration);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + duration);
+        return;
+      }
+
       switch (type) {
         // --- UI 音效 ---
         case 'click': {

@@ -79,6 +79,7 @@ function createTrapVictim(hit, snapshot) {
 async function playTrapHit(hit, card, delay, signal) {
   await waitForPrologue(delay, signal);
   card.root.classList.add(hit.dodged ? 'is-dodging' : 'is-striking');
+  if (hit.outcome?.type === 'assassin_trap_evade') { card.root.classList.add('is-shadow-evading'); playSound('air_pass'); }
   await waitForPrologue(TRAP_TIMING.anticipation, signal);
   if (!hit.dodged) {
     card.root.classList.add('is-hit');

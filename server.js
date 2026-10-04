@@ -221,7 +221,16 @@ io.on('connection', (socket) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    room.handlePresentationComplete(socket.id);
+    room.handlePresentationComplete(socket.id, data?.presentationId, data?.round);
+  });
+
+  socket.on('victory:presentation_complete', data => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) room.handleVictoryComplete(socket.id, data?.presentationId);
+  });
+  socket.on('victory:continue', data => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) room.continueAfterVictory(socket.id, data?.presentationId);
   });
 
   // 6.2 回合初效果演出完畢確認
@@ -233,11 +242,11 @@ io.on('connection', (socket) => {
   });
 
   // 6.25 技能選擇介面就緒（動畫退場、控制項啟用後啟動 30 秒計時，P2-R1.1 Section 6）
-  socket.on('battle:selection_ready', () => {
+  socket.on('battle:selection_ready', (data) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    room.handleSelectionReady(socket.id);
+    room.handleSelectionReady(socket.id, data?.round);
   });
 
   // 6.3 路線互動就緒（選項進場完成、控制項啟用後啟動 15 秒計時，P2-R1.1 Section 5）

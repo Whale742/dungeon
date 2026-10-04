@@ -184,7 +184,7 @@ const LAB_MOCK_DATA = Object.freeze({
   combatBossStep: {
     type: 'boss_action',
     monsterName: '深淵巨獸',
-    monsterAvatar: '/photo/boss1.webp',
+    monsterAvatar: '/BOSS/Ancient Guardian Golem.webp',
     skillName: '撕裂猛擊',
     dmgType: '【物理】',
     damageType: 'physical',
@@ -270,7 +270,7 @@ const LAB_MOCK_DATA = Object.freeze({
     targetMaxHp: 400,
     hpSnapshot: {
       players: [
-        { id: 'mock-assassin', hp: 90, maxHp: 90 },
+        { id: 'mock-assassin', hp: 50, maxHp: 50 },
         { id: 'mock-warrior', hp: 120, maxHp: 120 }
       ],
       monster: { hp: 290, maxHp: 400 }
@@ -595,7 +595,7 @@ async function playScene(sceneName) {
     particles: labState.particles,
     shake: labState.shake,
     reducedMotion: labState.reducedMotion,
-    controller,
+    controller, signal,
     onTiming: (beat, ts) => {
       if (labState.showTiming) {
         logLab('BEAT', `Beat reached: ${beat}`, 'info');
@@ -610,6 +610,19 @@ async function playScene(sceneName) {
   };
 
   try {
+    if (typeof PHASE6_LAB_SCENES !== 'undefined' && PHASE6_LAB_SCENES[sceneName]) {
+      const scene = PHASE6_LAB_SCENES[sceneName];
+      if (scene.trap) await playTrapPresentation(scene.trap, context);
+      else if (scene.revival) await playFloorRevivalPresentation(scene.revival, context);
+      else {
+        await enterCombatStage(context);
+        try { for (const step of scene.steps || []) await playExpandedCombatPresentation(step, context); }
+        finally { await exitCombatStage(context); }
+        if (scene.victory) await playVictoryPresentation(scene.victory, context);
+      }
+      logLab('COMPLETE', scene.label, 'success');
+      return;
+    }
     switch (sceneName) {
       // --- 🎁 寶箱類場景 (Phase 4) ---
       case 'chest_full': {
@@ -964,6 +977,13 @@ function initLabController() {
   const sceneSelect = document.getElementById('labSceneSelect');
   const activeSceneTag = document.getElementById('labActiveSceneTag');
   if (sceneSelect) {
+    if (typeof PHASE6_LAB_SCENES !== 'undefined') {
+      const group = document.createElement('optgroup'); group.label = 'Phase 6 · Production Combat';
+      for (const [id, scene] of Object.entries(PHASE6_LAB_SCENES)) {
+        const option = document.createElement('option'); option.value = id; option.textContent = scene.label; group.appendChild(option);
+      }
+      sceneSelect.appendChild(group);
+    }
     sceneSelect.addEventListener('change', () => {
       labState.currentScene = sceneSelect.value;
       if (activeSceneTag) {
@@ -1107,6 +1127,19 @@ function initLabController() {
   const deviceFrame = document.getElementById('labDeviceFrame');
   const deviceIndicator = document.getElementById('labDeviceIndicator');
   if (viewportSelect && deviceFrame) {
+    const previewArea = deviceFrame.parentElement;
+    const fitDeviceFrame = () => {
+      if (deviceFrame.classList.contains('is-responsive')) {
+        deviceFrame.style.zoom = '1';
+        return;
+      }
+      const padding = getComputedStyle(previewArea);
+      const width = previewArea.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+      const height = previewArea.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
+      // Keep the simulated CSS viewport intact while fitting the whole device on screen.
+      deviceFrame.style.zoom = String(Math.min(1, Math.max(0.1, width / parseFloat(deviceFrame.style.width)), Math.max(0.1, height / parseFloat(deviceFrame.style.height))));
+    };
+    new ResizeObserver(fitDeviceFrame).observe(previewArea);
     viewportSelect.addEventListener('change', () => {
       const mode = viewportSelect.value;
       deviceFrame.classList.remove('is-responsive');
@@ -1139,6 +1172,7 @@ function initLabController() {
           if (deviceIndicator) deviceIndicator.textContent = 'Responsive (100%)';
           break;
       }
+      fitDeviceFrame();
       logLab('VIEWPORT', `Switched viewport mode to [${mode}].`);
     });
   }

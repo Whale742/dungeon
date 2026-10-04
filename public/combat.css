@@ -18,6 +18,8 @@
   opacity: 0;
   transition: opacity var(--combat-overlay-enter, 300ms) cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+  container-type: size;
+  container-name: combat;
 }
 
 .presentation-combat-stage.is-active {
@@ -41,8 +43,8 @@
 /* --- 2. 戰鬥構圖舞台容器 (Combat Scene Canvas) --- */
 .presentation-combat-canvas {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -55,8 +57,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 82vw;
-  height: 24vh;
+  width: 82cqw;
+  height: 24cqh;
   max-width: 1280px;
   max-height: 260px;
   min-height: 170px;
@@ -151,7 +153,7 @@
 
 .presentation-combat-intent-title {
   font-family: var(--font-display, "Cinzel", "Noto Serif TC", serif);
-  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  font-size: clamp(1.4rem, 2.8cqw, 2.2rem);
   font-weight: 900;
   letter-spacing: 1px;
   line-height: 1.25;
@@ -178,20 +180,20 @@
 
 /* 玩家出招：Actor 在左側，Target Boss 在右側 */
 .presentation-combat-actor-left {
-  left: calc(50% - 41vw - 40px);
+  left: calc(50% - 41cqw - 40px);
 }
 
 .presentation-combat-target-right {
-  right: calc(50% - 41vw - 30px);
+  right: calc(50% - 41cqw - 30px);
 }
 
 /* Boss 出招：Boss 在右側，Target Player 在左側 */
 .presentation-combat-actor-right {
-  right: calc(50% - 41vw - 40px);
+  right: calc(50% - 41cqw - 40px);
 }
 
 .presentation-combat-target-left {
-  left: calc(50% - 41vw - 30px);
+  left: calc(50% - 41cqw - 30px);
 }
 
 /* 內層 Hit Wrapper：獨立於 translateY(-50%) 之外，受擊位移完全不發生 Transform Collision */
@@ -209,8 +211,8 @@
 /* 肖像尺寸與安全區 (No Card, No Rounding, Sharp Silhouette) */
 .presentation-combat-portrait-box {
   position: relative;
-  height: clamp(220px, 34vh, 340px);
-  width: clamp(180px, 24vw, 260px);
+  height: clamp(220px, 34cqh, 340px);
+  width: clamp(180px, 24cqw, 260px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -459,7 +461,7 @@
 
 @keyframes arrowFlightRight {
   0% {
-    left: calc(50% - 32vw);
+    left: calc(50% - 32cqw);
     opacity: 0;
     transform: translateY(-50%) scale(0.7);
   }
@@ -472,7 +474,7 @@
     transform: translateY(-50%) scale(1.0);
   }
   100% {
-    left: calc(50% + 28vw);
+    left: calc(50% + 28cqw);
     opacity: 0;
     transform: translateY(-50%) scale(1.15);
   }
@@ -480,7 +482,7 @@
 
 @keyframes arrowFlightLeft {
   0% {
-    right: calc(50% - 32vw);
+    right: calc(50% - 32cqw);
     opacity: 0;
     transform: translateY(-50%) scale(0.7) rotate(180deg);
   }
@@ -493,7 +495,7 @@
     transform: translateY(-50%) scale(1.0) rotate(180deg);
   }
   100% {
-    right: calc(50% + 28vw);
+    right: calc(50% + 28cqw);
     opacity: 0;
     transform: translateY(-50%) scale(1.15) rotate(180deg);
   }
@@ -615,7 +617,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   font-family: var(--font-display, "Cinzel", sans-serif);
-  font-size: clamp(2.4rem, 4.5vw, 3.6rem);
+  font-size: clamp(2.4rem, 4.5cqw, 3.6rem);
   font-weight: 900;
   z-index: 950;
   pointer-events: none;
@@ -674,13 +676,13 @@
 }
 
 @keyframes stripEnterLeft {
-  0% { transform: translate(calc(-50% - 20vw), -50%); opacity: 0; }
+  0% { transform: translate(calc(-50% - 20cqw), -50%); opacity: 0; }
   100% { transform: translate(-50%, -50%); opacity: 1; }
 }
 
 @keyframes actorEnterLeft {
-  0% { transform: translateY(-50%) translateX(-12vw); opacity: 0; }
-  85% { transform: translateY(-50%) translateX(1vw); opacity: 1; }
+  0% { transform: translateY(-50%) translateX(-12cqw); opacity: 0; }
+  85% { transform: translateY(-50%) translateX(1cqw); opacity: 1; }
   100% { transform: translateY(-50%) translateX(0); opacity: 1; }
 }
 
@@ -704,12 +706,12 @@
 
 @keyframes stripExitRight {
   0% { transform: translate(-50%, -50%); opacity: 1; }
-  100% { transform: translate(calc(-50% + 15vw), -50%); opacity: 0; }
+  100% { transform: translate(calc(-50% + 15cqw), -50%); opacity: 0; }
 }
 
 @keyframes actorExitRight {
   0% { transform: translateY(-50%) translateX(0); opacity: 1; }
-  100% { transform: translateY(-50%) translateX(12vw); opacity: 0; }
+  100% { transform: translateY(-50%) translateX(12cqw); opacity: 0; }
 }
 
 @keyframes targetExitFade {
@@ -733,13 +735,13 @@
 }
 
 @keyframes stripEnterRight {
-  0% { transform: translate(calc(-50% + 20vw), -50%); opacity: 0; }
+  0% { transform: translate(calc(-50% + 20cqw), -50%); opacity: 0; }
   100% { transform: translate(-50%, -50%); opacity: 1; }
 }
 
 @keyframes actorEnterRight {
-  0% { transform: translateY(-50%) translateX(12vw); opacity: 0; }
-  85% { transform: translateY(-50%) translateX(-1vw); opacity: 1; }
+  0% { transform: translateY(-50%) translateX(12cqw); opacity: 0; }
+  85% { transform: translateY(-50%) translateX(-1cqw); opacity: 1; }
   100% { transform: translateY(-50%) translateX(0); opacity: 1; }
 }
 
@@ -763,7 +765,7 @@
 
 @keyframes stripExitLeft {
   0% { transform: translate(-50%, -50%); opacity: 1; }
-  100% { transform: translate(calc(-50% - 15vw), -50%); opacity: 0; }
+  100% { transform: translate(calc(-50% - 15cqw), -50%); opacity: 0; }
 }
 
 /* --- 10.5 首領陣亡沉重下沉演出 (Boss Death Foundation) --- */
@@ -804,10 +806,10 @@
 }
 
 /* --- 12. 行動裝置響應式安全區 (Mobile Responsive 390px) --- */
-@media (max-width: 640px) {
+@container combat (max-width: 640px) {
   .presentation-combat-strip-wrap {
-    width: 95vw;
-    height: 30vh;
+    width: 95cqw;
+    height: 30cqh;
     min-height: 180px;
   }
   .presentation-combat-strip-inner {
@@ -821,20 +823,20 @@
     white-space: normal;
   }
   .presentation-combat-portrait-box {
-    height: clamp(140px, 22vh, 180px);
-    width: clamp(90px, 20vw, 130px);
+    height: clamp(140px, 22cqh, 180px);
+    width: clamp(90px, 20cqw, 130px);
   }
   .presentation-combat-actor-left {
-    left: 2vw;
+    left: 2cqw;
   }
   .presentation-combat-target-right {
-    right: 2vw;
+    right: 2cqw;
   }
   .presentation-combat-actor-right {
-    right: 2vw;
+    right: 2cqw;
   }
   .presentation-combat-target-left {
-    left: 2vw;
+    left: 2cqw;
   }
   .presentation-combat-portrait-name {
     font-size: 12px;

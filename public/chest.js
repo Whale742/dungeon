@@ -1,3 +1,49 @@
+// Shared Phase 4 reward beat, consumed by Chest, Victory and Lab.
+async function playRewardReveal(ev, context = {}) {
+  const timing = typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.chest : CHEST_TIMING;
+  const rewardElements = context.rewardElements || elements;
+  const rewardContent = context.rewardContent || rewardElements.presentationRewardContent;
+  const wait = ms => waitForPrologue(Math.round(ms / (context.speed || 1)), context.signal || context.controller?.signal);
+    const isRare = Boolean(ev.drop && (ev.drop.isSpecial || ev.drop.rarity === 'rare'));
+    playSound(isRare ? 'reward_rare' : 'reward_common');
+    context.onTiming?.('reward_reveal', {});
+
+    if (rewardElements.presentationRewardRarity && rewardElements.presentationRewardTitle &&
+        rewardElements.presentationRewardDesc && rewardElements.presentationRewardMeta) {
+      if (ev.drop) {
+        rewardElements.presentationRewardRarity.textContent = isRare ? '【稀有裝備】' : '【戰利品裝備】';
+        rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity ' + (isRare ? 'is-rare' : 'is-common');
+        rewardElements.presentationRewardTitle.textContent = `【${ev.drop.name}】`;
+        rewardElements.presentationRewardDesc.textContent = ev.drop.desc || ev.drop.statDesc || '';
+        rewardElements.presentationRewardMeta.textContent = `獲得者：${ev.ownerName || '冒險者'} 正在抉擇是否穿戴`;
+      } else if (ev.discardedDrop) {
+        rewardElements.presentationRewardRarity.textContent = '【遺棄戰利品】';
+        rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';
+        rewardElements.presentationRewardTitle.textContent = `【${ev.discardedDrop.name}】`;
+        rewardElements.presentationRewardDesc.textContent = ev.recoveryRule ? `無隊員專精此職業裝備，已妥善封存。` : `無隊員專精此職業裝備，已妥善封存。全隊回復 ${ev.healAmt || 25} 生命！`;
+        rewardElements.presentationRewardMeta.textContent = '';
+      } else {
+        rewardElements.presentationRewardRarity.textContent = '【地城恩澤】';
+        rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';
+        rewardElements.presentationRewardTitle.textContent = '治癒聖泉';
+        rewardElements.presentationRewardDesc.textContent = `全體存活隊友回復 ${ev.healAmt || 25} 點生命值！`;
+        rewardElements.presentationRewardMeta.textContent = '';
+      }
+    }
+
+    rewardContent.classList.remove('hidden');
+    rewardContent.classList.add('enter');
+
+    if (isRare) {
+      await wait(timing.rareReveal + timing.rareHold);
+    } else {
+      await wait(timing.commonReveal + timing.commonHold);
+    }
+    context.onTiming?.('reward_hold', {});
+
+  return { isRare };
+}
+
 // Phase 4 owner: Chest Discovery / Open / Reward Presentation lifecycle.
 const CHEST_TIMING = Object.freeze({
   sectionEnter: 600, narrativeDelay: 400, narrativeHold: 1200,
@@ -571,42 +617,7 @@ async function playChestPresentation(ev, context = {}) {
     await wait(timing.openHold);
 
     // STEP 7: Reward Reveal
-    const isRare = Boolean(ev.drop && (ev.drop.isSpecial || ev.drop.rarity === 'rare'));
-    playSound(isRare ? 'reward_rare' : 'reward_common');
-    emitTiming('reward_reveal');
-
-    if (elements.presentationRewardRarity && elements.presentationRewardTitle &&
-        elements.presentationRewardDesc && elements.presentationRewardMeta) {
-      if (ev.drop) {
-        elements.presentationRewardRarity.textContent = isRare ? '【稀有裝備】' : '【戰利品裝備】';
-        elements.presentationRewardRarity.className = 'presentation-reward-rarity ' + (isRare ? 'is-rare' : 'is-common');
-        elements.presentationRewardTitle.textContent = `【${ev.drop.name}】`;
-        elements.presentationRewardDesc.textContent = ev.drop.desc || ev.drop.statDesc || '';
-        elements.presentationRewardMeta.textContent = `獲得者：${ev.ownerName || '冒險者'} 正在抉擇是否穿戴`;
-      } else if (ev.discardedDrop) {
-        elements.presentationRewardRarity.textContent = '【遺棄戰利品】';
-        elements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';
-        elements.presentationRewardTitle.textContent = `【${ev.discardedDrop.name}】`;
-        elements.presentationRewardDesc.textContent = `無隊員專精此職業裝備，已妥善封存。全隊回復 ${ev.healAmt || 25} 生命！`;
-        elements.presentationRewardMeta.textContent = '';
-      } else {
-        elements.presentationRewardRarity.textContent = '【地城恩澤】';
-        elements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';
-        elements.presentationRewardTitle.textContent = '治癒聖泉';
-        elements.presentationRewardDesc.textContent = `全體存活隊友回復 ${ev.healAmt || 25} 點生命值！`;
-        elements.presentationRewardMeta.textContent = '';
-      }
-    }
-
-    rewardContent.classList.remove('hidden');
-    rewardContent.classList.add('enter');
-
-    if (isRare) {
-      await wait(timing.rareReveal + timing.rareHold);
-    } else {
-      await wait(timing.commonReveal + timing.commonHold);
-    }
-    emitTiming('reward_hold');
+    await playRewardReveal(ev, { ...context, signal, rewardContent });
 
     // STEP 8: Presentation Settle / Exit
     overlay.classList.add('exit');
