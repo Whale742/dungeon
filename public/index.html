@@ -560,6 +560,28 @@
       </div>
     </div>
 
+    <!-- 角色詳細技能與數值介紹 Modal -->
+    <div id="roleDetailModal" class="modal-overlay hidden">
+      <div class="modal-card role-detail-modal">
+        <div class="modal-header">
+          <div class="role-detail-header-info">
+            <div id="roleDetailAvatarWrap" class="role-detail-avatar-wrap"></div>
+            <div>
+              <h3 id="roleDetailTitle">🛡️ 戰士 (Warrior)</h3>
+              <p id="roleDetailSubtitle" class="modal-subtitle">角色特性與詳細技能數值解析</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" id="btnCloseRoleDetailModal">✕</button>
+        </div>
+        <div id="roleDetailBody" class="role-detail-body">
+          <!-- 動態填入被動、技能與專屬裝備詳細說明 -->
+        </div>
+        <div style="margin-top: 18px; text-align: right;">
+          <button type="button" class="btn btn-secondary btn-small" id="btnConfirmRoleDetailModal">關閉</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- 右下角懸浮聊天室與訊息氣泡組件 -->

@@ -12,6 +12,110 @@ let roomState = null;
 let classesData = {};
 let routesData = [];
 let soundEnabled = true;
+let roleDetailsData = null;
+
+const DEFAULT_ROLE_DETAILS = {
+  warrior: {
+    roleName: '戰士',
+    enName: 'Warrior',
+    emoji: '🛡️',
+    avatar: '/photo/Warrior.webp',
+    hp: 120,
+    type: '物理 / 前排坦鋒',
+    passive: '前排坦鋒，擁有全職業最高的基礎生命值（120 HP）與強大減傷防護。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '揮動武器進行基本物理打擊，對單一目標造成基礎 10 點傷害。' },
+      { type: '1 技能', name: '堅定斬擊', dmgType: '【物理】', cd: '無 CD', desc: '揮動巨劍造成物理傷害。80% 機率造成 18 點傷害；20% 機率因揮砍失衡僅造成 5 點傷害，並使下回合自身承受傷害提高 20%。' },
+      { type: '2 技能', name: '壁壘守護', dmgType: '【防護】', cd: '2 回合', desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害（阻擋 90% 傷害，有 25% 機率盾牌龜裂使冷卻延長 1 回合）；次回合仍提供殘餘 40% 減傷。' }
+    ]
+  },
+  mage: {
+    roleName: '法師',
+    enName: 'Mage',
+    emoji: '🧙‍♂️',
+    avatar: '/photo/Mage.webp',
+    hp: 80,
+    type: '魔法 / 遠程爆發',
+    passive: '站樁高爆發與生命汲取，全技能與普攻皆為魔法傷害。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '引導微光魔力造成基礎 10 點魔法傷害。' },
+      { type: '1 技能', name: '奧術爆破', dmgType: '【魔法】', cd: '1 回合', desc: '引爆狂暴魔力轟炸敵方造成 45 點魔法傷害。有 25% 機率發生法力走火導致威力驟降為 10 點傷害，並對自身造成 10 點魔力反噬。' },
+      { type: '2 技能', name: '生命汲取', dmgType: '【魔法】', cd: '1 回合', desc: '對敵方造成 1~40 點劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取 20% 生命回復自身。' }
+    ]
+  },
+  archer: {
+    roleName: '弓箭手',
+    enName: 'Archer',
+    emoji: '🏹',
+    avatar: '/photo/Archer.webp',
+    hp: 80,
+    type: '物理 / 遠程敏捷',
+    passive: '常駐 40% 閃避率（可完全閃避單體物理打擊與怪物反擊）。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '拉弓射出基礎箭矢造成基礎 10 點物理傷害。' },
+      { type: '1 技能', name: '精準狙擊', dmgType: '【物理】', cd: '1 回合', desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使自身下回合失去閃避能力。' },
+      { type: '2 技能', name: '箭雨壓制', dmgType: '【魔法】', cd: '1 回合', desc: '召喚範圍附魔箭雨造成 20 點魔法傷害並削弱敵方 10 點攻擊力。有 20% 機率受地底氣流干擾誤傷隨機一名隊友 10 點傷害。' }
+    ]
+  },
+  assassin: {
+    roleName: '刺客',
+    enName: 'Assassin',
+    emoji: '🗡️',
+    avatar: '/photo/Assassin.webp',
+    hp: 60,
+    type: '物理 / 近戰刺殺',
+    passive: '常駐 50% 暴擊率（暴擊造成 2 倍傷害）；身著輕甲承受傷害額外增加 25%。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '揮動雙匕進行基礎物理切削造成 10 點傷害。' },
+      { type: '1 技能', name: '暗影刺殺', dmgType: '【物理】', cd: '1 回合 (暴擊無CD)', desc: '背刺敵方造成 30 點物理傷害。若觸發暴擊則傷害倍增為 60 且立即重置冷卻；未暴擊則需正常進入冷卻 1 回合。' },
+      { type: '2 技能', name: '煙霧匿蹤', dmgType: '【輔助】', cd: '2 回合', desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。' }
+    ]
+  },
+  bard: {
+    roleName: '吟遊詩人',
+    enName: 'Bard',
+    emoji: '🪕',
+    avatar: '/photo/Bard.webp',
+    hp: 70,
+    type: '魔法 / 團隊核心輔助',
+    passive: '團隊核心輔助，精通全體群療與增傷減傷，全技能皆為魔法傷害。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '撥動琴弦引導音波造成基礎 10 點魔法傷害。' },
+      { type: '1 技能', name: '治癒頌歌', dmgType: '【治療】', cd: '1 回合', desc: '唱響聖詠為全體隊友回復生命。80% 機率為全體回復 22 點生命，並專注為指定目標額外回復 28 點；20% 機率因走音導致全隊回復量大幅縮減為僅回復 5 點生命。' },
+      { type: '2 技能', name: '狂熱協奏', dmgType: '【增益】', cd: '1 回合', desc: '使全隊提升 50% 傷害、25% 減傷並削弱敵方抗性。有 25% 機率因節奏過激導致全隊力竭扣除當前 5 點生命。' }
+    ]
+  },
+  alchemist: {
+    roleName: '鍊金術士',
+    enName: 'Alchemist',
+    emoji: '🧪',
+    avatar: '/photo/Alchemist.webp',
+    hp: 75,
+    type: '魔法 / 調和煉成',
+    passive: '神秘調和者，精通強酸腐蝕、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。' },
+      { type: '1 技能 A', name: '腐蝕強酸瓶', dmgType: '【魔法】', cd: '無 CD', desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果減半持續 2 回合。' },
+      { type: '1 技能 B', name: '劇毒煙霧瓶', dmgType: '【魔法】', cd: '無 CD', desc: '砸碎毒瓶造成 30 點傷害與輕微自傷 5 點，使敵我雙方皆陷入劇毒，全體後續 2 回合每回合初持續承受 5 點毒素傷害。' },
+      { type: '2 技能', name: '命運煉成試劑', dmgType: '【驅散/調和】', cd: '2 回合', desc: '立即驅散全隊所有負面狀態（中毒/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。' }
+    ]
+  },
+  druid: {
+    roleName: '德魯伊',
+    enName: 'Druid',
+    emoji: '🌿',
+    avatar: '/photo/Druid.webp',
+    hp: 85,
+    type: '物理 / 自然變形',
+    passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '引導自然力量造成基礎 10 點物理傷害。' },
+      { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（扣除 20 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 20%、每回合自癒當前最大生命 5%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
+      { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (隊伍上限3隻)', desc: '召喚肉盾型樹精僕從（HP 15 / 攻擊 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
+      { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (隊伍上限3隻)', desc: '召喚敏捷型幼狼僕從（HP 5 / 攻擊 10），每回合自動攻擊並優先替隊伍承受分散傷害。' }
+    ]
+  }
+};
 
 // 大廳成員卡片行內修改暱稱狀態
 let isEditingMyName = false;
@@ -341,6 +445,13 @@ const elements = {
   minionDetailList: document.getElementById('minionDetailList'),
   btnCloseMinionModal: document.getElementById('btnCloseMinionModal'),
   btnConfirmMinionModal: document.getElementById('btnConfirmMinionModal'),
+  roleDetailModal: document.getElementById('roleDetailModal'),
+  roleDetailTitle: document.getElementById('roleDetailTitle'),
+  roleDetailSubtitle: document.getElementById('roleDetailSubtitle'),
+  roleDetailAvatarWrap: document.getElementById('roleDetailAvatarWrap'),
+  roleDetailBody: document.getElementById('roleDetailBody'),
+  btnCloseRoleDetailModal: document.getElementById('btnCloseRoleDetailModal'),
+  btnConfirmRoleDetailModal: document.getElementById('btnConfirmRoleDetailModal'),
 
   // Pause & End Battle Controls
   btnPauseGame: document.getElementById('btnPauseGame'),
@@ -366,6 +477,9 @@ socket.on('connect', () => {
 socket.on('init:constants', (data) => {
   classesData = data.classes || {};
   routesData = data.routes || [];
+  if (data.roleDetails) {
+    roleDetailsData = data.roleDetails;
+  }
   renderRoleSelectionGrid();
   updateHeroRoleOptionUI();
 });
@@ -562,10 +676,25 @@ function renderPendingDropModal(me) {
   elements.currentEquipCount.textContent = myEquips.length;
   const isFull = myEquips.length >= 3;
 
-  if (isFull) {
+  const isUniqueRestricted = (drop.id === 'w_greatsword' || drop.id === 'b_violin');
+  const alreadyOwnsUnique = isUniqueRestricted && myEquips.some((eq, idx) => eq.id === drop.id && idx !== selectedReplaceIndex);
+
+  if (alreadyOwnsUnique) {
+    elements.equipReplaceNotice.textContent = `⚠️ 【${drop.name}】為神兵唯一裝備，不可重複穿戴！`;
     elements.equipReplaceNotice.classList.remove('hidden');
+    elements.btnEquipItem.disabled = true;
+    elements.btnEquipItem.style.opacity = '0.5';
+    elements.btnEquipItem.style.cursor = 'not-allowed';
   } else {
-    elements.equipReplaceNotice.classList.add('hidden');
+    elements.btnEquipItem.disabled = false;
+    elements.btnEquipItem.style.opacity = '';
+    elements.btnEquipItem.style.cursor = '';
+    if (isFull) {
+      elements.equipReplaceNotice.textContent = '⚠️ 裝備已滿 3 件，請從下方點選一件舊裝備進行替換：';
+      elements.equipReplaceNotice.classList.remove('hidden');
+    } else {
+      elements.equipReplaceNotice.classList.add('hidden');
+    }
   }
 
   elements.currentEquipsList.innerHTML = '';
@@ -595,6 +724,10 @@ function renderPendingDropModal(me) {
   }
 
   elements.btnEquipItem.onclick = () => {
+    if (alreadyOwnsUnique) {
+      alert('⚠️ 此裝備為神兵唯一裝備，不可重複穿戴！');
+      return;
+    }
     if (isFull && (selectedReplaceIndex < 0 || selectedReplaceIndex >= myEquips.length)) {
       alert('⚠️ 裝備欄已滿 3 件！請先點選上方欲替換卸下的既有裝備。');
       return;
@@ -822,10 +955,16 @@ function renderRoleSelectionGrid() {
         ${conf.avatar ? `
           <div class="role-card-avatar-wrap">
             <img src="${conf.avatar}" alt="${conf.name}" class="role-card-avatar" loading="lazy">
+            <button type="button" class="role-skill-detail-btn" data-role="${roleKey}" title="查看職業詳細技能與數值介紹">
+              <span>📜 技能詳情</span>
+            </button>
           </div>
         ` : `
-          <div class="role-card-top">
+          <div class="role-card-top" style="position: relative;">
             <span class="role-card-icon">${conf.emoji}</span>
+            <button type="button" class="role-skill-detail-btn" data-role="${roleKey}" title="查看職業詳細技能與數值介紹">
+              <span>📜 技能詳情</span>
+            </button>
           </div>
         `}
         <div class="role-card-top">
@@ -839,6 +978,15 @@ function renderRoleSelectionGrid() {
         ${buttonText}
       </button>
     `;
+
+    const detailBtn = card.querySelector('.role-skill-detail-btn');
+    if (detailBtn) {
+      detailBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        openRoleDetailModal(roleKey);
+      });
+    }
 
     card.addEventListener('click', () => {
       playSound('click');
@@ -1079,7 +1227,7 @@ function checkStageTransition(state) {
 
     case 'IN_BATTLE':
       showCinematicBanner({
-        title: '【深淵領主・遭遇戰鬥】',
+        title: state.currentMonster?.isWeakened ? '【削弱領主・遭遇戰鬥】' : '【深淵領主・遭遇戰鬥】',
         subtitle: `BOSS ENCOUNTER · ${state.currentMonster?.name || 'MONSTER'}`,
         theme: 'boss',
         onFinish: () => {
@@ -1447,11 +1595,14 @@ function renderBattle(me, isLeader) {
     elements.monsterUltName.classList.remove('ult-alert');
   }
 
-  // 怪物劇毒狀態提示
+  // 怪物劇毒與削弱狀態提示
   if (elements.monsterBuffsRow) {
     let buffHtml = '';
+    if (monster.isWeakened) {
+      buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;">🥀 削弱狀態 (傷害/血量 75%)</span>`;
+    }
     if (monster.poisonTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-poison">🧪 劇毒 (${monster.poisonTurns} 回合 / 每回合-3)</span>`;
+      buffHtml += `<span class="buff-badge tag-poison">🧪 劇毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
   }
@@ -1504,7 +1655,7 @@ function renderTeammatesGrid(me) {
     const tags = [];
     if (isDead) tags.push('<span class="status-tag tag-dead">🪦 陣亡</span>');
     if (p.bleedTurns > 0) tags.push(`<span class="status-tag tag-bleed">🩸 撕裂x${p.bleedTurns}</span>`);
-    if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">🧪 中毒x${p.poisonTurns}</span>`);
+    if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">🧪 中毒(${p.poisonTurns}R / -${p.poisonDmg || 5})</span>`);
     if (p.stunnedNextTurn) tags.push('<span class="status-tag tag-stun">💫 脫力</span>');
     if (p.warriorVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 斬擊失衡受傷+20%</span>');
     if (p.archerNoDodgeTurns > 0) tags.push('<span class="status-tag tag-stun">🏹 箭矢脫靶失閃(0%)</span>');
@@ -1513,7 +1664,10 @@ function renderTeammatesGrid(me) {
     if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">🐺 狼人(${p.druidFormTurns}R)</span>`);
     if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">🌳 樹精(${p.druidFormTurns}R)</span>`);
     if (p.druidForm === 'tree') tags.push(`<span class="status-tag tag-treant">🪵 古樹(${p.druidFormTurns}R)</span>`);
-    if (p.alcAcidEquipHalvedTurns > 0) tags.push(`<span class="status-tag tag-vuln">⚗️ 裝備減半(${p.alcAcidEquipHalvedTurns}R)</span>`);
+    if (p.alcAcidEquipHalvedTurns > 0) {
+      const stackTxt = (p.alcAcidStack >= 2) ? '100%無效' : '50%減半';
+      tags.push(`<span class="status-tag tag-vuln">⚗️ 裝備${stackTxt}(${p.alcAcidEquipHalvedTurns}R)</span>`);
+    }
     if (roomState.alcShieldTurns > 0) tags.push('<span class="status-tag tag-shield">🛡️ 命運護盾(-70%)</span>');
     if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
     else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 下回合易傷(+20%)</span>');
@@ -1614,9 +1768,9 @@ function renderMyActionBar(me) {
   // 狀態簡報（包含狼人/樹精/僕從狀態）
   let stanceHtml = '';
   if (me.druidForm === 'werewolf') {
-    stanceHtml += ` <span class="badge-form-wolf">🐺 狼人形態 (+20傷，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-wolf">🐺 狼人形態 (傷害40點，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'treant') {
-    stanceHtml += ` <span class="badge-form-treant">🌳 樹精形態 (+100HP/減傷20%/自癒5HP/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant">🌳 樹精形態 (+100HP/減傷20%/自癒5%最大生命/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'tree') {
     stanceHtml += ` <span class="badge-form-treant">🪵 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
   }
@@ -1658,7 +1812,7 @@ function renderMyActionBar(me) {
   // 狀態提醒
   if (isDead) {
     elements.myActionStatus.className = 'action-status-badge';
-    elements.myActionStatus.textContent = '🪦 你已倒地陣亡，等待奇蹟甦生...';
+    elements.myActionStatus.textContent = '🪦 你已倒地陣亡，本回合無法行動...';
     elements.mySkillsRow.innerHTML = '<div style="color:#dc2626; font-weight: 600; padding: 10px;">你已倒下，本回合無法行動。</div>';
     return;
   }
@@ -1721,16 +1875,6 @@ function renderMyActionBar(me) {
     }
 
     let skillDesc = skill.desc;
-    if (me.role === 'alchemist' && skill.id === 'alc_fate') {
-      const hasDebuff = (me.bleedTurns > 0 || (me.poisonTurns || 0) > 0 || me.stunnedNextTurn || me.isSurrendered || me.cannotCrit);
-      const hasBurette = (me.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管');
-      if (!hasDebuff) {
-        skillDesc = '🌿【身無異常·溫和調和】為全員穩定回復 15 點生命（無反噬風險，CD 2）';
-      } else {
-        const failRateTxt = hasBurette ? '35%大成功 / 65%失敗(滴管加成)' : '50%大成功 / 50%失敗';
-        skillDesc = `⚠️【身負異常·命運煉成】驅散負面效果。${failRateTxt}（大成功：全員回血40+2回合70%減傷；失敗：全員回血10+下回合全隊受傷+20%）（CD 2）`;
-      }
-    }
 
     const isSelected = (currentPendingAction === skill.id);
 
@@ -1931,6 +2075,96 @@ if (elements.minionDetailModal) {
   elements.minionDetailModal.addEventListener('click', (e) => {
     if (e.target === elements.minionDetailModal) {
       hideMinionDetailModal();
+    }
+  });
+}
+
+// ==========================================
+// 角色詳細技能與數值介紹 Modal 邏輯
+// ==========================================
+function openRoleDetailModal(roleKey) {
+  const details = (roleDetailsData && roleDetailsData[roleKey]) || (DEFAULT_ROLE_DETAILS && DEFAULT_ROLE_DETAILS[roleKey]);
+  if (!details || !elements.roleDetailModal) return;
+
+  if (elements.roleDetailTitle) {
+    elements.roleDetailTitle.textContent = `${details.emoji} ${details.roleName} (${details.enName})`;
+  }
+  if (elements.roleDetailSubtitle) {
+    elements.roleDetailSubtitle.textContent = `定位：${details.type} ｜ 基礎生命值：❤️ ${details.hp} HP`;
+  }
+  if (elements.roleDetailAvatarWrap) {
+    if (details.avatar) {
+      elements.roleDetailAvatarWrap.innerHTML = `<img src="${details.avatar}" alt="${escapeHtml(details.roleName)}" class="role-detail-avatar-img">`;
+    } else {
+      elements.roleDetailAvatarWrap.innerHTML = `<span class="role-detail-avatar-emoji">${details.emoji}</span>`;
+    }
+  }
+
+  if (elements.roleDetailBody) {
+    let html = '';
+    // 被動特性
+    if (details.passive) {
+      html += `
+        <div class="role-detail-passive-card">
+          <div style="font-weight:700; color:#fbbf24; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <span>✨</span> <span>職業被動與特性</span>
+          </div>
+          <div>${escapeHtml(details.passive)}</div>
+        </div>
+      `;
+    }
+
+    // 技能清單
+    if (details.skills && details.skills.length > 0) {
+      html += `
+        <div class="role-detail-section">
+          <div class="role-detail-section-title">
+            <span>⚔️</span> <span>職業技能詳細機制與數值</span>
+          </div>
+          ${details.skills.map(s => {
+            let tagClass = 'tag-phys';
+            if (s.dmgType.includes('魔法')) tagClass = 'tag-mag';
+            else if (s.dmgType.includes('治療') || s.dmgType.includes('回復')) tagClass = 'tag-heal';
+            else if (s.dmgType.includes('輔助') || s.dmgType.includes('防護') || s.dmgType.includes('增益')) tagClass = 'tag-buff';
+            return `
+              <div class="role-detail-skill-item">
+                <div class="role-detail-skill-head">
+                  <span class="role-detail-skill-title"><strong>${escapeHtml(s.type)}【${escapeHtml(s.name)}】</strong></span>
+                  <div class="role-detail-skill-tags">
+                    <span class="role-detail-tag ${tagClass}">${escapeHtml(s.dmgType)}</span>
+                    <span class="role-detail-tag tag-cd">${escapeHtml(s.cd)}</span>
+                  </div>
+                </div>
+                <div class="role-detail-skill-desc">${escapeHtml(s.desc)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    elements.roleDetailBody.innerHTML = html;
+  }
+
+  elements.roleDetailModal.classList.remove('hidden');
+}
+
+function hideRoleDetailModal() {
+  if (elements.roleDetailModal) {
+    elements.roleDetailModal.classList.add('hidden');
+  }
+}
+
+if (elements.btnCloseRoleDetailModal) {
+  elements.btnCloseRoleDetailModal.addEventListener('click', hideRoleDetailModal);
+}
+if (elements.btnConfirmRoleDetailModal) {
+  elements.btnConfirmRoleDetailModal.addEventListener('click', hideRoleDetailModal);
+}
+if (elements.roleDetailModal) {
+  elements.roleDetailModal.addEventListener('click', (e) => {
+    if (e.target === elements.roleDetailModal) {
+      hideRoleDetailModal();
     }
   });
 }

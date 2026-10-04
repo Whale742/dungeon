@@ -8,9 +8,9 @@ export const CLASSES = {
     maxHp: 120,
     desc: '【生命 120】前排坦鋒。具備強大的守護壁壘，全技能皆為物理傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '【物理】揮動武器打擊（傷害: 10）' },
-      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', desc: '【物理】堅定重斬（80%造成18傷害；20%揮砍失衡僅造成5傷害且下回合自身受傷+20%，無CD）' },
-      { id: 'w_shield', label: '壁壘守護', cd: 2, desc: '【防護】阻擋90%傷害（25%盾牌龜裂CD額外延長1回合），第2回合阻擋40%（CD 2）' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '對單一目標造成基礎物理打擊。' },
+      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', desc: '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。' },
+      { id: 'w_shield', label: '壁壘守護', cd: 2, desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害，次回合提供殘餘減傷；有機率盾牌延長技能冷卻。' }
     ]
   },
   mage: {
@@ -20,9 +20,9 @@ export const CLASSES = {
     maxHp: 80,
     desc: '【生命 80】遠程法系。站樁高爆發與生命汲取，全技能皆為魔法傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '【魔法】引導微光魔法打擊（傷害: 10）' },
-      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', desc: '【魔法】奧術轟擊（75%造成45傷害；25%法力走火造成10傷害且自身承受10點反噬傷害，CD 1）' },
-      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', desc: '【魔法】極端浮動吸血（造成 1~40 浮動傷害，吸取該傷害 20% 生命，CD 1）' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '引導微光魔力造成基礎魔法打擊。' },
+      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', desc: '引爆狂暴魔力轟炸敵方；有機率發生法力走火導致威力驟降，並對自身造成魔力反噬。' },
+      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', desc: '對敵方造成劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取生命回復自身。' }
     ]
   },
   archer: {
@@ -33,9 +33,9 @@ export const CLASSES = {
     dodgeRate: 0.4,
     desc: '【生命 80】遠程敏捷。常駐 40% 閃避，普攻與1技能為物理，2技能為魔法。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '【物理】拉弓射出基礎箭矢（傷害: 10）' },
-      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', desc: '【物理】破甲狙擊（80%造成35傷害；20%箭矢脫靶造成0傷害且自身下回合失去閃避率，CD 1）' },
-      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', desc: '【魔法】箭雨壓制（造成20傷害並削弱怪物10點攻擊；20%狂風亂流誤傷隨機存活隊友10傷害，CD 1）' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '拉弓射出基礎箭矢造成物理打擊。' },
+      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', desc: '百步穿楊狙擊目標；有機率發生脫靶導致無法造成傷害，並使自身下回合失去閃避能力。' },
+      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', desc: '召喚範圍附魔箭雨造成魔法傷害並削弱敵方攻擊；有機率受地底氣流干擾誤傷隨機一名隊友。' }
     ]
   },
   assassin: {
@@ -47,9 +47,9 @@ export const CLASSES = {
     vulnerableMod: 1.25,
     desc: '【生命 60】近戰爆發。自帶 50% 暴擊，全技能皆為物理傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '【物理】揮動雙匕進行基本切削（傷害: 10）' },
-      { id: 's_stab', label: '暗影刺殺', cd: 1, dmgType: 'phys', desc: '【物理】背刺（傷害 30，暴擊造成 60 且暴擊時無CD；未暴擊需休息1回合）' },
-      { id: 's_smoke', label: '煙霧匿蹤', cd: 2, desc: '隱入陰影避開本回合攻擊，但下次攻擊無法暴擊（需休息2回合）' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '揮動雙匕進行基礎物理切削。' },
+      { id: 's_stab', label: '暗影刺殺', cd: 1, dmgType: 'phys', desc: '背刺敵方造成物理傷害。若觸發暴擊則傷害倍增且立即重置冷卻，未暴擊則需正常進入冷卻。' },
+      { id: 's_smoke', label: '煙霧匿蹤', cd: 2, desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。' }
     ]
   },
   bard: {
@@ -57,37 +57,37 @@ export const CLASSES = {
     emoji: '🪕',
     avatar: '/photo/Bard.webp',
     maxHp: 70,
-    desc: '【生命 70】團隊核心輔助。普攻為魔法傷害，精通全體群療、增傷減傷與奇蹟甦生。',
+    desc: '【生命 70】團隊核心輔助。普攻為魔法傷害，精通全體群療與增傷減傷。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '【魔法】撥動琴弦引導音波魔法打擊（傷害: 10）' },
-      { id: 'b_heal', label: '治癒頌歌', cd: 1, desc: '【生命頌歌】（80%回復全體22/專注目標額外28；20%刺耳走音全體僅能回復5生命，CD 1）' },
-      { id: 'b_buff', label: '狂熱協奏', cd: 1, desc: '【激勵樂章】全隊增傷50%、減傷25%並削弱抗性；25%狂熱透支結算時全體隊友各扣5點生命（CD 1）' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '撥動琴弦引導音波造成基礎魔法傷害。' },
+      { id: 'b_heal', label: '治癒頌歌', cd: 1, desc: '唱響聖詠為全體隊友回復生命，並專注為指定目標額外回復；有機率因走音導致全隊回復量大幅縮減。' },
+      { id: 'b_buff', label: '狂熱協奏', cd: 1, desc: '使全隊提升傷害、減傷並削弱敵方抗性；有機率因節奏過激導致全隊力竭扣除當前生命。' }
     ]
   },
   alchemist: {
     name: '鍊金術士',
-    emoji: '⚗️',
+    emoji: '🧪',
     avatar: '/photo/Alchemist.webp',
     maxHp: 75,
     desc: '【生命 75】神秘調和者。精通強酸爆破、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
-      { id: 'basic', label: '基礎打擊', cd: 0, dmgType: 'mag', desc: '【魔法】基礎藥杵打擊（傷害: 10）' },
-      { id: 'alc_acid', label: '1技A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', desc: '【魔法】擲出強酸（傷害: 40，自身受15點自傷且自身裝備效果減半持續2回合，無CD）' },
-      { id: 'alc_poison', label: '1技B: 劇毒煙霧瓶', cd: 0, dmgType: 'mag', desc: '【魔法】引爆毒霧（傷害: 30，自身自傷5點，敵我皆陷入劇毒2回合各受5點毒傷，無CD）' },
-      { id: 'alc_fate', label: '2技: 命運煉成試劑', cd: 2, desc: '立即驅散我方全體負面效果(流血/中毒)。若自身有異常狀態：50%大成功(全員回血40+2回合70%減傷) / 50%失敗(全員回血10+下回合全隊受傷+20%)；若自身無異常狀態：效果轉為全員穩定回復15點生命（無反噬，CD 2）' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '揮動燒瓶引發衝擊造成基礎魔法傷害。' },
+      { id: 'alc_acid', label: '1 技能 A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', desc: '投擲高濃度強酸重創目標，強酸濺射會對自身造成反噬自傷，全體裝備被腐蝕。' },
+      { id: 'alc_poison', label: '1 技能 B: 劇毒煙霧瓶', cd: 0, dmgType: 'mag', desc: '砸碎毒瓶造成傷害與輕微自傷，使敵我雙方皆陷入劇毒，全體持續承受毒素傷害。' },
+      { id: 'alc_fate', label: '2 技能: 命運煉成試劑', cd: 2, desc: '立即驅散全隊所有負面狀態。可能煉金大成功或煉金失敗。' }
     ]
   },
   druid: {
     name: '德魯伊',
-    emoji: '🍃',
+    emoji: '🌿',
     avatar: '/photo/Druid.webp',
     maxHp: 85,
     desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚僕從（小樹精/幼狼）。',
     skills: [
-      { id: 'basic', label: '基礎打擊', cd: 0, dmgType: 'phys', desc: '【物理】自然法杖揮擊（傷害: 10）' },
-      { id: 'dru_transform', label: '1技: 形態轉變', cd: 0, desc: '持續2回合(結束後才可再次變身)：50%狼人(暫時扣除20最大生命/全傷+20/立即30傷強化普攻；結束後恢復最大生命；遇暗影魔狼族長臣服)；50%樹精(生命+100/減傷20%/每回合初自癒5HP(勝場可加成)/替全隊吸收50%受傷/致命傷免死化為樹木1回合)' },
-      { id: 'dru_summon_treant', label: '2技A: 呼喚小樹精', cd: 0, desc: '【自然呼喚】召喚小樹精(HP 15 / 攻擊 1，上限3隻，無CD)，登場當回合立即攻擊，每回合自動攻擊並優先替全隊擋下怪物彈射傷害' },
-      { id: 'dru_summon_wolf', label: '2技B: 呼喚幼狼', cd: 0, desc: '【自然呼喚】召喚幼狼(HP 5 / 攻擊 10，上限3隻，無CD)，登場當回合立即攻擊，每回合自動攻擊並優先替全隊擋下怪物彈射傷害' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '引導自然力量造成基礎自然打擊。' },
+      { id: 'dru_transform', label: '1 技能: 形態轉變', cd: 0, desc: '有一半機率化身狼人/化身樹精' },
+      { id: 'dru_summon_treant', label: '2 技能 A: 召喚小樹精', cd: 0, desc: '召喚肉盾型樹精僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' },
+      { id: 'dru_summon_wolf', label: '2 技能 B: 召喚幼狼', cd: 0, desc: '召喚敏捷型幼狼僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
   }
 };
@@ -115,7 +115,7 @@ export const LOOT_TABLE = [
     role: 'warrior',
     name: '雙手劍',
     isSpecial: true,
-    desc: '原本2技能護盾失效，替換為攻擊技能【狂怒重劈】；1技能與2技能基礎傷害分別提升為 25 與 40'
+    desc: '原本2技能護盾失效，替換為攻擊技能【狂怒重劈】；1技能與2技能基礎傷害分別提升為 25 與 40。不受效果減半影響，不可重複穿戴'
   },
 
   // 法師 (Mage)
@@ -207,7 +207,7 @@ export const LOOT_TABLE = [
     name: '精靈木提琴',
     bonusAtk: 10,
     isSpecial: true,
-    desc: '攻擊傷害 +10。原本1、2技能失效，1技能替換為【催眠夜曲】(15傷害+30%機率使敵方本回合無法行動)；2技能替換為【狂亂殺戮曲】(20傷害，我方全體下回合扣20%最大生命，但全隊傷害提升70%)'
+    desc: '攻擊傷害 +10。原本1、2技能失效，1技能替換為【催眠夜曲】(15傷害+30%機率使敵方本回合無法行動)；2技能替換為【狂亂殺戮曲】(20傷害，我方全體下回合扣20%最大生命，但全隊傷害提升70%)。不受效果減半影響，不可重複穿戴'
   },
 
   // 鍊金術士 (Alchemist)
@@ -613,9 +613,26 @@ export function removeEquipStats(player, item) {
   }
 }
 
+// 檢查玩家是否可以裝備該物品（雙手劍及精靈木提琴不能重複穿戴）
+export function canPlayerEquipItem(player, drop, replaceIndex = -1) {
+  if (!player || !drop) return false;
+  const uniqueEquipIds = ['w_greatsword', 'b_violin'];
+  const uniqueEquipNames = ['雙手劍', '精靈木提琴'];
+  const isUnique = uniqueEquipIds.includes(drop.id) || uniqueEquipNames.includes(drop.name);
+  if (isUnique) {
+    const equips = player.equips || [];
+    const existingIndex = equips.findIndex(e => e.id === drop.id || e.name === drop.name);
+    if (existingIndex !== -1 && existingIndex !== replaceIndex) {
+      return false; // 已穿戴且不是替換同一格，禁止重複穿戴
+    }
+  }
+  return true;
+}
+
 // 穿上裝備（支援上限 3 件與指定位置替換）
 export function equipItemToPlayer(player, drop, replaceIndex = -1) {
-  if (!player) return null;
+  if (!player || !drop) return null;
+  if (!canPlayerEquipItem(player, drop, replaceIndex)) return null;
   if (!player.equips) player.equips = [];
   if (!player.equipCounts) player.equipCounts = {};
 
@@ -672,7 +689,7 @@ export function getPlayerSkills(player) {
     if (hasGreatsword) {
       const s1 = baseSkills.find(s => s.id === 'w_strike');
       if (s1) {
-        s1.desc = '【物理】雙手巨劍堅定重斬（80%造成25重傷害；20%揮砍失衡僅造成5傷害且下回合自身受傷+20%，無CD）';
+        s1.desc = '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。';
       }
       const idx2 = baseSkills.findIndex(s => s.id === 'w_shield');
       if (idx2 !== -1) {
@@ -681,7 +698,7 @@ export function getPlayerSkills(player) {
           label: '狂怒重劈',
           cd: 2,
           dmgType: 'phys',
-          desc: '【物理】狂暴揮動雙手巨劍重劈魔物（基礎傷害: 40，CD 2）'
+          desc: '狂暴揮動雙手巨劍重劈魔物，造成物理傷害。'
         };
       }
     }
@@ -695,7 +712,7 @@ export function getPlayerSkills(player) {
           label: '催眠夜曲',
           cd: 1,
           dmgType: 'mag',
-          desc: '【魔法】幽邃催眠曲（造成15傷害，30%機率使敵方本回合陷入沉睡無法行動，CD 1）'
+          desc: '幽邃催眠曲造成魔法傷害，有機率使敵方本回合陷入沉睡無法行動。'
         };
       }
       const idx2 = baseSkills.findIndex(s => s.id === 'b_buff');
@@ -705,7 +722,7 @@ export function getPlayerSkills(player) {
           label: '狂亂殺戮曲',
           cd: 1,
           dmgType: 'mag',
-          desc: '【魔法】狂亂殺戮樂章（造成20傷害，全隊傷害暴增70%，但下回合全隊扣除20%最大生命，CD 1）'
+          desc: '狂亂殺戮樂章造成魔法傷害，全隊傷害暴增，但次回合全隊承受生命代價。'
         };
       }
     }
@@ -728,3 +745,246 @@ export function getFloorDifficultyBonusPercent(floor) {
 export function getFloorDifficultyMultiplier(floor) {
   return 1 + (getFloorDifficultyBonusPercent(floor) / 100);
 }
+
+// 7 大職業完整詳細技能介紹與數值機制（供選職業介面查看）
+export const ROLE_DETAILS = {
+  warrior: {
+    roleName: '戰士',
+    enName: 'Warrior',
+    emoji: '🛡️',
+    avatar: '/photo/Warrior.webp',
+    hp: 120,
+    type: '物理 / 前排坦鋒',
+    passive: '前排坦鋒，擁有全職業最高的基礎生命值（120 HP）與強大減傷防護。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【物理】',
+        cd: '無 CD',
+        desc: '揮動武器進行基本物理打擊，對單一目標造成基礎 10 點傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '堅定斬擊',
+        dmgType: '【物理】',
+        cd: '無 CD',
+        desc: '揮動巨劍造成物理傷害。80% 機率造成 18 點傷害；20% 機率因揮砍失衡僅造成 5 點傷害，並使下回合自身承受傷害提高 20%。'
+      },
+      {
+        type: '2 技能',
+        name: '壁壘守護',
+        dmgType: '【防護】',
+        cd: '2 回合',
+        desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害（阻擋 90% 傷害，有 25% 機率盾牌龜裂使冷卻延長 1 回合）；次回合仍提供殘餘 40% 減傷。'
+      }
+    ]
+  },
+  mage: {
+    roleName: '法師',
+    enName: 'Mage',
+    emoji: '🧙‍♂️',
+    avatar: '/photo/Mage.webp',
+    hp: 80,
+    type: '魔法 / 遠程爆發',
+    passive: '站樁高爆發與生命汲取，全技能與普攻皆為魔法傷害。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【魔法】',
+        cd: '無 CD',
+        desc: '引導微光魔力造成基礎 10 點魔法傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '奧術爆破',
+        dmgType: '【魔法】',
+        cd: '1 回合',
+        desc: '引爆狂暴魔力轟炸敵方造成 45 點魔法傷害。有 25% 機率發生法力走火導致威力驟降為 10 點傷害，並對自身造成 10 點魔力反噬。'
+      },
+      {
+        type: '2 技能',
+        name: '生命汲取',
+        dmgType: '【魔法】',
+        cd: '1 回合',
+        desc: '對敵方造成 1~40 點劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取 20% 生命回復自身。'
+      }
+    ]
+  },
+  archer: {
+    roleName: '弓箭手',
+    enName: 'Archer',
+    emoji: '🏹',
+    avatar: '/photo/Archer.webp',
+    hp: 80,
+    type: '物理 / 遠程敏捷',
+    passive: '常駐 40% 閃避率（可完全閃避單體物理打擊與怪物反擊）。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【物理】',
+        cd: '無 CD',
+        desc: '拉弓射出基礎箭矢造成基礎 10 點物理傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '精準狙擊',
+        dmgType: '【物理】',
+        cd: '1 回合',
+        desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使自身下回合失去閃避能力。'
+      },
+      {
+        type: '2 技能',
+        name: '箭雨壓制',
+        dmgType: '【魔法】',
+        cd: '1 回合',
+        desc: '召喚範圍附魔箭雨造成 20 點魔法傷害並削弱敵方 10 點攻擊力。有 20% 機率受地底氣流干擾誤傷隨機一名隊友 10 點傷害。'
+      }
+    ]
+  },
+  assassin: {
+    roleName: '刺客',
+    enName: 'Assassin',
+    emoji: '🗡️',
+    avatar: '/photo/Assassin.webp',
+    hp: 60,
+    type: '物理 / 近戰刺殺',
+    passive: '常駐 50% 暴擊率（暴擊造成 2 倍傷害）；身著輕甲承受傷害額外增加 25%。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【物理】',
+        cd: '無 CD',
+        desc: '揮動雙匕進行基礎物理切削造成 10 點傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '暗影刺殺',
+        dmgType: '【物理】',
+        cd: '1 回合 (暴擊無CD)',
+        desc: '背刺敵方造成 30 點物理傷害。若觸發暴擊則傷害倍增為 60 且立即重置冷卻；未暴擊則需正常進入冷卻 1 回合。'
+      },
+      {
+        type: '2 技能',
+        name: '煙霧匿蹤',
+        dmgType: '【輔助】',
+        cd: '2 回合',
+        desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。'
+      }
+    ]
+  },
+  bard: {
+    roleName: '吟遊詩人',
+    enName: 'Bard',
+    emoji: '🪕',
+    avatar: '/photo/Bard.webp',
+    hp: 70,
+    type: '魔法 / 團隊核心輔助',
+    passive: '團隊核心輔助，精通全體群療與增傷減傷，全技能皆為魔法傷害。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【魔法】',
+        cd: '無 CD',
+        desc: '撥動琴弦引導音波造成基礎 10 點魔法傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '治癒頌歌',
+        dmgType: '【治療】',
+        cd: '1 回合',
+        desc: '唱響聖詠為全體隊友回復生命。80% 機率為全體回復 22 點生命，並專注為指定目標額外回復 28 點；20% 機率因走音導致全隊回復量大幅縮減為僅回復 5 點生命。'
+      },
+      {
+        type: '2 技能',
+        name: '狂熱協奏',
+        dmgType: '【增益】',
+        cd: '1 回合',
+        desc: '使全隊提升 50% 傷害、25% 減傷並削弱敵方抗性。有 25% 機率因節奏過激導致全隊力竭扣除當前 5 點生命。'
+      }
+    ]
+  },
+  alchemist: {
+    roleName: '鍊金術士',
+    enName: 'Alchemist',
+    emoji: '🧪',
+    avatar: '/photo/Alchemist.webp',
+    hp: 75,
+    type: '魔法 / 調和煉成',
+    passive: '神秘調和者，精通強酸腐蝕、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【魔法】',
+        cd: '無 CD',
+        desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。'
+      },
+      {
+        type: '1 技能 A',
+        name: '腐蝕強酸瓶',
+        dmgType: '【魔法】',
+        cd: '無 CD',
+        desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果減半持續 2 回合。'
+      },
+      {
+        type: '1 技能 B',
+        name: '劇毒煙霧瓶',
+        dmgType: '【魔法】',
+        cd: '無 CD',
+        desc: '砸碎毒瓶造成 30 點傷害與輕微自傷 5 點，使敵我雙方皆陷入劇毒，全體後續 2 回合每回合初持續承受 5 點毒素傷害。'
+      },
+      {
+        type: '2 技能',
+        name: '命運煉成試劑',
+        dmgType: '【驅散/調和】',
+        cd: '2 回合',
+        desc: '立即驅散全隊所有負面狀態（中毒/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。'
+      }
+    ]
+  },
+  druid: {
+    roleName: '德魯伊',
+    enName: 'Druid',
+    emoji: '🌿',
+    avatar: '/photo/Druid.webp',
+    hp: 85,
+    type: '物理 / 自然變形',
+    passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    skills: [
+      {
+        type: '普攻',
+        name: '普通攻擊',
+        dmgType: '【物理】',
+        cd: '無 CD',
+        desc: '引導自然力量造成基礎 10 點物理傷害。'
+      },
+      {
+        type: '1 技能',
+        name: '形態轉變',
+        dmgType: '【變身】',
+        cd: '無 CD (持續2回合)',
+        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（扣除 20 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 20%、每回合自癒當前最大生命 5%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
+      },
+      {
+        type: '2 技能 A',
+        name: '召喚小樹精',
+        dmgType: '【召喚】',
+        cd: '無 CD (隊伍上限3隻)',
+        desc: '召喚肉盾型樹精僕從（HP 15 / 攻擊 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
+      },
+      {
+        type: '2 技能 B',
+        name: '召喚幼狼',
+        dmgType: '【召喚】',
+        cd: '無 CD (隊伍上限3隻)',
+        desc: '召喚敏捷型幼狼僕從（HP 5 / 攻擊 10），每回合自動攻擊並優先替隊伍承受分散傷害。'
+      }
+    ]
+  }
+};
+

@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Room } from './game/Room.js';
-import { CLASSES, ROUTES } from './game/constants.js';
+import { CLASSES, ROUTES, ROLE_DETAILS } from './game/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
   console.log(`[連線] 玩家連接：${socket.id}`);
 
   // 發送職業與基礎資料給新客戶端
-  socket.emit('init:constants', { classes: CLASSES, routes: ROUTES });
+  socket.emit('init:constants', { classes: CLASSES, routes: ROUTES, roleDetails: ROLE_DETAILS });
 
   // 1. 建立房間
   socket.on('room:create', ({ name, avatar }, callback) => {
