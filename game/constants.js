@@ -8,9 +8,9 @@ export const CLASSES = {
     maxHp: 120,
     desc: '【生命 120】前排坦鋒。具備強大的守護壁壘，全技能皆為物理傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '對單一目標造成基礎物理打擊。' },
-      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', desc: '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。' },
-      { id: 'w_shield', label: '壁壘守護', cd: 2, desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害，次回合提供殘餘減傷；有機率盾牌延長技能冷卻。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '對單一目標造成基礎物理打擊。' },
+      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。' },
+      { id: 'w_shield', label: '壁壘守護', cd: 2, tags: ['護盾', '全體'], desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害，次回合提供殘餘減傷；有機率盾牌延長技能冷卻。' }
     ]
   },
   mage: {
@@ -20,9 +20,9 @@ export const CLASSES = {
     maxHp: 80,
     desc: '【生命 80】遠程法系。站樁高爆發與生命汲取，全技能皆為魔法傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '引導微光魔力造成基礎魔法打擊。' },
-      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', desc: '引爆狂暴魔力轟炸敵方；有機率發生法力走火導致威力驟降，並對自身造成魔力反噬。' },
-      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', desc: '對敵方造成劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取生命回復自身。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體'], desc: '引導微光魔力造成基礎魔法打擊。' },
+      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', tags: ['魔法', '單體', '高風險'], desc: '引爆狂暴魔力轟炸敵方；有機率發生法力走火導致威力驟降，並對自身造成魔力反噬。' },
+      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', tags: ['魔法', '單體', '治療'], desc: '對敵方造成劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取生命回復自身。' }
     ]
   },
   archer: {
@@ -33,9 +33,9 @@ export const CLASSES = {
     dodgeRate: 0.4,
     desc: '【生命 80】遠程敏捷。常駐 40% 閃避，普攻與1技能為物理，2技能為魔法。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '拉弓射出基礎箭矢造成物理打擊。' },
-      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', desc: '百步穿楊狙擊目標；有機率發生脫靶導致無法造成傷害，並使自身下回合失去閃避能力。' },
-      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', desc: '召喚範圍附魔箭雨造成魔法傷害並削弱敵方攻擊；有機率受地底氣流干擾誤傷隨機一名隊友。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '拉弓射出基礎箭矢造成物理打擊。' },
+      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '百步穿楊狙擊目標；有機率發生脫靶導致無法造成傷害，並使自身下回合失去閃避能力。' },
+      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', tags: ['魔法', '全體', '減益', '高風險'], desc: '召喚範圍附魔箭雨造成魔法傷害並削弱敵方攻擊；有機率受地底氣流干擾誤傷隨機一名隊友。' }
     ]
   },
   assassin: {
@@ -47,9 +47,9 @@ export const CLASSES = {
     vulnerableMod: 1.25,
     desc: '【生命 60】近戰爆發。自帶 50% 暴擊，全技能皆為物理傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '揮動雙匕進行基礎物理切削。' },
-      { id: 's_stab', label: '暗影刺殺', cd: 1, dmgType: 'phys', desc: '背刺敵方造成物理傷害。若觸發暴擊則傷害倍增且立即重置冷卻，未暴擊則需正常進入冷卻。' },
-      { id: 's_smoke', label: '煙霧匿蹤', cd: 2, desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '揮動雙匕進行基礎物理切削。' },
+      { id: 's_stab', label: '暗影刺殺', cd: 1, dmgType: 'phys', tags: ['物理', '單體'], desc: '背刺敵方造成物理傷害。若觸發暴擊則傷害倍增且立即重置冷卻，未暴擊則需正常進入冷卻。' },
+      { id: 's_smoke', label: '煙霧匿蹤', cd: 2, tags: ['護盾'], desc: '隱入暗影完全避開本回合所有攻擊，但現身後的下次攻擊將失去暴擊能力。' }
     ]
   },
   bard: {
@@ -59,9 +59,9 @@ export const CLASSES = {
     maxHp: 70,
     desc: '【生命 70】團隊核心輔助。普攻為魔法傷害，精通全體群療與增傷減傷。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '撥動琴弦引導音波造成基礎魔法傷害。' },
-      { id: 'b_heal', label: '治癒頌歌', cd: 1, desc: '唱響聖詠為全體隊友回復生命，並專注為指定目標額外回復；有機率因走音導致全隊回復量大幅縮減。' },
-      { id: 'b_buff', label: '狂熱協奏', cd: 1, desc: '使全隊提升傷害、減傷並削弱敵方抗性；有機率因節奏過激導致全隊力竭扣除當前生命。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體'], desc: '撥動琴弦引導音波造成基礎魔法傷害。' },
+      { id: 'b_heal', label: '治癒頌歌', cd: 1, tags: ['治療', '全體', '高風險'], desc: '唱響聖詠為全體隊友回復生命，並專注為指定目標額外回復；有機率因走音導致全隊回復量大幅縮減。' },
+      { id: 'b_buff', label: '狂熱協奏', cd: 1, tags: ['增益', '全體', '高風險'], desc: '使全隊提升傷害、減傷並削弱敵方抗性；有機率因節奏過激導致全隊力竭扣除當前生命。' }
     ]
   },
   alchemist: {
@@ -71,10 +71,10 @@ export const CLASSES = {
     maxHp: 75,
     desc: '【生命 75】神秘調和者。精通強酸爆破、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', desc: '揮動燒瓶引發衝擊造成基礎魔法傷害。' },
-      { id: 'alc_acid', label: '1 技能 A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', desc: '投擲高濃度強酸重創目標，強酸濺射會對自身造成反噬自傷，全體裝備被腐蝕。' },
-      { id: 'alc_poison', label: '1 技能 B: 劇毒煙霧瓶', cd: 0, dmgType: 'mag', desc: '砸碎毒瓶造成傷害與輕微自傷，使敵我雙方皆陷入劇毒，全體持續承受毒素傷害。' },
-      { id: 'alc_fate', label: '2 技能: 命運煉成試劑', cd: 2, desc: '立即驅散全隊所有負面狀態。可能煉金大成功或煉金失敗。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體'], desc: '揮動燒瓶引發衝擊造成基礎魔法傷害。' },
+      { id: 'alc_acid', label: '1 技能 A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '單體', '高風險'], desc: '投擲高濃度強酸重創目標，強酸濺射會對自身造成反噬自傷，全體裝備被腐蝕。' },
+      { id: 'alc_poison', label: '1 技能 B: 劇毒煙霧瓶', cd: 0, dmgType: 'mag', tags: ['魔法', 'DoT', '全體', '高風險'], desc: '砸碎毒瓶造成傷害與輕微自傷，使敵我雙方皆陷入劇毒，全體持續承受毒素傷害。' },
+      { id: 'alc_fate', label: '2 技能: 命運煉成試劑', cd: 2, tags: ['淨化', '治療', '全體', '高風險'], desc: '立即驅散全隊所有負面狀態。可能煉金大成功或煉金失敗。' }
     ]
   },
   druid: {
@@ -84,10 +84,10 @@ export const CLASSES = {
     maxHp: 85,
     desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚僕從（小樹精/幼狼）。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', desc: '引導自然力量造成基礎自然打擊。' },
-      { id: 'dru_transform', label: '1 技能: 形態轉變', cd: 0, desc: '有一半機率化身狼人/化身樹精' },
-      { id: 'dru_summon_treant', label: '2 技能 A: 召喚小樹精', cd: 0, desc: '召喚肉盾型樹精僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' },
-      { id: 'dru_summon_wolf', label: '2 技能 B: 召喚幼狼', cd: 0, desc: '召喚敏捷型幼狼僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' }
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '引導自然力量造成基礎自然打擊。' },
+      { id: 'dru_transform', label: '1 技能: 形態轉變', cd: 0, tags: ['變身', '高風險'], desc: '有一半機率化身狼人/化身樹精' },
+      { id: 'dru_summon_treant', label: '2 技能 A: 召喚小樹精', cd: 0, tags: ['召喚', '護盾'], desc: '召喚肉盾型樹精僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' },
+      { id: 'dru_summon_wolf', label: '2 技能 B: 召喚幼狼', cd: 0, tags: ['召喚', '物理'], desc: '召喚敏捷型幼狼僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
   }
 };
@@ -360,7 +360,7 @@ export const STORY_TEXTS = {
     paragraphs: [
       '厚重的黑曜石大門在刺耳的摩擦聲中緩緩敞開，古老腐朽的塵埃隨之撲面而來。',
       '火把微弱的橘光照亮了腳下斑駁的石階，空氣中瀰漫著潮濕的青苔、生鏽鐵器與隱約的血腥氣味。',
-      '身後的退路已被封死，冒險小隊握緊了手中的武器與符文，深吸一口氣，正式踏入這座沉睡千年的深淵地城！'
+      '身後的退路已被封死，冒險小隊握緊了手中的武器與符文，深吸一口氣，正式踏入這座沉睡千年的深淵地城……'
     ]
   },
   routeChoice: {
@@ -698,6 +698,7 @@ export function getPlayerSkills(player) {
           label: '狂怒重劈',
           cd: 2,
           dmgType: 'phys',
+          tags: ['物理', '單體'],
           desc: '狂暴揮動雙手巨劍重劈魔物，造成物理傷害。'
         };
       }
@@ -712,6 +713,7 @@ export function getPlayerSkills(player) {
           label: '催眠夜曲',
           cd: 1,
           dmgType: 'mag',
+          tags: ['魔法', '單體'],
           desc: '幽邃催眠曲造成魔法傷害，有機率使敵方本回合陷入沉睡無法行動。'
         };
       }
@@ -722,6 +724,7 @@ export function getPlayerSkills(player) {
           label: '狂亂殺戮曲',
           cd: 1,
           dmgType: 'mag',
+          tags: ['魔法', '全體', '增益', '高風險'],
           desc: '狂亂殺戮樂章造成魔法傷害，全隊傷害暴增，但次回合全隊承受生命代價。'
         };
       }
@@ -729,6 +732,23 @@ export function getPlayerSkills(player) {
   }
 
   return baseSkills;
+}
+
+// 玩家行動優先權判定 (1: 淨化, 2: 復活, 3: 防禦/護盾, 4: 增益, 5: 治療, 6: 變身/召喚, 7: 敵方減益, 8: 攻擊技能)
+export function getActionPriority(actionId) {
+  if (actionId === 'alc_fate') return 1; // 1. 淨化 (Cleanse)
+  if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)
+  if (actionId === 'w_shield' || actionId === 's_smoke') return 3; // 3. 防禦/護盾/免傷 (Defense / Mitigation)
+  if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)
+  if (actionId === 'b_heal') return 5; // 5. 治療 (Heal)
+  if (actionId === 'dru_transform' || actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') return 6; // 6. 變身/召喚 (Transform / Summon)
+  if (actionId === 'a_rain') return 7; // 7. 敵方減益 (Enemy Debuff - 削弱敵方攻擊力)
+  // 8. 攻擊技能 (Offensive Skills)
+  // 【重要規範】:
+  // - 法師【生命汲取】(m_drain): 依實際造成的魔法傷害計算回血，本質為攻擊技能，歸於 Priority 8。
+  // - 鍊金【腐蝕強酸瓶】(alc_acid): 攻擊技能，歸於 Priority 8（其全隊裝備減半為 Pre-Resolution 靜默效果）。
+  // - 其餘攻擊: basic, w_strike, w_cleave, m_blast, a_shot, s_stab, alc_poison, b_nocturne 等。
+  return 8;
 }
 
 // 敵方難度加成計算：1~5層每層+10%，6~10層每層+15%，以此類推

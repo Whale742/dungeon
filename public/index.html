@@ -7,11 +7,148 @@
   <link rel="icon" type="image/webp" href="/icon/icon.webp">
   <link rel="apple-touch-icon" href="/icon/icon.webp">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="exploration.css">
+  <link rel="stylesheet" href="trap.css">
+  <link rel="stylesheet" href="chest.css">
+  <link rel="stylesheet" href="combat.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- 正式 UI 向量 SVG 圖示庫 (嚴禁正式 UI 使用 Emoji) -->
+  <svg style="display: none;" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="icon-sword" viewBox="0 0 24 24">
+        <path d="M14.5 17.5 3 6V3h3l11.5 11.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m13 19 6-6M16 16l4 4M19 21l2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-magic" viewBox="0 0 24 24">
+        <path d="m19 11-8-8-8.5 8.5a2.12 2.12 0 0 0 0 3l5 5a2.12 2.12 0 0 0 3 0L19 11Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m18 13 4 4M14 9l3-3M5 2l1 2M2 5l2 1M22 22l-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-heal" viewBox="0 0 24 24">
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 7v6M9 10h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-poison" viewBox="0 0 24 24">
+        <path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m5.52 16 1.48-1.5a2 2 0 0 1 2.83 0l1.17 1.17a2 2 0 0 0 2.83 0L15.3 14.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-unlock" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 11V7a5 5 0 0 1 9.9-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-timer" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="12 6 12 12 16 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="22" y1="12" x2="18" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="6" y1="12" x2="2" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="6" x2="12" y2="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="22" x2="12" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-ready" viewBox="0 0 24 24">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-log" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="16" y1="13" x2="8" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="16" y1="17" x2="8" y2="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-expand" viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-collapse" viewBox="0 0 24 24">
+        <polyline points="18 15 12 9 6 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-cooldown" viewBox="0 0 24 24">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-status" viewBox="0 0 24 24">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-summon" viewBox="0 0 24 24">
+        <path d="M12 2a5 5 0 0 1 5 5c0 3-5 9-5 9s-5-6-5-9a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8.5 14a4 4 0 0 0-4.5 4v2h16v-2a4 4 0 0 0-4.5-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-death" viewBox="0 0 24 24">
+        <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+        <path d="M8 20v2h8v-2M16 20a3 3 0 0 0 3-3v-2a7 7 0 0 0-14 0v2a3 3 0 0 0 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-revive" viewBox="0 0 24 24">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-chest" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 12h20M12 10v4M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-trap" viewBox="0 0 24 24">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="9" x2="12" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="17" x2="12.01" y2="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-gold" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 8v8M9.5 10a2.5 2.5 0 0 1 5 0c0 1.5-1 2-2.5 2.5s-2.5 1-2.5 2.5a2.5 2.5 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24">
+        <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
+        <rect x="14" y="4" width="4" height="16" fill="currentColor"/>
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+      </symbol>
+      <symbol id="icon-flag" viewBox="0 0 24 24">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="4" y1="22" x2="4" y2="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-user" viewBox="0 0 24 24">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="16" x2="12" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="8" x2="12.01" y2="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <line x1="18" y1="6" x2="6" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="6" y1="6" x2="18" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24">
+        <polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-sparkle" viewBox="0 0 24 24">
+        <path d="m12 3 2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24">
+        <line x1="5" y1="12" x2="19" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="12 5 19 12 12 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    </defs>
+  </svg>
+
   <div id="app" class="game-container">
     <!-- 頂部導航欄 -->
     <header class="app-header">
@@ -28,8 +165,12 @@
           <span id="roomCodeText" class="room-code-clickable" title="點擊直接複製房號">-----</span>
           <span id="roomCopyToast" class="room-copy-toast hidden">已複製！</span>
         </div>
-        <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">⏸️ 暫停</button>
-        <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">🏳️ 放棄挑戰</button>
+        <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">
+          <svg class="svg-icon"><use href="#icon-pause"></use></svg> 暫停
+        </button>
+        <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">
+          <svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰
+        </button>
         <button id="soundToggleBtn" class="btn-sound-toggle" title="切換音效">
           <img id="soundToggleImg" src="/sound/sound.webp" alt="音效" class="sound-toggle-img">
         </button>
@@ -38,8 +179,12 @@
 
     <!-- 暫停提示橫幅 -->
     <div id="pauseOverlay" class="pause-banner hidden">
-      <span class="pause-banner-text">⏸️ <strong>遊戲暫停中</strong> (行動倒數計時已凍結)</span>
-      <button id="btnResumeGameBanner" class="btn btn-tiny btn-success">▶️ 繼續冒險</button>
+      <span class="pause-banner-text">
+        <svg class="svg-icon"><use href="#icon-pause"></use></svg> <strong>遊戲暫停中</strong> (行動倒數計時已凍結)
+      </span>
+      <button id="btnResumeGameBanner" class="btn btn-tiny btn-success">
+        <svg class="svg-icon"><use href="#icon-play"></use></svg> 繼續冒險
+      </button>
     </div>
 
     <!-- 主內容區：根據狀態切換視圖 -->
@@ -49,7 +194,7 @@
       <section id="viewEntry" class="view-panel active">
         <div class="card entry-card">
           <div class="guild-seal-header">
-            <span class="guild-seal-pill">📜 ADVENTURER'S GUILD BULLETIN</span>
+            <span class="guild-seal-pill"><svg class="svg-icon"><use href="#icon-log"></use></svg> ADVENTURER'S GUILD BULLETIN</span>
           </div>
 
           <div class="entry-hero">
@@ -57,14 +202,14 @@
             <p class="entry-subtitle">冒險者公會・深淵探索與巨獸討伐委託</p>
 
             <div class="entry-meta-tags">
-              <span class="entry-meta-tag">⚔️ 1～10 人即時協作</span>
-              <span class="entry-meta-tag">🛡️ 7 大英雄職業</span>
-              <span class="entry-meta-tag">🐉 10 尊遠古深淵領主</span>
+              <span class="entry-meta-tag"><svg class="svg-icon"><use href="#icon-users"></use></svg> 1～10 人即時協作</span>
+              <span class="entry-meta-tag"><svg class="svg-icon"><use href="#icon-shield"></use></svg> 7 大英雄職業</span>
+              <span class="entry-meta-tag"><svg class="svg-icon"><use href="#icon-target"></use></svg> 10 尊遠古深淵領主</span>
             </div>
 
             <div class="hero-roster-tray">
               <div class="hero-roster-label">
-                <span>🎖️ 已集結待命職業</span>
+                <span><svg class="svg-icon"><use href="#icon-ready"></use></svg> 已集結待命職業</span>
               </div>
               <div class="hero-avatars-row">
                 <img src="/photo/Warrior.webp" class="hero-intro-avatar" alt="戰士" title="戰士">
@@ -80,8 +225,8 @@
 
           <div class="entry-profile-config">
             <div class="entry-avatar-wrapper clickable-avatar" id="btnEntryAvatar" title="點擊選擇或更換個人頭貼">
-              <div class="entry-avatar-preview" id="entryAvatarPreview">👤</div>
-              <span class="entry-avatar-badge" title="更換頭貼">📷</span>
+              <div class="entry-avatar-preview" id="entryAvatarPreview"><svg class="svg-icon svg-large"><use href="#icon-user"></use></svg></div>
+              <span class="entry-avatar-badge" title="更換頭貼"><svg class="svg-icon"><use href="#icon-sparkle"></use></svg></span>
             </div>
             <div class="form-group entry-name-group">
               <label for="inputPlayerName">冒險者稱號 / 真名：</label>
@@ -91,13 +236,13 @@
 
           <div class="entry-actions">
             <button id="btnCreateRoom" class="btn btn-primary btn-large">
-              <span class="btn-icon-inner">⚔️</span> 發起討伐隊伍 (建立房間)
+              <span class="btn-icon-inner"><svg class="svg-icon"><use href="#icon-sword"></use></svg></span> 發起討伐隊伍 (建立房間)
             </button>
             <div class="divider"><span>或出示公會隊伍代碼</span></div>
             <div class="join-group">
               <input type="text" id="inputRoomCode" placeholder="5碼隊伍代碼 (如: A8K9X)" maxlength="5">
               <button id="btnJoinRoom" class="btn btn-secondary">
-                <span class="btn-icon-inner">🛡️</span> 應徵加入
+                <span class="btn-icon-inner"><svg class="svg-icon"><use href="#icon-shield"></use></svg></span> 應徵加入
               </button>
             </div>
           </div>
@@ -111,7 +256,7 @@
           <div class="card team-card">
             <div class="card-header card-header-stacked">
               <div class="header-title-block">
-                <h3>👥 冒險小隊名單 (<span id="lobbyMemberCount">1</span>/10)</h3>
+                <h3><svg class="svg-icon"><use href="#icon-users"></use></svg> 冒險小隊名單 (<span id="lobbyMemberCount">1</span>/10)</h3>
                 <span class="card-tip">隊長可隨時啟程，1~10人皆可出發（職業可重複選擇）</span>
               </div>
             </div>
@@ -122,12 +267,12 @@
             <div class="lobby-footer">
               <div id="leaderStartArea" class="leader-actions">
                 <button id="btnStartGame" class="btn btn-danger btn-large full-width" disabled>
-                  🚀 全員就緒，出發探險！
+                  <svg class="svg-icon"><use href="#icon-sword"></use></svg> 全員就緒，出發探險！
                 </button>
                 <p id="startRequirementText" class="start-tip">尚有隊友未完成選職</p>
               </div>
               <div id="memberWaitArea" class="member-actions hidden">
-                <div class="pulse-waiting">⏳ 等待隊長啟程出發...</div>
+                <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 等待隊長啟程出發...</div>
               </div>
             </div>
           </div>
@@ -135,7 +280,7 @@
           <!-- 職業選擇面版 -->
           <div class="card roles-card">
             <div class="card-header">
-              <h3>🎭 選擇你的英雄職業 (各職業唯一)</h3>
+              <h3><svg class="svg-icon"><use href="#icon-users"></use></svg> 選擇你的英雄職業 (各職業唯一)</h3>
               <span class="card-tip">點擊卡片選擇職業</span>
             </div>
             <div id="roleSelectionGrid" class="roles-grid">
@@ -146,50 +291,30 @@
       </section>
 
       <!-- 視圖 2.5：深淵啟程開場畫面 -->
-      <section id="viewPrologue" class="view-panel">
-        <div class="card prologue-card">
-          <div class="prologue-icon">🗝️ 🏰 ⚡</div>
-          <h2 id="prologueTitle" class="prologue-title">【深淵啟程・命運之扉開啟】</h2>
-          <div id="prologueTextBody" class="prologue-text-body">
-            <p>厚重的黑曜石大門在刺耳的摩擦聲中緩緩敞開，古老腐朽的塵埃隨之撲面而來。</p>
-            <p>火把微弱的橘光照亮了腳下斑駁的石階，空氣中瀰漫著潮濕的青苔、生鏽鐵器與隱約的血腥氣味。</p>
-            <p>身後的退路已被封死，冒險小隊握緊了手中的武器與符文，深吸一口氣，正式踏入這座沉睡千年的深淵地城！</p>
-          </div>
-          <div class="prologue-actions">
-            <button id="btnSkipPrologue" class="btn btn-primary btn-large">
-              ⚔️ 踏入深淵・展開冒險
-            </button>
-            <div id="prologueCountdown" class="pulse-waiting">⏳ 命運之輪轉動中... (7 秒後自動踏入)</div>
-          </div>
-        </div>
-      </section>
+      <section id="viewPrologue" class="view-panel" aria-label="開場演出"></section>
 
       <!-- 視圖 3：路線分歧抉擇畫面 -->
-      <section id="viewRoute" class="view-panel">
-        <div class="card route-card">
+      <section id="viewRoute" class="view-panel exploration-section view-gated-hidden">
+        <div class="exploration-content">
           <div class="route-header">
             <div class="floor-badge">第 <span id="routeFloorNum">1</span> 層</div>
             <h2 id="routeMainTitle">【第 <span id="routeFloorHeaderNum">1</span> 層・迷霧分歧點】</h2>
-            <div class="route-atmosphere-text">
-              <p>腳下的石磚路在此處斷裂，前方地勢錯綜複雜，瀰漫著不詳的陰暗薄霧。</p>
-              <p>隱約間能聽見遠處傳來的低沉嘶吼、風穿過石隙的尖銳呼嘯，甚至還有金屬反光的微弱閃爍……</p>
-              <p class="route-lead-warning" id="routeVoteDescText">機遇與毀滅僅有一線之隔，請全員共同投票決定前進方向！（15 秒倒數）</p>
-            </div>
+            <div id="routeAtmosphereText" class="exploration-story"></div>
             <div class="buff-highlight-wrap">
               <span class="buff-highlight">本層敵方強度加成：+<span id="routeDiffPercent">0</span>%</span>
             </div>
-            <div id="routeTimerBar" class="timer-container">
+            <div id="routeTimerBar" class="timer-container hidden">
               <div class="timer-bar" id="routeTimerProgress"></div>
-              <span class="timer-text" id="routeTimerText">倒數 15 秒</span>
+              <span class="timer-text" id="routeTimerText"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 倒數 15 秒</span>
             </div>
           </div>
 
-          <div id="routeStatusText" class="route-prompt">🗳️ 全體存活隊友共同投票（每人限投 1 票，倒數結束最高票前進）：</div>
+          <div id="routeStatusText" class="route-prompt hidden"></div>
 
           <!-- 全體隊員投票狀態標籤欄 -->
-          <div id="routeVotersStatusList" class="route-voters-status-list"></div>
+          <div id="routeVotersStatusList" class="route-voters-status-list hidden"></div>
 
-          <div id="routeOptionsGrid" class="route-grid">
+          <div id="routeOptionsGrid" class="route-grid hidden">
             <!-- 4 條路線按鈕，每張按鈕即時顯示即時得票數與投票玩家 -->
           </div>
         </div>
@@ -199,28 +324,43 @@
       <section id="viewTransition" class="view-panel">
         <div class="card transition-card">
           <h1 id="transitionTypewriterTitle" class="typewriter-title">將進入第 1 層</h1>
-          <div class="transition-route-tag" id="transitionRouteTag">🐾 路線：羊腸小徑</div>
+          <div class="transition-route-tag" id="transitionRouteTag"><svg class="svg-icon"><use href="#icon-arrow"></use></svg> 路線：羊腸小徑</div>
           <div class="transition-story-box">
             <div id="transitionStoryTitle" class="transition-story-title">【羊腸小徑】</div>
             <p id="transitionStoryText" class="transition-story-text">正在撥開迷霧探索前路...</p>
           </div>
           <div class="transition-footer">
-            <div class="pulse-waiting">⏳ 正在深入深淵迷宮...</div>
+            <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 正在深入深淵迷宮...</div>
           </div>
         </div>
       </section>
 
       <!-- 視圖 4：事件卡片 (寶箱 / 陷阱) -->
       <section id="viewEvent" class="view-panel">
+        <div id="trapDiscoverySection" class="exploration-trap hidden">
+          <div id="trapDiscoveryStory" class="exploration-trap-story" aria-live="off"></div>
+        </div>
+        <div id="chestDiscoverySection" class="exploration-chest hidden">
+          <div id="chestDiscoveryStory" class="exploration-chest-story" aria-live="off"></div>
+          <div id="chestInteractionArea" class="exploration-chest-stage hidden">
+            <div id="chestWorldVisual" class="exploration-chest-visual" aria-hidden="true"></div>
+            <div class="exploration-chest-actions">
+              <button id="btnOpenChest" class="presentation-chest-btn" type="button" disabled>
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chest"></use></svg>
+                <span>開啟寶箱</span>
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="card event-card" id="eventCardBox">
-          <div class="event-icon" id="eventIcon">🎁</div>
+          <div class="event-icon" id="eventIcon"><svg class="svg-icon svg-hero-icon"><use href="#icon-chest"></use></svg></div>
           <h2 id="eventTitle">發現遠古寶箱！</h2>
           <div id="eventStoryText" class="event-story-text"></div>
           <div id="eventDetails" class="event-details">
             <!-- 動態事件內容 -->
           </div>
           <div class="event-footer">
-            <div class="pulse-waiting">⏳ 整理裝備中，即將前往下一層...</div>
+            <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 整理裝備中，即將前往下一層...</div>
           </div>
         </div>
       </section>
@@ -233,21 +373,22 @@
             <div class="monster-header">
               <div class="monster-badge">第 <span id="battleFloorNum">1</span> 層 · 第 <span id="battleRoundNum">1</span> 回合</div>
               <div class="round-timer" id="battleTimerWrap">
-                ⏱️ 行動倒數：<span id="battleTimerCount">30</span>s
+                <svg class="svg-icon"><use href="#icon-timer"></use></svg> 行動倒數：<span id="battleTimerCount">30</span>s
               </div>
             </div>
 
             <div class="monster-body">
               <div class="monster-avatar-wrap" id="monsterAvatarWrap">
-                <div class="monster-avatar" id="monsterAvatar">👾</div>
+                <div class="monster-avatar" id="monsterAvatar"><svg class="svg-icon svg-hero-icon"><use href="#icon-sword"></use></svg></div>
                 <div id="monsterSlashOverlay" class="slash-overlay"></div>
                 <div id="monsterMagicOverlay" class="magic-overlay"></div>
+                <div id="monsterPixelFx" class="pixel-fx-container"></div>
                 <div id="monsterFloatingContainer" class="floating-text-container"></div>
               </div>
               <div class="monster-info">
                 <div class="monster-title-row">
                   <h2 id="monsterName">地底熔岩巨像</h2>
-                  <div id="monsterResTag" class="res-tag res-phys">🛡️ 高階物理抗性 (-70%)</div>
+                  <div id="monsterResTag" class="res-tag res-phys"><svg class="svg-icon"><use href="#icon-shield"></use></svg> 高階物理抗性 (-70%)</div>
                 </div>
                 <p id="monsterDesc" class="monster-desc">岩石外殼極為厚重！</p>
                 
@@ -276,11 +417,12 @@
             </div>
           </div>
 
+
           <!-- 戰況交鋒即時特寫廣播面板 -->
           <div id="battleNarrativeBox" class="card battle-narrative-card hidden">
             <div class="narrative-header">
-              <span class="narrative-tag">⚔️ 戰況交鋒即時特寫</span>
-              <span class="narrative-status-note">📜 戰況敘述進行中，行動準備中...</span>
+              <span class="narrative-tag"><svg class="svg-icon"><use href="#icon-sword"></use></svg> 戰況交鋒即時特寫</span>
+              <span class="narrative-status-note"><svg class="svg-icon"><use href="#icon-log"></use></svg> 戰況敘述進行中，行動準備中...</span>
             </div>
             <div id="battleNarrativeText" class="battle-narrative-text"></div>
           </div>
@@ -288,8 +430,8 @@
           <!-- 中間：隊友全員即時狀態欄 -->
           <div class="card teammates-card">
             <div class="card-header mini-header">
-              <h4>👥 冒險隊友狀態</h4>
-              <span id="shieldNoticeBadge" class="buff-badge hidden">🛡️ 壁壘守護生效中</span>
+              <h4><svg class="svg-icon"><use href="#icon-users"></use></svg> 冒險隊友狀態</h4>
+              <span id="shieldNoticeBadge" class="buff-badge hidden"><svg class="svg-icon"><use href="#icon-shield"></use></svg> 壁壘守護生效中</span>
             </div>
             <div id="battleTeammatesGrid" class="teammates-grid">
               <!-- 動態隊友卡片 -->
@@ -300,7 +442,7 @@
           <div class="card player-action-card" id="playerActionCard">
             <div class="action-card-header">
               <div class="player-header-left">
-                <span id="myRoleEmoji">🛡️</span>
+                <span id="myRoleEmoji"></span>
                 <span id="myRoleName">戰士</span>
                 <span class="player-hp-summary" id="myHpSummary">HP: 120/120</span>
                 <span class="player-atk-summary" id="myAtkSummary">+0 攻</span>
@@ -315,6 +457,22 @@
             <div id="mySkillsRow" class="skills-row">
               <!-- 動態技能按鈕 -->
             </div>
+
+            <!-- 技能鎖定與確認操作列 (SELECTING -> SELECTED -> CONFIRM -> LOCKED -> ALL PLAYERS LOCKED) -->
+            <div id="skillSelectionBar" class="skill-selection-bar">
+              <div class="selection-summary-left">
+                <span id="selectionPromptText" class="selection-prompt-text">請點選上方技能進行選擇</span>
+                <span id="selectionTargetText" class="selection-target-text hidden"></span>
+              </div>
+              <div class="selection-action-buttons">
+                <button id="btnConfirmLock" class="btn btn-primary btn-lock" disabled>
+                  <svg class="svg-icon"><use href="#icon-lock"></use></svg> 確定鎖定 (CONFIRM)
+                </button>
+                <button id="btnUnlockAction" class="btn btn-secondary btn-unlock hidden">
+                  <svg class="svg-icon"><use href="#icon-unlock"></use></svg> 取消鎖定 (UNLOCK)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -322,15 +480,17 @@
         <div class="card battle-log-card floating-log-card" id="battleLogCard">
           <div class="card-header mini-header">
             <div class="battle-log-title">
-              <span>📜 戰況事件表</span>
+              <span><svg class="svg-icon"><use href="#icon-log"></use></svg> 戰況事件表</span>
             </div>
             <div class="battle-log-actions">
-              <button id="btnToggleLog" class="btn btn-secondary btn-tiny" title="折疊/展開事件表">折疊</button>
+              <button id="btnToggleLog" class="btn btn-secondary btn-tiny" title="折疊/展開事件表">
+                <svg class="svg-icon" id="logToggleIcon"><use href="#icon-collapse"></use></svg> <span id="logToggleText">折疊</span>
+              </button>
               <button id="btnClearLog" class="btn btn-secondary btn-tiny" title="清空當前事件表記錄">清空</button>
             </div>
           </div>
           <div id="combatLogWindow" class="log-window battle-log-window">
-            <div class="log-line info">⚔️ 戰鬥開始！請全體隊員下達行動指令。</div>
+            <div class="log-line info">戰鬥開始！請全體隊員下達行動指令。</div>
           </div>
         </div>
       </section>
@@ -338,7 +498,7 @@
       <!-- 視圖 6：深淵休息站 (每5層 Checkpoint) -->
       <section id="viewCheckpoint" class="view-panel">
         <div class="card checkpoint-card">
-          <div class="checkpoint-hero">✨ 🏰 ⛲</div>
+          <div class="checkpoint-hero"><svg class="svg-icon svg-hero-icon"><use href="#icon-sparkle"></use></svg></div>
           <h2>【第 <span id="cpFloorNum">5</span> 層 - 深淵休息站】</h2>
           <p class="checkpoint-desc">
             恭喜小隊成功突破至此！前方湧現神聖結界泉水。<br>
@@ -347,14 +507,14 @@
 
           <div id="cpLeaderControls" class="checkpoint-actions">
             <button id="btnCpContinue" class="btn btn-success btn-large">
-              🔥 全員回滿血，繼續挑戰深淵！
+              <svg class="svg-icon"><use href="#icon-sparkle"></use></svg> 全員回滿血，繼續挑戰深淵！
             </button>
             <button id="btnCpEnd" class="btn btn-warning btn-large">
-              🏆 榮耀結算，滿載寶物安全撤出！
+              <svg class="svg-icon"><use href="#icon-flag"></use></svg> 榮耀結算，滿載寶物安全撤出！
             </button>
           </div>
           <div id="cpMemberNotice" class="pulse-waiting hidden">
-            ⏳ 等待隊長做出前進或撤退的抉擇...
+            <svg class="svg-icon"><use href="#icon-timer"></use></svg> 等待隊長做出前進或撤退的抉擇...
           </div>
         </div>
       </section>
@@ -362,7 +522,7 @@
       <!-- 視圖 7：全滅結算 / 勝利結算 -->
       <section id="viewEnd" class="view-panel">
         <div class="card end-card" id="endCardBox">
-          <div class="end-icon" id="endIcon">🏆</div>
+          <div class="end-icon" id="endIcon"><svg class="svg-icon svg-hero-icon"><use href="#icon-target"></use></svg></div>
           <h2 id="endTitle">冒險結束</h2>
           <p id="endSubtitle" class="end-subtitle"></p>
           <div id="endStatsBox" class="end-stats">
@@ -370,7 +530,7 @@
           </div>
           <div class="end-actions">
             <button id="btnRestartLobby" class="btn btn-primary btn-large">
-              🔄 重回大廳，再次組隊
+              <svg class="svg-icon"><use href="#icon-cooldown"></use></svg> 重回大廳，再次組隊
             </button>
           </div>
         </div>
@@ -393,15 +553,15 @@
     <!-- 結束戰鬥操作 Modal -->
     <div id="endBattleModal" class="modal-overlay hidden">
       <div class="modal-card">
-        <h3>🏳️ 放棄挑戰 / 中止冒險</h3>
+        <h3><svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰 / 中止冒險</h3>
         <p style="color: var(--color-text-secondary); font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px;">
           確定要提前中止本次地城冒險嗎？<br>
-          <strong style="color: var(--color-danger);">⚠️ 注意：未滿 5 層中途結束將直接判定為【挑戰失敗】！</strong><br>
+          <strong style="color: var(--color-danger);"><svg class="svg-icon"><use href="#icon-trap"></use></svg> 注意：未滿 5 層中途結束將直接判定為【挑戰失敗】！</strong><br>
           只有突破第 5 層抵達「深淵休息站」後，方可選擇安全撤退並保留榮耀。
         </p>
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
           <button id="btnConfirmRetreat" class="btn btn-danger full-width">
-            🏳️ 確認放棄，判定挑戰失敗
+            <svg class="svg-icon"><use href="#icon-flag"></use></svg> 確認放棄，判定挑戰失敗
           </button>
         </div>
         <button id="btnCancelEndBattle" class="btn btn-secondary full-width">返回戰鬥</button>
@@ -413,16 +573,16 @@
       <div class="modal-card avatar-modal">
         <div class="modal-header">
           <div>
-            <h3>🖼️ 自訂冒險者頭貼</h3>
-            <p class="modal-subtitle">挑選喜愛的 Emoji 或自由上傳照片作為專屬頭貼</p>
+            <h3><svg class="svg-icon"><use href="#icon-user"></use></svg> 自訂冒險者頭貼</h3>
+            <p class="modal-subtitle">挑選喜愛的圖樣或自由上傳照片作為專屬頭貼</p>
           </div>
-          <button type="button" class="btn-close-modal" id="btnCloseAvatarModal">✕</button>
+          <button type="button" class="btn-close-modal" id="btnCloseAvatarModal" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
         </div>
 
         <!-- 即時預覽區 -->
         <div class="avatar-live-preview-section">
           <div class="avatar-big-preview-wrap">
-            <div class="avatar-big-preview" id="modalAvatarPreview">👤</div>
+            <div class="avatar-big-preview" id="modalAvatarPreview"><svg class="svg-icon svg-large"><use href="#icon-user"></use></svg></div>
           </div>
           <div class="preview-meta">
             <span class="preview-title">頭貼即時預覽</span>
@@ -432,23 +592,23 @@
 
         <!-- 標籤切換 -->
         <div class="avatar-tabs">
-          <button type="button" class="avatar-tab active" id="tabHeroBtn" data-tab="hero">🎭 職業原本頭貼</button>
-          <button type="button" class="avatar-tab" id="tabEmojiBtn" data-tab="emoji">😀 表情符號</button>
-          <button type="button" class="avatar-tab" id="tabUploadBtn" data-tab="upload">📁 上傳照片</button>
+          <button type="button" class="avatar-tab active" id="tabHeroBtn" data-tab="hero"><svg class="svg-icon"><use href="#icon-ready"></use></svg> 職業原本頭貼</button>
+          <button type="button" class="avatar-tab" id="tabEmojiBtn" data-tab="emoji"><svg class="svg-icon"><use href="#icon-sparkle"></use></svg> 表情符號</button>
+          <button type="button" class="avatar-tab" id="tabUploadBtn" data-tab="upload"><svg class="svg-icon"><use href="#icon-log"></use></svg> 上傳照片</button>
         </div>
 
         <!-- 分頁 0: 職業原本頭貼 -->
         <div class="avatar-tab-content active" id="tabHeroContent">
           <div class="hero-role-avatar-container">
             <div id="heroRoleOptionCard" class="hero-role-option-card" title="點擊選用所選職業官方頭貼">
-              <div class="hero-role-preview-circle" id="heroRoleOptionPreview">👤</div>
+              <div class="hero-role-preview-circle" id="heroRoleOptionPreview"><svg class="svg-icon svg-large"><use href="#icon-user"></use></svg></div>
               <div class="hero-role-option-details">
                 <div class="hero-role-option-title" id="heroRoleOptionTitle">職業官方專屬頭貼</div>
                 <div class="hero-role-option-desc" id="heroRoleOptionDesc">自動隨你選擇的職業切換專屬立繪頭像</div>
                 <span class="hero-role-badge-tag" id="heroRoleOptionBadge">點擊選用</span>
               </div>
             </div>
-            <p class="hero-role-help-note">💡 說明：選甚麼職業即會使用該職業專屬頭貼，無法跨職業使用其他職業立繪。</p>
+            <p class="hero-role-help-note">說明：選甚麼職業即會使用該職業專屬頭貼，無法跨職業使用其他職業立繪。</p>
           </div>
         </div>
 
@@ -456,19 +616,19 @@
         <div class="avatar-tab-content" id="tabEmojiContent">
           <div class="emoji-picker-container">
             <div class="emoji-categories">
-              <span class="emoji-cat-title">🛡️ 冒險與職業</span>
+              <span class="emoji-cat-title"><svg class="svg-icon"><use href="#icon-shield"></use></svg> 冒險與職業</span>
               <div class="emoji-grid" id="emojiGridAdventure"></div>
 
-              <span class="emoji-cat-title">🐾 幻獸與靈魂</span>
+              <span class="emoji-cat-title"><svg class="svg-icon"><use href="#icon-summon"></use></svg> 幻獸與靈魂</span>
               <div class="emoji-grid" id="emojiGridCreatures"></div>
 
-              <span class="emoji-cat-title">⚔️ 符文與神兵</span>
+              <span class="emoji-cat-title"><svg class="svg-icon"><use href="#icon-sword"></use></svg> 符文與神兵</span>
               <div class="emoji-grid" id="emojiGridWeapons"></div>
             </div>
 
             <div class="custom-emoji-row">
-              <span>或輸入任意 Emoji：</span>
-              <input type="text" id="customEmojiInput" placeholder="例如 🦄" maxlength="4">
+              <span>或輸入自訂圖示：</span>
+              <input type="text" id="customEmojiInput" placeholder="輸入自訂 Emoji" maxlength="4">
               <button type="button" id="btnApplyCustomEmoji" class="btn btn-secondary btn-tiny">套用</button>
             </div>
           </div>
@@ -477,17 +637,19 @@
         <!-- 分頁 2: 上傳照片 -->
         <div class="avatar-tab-content" id="tabUploadContent">
           <div class="upload-dropzone" id="avatarDropzone">
-            <div class="dropzone-icon">📷</div>
+            <div class="dropzone-icon"><svg class="svg-icon svg-hero-icon"><use href="#icon-user"></use></svg></div>
             <p class="dropzone-text"><strong>點擊選擇圖片</strong> 或拖放照片至此</p>
             <p class="dropzone-sub">支援 JPG、PNG、WebP、GIF（自動裁切為圓形高清頭貼）</p>
             <input type="file" id="avatarFileInput" accept="image/*" style="display: none;">
-            <button type="button" id="btnBrowseFile" class="btn btn-secondary btn-small">📁 瀏覽本地相片</button>
+            <button type="button" id="btnBrowseFile" class="btn btn-secondary btn-small">
+              <svg class="svg-icon"><use href="#icon-log"></use></svg> 瀏覽本地相片
+            </button>
           </div>
         </div>
 
         <!-- 底部按鈕 -->
         <div class="modal-footer">
-          <button type="button" id="btnResetAvatarDefault" class="btn btn-ghost btn-small">↺ 重設為職業預設</button>
+          <button type="button" id="btnResetAvatarDefault" class="btn btn-ghost btn-small"><svg class="svg-icon"><use href="#icon-cooldown"></use></svg> 重設為職業預設</button>
           <div class="modal-footer-right">
             <button type="button" id="btnCancelAvatar" class="btn btn-secondary btn-small">取消</button>
             <button type="button" id="btnSaveAvatar" class="btn btn-primary btn-small">確認套用</button>
@@ -500,7 +662,7 @@
     <div id="equipDropModal" class="modal-overlay hidden">
       <div class="modal-card equip-modal-card">
         <div class="equip-modal-header">
-          <span class="equip-modal-icon">🎁</span>
+          <span class="equip-modal-icon"><svg class="svg-icon svg-large"><use href="#icon-chest"></use></svg></span>
           <div>
             <h3 id="equipModalTitle">獲得戰利品裝備！</h3>
             <p id="equipModalSubtitle" class="equip-modal-subtitle">請決定是否穿戴此裝備（每位角色上限 3 件）：</p>
@@ -510,8 +672,8 @@
         <!-- 掉落新裝備展示卡 -->
         <div class="drop-item-card" id="dropItemCard">
           <div class="drop-item-header">
-            <span class="drop-item-badge">✨ 新獲得裝備</span>
-            <span class="drop-item-type" id="dropItemType">⚔️ 武器</span>
+            <span class="drop-item-badge"><svg class="svg-icon"><use href="#icon-sparkle"></use></svg> 新獲得裝備</span>
+            <span class="drop-item-type" id="dropItemType"><svg class="svg-icon"><use href="#icon-sword"></use></svg> 武器</span>
           </div>
           <div class="drop-item-name" id="dropItemName">鋼鐵聖劍</div>
           <div class="drop-item-desc" id="dropItemDesc">攻擊傷害 +5</div>
@@ -520,8 +682,8 @@
         <!-- 當前已裝備列表 (上限 3 件) -->
         <div class="current-equips-section">
           <div class="current-equips-header">
-            <span>🎒 當前已穿戴裝備 (<span id="currentEquipCount">0</span>/3 件)</span>
-            <span class="equip-stack-hint">💡 相同裝備可重複穿戴且數值疊加</span>
+            <span><svg class="svg-icon"><use href="#icon-shield"></use></svg> 當前已穿戴裝備 (<span id="currentEquipCount">0</span>/3 件)</span>
+            <span class="equip-stack-hint">相同裝備可重複穿戴且數值疊加</span>
           </div>
           <div id="currentEquipsList" class="current-equips-list">
             <!-- 動態填入當前裝備 -->
@@ -530,7 +692,7 @@
 
         <!-- 滿 3 件時替換提示 -->
         <div id="equipReplaceNotice" class="equip-replace-notice hidden">
-          ⚠️ 裝備欄已滿 3 件！若要穿上新裝備，請點選上方欲替換卸下的舊裝備。
+          <svg class="svg-icon"><use href="#icon-trap"></use></svg> 裝備欄已滿 3 件！若要穿上新裝備，請點選上方欲替換卸下的舊裝備。
         </div>
 
         <!-- 操作按鈕 -->
@@ -546,10 +708,10 @@
       <div class="modal-card minion-detail-modal">
         <div class="modal-header">
           <div>
-            <h3 id="minionDetailTitle">🐾 僕從詳細狀態</h3>
+            <h3 id="minionDetailTitle"><svg class="svg-icon"><use href="#icon-summon"></use></svg> 僕從詳細狀態</h3>
             <p id="minionDetailSubtitle" class="modal-subtitle">召喚物隊伍即時生命與戰鬥數值</p>
           </div>
-          <button type="button" class="btn-close-modal" id="btnCloseMinionModal">✕</button>
+          <button type="button" class="btn-close-modal" id="btnCloseMinionModal" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
         </div>
         <div id="minionDetailList" class="minion-detail-list">
           <!-- 動態填入各召喚僕從詳細資訊 -->
@@ -567,11 +729,11 @@
           <div class="role-detail-header-info">
             <div id="roleDetailAvatarWrap" class="role-detail-avatar-wrap"></div>
             <div>
-              <h3 id="roleDetailTitle">🛡️ 戰士 (Warrior)</h3>
+              <h3 id="roleDetailTitle"><svg class="svg-icon"><use href="#icon-shield"></use></svg> 戰士 (Warrior)</h3>
               <p id="roleDetailSubtitle" class="modal-subtitle">角色特性與詳細技能數值解析</p>
             </div>
           </div>
-          <button type="button" class="btn-close-modal" id="btnCloseRoleDetailModal">✕</button>
+          <button type="button" class="btn-close-modal" id="btnCloseRoleDetailModal" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
         </div>
         <div id="roleDetailBody" class="role-detail-body">
           <!-- 動態填入被動、技能與專屬裝備詳細說明 -->
@@ -589,8 +751,8 @@
     <!-- 收到其他玩家新訊息時維持30秒的氣泡 -->
     <div id="chatToastBubble" class="chat-speech-bubble hidden">
       <div class="chat-bubble-header">
-        <span class="chat-bubble-sender" id="chatBubbleSender">💬 隊友發言</span>
-        <button id="btnCloseChatBubble" class="chat-bubble-close" title="關閉氣泡">✕</button>
+        <span class="chat-bubble-sender" id="chatBubbleSender"><svg class="svg-icon"><use href="#icon-log"></use></svg> 隊友發言</span>
+        <button id="btnCloseChatBubble" class="chat-bubble-close" title="關閉氣泡" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
       </div>
       <div class="chat-bubble-body" id="chatBubbleText">訊息內容...</div>
       <div class="chat-bubble-timer-bar"></div>
@@ -600,9 +762,9 @@
     <div id="chatPopupCard" class="chat-popup-card hidden">
       <div class="chat-popup-header">
         <div class="chat-popup-title">
-          <span>💬 小隊聊天室</span>
+          <span><svg class="svg-icon"><use href="#icon-log"></use></svg> 小隊聊天室</span>
         </div>
-        <button id="btnCloseChatPopup" class="btn-circle-close" title="收起聊天室">✕</button>
+        <button id="btnCloseChatPopup" class="btn-circle-close" title="收起聊天室" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
       </div>
       <div class="chat-messages-area" id="chatMessageList">
         <div class="chat-empty-hint">尚無小隊發言，點擊下方輸入框開始溝通！</div>
@@ -618,6 +780,90 @@
       <img src="/icon/chat.svg" alt="Chat" class="floating-chat-icon">
       <span id="chatUnreadBadge" class="chat-unread-badge hidden">0</span>
     </button>
+  </div>
+
+  <!-- ==========================================
+       Layer 4: Presentation Root (P2-R1 Section 3 & 72)
+       ========================================== -->
+  <div id="presentationRoot" class="presentation-root">
+    <div id="floorIntroOverlay" class="presentation-floor hidden">
+      <div class="presentation-floor-content">
+        <div id="floorIntroNumber" class="presentation-floor-number"></div>
+        <h1 id="floorIntroTitle" class="presentation-floor-title">迷霧分歧點</h1>
+      </div>
+    </div>
+    <!-- Game Start Overlay: Game Title & Full Screen Dark Prologue (P2-R1.1 Section 3) -->
+    <div id="gameStartOverlay" class="presentation-curtain hidden">
+      <div id="gameTitleContainer" class="presentation-game-title hidden">
+        <h1 class="presentation-game-title-zh">地城深淵</h1>
+        <div class="presentation-game-title-en" lang="en">DUNGEON ABYSS</div>
+      </div>
+      <div id="prologuePresentationContainer" class="presentation-prologue hidden">
+        <div id="prologuePresBody" class="presentation-prologue-body"></div>
+      </div>
+    </div>
+
+    <!-- Combat Action Banner Overlay (Player vs Boss / Boss vs Party) -->
+    <div id="combatActionBanner" class="combat-action-banner hidden">
+      <div class="combat-banner-grid">
+        <div id="combatBannerActor" class="combat-banner-actor">
+          <div id="combatBannerActorAvatar" class="combat-banner-portrait-wrap"></div>
+          <div id="combatBannerActorName" class="combat-banner-actor-name">戰士</div>
+        </div>
+        <div id="combatBannerCenter" class="combat-banner-center">
+          <div id="combatBannerBadge" class="combat-banner-badge">【玩家行動】</div>
+          <div id="combatBannerTitle" class="combat-banner-title">堅定斬擊</div>
+          <div id="combatBannerTags" class="combat-banner-tags"></div>
+          <div id="combatBannerHiddenNote" class="combat-banner-hidden-note hidden">酸霧侵蝕裝備，全隊裝備效果降低 50%</div>
+        </div>
+        <div id="combatBannerTarget" class="combat-banner-target">
+          <div id="combatBannerTargetAvatar" class="combat-banner-portrait-wrap"></div>
+          <div id="combatBannerTargetName" class="combat-banner-target-name">熔岩巨像</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trap Presentation Overlay (Danger Cue & Victims) -->
+    <div id="trapPresentationOverlay" class="presentation-trap hidden" role="status" aria-label="陷阱演出">
+      <div class="presentation-trap-stage">
+        <div class="presentation-trap-title">TRAP</div>
+        <div id="trapVictimsContainer" class="presentation-trap-victims"></div>
+      </div>
+    </div>
+
+    <!-- Chest Presentation Overlay (Phase 4) -->
+    <div id="chestPresentationOverlay" class="presentation-chest hidden" role="status" aria-label="寶箱開啟與獎勵揭曉">
+      <div class="presentation-chest-stage">
+        <div id="presentationChestVisual" class="presentation-chest-box" aria-hidden="true"></div>
+        <div id="presentationRewardContent" class="presentation-reward-content hidden">
+          <div id="presentationRewardRarity" class="presentation-reward-rarity"></div>
+          <div id="presentationRewardTitle" class="presentation-reward-title"></div>
+          <div id="presentationRewardDesc" class="presentation-reward-desc"></div>
+          <div id="presentationRewardMeta" class="presentation-reward-meta"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boss Intro Overlay -->
+    <div id="bossIntroOverlay" class="boss-intro-overlay hidden">
+      <div class="boss-intro-backdrop"></div>
+      <div class="boss-intro-content">
+        <div id="bossIntroAvatar" class="boss-intro-avatar"></div>
+        <div id="bossIntroTitle" class="boss-intro-title"></div>
+        <div id="bossIntroSubtitle" class="boss-intro-subtitle"></div>
+      </div>
+    </div>
+
+    <!-- Round Start Overlay -->
+    <div id="roundStartOverlay" class="round-start-overlay hidden">
+      <div class="round-start-banner" id="roundStartBanner">
+        <span id="roundStartText" class="round-start-text">ROUND 1</span>
+        <span id="roundStartSub" class="round-start-sub">ADVENTURER TURN</span>
+      </div>
+    </div>
+
+    <!-- Top Presentation Floating FX Container -->
+    <div id="presentationFxContainer" class="presentation-fx-container"></div>
   </div>
 
   <!-- 全域畫面淡出淡入轉場遮罩 (約 1 秒) -->
@@ -636,6 +882,13 @@
   <!-- Socket.io 客戶端腳本 -->
   <script src="/socket.io/socket.io.js"></script>
   <!-- 主應用邏輯腳本 -->
+  <!-- Presentation 核心與設定腳本 (Single Source of Truth) -->
+  <script src="presentation-config.js"></script>
+  <script src="presentation-core.js"></script>
+  <script src="exploration.js"></script>
+  <script src="trap.js"></script>
+  <script src="chest.js"></script>
+  <script src="combat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

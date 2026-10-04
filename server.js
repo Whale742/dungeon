@@ -145,12 +145,12 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 4.1 隊長點擊踏入地城 (跳過開場)
+  // 4.1 Each client ACKs the complete opening; this event no longer skips it.
   socket.on('prologue:next', (callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.skipPrologue(socket.id);
+    const res = room.handlePrologueComplete(socket.id);
     if (typeof callback === 'function') callback(res);
   });
 
@@ -190,13 +190,81 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 6. 提交戰鬥行動
+  // 6. 戰鬥技能選擇與鎖定 / 取消鎖定
+  socket.on('battle:lock', ({ actionId, targetPlayerId }, callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.lockAction(socket.id, actionId, targetPlayerId);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('battle:unlock', (callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.unlockAction(socket.id);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 兼容舊版本提交戰鬥行動
   socket.on('battle:action', ({ actionId, targetPlayerId }, callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.submitAction(socket.id, actionId, targetPlayerId);
+    const res = room.lockAction ? room.lockAction(socket.id, actionId, targetPlayerId) : room.submitAction(socket.id, actionId, targetPlayerId);
     if (typeof callback === 'function') callback(res);
+  });
+
+  // 6.1 戰鬥演出隊列播放完畢確認
+  socket.on('battle:presentation_complete', (data) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    room.handlePresentationComplete(socket.id);
+  });
+
+  // 6.2 回合初效果演出完畢確認
+  socket.on('battle:round_start_complete', () => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    room.handleRoundStartComplete(socket.id);
+  });
+
+  // 6.25 技能選擇介面就緒（動畫退場、控制項啟用後啟動 30 秒計時，P2-R1.1 Section 6）
+  socket.on('battle:selection_ready', () => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    room.handleSelectionReady(socket.id);
+  });
+
+  // 6.3 路線互動就緒（選項進場完成、控制項啟用後啟動 15 秒計時，P2-R1.1 Section 5）
+  socket.on('route:interaction_ready', (data) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    room.handleRouteNarrativeDone(socket.id, data?.presentationId);
+  });
+
+  socket.on('trap:presentation_complete', (data) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) room.handleTrapPresentationComplete(socket.id, data?.presentationId);
+  });
+
+  socket.on('chest:presentation_complete', (data) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) room.handleChestPresentationComplete(socket.id, data?.presentationId);
+  });
+
+  socket.on('equipment:interaction_ready', (data) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) room.handleEquipmentInteractionReady(socket.id, data?.presentationId);
+  });
+
+  socket.on('chest:open', () => {
+    // Client clicked open chest; presentation runs locally and ACKs upon completion
   });
 
   // 7. 休息站抉擇

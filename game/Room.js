@@ -18,7 +18,8 @@ import {
   ROUTE_STORIES,
   BATTLE_NARRATIVES,
   getFloorDifficultyBonusPercent,
-  getFloorDifficultyMultiplier
+  getFloorDifficultyMultiplier,
+  getActionPriority
 } from './constants.js';
 
 export class Room {
@@ -31,6 +32,7 @@ export class Room {
     
     // 遊戲狀態機: 'LOBBY' | 'PROLOGUE' | 'CHOOSING_ROUTE' | 'TRANSITION' | 'EVENT' | 'IN_BATTLE' | 'CHECKPOINT' | 'GAME_OVER' | 'VICTORY'
     this.state = 'LOBBY';
+    this.selectionState = 'SELECTING'; // 'ROUND_START' | 'SELECTING' | 'RESOLVING'
     this.floor = 1;
     this.battlesInCurrentCycle = 0; // 每5層保底戰鬥計數器
     this.battleRound = 1;
@@ -47,11 +49,23 @@ export class Room {
     
     // 投票機制與裝備待領取狀態
     this.routeVotes = {}; // socket.id -> routeId
+    this.routePresentationId = 0;
+    this.trapPresentationId = 0;
+    this.chestPresentationId = 0;
     this.pendingDrop = null; // { drop, ownerId, ownerName, source }
     this.monsterStunnedThisRound = false;
     this.frenzyTeamDrainTurns = 0;
     this.frenzyTeamDrainNextTurn = false;
     this.isWolfSurrenderGameOver = false;
+
+    // 回合內臨時效果作用域（本回合有效，回合結束還原）
+    this.roundModifiers = {
+      equipmentEffectMultiplier: 1.0 // 1.0 = 正常 100%, 0.5 = 降低 50%
+    };
+
+    // 演出隊列客戶端同步確認集合與安全計時器
+    this.pendingPresentationAcks = new Set();
+    this.presentationSafetyTimer = null;
 
     this.turnTimer = null;
     this.timerEndsAt = null;
@@ -80,6 +94,8 @@ export class Room {
     player.archerNoDodgeNextTurn = false;
     player.alcAcidEquipHalvedTurns = 0;
     player.alcAcidStack = 0;
+    player.tempHp = 0;
+    player.isLocked = false;
   }
 
   selectEquipOwner(matchingPlayers, drop = null) {
@@ -142,6 +158,8 @@ export class Room {
       customAvatar: cleanAvatar,
       hp: 100,
       maxHp: 100,
+      tempHp: 0,
+      isLocked: false,
       bonusAtk: 0,
       equips: [], // 上限 3 件裝備陣列
       equipCounts: {},
@@ -199,6 +217,25 @@ export class Room {
       if (this.state === 'IN_BATTLE') {
         player.action = 'skip';
         this.checkTurnCompletion();
+      }
+      if (this.state === 'PROLOGUE') {
+        this.pendingPresentationAcks.delete(socketId);
+        this.finishPrologueIfReady();
+      }
+      if (this.state === 'CHOOSING_ROUTE' && this.isNarrating) {
+        this.pendingPresentationAcks.delete(socketId);
+        this.finishRoutePresentationIfReady();
+      }
+      if (this.state === 'EVENT' && this.currentEvent?.type === 'trap') {
+        this.pendingPresentationAcks.delete(socketId);
+        this.finishTrapPresentationIfReady();
+      }
+      if (this.state === 'EVENT' && this.currentEvent?.type === 'treasure') {
+        this.pendingPresentationAcks.delete(socketId);
+        if (this.pendingDrop && this.pendingDrop.ownerId === socketId) {
+          this.pendingDrop = null;
+        }
+        this.finishChestPresentationIfReady();
       }
     }
 
@@ -262,6 +299,8 @@ export class Room {
     player.bonusAtk = 0;
     player.hp = CLASSES[roleKey].maxHp;
     player.maxHp = CLASSES[roleKey].maxHp;
+    player.tempHp = 0;
+    player.isLocked = false;
     
     const initialCooldowns = {};
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
@@ -288,27 +327,34 @@ export class Room {
     this.addLog(`📜 **${STORY_TEXTS.prologue.title}**`, 'info');
     STORY_TEXTS.prologue.paragraphs.forEach(p => this.addLog(p, 'info'));
 
-    // 7 秒後自動進入第 1 層路線選擇，隊長亦可點擊跳過開場
-    this.setTimer(7, () => {
-      if (this.state === 'PROLOGUE') {
-        this.startRouteSelection();
-      }
-    });
+    // Reuse the presentation ACK barrier. Story time never shares a turn timer,
+    // and the fastest client cannot advance a teammate's unfinished prologue.
+    this.clearTimer();
+    this.pendingPresentationAcks = new Set(
+      Object.values(this.players).filter(p => p.connected).map(p => p.id)
+    );
 
     this.broadcastState();
     return { success: true };
   }
 
-  skipPrologue(socketId) {
+  handlePrologueComplete(socketId) {
     if (this.state !== 'PROLOGUE') return { success: false, message: '目前不是開場階段' };
-    if (socketId !== this.leaderId) return { success: false, message: '只有隊長能跳過開場！' };
-    this.clearTimer();
-    this.startRouteSelection();
+    if (!this.players[socketId]?.connected) return { success: false, message: '玩家不存在或已斷線' };
+    this.pendingPresentationAcks.delete(socketId);
+    this.finishPrologueIfReady();
     return { success: true };
+  }
+
+  finishPrologueIfReady() {
+    if (this.state !== 'PROLOGUE' || this.pendingPresentationAcks.size > 0) return;
+    if (Object.values(this.players).some(p => p.connected)) this.startRouteSelection();
   }
 
   startRouteSelection() {
     this.clearTimer();
+    this.timerCallback = null;
+    this.pausedRemainingSeconds = null;
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) {
       this.handleGameOver();
@@ -316,26 +362,53 @@ export class Room {
     }
 
     this.state = 'CHOOSING_ROUTE';
+    this.isNarrating = true;
     this.currentEvent = null;
     this.currentTransition = null;
     this.routeVotes = {}; // 重置全體投票記錄
     this.currentRoutes = getRandomRoutes(4); // 每次從 6 個選項中隨機抽出 4 個
-    this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】請全員共同投票決定前進路線！（15 秒倒數）`, 'info');
-    
-    // 15 秒全員投票倒數計時器
+    this.routePresentationId += 1;
+    this.pendingPresentationAcks = new Set(
+      Object.values(this.players).filter(p => p.connected).map(p => p.id)
+    );
+    this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】正在探索前路迷霧...`, 'info');
+    this.broadcastState();
+
+    // No fixed-duration fallback may consume an unfinished player's choice time.
+  }
+
+  // 用戶端路線氛圍敘述文字演出完畢、選項進場可互動回調 (P2-R1.1 Section 5)
+  handleRouteNarrativeDone(socketId, presentationId) {
+    if (this.state !== 'CHOOSING_ROUTE' || !this.isNarrating) return;
+    if (presentationId !== this.routePresentationId || !this.players[socketId]?.connected) return;
+    this.pendingPresentationAcks.delete(socketId);
+    this.finishRoutePresentationIfReady();
+  }
+
+  finishRoutePresentationIfReady() {
+    if (this.state !== 'CHOOSING_ROUTE' || !this.isNarrating || this.pendingPresentationAcks.size) return;
+    if (!Object.values(this.players).some(p => p.connected)) return;
+    this.isNarrating = false;
+    this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！（15 秒倒數）`, 'info');
+    // 敘述結束、選項渲染並可互動後，才正式啟動 15 秒全員投票倒數計時器
     this.setTimer(15, () => {
       if (this.state === 'CHOOSING_ROUTE') {
         this.tallyRouteVotes();
       }
-    });
-
+    }, true);
+    if (this.isPaused) {
+      clearTimeout(this.turnTimer);
+      this.turnTimer = null;
+      this.pausedRemainingSeconds = 15;
+    }
     this.broadcastState();
   }
 
   voteRoute(socketId, routeId) {
     if (this.state !== 'CHOOSING_ROUTE') return { success: false, message: '目前非路線投票階段' };
+    if (this.isNarrating || this.isPaused) return { success: false, message: '路線演出尚未完成或遊戲暫停中' };
     const player = this.players[socketId];
-    if (!player) return { success: false, message: '玩家不存在' };
+    if (!player?.connected) return { success: false, message: '玩家不存在或已斷線' };
     if (player.hp <= 0) return { success: false, message: '已陣亡玩家無法參與投票' };
 
     const activeRoutes = this.currentRoutes || ROUTES;
@@ -400,22 +473,41 @@ export class Room {
     this.resolveRouteChoice(chosenRoute);
   }
 
-  // 計算玩家實際有效攻擊加成（煉金酸蝕裝備減半/無效期間，戰士雙手劍及詩人精靈木提琴免疫減半）
+  // 計算玩家實際有效攻擊加成（鍊金強酸裝備減半期間，戰士雙手劍及詩人精靈木提琴免疫減半）
   getEffectiveBonusAtk(pl) {
     if (!pl) return 0;
-    let bonus = pl.bonusAtk || 0;
-    if (pl.alcAcidEquipHalvedTurns > 0) {
-      const ratio = (pl.alcAcidStack >= 2) ? 1.0 : 0.5; // 最高到 100% 無效
-      // 戰士雙手劍及詩人精靈木提琴不受效果減半/無效影響
-      const affectedEquipAtk = (pl.equips || []).reduce((sum, eq) => {
-        if (eq.id === 'w_greatsword' || eq.name === '雙手劍' || eq.id === 'b_violin' || eq.name === '精靈木提琴') {
-          return sum;
-        }
-        return sum + (eq.bonusAtk || 0);
-      }, 0);
-      bonus -= Math.floor(affectedEquipAtk * ratio);
+    const equipMult = this.roundModifiers?.equipmentEffectMultiplier ?? 1.0;
+    if (equipMult >= 1.0) {
+      return Math.max(0, pl.bonusAtk || 0);
     }
-    return Math.max(0, bonus);
+    // 當本回合裝備效果降低時（如強酸瓶降低 50%）：
+    let total = 0;
+    for (const eq of (pl.equips || [])) {
+      const bAtk = eq.bonusAtk || 0;
+      if (bAtk === 0) continue;
+      if (eq.id === 'w_greatsword' || eq.name === '雙手劍' || eq.id === 'b_violin' || eq.name === '精靈木提琴') {
+        total += bAtk; // 免疫減半
+      } else {
+        total += Math.floor(bAtk * equipMult);
+      }
+    }
+    return Math.max(0, total);
+  }
+
+  // 取得德魯伊召喚物計算用的有效總攻擊力 (druidTotalAtk)
+  // Base ATK (10) + Effective Equipment ATK + Current Form Modifier (-5 樹精, +20 狼人)
+  getDruidEffectiveAttack(druid, battleContext = {}) {
+    if (!druid) return 10;
+    const baseAtk = 10;
+    let formMod = 0;
+    if (druid.druidForm === 'werewolf') {
+      formMod = 20;
+    } else if (druid.druidForm === 'treant') {
+      formMod = -5;
+    }
+    const equipAtk = this.getEffectiveBonusAtk(druid);
+    const total = baseAtk + equipAtk + formMod;
+    return Math.max(1, total);
   }
 
   // 兼容舊介面與舊事件
@@ -471,23 +563,21 @@ export class Room {
     this.state = 'TRANSITION';
     this.currentTransition = {
       floor: this.floor,
-      title: `將進入第 ${this.floor} 層`,
+      title: `【前進路線・${route.name}】`,
       routeId: route.id,
       routeName: route.name,
       routeIcon: route.icon,
       outcomeType: isWeakenedBoss ? 'battle_weakened' : outcomeType,
       isWeakenedBoss: isWeakenedBoss,
-      storyTitle: outcomeData.title,
-      storyText: outcomeData.story
+      storyTitle: `【路線結算・${route.name}】`,
+      storyText: `小隊踏入【${route.name}】，正向第 ${this.floor} 層深處探索前行……`
     };
 
-    this.addLog(`📜 **${this.currentTransition.title}**（路線：${route.name}）`, 'info');
-    this.addLog(outcomeData.story, outcomeType === 'treasure' ? 'loot' : (outcomeType === 'trap' ? 'damage' : 'warning'));
-
+    this.addLog(`🧭 小隊決定前進：【${route.name}】`, 'info');
     this.broadcastState();
 
-    // 播放打字機標題與敘述轉場（持續 5 秒），隨後正式展開事件或戰鬥
-    this.setTimer(5, () => {
+    // 路線結算轉場（持續 2 秒），隨後正式展開事件或戰鬥 (Node 10 -> Node 11/12/13/14)
+    this.setTimer(2, () => {
       if (this.state === 'TRANSITION') {
         if (outcomeType === 'treasure') {
           this.handleTreasureEvent(outcomeData);
@@ -500,13 +590,19 @@ export class Room {
     });
   }
 
-  // 寶箱事件
+  // 寶箱事件 (Phase 4: 完整遵循 Discovery -> Chest Reveal -> Open -> Reward Reveal -> Equipment Decision)
   handleTreasureEvent(outcomeData = null) {
+    this.clearTimer();
+    this.timerCallback = null;
+    this.pausedRemainingSeconds = null;
     this.state = 'EVENT';
+    this.chestPresentationId += 1;
+    const hpBefore = this.getHpSnapshot();
     const healAmt = 25;
     for (const p of Object.values(this.players)) {
       if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + healAmt);
     }
+    const hpAfter = this.getHpSnapshot();
 
     const activeRoles = new Set(Object.values(this.players).map(p => p.role).filter(Boolean));
     const unplayedLoots = LOOT_TABLE.filter(l => !activeRoles.has(l.role));
@@ -523,15 +619,20 @@ export class Room {
         story: outcomeData ? outcomeData.story : '',
         healAmt: healAmt,
         drop: null,
+        discardedDrop: drop,
         ownerName: '無',
-        ownerId: null
+        ownerId: null,
+        presentationId: this.chestPresentationId,
+        hpBefore,
+        hpAfter,
+        details: [
+          `🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`,
+          `💨 沒玩家玩這個職業，系統幫你們把【${drop.name}】丟掉嘍`
+        ]
       };
-      this.addLog(`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`, 'loot');
-      this.addLog(`💨 沒玩家玩這個職業，系統幫你們把【${drop.name}】丟掉嘍`, 'warning');
+      this.pendingDrop = null;
+      this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
       this.broadcastState();
-      this.setTimer(4, () => {
-        this.advanceToNextFloorOrCheckpoint();
-      });
       return;
     }
 
@@ -544,14 +645,23 @@ export class Room {
       this.selectEquipOwner(Object.values(this.players).filter(p => p.hp > 0), drop) ||
       this.selectEquipOwner(Object.values(this.players), drop);
 
+    const details = equipOwner
+      ? [`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，等待 **${equipOwner.name}** 抉擇是否穿戴！`]
+      : [`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`];
+
     this.currentEvent = {
       type: 'treasure',
       title: outcomeData ? outcomeData.title : `🎁【第 ${this.floor} 層】發現遠古寶箱！`,
       story: outcomeData ? outcomeData.story : '',
       healAmt: healAmt,
       drop: drop,
+      discardedDrop: null,
       ownerName: equipOwner ? equipOwner.name : '未知',
-      ownerId: equipOwner ? equipOwner.id : null
+      ownerId: equipOwner ? equipOwner.id : null,
+      presentationId: this.chestPresentationId,
+      hpBefore,
+      hpAfter,
+      details
     };
 
     if (equipOwner) {
@@ -561,9 +671,42 @@ export class Room {
         ownerName: equipOwner.name,
         source: 'treasure'
       };
-      this.addLog(`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，等待 **${equipOwner.name}** 抉擇是否穿戴！`, 'loot');
+    } else {
+      this.pendingDrop = null;
+    }
 
-      // 設置 20 秒倒數等待玩家決定
+    this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
+    this.broadcastState();
+  }
+
+  handleChestPresentationComplete(socketId, presentationId) {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'treasure' ||
+        presentationId !== this.currentEvent.presentationId || !this.players[socketId]?.connected) return;
+    this.pendingPresentationAcks.delete(socketId);
+    this.finishChestPresentationIfReady();
+  }
+
+  finishChestPresentationIfReady() {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'treasure' || this.pendingPresentationAcks.size) return;
+    if (!Object.values(this.players).some(p => p.connected)) return;
+    if (!this.pendingDrop) {
+      if (this.currentEvent?.details) {
+        this.currentEvent.details.forEach(log => this.addLog(log, 'loot'));
+      }
+      this.advanceToNextFloorOrCheckpoint();
+    }
+  }
+
+  handleEquipmentInteractionReady(socketId, presentationId) {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'treasure' ||
+        presentationId !== this.currentEvent.presentationId || !this.players[socketId]?.connected) return;
+    if (this.pendingDrop && this.pendingDrop.ownerId === socketId) {
+      if (this.turnTimer) return;
+      this.pendingPresentationAcks.delete(socketId);
+      if (this.currentEvent?.details) {
+        this.currentEvent.details.forEach(log => this.addLog(log, 'loot'));
+      }
+      const drop = this.pendingDrop.drop;
       this.setTimer(20, () => {
         if (this.pendingDrop && this.state === 'EVENT') {
           this.addLog(`⏱️ 抉擇超時，已自動放棄【${drop.name}】。`, 'info');
@@ -572,19 +715,19 @@ export class Room {
           this.advanceToNextFloorOrCheckpoint();
         }
       });
-    } else {
-      this.addLog(`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`, 'loot');
-      this.setTimer(4, () => {
-        this.advanceToNextFloorOrCheckpoint();
-      });
+      this.broadcastState();
     }
-
-    this.broadcastState();
   }
 
   // 陷阱事件
   handleTrapEvent(outcomeData = null) {
+    this.clearTimer();
+    this.timerCallback = null;
+    this.pausedRemainingSeconds = null;
     this.state = 'EVENT';
+    this.trapPresentationId += 1;
+    const hpBefore = this.getHpSnapshot();
+    const hits = [];
     // 陷阱事件傷害：1~5層15點傷害，6~10層18點傷害，以此類推
     const cycle = Math.floor((this.floor - 1) / 5);
     const trapDmg = 15 + cycle * 3;
@@ -595,6 +738,7 @@ export class Room {
 
       if (p.role === 'archer' && Math.random() < CLASSES.archer.dodgeRate) {
         trapLogs.push(`🪶 弓箭手 **${p.name}** 憑藉超凡敏捷側身翻滾，無傷避開了陷阱！`);
+        hits.push({ targetId: p.id, role: p.role, dodged: true, damage: 0, hpSnapshot: this.getHpSnapshot() });
         continue;
       }
 
@@ -606,28 +750,37 @@ export class Room {
       } else {
         trapLogs.push(`💢 **${p.name}** 受到 **${trapDmg}** 點陷阱傷害！（❤️ ${p.hp}/${p.maxHp}）`);
       }
+      hits.push({ targetId: p.id, role: p.role, dodged: false, damage: trapDmg, hpSnapshot: this.getHpSnapshot() });
     }
 
     this.currentEvent = {
       type: 'trap',
       title: outcomeData ? outcomeData.title : `⚠️【第 ${this.floor} 層】致命陷阱！`,
       story: outcomeData ? outcomeData.story : '',
-      details: trapLogs
+      details: trapLogs,
+      presentationId: this.trapPresentationId,
+      hpBefore,
+      hpAfter: this.getHpSnapshot(),
+      hits
     };
-
-    trapLogs.forEach(log => this.addLog(log, 'damage'));
+    this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
     this.broadcastState();
+    this.finishTrapPresentationIfReady();
+  }
 
-    // 檢查是否全滅
-    const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
-    if (alivePlayers.length === 0) {
-      this.setTimer(3, () => this.handleGameOver());
-      return;
-    }
+  handleTrapPresentationComplete(socketId, presentationId) {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'trap' ||
+        presentationId !== this.currentEvent.presentationId || !this.players[socketId]?.connected) return;
+    this.pendingPresentationAcks.delete(socketId);
+    this.finishTrapPresentationIfReady();
+  }
 
-    this.setTimer(4, () => {
-      this.advanceToNextFloorOrCheckpoint();
-    });
+  finishTrapPresentationIfReady() {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'trap' || this.pendingPresentationAcks.size) return;
+    if (!Object.values(this.players).some(p => p.connected)) return;
+    this.currentEvent.details.forEach(log => this.addLog(log, 'damage'));
+    if (Object.values(this.players).every(p => p.hp <= 0)) this.handleGameOver();
+    else this.advanceToNextFloorOrCheckpoint();
   }
 
   // 戰鬥事件
@@ -706,15 +859,94 @@ export class Room {
     this.executeTurn();
   }
 
+  // Overheal 超量治療計算 (不污染原始 normalMaxHp)
+  applyHealWithOverheal(player, healAmount) {
+    if (player.hp <= 0 || healAmount <= 0) return 0;
+    const normalMax = player.maxHp;
+    const oldEffective = player.hp + (player.tempHp || 0);
+    if (player.hp < normalMax) {
+      const needed = normalMax - player.hp;
+      if (healAmount <= needed) {
+        player.hp += healAmount;
+      } else {
+        player.hp = normalMax;
+        const excess = healAmount - needed;
+        player.tempHp = (player.tempHp || 0) + excess;
+      }
+    } else {
+      player.tempHp = (player.tempHp || 0) + healAmount;
+    }
+    const newEffective = player.hp + (player.tempHp || 0);
+    return newEffective - oldEffective;
+  }
+
+  // 扣除傷害 (優先消耗 Temporary Overheal，再扣除真實 HP)
+  applyDamageToPlayer(player, dmg) {
+    if (dmg <= 0) return { actualDmg: 0, hpDmg: 0, tempAbsorbed: 0 };
+    let remaining = dmg;
+    let tempAbsorbed = 0;
+    if ((player.tempHp || 0) > 0) {
+      if (player.tempHp >= remaining) {
+        player.tempHp -= remaining;
+        tempAbsorbed = remaining;
+        remaining = 0;
+      } else {
+        tempAbsorbed = player.tempHp;
+        remaining -= player.tempHp;
+        player.tempHp = 0;
+      }
+    }
+    if (remaining > 0) {
+      player.hp = Math.max(0, player.hp - remaining);
+    }
+    return { actualDmg: dmg, hpDmg: remaining, tempAbsorbed };
+  }
+
+  // 首領回合完全結束後清除超量生命
+  clearTemporaryOverheal() {
+    let anyCleared = false;
+    for (const p of Object.values(this.players)) {
+      if ((p.tempHp || 0) > 0) {
+        p.tempHp = 0;
+        p.hp = Math.min(p.hp, p.maxHp);
+        anyCleared = true;
+      }
+    }
+    return anyCleared;
+  }
+
+  // 取得即時生命狀態快照 (供 Presentation Queue 精準步進渲染)
+  getHpSnapshot() {
+    return {
+      monster: this.currentMonster ? {
+        hp: this.currentMonster.hp,
+        maxHp: this.currentMonster.maxHp
+      } : null,
+      players: Object.values(this.players).map(p => ({
+        id: p.id,
+        hp: p.hp,
+        maxHp: p.maxHp,
+        tempHp: p.tempHp || 0,
+        displayHp: p.hp + (p.tempHp || 0),
+        displayMaxHp: p.maxHp + (p.tempHp || 0)
+      }))
+    };
+  }
+
   executeTurn() {
+    this.executeRoundStart();
+  }
+
+  // 戰鬥回合流程 - Round Start (1. DoT 2. Regeneration 3. Abyssal Corruption 4. 其他回合初效果)
+  executeRoundStart() {
     this.clearTimer();
+    this.roundModifiers = { equipmentEffectMultiplier: 1.0 }; // 每回合初確保裝備倍率恢復 100%
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) {
       this.handleGameOver();
       return;
     }
 
-    // 檢查德魯伊狼王臣服失敗判定：若生還者皆處於狼王臣服無法行動，且遭遇暗影魔狼族長
     const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
     if (canFightLiving.length === 0 && this.currentMonster && (this.currentMonster.name === '暗影魔狼族長' || this.currentMonster.name.includes('暗影魔狼族長'))) {
       this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 德魯伊處於狼王臣服狀態無法行動，且隊伍已無其他能戰鬥的生還隊友，冒險直接判定挑戰失敗！`, 'damage');
@@ -722,39 +954,274 @@ export class Room {
       return;
     }
 
-    this.state = 'IN_BATTLE';
-    this.isNarrating = false; // 解除敘述鎖定，玩家現在可以選擇技能
+    const monster = this.currentMonster;
+    const log = [];
+    const visualEvents = [];
+
+    // 1. 流血撕裂傷害結算 (套用難度層數加成)
+    if (monster && monster.baseHp < 100) {
+      const bleedDmg = Math.floor(2 * getFloorDifficultyMultiplier(this.floor));
+      for (const p of Object.values(this.players)) {
+        if (p.hp > 0 && p.bleedTurns > 0) {
+          p.bleedTurns -= 1;
+          visualEvents.push({ type: 'bleed', target: p.id, value: bleedDmg });
+          if (p.hp <= bleedDmg) {
+            if (p.druidForm === 'treant') {
+              p.hp = 1;
+              p.druidForm = 'tree';
+              p.druidFormTurns = 1;
+              p.stunnedNextTurn = true;
+              p.action = 'skip';
+              p.isLocked = true;
+              log.push({ text: `🪵 **${p.name}** 撕裂傷勢致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+              visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+            } else {
+              p.hp = 0;
+              this.clearPlayerDebuffs(p);
+              if (p.druidForm === 'tree') {
+                p.maxHp -= 100;
+                p.druidForm = null;
+                p.druidFormTurns = 0;
+              }
+              log.push({ text: `🩸 **${p.name}** 傷口惡化承受 **${bleedDmg}** 點撕裂傷害，傷重倒地！💀`, type: 'damage' });
+            }
+          } else {
+            p.hp -= bleedDmg;
+            log.push({ text: `🩸 **${p.name}** 傷口持續撕裂，受到 **${bleedDmg}** 點額外傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘流血: ${p.bleedTurns} 回合）`, type: 'damage' });
+          }
+        }
+      }
+    }
+
+    // 2. 德魯伊樹精/古樹形態自然回復 (每回合開始回復當前最大生命的5%)
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && (p.druidForm === 'treant' || p.druidForm === 'tree')) {
+        const regenAmt = Math.max(1, Math.round(p.maxHp * 0.05)) + (p.druidRegenBonus || 0);
+        const actualGain = this.applyHealWithOverheal(p, regenAmt);
+        log.push({ text: `🌿 **${p.name}** (${p.druidForm === 'tree' ? '沉睡古樹' : '樹精'}) 汲取自然生機回復 **${actualGain}** 點生命！（❤️ ${p.hp + (p.tempHp || 0)}/${p.maxHp}）`, type: 'heal' });
+        visualEvents.push({ type: 'heal', targetId: p.id, value: actualGain, label: '自然回復' });
+      }
+    }
+
+    // 3. 劇毒傷害結算 (回合初 DoT)
+    if (monster && monster.hp > 0 && monster.poisonTurns > 0) {
+      const pDmg = monster.poisonDmg || 5;
+      monster.hp = Math.max(0, monster.hp - pDmg);
+      monster.poisonTurns -= 1;
+      if (monster.poisonTurns === 0) {
+        monster.poisonDmg = 0;
+      }
+      visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
+      if (monster.hp <= 0) {
+        log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
+      } else {
+        log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
+      }
+    }
 
     for (const p of Object.values(this.players)) {
-      p.action = (p.isSurrendered || p.druidForm === 'tree') ? 'skip' : null;
-      p.targetPlayerId = null;
+      if (p.hp > 0 && p.poisonTurns > 0) {
+        const pDmg = p.poisonDmg || 5;
+        p.poisonTurns -= 1;
+        if (p.poisonTurns === 0) {
+          p.poisonDmg = 0;
+        }
+        visualEvents.push({ type: 'poison_damage', target: p.id, value: pDmg });
+        if (p.hp <= pDmg) {
+          if (p.druidForm === 'treant') {
+            p.hp = 1;
+            p.druidForm = 'tree';
+            p.druidFormTurns = 1;
+            p.stunnedNextTurn = true;
+            p.action = 'skip';
+            p.isLocked = true;
+            log.push({ text: `🪵 **${p.name}** 劇毒致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+            visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+          } else {
+            p.hp = 0;
+            this.clearPlayerDebuffs(p);
+            if (p.druidForm === 'tree') {
+              p.maxHp -= 100;
+              p.druidForm = null;
+              p.druidFormTurns = 0;
+            }
+            log.push({ text: `🧪 **${p.name}** 劇毒發作受到 **${pDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
+          }
+        } else {
+          p.hp -= pDmg;
+          log.push({ text: `🧪 **${p.name}** 劇毒灼燒受到 **${pDmg}** 點毒素傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘中毒: ${p.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
+        }
+      }
+    }
+
+    // 4. 回合初狂亂殺戮曲代價扣除 (全隊扣除 20% 最大生命)
+    if (this.frenzyTeamDrainTurns > 0) {
+      this.frenzyTeamDrainTurns -= 1;
+      for (const pl of Object.values(this.players)) {
+        if (pl.hp > 0) {
+          const drain = Math.max(1, Math.round(pl.maxHp * 0.20));
+          pl.hp = Math.max(1, pl.hp - drain);
+          log.push({ text: `🩸 【狂亂殺戮曲】狂亂反噬代價生效！**${pl.name}** 承受 20% 最大生命反噬，扣除 **${drain}** 點生命！（❤️ ${pl.hp}/${pl.maxHp}）`, type: 'damage' });
+          visualEvents.push({ type: 'self_damage', targetId: pl.id, value: drain });
+        }
+      }
+    }
+    if (this.frenzyTeamDrainNextTurn) {
+      this.frenzyTeamDrainTurns = 1;
+      this.frenzyTeamDrainNextTurn = false;
+    }
+
+    // 5. 祝福絲綢袍（詩人裝備）：每回合初自動為全隊當前生命最低的隊友補血
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && p.role === 'bard') {
+        const robeCount = (p.equips || []).filter(e => e.id === 'b_robe' || e.name === '祝福絲綢袍').length;
+        if (robeCount > 0) {
+          const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0);
+          if (livingAllies.length > 0) {
+            livingAllies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+            const targetAlly = livingAllies[0];
+            const healAmt = Math.max(1, Math.round(p.maxHp * 0.05 * robeCount));
+            const actualGain = this.applyHealWithOverheal(targetAlly, healAmt);
+            log.push({ text: `✨ **${p.name}** 的【祝福絲綢袍】散發生機微光，為傷勢最重的 **${targetAlly.name}** 回復了 **${actualGain}** 點生命！（❤️ ${targetAlly.hp + (targetAlly.tempHp || 0)}/${targetAlly.maxHp}）`, type: 'heal' });
+            visualEvents.push({ type: 'heal', targetId: targetAlly.id, value: actualGain, label: '祝福絲綢袍' });
+          }
+        }
+      }
+    }
+
+    // 6. 自然共鳴（德魯伊裝備）：每回合初為所有存活僕從回復 3 點生命
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && p.role === 'druid') {
+        const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
+        if (resCount > 0) {
+          for (const owner of Object.values(this.players)) {
+            if (owner.hp > 0 && owner.minions && owner.minions.length > 0) {
+              for (const m of owner.minions) {
+                if (m.hp > 0) {
+                  const healAmt = 3 * resCount;
+                  m.hp = Math.min(m.maxHp, m.hp + healAmt);
+                  log.push({ text: `🌿 【自然共鳴】為 **${owner.name}** 的僕從【${m.name}】回復了 **${healAmt}** 點生命！（🐾 ${m.hp}/${m.maxHp}）`, type: 'heal' });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 判定勝負
+    const aliveAfterRoundStart = Object.values(this.players).filter(p => p.hp > 0);
+    if (aliveAfterRoundStart.length === 0) {
+      if (monster && monster.hp <= 0) {
+        log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+      }
+      log.forEach(l => this.addLog(l.text, l.type));
+      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: monster && monster.hp <= 0 });
+      this.broadcastState();
+      this.setTimer(3, () => this.handleGameOver());
+      return;
+    }
+
+    if (monster && monster.hp <= 0) {
+      this.handleMonsterVictory(monster, log, visualEvents);
+      return;
+    }
+
+    if (log.length > 0 || visualEvents.length > 0) {
+      this.selectionState = 'ROUND_START';
+      log.forEach(l => this.addLog(l.text, l.type));
+      this.io.to(this.code).emit('battle:round_start_events', {
+        events: visualEvents,
+        round: this.battleRound,
+        hpSnapshot: this.getHpSnapshot()
+      });
+      this.broadcastState();
+      if (this.roundStartTimer) clearTimeout(this.roundStartTimer);
+      this.roundStartTimer = setTimeout(() => {
+        this.handleRoundStartComplete();
+      }, 2500); // 2.5 秒安全 fallback
+    } else {
+      this.startSkillSelection();
+    }
+  }
+
+  // 回合初效果 (DoT / Regen 等) 演出完畢回調
+  handleRoundStartComplete(socketId = null) {
+    if (this.selectionState !== 'ROUND_START') return;
+    if (this.roundStartTimer) {
+      clearTimeout(this.roundStartTimer);
+      this.roundStartTimer = null;
+    }
+    this.startSkillSelection();
+  }
+
+  // 技能選擇流程啟動 (SELECTING -> SELECTED -> CONFIRM -> LOCKED -> ALL PLAYERS LOCKED -> RESOLVING)
+  startSkillSelection() {
+    this.state = 'IN_BATTLE';
+    this.selectionState = 'SELECTING';
+    this.isNarrating = false;
+
+    for (const p of Object.values(this.players)) {
+      if (p.hp <= 0) {
+        p.action = null;
+        p.isLocked = true;
+      } else if (p.isSurrendered || p.druidForm === 'tree' || p.stunnedNextTurn) {
+        p.action = 'skip';
+        p.isLocked = true;
+      } else {
+        p.action = null;
+        p.targetPlayerId = null;
+        p.isLocked = false;
+      }
       p.isStealthed = false;
     }
 
     const isUltTurn = (this.battleRound % 3 === 0);
-    if (isUltTurn) {
+    if (isUltTurn && this.currentMonster) {
       this.addLog(`⚠️ **【警告：BOSS 正在蓄力必殺技【${this.currentMonster.ultName}】(1.35倍傷害)！】**`, 'warning');
     }
 
-    // 30 秒回合超時機制
-    this.setTimer(30, () => {
-      if (this.state === 'IN_BATTLE' && !this.isNarrating) {
-        this.addLog('⏱️ 回合時間截止，未行動者自動跳過回合！', 'warning');
-        for (const p of Object.values(this.players)) {
-          if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree' && !p.action) {
-            p.action = 'skip';
-          }
-        }
-        this.resolveTurnActions();
-      }
-    });
+    // 嚴格遵守 P2-R1.1 Section 6：技能選擇 30 秒計時由客戶端 battle:selection_ready 驅動
+    this.clearTimer();
+    this.isWaitingForSelectionReady = true;
+    if (this.selectionReadyTimer) clearTimeout(this.selectionReadyTimer);
+    this.selectionReadyTimer = setTimeout(() => {
+      this.handleSelectionReady();
+    }, 8000); // 8 秒超時安全機制
 
     this.broadcastState();
   }
 
-  submitAction(socketId, actionId, targetPlayerId = null) {
+  // 客戶端 Round Intro / Status Ticks 播放完畢、技能介面啟用確認 (P2-R1.1 Section 6)
+  handleSelectionReady(socketId = null) {
+    if (this.state !== 'IN_BATTLE' || this.selectionState !== 'SELECTING') return;
+    if (!this.isWaitingForSelectionReady) return;
+    this.isWaitingForSelectionReady = false;
+    if (this.selectionReadyTimer) {
+      clearTimeout(this.selectionReadyTimer);
+      this.selectionReadyTimer = null;
+    }
+
+    // 正式啟動 30 秒技能選擇倒數計時器
+    this.setTimer(30, () => {
+      if (this.state === 'IN_BATTLE' && this.selectionState === 'SELECTING') {
+        this.addLog('⏱️ 回合時間截止，未行動者自動跳過回合！', 'warning');
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0 && !p.isLocked) {
+            p.action = 'skip';
+            p.isLocked = true;
+          }
+        }
+        this.checkTurnCompletion();
+      }
+    });
+    this.broadcastState();
+  }
+
+  // 玩家鎖定技能 (CONFIRM -> LOCKED)
+  lockAction(socketId, actionId, targetPlayerId = null) {
     if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
-    if (this.isNarrating) return { success: false, message: '戰況交鋒敘述進行中，請稍候！' };
+    if (this.selectionState !== 'SELECTING') return { success: false, message: '目前正在結算中，無法更改指令！' };
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
     if (player.hp <= 0) return { success: false, message: '你已陣亡，無法行動' };
@@ -786,20 +1253,47 @@ export class Room {
 
     player.action = actionId;
     player.targetPlayerId = targetPlayerId;
+    player.isLocked = true;
     this.broadcastState();
 
     this.checkTurnCompletion();
     return { success: true };
   }
 
+  // 玩家取消鎖定 (允許在全員 Locked 前重新選擇)
+  unlockAction(socketId) {
+    if (this.state !== 'IN_BATTLE' || this.selectionState !== 'SELECTING') {
+      return { success: false, message: '目前非選擇階段，無法取消鎖定' };
+    }
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (player.hp <= 0 || player.stunnedNextTurn || player.isSurrendered || player.druidForm === 'tree') {
+      return { success: false, message: '特殊狀態無法解鎖' };
+    }
+
+    player.isLocked = false;
+    this.broadcastState();
+    return { success: true };
+  }
+
+  // 兼容舊接口 submitAction
+  submitAction(socketId, actionId, targetPlayerId = null) {
+    return this.lockAction(socketId, actionId, targetPlayerId);
+  }
+
+  // 檢查是否全體存活玩家皆已鎖定
   checkTurnCompletion() {
-    const allDone = Object.values(this.players)
-      .filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree')
-      .every(p => p.action !== null);
+    if (this.selectionState !== 'SELECTING') return;
+
+    const livingPlayers = Object.values(this.players).filter(p => p.hp > 0);
+    const allDone = livingPlayers.length > 0 && livingPlayers.every(p => p.isLocked === true);
 
     if (allDone) {
       this.clearTimer();
-      // 稍微延遲 300ms 讓畫面反應用戶的按鈕反饋，然後結算
+      this.selectionState = 'RESOLVING';
+      this.isNarrating = true;
+      this.broadcastState();
+      // 稍微延遲 300ms 讓畫面呈現 ALL PLAYERS LOCKED，再展開結算
       setTimeout(() => this.resolveTurnActions(), 300);
     }
   }
@@ -988,11 +1482,13 @@ export class Room {
   // 戰鬥結算
   resolveTurnActions() {
     this.clearTimer();
+    this.selectionState = 'RESOLVING';
     this.isNarrating = true;
     const monster = this.currentMonster;
     const log = [];
     const visualEvents = [];
     const narratives = [];
+    const presentationQueue = [];
 
     let bardDmgMultiplier = 1.0;
     let bardDmgReduction = 1.0;
@@ -1000,185 +1496,16 @@ export class Room {
     let assassinDidCrit = false;
     let bardBuffActive = false;
 
-    // 0. 特性觸發：基礎血量 < 100 的怪物在回合開始造成撕裂傷害 (套用難度層數加成)
-    if (monster.baseHp < 100) {
-      const bleedDmg = Math.floor(2 * getFloorDifficultyMultiplier(this.floor));
-      for (const p of Object.values(this.players)) {
-        if (p.hp > 0 && p.bleedTurns > 0) {
-          p.bleedTurns -= 1;
-          visualEvents.push({ type: 'bleed', target: p.id, value: bleedDmg });
-          if (p.hp <= bleedDmg) {
-            if (p.druidForm === 'treant') {
-              p.hp = 1;
-              p.druidForm = 'tree';
-              p.druidFormTurns = 1;
-              p.stunnedNextTurn = true;
-              p.action = 'skip';
-              log.push({ text: `🪵 **${p.name}** 撕裂傷勢致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
-              visualEvents.push({ type: 'transform_tree', sourceId: p.id });
-            } else {
-              p.hp = 0;
-              this.clearPlayerDebuffs(p);
-              if (p.druidForm === 'tree') {
-                p.maxHp -= 100;
-                p.druidForm = null;
-                p.druidFormTurns = 0;
-              }
-              log.push({ text: `🩸 **${p.name}** 傷口惡化承受 **${bleedDmg}** 點撕裂傷害，傷重倒地！💀`, type: 'damage' });
-            }
-          } else {
-            p.hp -= bleedDmg;
-            log.push({ text: `🩸 **${p.name}** 傷口持續撕裂，受到 **${bleedDmg}** 點額外傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘流血: ${p.bleedTurns} 回合）`, type: 'damage' });
-          }
-        }
-      }
-    }
-
-    // 0.2 德魯伊樹精/古樹形態自然回復 (每回合開始回復當前最大生命的5%，受戰鬥成功加成)
-    for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && (p.druidForm === 'treant' || p.druidForm === 'tree')) {
-        const regenAmt = Math.max(1, Math.round(p.maxHp * 0.05)) + (p.druidRegenBonus || 0);
-        const oldHp = p.hp;
-        p.hp = Math.min(p.maxHp, p.hp + regenAmt);
-        const actualGain = p.hp - oldHp;
-        log.push({ text: `🌿 **${p.name}** (${p.druidForm === 'tree' ? '沉睡古樹' : '樹精'}) 汲取自然生機回復 **${actualGain}** 點生命（當前最大生命 5%）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
-        visualEvents.push({ type: 'heal', targetId: p.id, value: actualGain, label: '自然回復' });
-      }
-    }
-
-    // 0.5 劇毒傷害結算 (回合初各受毒傷)
-    if (monster.hp > 0 && monster.poisonTurns > 0) {
-      const pDmg = monster.poisonDmg || 5;
-      monster.hp = Math.max(0, monster.hp - pDmg);
-      monster.poisonTurns -= 1;
-      if (monster.poisonTurns === 0) {
-        monster.poisonDmg = 0;
-      }
-      visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
-      if (monster.hp <= 0) {
-        log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
-      } else {
-        log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
-      }
-    }
-
-    for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && p.poisonTurns > 0) {
-        const pDmg = p.poisonDmg || 5;
-        p.poisonTurns -= 1;
-        if (p.poisonTurns === 0) {
-          p.poisonDmg = 0;
-        }
-        visualEvents.push({ type: 'poison_damage', target: p.id, value: pDmg });
-        if (p.hp <= pDmg) {
-          if (p.druidForm === 'treant') {
-            p.hp = 1;
-            p.druidForm = 'tree';
-            p.druidFormTurns = 1;
-            p.stunnedNextTurn = true;
-            p.action = 'skip';
-            log.push({ text: `🪵 **${p.name}** 劇毒致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
-            visualEvents.push({ type: 'transform_tree', sourceId: p.id });
-          } else {
-            p.hp = 0;
-            this.clearPlayerDebuffs(p);
-            if (p.druidForm === 'tree') {
-              p.maxHp -= 100;
-              p.druidForm = null;
-              p.druidFormTurns = 0;
-            }
-            log.push({ text: `🧪 **${p.name}** 劇毒發作受到 **${pDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
-          }
-        } else {
-          p.hp -= pDmg;
-          log.push({ text: `🧪 **${p.name}** 劇毒灼燒受到 **${pDmg}** 點毒素傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘中毒: ${p.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
-        }
-      }
-    }
-
-    // 勝負判定：若我方全員倒下，即使敵方同時歸零，亦優先結算我方陣亡（敵方勝利）
-    const aliveAfterDot = Object.values(this.players).filter(p => p.hp > 0);
-    if (aliveAfterDot.length === 0) {
-      if (monster.hp <= 0) {
-        log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
-      }
-      log.forEach(l => this.addLog(l.text, l.type));
-      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: monster.hp <= 0 });
-      this.broadcastState();
-      this.setTimer(3, () => this.handleGameOver());
-      return;
-    }
-
-    // 檢查德魯伊狼王臣服失敗判定：隊友若因流血/劇毒倒下，生還者僅剩臣服德魯伊
-    const canFightAfterDot = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
-    if (canFightAfterDot.length === 0 && (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長'))) {
-      log.push({ text: `👑🐺💀 **【血脈臣服·全隊潰敗】** 隊友皆因流血/劇毒倒下，生還的德魯伊處於狼王臣服狀態無法行動，小隊直接判定挑戰失敗！`, type: 'damage' });
-      log.forEach(l => this.addLog(l.text, l.type));
-      this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: false });
-      this.broadcastState();
-      this.setTimer(3, () => this.handleGameOver());
-      return;
-    }
-
-    if (monster.hp <= 0) {
-      this.handleMonsterVictory(monster, log, visualEvents);
-      return;
-    }
-
-    // 0.8 回合初狂亂殺戮曲代價扣除 (全隊扣除 20% 最大生命)
-    if (this.frenzyTeamDrainTurns > 0) {
-      this.frenzyTeamDrainTurns -= 1;
-      for (const pl of Object.values(this.players)) {
-        if (pl.hp > 0) {
-          const drain = Math.max(1, Math.round(pl.maxHp * 0.20));
-          pl.hp = Math.max(1, pl.hp - drain);
-          log.push({ text: `🩸 【狂亂殺戮曲】狂亂反噬代價生效！**${pl.name}** 承受 20% 最大生命反噬，扣除 **${drain}** 點生命！（❤️ ${pl.hp}/${pl.maxHp}）`, type: 'damage' });
-          visualEvents.push({ type: 'self_damage', targetId: pl.id, value: drain });
-        }
-      }
-    }
-    if (this.frenzyTeamDrainNextTurn) {
-      this.frenzyTeamDrainTurns = 1;
-      this.frenzyTeamDrainNextTurn = false;
-    }
-
-    // 0.85 祝福絲綢袍（詩人裝備）：每回合初自動為全隊當前生命最低的隊友補血，補血量為詩人最大生命值的 5%
-    for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && p.role === 'bard') {
-        const robeCount = (p.equips || []).filter(e => e.id === 'b_robe' || e.name === '祝福絲綢袍').length;
-        if (robeCount > 0) {
-          const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0);
-          if (livingAllies.length > 0) {
-            livingAllies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
-            const targetAlly = livingAllies[0];
-            const healAmt = Math.max(1, Math.round(p.maxHp * 0.05 * robeCount));
-            targetAlly.hp = Math.min(targetAlly.maxHp, targetAlly.hp + healAmt);
-            log.push({ text: `✨ **${p.name}** 的【祝福絲綢袍】散發生機微光，為傷勢最重的 **${targetAlly.name}** 回復了 **${healAmt}** 點生命！（❤️ ${targetAlly.hp}/${targetAlly.maxHp}）`, type: 'heal' });
-            visualEvents.push({ type: 'heal', targetId: targetAlly.id, value: healAmt, label: '祝福絲綢袍' });
-          }
-        }
-      }
-    }
-
-    // 0.9 自然共鳴（德魯伊裝備）：每回合初為所有存活僕從回復 3 點生命
-    for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && p.role === 'druid') {
-        const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
-        if (resCount > 0) {
-          for (const owner of Object.values(this.players)) {
-            if (owner.hp > 0 && owner.minions && owner.minions.length > 0) {
-              for (const m of owner.minions) {
-                if (m.hp > 0) {
-                  const healAmt = 3 * resCount;
-                  m.hp = Math.min(m.maxHp, m.hp + healAmt);
-                  log.push({ text: `🌿 【自然共鳴】為 **${owner.name}** 的僕從【${m.name}】回復了 **${healAmt}** 點生命！（🐾 ${m.hp}/${m.maxHp}）`, type: 'heal' });
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    // ==========================================
+    // PRE-RESOLUTION 階段
+    // ==========================================
+    // 1. 特殊規則：鍊金術士【腐蝕強酸瓶】
+    // 只要確認本回合使用腐蝕強酸瓶，必須在 PRE-RESOLUTION 階段就先套用 equipment modifier (全隊裝備效果降低 50%)。
+    // IMPORTANT：此時不得顯示 Popup、Subtitle 或 Debuff Banner，提前播放任何提示動畫。
+    // Logic timing ≠ Presentation timing，此效果隱蔽套用，直到鍊金術士演出時才揭露。
+    // 嚴格保證僅限「本回合」，不得永久修改裝備屬性或跨回合疊加。
+    const acidUsedThisTurn = Object.values(this.players).some(p => p.hp > 0 && p.action === 'alc_acid');
+    this.roundModifiers.equipmentEffectMultiplier = acidUsedThisTurn ? 0.5 : 1.0;
 
     // 重設本回合催眠狀態
     this.monsterStunnedThisRound = false;
@@ -1258,10 +1585,23 @@ export class Room {
       }
     }
 
-    // 2. 玩家行動結算
+    // 2. 玩家行動結算 (依照 Priority 順序：1.淨化 2.復活 3.防禦 4.增益 5.治療 6.變身/召喚 7.敵方減益 8.攻擊技能，同順位依穩定順序)
     const getEffectiveBonusAtk = (pl) => this.getEffectiveBonusAtk(pl);
+    const playerKeys = Object.keys(this.players);
+    const sortedPlayers = Object.values(this.players)
+      .filter(p => p.hp > 0)
+      .sort((a, b) => {
+        const prioA = getActionPriority(a.action);
+        const prioB = getActionPriority(b.action);
+        if (prioA !== prioB) return prioA - prioB;
+        return playerKeys.indexOf(a.id) - playerKeys.indexOf(b.id);
+      });
 
-    for (const p of Object.values(this.players)) {
+    for (const p of sortedPlayers) {
+      const beforeVisualCount = visualEvents.length;
+      const beforeLogCount = log.length;
+      const monsterHpBefore = monster.hp;
+      const actorHpBefore = p.hp;
       if (p.isSurrendered) {
         log.push({ text: `🐺 **${p.name}** 陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！`, type: 'warning' });
         continue;
@@ -1380,7 +1720,7 @@ export class Room {
             const actualBonus = Math.min(monster.hp, Math.max(1, extraDmgRaw));
             monster.hp -= actualBonus;
             for (const ally of Object.values(this.players)) {
-              if (ally.hp > 0) ally.hp = Math.min(ally.maxHp, ally.hp + actualBonus);
+              if (ally.hp > 0) this.applyHealWithOverheal(ally, actualBonus);
             }
             log.push({ text: `🩸 **${p.name}** 觸發【嗜血法袍】！額外撕裂目標 **${actualBonus}** 點生命，並轉化血氣為全體隊友回復 **${actualBonus}** 點生命！`, type: 'heal' });
             visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: actualBonus, singleTargetId: null, singleValue: 0 });
@@ -1393,9 +1733,9 @@ export class Room {
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const healAmt = Math.max(1, Math.round(dmg * 0.2));
-          p.hp = Math.min(p.maxHp, p.hp + healAmt);
+          this.applyHealWithOverheal(p, healAmt);
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          log.push({ text: `🩸 **${p.name}** 施展【生命汲取】(浮動擲骰: ${rawBase})，造成 **${dmg}** 點【魔法】傷害${resNote}，並吸取其 20%（恢復了 **${healAmt}** 點生命）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
+          log.push({ text: `🩸 **${p.name}** 施展【生命汲取】(浮動擲骰: ${rawBase})，造成 **${dmg}** 點【魔法】傷害${resNote}，並吸取其 20%（恢復了 **${healAmt}** 點生命）！（❤️ ${p.hp + (p.tempHp || 0)}/${p.maxHp}）`, type: 'heal' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '生命汲取' });
           visualEvents.push({ type: 'heal', targetId: p.id, value: healAmt, label: '生命汲取' });
 
@@ -1406,7 +1746,7 @@ export class Room {
             const actualBonus = Math.min(monster.hp, Math.max(1, extraDmgRaw));
             monster.hp -= actualBonus;
             for (const ally of Object.values(this.players)) {
-              if (ally.hp > 0) ally.hp = Math.min(ally.maxHp, ally.hp + actualBonus);
+              if (ally.hp > 0) this.applyHealWithOverheal(ally, actualBonus);
             }
             log.push({ text: `🩸 **${p.name}** 觸發【嗜血法袍】！額外撕裂目標 **${actualBonus}** 點生命，並轉化血氣為全體隊友回復 **${actualBonus}** 點生命！`, type: 'heal' });
             visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: actualBonus, singleTargetId: null, singleValue: 0 });
@@ -1498,7 +1838,7 @@ export class Room {
           if (isOffKey) {
             const groupHeal = Math.round(5 * harpMult);
             for (const ally of Object.values(this.players)) {
-              if (ally.hp > 0) ally.hp = Math.min(ally.maxHp, ally.hp + groupHeal);
+              if (ally.hp > 0) this.applyHealWithOverheal(ally, groupHeal);
             }
             log.push({ text: `🪕😖 **${p.name}** 撥弄琴弦時【刺耳走音】！刺耳噪音打亂了旋律，全體隊友僅能回復 **${groupHeal}** 點生命！`, type: 'warning' });
             visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: groupHeal, singleTargetId: null, singleValue: 0 });
@@ -1507,12 +1847,12 @@ export class Room {
             const singleHealAmt = Math.round((28 + (p.bardHealSingleBonus || 0)) * harpMult);
 
             for (const ally of Object.values(this.players)) {
-              if (ally.hp > 0) ally.hp = Math.min(ally.maxHp, ally.hp + groupHealAmt);
+              if (ally.hp > 0) this.applyHealWithOverheal(ally, groupHealAmt);
             }
 
             const targetAlly = this.players[p.targetPlayerId] || p;
             if (targetAlly && targetAlly.hp > 0) {
-              targetAlly.hp = Math.min(targetAlly.maxHp, targetAlly.hp + singleHealAmt);
+              this.applyHealWithOverheal(targetAlly, singleHealAmt);
               log.push({ text: `🪕 **${p.name}** 奏響【治癒頌歌】！全體隊友回復 **${groupHealAmt}** HP，並專注為 **${targetAlly.name}** 額外回復了 **${singleHealAmt}** HP！`, type: 'heal' });
               visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: groupHealAmt, singleTargetId: targetAlly.id, singleValue: singleHealAmt });
             } else {
@@ -1565,22 +1905,13 @@ export class Room {
         case 'alc_acid': {
           const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
           const selfDmg = buretteCount > 0 ? 0 : 15;
-          for (const pl of Object.values(this.players)) {
-            if (pl.hp > 0) {
-              pl.alcAcidEquipHalvedTurns = 2; // 持續時間刷新回 2 回合
-              pl.alcAcidStack = Math.min(2, (pl.alcAcidStack || 0) + 1); // 疊加，最高 100% 無效
-            }
-          }
           const raw = Math.floor((50 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           p.hp = Math.max(0, p.hp - selfDmg);
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
           const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
-          const acidStackText = (p.alcAcidStack >= 2)
-            ? '⚠️⚠️ 強酸劇烈侵蝕！全體裝備效果達到 100% 完全無效（持續時間刷新為 2 回合）！'
-            : '⚠️ 強酸飛濺腐蝕全隊裝備，全體裝備效果減半 50%（持續 2 回合）！';
-          log.push({ text: `⚗️ **${p.name}** 投擲【腐蝕強酸瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}${acidStackText}（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
+          log.push({ text: `⚗️ **${p.name}** 投擲【腐蝕強酸瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}⚠️ 強酸飛濺腐蝕全隊裝備，本回合全體裝備效果降低 50%！（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
           if (selfDmg > 0) {
             visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
@@ -1633,7 +1964,7 @@ export class Room {
               pl.bleedTurns = 0;
               pl.poisonTurns = 0;
               pl.poisonDmg = 0;
-              if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 15);
+              if (pl.hp > 0) this.applyHealWithOverheal(pl, 15);
             }
             log.push({ text: `🌿⚗️ **${p.name}** 身上無異常狀態，調配出【溫和調和試劑】！全員穩定回復 **15** 點生命值！`, type: 'heal' });
             visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 15, singleTargetId: null, singleValue: 0 });
@@ -1650,7 +1981,7 @@ export class Room {
             const isSuccess = Math.random() < successRate;
             if (isSuccess) {
               for (const pl of Object.values(this.players)) {
-                if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 40);
+                if (pl.hp > 0) this.applyHealWithOverheal(pl, 40);
               }
               this.alcShieldTurns = 2;
               log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **40** HP，並獲得持續 **2** 回合的 **70% 減傷護盾**！🛡️`, type: 'buff' });
@@ -1658,7 +1989,7 @@ export class Room {
               visualEvents.push({ type: 'alc_shield', turns: 2 });
             } else {
               for (const pl of Object.values(this.players)) {
-                if (pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + 10);
+                if (pl.hp > 0) this.applyHealWithOverheal(pl, 10);
               }
               this.alcVulnerableNextTurn = true;
               log.push({ text: `💥⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金失敗】**！雖然淨化了負面效果並全體回復 **10** 點生命，但試劑反噬爆炸，**下回合全隊受傷增加 20%**！⚠️`, type: 'warning' });
@@ -1721,24 +2052,32 @@ export class Room {
             log.push({ text: `🌱 **${p.name}** 嘗試施展【自然呼喚】，但場上已有 3 隻僕從（已達上限），無法再召喚！`, type: 'warning' });
             break;
           }
-          const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
-          const treantHp = 15 + 5 * resCount;
+          const hasNatureResonance = (p.equips || []).some(e => e.id === 'dru_resonance' || e.name === '自然共鳴');
+          let treantMaxHp = Math.floor(10 + p.maxHp * 0.25);
+          if (hasNatureResonance) {
+            treantMaxHp += 5;
+          }
+          const druidTotalAtk = this.getDruidEffectiveAttack(p);
+          const treantAtk = Math.max(1, Math.floor(druidTotalAtk * 0.10));
           const newTreant = {
             id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             type: 'treant',
             name: '小樹精',
-            hp: treantHp,
-            maxHp: treantHp,
-            atk: 1
+            hp: treantMaxHp,
+            maxHp: treantMaxHp,
+            attack: treantAtk,
+            atk: treantAtk,
+            ownerId: p.id,
+            alive: true
           };
           p.minions.push(newTreant);
           p.minion = p.minions[0];
-          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】(HP ${treantHp} / 攻擊 1)！(現有僕從 ${p.minions.length}/3) 每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
+          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】（HP ${treantMaxHp}/${treantMaxHp} · ATK ${treantAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: '小樹精' });
 
           // 召喚當回合立即發動攻擊
           if (monster.hp > 0) {
-            const raw = Math.floor(newTreant.atk * bardDmgMultiplier);
+            const raw = Math.floor(newTreant.attack * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
             monster.hp -= dmg;
             const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
@@ -1754,24 +2093,32 @@ export class Room {
             log.push({ text: `🐺 **${p.name}** 嘗試施展【自然呼喚】，但場上已有 3 隻僕從（已達上限），無法再召喚！`, type: 'warning' });
             break;
           }
-          const resCount = (p.equips || []).filter(e => e.id === 'dru_resonance' || e.name === '自然共鳴').length;
-          const wolfAtk = 10 + 2 * resCount;
+          const hasNatureResonance = (p.equips || []).some(e => e.id === 'dru_resonance' || e.name === '自然共鳴');
+          let wolfMaxHp = Math.floor(5 + p.maxHp * 0.10);
+          const druidTotalAtk = this.getDruidEffectiveAttack(p);
+          let wolfAtk = Math.max(1, Math.floor(druidTotalAtk * 0.80));
+          if (hasNatureResonance) {
+            wolfAtk += 2;
+          }
           const newWolf = {
             id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             type: 'wolf',
             name: '幼狼',
-            hp: 5,
-            maxHp: 5,
-            atk: wolfAtk
+            hp: wolfMaxHp,
+            maxHp: wolfMaxHp,
+            attack: wolfAtk,
+            atk: wolfAtk,
+            ownerId: p.id,
+            alive: true
           };
           p.minions.push(newWolf);
           p.minion = p.minions[0];
-          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】(HP 5 / 攻擊 ${wolfAtk})！(現有僕從 ${p.minions.length}/3) 每回合自動攻擊並優先替全隊擋下怪物彈射分散傷害！`, type: 'buff' });
+          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】（HP ${wolfMaxHp}/${wolfMaxHp} · ATK ${wolfAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: '幼狼' });
 
           // 召喚當回合立即發動攻擊
           if (monster.hp > 0) {
-            const raw = Math.floor(newWolf.atk * bardDmgMultiplier);
+            const raw = Math.floor(newWolf.attack * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
             monster.hp -= dmg;
             const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
@@ -1782,7 +2129,55 @@ export class Room {
         }
       }
 
-      // 記錄該玩家行動敘述
+      const stepVisuals = visualEvents.slice(beforeVisualCount);
+      const stepLogs = log.slice(beforeLogCount);
+      const activeSkills = getPlayerSkills(p);
+      const usedSkill = activeSkills.find(s => s.id === p.action);
+      let hiddenEffectNote = null;
+      if (p.action === 'alc_acid') {
+        hiddenEffectNote = '酸霧侵蝕裝備，全隊裝備效果降低 50%！';
+      }
+
+      const attackVisual = stepVisuals.find(v => v.type === 'player_attack');
+      const isLethal = monster.hp <= 0;
+      const monsterHpDelta = Math.max(0, monsterHpBefore - monster.hp);
+      const finalDamage = attackVisual ? attackVisual.value : monsterHpDelta;
+      const damageType = attackVisual?.dmgType === 'mag' ? 'magic' : 'physical';
+      const isCrit = attackVisual?.isCrit || false;
+
+      presentationQueue.push({
+        type: 'player_action',
+        sourceId: p.id,
+        sourceName: p.name,
+        sourceRole: p.role,
+        actionId: p.action,
+        skillName: usedSkill ? usedSkill.label : (p.action === 'skip' ? '跳過回合' : p.action),
+        tags: usedSkill ? (usedSkill.tags || []) : [],
+        targetId: p.targetPlayerId || (monster.hp > 0 || isLethal ? 'monster' : null),
+        targetName: (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId].name : monster.name,
+        narrative: BATTLE_NARRATIVES.getPlayerSkillNarrative(p, p.action, { isCrit: (p.action === 's_stab' && assassinDidCrit) }),
+        detail: stepLogs.map(l => l.text).join('\n') || (log[log.length - 1]?.text || ''),
+        hiddenEffectNote: hiddenEffectNote,
+        visualEvents: stepVisuals,
+        finalDamage: finalDamage,
+        damageDealt: finalDamage,
+        shieldDamage: 0,
+        tempHpDamage: 0,
+        hpDamage: monsterHpDelta,
+        damageType: damageType,
+        dmgType: damageType === 'magic' ? '【魔法】' : '【物理】',
+        isCritical: isCrit,
+        isLethal: isLethal,
+        targetHpBefore: monsterHpBefore,
+        targetHpAfter: monster.hp,
+        targetMaxHp: monster.maxHp,
+        actorHpBefore: actorHpBefore,
+        actorHpAfter: p.hp,
+        actorMaxHp: p.maxHp,
+        hpSnapshot: this.getHpSnapshot()
+      });
+
+      // 記錄該玩家行動敘述 (供舊版 Fallback 兼容)
       narratives.push({
         type: 'player',
         sourceId: p.id,
@@ -1794,6 +2189,13 @@ export class Room {
       });
 
       if (monster.hp <= 0) {
+        presentationQueue.push({
+          type: 'kill',
+          monsterName: monster.name,
+          narrative: `💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,
+          visualEvents: [{ type: 'monster_killed' }],
+          hpSnapshot: this.getHpSnapshot()
+        });
         break; // 擊殺怪物跳出玩家行動
       }
     }
@@ -1887,30 +2289,10 @@ export class Room {
         name: monster.name,
         text: `💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`
       });
-      const narrationDuration = Math.max(5, narratives.length * 2.2 + 1.2);
-      log.forEach(l => this.addLog(l.text, l.type));
-      this.io.to(this.code).emit('battle:visual_events', {
-        events: visualEvents,
-        narratives: narratives,
-        round: this.battleRound,
-        monsterKilled: true,
-        duration: narrationDuration
-      });
-      this.broadcastState();
-
-      this.setTimer(Math.ceil(narrationDuration), () => {
-        const livingPlayers = Object.values(this.players).filter(p => p.hp > 0);
-        if (livingPlayers.length === 0) {
-          log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
-          this.handleGameOver();
-          return;
-        }
-        this.handleMonsterVictory(monster, log, visualEvents, true);
-      });
-      return;
-    }
-
-    // 6. 怪物反擊結算
+      // Phase 5.1: 怪物已死亡，嚴禁提前 return 或跳過 presentation_queue！
+      // 致命一擊與擊殺演出必須由客戶端依序播放完畢並發送 ACK，再由 finishTurnPresentation() 統一過渡至勝利階段。
+    } else {
+    // 6. 怪物反擊結算 (僅在怪物存活時結算)
     const isUltTurn = (this.battleRound % 3 === 0);
     const monsterHits = [];
     let shieldDamageMod = 1.0;
@@ -2052,7 +2434,8 @@ export class Room {
         }
         const shadowArmorCount = (p.equips || []).filter(e => e.id === 's_armor' || e.name === '暗影皮甲').length;
         if (shadowArmorCount > 0) {
-          const effectiveShadowDodge = p.alcAcidEquipHalvedTurns > 0 ? (p.alcAcidStack >= 2 ? 0 : 0.05) : 0.10;
+          const equipMult = this.roundModifiers?.equipmentEffectMultiplier ?? 1.0;
+          const effectiveShadowDodge = 0.10 * equipMult;
           dodgeRate += effectiveShadowDodge * shadowArmorCount;
         }
 
@@ -2070,7 +2453,7 @@ export class Room {
           const absorbedDmg = Math.floor(totalTakenDmg * 0.5);
           totalTakenDmg -= absorbedDmg;
           const treantActualDmg = Math.max(1, Math.floor(absorbedDmg * 0.80)); // 樹精減傷20%
-          treantDruid.hp -= treantActualDmg;
+          const treantDmgRes = this.applyDamageToPlayer(treantDruid, treantActualDmg);
           log.push({ text: `🌳 **${treantDruid.name}** (樹精) 伸展藤蔓為 **${p.name}** 承受吸收了 **${absorbedDmg}** 點傷害（減傷20%後實受 **${treantActualDmg}** 點）！（❤️ 樹精剩餘HP: ${treantDruid.hp}/${treantDruid.maxHp}）`, type: 'buff' });
           
           if (treantDruid.hp <= 0) {
@@ -2080,13 +2463,13 @@ export class Room {
             treantDruid.stunnedNextTurn = true;
             log.push({ text: `🪵 **${treantDruid.name}** 因替隊友承受致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
             visualEvents.push({ type: 'transform_tree', sourceId: treantDruid.id });
-            monsterHits.push({ targetId: treantDruid.id, value: treantActualDmg, isDead: false, shieldMod: shieldDamageMod });
+            monsterHits.push({ targetId: treantDruid.id, value: treantActualDmg, tempAbsorbed: treantDmgRes.tempAbsorbed, hpDmg: treantDmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod });
           } else {
-            monsterHits.push({ targetId: treantDruid.id, value: treantActualDmg, isDead: false, shieldMod: shieldDamageMod });
+            monsterHits.push({ targetId: treantDruid.id, value: treantActualDmg, tempAbsorbed: treantDmgRes.tempAbsorbed, hpDmg: treantDmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod });
           }
         }
 
-        p.hp -= totalTakenDmg;
+        const dmgRes = this.applyDamageToPlayer(p, totalTakenDmg);
 
         if (totalTakenDmg > 0 && monster.baseHp < 100) {
           p.bleedTurns = 2;
@@ -2100,7 +2483,7 @@ export class Room {
             p.stunnedNextTurn = true;
             log.push({ text: `🪵 **${p.name}** 受到致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
             visualEvents.push({ type: 'transform_tree', sourceId: p.id });
-            monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: false, shieldMod: shieldDamageMod });
+            monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod });
           } else {
             p.hp = 0;
             this.clearPlayerDebuffs(p);
@@ -2116,11 +2499,12 @@ export class Room {
               p.druidFormTurns = 0;
             }
             log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
-            monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: true, shieldMod: shieldDamageMod });
+            monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: true, shieldMod: shieldDamageMod });
           }
         } else {
-          log.push({ text: `💢 **${p.name}** 受到 **${totalTakenDmg}** 點傷害（❤️ ${p.hp}/${p.maxHp}）`, type: 'damage' });
-          monsterHits.push({ targetId: p.id, value: totalTakenDmg, isDead: false, shieldMod: shieldDamageMod });
+          const absorbNote = dmgRes.tempAbsorbed > 0 ? ` (🛡️超量生命抵擋 ${dmgRes.tempAbsorbed} 點)` : '';
+          log.push({ text: `💢 **${p.name}** 受到 **${totalTakenDmg}** 點傷害${absorbNote}（❤️ ${p.hp + (p.tempHp || 0)}/${p.maxHp}）`, type: 'damage' });
+          monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod });
         }
       }
     }
@@ -2144,14 +2528,8 @@ export class Room {
       this.alcVulnerableNextTurn = false;
     }
 
-    // 結算戰士揮砍失衡易傷、弓箭手脫靶失閃、鍊金強酸裝備減半
+    // 結算戰士揮砍失衡易傷、弓箭手脫靶失閃（強酸裝備減半由 roundModifiers 管理）
     for (const pl of Object.values(this.players)) {
-      if (pl.alcAcidEquipHalvedTurns > 0) {
-        pl.alcAcidEquipHalvedTurns -= 1;
-        if (pl.alcAcidEquipHalvedTurns === 0) {
-          pl.alcAcidStack = 0;
-        }
-      }
       if (pl.warriorVulnerableTurns > 0) pl.warriorVulnerableTurns -= 1;
       if (pl.warriorVulnerableNextTurn) {
         pl.warriorVulnerableTurns = 1;
@@ -2172,8 +2550,75 @@ export class Room {
       hits: monsterHits
     });
 
-    const narrationDuration = Math.max(5, narratives.length * 2.2 + 1.2);
+    // 首領行動演出步驟加入 presentationQueue (直接接續，不插入 BOSS TURN 字幕)
+    if (!this.monsterStunnedThisRound && monster.hp > 0) {
+      const monsterTemplate = BATTLE_NARRATIVES.monsters[monster.originalName || monster.name] || {
+        normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
+        ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
+      };
+      const firstHit = monsterHits[0] || {};
+      const primaryTargetId = firstHit.targetId;
+      const primaryTarget = primaryTargetId ? this.players[primaryTargetId] : null;
+
+      presentationQueue.push({
+        type: 'boss_action',
+        monsterName: monster.name,
+        monsterAvatar: monster.avatar,
+        isUlt: isUltTurn,
+        ultName: monster.ultName,
+        skillName: isUltTurn ? monster.ultName : '猛烈反擊',
+        narrative: isUltTurn ? monsterTemplate.ult : monsterTemplate.normal,
+        detail: log[log.length - 1]?.text || '',
+        hits: monsterHits,
+        targetId: primaryTargetId,
+        targetName: primaryTarget ? primaryTarget.name : '冒險者',
+        targetRole: primaryTarget ? primaryTarget.role : 'warrior',
+        finalDamage: firstHit.value || 0,
+        damageDealt: firstHit.value || 0,
+        tempHpDamage: firstHit.tempAbsorbed || 0,
+        hpDamage: firstHit.hpDmg || firstHit.value || 0,
+        isLethal: firstHit.isDead || false,
+        targetHpBefore: firstHit.hpBefore !== undefined ? firstHit.hpBefore : (primaryTarget ? primaryTarget.hp : 0),
+        targetHpAfter: firstHit.hpAfter !== undefined ? firstHit.hpAfter : (primaryTarget ? primaryTarget.hp : 0),
+        targetMaxHp: firstHit.maxHp !== undefined ? firstHit.maxHp : (primaryTarget ? primaryTarget.maxHp : 100),
+        actorHpBefore: monster.hp,
+        actorHpAfter: monster.hp,
+        actorMaxHp: monster.maxHp,
+        visualEvents: [{
+          type: 'monster_attack',
+          isUlt: isUltTurn,
+          ultName: monster.ultName,
+          shieldMod: shieldDamageMod,
+          hits: monsterHits
+        }],
+        hpSnapshot: this.getHpSnapshot()
+      });
+    }
+
+    } // 結束怪物存活時的反擊結算 (else 區塊)
+
+    // Boss 攻擊完成並處理所有結算後，清除 Temporary Overheal
+    const anyOverhealCleared = this.clearTemporaryOverheal();
+    if (anyOverhealCleared) {
+      presentationQueue.push({
+        type: 'overheal_cleanup',
+        narrative: '🛡️ 首領進攻結束，超量治療生命自然消散。',
+        hpSnapshot: this.getHpSnapshot()
+      });
+    }
+
+    // 回合結束還原 roundModifiers（腐蝕強酸瓶等僅限本回合的效果在此完全清除）
+    this.roundModifiers.equipmentEffectMultiplier = 1.0;
+
+    const narrationDuration = Math.max(5, presentationQueue.length * 1.6 + 1.2);
     log.forEach(l => this.addLog(l.text, l.type));
+
+    // 發送統一有序的 Presentation Queue 與舊版 visual_events
+    this.io.to(this.code).emit('battle:presentation_queue', {
+      round: this.battleRound,
+      queue: presentationQueue,
+      monsterKilled: monster.hp <= 0
+    });
     this.io.to(this.code).emit('battle:visual_events', {
       events: visualEvents,
       narratives: narratives,
@@ -2183,34 +2628,65 @@ export class Room {
     });
     this.broadcastState();
 
-    this.setTimer(Math.ceil(narrationDuration), () => {
-      // 檢查全滅（勝負判定：若敵方我方同時血量歸零，優先結算我方血量）
-      const remainingLiving = Object.values(this.players).filter(p => p.hp > 0);
-      if (remainingLiving.length === 0) {
-        if (monster.hp <= 0) {
-          log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
+    // 建立客戶端演出結束同步確認機制 (A4 / A5)
+    this.pendingPresentationAcks = new Set(
+      Object.values(this.players).filter(p => p.hp > 0).map(p => p.id)
+    );
+    const fallbackMs = Math.max(6000, Math.ceil(narrationDuration * 1000) + 3000);
+    if (this.presentationSafetyTimer) clearTimeout(this.presentationSafetyTimer);
+    this.presentationSafetyTimer = setTimeout(() => {
+      this.finishTurnPresentation();
+    }, fallbackMs);
+  }
+
+  // 處理客戶端演出結束確認回調 (Presentation Complete -> Next Round Start)
+  handlePresentationComplete(socketId) {
+    if (this.selectionState !== 'RESOLVING') return;
+    if (this.pendingPresentationAcks) {
+      this.pendingPresentationAcks.delete(socketId);
+      if (this.pendingPresentationAcks.size === 0) {
+        if (this.presentationSafetyTimer) {
+          clearTimeout(this.presentationSafetyTimer);
+          this.presentationSafetyTimer = null;
         }
-        this.handleGameOver();
-        return;
+        this.finishTurnPresentation();
       }
+    }
+  }
 
-      // 檢查德魯伊狼王臣服失敗判定：若活著的玩家皆處於臣服狀態（其他隊友皆陣亡或僅有臣服德魯伊）
-      const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
-      if (canFightLiving.length === 0 && (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長'))) {
-        this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 隊伍其他成員皆已戰死，生還的德魯伊仍處於狼王臣服無法行動，場上已無人能繼續作戰，冒險直接判定挑戰失敗！`, 'damage');
-        this.handleGameOver();
-        return;
+  // 演出完全結束後，進行勝負判定與下一回合過渡
+  finishTurnPresentation() {
+    if (this.presentationSafetyTimer) {
+      clearTimeout(this.presentationSafetyTimer);
+      this.presentationSafetyTimer = null;
+    }
+    if (this.selectionState !== 'RESOLVING') return;
+
+    const monster = this.currentMonster;
+    const remainingLiving = Object.values(this.players).filter(p => p.hp > 0);
+    if (remainingLiving.length === 0) {
+      if (monster && monster.hp <= 0) {
+        this.addLog(`⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, 'damage');
       }
+      this.handleGameOver();
+      return;
+    }
 
-      if (monster.hp <= 0) {
-        this.handleMonsterVictory(monster, log, visualEvents, true);
-        return;
-      }
+    const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
+    if (canFightLiving.length === 0 && monster && (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長'))) {
+      this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 隊伍其他成員皆已戰死，生還的德魯伊仍處於狼王臣服無法行動，場上已無人能繼續作戰，冒險直接判定挑戰失敗！`, 'damage');
+      this.handleGameOver();
+      return;
+    }
 
-      // 準備下一回合
-      this.battleRound += 1;
-      this.executeTurn();
-    });
+    if (monster && monster.hp <= 0) {
+      this.handleMonsterVictory(monster, [], [], true);
+      return;
+    }
+
+    // 準備下一回合
+    this.battleRound += 1;
+    this.executeTurn();
   }
 
   advanceToNextFloorOrCheckpoint() {
@@ -2269,7 +2745,9 @@ export class Room {
   restartToLobby(socketId) {
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能重啟冒險！' };
     this.clearTimer();
+    if (this.state === 'PROLOGUE' || this.state === 'CHOOSING_ROUTE') this.pendingPresentationAcks.clear();
     this.state = 'LOBBY';
+    this.selectionState = 'SELECTING';
     this.floor = 1;
     this.battleRound = 1;
     this.currentMonster = null;
@@ -2287,6 +2765,8 @@ export class Room {
     for (const p of Object.values(this.players)) {
       p.hp = p.role ? CLASSES[p.role].maxHp : 100;
       p.maxHp = p.hp;
+      p.tempHp = 0;
+      p.isLocked = false;
       p.bonusAtk = 0;
       p.equips = [];
       p.equipCounts = {};
@@ -2352,15 +2832,24 @@ export class Room {
     this.broadcastState();
   }
 
-  setTimer(seconds, callback) {
+  setTimer(seconds, callback, broadcastTicks = false) {
     this.clearTimer();
     this.timerCallback = callback;
+    this.timerBroadcastTicks = broadcastTicks;
     this.timerEndsAt = Date.now() + seconds * 1000;
-    this.turnTimer = setTimeout(() => {
-      this.timerEndsAt = null;
-      this.timerCallback = null;
-      callback();
-    }, seconds * 1000);
+    const tick = () => {
+      const remainingMs = this.timerEndsAt - Date.now();
+      if (remainingMs <= 0) {
+        this.turnTimer = null;
+        this.timerEndsAt = null;
+        this.timerCallback = null;
+        callback();
+      } else {
+        if (broadcastTicks) this.broadcastState();
+        this.turnTimer = setTimeout(tick, broadcastTicks ? Math.min(1000, remainingMs) : remainingMs);
+      }
+    };
+    this.turnTimer = setTimeout(tick, broadcastTicks ? Math.min(1000, seconds * 1000) : seconds * 1000);
   }
 
   clearTimer() {
@@ -2401,7 +2890,7 @@ export class Room {
       const cb = this.timerCallback;
       this.pausedRemainingSeconds = null;
       if (cb) {
-        this.setTimer(remaining, cb);
+        this.setTimer(remaining, cb, this.timerBroadcastTicks);
       }
       this.addLog(`▶️ **${player.name}** 恢復了遊戲！冒險繼續進行。`, 'info');
       this.broadcastState();
@@ -2468,6 +2957,7 @@ export class Room {
       code: this.code,
       leaderId: this.leaderId,
       state: this.state,
+      selectionState: this.selectionState || 'SELECTING',
       floor: this.floor,
       battleRound: this.battleRound,
       warriorShieldTurn: this.warriorShieldTurn,
@@ -2489,6 +2979,8 @@ export class Room {
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
       routeVotes: this.routeVotes || {},
       routeVoteCounts: routeVoteCounts,
+      routePresentationId: this.routePresentationId,
+      routeNarrative: STORY_TEXTS.routeChoice.paragraphs.slice(0, 2),
       pendingDrop: this.pendingDrop || null,
       floorDifficultyPercent: getFloorDifficultyBonusPercent(this.floor),
       players: Object.values(this.players).map(p => ({
@@ -2497,6 +2989,9 @@ export class Room {
         role: p.role,
         customAvatar: p.customAvatar || null,
         hp: p.hp,
+        tempHp: p.tempHp || 0,
+        displayHp: p.hp + (p.tempHp || 0),
+        displayMaxHp: p.maxHp + (p.tempHp || 0),
         maxHp: p.maxHp,
         bonusAtk: p.bonusAtk,
         equips: (p.equips || []).map(e => ({ id: e.id, name: e.name, type: e.type, desc: e.desc, statDesc: e.statDesc })),
@@ -2520,10 +3015,36 @@ export class Room {
         druidForm: p.druidForm || null,
         druidFormTurns: p.druidFormTurns || 0,
         isSurrendered: p.isSurrendered || false,
-        minions: (p.minions || []).map(m => ({ id: m.id, type: m.type, name: m.name, hp: m.hp, maxHp: m.maxHp, atk: m.atk })),
-        minion: (p.minions && p.minions[0]) ? { ...p.minions[0] } : (p.minion ? { ...p.minion } : null),
+        minions: (p.minions || []).map(m => ({
+          id: m.id,
+          type: m.type,
+          name: m.name,
+          hp: m.hp,
+          maxHp: m.maxHp,
+          attack: m.attack ?? m.atk,
+          atk: m.attack ?? m.atk,
+          owner: p.name,
+          ownerId: p.id,
+          alive: m.hp > 0
+        })),
+        minion: (p.minions && p.minions[0]) ? {
+          ...p.minions[0],
+          attack: p.minions[0].attack ?? p.minions[0].atk,
+          atk: p.minions[0].attack ?? p.minions[0].atk,
+          owner: p.name,
+          ownerId: p.id,
+          alive: p.minions[0].hp > 0
+        } : (p.minion ? {
+          ...p.minion,
+          attack: p.minion.attack ?? p.minion.atk,
+          atk: p.minion.attack ?? p.minion.atk,
+          owner: p.name,
+          ownerId: p.id,
+          alive: p.minion.hp > 0
+        } : null),
         cannotCrit: p.cannotCrit,
         hasActed: p.action !== null, // 只透露是否已下達指令，暗中保密指令內容
+        isLocked: p.isLocked || false,
         connected: p.connected
       })),
       logs: this.logs.slice(-30), // 最近 30 筆日誌

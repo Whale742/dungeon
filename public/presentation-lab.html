@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presentation Lab / FX Playground — 地城深淵</title>
+  <link rel="icon" type="image/webp" href="/icon/icon.webp">
+
+  <!-- Production Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=MedievalSharp&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <!-- Production Stylesheets (Single Source of Truth) -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="exploration.css">
+  <link rel="stylesheet" href="trap.css">
+  <link rel="stylesheet" href="chest.css">
+  <link rel="stylesheet" href="combat.css">
+
+  <!-- Developer Harness CSS (Strictly .lab-* only) -->
+  <link rel="stylesheet" href="presentation-lab.css">
+</head>
+<body class="lab-body">
+
+  <!-- Global SVG Sprite Definitions (Reused from index.html) -->
+  <svg style="display:none;" aria-hidden="true">
+    <defs>
+      <symbol id="icon-sword" viewBox="0 0 24 24">
+        <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="13" y1="19" x2="19" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="16" y1="16" x2="20" y2="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="19" y1="21" x2="21" y2="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-magic" viewBox="0 0 24 24">
+        <path d="m19 11-8-8-8.5 8.5a2.12 2.12 0 0 0 0 3l5 5a2.12 2.12 0 0 0 3 0L19 11Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m18 13 4 4M14 9l3-3M5 2l1 2M2 5l2 1M22 22l-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-heal" viewBox="0 0 24 24">
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 7v6M9 10h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-poison" viewBox="0 0 24 24">
+        <path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m5.52 16 1.48-1.5a2 2 0 0 1 2.83 0l1.17 1.17a2 2 0 0 0 2.83 0L15.3 14.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-unlock" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 11V7a5 5 0 0 1 9.9-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-timer" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="12 6 12 12 16 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="22" y1="12" x2="18" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="6" y1="12" x2="2" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="6" x2="12" y2="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="22" x2="12" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-ready" viewBox="0 0 24 24">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-chest" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 12h20M12 10v4M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-trap" viewBox="0 0 24 24">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="9" x2="12" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="17" x2="12.01" y2="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-flag" viewBox="0 0 24 24">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="4" y1="22" x2="4" y2="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-sparkle" viewBox="0 0 24 24">
+        <path d="m12 3 2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <line x1="18" y1="6" x2="6" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="6" y1="6" x2="18" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <button type="button" id="labSidebarToggle" class="lab-sidebar-toggle-btn" aria-label="切換選單">☰ 控制面板</button>
+
+  <div class="lab-container">
+    <!-- 左側控制面板 (Developer Control Panel) -->
+    <aside id="labSidebar" class="lab-sidebar">
+      <div class="lab-sidebar-header">
+        <div class="lab-title-group">
+          <h1>⚡ PRESENTATION LAB</h1>
+          <p class="lab-subtitle">Production FX & Animation Test Harness</p>
+        </div>
+        <span class="lab-badge">DEV TOOL</span>
+      </div>
+
+      <div class="lab-sidebar-content">
+        <!-- 1. 場景選擇 (Scene Selector) -->
+        <div class="lab-card">
+          <div class="lab-card-title">
+            <span>演出場景 (Scene)</span>
+            <span class="lab-tag" id="labActiveSceneTag">CHEST</span>
+          </div>
+
+          <div class="lab-form-group">
+            <label class="lab-label" for="labSceneSelect">選擇測試項目：</label>
+            <select id="labSceneSelect" class="lab-select" style="width: 100%;">
+              <optgroup label="🎁 寶箱演出 (Phase 4 — 核心重點)">
+                <option value="chest_full" selected>★ 完整寶箱流程 (Full Chest Sequence)</option>
+                <option value="chest_discovery">發現寶箱故事 (Discovery)</option>
+                <option value="chest_closed">未開啟寶箱 (Closed Chest Visual)</option>
+                <option value="chest_opening">開箱演出 (Anticipation / Shake / Lid Open)</option>
+                <option value="chest_reward_common">戰利品揭示 — 普通 (Common Reward)</option>
+                <option value="chest_reward_rare">戰利品揭示 — 稀有 (Rare Reward)</option>
+                <option value="chest_decision">裝備抉擇面板 (Equipment Decision UI)</option>
+              </optgroup>
+              <optgroup label="⚠️ 探索與陷阱 (Phase 2~3)">
+                <option value="trap_event">陷阱事件演出 (Trap Impact & Dodge)</option>
+                <option value="exploration_narrative">探索敘事打字 (Exploration Narrative)</option>
+                <option value="route_choice">分歧路線選擇 (Route Choice Transition)</option>
+              </optgroup>
+              <optgroup label="🎬 開場與轉場 (Phase 1~2)">
+                <option value="game_title">遊戲標題開場 (Game Title)</option>
+                <option value="prologue">深淵啟程序章 (Prologue Narrative)</option>
+                <option value="floor_intro">樓層進場標題 (Floor 1 Cinematic Banner)</option>
+                <option value="screen_fade">全域黑屏轉場 (Curtain Fade)</option>
+                <option value="typewriter_test">打字機首幀閃爍測試 (Typewriter Lab)</option>
+              </optgroup>
+              <optgroup label="⚔️ 全螢幕戰鬥演出 (Phase 5.2 Choreography & Identity)">
+                <option value="combat_warrior">★ 戰士物理斬擊 (Warrior — Xing + Slash FX)</option>
+                <option value="combat_mage">★ 法師秘術爆破 (Mage — Bomb Burst FX)</option>
+                <option value="combat_archer">★ 弓手射擊 (Archer — Twang + Arrow Projectile + Thock)</option>
+                <option value="combat_assassin">刺客雙十字斬 (Assassin — Dual Xing + X Slash)</option>
+                <option value="combat_alchemist">鍊金強酸投擲 (Alchemist — Acid Splash)</option>
+                <option value="combat_druid">德魯伊撕裂爪擊 (Druid — Claw Slash)</option>
+                <option value="combat_boss_action">★ 首領赤紅出招 (Boss Action — 鏡像反向)</option>
+                <option value="combat_player_lethal">★ 致命一擊擊殺 (Lethal Hit — Boss 沉重倒下)</option>
+                <option value="combat_full_sequence">★ 完整交鋒流程 (Player → Boss Sequence)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- 主控制按鈕 (Primary Controls) -->
+          <div class="lab-btn-group">
+            <button type="button" id="btnLabPlay" class="lab-btn lab-btn-success">▶ 播放 (PLAY)</button>
+            <button type="button" id="btnLabReplay" class="lab-btn lab-btn-primary">↺ 重播 (REPLAY)</button>
+            <button type="button" id="btnLabReset" class="lab-btn lab-btn-danger">■ 重設 (RESET)</button>
+          </div>
+        </div>
+
+        <!-- 2. 寶箱專屬配置與外觀版本 (Chest Lab Controls) -->
+        <div id="labChestControlsCard" class="lab-card">
+          <div class="lab-card-title">
+            <span>寶箱外觀版本與調校 (Chest Tuning)</span>
+            <span class="lab-tag">HIGHEST PRIORITY</span>
+          </div>
+
+          <!-- Variant Selector (Single Source of Truth) -->
+          <div class="lab-form-group">
+            <label class="lab-label" for="labChestVariantSelect">寶箱外觀版本 (Variant)：</label>
+            <select id="labChestVariantSelect" class="lab-select" style="width: 100%;">
+              <option value="current" selected>CURRENT (正式版 — 琥珀暗金木箱)</option>
+              <option value="ancient">VARIANT A (古老地下城 — 鍛造黑鐵沈木)</option>
+              <option value="abyss">VARIANT B (深淵遺物 — 曜石板岩秘藍)</option>
+            </select>
+          </div>
+
+          <!-- Live Parameters -->
+          <div class="lab-row-between">
+            <span class="lab-label">箱體縮放 (Scale)：<span id="labChestScaleVal">1.0</span>×</span>
+            <input type="range" id="labChestScaleRange" min="0.8" max="1.2" step="0.05" value="1.0" class="lab-range" style="width: 140px;">
+          </div>
+
+          <div class="lab-row-between">
+            <span class="lab-label">內部發光 (Glow)：</span>
+            <select id="labChestGlowSelect" class="lab-select">
+              <option value="off">Off (關閉)</option>
+              <option value="low" selected>Low (克制微光 - Default)</option>
+              <option value="medium">Medium (稍亮光暈)</option>
+            </select>
+          </div>
+
+          <div class="lab-row-between">
+            <span class="lab-label">光塵粒子 (Particles)：</span>
+            <select id="labChestParticlesSelect" class="lab-select">
+              <option value="off">Off (無)</option>
+              <option value="low" selected>Low (少許光塵 - Default)</option>
+              <option value="medium">Medium (中等擴散)</option>
+            </select>
+          </div>
+
+          <div class="lab-row-between">
+            <span class="lab-label">開啟微晃 (Shake)：</span>
+            <select id="labChestShakeSelect" class="lab-select">
+              <option value="off">Off (無)</option>
+              <option value="subtle" selected>Subtle (輕微方向晃動 - Default)</option>
+              <option value="medium">Medium (較明顯晃動)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 3. 播放速度與無障礙 (Speed & Accessibility) -->
+        <div class="lab-card">
+          <div class="lab-card-title">
+            <span>播放設定與無障礙</span>
+          </div>
+
+          <div class="lab-row-between">
+            <span class="lab-label">播放速度 (Speed)：</span>
+            <select id="labSpeedSelect" class="lab-select">
+              <option value="0.5">0.5× (慢速分析)</option>
+              <option value="0.75">0.75×</option>
+              <option value="1.0" selected>1.0× (標準 Default)</option>
+              <option value="1.25">1.25×</option>
+              <option value="1.5">1.5× (快速)</option>
+            </select>
+          </div>
+
+          <div class="lab-row-between">
+            <span class="lab-label">動態抑制 (Reduced Motion)：</span>
+            <select id="labReducedMotionSelect" class="lab-select">
+              <option value="normal" selected>Normal (正常動效)</option>
+              <option value="reduced">Reduced (無障礙簡化)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 3.5 戰鬥演出配置 (Combat Action Tuning — Phase 5) -->
+        <!-- 3.5 戰鬥演出配置 (Combat Action Tuning — Phase 5 & 5.1) -->
+        <div id="labCombatControlsCard" class="lab-card">
+          <div class="lab-card-title">
+            <span>全螢幕戰鬥演出調校 (Phase 5.1 Combat)</span>
+            <span class="lab-tag">PHASE 5.1</span>
+          </div>
+          <div class="lab-form-group">
+            <label class="lab-label" for="labCombatActorRoleSelect">出招玩家職業 (Actor Role)：</label>
+            <select id="labCombatActorRoleSelect" class="lab-select" style="width: 100%;">
+              <option value="warrior" selected>戰士 (Warrior)</option>
+              <option value="mage">法師 (Mage)</option>
+              <option value="archer">弓箭手 (Archer)</option>
+              <option value="assassin">刺客 (Assassin)</option>
+              <option value="bard">吟遊詩人 (Bard)</option>
+              <option value="alchemist">鍊金術士 (Alchemist)</option>
+              <option value="druid">德魯伊 (Druid)</option>
+            </select>
+          </div>
+          <div class="lab-form-group">
+            <label class="lab-label" for="labCombatSkillInput">技能名稱 (Skill Name)：</label>
+            <input type="text" id="labCombatSkillInput" class="lab-input" value="堅定斬擊" style="width: 100%;">
+          </div>
+          <div class="lab-row-between">
+            <span class="lab-label">傷害類型 (Type)：</span>
+            <select id="labCombatDmgTypeSelect" class="lab-select">
+              <option value="physical" selected>Physical (物理斬擊)</option>
+              <option value="magic">Magic (奧術魔法)</option>
+            </select>
+          </div>
+          <div class="lab-row-between">
+            <span class="lab-label">傷害數值 (Amount)：</span>
+            <input type="number" id="labCombatDmgNumInput" class="lab-input" value="48" style="width: 80px;">
+          </div>
+          <!-- Phase 5.1: Dev Damage Assertion Display -->
+          <div class="lab-dev-assertion-panel" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 8px 10px; font-family: monospace; font-size: 0.76rem; color: #cbd5e1; margin-top: 6px;">
+            <div style="font-weight: 700; color: #38bdf8; margin-bottom: 4px;">🔍 傷害一致性校驗 (Dev Assert)</div>
+            <div class="lab-row-between"><span>預期傷害 (Expected):</span> <strong id="labAssertExpected" style="color: #f1f5f9;">--</strong></div>
+            <div class="lab-row-between"><span>顯示傷害 (Displayed):</span> <strong id="labAssertDisplayed" style="color: #fbbf24;">--</strong></div>
+            <div class="lab-row-between"><span>血量扣除 (HP Delta):</span> <strong id="labAssertDelta" style="color: #34d399;">--</strong></div>
+            <div id="labAssertWarning" style="color: #ef4444; font-weight: 700; margin-top: 4px; display: none;">⚠️ 傷害數值不一致！</div>
+          </div>
+        </div>
+
+        <!-- 4. 音效控制 (SFX Controls) -->
+        <div class="lab-card">
+          <div class="lab-card-title">
+            <span>音效控制器 (SFXManager)</span>
+          </div>
+
+          <div class="lab-row-between">
+            <label class="lab-toggle-label" for="labSfxToggle">
+              <span class="lab-label">音效開關 (SFX)：</span>
+              <input type="checkbox" id="labSfxToggle" checked>
+            </label>
+            <div class="lab-row">
+              <span class="lab-label">音量：</span>
+              <input type="range" id="labVolumeRange" min="0" max="1" step="0.1" value="1.0" class="lab-range" style="width: 80px;">
+            </div>
+          </div>
+
+          <div class="lab-row">
+            <select id="labSoundTypeSelect" class="lab-select" style="flex: 1;">
+              <option value="panel_sweep">panel_sweep (Shoo~ 面板切入破空聲)</option>
+              <option value="warrior_xing">warrior_xing (Xing~ 戰士金屬斬擊聲)</option>
+              <option value="mage_burst">mage_burst (Bomb! 法師秘術爆破)</option>
+              <option value="archer_twang">archer_twang (Twang 弓弦震鳴)</option>
+              <option value="arrow_flight">arrow_flight (箭矢破空呼嘯)</option>
+              <option value="arrow_impact">arrow_impact (Thock 木質中箭)</option>
+              <option value="assassin_dual">assassin_dual (Xing-Xing 雙斬)</option>
+              <option value="acid_splash">acid_splash (強酸腐蝕飛濺)</option>
+              <option value="claw_slash">claw_slash (爪擊撕裂)</option>
+              <option value="physical_hit">physical_hit (物理實體重擊)</option>
+              <option value="magic_impact">magic_impact (魔法共鳴命中)</option>
+              <option value="heavy_impact">heavy_impact (首領沉重撞擊)</option>
+              <option value="chest_open">chest_open (寶箱開鎖金屬)</option>
+              <option value="chest_reveal">chest_reveal (寶箱現身低鳴)</option>
+              <option value="reward_common">reward_common (普通戰利品)</option>
+              <option value="reward_rare">reward_rare (稀有戰利品鐘鳴)</option>
+              <option value="trap_trigger">trap_trigger (機關彈出)</option>
+              <option value="trap_impact">trap_impact (陷阱重創)</option>
+              <option value="heal">heal (聖詠治癒)</option>
+            </select>
+            <button type="button" id="btnTestSound" class="lab-btn lab-btn-secondary lab-btn-sm">試聽</button>
+          </div>
+
+          <!-- Phase 5.2: 獨立音效三層辨識按鈕 (Three-tier Audio Identity Tests) -->
+          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15);">
+            <div style="font-size: 0.74rem; color: #94a3b8; font-weight: 700; margin-bottom: 6px;">戰鬥三層音效單獨驗證 (Beat Separation)：</div>
+            <div class="lab-btn-group" style="gap: 5px;">
+              <button type="button" id="btnTestPanelSweep" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex: 1; font-size: 0.72rem;">① Shoo 面板</button>
+              <button type="button" id="btnTestAttackSfx" class="lab-btn lab-btn-primary lab-btn-sm" style="flex: 1; font-size: 0.72rem;">② Attack 招式</button>
+              <button type="button" id="btnTestImpactSfx" class="lab-btn lab-btn-danger lab-btn-sm" style="flex: 1; font-size: 0.72rem;">③ Impact 命中</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. 偵錯檢視器 (Debug Inspection) -->
+        <div class="lab-card">
+          <div class="lab-card-title">
+            <span>視覺邊界與圖層 (Debug Overlays)</span>
+          </div>
+
+          <label class="lab-toggle-label" for="chkShowBounds">
+            <span class="lab-label">顯示佈局邊界 (Layout Bounds)</span>
+            <input type="checkbox" id="chkShowBounds">
+          </label>
+
+          <label class="lab-toggle-label" for="chkShowLayers">
+            <span class="lab-label">顯示 Z-Index 階層標籤 (Layers)</span>
+            <input type="checkbox" id="chkShowLayers">
+          </label>
+
+          <label class="lab-toggle-label" for="chkShowTimingDebug">
+            <span class="lab-label">記錄時序節拍 (Timing Beats)</span>
+            <input type="checkbox" id="chkShowTimingDebug" checked>
+          </label>
+        </div>
+
+        <!-- 6. 戰鬥微調預覽 (Combat Preview Controls) -->
+        <div id="labCombatCard" class="lab-card">
+          <div class="lab-card-title">
+            <span>戰鬥文字與打擊測試 (Combat FX)</span>
+            <span class="lab-tag">PHASE 5 PREVIEW</span>
+          </div>
+
+          <div class="lab-form-group">
+            <label class="lab-label" for="labTextLengthSelect">文字長度極限測試 (Text Preset)：</label>
+            <select id="labTextLengthSelect" class="lab-select" style="width: 100%;">
+              <option value="short">Short (斬擊)</option>
+              <option value="normal" selected>Normal (堅定斬擊)</option>
+              <option value="long">Long (深淵奧術毀滅爆破)</option>
+              <option value="extreme">Extreme (遠古深淵領主終焉毀滅·極限虛空風暴打擊)</option>
+            </select>
+          </div>
+
+          <div class="lab-row">
+            <div style="flex:1;">
+              <label class="lab-label" for="labDmgTypeSelect">傷害類型：</label>
+              <select id="labDmgTypeSelect" class="lab-select" style="width: 100%;">
+                <option value="damage">Physical 物理</option>
+                <option value="magic">Magic 魔法</option>
+                <option value="crit">Critical 暴擊</option>
+                <option value="heal">Heal 治療</option>
+                <option value="poison">Poison 劇毒</option>
+              </select>
+            </div>
+            <div style="width: 80px;">
+              <label class="lab-label" for="labDmgNumInput">數值：</label>
+              <input type="number" id="labDmgNumInput" class="lab-input" value="128" style="width: 100%;">
+            </div>
+          </div>
+          <button type="button" id="btnTriggerHitFx" class="lab-btn lab-btn-outline lab-btn-sm" style="margin-top: 4px;">觸發飄字與打擊感</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右側主要預覽區 (Preview Canvas & Device Sandbox) -->
+    <main class="lab-main">
+      <!-- 頂部工具列 (Toolbar) -->
+      <div class="lab-toolbar">
+        <div class="lab-toolbar-left">
+          <span class="lab-label">裝置視口：</span>
+          <select id="labViewportSelect" class="lab-select">
+            <option value="responsive" selected>自適應視口 (Responsive - 100%)</option>
+            <option value="desktop">桌上電腦 (Desktop - 1440 × 900)</option>
+            <option value="laptop">筆記型電腦 (Laptop - 1280 × 720)</option>
+            <option value="tablet">平板電腦 (Tablet - 768 × 1024)</option>
+            <option value="mobile">智慧型手機 (Mobile - 390 × 844)</option>
+          </select>
+          <span id="labDeviceIndicator" class="lab-device-indicator">100% × 100%</span>
+        </div>
+
+        <div class="lab-toolbar-right">
+          <span class="lab-label">背景樣式：</span>
+          <select id="labBgSelect" class="lab-select">
+            <option value="dungeon" selected>Dungeon 地下城 (Default)</option>
+            <option value="black">Full Black 全黑 (純文字/發光分析)</option>
+            <option value="battle">Battle 戰鬥背景</option>
+            <option value="minimal">Minimal Dark 深灰暗底</option>
+            <option value="none">None 透明網格</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 預覽畫布外框 -->
+      <div class="lab-preview-area">
+        <div id="labDeviceFrame" class="lab-device-frame is-responsive">
+          <!-- 模擬遊戲根節點 Sandbox -->
+          <div id="labStage" class="lab-stage" data-bg="dungeon" data-variant="current">
+
+            <!-- 模擬頂部 HUD 狀態列 (用以確認對齊與浮動治療字) -->
+            <div id="labMockHud" class="lab-mock-hud">
+              <div class="lab-mock-party">
+                <div class="lab-mock-player-chip teammate-card" data-player-id="mock-warrior">
+                  <span>🛡️ 戰士</span>
+                  <span class="lab-mock-player-hp">HP: 120/120</span>
+                  <div class="floating-text-container"></div>
+                </div>
+                <div class="lab-mock-player-chip teammate-card" data-player-id="mock-mage">
+                  <span>🧙‍♂️ 法師</span>
+                  <span class="lab-mock-player-hp">HP: 80/80</span>
+                  <div class="floating-text-container"></div>
+                </div>
+              </div>
+              <div id="labHudStatus">LAB PREVIEW MODE</div>
+            </div>
+
+            <!-- 正式遊戲 DOM 根結構 (Single Source of Truth) -->
+            <div id="app" class="game-container" style="min-height: 100%; position: relative;">
+              <!-- 視圖：事件區 -->
+              <section id="viewEvent" class="view-panel active" style="min-height: 100%; display: flex; align-items: center; justify-content: center;">
+                <!-- 1. 寶箱發現區塊 (探索層) -->
+                <div id="chestDiscoverySection" class="exploration-chest hidden">
+                  <div id="chestDiscoveryStory" class="exploration-chest-story"></div>
+                  <div id="chestInteractionArea" class="exploration-chest-stage hidden">
+                    <div id="chestVisualStage" class="exploration-chest-visual"></div>
+                    <div class="exploration-chest-actions">
+                      <button type="button" id="btnOpenChest" class="presentation-chest-btn" disabled>
+                        <svg class="ui-icon" aria-hidden="true"><use href="#icon-chest"></use></svg>
+                        <span>開啟寶箱</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 2. 陷阱發現區塊 (探索層) -->
+                <div id="trapDiscoverySection" class="exploration-trap hidden">
+                  <div id="trapDiscoveryStory" class="exploration-trap-story"></div>
+                </div>
+              </section>
+
+              <!-- 視圖：路線分歧區 -->
+              <section id="viewRoute" class="view-panel exploration-section hidden">
+                <div class="exploration-content" style="max-width: 700px; margin: 40px auto; text-align: center;">
+                  <div id="routeAtmosphereText" class="exploration-story"></div>
+                  <div id="routeOptionsGrid" class="route-cards-grid hidden" style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;"></div>
+                </div>
+              </section>
+
+              <!-- 視圖：序章區 -->
+              <section id="viewPrologue" class="view-panel hidden"></section>
+            </div>
+
+            <!-- 全域 Presentation Root (最頂層演出根節點) -->
+            <div id="presentationRoot" class="presentation-root" style="position: absolute; inset: 0; pointer-events: none; z-index: 900;">
+              <!-- 樓層標題 Overlay -->
+              <div id="floorIntroOverlay" class="presentation-floor hidden">
+                <div class="presentation-floor-content">
+                  <div id="floorIntroNumber" class="presentation-floor-number">第 1 層</div>
+                  <h1 id="floorIntroTitle" class="presentation-floor-title">迷霧分歧點</h1>
+                </div>
+              </div>
+
+              <!-- 遊戲標題與序章 Overlay (P2-R1.1 / Phase 1 Single Source of Truth) -->
+              <div id="gameStartOverlay" class="presentation-curtain hidden" style="pointer-events: auto;">
+                <div id="gameTitleContainer" class="presentation-game-title hidden">
+                  <h1 class="presentation-game-title-zh">地城深淵</h1>
+                  <div class="presentation-game-title-en" lang="en">DUNGEON ABYSS</div>
+                </div>
+                <div id="prologuePresentationContainer" class="presentation-prologue hidden">
+                  <div id="prologuePresBody" class="presentation-prologue-body"></div>
+                </div>
+              </div>
+
+              <!-- 陷阱打擊 Overlay -->
+              <div id="trapPresentationOverlay" class="presentation-trap hidden" style="pointer-events: auto;">
+                <div class="presentation-trap-stage">
+                  <div class="presentation-trap-title">TRAP</div>
+                  <div id="trapVictimsContainer" class="presentation-trap-victims"></div>
+                </div>
+              </div>
+
+              <!-- 寶箱開啟全螢幕演出 Overlay -->
+              <div id="chestPresentationOverlay" class="presentation-chest hidden" style="pointer-events: auto;">
+                <div class="presentation-chest-stage">
+                  <div id="presentationChestVisual" class="presentation-chest-box"></div>
+                  <div id="presentationRewardContent" class="presentation-reward-content hidden">
+                    <div id="presentationRewardRarity" class="presentation-reward-rarity is-common">【戰利品裝備】</div>
+                    <h2 id="presentationRewardTitle" class="presentation-reward-title">【深淵戰甲】</h2>
+                    <p id="presentationRewardDesc" class="presentation-reward-desc">戰士最大生命值 +30</p>
+                    <div id="presentationRewardMeta" class="presentation-reward-meta"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 浮動文字 FX 容器 -->
+              <div id="presentationFxContainer" class="presentation-fx-container"></div>
+            </div>
+
+            <!-- 轉場布幕 -->
+            <div id="screenTransitionCurtain" class="screen-transition-curtain hidden"></div>
+
+            <!-- 像素大字幕橫幅 -->
+            <div id="stageCinematicBanner" class="stage-cinematic-banner hidden">
+              <div class="cinematic-banner-ornament-top">◆ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ◆</div>
+              <div class="cinematic-banner-content">
+                <div id="cinematicBannerSub" class="cinematic-banner-sub">FLOOR 1 · DEEP ABYSS</div>
+                <h1 id="cinematicBannerTitle" class="cinematic-banner-title">【第 1 層・深淵探索】</h1>
+              </div>
+              <div class="cinematic-banner-ornament-bottom">◆ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ◆</div>
+            </div>
+
+            <!-- 裝備抉擇面板 (Modal 層) -->
+            <div id="equipDropModal" class="modal-overlay hidden" style="z-index: 1000; position: absolute;">
+              <div class="modal-card equip-modal-card" style="margin: auto; max-width: 480px; background: #1e293b; padding: 24px; border-radius: 8px; border: 1px solid #475569; text-align: center;">
+                <h3 style="color: #fbbf24; margin-top: 0;">獲得戰利品裝備！</h3>
+                <div id="equipDropItemName" style="font-size: 1.2rem; font-weight: 700; margin: 12px 0;">【荊棘重鎧】</div>
+                <p id="equipDropItemDesc" style="color: #cbd5e1; font-size: 0.9rem;">最大生命 +30，受傷減免 10%</p>
+                <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
+                  <button type="button" id="btnEquipItem" class="lab-btn lab-btn-success" style="padding: 10px 24px;">【穿上裝備】</button>
+                  <button type="button" id="btnDiscardItem" class="lab-btn lab-btn-secondary" style="padding: 10px 24px;">【捨棄裝備】</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 戰鬥行動橫幅 (Combat Banner 預覽) -->
+            <div id="combatActionBanner" class="combat-action-banner player-theme hidden" style="position: absolute; top: 70px; left: 50%; transform: translateX(-50%); z-index: 800;">
+              <div id="combatBannerActorAvatar" class="combat-banner-avatar-wrap"></div>
+              <div class="combat-banner-center">
+                <div id="combatBannerBadge" class="combat-banner-badge">ACTION</div>
+                <div id="combatBannerTitle" class="combat-banner-title">堅定斬擊</div>
+                <div id="combatBannerTags" class="combat-banner-tags"></div>
+              </div>
+            </div>
+
+            <!-- 層級標籤提示 (Z-Index Hierarchy Visualizer) -->
+            <div id="labLayerOverlay" class="lab-layer-overlay" style="display: none;">
+              <div class="lab-layer-tag"><span>MODAL (1000):</span> <span id="layerTagModal">IDLE</span></div>
+              <div class="lab-layer-tag"><span>PRESENTATION (900):</span> <span id="layerTagPres" class="lab-layer-active">READY</span></div>
+              <div class="lab-layer-tag"><span>INTERACTION (50):</span> <span>ACTIVE</span></div>
+              <div class="lab-layer-tag"><span>WORLD / SCENE (0):</span> <span>DUNGEON</span></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部時序日誌與控制台 (Timing & Console Log) -->
+      <div class="lab-bottom-panel">
+        <div class="lab-bottom-header">
+          <span>演出時序節拍與除錯日誌 (TIMING & LOG)</span>
+          <button type="button" id="btnClearLabLog" class="lab-btn lab-btn-outline lab-btn-sm">清空日誌</button>
+        </div>
+        <div id="labLogContainer" class="lab-log-body">
+          <div class="lab-log-entry"><span class="lab-log-time">00:00.000</span><span class="lab-log-tag">[INIT]</span><span>Presentation Lab initialized and ready.</span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts: Production Single Source of Truth + Lab Controller -->
+  <script src="presentation-config.js"></script>
+  <script src="presentation-core.js"></script>
+  <script src="exploration.js"></script>
+  <script src="trap.js"></script>
+  <script src="chest.js"></script>
+  <script src="combat.js"></script>
+  <script src="presentation-lab.js"></script>
+</body>
+</html>

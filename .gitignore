@@ -1,8 +1,31 @@
+# Dependencies
 node_modules/
+
+# Local environment
+.env
+.env.*
+
+# Chrome / browser QA temporary profiles
+tmp-combat-chrome-profile/
+tmp-debug-chrome/
+tmp-index-chrome/
+tmp-lab-chrome-profile/
+tmp-*-chrome*/
+tmp-*-chrome-profile/
+
+# Generated QA artifacts
+artifacts/
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# OS
 .DS_Store
 Thumbs.db
-*.log
-.env
+
+# Editor
+.vscode/
+.idea/

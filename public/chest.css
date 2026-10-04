@@ -1,0 +1,445 @@
+/* Phase 4: Chest Discovery / Open / Reward Presentation */
+.exploration-chest {
+  width: min(720px, 86vw);
+  margin: clamp(40px, 10vh, 110px) auto;
+  padding: 24px 16px;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.45) 0%, transparent 75%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.exploration-chest.enter {
+  animation: chestFadeSlideUp 600ms ease-out both;
+}
+
+.exploration-chest.exit {
+  animation: chestFadeOut 500ms ease-in both;
+}
+
+.exploration-chest-story {
+  color: #e2e8f0;
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+  line-height: 2;
+  letter-spacing: .06em;
+  white-space: pre-wrap;
+  transition: opacity 500ms ease-out, filter 500ms ease-out;
+  margin-bottom: 24px;
+}
+
+.exploration-chest-story.dimmed {
+  opacity: 0.65;
+  filter: blur(0.3px);
+}
+
+.exploration-chest-story p {
+  margin: 0 0 1.2em;
+}
+
+.exploration-chest-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.exploration-chest-stage.enter {
+  animation: chestRevealEnter 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.exploration-chest-visual {
+  width: clamp(160px, 26vw, 220px);
+  aspect-ratio: 5 / 4;
+  position: relative;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.75));
+}
+
+.exploration-chest-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.presentation-chest-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 36px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #0f172a;
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  border: 1px solid rgba(251, 191, 36, 0.85);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.38);
+  cursor: pointer;
+  transition: opacity 250ms ease, transform 250ms ease, background 200ms ease, box-shadow 200ms ease;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.presentation-chest-btn.ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.presentation-chest-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%);
+  box-shadow: 0 6px 24px rgba(217, 119, 6, 0.55);
+  transform: translateY(-2px);
+}
+
+.presentation-chest-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  transform: translateY(0);
+}
+
+.presentation-chest-btn .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Waiting state for non-owners during decision */
+.presentation-chest-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: var(--radius-sm, 6px);
+  color: #94a3b8;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.presentation-chest-waiting .ui-icon {
+  color: #fbbf24;
+}
+
+/* Fullscreen Presentation Root Layer */
+.presentation-chest {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.65) 100%);
+  z-index: 100;
+  animation: chestOverlayFadeIn 350ms ease-out both;
+}
+
+.presentation-chest.exit {
+  animation: chestFadeOut 500ms ease-in both;
+}
+
+.presentation-chest-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: min(800px, 92vw);
+  max-height: 85vh;
+  position: relative;
+}
+
+.presentation-chest-box {
+  width: clamp(170px, 28vw, 240px);
+  aspect-ratio: 5 / 4;
+  position: relative;
+  filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.85));
+}
+
+.presentation-chest-box.is-shaking {
+  animation: chestAnticipationShake 260ms ease-in-out both;
+}
+
+/* SVG Chest internal transitions */
+.chest-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chest-inner-glow {
+  opacity: 0;
+  transition: opacity 350ms ease-out;
+}
+
+.presentation-chest-box.is-open .chest-inner-glow {
+  opacity: 1;
+  animation: chestGlowPulse 1.8s ease-in-out infinite alternate;
+}
+
+.chest-lid-group {
+  transform-origin: 100px 70px;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 380ms ease-out;
+}
+
+.presentation-chest-box.is-open .chest-lid-group {
+  transform: translateY(-24px) scaleY(0.45);
+  opacity: 0.85;
+}
+
+/* Subtle particle sparkles */
+.presentation-chest-particles {
+  position: absolute;
+  inset: -15px 0 0 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+}
+
+.presentation-chest-box.is-open .presentation-chest-particles {
+  opacity: 1;
+}
+
+.presentation-chest-particles .particle {
+  position: absolute;
+  color: #fbbf24;
+  font-size: 14px;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.8);
+  animation: chestParticleFloat 1.8s ease-out infinite;
+}
+
+.presentation-chest-particles .p1 { left: 30%; top: 25%; animation-delay: 0s; font-size: 16px; }
+.presentation-chest-particles .p2 { left: 65%; top: 20%; animation-delay: 0.4s; font-size: 12px; }
+.presentation-chest-particles .p3 { left: 45%; top: 15%; animation-delay: 0.8s; font-size: 18px; }
+.presentation-chest-particles .p4 { left: 75%; top: 35%; animation-delay: 1.2s; font-size: 13px; }
+
+/* Reward Presentation */
+.presentation-reward-content {
+  margin-top: 24px;
+  padding: 22px 32px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), inset 0 0 24px rgba(245, 158, 11, 0.08);
+  max-width: 540px;
+  width: 90%;
+  backdrop-filter: blur(10px);
+}
+
+.presentation-reward-content.enter {
+  animation: rewardRevealEnter 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.presentation-reward-rarity {
+  font-family: var(--font-stats, 'Chakra Petch', sans-serif);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+}
+
+.presentation-reward-rarity.is-rare {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+.presentation-reward-rarity.is-common {
+  color: #38bdf8;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+.presentation-reward-title {
+  font-family: var(--font-cinzel, 'Cinzel', serif);
+  font-size: clamp(1.4rem, 3.5vw, 2rem);
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.presentation-reward-desc {
+  color: #cbd5e1;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.presentation-reward-meta {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+.presentation-chest-active #floatingChatContainer {
+  visibility: hidden;
+}
+
+/* Animations */
+@keyframes chestFadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes chestFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes chestOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes chestRevealEnter {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes chestAnticipationShake {
+  0% { transform: scale(1) translateY(0); }
+  25% { transform: scale(0.98) translateY(2px) rotate(-1deg); }
+  50% { transform: scale(1.02) translateY(-3px) rotate(1.2deg); }
+  75% { transform: scale(0.99) translateY(1px) rotate(-0.5deg); }
+  100% { transform: scale(1) translateY(0) rotate(0); }
+}
+
+@keyframes chestGlowPulse {
+  0% { opacity: 0.75; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes chestParticleFloat {
+  0% { opacity: 0; transform: translateY(5px); }
+  20% { opacity: 1; }
+  80% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-24px); }
+}
+
+@keyframes rewardRevealEnter {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+  .exploration-chest { width: 94vw; margin: 30px auto; padding: 16px 8px; }
+  .presentation-chest-box { width: 180px; }
+  .presentation-reward-content { padding: 16px 18px; }
+  .presentation-chest-btn { padding: 10px 28px; font-size: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exploration-chest.enter,
+  .exploration-chest-stage.enter,
+  .presentation-chest,
+  .presentation-reward-content.enter {
+    animation-name: chestOverlayFadeIn !important;
+    transform: none !important;
+  }
+  .presentation-chest-box.is-shaking {
+    animation: none !important;
+  }
+  .presentation-chest-particles {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Chest Variants (Production Single Source of Truth)
+   Default: current. Variants toggled via data-variant on chest containers.
+   ========================================================================== */
+
+/* VARIANT A: 古老地下城寶箱 (Ancient Dungeon Chest) */
+.exploration-chest[data-variant="ancient"] .chest-inner-glow,
+.presentation-chest[data-variant="ancient"] .chest-inner-glow {
+  fill: url(#chestAncientGlow);
+}
+.exploration-chest[data-variant="ancient"] .chest-base-group rect:first-child,
+.exploration-chest[data-variant="ancient"] .chest-lid-group path:first-child,
+.presentation-chest[data-variant="ancient"] .chest-base-group rect:first-child,
+.presentation-chest[data-variant="ancient"] .chest-lid-group path:first-child {
+  fill: url(#chestAncientWood);
+  stroke: #0a0704;
+  rx: 1;
+}
+.exploration-chest[data-variant="ancient"] .chest-base-group rect:not(:first-child),
+.exploration-chest[data-variant="ancient"] .chest-lid-group path:not(:first-child),
+.exploration-chest[data-variant="ancient"] .chest-lid-group rect,
+.presentation-chest[data-variant="ancient"] .chest-base-group rect:not(:first-child),
+.presentation-chest[data-variant="ancient"] .chest-lid-group path:not(:first-child),
+.presentation-chest[data-variant="ancient"] .chest-lid-group rect {
+  fill: url(#chestAncientMetal);
+  stroke: #1c1a17;
+}
+
+/* VARIANT B: 深淵遺物寶箱 (Abyssal Relic Chest) */
+.exploration-chest[data-variant="abyss"] .chest-inner-glow,
+.presentation-chest[data-variant="abyss"] .chest-inner-glow {
+  fill: url(#chestAbyssGlow);
+}
+.exploration-chest[data-variant="abyss"] .chest-base-group rect:first-child,
+.exploration-chest[data-variant="abyss"] .chest-lid-group path:first-child,
+.presentation-chest[data-variant="abyss"] .chest-base-group rect:first-child,
+.presentation-chest[data-variant="abyss"] .chest-lid-group path:first-child {
+  fill: url(#chestAbyssWood);
+  stroke: #020617;
+}
+.exploration-chest[data-variant="abyss"] .chest-base-group rect:not(:first-child),
+.exploration-chest[data-variant="abyss"] .chest-lid-group path:not(:first-child),
+.exploration-chest[data-variant="abyss"] .chest-lid-group rect,
+.presentation-chest[data-variant="abyss"] .chest-base-group rect:not(:first-child),
+.presentation-chest[data-variant="abyss"] .chest-lid-group path:not(:first-child),
+.presentation-chest[data-variant="abyss"] .chest-lid-group rect {
+  fill: url(#chestAbyssMetal);
+  stroke: #0369a1;
+}
+.exploration-chest[data-variant="abyss"] .particle,
+.presentation-chest[data-variant="abyss"] .particle {
+  color: #38bdf8;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+}
+
+/* --- Chest Tuning Parameters --- */
+.presentation-chest-box,
+.exploration-chest-visual {
+  transform: scale(var(--lab-chest-scale, 1));
+  transition: transform 200ms ease-out;
+}
+
+/* Glow tuning */
+[data-glow="off"] .chest-inner-glow { display: none !important; }
+[data-glow="medium"] .chest-inner-glow { filter: drop-shadow(0 0 16px rgba(251, 191, 36, 0.8)); }
+[data-variant="abyss"][data-glow="medium"] .chest-inner-glow { filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.8)); }
+
+/* Particles tuning */
+[data-particles="off"] .presentation-chest-particles { display: none !important; }
+[data-particles="medium"] .presentation-chest-particles .particle { font-size: 1.4rem; }
+
+/* Shake tuning */
+[data-shake="off"] .presentation-chest-box.is-shaking { animation: none !important; }
+[data-shake="medium"] .presentation-chest-box.is-shaking { animation: chestAnticipationShakeMedium 260ms ease-in-out both; }
+@keyframes chestAnticipationShakeMedium {
+  0% { transform: scale(var(--lab-chest-scale, 1)) translateY(0); }
+  25% { transform: scale(var(--lab-chest-scale, 1)) translateY(4px) rotate(-2deg); }
+  50% { transform: scale(var(--lab-chest-scale, 1)) translateY(-5px) rotate(2.4deg); }
+  75% { transform: scale(var(--lab-chest-scale, 1)) translateY(2px) rotate(-1deg); }
+  100% { transform: scale(var(--lab-chest-scale, 1)) translateY(0) rotate(0); }
+}
+
+/* Reduced motion support in lab or system */
+[data-reduced-motion="true"] .exploration-chest.enter,
+[data-reduced-motion="true"] .exploration-chest-stage.enter,
+[data-reduced-motion="true"] .presentation-chest,
+[data-reduced-motion="true"] .presentation-reward-content.enter {
+  animation-name: chestOverlayFadeIn !important;
+  transform: none !important;
+}
+[data-reduced-motion="true"] .presentation-chest-box.is-shaking {
+  animation: none !important;
+}
+[data-reduced-motion="true"] .presentation-chest-particles {
+  display: none !important;
+}
+

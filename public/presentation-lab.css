@@ -1,0 +1,577 @@
+/* ==========================================================================
+   Presentation Lab / FX Playground CSS (presentation-lab.css)
+   STRICT RULE: Only styles developer UI using .lab-* namespace.
+   Does NOT duplicate or override any production .presentation-* styles.
+   ========================================================================== */
+
+:root {
+  --lab-bg-main: #090d16;
+  --lab-bg-panel: #111827;
+  --lab-bg-card: #1f2937;
+  --lab-border: #374151;
+  --lab-text: #f3f4f6;
+  --lab-text-muted: #9ca3af;
+  --lab-primary: #3b82f6;
+  --lab-accent: #f59e0b;
+  --lab-success: #10b981;
+  --lab-danger: #ef4444;
+}
+
+body.lab-body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--lab-bg-main);
+  color: var(--lab-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  user-select: none;
+}
+
+.lab-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* --- Left Sidebar (Control Panel) --- */
+.lab-sidebar {
+  width: 420px;
+  min-width: 360px;
+  height: 100vh;
+  background-color: var(--lab-bg-panel);
+  border-right: 1px solid var(--lab-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 5000;
+  transition: transform 250ms ease, width 250ms ease;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.lab-sidebar.collapsed {
+  transform: translateX(-100%);
+  position: absolute;
+}
+
+.lab-sidebar-header {
+  padding: 16px 20px;
+  background: #0f172a;
+  border-bottom: 1px solid var(--lab-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lab-title-group h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lab-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--lab-text-muted);
+}
+
+.lab-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.lab-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lab-sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+.lab-sidebar-content::-webkit-scrollbar-track {
+  background: #111827;
+}
+.lab-sidebar-content::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+/* Sections & Cards */
+.lab-card {
+  background: var(--lab-bg-card);
+  border: 1px solid var(--lab-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lab-card-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #93c5fd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding-bottom: 6px;
+  margin: 0;
+}
+
+.lab-card-title .lab-tag {
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+}
+
+/* Form Controls */
+.lab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lab-row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lab-label {
+  font-size: 0.8rem;
+  color: var(--lab-text);
+  font-weight: 500;
+}
+
+.lab-select,
+.lab-input {
+  background: #111827;
+  border: 1px solid var(--lab-border);
+  color: var(--lab-text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 150ms;
+}
+
+.lab-select:focus,
+.lab-input:focus {
+  border-color: var(--lab-primary);
+}
+
+.lab-select {
+  cursor: pointer;
+}
+
+/* Buttons */
+.lab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 150ms, transform 100ms;
+}
+
+.lab-btn:active {
+  transform: scale(0.97);
+}
+
+.lab-btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+.lab-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.lab-btn-success {
+  background: #059669;
+  color: #ffffff;
+}
+.lab-btn-success:hover {
+  background: #047857;
+}
+
+.lab-btn-warning {
+  background: #d97706;
+  color: #ffffff;
+}
+.lab-btn-warning:hover {
+  background: #b45309;
+}
+
+.lab-btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+.lab-btn-danger:hover {
+  background: #b91c1c;
+}
+
+.lab-btn-secondary {
+  background: #374151;
+  color: #e5e7eb;
+}
+.lab-btn-secondary:hover {
+  background: #4b5563;
+}
+
+.lab-btn-outline {
+  background: transparent;
+  border: 1px solid var(--lab-border);
+  color: var(--lab-text);
+}
+.lab-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #9ca3af;
+}
+
+.lab-btn-sm {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.lab-btn-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 6px;
+}
+
+/* Toggle Switch */
+.lab-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.lab-toggle-label input {
+  cursor: pointer;
+}
+
+/* --- Right Main Area (Preview Stage) --- */
+.lab-main {
+  flex: 1;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: #030712;
+}
+
+/* Top Toolbar */
+.lab-toolbar {
+  height: 52px;
+  background: #0f172a;
+  border-bottom: 1px solid var(--lab-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.lab-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lab-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lab-device-indicator {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* Preview Canvas Container */
+.lab-preview-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+  background: radial-gradient(#1f2937 1px, transparent 1px);
+  background-size: 16px 16px;
+  position: relative;
+}
+
+/* Device Frame Simulation */
+.lab-device-frame {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--lab-border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+  transition: width 200ms ease, height 200ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.lab-device-frame.is-responsive {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* The inner sandbox stage holding the actual game elements */
+.lab-stage {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: #0b0f19;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* Background options */
+.lab-stage[data-bg="dungeon"] {
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.82) 0%, rgba(3, 7, 18, 0.96) 100%), url('/photo/Dungeon.webp') center/cover no-repeat;
+}
+.lab-stage[data-bg="black"] {
+  background: #000000;
+}
+.lab-stage[data-bg="battle"] {
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.8) 0%, rgba(3, 7, 18, 0.96) 100%), url('/photo/Battle.webp') center/cover no-repeat;
+}
+.lab-stage[data-bg="minimal"] {
+  background: #0f172a;
+}
+.lab-stage[data-bg="none"] {
+  background: transparent;
+}
+
+/* Mock HUD Overlay for testing contrast and alignment */
+.lab-mock-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, transparent 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+  pointer-events: none;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.lab-mock-party {
+  display: flex;
+  gap: 12px;
+}
+.lab-mock-player-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(30, 41, 59, 0.7);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #e2e8f0;
+}
+.lab-mock-player-hp {
+  color: #10b981;
+  font-weight: 700;
+}
+
+/* --- Debug Overlays --- */
+/* 1. Layout Bounds Debug */
+.lab-stage.lab-debug-bounds * {
+  outline: 1px dashed rgba(56, 189, 248, 0.45) !important;
+}
+.lab-stage.lab-debug-bounds .exploration-chest {
+  outline: 2px dashed #f59e0b !important;
+}
+.lab-stage.lab-debug-bounds .presentation-chest {
+  outline: 2px dashed #ef4444 !important;
+}
+.lab-stage.lab-debug-bounds .presentation-reward-content {
+  outline: 2px dashed #10b981 !important;
+}
+.lab-stage.lab-debug-bounds .presentation-trap-victim {
+  outline: 2px dashed #ec4899 !important;
+}
+
+/* 2. Layer Hierarchy Visualizer */
+.lab-layer-overlay {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--lab-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  z-index: 4000;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lab-layer-tag {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.lab-layer-active {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+/* 3. Bottom Timing & Event Log Console */
+.lab-bottom-panel {
+  height: 180px;
+  background: #0f172a;
+  border-top: 1px solid var(--lab-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 2000;
+}
+
+.lab-bottom-header {
+  padding: 6px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid var(--lab-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.lab-log-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lab-log-entry {
+  display: flex;
+  gap: 10px;
+  line-height: 1.4;
+}
+.lab-log-time {
+  color: #64748b;
+  min-width: 60px;
+}
+.lab-log-tag {
+  color: #38bdf8;
+  font-weight: 600;
+}
+.lab-log-entry.error .lab-log-tag {
+  color: #ef4444;
+}
+.lab-log-entry.warn .lab-log-tag {
+  color: #f59e0b;
+}
+.lab-log-entry.success .lab-log-tag {
+  color: #10b981;
+}
+
+/* Floating Sidebar Toggle Button */
+.lab-sidebar-toggle-btn {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6000;
+  background: #1e293b;
+  border: 1px solid var(--lab-border);
+  color: #f3f4f6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .lab-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 5000;
+  }
+  .lab-sidebar-toggle-btn {
+    display: block;
+  }
+}
+
+/* --- Presentation Sandbox Framing in Lab Stage --- */
+.lab-stage .presentation-combat-stage {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 920 !important;
+}
+
+.lab-stage .presentation-curtain,
+.lab-stage .presentation-floor,
+.lab-stage .presentation-trap,
+.lab-stage .presentation-chest {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+

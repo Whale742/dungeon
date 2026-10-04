@@ -1,0 +1,843 @@
+/* ==========================================================================
+   地城深淵 (DUNGEON ABYSS) - Phase 5 Full-Screen Combat Presentation Styles
+   Namespace: .presentation-combat-*
+   ========================================================================== */
+
+/* --- 1. 全螢幕戰鬥舞台 (Combat Stage Layer) --- */
+.presentation-combat-stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 920;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(2, 6, 14, 0.60) 0%, rgba(2, 6, 14, 0.72) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--combat-overlay-enter, 300ms) cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.presentation-combat-stage.is-active {
+  opacity: 1;
+}
+
+.presentation-combat-stage.is-exiting {
+  opacity: 0;
+  transition: opacity var(--combat-overlay-exit, 300ms) ease;
+}
+
+/* Subtle Vignette */
+.presentation-combat-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+/* --- 2. 戰鬥構圖舞台容器 (Combat Scene Canvas) --- */
+.presentation-combat-canvas {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* --- 3. 巨型斜向長方形行動條 (Diagonal Action Strip) --- */
+.presentation-combat-strip-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 82vw;
+  height: 24vh;
+  max-width: 1280px;
+  max-height: 260px;
+  min-height: 170px;
+  z-index: 925;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform, opacity;
+}
+
+.presentation-combat-strip-skew {
+  position: absolute;
+  inset: 0;
+  transform: skewX(-12deg);
+  border-radius: 0 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  border: none;
+}
+
+/* 玩家藍色系 (Player Theme: 100% Solid Deep Navy / Steel Blue, Borderless, Sharp) */
+.presentation-combat-strip-wrap.is-player .presentation-combat-strip-skew {
+  background: #0d1e38;
+  border: none;
+  border-radius: 0 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+/* 首領赤紅系 (Boss Theme: 100% Solid Crimson / Wine Red, Borderless, Sharp) */
+.presentation-combat-strip-wrap.is-boss .presentation-combat-strip-skew {
+  transform: skewX(12deg); /* 鏡像反向 */
+  background: #4a0d18;
+  border: none;
+  border-radius: 0 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+/* 內層非扭曲內容區 (Unskewed Inner Content) */
+.presentation-combat-strip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 928;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60px;
+}
+
+/* --- 4. 技能意圖文字 (Skill Intent Text: Interleaved Staggered Entry) --- */
+.presentation-combat-intent {
+  position: relative;
+  text-align: center;
+  max-width: 58%;
+  color: #f8fafc;
+  z-index: 935;
+  pointer-events: none;
+}
+
+.presentation-combat-intent.enter-intent {
+  animation: intentEnter 380ms 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.presentation-combat-intent.exit-intent-right {
+  animation: intentExitRight 300ms 60ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.presentation-combat-intent.exit-intent-left {
+  animation: intentExitLeft 300ms 60ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+@keyframes intentEnter {
+  0% {
+    opacity: 0;
+    transform: translateX(-15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes intentExitRight {
+  0% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(20px); }
+}
+
+@keyframes intentExitLeft {
+  0% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(-20px); }
+}
+
+.presentation-combat-intent-title {
+  font-family: var(--font-display, "Cinzel", "Noto Serif TC", serif);
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1.25;
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9), 0 0 24px rgba(56, 189, 248, 0.5);
+  white-space: nowrap;
+}
+
+.presentation-combat-strip-wrap.is-boss .presentation-combat-intent-title {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9), 0 0 24px rgba(244, 63, 94, 0.65);
+  color: #fff1f2;
+}
+
+/* --- 5. 肖像圖層分離結構 (Phase 5.2 Position Wrapper vs Hit Wrapper) --- */
+/* 外層 Position Wrapper 負責 Viewport 絕對座標、垂直居中與進退場位移 */
+.presentation-combat-portrait-wrap {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 930;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* 玩家出招：Actor 在左側，Target Boss 在右側 */
+.presentation-combat-actor-left {
+  left: calc(50% - 41vw - 40px);
+}
+
+.presentation-combat-target-right {
+  right: calc(50% - 41vw - 30px);
+}
+
+/* Boss 出招：Boss 在右側，Target Player 在左側 */
+.presentation-combat-actor-right {
+  right: calc(50% - 41vw - 40px);
+}
+
+.presentation-combat-target-left {
+  left: calc(50% - 41vw - 30px);
+}
+
+/* 內層 Hit Wrapper：獨立於 translateY(-50%) 之外，受擊位移完全不發生 Transform Collision */
+.presentation-combat-target-hit,
+.presentation-combat-actor-visual {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: translate(0, 0);
+  will-change: transform;
+}
+
+/* 肖像尺寸與安全區 (No Card, No Rounding, Sharp Silhouette) */
+.presentation-combat-portrait-box {
+  position: relative;
+  height: clamp(220px, 34vh, 340px);
+  width: clamp(180px, 24vw, 260px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 !important;
+  overflow: visible;
+}
+
+.presentation-combat-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.88));
+}
+
+/* 職業或首領名稱標籤 (Sharp Geometric Label, 0px radius) */
+.presentation-combat-portrait-name {
+  margin-top: 8px;
+  font-family: var(--font-display, "Noto Serif TC", serif);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 16px;
+  border-radius: 0 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75);
+  white-space: nowrap;
+}
+
+.presentation-combat-strip-wrap.is-boss .presentation-combat-actor-right .presentation-combat-portrait-name {
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fda4af;
+}
+
+/* --- 5.5 動作演出內簡易生命條 (0px Radius Sharp Geometric Track) --- */
+.presentation-combat-target-hp-wrap {
+  width: 170px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 932;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: combatHpBarEnter 320ms 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes combatHpBarEnter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.presentation-combat-target-hp-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  font-family: var(--font-pixel, monospace);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.presentation-combat-target-hp-name {
+  color: #f1f5f9;
+  letter-spacing: 0.5px;
+}
+
+.presentation-combat-target-hp-val {
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+
+.presentation-combat-target-hp-track {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 0 !important;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.presentation-combat-target-hp-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ef4444; /* red delayed damage trail */
+  border-radius: 0 !important;
+  transition: width 480ms cubic-bezier(0.4, 0, 0.2, 1) 120ms;
+}
+
+.presentation-combat-target-hp-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399); /* vibrant HP green */
+  border-radius: 0 !important;
+  transition: width 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* --- 6. 受擊反饋與方向性動態 (Directional Hit on Inner Wrapper) --- */
+/* Player -> Boss: Boss 受到向右下方撞擊 (+8px, +3px -> -2px, -1px -> 0) */
+@keyframes combatHitRight {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(8px, 3px); }
+  65% { transform: translate(-2px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.presentation-combat-target-hit.is-hit-right,
+.presentation-combat-target-right .presentation-combat-target-hit.is-hit,
+.presentation-combat-target-right.is-hit {
+  animation: combatHitRight 210ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+/* Boss -> Player: Player 受到向左下方撞擊 (-8px, +3px -> +2px, -1px -> 0) */
+@keyframes combatHitLeft {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-8px, 3px); }
+  65% { transform: translate(2px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.presentation-combat-target-hit.is-hit-left,
+.presentation-combat-target-left .presentation-combat-target-hit.is-hit,
+.presentation-combat-target-left.is-hit {
+  animation: combatHitLeft 210ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+/* --- 7. 受擊閃光覆蓋層 (Impact Flash Overlay: 0px Radius) --- */
+.presentation-combat-impact-overlay {
+  position: absolute;
+  inset: -10px;
+  border-radius: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 940;
+}
+
+.presentation-combat-impact-overlay.flash-physical {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.65) 0%, rgba(239, 68, 68, 0) 70%);
+  animation: combatImpactFlash 220ms ease-out forwards;
+}
+
+.presentation-combat-impact-overlay.flash-magic {
+  background: radial-gradient(circle, rgba(192, 132, 252, 0.70) 0%, rgba(192, 132, 252, 0) 70%);
+  animation: combatImpactFlash 220ms ease-out forwards;
+}
+
+.presentation-combat-impact-overlay.flash-boss {
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.75) 0%, rgba(159, 18, 57, 0) 75%);
+  animation: combatImpactFlash 240ms ease-out forwards;
+}
+
+@keyframes combatImpactFlash {
+  0% { opacity: 0; transform: scale(0.9); }
+  35% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 0; transform: scale(1.15); }
+}
+
+/* --- 8. 角色專屬戰鬥 Attack FX (Role / Skill Specific FX) --- */
+.presentation-combat-fx {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 945;
+}
+
+/* 1. 戰士物理斬擊特效 (Warrior Sword Slash Streak: -35deg, bright red/white core) */
+.presentation-combat-slash-fx {
+  width: 140px;
+  height: 140px;
+  position: relative;
+}
+
+.presentation-combat-slash-fx::before {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 10%;
+  width: 80%;
+  height: 6px;
+  background: linear-gradient(90deg, transparent, #ef4444 30%, #ffffff 50%, #ef4444 70%, transparent);
+  transform: rotate(-35deg);
+  box-shadow: 0 0 16px #ef4444, 0 0 28px rgba(239, 68, 68, 0.8);
+  border-radius: 0;
+  animation: slashStreak 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slashStreak {
+  0% { transform: scaleX(0.1) rotate(-35deg); opacity: 0; }
+  40% { transform: scaleX(1.3) rotate(-35deg); opacity: 1; }
+  100% { transform: scaleX(1.6) translate(15px, 15px) rotate(-35deg); opacity: 0; }
+}
+
+/* 2. 法師秘術爆破特效 (Mage Arcane Burst: Energy Compression & Ring Expansion) */
+.presentation-combat-magic-fx {
+  width: 160px;
+  height: 160px;
+  position: relative;
+}
+
+.presentation-combat-magic-fx::before {
+  content: '';
+  position: absolute;
+  inset: 15%;
+  background: radial-gradient(circle, #f3e8ff 0%, #c084fc 40%, rgba(192, 132, 252, 0) 70%);
+  box-shadow: 0 0 32px #a855f7, 0 0 48px rgba(168, 85, 247, 0.6);
+  animation: magicBurst 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes magicBurst {
+  0% { transform: scale(0.2); opacity: 0; }
+  40% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1.65); opacity: 0; }
+}
+
+/* 3. 弓手射擊飛行箭矢 (Archer Flying Arrow Projectile: Actor -> Target) */
+.presentation-combat-arrow-projectile {
+  position: absolute;
+  top: 50%;
+  width: 72px;
+  height: 14px;
+  z-index: 948;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.presentation-combat-arrow-projectile.fly-right {
+  animation: arrowFlightRight 160ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.presentation-combat-arrow-projectile.fly-left {
+  animation: arrowFlightLeft 160ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes arrowFlightRight {
+  0% {
+    left: calc(50% - 32vw);
+    opacity: 0;
+    transform: translateY(-50%) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.0);
+  }
+  100% {
+    left: calc(50% + 28vw);
+    opacity: 0;
+    transform: translateY(-50%) scale(1.15);
+  }
+}
+
+@keyframes arrowFlightLeft {
+  0% {
+    right: calc(50% - 32vw);
+    opacity: 0;
+    transform: translateY(-50%) scale(0.7) rotate(180deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.0) rotate(180deg);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.0) rotate(180deg);
+  }
+  100% {
+    right: calc(50% + 28vw);
+    opacity: 0;
+    transform: translateY(-50%) scale(1.15) rotate(180deg);
+  }
+}
+
+.presentation-combat-arrow-shaft {
+  width: 54px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #fbbf24 60%, #fff);
+  box-shadow: 0 0 10px #fbbf24;
+}
+
+.presentation-combat-arrow-head {
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 12px solid #ffffff;
+  filter: drop-shadow(0 0 6px #f59e0b);
+}
+
+/* 4. 刺客雙十字斬擊 (Assassin Cross Slash: X Shape) */
+.presentation-combat-cross-slash-fx {
+  width: 150px;
+  height: 150px;
+  position: relative;
+}
+
+.presentation-combat-cross-slash-fx .slash-1 {
+  position: absolute;
+  top: 20%;
+  left: 10%;
+  width: 80%;
+  height: 5px;
+  background: linear-gradient(90deg, transparent, #38bdf8 30%, #ffffff 50%, #38bdf8 70%, transparent);
+  transform: rotate(-45deg);
+  box-shadow: 0 0 16px #38bdf8;
+  animation: slashStreak 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.presentation-combat-cross-slash-fx .slash-2 {
+  position: absolute;
+  top: 20%;
+  left: 10%;
+  width: 80%;
+  height: 5px;
+  background: linear-gradient(90deg, transparent, #f43f5e 30%, #ffffff 50%, #f43f5e 70%, transparent);
+  transform: rotate(45deg);
+  box-shadow: 0 0 16px #f43f5e;
+  animation: slashStreak 220ms 75ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 5. 鍊金酸蝕噴濺 (Alchemist Acid Splash) */
+.presentation-combat-acid-fx {
+  width: 150px;
+  height: 150px;
+  position: relative;
+}
+
+.presentation-combat-acid-fx::before {
+  content: '';
+  position: absolute;
+  inset: 15%;
+  background: radial-gradient(circle, #86efac 0%, #22c55e 50%, rgba(34, 197, 94, 0) 75%);
+  box-shadow: 0 0 28px #22c55e;
+  animation: acidPop 300ms ease-out forwards;
+}
+
+@keyframes acidPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 0.9; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* 6. 德魯伊爪擊 (Druid Claw Slash: ///) */
+.presentation-combat-claw-fx {
+  width: 140px;
+  height: 140px;
+  position: relative;
+}
+
+.presentation-combat-claw-fx::before {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 10%;
+  width: 80%;
+  height: 8px;
+  background: repeating-linear-gradient(90deg, #f59e0b 0, #f59e0b 16px, transparent 16px, transparent 24px);
+  transform: rotate(-30deg);
+  box-shadow: 0 0 20px #d97706;
+  animation: slashStreak 260ms ease-out forwards;
+}
+
+/* 7. 首領重擊巨爪 (Boss Heavy Claw Slash) */
+.presentation-combat-boss-fx {
+  width: 160px;
+  height: 160px;
+  position: relative;
+}
+
+.presentation-combat-boss-fx::before {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 5%;
+  width: 90%;
+  height: 8px;
+  background: linear-gradient(90deg, transparent, #f43f5e 25%, #ffffff 50%, #9f1239 80%, transparent);
+  transform: rotate(35deg);
+  box-shadow: 0 0 24px #e11d48, 0 0 40px rgba(225, 29, 72, 0.85);
+  animation: slashStreak 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* --- 9. 浮動傷害數字 (Floating Damage Numbers) --- */
+.presentation-combat-damage-num {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display, "Cinzel", sans-serif);
+  font-size: clamp(2.4rem, 4.5vw, 3.6rem);
+  font-weight: 900;
+  z-index: 950;
+  pointer-events: none;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.95);
+  animation: combatFloatDamage 750ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.presentation-combat-damage-num.is-physical {
+  color: #f87171;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.95), 0 0 24px rgba(239, 68, 68, 0.7);
+}
+
+.presentation-combat-damage-num.is-magic {
+  color: #d8b4fe;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.95), 0 0 24px rgba(168, 85, 247, 0.75);
+}
+
+.presentation-combat-damage-num.is-boss {
+  color: #fda4af;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.95), 0 0 24px rgba(244, 63, 94, 0.85);
+}
+
+@keyframes combatFloatDamage {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20%) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -75%) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.9);
+  }
+}
+
+/* --- 10. 進場與出場動態 (Interleaved Choreography: Staggered Enter & Exit) --- */
+/* Player Entry (LEFT -> RIGHT) */
+.presentation-combat-strip-wrap.enter-left {
+  animation: stripEnterLeft var(--combat-action-enter, 420ms) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.presentation-combat-actor-left.enter-left,
+.presentation-combat-actor-left.enter-actor {
+  animation: actorEnterLeft 430ms 70ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.presentation-combat-target-right.enter-fade,
+.presentation-combat-target-right.enter-target {
+  animation: targetEnterRight 390ms 130ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes stripEnterLeft {
+  0% { transform: translate(calc(-50% - 20vw), -50%); opacity: 0; }
+  100% { transform: translate(-50%, -50%); opacity: 1; }
+}
+
+@keyframes actorEnterLeft {
+  0% { transform: translateY(-50%) translateX(-12vw); opacity: 0; }
+  85% { transform: translateY(-50%) translateX(1vw); opacity: 1; }
+  100% { transform: translateY(-50%) translateX(0); opacity: 1; }
+}
+
+@keyframes targetEnterRight {
+  0% { transform: translateY(-50%) translateX(25px); opacity: 0; }
+  100% { transform: translateY(-50%) translateX(0); opacity: 1; }
+}
+
+/* Player Exit (Slide RIGHT) */
+.presentation-combat-strip-wrap.exit-right {
+  animation: stripExitRight var(--combat-action-exit, 400ms) cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.presentation-combat-actor-left.exit-right {
+  animation: actorExitRight var(--combat-action-exit, 400ms) 100ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.presentation-combat-target-right.exit-fade {
+  animation: targetExitFade 300ms 100ms ease forwards;
+}
+
+@keyframes stripExitRight {
+  0% { transform: translate(-50%, -50%); opacity: 1; }
+  100% { transform: translate(calc(-50% + 15vw), -50%); opacity: 0; }
+}
+
+@keyframes actorExitRight {
+  0% { transform: translateY(-50%) translateX(0); opacity: 1; }
+  100% { transform: translateY(-50%) translateX(12vw); opacity: 0; }
+}
+
+@keyframes targetExitFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Boss Entry (RIGHT -> LEFT, Mirror) */
+.presentation-combat-strip-wrap.enter-right {
+  animation: stripEnterRight var(--combat-action-enter, 420ms) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.presentation-combat-actor-right.enter-right,
+.presentation-combat-actor-right.enter-actor {
+  animation: actorEnterRight 430ms 70ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.presentation-combat-target-left.enter-fade,
+.presentation-combat-target-left.enter-target {
+  animation: targetEnterLeft 390ms 130ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes stripEnterRight {
+  0% { transform: translate(calc(-50% + 20vw), -50%); opacity: 0; }
+  100% { transform: translate(-50%, -50%); opacity: 1; }
+}
+
+@keyframes actorEnterRight {
+  0% { transform: translateY(-50%) translateX(12vw); opacity: 0; }
+  85% { transform: translateY(-50%) translateX(-1vw); opacity: 1; }
+  100% { transform: translateY(-50%) translateX(0); opacity: 1; }
+}
+
+@keyframes targetEnterLeft {
+  0% { transform: translateY(-50%) translateX(-25px); opacity: 0; }
+  100% { transform: translateY(-50%) translateX(0); opacity: 1; }
+}
+
+/* Boss Exit (Slide LEFT, Mirror) */
+.presentation-combat-strip-wrap.exit-left {
+  animation: stripExitLeft var(--combat-action-exit, 400ms) cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.presentation-combat-actor-right.exit-left {
+  animation: actorExitLeft var(--combat-action-exit, 400ms) 100ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.presentation-combat-target-left.exit-fade {
+  animation: targetExitFade 300ms 100ms ease forwards;
+}
+
+@keyframes stripExitLeft {
+  0% { transform: translate(-50%, -50%); opacity: 1; }
+  100% { transform: translate(calc(-50% - 15vw), -50%); opacity: 0; }
+}
+
+/* --- 10.5 首領陣亡沉重下沉演出 (Boss Death Foundation) --- */
+.presentation-combat-target-hit.is-dead-sink,
+.presentation-combat-target-right.is-dead-sink,
+.presentation-combat-portrait-wrap.is-dead-sink {
+  filter: grayscale(1) saturate(0) !important;
+  transform: translateY(14px) !important;
+  opacity: 0.5 !important;
+  transition: filter 650ms ease, transform 650ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 650ms ease !important;
+}
+
+.presentation-combat-target-right.is-dead-sink {
+  transform: translateY(-50%) translateY(14px) !important;
+}
+
+/* --- 11. 輔助功能與無障礙 (Accessibility: Reduced Motion) --- */
+@media (prefers-reduced-motion: reduce) {
+  .presentation-combat-strip-wrap,
+  .presentation-combat-portrait-wrap,
+  .presentation-combat-target-right,
+  .presentation-combat-target-left,
+  .presentation-combat-damage-num {
+    animation-duration: 0.01ms !important;
+    transform: none !important;
+    transition: opacity 200ms ease !important;
+  }
+  .presentation-combat-strip-wrap {
+    transform: translate(-50%, -50%) !important;
+  }
+}
+
+[data-reduced-motion="true"] .presentation-combat-strip-wrap,
+[data-reduced-motion="true"] .presentation-combat-portrait-wrap,
+[data-reduced-motion="true"] .presentation-combat-target-right,
+[data-reduced-motion="true"] .presentation-combat-target-left {
+  animation-duration: 0.01ms !important;
+}
+
+/* --- 12. 行動裝置響應式安全區 (Mobile Responsive 390px) --- */
+@media (max-width: 640px) {
+  .presentation-combat-strip-wrap {
+    width: 95vw;
+    height: 30vh;
+    min-height: 180px;
+  }
+  .presentation-combat-strip-inner {
+    padding: 0 16px;
+  }
+  .presentation-combat-intent {
+    max-width: 65%;
+  }
+  .presentation-combat-intent-title {
+    font-size: 1.15rem;
+    white-space: normal;
+  }
+  .presentation-combat-portrait-box {
+    height: clamp(140px, 22vh, 180px);
+    width: clamp(90px, 20vw, 130px);
+  }
+  .presentation-combat-actor-left {
+    left: 2vw;
+  }
+  .presentation-combat-target-right {
+    right: 2vw;
+  }
+  .presentation-combat-actor-right {
+    right: 2vw;
+  }
+  .presentation-combat-target-left {
+    left: 2vw;
+  }
+  .presentation-combat-portrait-name {
+    font-size: 12px;
+    padding: 2px 10px;
+  }
+}

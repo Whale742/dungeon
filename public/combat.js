@@ -1,0 +1,514 @@
+// ==========================================================================
+// 地城深淵 (DUNGEON ABYSS) - Phase 5 & 5.1 Full-screen Combat Presentation (combat.js)
+// Single Source of Truth for Cinematic Combat Actions (Player & Boss)
+// ==========================================================================
+
+const COMBAT_DEFAULT_TIMING = Object.freeze({
+  overlayEnter: 300,
+  actionEnter: 450,
+  actorEnter: 480,
+  settle: 380,
+  actionSweepDelay: 100,
+  anticipation: 250,
+  impact: 220,
+  hitImpactDelay: 180,
+  damageDelay: 75,
+  damageFloat: 750,
+  hpBarDuration: 420,
+  normalKnockDistance: 8,
+  normalKnockDuration: 200,
+  resultHold: 280,
+  lethalHold: 350,
+  deathDuration: 650,
+  actionExit: 400,
+  actionGap: 200,
+  bossGap: 350,
+  overlayExit: 300
+});
+
+// 建立或取得全螢幕戰鬥舞台容器
+function getOrCreateCombatStage() {
+  let stage = document.getElementById('presentationCombatStage');
+  if (!stage) {
+    const root = document.getElementById('presentationRoot') || document.body;
+    stage = document.createElement('div');
+    stage.id = 'presentationCombatStage';
+    stage.className = 'presentation-combat-stage';
+    root.appendChild(stage);
+  }
+  return stage;
+}
+
+// 啟用全螢幕戰鬥舞台 (Combat Resolution 開始)
+async function enterCombatStage(context = {}) {
+  const stage = getOrCreateCombatStage();
+  const speed = context.speed || 1.0;
+  const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
+
+  stage.classList.remove('is-exiting');
+  stage.classList.add('is-active');
+  stage.style.setProperty('--combat-overlay-enter', `${Math.round(timing.overlayEnter / speed)}ms`);
+
+  // 避免互動 UI 搶佔焦點
+  const app = document.getElementById('app');
+  if (app) app.inert = true;
+
+  if (typeof presentationManager !== 'undefined' && presentationManager.setBlocking) {
+    presentationManager.setBlocking(true);
+  }
+
+  await waitForPresentation(timing.overlayEnter, context.signal, speed);
+}
+
+// 退出全螢幕戰鬥舞台 (所有動作播放完畢)
+async function exitCombatStage(context = {}) {
+  const stage = document.getElementById('presentationCombatStage');
+  const speed = context.speed || 1.0;
+  const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
+
+  if (stage) {
+    stage.style.setProperty('--combat-overlay-exit', `${Math.round(timing.overlayExit / speed)}ms`);
+    stage.classList.remove('is-active');
+    stage.classList.add('is-exiting');
+  }
+
+  await waitForPresentation(timing.overlayExit, context.signal, speed);
+
+  if (stage) {
+    stage.replaceChildren();
+    stage.classList.remove('is-exiting');
+  }
+
+  const app = document.getElementById('app');
+  if (app) app.inert = false;
+
+  if (typeof presentationManager !== 'undefined' && presentationManager.setBlocking) {
+    presentationManager.setBlocking(false);
+  }
+}
+
+// ==========================================================================
+// 地城深淵 (DUNGEON ABYSS) - Phase 5.2 Combat Presentation Profiles & Mapping
+// Centralized Skill & Role Profiles for Audio, Visual FX, and Timing
+// ==========================================================================
+const COMBAT_PRESENTATION_PROFILES = Object.freeze({
+  warrior: {
+    attackSfx: 'warrior_xing',
+    impactSfx: 'physical_hit',
+    fxType: 'sword_slash',
+    impactType: 'flash-physical',
+    anticipationDelay: 220,
+    impactDelay: 90
+  },
+  mage: {
+    attackSfx: 'mage_burst',
+    preSfx: 'magic_cast',
+    impactSfx: 'magic_impact',
+    fxType: 'arcane_burst',
+    impactType: 'flash-magic',
+    anticipationDelay: 260,
+    impactDelay: 100
+  },
+  archer: {
+    attackSfx: 'archer_twang',
+    flightSfx: 'arrow_flight',
+    impactSfx: 'arrow_impact',
+    fxType: 'arrow_projectile',
+    impactType: 'flash-physical',
+    anticipationDelay: 200,
+    impactDelay: 110
+  },
+  assassin: {
+    attackSfx: 'assassin_dual',
+    impactSfx: 'physical_hit',
+    fxType: 'cross_slash',
+    impactType: 'flash-physical',
+    anticipationDelay: 200,
+    impactDelay: 80
+  },
+  alchemist: {
+    attackSfx: 'acid_throw',
+    impactSfx: 'acid_splash',
+    fxType: 'acid_splash',
+    impactType: 'flash-magic',
+    anticipationDelay: 240,
+    impactDelay: 90
+  },
+  druid: {
+    attackSfx: 'claw_slash',
+    impactSfx: 'heavy_impact',
+    fxType: 'claw_slash',
+    impactType: 'flash-physical',
+    anticipationDelay: 220,
+    impactDelay: 90
+  },
+  bard: {
+    attackSfx: 'bard_tone',
+    impactSfx: 'magic_impact',
+    fxType: 'arcane_burst',
+    impactType: 'flash-magic',
+    anticipationDelay: 220,
+    impactDelay: 90
+  },
+  boss: {
+    attackSfx: 'boss_attack',
+    impactSfx: 'heavy_impact',
+    fxType: 'boss_claw',
+    impactType: 'flash-boss',
+    anticipationDelay: 260,
+    impactDelay: 100
+  }
+});
+
+const COMBAT_SKILL_PROFILES = Object.freeze({
+  w_strike: { fxType: 'sword_slash', attackSfx: 'warrior_xing' },
+  w_shield_slam: { fxType: 'sword_slash', attackSfx: 'heavy_impact' },
+  m_blast: { fxType: 'arcane_burst', attackSfx: 'mage_burst', preSfx: 'magic_cast' },
+  m_fireball: { fxType: 'arcane_burst', attackSfx: 'mage_burst', preSfx: 'magic_cast' },
+  a_shot: { fxType: 'arrow_projectile', attackSfx: 'archer_twang', flightSfx: 'arrow_flight', impactSfx: 'arrow_impact' },
+  s_stab: { fxType: 'cross_slash', attackSfx: 'assassin_dual' },
+  alc_acid: { fxType: 'acid_splash', attackSfx: 'acid_throw', impactSfx: 'acid_splash' },
+  dru_claw: { fxType: 'claw_slash', attackSfx: 'claw_slash' },
+  boss_strike: { fxType: 'boss_claw', attackSfx: 'boss_attack', impactSfx: 'heavy_impact' },
+  boss_ult: { fxType: 'boss_claw', attackSfx: 'boss_heavy_attack', impactSfx: 'heavy_impact' }
+});
+
+function getCombatProfile(step) {
+  const isPlayer = step.type === 'player_action';
+  let baseRole = 'warrior';
+  if (!isPlayer) {
+    baseRole = 'boss';
+  } else if (step.sourceRole) {
+    baseRole = step.sourceRole.toLowerCase();
+  }
+  const roleProfile = COMBAT_PRESENTATION_PROFILES[baseRole] || (isPlayer ? COMBAT_PRESENTATION_PROFILES.warrior : COMBAT_PRESENTATION_PROFILES.boss);
+  const skillProfile = (step.skillId && COMBAT_SKILL_PROFILES[step.skillId]) || {};
+  return { ...roleProfile, ...skillProfile };
+}
+
+// 播放單一戰鬥動作全螢幕演出 (Player Action 或 Boss Action)
+async function playCombatActionPresentation(step, context = {}) {
+  if (!step) return;
+
+  const controller = context.controller || new AbortController();
+  const signal = context.signal || controller.signal;
+  const speed = context.speed || 1.0;
+  const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
+  const wait = ms => waitForPresentation(ms, signal, speed);
+
+  const emitTiming = (beat, extra = {}) => {
+    if (typeof context.onTiming === 'function') context.onTiming(beat, { timestamp: Date.now(), ...extra });
+  };
+
+  emitTiming('action_start', { step });
+
+  const stage = getOrCreateCombatStage();
+  stage.classList.add('is-active');
+
+  // 設定動態時間變數
+  stage.style.setProperty('--combat-action-enter', `${Math.round(timing.actionEnter / speed)}ms`);
+  stage.style.setProperty('--combat-actor-enter', `${Math.round(timing.actorEnter / speed)}ms`);
+  stage.style.setProperty('--combat-action-exit', `${Math.round(timing.actionExit / speed)}ms`);
+
+  const isPlayer = step.type === 'player_action';
+  const isMagic = step.dmgType === '【魔法】' || step.damageType === 'magic' || (step.tags && step.tags.some(t => (t.label || t).includes('魔法')));
+  const profile = getCombatProfile(step);
+
+  // 1. 建立畫布與圖層節點
+  const canvas = document.createElement('div');
+  canvas.className = 'presentation-combat-canvas';
+  if (context.reducedMotion) canvas.setAttribute('data-reduced-motion', 'true');
+  stage.appendChild(canvas);
+
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    if (canvas && canvas.parentNode) canvas.remove();
+  };
+  signal.addEventListener('abort', cleanup, { once: true });
+
+  // 2. 解析 Actor 肖像與名稱 (嚴格使用 Class Portrait 或 Boss Image，禁止 Discord/Generic)
+  let actorPortraitHtml = '';
+  let actorName = '';
+  let targetPortraitHtml = '';
+  let targetName = '';
+
+  let targetHpBefore = 100;
+  let targetHpAfter = 100;
+  let targetMaxHp = 100;
+
+  if (isPlayer) {
+    // 玩家攻擊 Boss
+    const roleKey = step.sourceRole || (typeof roomState !== 'undefined' && (roomState?.players || []).find(p => p.id === step.sourceId)?.role) || 'warrior';
+    const roleImg = `/photo/${roleKey.charAt(0).toUpperCase() + roleKey.slice(1)}.webp`;
+    actorPortraitHtml = `<img src="${roleImg}" class="presentation-combat-portrait-img" alt="${roleKey}">`;
+    actorName = getClassDisplayName(roleKey);
+
+    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/photo/boss1.webp';
+    const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
+    targetPortraitHtml = `<img src="${mAvatar}" class="presentation-combat-portrait-img" alt="${escapeHtml(mName)}">`;
+    targetName = mName;
+
+    targetMaxHp = step.targetMaxHp !== undefined ? step.targetMaxHp : ((typeof roomState !== 'undefined' && roomState?.currentMonster?.maxHp) || step.hpSnapshot?.monster?.maxHp || 120);
+    targetHpBefore = step.targetHpBefore !== undefined ? step.targetHpBefore : (step.hpSnapshot?.monster?.hp ?? targetMaxHp);
+    targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (step.hpSnapshot?.monster?.hp ?? Math.max(0, targetHpBefore - (step.finalDamage || step.damage || 30)));
+  } else {
+    // Boss 攻擊玩家
+    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/photo/boss1.webp';
+    const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
+    actorPortraitHtml = `<img src="${mAvatar}" class="presentation-combat-portrait-img" alt="${escapeHtml(mName)}">`;
+    actorName = mName;
+
+    let targetRoleKey = 'warrior';
+    if (step.targetRole) {
+      targetRoleKey = step.targetRole;
+    } else if (step.targetId && step.targetId !== 'all' && typeof roomState !== 'undefined') {
+      const targetObj = (roomState?.players || []).find(p => p.id === step.targetId);
+      if (targetObj?.role) targetRoleKey = targetObj.role;
+    }
+    const roleImg = `/photo/${targetRoleKey.charAt(0).toUpperCase() + targetRoleKey.slice(1)}.webp`;
+    targetPortraitHtml = `<img src="${roleImg}" class="presentation-combat-portrait-img" alt="${targetRoleKey}">`;
+    targetName = getClassDisplayName(targetRoleKey);
+
+    const targetPlayerObj = (typeof roomState !== 'undefined' && (roomState?.players || []).find(p => p.id === step.targetId));
+    targetMaxHp = step.targetMaxHp !== undefined ? step.targetMaxHp : (targetPlayerObj?.maxHp || 120);
+    targetHpBefore = step.targetHpBefore !== undefined ? step.targetHpBefore : (targetPlayerObj?.hp ?? targetMaxHp);
+    targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (targetPlayerObj?.hp ?? Math.max(0, targetHpBefore - (step.finalDamage || step.damage || 25)));
+  }
+
+  // 傷害數值來源之唯一定義 (Combat Resolution 產出的 explicit finalDamage)
+  const finalDamage = step.finalDamage !== undefined 
+    ? step.finalDamage 
+    : (step.damage !== undefined 
+      ? step.damage 
+      : (step.visualEvents && step.visualEvents[0]?.value) || (step.hits && step.hits[0]?.value) || 0);
+
+  // DEV ASSERT / Validation
+  const hpDelta = targetHpBefore - targetHpAfter;
+  if (step.finalDamage !== undefined && hpDelta > 0 && finalDamage !== hpDelta && !step.tempHpDamage && !step.shieldDamage && targetHpAfter > 0) {
+    console.warn(`[CombatPresentation DEV ASSERT] Damage mismatch: finalDamage=${finalDamage} vs hpDelta=${hpDelta}`);
+  }
+
+  const isLethal = step.isLethal || targetHpAfter <= 0;
+
+  // 3. 組合技能意圖文字 (WHO + ACTION，純文字，無額外 metadata)
+  const skillTitle = step.skillName || step.name || (isPlayer ? '普通攻擊' : (step.isUlt ? (step.ultName || '必殺技') : '撕裂猛擊'));
+  const verb = isMagic ? '施放' : (isPlayer ? '使出' : '發動');
+  const intentText = `${actorName}${verb}「${skillTitle}」`;
+
+  // 4. 建立 DOM 元素結構 (嚴格 0px 圓角、分離式 Position/Hit Wrapper 架構)
+  // A. 行動長條 (Diagonal Strip - 100% Solid Opaque, Borderless, 0px Radius)
+  const stripWrap = document.createElement('div');
+  stripWrap.className = `presentation-combat-strip-wrap ${isPlayer ? 'is-player enter-left' : 'is-boss enter-right'}`;
+  stripWrap.innerHTML = `
+    <div class="presentation-combat-strip-skew"></div>
+    <div class="presentation-combat-strip-inner">
+      <div class="presentation-combat-intent enter-intent" id="combatIntentBox">
+        <h2 class="presentation-combat-intent-title">${escapeHtml(intentText)}</h2>
+      </div>
+    </div>
+  `;
+  canvas.appendChild(stripWrap);
+
+  // B. 來源肖像 (Actor Portrait: Outer Position + Inner Visual)
+  const actorPositionWrap = document.createElement('div');
+  actorPositionWrap.className = `presentation-combat-portrait-wrap presentation-combat-actor-position ${isPlayer ? 'presentation-combat-actor-left enter-actor' : 'presentation-combat-actor-right enter-actor'}`;
+  actorPositionWrap.innerHTML = `
+    <div class="presentation-combat-actor-visual" id="combatActorVisual">
+      <div class="presentation-combat-portrait-box">
+        ${actorPortraitHtml}
+      </div>
+      <div class="presentation-combat-portrait-name">${escapeHtml(actorName)}</div>
+    </div>
+  `;
+  canvas.appendChild(actorPositionWrap);
+
+  // C. 目標肖像與簡易生命條 (Target Portrait: Outer Position + Inner Hit Wrapper)
+  const targetPositionWrap = document.createElement('div');
+  targetPositionWrap.className = `presentation-combat-portrait-wrap presentation-combat-target-position ${isPlayer ? 'presentation-combat-target-right enter-target' : 'presentation-combat-target-left enter-target'}`;
+  
+  const initialHpPct = Math.round(Math.max(0, Math.min(100, (targetHpBefore / targetMaxHp) * 100)));
+  
+  targetPositionWrap.innerHTML = `
+    <div class="presentation-combat-target-hit" id="combatTargetHit">
+      <div class="presentation-combat-portrait-box" id="combatTargetBox">
+        ${targetPortraitHtml}
+        <div class="presentation-combat-impact-overlay" id="combatImpactOverlay"></div>
+      </div>
+      <div class="presentation-combat-portrait-name">${escapeHtml(targetName)}</div>
+      <div class="presentation-combat-target-hp-wrap" id="combatTargetHpWrap">
+        <div class="presentation-combat-target-hp-meta">
+          <span class="presentation-combat-target-hp-name">${escapeHtml(targetName)}</span>
+          <span class="presentation-combat-target-hp-val" id="combatTargetHpVal">${Math.max(0, targetHpBefore)} / ${targetMaxHp}</span>
+        </div>
+        <div class="presentation-combat-target-hp-track">
+          <div class="presentation-combat-target-hp-ghost" id="combatTargetHpGhost" style="width: ${initialHpPct}%;"></div>
+          <div class="presentation-combat-target-hp-fill" id="combatTargetHpFill" style="width: ${initialHpPct}%;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  canvas.appendChild(targetPositionWrap);
+
+  // --- STEP 1: 面板快速切入音效與交錯進場 (Shoo Sweep SFX & Interleaved Entry) ---
+  playSound('panel_sweep');
+  emitTiming('panel_sweep');
+  emitTiming('entry_start');
+
+  // 等待交錯動畫到位 (Strip 0~420ms, Actor 70~500ms, Target 130~520ms, Intent 160~540ms)
+  await wait(Math.max(timing.actionEnter || 420, (timing.actorEnter || 430) + (timing.portraitEntryDelay || 70)));
+  
+  // 定格定心呼吸點 (Settle)
+  emitTiming('settle_start');
+  await wait(timing.settle || 200);
+
+  // --- STEP 2: 角色攻擊起手與專屬 Attack SFX / FX (Warrior Xing / Mage Bomb / Archer Twang) ---
+  emitTiming('anticipation_start');
+  if (profile.preSfx) {
+    playSound(profile.preSfx);
+  }
+  if (profile.attackSfx) {
+    playSound(profile.attackSfx);
+  }
+
+  // 弓手飛行箭矢 Projectile (從 Actor 側貫穿至 Target 側)
+  if (profile.fxType === 'arrow_projectile') {
+    if (profile.flightSfx) playSound(profile.flightSfx);
+    const arrow = document.createElement('div');
+    arrow.className = `presentation-combat-arrow-projectile ${isPlayer ? 'fly-right' : 'fly-left'}`;
+    arrow.innerHTML = `
+      <div class="presentation-combat-arrow-shaft"></div>
+      <div class="presentation-combat-arrow-head"></div>
+    `;
+    canvas.appendChild(arrow);
+    setTimeout(() => arrow.remove(), 250);
+  }
+
+  await wait(timing.anticipation || 250);
+
+  // --- STEP 3: 目標受擊反應與專屬 Hit FX (Target Portrait Impact, Knock, Flash) ---
+  emitTiming('impact_start');
+  const targetHitEl = targetPositionWrap.querySelector('#combatTargetHit');
+  const targetBox = targetPositionWrap.querySelector('#combatTargetBox');
+  const impactOverlay = targetPositionWrap.querySelector('#combatImpactOverlay');
+
+  // 播放 Impact 命中音效 (音量最高潮)
+  playSound(profile.impactSfx || (isMagic ? 'magic_impact' : 'physical_hit'));
+
+  // 內層 Hit Wrapper 觸發方向性撞擊 (完全不受外層 translateY(-50%) 衝突)
+  if (targetHitEl) {
+    targetHitEl.classList.remove('is-hit', 'is-hit-right', 'is-hit-left');
+    void targetHitEl.offsetWidth; // 強制重排觸發動畫
+    targetHitEl.classList.add(isPlayer ? 'is-hit-right' : 'is-hit-left');
+  }
+  targetPositionWrap.classList.add('is-hit');
+
+  // 受擊閃光
+  if (impactOverlay) {
+    impactOverlay.className = `presentation-combat-impact-overlay ${profile.impactType || (isMagic ? 'flash-magic' : 'flash-physical')}`;
+  }
+
+  // 生成角色專屬 Hit FX (Target Portrait Box 內)
+  if (targetBox) {
+    const fx = document.createElement('div');
+    if (profile.fxType === 'cross_slash') {
+      fx.className = 'presentation-combat-fx presentation-combat-cross-slash-fx';
+      fx.innerHTML = '<div class="slash-1"></div><div class="slash-2"></div>';
+    } else if (profile.fxType === 'arcane_burst') {
+      fx.className = 'presentation-combat-fx presentation-combat-magic-fx';
+    } else if (profile.fxType === 'acid_splash') {
+      fx.className = 'presentation-combat-fx presentation-combat-acid-fx';
+    } else if (profile.fxType === 'claw_slash') {
+      fx.className = 'presentation-combat-fx presentation-combat-claw-fx';
+    } else if (profile.fxType === 'boss_claw') {
+      fx.className = 'presentation-combat-fx presentation-combat-boss-fx';
+    } else {
+      fx.className = 'presentation-combat-fx presentation-combat-slash-fx';
+    }
+    targetBox.appendChild(fx);
+    setTimeout(() => fx.remove(), 450);
+  }
+
+  // --- STEP 4: 傷害數字與生命條動態扣除 (Floating Damage & HP Bar Animation) ---
+  await wait(timing.damageDelay || 75);
+  emitTiming('damage_float', { damage: finalDamage });
+
+  const dmgEl = document.createElement('div');
+  dmgEl.className = `presentation-combat-damage-num ${isMagic ? 'is-magic' : (isPlayer ? 'is-physical' : 'is-boss')}`;
+  dmgEl.textContent = `-${finalDamage}`;
+  if (targetBox) {
+    targetBox.appendChild(dmgEl);
+    setTimeout(() => dmgEl.remove(), Math.round(timing.damageFloat / speed));
+  }
+
+  // HP Bar 動態更新至新血量
+  const hpFill = targetPositionWrap.querySelector('#combatTargetHpFill');
+  const hpGhost = targetPositionWrap.querySelector('#combatTargetHpGhost');
+  const hpVal = targetPositionWrap.querySelector('#combatTargetHpVal');
+  const afterHpPct = Math.round(Math.max(0, Math.min(100, (targetHpAfter / targetMaxHp) * 100)));
+
+  if (hpFill) hpFill.style.width = `${afterHpPct}%`;
+  if (hpGhost) hpGhost.style.width = `${afterHpPct}%`;
+  if (hpVal) hpVal.textContent = `${Math.max(0, targetHpAfter)} / ${targetMaxHp}`;
+
+  // 延遲更新全域 HP Snapshot (與傷害跳動分離)
+  await wait(timing.damageDelay || 75);
+  emitTiming('hp_update');
+  if (step.hpSnapshot && typeof applyHpSnapshot === 'function') {
+    applyHpSnapshot(step.hpSnapshot);
+  }
+
+  // --- STEP 4.5: 致命一擊與首領沉重倒下演出 (Boss Death Foundation) ---
+  if (isLethal && isPlayer) {
+    emitTiming('boss_death_start');
+    await wait(timing.lethalHold || 350);
+    if (targetHitEl) targetHitEl.classList.add('is-dead-sink');
+    targetPositionWrap.classList.add('is-dead-sink');
+    await wait(timing.deathDuration || 650);
+    emitTiming('boss_death_complete');
+  }
+
+  // --- STEP 5: 結算停留 (Hold After Impact) ---
+  await wait(timing.resultHold || 280);
+  emitTiming('hold_complete');
+
+  // --- STEP 6: 動作交錯退場 (Interleaved Action Exit) ---
+  emitTiming('exit_start');
+  const intentBox = stripWrap.querySelector('#combatIntentBox');
+  if (isPlayer) {
+    stripWrap.className = 'presentation-combat-strip-wrap is-player exit-right';
+    if (intentBox) intentBox.className = 'presentation-combat-intent exit-intent-right';
+    actorPositionWrap.className = 'presentation-combat-portrait-wrap presentation-combat-actor-position presentation-combat-actor-left exit-right';
+    targetPositionWrap.className = 'presentation-combat-portrait-wrap presentation-combat-target-position presentation-combat-target-right exit-fade';
+  } else {
+    stripWrap.className = 'presentation-combat-strip-wrap is-boss exit-left';
+    if (intentBox) intentBox.className = 'presentation-combat-intent exit-intent-left';
+    actorPositionWrap.className = 'presentation-combat-portrait-wrap presentation-combat-actor-position presentation-combat-actor-right exit-left';
+    targetPositionWrap.className = 'presentation-combat-portrait-wrap presentation-combat-target-position presentation-combat-target-left exit-fade';
+  }
+
+  await wait((timing.actionExit || 400) + (timing.exitStagger || 80));
+  emitTiming('action_complete');
+
+  // 清理畫布節點
+  cleanup();
+
+  if (typeof context.onComplete === 'function') {
+    context.onComplete({ completed: true, step });
+  }
+}
+
+// 全域導出供遊戲與 Lab 共用
+if (typeof window !== 'undefined') {
+  window.getOrCreateCombatStage = getOrCreateCombatStage;
+  window.enterCombatStage = enterCombatStage;
+  window.exitCombatStage = exitCombatStage;
+  window.playCombatActionPresentation = playCombatActionPresentation;
+}
+if (typeof globalThis !== 'undefined') {
+  globalThis.getOrCreateCombatStage = getOrCreateCombatStage;
+  globalThis.enterCombatStage = enterCombatStage;
+  globalThis.exitCombatStage = exitCombatStage;
+  globalThis.playCombatActionPresentation = playCombatActionPresentation;
+}

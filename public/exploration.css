@@ -1,0 +1,113 @@
+/* Phase 2: full-screen floor cinematic and serial exploration reveals. */
+.presentation-floor {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.presentation-floor-content {
+  width: 80vw;
+  text-align: center;
+  animation: presentationFloorEnter 600ms ease-out both;
+}
+
+.presentation-floor.exit {
+  animation: presentationFloorExit 600ms ease-in both;
+}
+
+.presentation-floor-number {
+  font-family: var(--font-stats), var(--font-body);
+  font-size: clamp(1rem, 3vw, 1.8rem);
+  color: #94a3b8;
+  letter-spacing: .2em;
+  margin-bottom: 24px;
+}
+
+.presentation-floor-title {
+  font-family: var(--font-body);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.presentation-floor-active #floatingChatContainer { visibility: hidden; }
+
+@keyframes presentationFloorEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes presentationFloorExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.exploration-section { animation: none; }
+.exploration-section.view-gated-hidden { transition: none; }
+.exploration-section.exploration-enter {
+  animation: explorationSectionEnter 600ms ease-out both;
+}
+
+.exploration-content {
+  max-width: 860px;
+  margin: 10px auto;
+  padding: 28px clamp(8px, 3vw, 28px);
+  text-align: center;
+  background: linear-gradient(180deg, rgba(2, 6, 14, .35), transparent);
+}
+
+.exploration-story {
+  max-width: 760px;
+  min-height: 8em;
+  margin: 20px auto;
+  padding: 12px clamp(8px, 2vw, 20px);
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .25), transparent);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 1.5vw, 1.1rem);
+  line-height: 2;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.exploration-story p { margin: 0 0 1em; }
+.exploration-story p:last-child { margin-bottom: 0; }
+.exploration-prompt-enter { animation: explorationSectionEnter 250ms ease-out both; }
+.exploration-choices-enter > .route-item {
+  animation: explorationChoiceEnter 350ms ease-out both;
+}
+.exploration-choices-enter > .route-item:nth-child(2) { animation-delay: 90ms; }
+.exploration-choices-enter > .route-item:nth-child(3) { animation-delay: 180ms; }
+.exploration-choices-enter > .route-item:nth-child(4) { animation-delay: 270ms; }
+
+.exploration-content .route-item {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+.exploration-content .route-item:disabled { cursor: default; }
+.exploration-content .route-item:focus-visible {
+  outline: 2px solid var(--color-loot-gold);
+  outline-offset: 4px;
+}
+
+@keyframes explorationSectionEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes explorationChoiceEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presentation-floor-content { animation-name: explorationSectionEnter; }
+  .exploration-choices-enter > .route-item { animation-name: explorationSectionEnter; }
+}

@@ -135,121 +135,132 @@ let currentActiveStage = null;
 let lastAnnouncedBattleRound = 0;
 let isPrologueTyping = false;
 let prologueCompleted = false;
+let prologueController = null;
 let routeNarrativeDoneKey = null;
+let routePresentationController = null;
+let trapPresentationController = null;
+let trapDisplay = null;
+let trapStartedId = null;
+let chestPresentationController = null;
+let chestDisplay = null;
+let chestStartedId = null;
+let chestRewardCompletedId = null;
+let routeInteractionReadyKey = null;
 let eventDoneKey = null;
 
-// 音效系統 (Web Audio API)
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
+// ==========================================================================
+// Presentation Orchestrator & Duplicate Prevention (P2-R1 Section 0, 1, 2)
+// ==========================================================================
+const presentationManager = {
+  playedKeys: new Set(),
+  isBlocking: false,
+  timerState: 'STOPPED', // 'STOPPED' | 'WAITING_FOR_PRESENTATION' | 'RUNNING' | 'EXPIRED'
+
+  hasPlayed(key) {
+    return this.playedKeys.has(key);
+  },
+
+  markPlayed(key) {
+    this.playedKeys.add(key);
+  },
+
+  clear() {
+    this.playedKeys.clear();
+    this.setBlocking(false);
+    this.timerState = 'STOPPED';
+  },
+
+  setBlocking(blocking) {
+    this.isBlocking = Boolean(blocking);
+    const root = document.getElementById('presentationRoot');
+    if (root) {
+      if (this.isBlocking) {
+        root.classList.add('interactive');
+        document.body.classList.add('presentation-blocking');
+      } else {
+        root.classList.remove('interactive');
+        document.body.classList.remove('presentation-blocking');
+      }
+    }
+  }
+};
+
+// ==========================================================================
+// 沉浸式音效系統 (SFXManager - Web Audio API Procedural Synthesizer)
+// 沿用 presentation-core.js 的單一真實來源 SFXManager
+// ==========================================================================
+const sfx = (typeof sfxManager !== 'undefined' ? sfxManager : (typeof window !== 'undefined' && window.sfxManager ? window.sfxManager : null));
 
 function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  if (sfx && typeof sfx.init === 'function') sfx.init();
 }
 
 function playSound(type) {
-  if (!soundEnabled) return;
-  try {
-    initAudio();
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    switch (type) {
-      case 'click':
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(300, now + 0.06);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
-        osc.start(now);
-        osc.stop(now + 0.06);
-        break;
-
-      case 'hit':
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-        gain.gain.setValueAtTime(0.35, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
-        break;
-
-      case 'magic':
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampToValueAtTime(900, now + 0.2);
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now);
-        osc.stop(now + 0.25);
-        break;
-
-      case 'heal':
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-        osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-        break;
-
-      case 'victory':
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.setValueAtTime(554.37, now + 0.12);
-        osc.frequency.setValueAtTime(659.25, now + 0.24);
-        osc.frequency.setValueAtTime(880, now + 0.36);
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-        osc.start(now);
-        osc.stop(now + 0.6);
-        break;
-
-      case 'type':
-        osc.type = 'triangle';
-        const typeFreq = 950 + (Math.random() * 200 - 100);
-        osc.frequency.setValueAtTime(typeFreq, now);
-        osc.frequency.exponentialRampToValueAtTime(320, now + 0.035);
-        gain.gain.setValueAtTime(0.14, now);
-        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.035);
-        osc.start(now);
-        osc.stop(now + 0.035);
-        break;
-
-      case 'banner':
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(440, now + 0.18);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        osc.start(now);
-        osc.stop(now + 0.5);
-        break;
-
-      case 'gameover':
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(300, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        osc.start(now);
-        osc.stop(now + 0.5);
-        break;
-    }
-  } catch (e) {
-    // 瀏覽器若禁止自動播放則靜音處理
+  if (sfx && typeof sfx.play === 'function') {
+    sfx.play(type);
+  } else if (typeof window !== 'undefined' && window.playSound) {
+    window.playSound(type);
   }
 }
+
+// 正式 UI SVG 圖示產生器 (避免使用 Emoji)
+function getIconSvg(name, extraClass = '') {
+  return `<svg class="ui-icon svg-icon ${extraClass}" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
+}
+
+// 職業簡短定位標籤 (P2 規範：以簡短 Tag 呈現定位)
+const ROLE_BADGES = {
+  warrior: [
+    { text: 'TANK', type: 'tank' },
+    { text: '物理', type: '' },
+    { text: '防護', type: '' }
+  ],
+  mage: [
+    { text: 'DPS', type: 'dps' },
+    { text: '魔法', type: '' },
+    { text: '爆發', type: '' }
+  ],
+  archer: [
+    { text: 'DPS', type: 'dps' },
+    { text: '物理', type: '' },
+    { text: '閃避', type: '' }
+  ],
+  assassin: [
+    { text: 'DPS', type: 'dps' },
+    { text: '物理', type: '' },
+    { text: '暴擊', type: '' }
+  ],
+  bard: [
+    { text: 'SUPPORT', type: 'support' },
+    { text: '魔法', type: '' },
+    { text: '群療', type: '' }
+  ],
+  alchemist: [
+    { text: 'SUPPORT', type: 'support' },
+    { text: '魔法', type: '' },
+    { text: '調和', type: '' }
+  ],
+  druid: [
+    { text: 'TANK', type: 'tank' },
+    { text: '自然', type: '' },
+    { text: '召喚', type: '' }
+  ]
+};
+
+function getRoleIconName(roleKey) {
+  const map = {
+    warrior: 'shield',
+    mage: 'magic',
+    archer: 'arrow',
+    assassin: 'sword',
+    bard: 'sparkle',
+    alchemist: 'poison',
+    druid: 'summon'
+  };
+  return map[roleKey] || 'user';
+}
+
+// 樓層開場大字幕播放紀錄（避免同一層切換重覆播放）
 
 // DOM 元素引用
 const elements = {
@@ -296,12 +307,11 @@ const elements = {
   memberWaitArea: document.getElementById('memberWaitArea'),
   startRequirementText: document.getElementById('startRequirementText'),
 
-  // Prologue
-  prologueTitle: document.getElementById('prologueTitle'),
-  prologueTextBody: document.getElementById('prologueTextBody'),
-  btnSkipPrologue: document.getElementById('btnSkipPrologue'),
-  prologueCountdown: document.getElementById('prologueCountdown'),
-  prologueActions: document.querySelector('.prologue-actions'),
+  // Game Start Overlay (P2-R1.1 Section 3)
+  gameStartOverlay: document.getElementById('gameStartOverlay'),
+  gameTitleContainer: document.getElementById('gameTitleContainer'),
+  prologuePresentationContainer: document.getElementById('prologuePresentationContainer'),
+  prologuePresBody: document.getElementById('prologuePresBody'),
 
   // Transition
   transitionTypewriterTitle: document.getElementById('transitionTypewriterTitle'),
@@ -347,13 +357,30 @@ const elements = {
   routeStatusText: document.getElementById('routeStatusText'),
   routeOptionsGrid: document.getElementById('routeOptionsGrid'),
   routeVotersStatusList: document.getElementById('routeVotersStatusList'),
-  routeAtmosphereText: document.querySelector('.route-atmosphere-text'),
+  routeAtmosphereText: document.getElementById('routeAtmosphereText'),
+  floorIntroOverlay: document.getElementById('floorIntroOverlay'),
+  floorIntroNumber: document.getElementById('floorIntroNumber'),
+  floorIntroTitle: document.getElementById('floorIntroTitle'),
   routeTimerBar: document.getElementById('routeTimerBar'),
 
   // Event
   eventIcon: document.getElementById('eventIcon'),
   eventTitle: document.getElementById('eventTitle'),
   eventStoryText: document.getElementById('eventStoryText'),
+  eventCardBox: document.getElementById('eventCardBox'),
+  trapDiscoverySection: document.getElementById('trapDiscoverySection'),
+  trapDiscoveryStory: document.getElementById('trapDiscoveryStory'),
+  chestDiscoverySection: document.getElementById('chestDiscoverySection'),
+  chestDiscoveryStory: document.getElementById('chestDiscoveryStory'),
+  chestInteractionArea: document.getElementById('chestInteractionArea'),
+  btnOpenChest: document.getElementById('btnOpenChest'),
+  chestPresentationOverlay: document.getElementById('chestPresentationOverlay'),
+  presentationChestVisual: document.getElementById('presentationChestVisual'),
+  presentationRewardContent: document.getElementById('presentationRewardContent'),
+  presentationRewardRarity: document.getElementById('presentationRewardRarity'),
+  presentationRewardTitle: document.getElementById('presentationRewardTitle'),
+  presentationRewardDesc: document.getElementById('presentationRewardDesc'),
+  presentationRewardMeta: document.getElementById('presentationRewardMeta'),
   eventDetails: document.getElementById('eventDetails'),
 
   // Battle
@@ -367,6 +394,7 @@ const elements = {
   monsterAvatar: document.getElementById('monsterAvatar'),
   monsterSlashOverlay: document.getElementById('monsterSlashOverlay'),
   monsterMagicOverlay: document.getElementById('monsterMagicOverlay'),
+  monsterPixelFx: document.getElementById('monsterPixelFx'),
   monsterFloatingContainer: document.getElementById('monsterFloatingContainer'),
   monsterName: document.getElementById('monsterName'),
   monsterResTag: document.getElementById('monsterResTag'),
@@ -387,6 +415,41 @@ const elements = {
   myEquipsSummary: document.getElementById('myEquipsSummary'),
   myActionStatus: document.getElementById('myActionStatus'),
   mySkillsRow: document.getElementById('mySkillsRow'),
+
+  // Presentation Root & Overlays (P2-R1 Section 3, 20, 23, 24)
+  presentationRoot: document.getElementById('presentationRoot'),
+  trapPresentationOverlay: document.getElementById('trapPresentationOverlay'),
+  trapVictimsContainer: document.getElementById('trapVictimsContainer'),
+  bossIntroOverlay: document.getElementById('bossIntroOverlay'),
+  bossIntroAvatar: document.getElementById('bossIntroAvatar'),
+  bossIntroTitle: document.getElementById('bossIntroTitle'),
+  bossIntroSubtitle: document.getElementById('bossIntroSubtitle'),
+  roundStartOverlay: document.getElementById('roundStartOverlay'),
+  roundStartBanner: document.getElementById('roundStartBanner'),
+  roundStartText: document.getElementById('roundStartText'),
+  roundStartSub: document.getElementById('roundStartSub'),
+  presentationFxContainer: document.getElementById('presentationFxContainer'),
+
+  // Combat Action Banner (3-column CSS Grid)
+  combatActionBanner: document.getElementById('combatActionBanner'),
+  combatBannerActor: document.getElementById('combatBannerActor'),
+  combatBannerActorAvatar: document.getElementById('combatBannerActorAvatar'),
+  combatBannerActorName: document.getElementById('combatBannerActorName'),
+  combatBannerCenter: document.getElementById('combatBannerCenter'),
+  combatBannerBadge: document.getElementById('combatBannerBadge'),
+  combatBannerTitle: document.getElementById('combatBannerTitle'),
+  combatBannerTags: document.getElementById('combatBannerTags'),
+  combatBannerHiddenNote: document.getElementById('combatBannerHiddenNote'),
+  combatBannerTarget: document.getElementById('combatBannerTarget'),
+  combatBannerTargetAvatar: document.getElementById('combatBannerTargetAvatar'),
+  combatBannerTargetName: document.getElementById('combatBannerTargetName'),
+
+  // Skill Selection & Lock Bar
+  skillSelectionBar: document.getElementById('skillSelectionBar'),
+  selectionPromptText: document.getElementById('selectionPromptText'),
+  selectionTargetText: document.getElementById('selectionTargetText'),
+  btnConfirmLock: document.getElementById('btnConfirmLock'),
+  btnUnlockAction: document.getElementById('btnUnlockAction'),
 
   // Equipment Drop Modal
   equipDropModal: document.getElementById('equipDropModal'),
@@ -420,6 +483,8 @@ const elements = {
   battleLogCard: document.getElementById('battleLogCard'),
   btnClearLog: document.getElementById('btnClearLog'),
   btnToggleLog: document.getElementById('btnToggleLog'),
+  logToggleIcon: document.getElementById('logToggleIcon'),
+  logToggleText: document.getElementById('logToggleText'),
   floatingChatContainer: document.getElementById('floatingChatContainer'),
   floatingChatBtn: document.getElementById('floatingChatBtn'),
   chatUnreadBadge: document.getElementById('chatUnreadBadge'),
@@ -484,8 +549,17 @@ socket.on('init:constants', (data) => {
   updateHeroRoleOptionUI();
 });
 
+let pendingAuthoritativeState = null;
+
 socket.on('room:update', (state) => {
-  roomState = state;
+  // 若目前正透過 Presentation Queue 逐步演出戰鬥交鋒（A5 規範）
+  // 嚴禁以權威狀態直接提前覆蓋演出中的 HP / tempHp / bossHp / death state！
+  if (isProcessingPresentationQueue) {
+    pendingAuthoritativeState = state;
+    syncChatMessages(state.chatMessages);
+    return;
+  }
+  roomState = typeof projectChestDisplayState === 'function' ? projectChestDisplayState(projectTrapDisplayState(state)) : projectTrapDisplayState(state);
   currentRoomCode = state.code;
   renderApp();
   updateHeroRoleOptionUI();
@@ -494,28 +568,56 @@ socket.on('room:update', (state) => {
 
 // 取得玩家頭貼 HTML (自訂頭貼 > 職業預設 > 預設頭像)
 function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
-  if (!player) return `<div class="${className} member-avatar-placeholder">👤</div>`;
+  if (!player) return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
   const roleInfo = player.role ? classesData[player.role] : null;
 
-  // 1. 玩家自訂頭貼 (自訂照片或 Emoji)
+  // 1. 玩家自訂頭貼 (自訂照片或自訂頭像)
   if (player.customAvatar) {
-    if (player.customAvatar.startsWith('data:image/') || player.customAvatar.startsWith('http')) {
+    if (player.customAvatar.startsWith('data:image/') || player.customAvatar.startsWith('http') || player.customAvatar.startsWith('/')) {
       return `<img src="${player.customAvatar}" class="${className}" alt="${escapeHtml(player.name)}">`;
     } else {
       return `<div class="${className} avatar-emoji-badge">${escapeHtml(player.customAvatar)}</div>`;
     }
   }
 
-  // 2. 職業預設圖片或 Emoji
+  // 2. 職業預設圖片或專屬圖示
   if (roleInfo && roleInfo.avatar) {
     return `<img src="${roleInfo.avatar}" class="${className}" alt="${roleInfo.name}">`;
   }
-  if (roleInfo && roleInfo.emoji) {
-    return `<div class="${className} avatar-emoji-badge">${roleInfo.emoji}</div>`;
+  if (player.role) {
+    return `<div class="${className} avatar-icon-badge">${getIconSvg(getRoleIconName(player.role))}</div>`;
   }
 
   // 3. 未選職預設
-  return `<div class="${className} member-avatar-placeholder">👤</div>`;
+  return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
+}
+
+// 取得職業標準圖像 HTML (Combat Resolution 規範：嚴禁使用自訂/Discord頭像，必須使用職業原畫)
+function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait') {
+  let roleKey = '';
+  if (typeof roleOrPlayer === 'string') {
+    roleKey = roleOrPlayer;
+  } else if (roleOrPlayer && typeof roleOrPlayer === 'object') {
+    roleKey = roleOrPlayer.role || roleOrPlayer.sourceRole || '';
+  }
+  const roleInfo = roleKey ? classesData[roleKey] : null;
+  if (roleInfo && roleInfo.avatar) {
+    return `<img src="${roleInfo.avatar}" class="${className}" alt="${escapeHtml(roleInfo.name || roleKey)}">`;
+  }
+  const icon = getRoleIconName(roleKey || 'warrior');
+  return `<div class="${className} avatar-icon-badge">${getIconSvg(icon)}</div>`;
+}
+
+// 取得職業標準中文名稱
+function getClassDisplayName(roleOrPlayer) {
+  let roleKey = '';
+  if (typeof roleOrPlayer === 'string') {
+    roleKey = roleOrPlayer;
+  } else if (roleOrPlayer && typeof roleOrPlayer === 'object') {
+    roleKey = roleOrPlayer.role || roleOrPlayer.sourceRole || '';
+  }
+  const roleInfo = roleKey ? classesData[roleKey] : null;
+  return roleInfo ? roleInfo.name : '冒險者';
 }
 
 // 切換視圖
@@ -540,9 +642,50 @@ function switchView(viewName) {
   }
 }
 
+// Presentation-Gated View Reveal (P2-R1.1 Section 4)
+function gateDestinationView(viewName) {
+  const v = elements.views ? elements.views[viewName] : null;
+  if (v) v.classList.add('view-gated-hidden');
+}
+
+function revealDestinationView(viewName) {
+  const v = elements.views ? elements.views[viewName] : null;
+  if (v) v.classList.remove('view-gated-hidden');
+}
+
 // 渲染整體畫面
 function renderApp() {
   if (!roomState) return;
+
+  if (prologueController && roomState.state !== 'PROLOGUE') {
+    prologueController.abort();
+  }
+  if (routePresentationController && (roomState.state !== 'CHOOSING_ROUTE' ||
+      routePresentationController.presentationId !== roomState.routePresentationId)) {
+    routePresentationController.abort();
+  }
+
+  if (trapPresentationController && (roomState.state !== 'EVENT' ||
+      roomState.currentEvent?.type !== 'trap' ||
+      roomState.currentEvent.presentationId !== trapPresentationController.presentationId)) {
+    trapPresentationController.abort();
+  }
+  if (roomState.state !== 'EVENT' || roomState.currentEvent?.type !== 'trap') {
+    trapDisplay = null;
+    trapStartedId = null;
+  }
+
+  if (chestPresentationController && (roomState.state !== 'EVENT' ||
+      roomState.currentEvent?.type !== 'treasure' ||
+      roomState.currentEvent.presentationId !== chestPresentationController.presentationId)) {
+    chestPresentationController.abort();
+  }
+  if (roomState.state !== 'EVENT' || roomState.currentEvent?.type !== 'treasure') {
+    chestDisplay = null;
+    chestStartedId = null;
+    chestRewardCompletedId = null;
+  }
+
 
   const me = roomState.players.find(p => p.id === myId);
   const isLeader = roomState.leaderId === myId;
@@ -596,9 +739,11 @@ function renderApp() {
   switch (roomState.state) {
     case 'LOBBY':
       switchView('lobby');
+      presentationManager.clear();
       prologueCompleted = false;
       isPrologueTyping = false;
       routeNarrativeDoneKey = null;
+      routeInteractionReadyKey = null;
       eventDoneKey = null;
       lastAnnouncedBattleRound = 0;
       renderLobby(me, isLeader);
@@ -606,7 +751,7 @@ function renderApp() {
 
     case 'PROLOGUE':
       switchView('prologue');
-      renderPrologue(isLeader);
+      renderPrologue();
       break;
 
     case 'CHOOSING_ROUTE':
@@ -659,6 +804,14 @@ function renderPendingDropModal(me) {
   if (!elements.equipDropModal) return;
 
   const dropInfo = roomState?.pendingDrop;
+    // Phase 4: Gate equip modal until chest presentation and reward reveal have settled
+  if (roomState?.state === 'EVENT' && roomState.currentEvent?.type === 'treasure') {
+    if (chestRewardCompletedId !== roomState.currentEvent.presentationId) {
+      elements.equipDropModal.classList.add('hidden');
+      return;
+    }
+  }
+
   if (!dropInfo || !me || dropInfo.ownerId !== myId) {
     elements.equipDropModal.classList.add('hidden');
     selectedReplaceIndex = -1;
@@ -666,10 +819,10 @@ function renderPendingDropModal(me) {
   }
 
   const drop = dropInfo.drop;
-  elements.equipModalTitle.textContent = `🎁 獲得戰利品裝備：【${drop.name}】！`;
+  elements.equipModalTitle.innerHTML = `${getIconSvg('chest')} <span>獲得戰利品裝備：【${escapeHtml(drop.name)}】！</span>`;
   elements.equipModalSubtitle.textContent = `你在${dropInfo.source === 'battle' ? '擊敗怪物' : '探索寶箱'}後獲得了這件裝備！請抉擇是否穿戴（每位角色上限 3 件）：`;
   elements.dropItemName.textContent = drop.name;
-  elements.dropItemType.textContent = drop.type === 'weapon' ? '⚔️ 武器' : (drop.type === 'armor' ? '🛡️ 防具' : '💍 飾品');
+  elements.dropItemType.innerHTML = drop.type === 'weapon' ? `${getIconSvg('sword')} 武器` : (drop.type === 'armor' ? `${getIconSvg('shield')} 防具` : `${getIconSvg('sparkle')} 飾品`);
   elements.dropItemDesc.textContent = drop.desc || drop.statDesc || '';
 
   const myEquips = me.equips || [];
@@ -680,7 +833,7 @@ function renderPendingDropModal(me) {
   const alreadyOwnsUnique = isUniqueRestricted && myEquips.some((eq, idx) => eq.id === drop.id && idx !== selectedReplaceIndex);
 
   if (alreadyOwnsUnique) {
-    elements.equipReplaceNotice.textContent = `⚠️ 【${drop.name}】為神兵唯一裝備，不可重複穿戴！`;
+    elements.equipReplaceNotice.textContent = `【${drop.name}】為神兵唯一裝備，不可重複穿戴！`;
     elements.equipReplaceNotice.classList.remove('hidden');
     elements.btnEquipItem.disabled = true;
     elements.btnEquipItem.style.opacity = '0.5';
@@ -690,7 +843,7 @@ function renderPendingDropModal(me) {
     elements.btnEquipItem.style.opacity = '';
     elements.btnEquipItem.style.cursor = '';
     if (isFull) {
-      elements.equipReplaceNotice.textContent = '⚠️ 裝備已滿 3 件，請從下方點選一件舊裝備進行替換：';
+      elements.equipReplaceNotice.textContent = '裝備已滿 3 件，請從下方點選一件舊裝備進行替換：';
       elements.equipReplaceNotice.classList.remove('hidden');
     } else {
       elements.equipReplaceNotice.classList.add('hidden');
@@ -709,7 +862,7 @@ function renderPendingDropModal(me) {
           <span class="current-equip-name">${escapeHtml(eq.name)}</span>
           <span class="current-equip-desc">${escapeHtml(eq.desc || eq.statDesc || '')}</span>
         </div>
-        ${isFull ? `<span class="replace-radio-badge">${selectedReplaceIndex === idx ? '✓ 將替換此件' : '點選以替換'}</span>` : ''}
+        ${isFull ? `<span class="replace-radio-badge">${selectedReplaceIndex === idx ? '已選替換此件' : '點選以替換'}</span>` : ''}
       `;
 
       if (isFull) {
@@ -725,11 +878,11 @@ function renderPendingDropModal(me) {
 
   elements.btnEquipItem.onclick = () => {
     if (alreadyOwnsUnique) {
-      alert('⚠️ 此裝備為神兵唯一裝備，不可重複穿戴！');
+      alert('此裝備為神兵唯一裝備，不可重複穿戴！');
       return;
     }
     if (isFull && (selectedReplaceIndex < 0 || selectedReplaceIndex >= myEquips.length)) {
-      alert('⚠️ 裝備欄已滿 3 件！請先點選上方欲替換卸下的既有裝備。');
+      alert('裝備欄已滿 3 件！請先點選上方欲替換卸下的既有裝備。');
       return;
     }
     playSound('heal');
@@ -789,23 +942,23 @@ function renderLobby(me, isLeader) {
         <div class="member-info-col">
           <div class="member-avatar-wrapper clickable-avatar" id="btnMemberMyAvatar" title="點擊更換個人頭貼">
             ${getPlayerAvatarHtml(p, 'member-role-avatar')}
-            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${roleInfo.emoji}</span>` : ''}
+            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${getIconSvg(getRoleIconName(p.role))}</span>` : ''}
           </div>
           <div class="member-name-group">
             ${isEditingMyName ? `
               <div class="member-inline-rename-form">
                 <input type="text" class="inline-rename-input" id="inputInlineRename" value="${escapeHtml(editingNameValue !== '' ? editingNameValue : p.name)}" maxlength="12" placeholder="輸入暱稱...">
-                <button type="button" class="btn-micro-action btn-save-name" id="btnSaveInlineRename" title="確認修改">✓</button>
-                <button type="button" class="btn-micro-action btn-cancel-name" id="btnCancelInlineRename" title="取消">✕</button>
+                <button type="button" class="btn-micro-action btn-save-name" id="btnSaveInlineRename" title="確認修改">${getIconSvg('check')}</button>
+                <button type="button" class="btn-micro-action btn-cancel-name" id="btnCancelInlineRename" title="取消">${getIconSvg('close')}</button>
               </div>
             ` : `
               <div class="member-name-row">
                 <span class="member-name">
-                  ${isThisLeader ? '<span class="crown-tag" title="隊長">👑</span>' : ''}
+                  ${isThisLeader ? `<span class="crown-tag" title="隊長">${getIconSvg('flag')}</span>` : ''}
                   <span class="member-name-text">${escapeHtml(p.name)}</span>
                   <span class="me-tag">(你)</span>
                 </span>
-                <button type="button" class="btn-icon-rename" id="btnTriggerInlineRename" title="修改暱稱">✏️</button>
+                <button type="button" class="btn-icon-rename" id="btnTriggerInlineRename" title="修改暱稱">${getIconSvg('ready')}</button>
               </div>
             `}
             <div class="member-sub-actions">
@@ -882,11 +1035,11 @@ function renderLobby(me, isLeader) {
         <div class="member-info-col">
           <div class="member-avatar-wrapper">
             ${getPlayerAvatarHtml(p, 'member-role-avatar')}
-            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${roleInfo.emoji}</span>` : ''}
+            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${getIconSvg(getRoleIconName(p.role))}</span>` : ''}
           </div>
           <div class="member-name-group">
             <span class="member-name">
-              ${isThisLeader ? '<span class="crown-tag" title="隊長">👑</span>' : ''}
+              ${isThisLeader ? `<span class="crown-tag" title="隊長">${getIconSvg('flag')}</span>` : ''}
               <span class="member-name-text">${escapeHtml(p.name)}</span>
             </span>
             <span class="member-role-tag">
@@ -941,14 +1094,19 @@ function renderRoleSelectionGrid() {
     const card = document.createElement('div');
     card.className = `role-card ${isSelectedByMe ? 'selected' : ''}`;
 
-    let buttonText = isSelectedByMe ? '✓ 已選擇' : '選擇此職業';
+    let buttonText = isSelectedByMe ? '已選擇' : '選擇此職業';
 
     let choosersHtml = '';
     if (choosers.length > 0) {
       choosersHtml = `<div class="role-card-choosers" style="margin-top:6px; font-size:0.75rem; color:#f59e0b; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-        <span>👥</span> <span>已選隊友: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
+        ${getIconSvg('users')} <span>已選隊友: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
       </div>`;
     }
+
+    const badges = ROLE_BADGES[roleKey] || [{ text: '冒險者', type: '' }];
+    const tagsHtml = `<div class="role-card-tags">
+      ${badges.map(b => `<span class="role-tag-badge ${b.type}">[${b.text}]</span>`).join('')}
+    </div>`;
 
     card.innerHTML = `
       <div class="role-card-inner">
@@ -956,14 +1114,14 @@ function renderRoleSelectionGrid() {
           <div class="role-card-avatar-wrap">
             <img src="${conf.avatar}" alt="${conf.name}" class="role-card-avatar" loading="lazy">
             <button type="button" class="role-skill-detail-btn" data-role="${roleKey}" title="查看職業詳細技能與數值介紹">
-              <span>📜 技能詳情</span>
+              ${getIconSvg('info', 'ui-icon--sm')} <span>技能詳情</span>
             </button>
           </div>
         ` : `
           <div class="role-card-top" style="position: relative;">
-            <span class="role-card-icon">${conf.emoji}</span>
+            <span class="role-card-icon">${getIconSvg(getRoleIconName(roleKey))}</span>
             <button type="button" class="role-skill-detail-btn" data-role="${roleKey}" title="查看職業詳細技能與數值介紹">
-              <span>📜 技能詳情</span>
+              ${getIconSvg('info', 'ui-icon--sm')} <span>技能詳情</span>
             </button>
           </div>
         `}
@@ -971,6 +1129,7 @@ function renderRoleSelectionGrid() {
           <span class="role-card-name">${conf.name}</span>
           <span class="role-card-hp">HP: ${conf.maxHp}</span>
         </div>
+        ${tagsHtml}
         <p class="role-card-desc">${conf.desc}</p>
         ${choosersHtml}
       </div>
@@ -1187,145 +1346,217 @@ function checkStageTransition(state) {
     return;
   }
 
+  // Game start owns its black curtain; do not run a competing screen transition.
+  if (state.state === 'PROLOGUE') {
+    prologueCompleted = false;
+    return;
+  }
+  // Exploration owns its full-screen floor intro and section reveal.
+  if (state.state === 'CHOOSING_ROUTE' ||
+      (state.state === 'EVENT' && state.currentEvent?.type === 'trap')) return;
+
   // 1 秒淡出淡入轉場
   triggerScreenTransition();
 
   // 根據不同階段觸發對應的像素大字幕 (左滑入 -> 中間大幅減速停留1秒 -> 右滑出)
   switch (state.state) {
-    case 'PROLOGUE':
-      prologueCompleted = false;
-      isPrologueTyping = false;
+    case 'EVENT':
+      // P2-R1 Section 1 & 20: Event presentation is owned solely by renderEvent (playTrapPresentation / playChestPresentation).
+      // No duplicate cinematic banner here.
       break;
-
-    case 'TRANSITION': {
-      const trans = state.currentTransition;
-      showCinematicBanner({
-        title: `【第 ${trans?.floor || state.floor} 層・深淵探索】`,
-        subtitle: `FLOOR ${trans?.floor || state.floor} · ${trans?.routeName || 'DEEP ABYSS'}`,
-        theme: 'gold'
-      });
-      break;
-    }
-
-    case 'CHOOSING_ROUTE':
-      showCinematicBanner({
-        title: `【第 ${state.floor} 層・迷霧分歧點】`,
-        subtitle: `FLOOR ${state.floor} · ROUTE CHOICE`,
-        theme: 'gold'
-      });
-      break;
-
-    case 'EVENT': {
-      const isTreasure = state.currentEvent?.type === 'treasure';
-      showCinematicBanner({
-        title: isTreasure ? '【遠古寶箱・幸運眷顧】' : '【致命機關・淬毒暗箭】',
-        subtitle: `FLOOR ${state.floor} · DUNGEON EVENT`,
-        theme: 'event'
-      });
-      break;
-    }
 
     case 'IN_BATTLE':
-      showCinematicBanner({
-        title: state.currentMonster?.isWeakened ? '【削弱領主・遭遇戰鬥】' : '【深淵領主・遭遇戰鬥】',
-        subtitle: `BOSS ENCOUNTER · ${state.currentMonster?.name || 'MONSTER'}`,
-        theme: 'boss',
-        onFinish: () => {
-          // 遭遇戰大字幕結束後，接續第一回合冒險者行動字幕
-          lastAnnouncedBattleRound = 1;
-          showCinematicBanner({
-            title: '【第 1 回合・冒險者行動】',
-            subtitle: 'ROUND 1 · PLAYER PHASE',
-            theme: 'player'
-          });
-        }
-      });
-      lastAnnouncedBattleRound = 1;
+      // P2-R1 Section 23 & 24: Boss Intro and Round Start are owned solely by renderBattle on #presentationRoot.
+      // No duplicate cinematic banner here.
       break;
 
-    case 'CHECKPOINT':
-      showCinematicBanner({
-        title: '【庇護營地・短暫休整】',
-        subtitle: `FLOOR ${state.floor} · SANCTUARY REST`,
-        theme: 'camp'
-      });
+    case 'CHECKPOINT': {
+      const cpKey = `CHECKPOINT_BANNER_${state.floor}`;
+      if (!presentationManager.hasPlayed(cpKey)) {
+        presentationManager.markPlayed(cpKey);
+        playSound('heal_chime');
+        showCinematicBanner({
+          title: '【庇護營地・短暫休整】',
+          subtitle: `FLOOR ${state.floor} · SANCTUARY REST`,
+          theme: 'camp'
+        });
+      }
       break;
+    }
   }
 }
 
-// 1.5 渲染開場劇情 (深淵啟程 - 像素大標題打字機 + 快速故事打字機)
-function renderPrologue(isLeader) {
-  if (elements.btnSkipPrologue) {
-    elements.btnSkipPrologue.style.display = isLeader ? 'inline-flex' : 'none';
-  }
-  if (roomState.timerRemaining !== null && elements.prologueCountdown) {
-    elements.prologueCountdown.textContent = `⏳ 命運之輪轉動中... (${roomState.timerRemaining} 秒後自動踏入)`;
-  }
+// Phase 1: one owner, one curtain, no click-to-complete or skip path.
+const PROLOGUE_TIMING = Object.freeze({
+  titleEnter: 850,
+  titleHold: 1400,
+  titleExit: 600,
+  blackHold: 200,
+  storyEnter: 600,
+  character: 40,
+  comma: 140,
+  sentence: 280,
+  newline: 380,
+  paragraph: 600,
+  storyHold: 1800,
+  storyExit: 800,
+  dungeonReveal: 600
+});
 
-  // 僅在初次進入時觸發打字機演繹
-  if (!prologueCompleted && !isPrologueTyping) {
-    isPrologueTyping = true;
-    if (elements.prologueActions) {
-      elements.prologueActions.style.opacity = '0';
-      elements.prologueActions.style.pointerEvents = 'none';
-    }
-
-    const titleText = "【深淵啟程・命運之扉開啟】";
-    const paragraphs = [
-      "厚重的黑曜石大門在刺耳的摩擦聲中緩緩敞開，古老腐朽的塵埃隨之撲面而來。",
-      "火把微弱的橘光照亮了腳下斑駁的石階，空氣中瀰漫著潮濕的青苔、生鏽鐵器與隱約的血腥氣味。",
-      "身後的退路已被封死，冒險小隊握緊了手中的武器與符文，深吸一口氣，正式踏入這座沉睡千年的深淵地城！"
-    ];
-
-    // 即時完成打字機輔助函式
-    const finishPrologueImmediately = () => {
-      if (currentTypewriterTimer) {
-        clearInterval(currentTypewriterTimer);
-        currentTypewriterTimer = null;
-      }
-      if (elements.prologueTitle) {
-        elements.prologueTitle.textContent = titleText;
-        elements.prologueTitle.classList.remove('typewriter-cursor');
-      }
-      if (elements.prologueTextBody) {
-        elements.prologueTextBody.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join('');
-      }
-      isPrologueTyping = false;
-      prologueCompleted = true;
-      if (elements.prologueActions) {
-        elements.prologueActions.style.transition = 'opacity 0.4s ease';
-        elements.prologueActions.style.opacity = '1';
-        elements.prologueActions.style.pointerEvents = 'all';
-      }
+function waitForPrologue(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const cancel = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', cancel);
+      reject(new DOMException('Presentation cancelled', 'AbortError'));
     };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', cancel);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', cancel, { once: true });
+    if (signal.aborted) cancel();
+  });
+}
 
-    // 點擊開場卡片區域可直接快轉跳過打字機
-    const prologueCard = elements.views.prologue ? elements.views.prologue.querySelector('.prologue-card') : null;
-    if (prologueCard) {
-      const fastForwardHandler = () => {
-        if (isPrologueTyping) {
-          finishPrologueImmediately();
-        }
-        prologueCard.removeEventListener('click', fastForwardHandler);
-      };
-      prologueCard.addEventListener('click', fastForwardHandler);
-    }
-
-    // 先以打字機的形式出現大標題並搭配音效
-    typeWriterEffect(elements.prologueTitle, titleText, 55, () => {
-      if (!isPrologueTyping) return; // 若已被玩家點擊快轉則不再覆蓋
-      // 接著下方以更快的打字機形式出現描述故事
-      typeWriterParagraphs(elements.prologueTextBody, paragraphs, 22, () => {
-        isPrologueTyping = false;
-        prologueCompleted = true;
-        if (elements.prologueActions) {
-          elements.prologueActions.style.transition = 'opacity 0.4s ease';
-          elements.prologueActions.style.opacity = '1';
-          elements.prologueActions.style.pointerEvents = 'all';
-        }
-      });
+function prologueFrame(signal) {
+  return new Promise((resolve, reject) => {
+    const cancel = () => {
+      cancelAnimationFrame(frame);
+      signal.removeEventListener('abort', cancel);
+      reject(new DOMException('Presentation cancelled', 'AbortError'));
+    };
+    const frame = requestAnimationFrame(() => {
+      signal.removeEventListener('abort', cancel);
+      resolve();
     });
+    signal.addEventListener('abort', cancel, { once: true });
+    if (signal.aborted) cancel();
+  });
+}
+
+async function typePrologueParagraphs(container, paragraphs, signal, timing = PROLOGUE_TIMING) {
+  // Never insert complete text, even in a hidden pre-render. Paint empty first.
+  container.replaceChildren();
+  await prologueFrame(signal);
+  await prologueFrame(signal);
+  for (let index = 0; index < paragraphs.length; index++) {
+    const paragraph = document.createElement('p');
+    container.appendChild(paragraph);
+    const characters = Array.from(paragraphs[index]);
+    for (let charIndex = 0; charIndex < characters.length; charIndex++) {
+      await waitForPrologue(timing.character, signal);
+      const character = characters[charIndex];
+      paragraph.appendChild(document.createTextNode(character));
+      if (charIndex % 2 === 1 && !/\s/.test(character)) playTypewriterClick();
+      const pause = /[，、,；;：:]/.test(character) ? timing.comma
+        : /[。！？!?…]/.test(character) ? timing.sentence
+        : character === '\n' ? timing.newline : 0;
+      if (pause) await waitForPrologue(pause, signal);
+    }
+    if (index < paragraphs.length - 1) {
+      await waitForPrologue(timing.paragraph, signal);
+    }
   }
+}
+
+async function renderProloguePresentation() {
+  if (prologueCompleted || isPrologueTyping) return;
+  isPrologueTyping = true;
+  const controller = new AbortController();
+  prologueController = controller;
+  const { signal } = controller;
+  const overlay = elements.gameStartOverlay;
+  const title = elements.gameTitleContainer;
+  const story = elements.prologuePresentationContainer;
+  const body = elements.prologuePresBody;
+  // Use the authoritative story already supplied by Room, without new narrative.
+  const paragraphs = roomState?.currentPrologue?.paragraphs;
+  let completed = false;
+
+  presentationManager.setBlocking(true);
+  gateDestinationView('prologue');
+  gateDestinationView('route');
+  // Prevent keyboard focus from reaching HUD controls through the curtain.
+  const app = document.getElementById('app');
+  const previousInert = app?.inert || false;
+  const chat = elements.floatingChatContainer;
+  const previousChatInert = chat?.inert || false;
+  if (app) app.inert = true;
+  if (chat) chat.inert = true;
+  document.body.classList.add('presentation-opening');
+
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    if (overlay) overlay.classList.add('hidden');
+    if (title) { title.classList.add('hidden'); title.classList.remove('exit'); }
+    if (story) { story.classList.add('hidden'); story.classList.remove('exit'); }
+    if (body) body.replaceChildren();
+    if (app) app.inert = previousInert;
+    if (chat) chat.inert = previousChatInert;
+    document.body.classList.remove('presentation-opening');
+    if (prologueController === controller) {
+      prologueController = null;
+      isPrologueTyping = false;
+      presentationManager.setBlocking(false);
+      revealDestinationView('route');
+    }
+  };
+  // Abort cleans synchronously, before renderApp starts the next owner.
+  signal.addEventListener('abort', cleanup, { once: true });
+
+  try {
+    if (!overlay || !title || !story || !body || !paragraphs?.length) {
+      throw new Error('Missing game-start presentation elements or story');
+    }
+    body.replaceChildren();
+    story.classList.add('hidden');
+    story.classList.remove('exit');
+    title.classList.remove('exit');
+    overlay.style.opacity = '1';
+    overlay.classList.remove('hidden');
+    title.classList.remove('hidden');
+    playSound('round_start');
+    await waitForPrologue(PROLOGUE_TIMING.titleEnter + PROLOGUE_TIMING.titleHold, signal);
+    title.classList.add('exit');
+    await waitForPrologue(PROLOGUE_TIMING.titleExit, signal);
+    title.classList.add('hidden');
+    await waitForPrologue(PROLOGUE_TIMING.blackHold, signal);
+
+    // Empty story is visible during entry; text begins after entry and two RAFs.
+    story.classList.remove('hidden');
+    await waitForPrologue(PROLOGUE_TIMING.storyEnter, signal);
+    await typePrologueParagraphs(body, paragraphs, signal);
+    await waitForPrologue(PROLOGUE_TIMING.storyHold, signal);
+    story.classList.add('exit');
+    await waitForPrologue(PROLOGUE_TIMING.storyExit, signal);
+    story.classList.add('hidden');
+    overlay.style.opacity = '0';
+    await waitForPrologue(PROLOGUE_TIMING.dungeonReveal, signal);
+    overlay.classList.add('hidden');
+
+    // Phase 2 gives every floor (including Floor 1) to the route owner.
+    completed = true;
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error('[Presentation:prologue]', error);
+    }
+  } finally {
+    signal.removeEventListener('abort', cleanup);
+    cleanup();
+  }
+
+  if (completed && !signal.aborted && roomState?.state === 'PROLOGUE') {
+    prologueCompleted = true;
+    socket.emit('prologue:next');
+  }
+}
+
+function renderPrologue() {
+  // All failures are handled inside the async owner; no unhandled promise.
+  void renderProloguePresentation();
 }
 
 // 1.8 渲染進入層數打字機轉場
@@ -1337,7 +1568,7 @@ function renderTransition() {
   if (lastTypedTransitionKey !== key) {
     lastTypedTransitionKey = key;
     if (elements.transitionRouteTag) {
-      elements.transitionRouteTag.textContent = `${trans.routeIcon || '🧭'} 前往路線：${trans.routeName}`;
+      elements.transitionRouteTag.innerHTML = `${getIconSvg('flag')} <span>前往路線：${escapeHtml(trans.routeName)}</span>`;
     }
     if (elements.transitionStoryTitle) {
       elements.transitionStoryTitle.textContent = trans.storyTitle || `【${trans.routeName}】`;
@@ -1355,186 +1586,127 @@ function renderTransition() {
   }
 }
 
-// 2. 渲染路線分歧（先字幕再敘述，最後才是操作與倒數計時）
-function renderRouteChoice(me, isLeader) {
-  elements.routeFloorNum.textContent = roomState.floor;
-  if (elements.routeFloorHeaderNum) {
-    elements.routeFloorHeaderNum.textContent = roomState.floor;
-  }
-  if (elements.routeMainTitle) {
-    elements.routeMainTitle.innerHTML = `【第 <span>${roomState.floor}</span> 層・迷霧分歧點】`;
-  }
-  elements.routeDiffPercent.textContent = roomState.floorDifficultyPercent !== undefined ? roomState.floorDifficultyPercent : Math.round((roomState.floor - 1) * 10);
+// --------------------------------------------------------------------------
+// Trap Event Presentation (P2-R1 Section 20 & 77)
+// --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// Chest Event Presentation (P2-R1 Section 21)
+// --------------------------------------------------------------------------
+// Phase 4 chest presentation is now owned solely by chest.js
 
-  const livingPlayers = (roomState.players || []).filter(p => p.hp > 0);
-  const myVoteId = roomState.routeVotes ? roomState.routeVotes[myId] : null;
-
-  if (myVoteId) {
-    elements.routeStatusText.innerHTML = '🗳️ <strong>你已完成投票！等待隊友投票中...（倒數結束結算最高票，平票或全棄票則隨機指引）</strong>';
-  } else if (me && me.hp <= 0) {
-    elements.routeStatusText.innerHTML = '🪦 <strong>你已陣亡，無法參與本層路線投票。請觀看隊友抉擇...</strong>';
-  } else {
-    elements.routeStatusText.innerHTML = '🗳️ <strong>請全體存活隊友共同投票（每人限投 1 票，15 秒截止）：</strong>';
-  }
-
-  // 15 秒倒數計時
-  const secondsLeft = roomState.timerRemaining !== null ? roomState.timerRemaining : 15;
-  elements.routeTimerText.textContent = `倒數 ${secondsLeft} 秒`;
-  const pct = Math.max(0, Math.min(100, (secondsLeft / 15) * 100));
-  elements.routeTimerProgress.style.width = `${pct}%`;
-
-  // 先字幕再敘述，最後才是操作與倒數計時
-  const routeKey = `ROUTE_FLOOR_${roomState.floor}`;
-  if (routeNarrativeDoneKey !== routeKey) {
-    routeNarrativeDoneKey = routeKey;
-
-    if (elements.routeOptionsGrid) elements.routeOptionsGrid.style.display = 'none';
-    if (elements.routeVotersStatusList) elements.routeVotersStatusList.style.display = 'none';
-    if (elements.routeTimerBar) elements.routeTimerBar.style.display = 'none';
-    if (elements.routeStatusText) elements.routeStatusText.style.display = 'none';
-
-    const routeParagraphs = [
-      "腳下的石磚路在此處斷裂，前方地勢錯綜複雜，瀰漫著不詳的陰暗薄霧。",
-      "隱約間能聽見遠處傳來的低沉嘶吼、風穿過石隙的尖銳呼嘯，甚至還有金屬反光的微弱閃爍……",
-      "機遇與毀滅僅有一線之隔，請全員共同投票決定前進方向！（15 秒倒數）"
-    ];
-
-    typeWriterParagraphs(elements.routeAtmosphereText, routeParagraphs, 16, () => {
-      if (elements.routeOptionsGrid) {
-        elements.routeOptionsGrid.style.display = 'grid';
-        elements.routeOptionsGrid.classList.add('narrative-fade');
-      }
-      if (elements.routeVotersStatusList) {
-        elements.routeVotersStatusList.style.display = 'flex';
-        elements.routeVotersStatusList.classList.add('narrative-fade');
-      }
-      if (elements.routeTimerBar) {
-        elements.routeTimerBar.style.display = 'block';
-        elements.routeTimerBar.classList.add('narrative-fade');
-      }
-      if (elements.routeStatusText) {
-        elements.routeStatusText.style.display = 'block';
-      }
-    });
-  }
-
-  // 渲染隊員投票狀態標籤欄（純文字名稱與投票狀態，不顯示職業頭貼）
-  if (elements.routeVotersStatusList) {
-    elements.routeVotersStatusList.innerHTML = '';
-    livingPlayers.forEach(p => {
-      const vId = roomState.routeVotes ? roomState.routeVotes[p.id] : null;
-      const pill = document.createElement('div');
-      pill.className = `route-voter-pill ${vId ? 'voted' : 'thinking'}`;
-      if (vId) {
-        const votedRoute = (roomState.currentRoutes || []).find(r => r.id === vId);
-        pill.innerHTML = `<span><strong>${escapeHtml(p.name)}</strong>: ✅ 已投${votedRoute ? '【' + votedRoute.name + '】' : ''}</span>`;
-      } else {
-        pill.innerHTML = `<span><strong>${escapeHtml(p.name)}</strong>: ⏳ 思考中...</span>`;
-      }
-      elements.routeVotersStatusList.appendChild(pill);
-    });
-  }
-
-  // 渲染 4 條路線按鈕
-  elements.routeOptionsGrid.innerHTML = '';
-  const currentRoutes = (roomState.currentRoutes && roomState.currentRoutes.length > 0)
-    ? roomState.currentRoutes
-    : (routesData && routesData.length > 0 ? routesData.slice(0, 4) : []);
-
-  currentRoutes.forEach(route => {
-    const votes = (roomState.routeVoteCounts && roomState.routeVoteCounts[route.id]) || 0;
-    const isMyVote = (myVoteId === route.id);
-    const isDead = Boolean(me && me.hp <= 0);
-
-    const votersForThisRoute = (roomState.players || [])
-      .filter(p => roomState.routeVotes && roomState.routeVotes[p.id] === route.id)
-      .map(p => escapeHtml(p.name));
-
-    const item = document.createElement('div');
-    item.className = `route-item ${isMyVote ? 'my-vote' : ''} ${isDead ? 'disabled' : ''}`;
-    item.innerHTML = `
-      <div class="route-vote-badge">🗳️ ${votes} 票</div>
-      <div class="route-icon">${route.icon || '🧭'}</div>
-      <div class="route-name">${route.name}</div>
-      <div class="route-sub">${route.desc}</div>
-      ${votersForThisRoute.length > 0 ? `
-        <div class="route-voters-tags">
-          ${votersForThisRoute.map(name => `<span class="route-voter-tag">${name}</span>`).join('')}
-        </div>
-      ` : ''}
-    `;
-
-    if (!isDead) {
-      item.addEventListener('click', () => {
-        playSound('click');
-        socket.emit('route:vote', { routeId: route.id });
-      });
-    }
-    elements.routeOptionsGrid.appendChild(item);
-  });
-}
-
-// 3. 渲染事件 (先打字敘述故事，再呈現獎勵機關與倒數)
+// 3. 渲染事件 (P2-R1 Section 1, 20, 21: 單一 Presentation Owner，Trap 演出走 Presentation Root)
 function renderEvent() {
   const ev = roomState.currentEvent;
   if (!ev) return;
 
+  const isTrap = ev.type === 'trap';
+  const isTreasure = ev.type === 'treasure';
+
+  elements.eventCardBox.classList.toggle('hidden', isTrap || isTreasure);
+  elements.trapDiscoverySection.classList.toggle('hidden', !isTrap);
+  if (elements.chestDiscoverySection) {
+    elements.chestDiscoverySection.classList.toggle('hidden', !isTreasure);
+  }
+
+  if (isTrap) {
+    if (trapStartedId !== ev.presentationId) {
+      trapStartedId = ev.presentationId;
+      void playTrapPresentation(ev);
+    }
+    return;
+  }
+
+  if (isTreasure) {
+    if (chestStartedId !== ev.presentationId) {
+      chestStartedId = ev.presentationId;
+      void playChestPresentation(ev);
+    }
+    return;
+  }
+
   const evKey = `EV_${roomState.floor}_${ev.type}_${ev.title}`;
-  if (eventDoneKey !== evKey) {
-    eventDoneKey = evKey;
+  if (!presentationManager.hasPlayed(evKey)) {
+    presentationManager.markPlayed(evKey);
 
     if (elements.eventDetails) elements.eventDetails.style.display = 'none';
     const evFooter = document.querySelector('.event-footer');
     if (evFooter) evFooter.style.display = 'none';
 
-    if (elements.eventStoryText && ev.story) {
-      elements.eventStoryText.style.display = 'block';
-      typeWriterEffect(elements.eventStoryText, ev.story, 18, () => {
-        if (elements.eventDetails) {
-          elements.eventDetails.style.display = 'block';
-          elements.eventDetails.classList.add('narrative-fade');
-        }
-        if (evFooter) {
-          evFooter.style.display = 'block';
-          evFooter.classList.add('narrative-fade');
-        }
-      });
-    } else {
-      if (elements.eventDetails) elements.eventDetails.style.display = 'block';
-      if (evFooter) evFooter.style.display = 'block';
+    if (ev.type === 'treasure') {
+      elements.eventIcon.innerHTML = getIconSvg('chest', 'svg-hero-icon');
+      elements.eventTitle.textContent = ev.title || `【第 ${roomState.floor} 層】遠古寶箱！`;
+      playChestPresentation(ev);
     }
-  }
-
-  if (ev.type === 'treasure') {
-    elements.eventIcon.textContent = '🎁';
-    elements.eventTitle.textContent = ev.title;
-    elements.eventDetails.innerHTML = `
-      <p style="color: #15803d; font-weight: 700; margin-bottom: 8px;">
-        🧪 治癒泉水：全體存活隊友回復 <strong>${ev.healAmt}</strong> 點生命值！
-      </p>
-      <p style="color: #b45309; font-weight: 700;">
-        💎 發現裝備：【${ev.drop.name}】
-      </p>
-      <p style="color: #334155; font-size: 0.95rem; margin-top: 6px;">
-        • 裝備效果：${ev.drop.desc}<br>
-        • 獲得者：<strong>${escapeHtml(ev.ownerName)}</strong> 正在抉擇是否穿戴（手動穿脫/替換，上限3件）！
-      </p>
-    `;
-    playSound('heal');
-  } else if (ev.type === 'trap') {
-    elements.eventIcon.textContent = '⚠️';
-    elements.eventTitle.textContent = ev.title;
-    elements.eventDetails.innerHTML = `
-      <p style="color: #dc2626; font-weight: 700; margin-bottom: 8px;">小隊踩中了地面遠古機關！淬毒暗箭四射！</p>
-      <ul style="list-style: none; padding-left: 0; line-height: 1.6; color: #334155;">
-        ${(ev.details || []).map(d => `<li>${formatMarkdown(d)}</li>`).join('')}
-      </ul>
-    `;
-    playSound('hit');
   }
 }
 
-// 4. 渲染戰鬥畫面 (回合切換時播放清晰冒險者回合字幕)
+// --------------------------------------------------------------------------
+// Boss Intro Presentation (P2-R1 Section 23)
+// --------------------------------------------------------------------------
+async function playBossIntro(monster) {
+  const introOverlay = elements.bossIntroOverlay;
+  if (!introOverlay) return;
+
+  presentationManager.setBlocking(true);
+
+  if (elements.bossIntroAvatar) {
+    elements.bossIntroAvatar.innerHTML = monster.avatar 
+      ? `<img src="${monster.avatar}" alt="${escapeHtml(monster.name)}">`
+      : getIconSvg('target');
+  }
+  if (elements.bossIntroTitle) {
+    elements.bossIntroTitle.textContent = monster.name;
+  }
+  if (elements.bossIntroSubtitle) {
+    elements.bossIntroSubtitle.textContent = monster.isWeakened ? 'WEAKENED BOSS ENCOUNTER' : 'ABYSS LORD ENCOUNTER';
+  }
+
+  introOverlay.classList.remove('hidden');
+  introOverlay.style.opacity = '1';
+  playSound('danger_sting');
+
+  // Hold 1000ms
+  await sleep(1000);
+
+  // Exit fade
+  introOverlay.style.opacity = '0';
+  await sleep(400);
+  introOverlay.classList.add('hidden');
+
+  presentationManager.setBlocking(false);
+}
+
+// --------------------------------------------------------------------------
+// Round Start Banner (P2-R1 Section 24)
+// --------------------------------------------------------------------------
+async function playRoundStartBanner(round) {
+  const roundOverlay = elements.roundStartOverlay;
+  const roundBanner = elements.roundStartBanner;
+  if (!roundOverlay || !roundBanner) return;
+
+  if (elements.roundStartText) {
+    elements.roundStartText.textContent = `ROUND ${round}`;
+  }
+  if (elements.roundStartSub) {
+    elements.roundStartSub.textContent = 'ADVENTURER PHASE';
+  }
+
+  roundBanner.classList.remove('exit');
+  roundOverlay.classList.remove('hidden');
+  roundOverlay.style.opacity = '1';
+  playSound('round_start');
+
+  // Hold 450ms
+  await sleep(450);
+
+  // Exit slide
+  roundBanner.classList.add('exit');
+  await sleep(250);
+  roundOverlay.classList.add('hidden');
+  roundBanner.classList.remove('exit');
+}
+
+// 4. 渲染戰鬥畫面 (P2-R1 Section 23, 24: 首領進場與回合橫幅走 Presentation Root)
 function renderBattle(me, isLeader) {
   const monster = roomState.currentMonster;
   if (!monster) return;
@@ -1542,18 +1714,33 @@ function renderBattle(me, isLeader) {
   elements.battleFloorNum.textContent = roomState.floor;
   elements.battleRoundNum.textContent = roomState.battleRound;
 
-  // 每一回合開始時，以清晰像素字幕呈現冒險者回合
-  if (lastAnnouncedBattleRound !== roomState.battleRound) {
+  // Boss Intro & Round 1 presentation (P2-R1 Section 23 & 24, P2-R1.1 Section 4 & 6)
+  const bossIntroKey = `BOSS_INTRO_${roomState.floor}_${monster.name}`;
+  if (!presentationManager.hasPlayed(bossIntroKey)) {
+    presentationManager.markPlayed(bossIntroKey);
+    lastAnnouncedBattleRound = 1;
+    gateDestinationView('battle');
+    (async () => {
+      await playBossIntro(monster);
+      await playRoundStartBanner(1);
+      revealDestinationView('battle');
+      await sleep(300); // 技能選擇 UI 進場完成、可互動
+      socket.emit('battle:selection_ready');
+    })();
+  } else if (lastAnnouncedBattleRound !== roomState.battleRound && roomState.battleRound > 1) {
     lastAnnouncedBattleRound = roomState.battleRound;
-    showCinematicBanner({
-      title: `【第 ${roomState.battleRound} 回合・冒險者行動】`,
-      subtitle: `ROUND ${roomState.battleRound} · PLAYER PHASE`,
-      theme: 'player'
-    });
+    (async () => {
+      await playRoundStartBanner(roomState.battleRound);
+      await sleep(300);
+      socket.emit('battle:selection_ready');
+    })();
   }
 
-  // 倒數計時
-  if (roomState.timerRemaining !== null) {
+  // 倒數計時：Resolving、Round Start 或計時尚未啟動時顯示 --，其餘正常顯示 (P2-R1.1 Section 6)
+  const isResolving = (roomState.selectionState === 'RESOLVING' || isProcessingPresentationQueue || roomState.selectionState === 'ROUND_START');
+  if (isResolving || roomState.timerRemaining === null) {
+    elements.battleTimerCount.textContent = '--';
+  } else {
     elements.battleTimerCount.textContent = roomState.timerRemaining;
   }
 
@@ -1568,19 +1755,19 @@ function renderBattle(me, isLeader) {
   if (monster.avatar) {
     elements.monsterAvatar.innerHTML = `<img src="${monster.avatar}" class="monster-avatar-img" alt="${escapeHtml(monster.name)}">`;
   } else {
-    elements.monsterAvatar.textContent = '👾';
+    elements.monsterAvatar.innerHTML = getIconSvg('sword', 'svg-hero-icon');
   }
 
   // 抗性標籤
   if (monster.resistance === 'phys') {
     elements.monsterResTag.className = 'res-tag res-phys';
-    elements.monsterResTag.textContent = '🛡️ 物理抗性 (-70%)';
+    elements.monsterResTag.innerHTML = `${getIconSvg('shield')} 物理抗性 (-70%)`;
   } else if (monster.resistance === 'mag') {
     elements.monsterResTag.className = 'res-tag res-mag';
-    elements.monsterResTag.textContent = '🔮 魔法抗性 (-70%)';
+    elements.monsterResTag.innerHTML = `${getIconSvg('magic')} 魔法抗性 (-70%)`;
   } else {
     elements.monsterResTag.className = 'res-tag res-none';
-    elements.monsterResTag.textContent = '⚪ 無抗性';
+    elements.monsterResTag.textContent = '無抗性';
   }
 
   // 怪物威脅度與必殺警告
@@ -1599,10 +1786,10 @@ function renderBattle(me, isLeader) {
   if (elements.monsterBuffsRow) {
     let buffHtml = '';
     if (monster.isWeakened) {
-      buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;">🥀 削弱狀態 (傷害/血量 75%)</span>`;
+      buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;">${getIconSvg('status')} 削弱狀態 (傷害/血量 75%)</span>`;
     }
     if (monster.poisonTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-poison">🧪 劇毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
+      buffHtml += `<span class="buff-badge tag-poison">${getIconSvg('poison')} 劇毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
   }
@@ -1610,22 +1797,22 @@ function renderBattle(me, isLeader) {
   // 護盾與隊伍增益提示
   const activeShieldBadges = [];
   if (roomState.warriorShieldTurn === 1) {
-    activeShieldBadges.push('🛡️ 壁壘守護：第1回合阻擋90%傷害！');
+    activeShieldBadges.push('壁壘守護：第1回合阻擋90%傷害！');
   } else if (roomState.warriorShieldTurn === 2) {
-    activeShieldBadges.push('🛡️ 壁壘守護：第2回合阻擋40%傷害！');
+    activeShieldBadges.push('壁壘守護：第2回合阻擋40%傷害！');
   }
   if (roomState.alcShieldTurns > 0) {
-    activeShieldBadges.push(`⚗️ 命運護盾：持續 ${roomState.alcShieldTurns} 回合阻擋 70% 傷害！`);
+    activeShieldBadges.push(`命運護盾：持續 ${roomState.alcShieldTurns} 回合阻擋 70% 傷害！`);
   }
   if (roomState.alcVulnerableTurns > 0) {
-    activeShieldBadges.push(`⚠️ 試劑反噬：本回合受傷增加 20%！`);
+    activeShieldBadges.push(`試劑反噬：本回合受傷增加 20%！`);
   } else if (roomState.alcVulnerableNextTurn) {
-    activeShieldBadges.push('⚠️ 試劑反噬：下回合受傷增加 20%！');
+    activeShieldBadges.push('試劑反噬：下回合受傷增加 20%！');
   }
 
   if (activeShieldBadges.length > 0) {
     elements.shieldNoticeBadge.classList.remove('hidden');
-    elements.shieldNoticeBadge.textContent = activeShieldBadges.join(' | ');
+    elements.shieldNoticeBadge.innerHTML = activeShieldBadges.map(b => `${getIconSvg('shield')} ${b}`).join(' | ');
   } else {
     elements.shieldNoticeBadge.classList.add('hidden');
   }
@@ -1643,7 +1830,7 @@ function renderTeammatesGrid(me) {
 
   roomState.players.forEach(p => {
     const isThisMe = p.id === myId;
-    const roleInfo = classesData[p.role] || { emoji: '👤', name: '勇者' };
+    const roleInfo = classesData[p.role] || { name: '勇者' };
     const isDead = p.hp <= 0;
     const hpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
 
@@ -1653,24 +1840,24 @@ function renderTeammatesGrid(me) {
 
     // 狀態標籤
     const tags = [];
-    if (isDead) tags.push('<span class="status-tag tag-dead">🪦 陣亡</span>');
-    if (p.bleedTurns > 0) tags.push(`<span class="status-tag tag-bleed">🩸 撕裂x${p.bleedTurns}</span>`);
-    if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">🧪 中毒(${p.poisonTurns}R / -${p.poisonDmg || 5})</span>`);
-    if (p.stunnedNextTurn) tags.push('<span class="status-tag tag-stun">💫 脫力</span>');
-    if (p.warriorVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 斬擊失衡受傷+20%</span>');
-    if (p.archerNoDodgeTurns > 0) tags.push('<span class="status-tag tag-stun">🏹 箭矢脫靶失閃(0%)</span>');
-    if (p.isSurrendered) tags.push('<span class="status-tag tag-surrender">🐺 臣服中</span>');
-    if (p.isStealthed) tags.push('<span class="status-tag tag-stealth">💨 匿蹤</span>');
-    if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">🐺 狼人(${p.druidFormTurns}R)</span>`);
-    if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">🌳 樹精(${p.druidFormTurns}R)</span>`);
-    if (p.druidForm === 'tree') tags.push(`<span class="status-tag tag-treant">🪵 古樹(${p.druidFormTurns}R)</span>`);
+    if (isDead) tags.push(`<span class="status-tag tag-dead">${getIconSvg('death')} 陣亡</span>`);
+    if (p.bleedTurns > 0) tags.push(`<span class="status-tag tag-bleed">${getIconSvg('sword')} 撕裂x${p.bleedTurns}</span>`);
+    if (p.poisonTurns > 0) tags.push(`<span class="status-tag tag-poison">${getIconSvg('poison')} 中毒(${p.poisonTurns}R / -${p.poisonDmg || 5})</span>`);
+    if (p.stunnedNextTurn) tags.push(`<span class="status-tag tag-stun">${getIconSvg('cooldown')} 脫力</span>`);
+    if (p.warriorVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">斬擊失衡受傷+20%</span>');
+    if (p.archerNoDodgeTurns > 0) tags.push('<span class="status-tag tag-stun">箭矢脫靶失閃(0%)</span>');
+    if (p.isSurrendered) tags.push('<span class="status-tag tag-surrender">臣服中</span>');
+    if (p.isStealthed) tags.push('<span class="status-tag tag-stealth">匿蹤</span>');
+    if (p.druidForm === 'werewolf') tags.push(`<span class="status-tag tag-wolf">狼人(${p.druidFormTurns}R)</span>`);
+    if (p.druidForm === 'treant') tags.push(`<span class="status-tag tag-treant">樹精(${p.druidFormTurns}R)</span>`);
+    if (p.druidForm === 'tree') tags.push(`<span class="status-tag tag-treant">古樹(${p.druidFormTurns}R)</span>`);
     if (p.alcAcidEquipHalvedTurns > 0) {
       const stackTxt = (p.alcAcidStack >= 2) ? '100%無效' : '50%減半';
-      tags.push(`<span class="status-tag tag-vuln">⚗️ 裝備${stackTxt}(${p.alcAcidEquipHalvedTurns}R)</span>`);
+      tags.push(`<span class="status-tag tag-vuln">${getIconSvg('poison')} 裝備${stackTxt}(${p.alcAcidEquipHalvedTurns}R)</span>`);
     }
-    if (roomState.alcShieldTurns > 0) tags.push('<span class="status-tag tag-shield">🛡️ 命運護盾(-70%)</span>');
-    if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">⚠️ 試劑反噬(+20%)</span>');
-    else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">⚠️ 下回合易傷(+20%)</span>');
+    if (roomState.alcShieldTurns > 0) tags.push(`<span class="status-tag tag-shield">${getIconSvg('shield')} 命運護盾(-70%)</span>`);
+    if (roomState.alcVulnerableTurns > 0) tags.push('<span class="status-tag tag-vuln">試劑反噬(+20%)</span>');
+    else if (roomState.alcVulnerableNextTurn) tags.push('<span class="status-tag tag-vuln">下回合易傷(+20%)</span>');
 
     // 裝備列表 (清晰呈現 [裝備 X/3]: 裝備1, 裝備2)
     const pEquips = p.equips || [];
@@ -1688,19 +1875,20 @@ function renderTeammatesGrid(me) {
           <span>${escapeHtml(p.name)}</span>
           ${isThisMe ? '<span style="color:#2563eb; font-weight: 700;">(你)</span>' : ''}
         </span>
-        <span class="action-status-dot ${p.hasActed || isDead || p.stunnedNextTurn || p.isSurrendered || p.druidForm === 'tree' ? 'ready' : 'waiting'}">
-          ${isDead ? '陣亡' : (p.isSurrendered ? '臣服' : (p.druidForm === 'tree' ? '休眠' : (p.stunnedNextTurn ? '虛弱' : (p.hasActed ? '✓ 就緒' : '⏳ 思考'))))}
+        <span class="action-status-dot ${p.isLocked || isDead || p.stunnedNextTurn || p.isSurrendered || p.druidForm === 'tree' ? 'ready' : 'waiting'}">
+          ${isDead ? '陣亡' : (p.isSurrendered ? '臣服' : (p.druidForm === 'tree' ? '休眠' : (p.stunnedNextTurn ? '虛弱' : (p.isLocked ? `${getIconSvg('lock')} 已鎖定` : `${getIconSvg('timer')} 選擇中`))))}
         </span>
       </div>
       <div class="teammate-hp-bg">
         <div class="teammate-hp-fill ${hpClass}" style="width: ${hpPct}%;"></div>
+        ${(p.tempHp > 0) ? `<div class="hp-bar-overheal" style="width: ${Math.min(100, Math.round(((p.hp + p.tempHp) / (p.maxHp + p.tempHp)) * 100))}%;"></div>` : ''}
       </div>
       <div class="teammate-stats-sub">
-        <span>❤️ ${p.hp}/${p.maxHp}</span>
+        <span>HP ${p.tempHp > 0 ? `${p.hp + p.tempHp}/${p.maxHp}` : `${p.hp}/${p.maxHp}`}${p.tempHp > 0 ? `<span class="teammate-overheal-badge">+${p.tempHp} 額外</span>` : ''}</span>
         <span>+${p.bonusAtk} 攻</span>
       </div>
       <div class="teammate-tags">${tags.join('')}</div>
-      <div class="equip-list" title="${escapeHtml(equipNames)}">🎒 [裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
+      <div class="equip-list" title="${escapeHtml(equipNames)}">[裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
     `;
     elements.battleTeammatesGrid.appendChild(card);
 
@@ -1721,7 +1909,7 @@ function renderTeammatesGrid(me) {
         <div class="floating-text-container"></div>
         <div class="teammate-top">
           <span class="teammate-name-group">
-            <span style="font-size: 18px;">🐾</span>
+            <span class="minion-icon-wrap" style="display:inline-flex; align-items:center;">${getIconSvg('summon')}</span>
             <span>${escapeHtml(p.name)}的僕從</span>
             <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看僕從詳細資訊">(${p.minions.length}/3)</button>
           </span>
@@ -1730,8 +1918,8 @@ function renderTeammatesGrid(me) {
           <div class="teammate-hp-fill" style="width: ${totalHpPct}%;"></div>
         </div>
         <div class="teammate-stats-sub">
-          <span>❤️ ${totalHp}/${totalMaxHp}</span>
-          <span>⚔️ ${totalAtk} 攻</span>
+          <span>HP ${totalHp}/${totalMaxHp}</span>
+          <span>${getIconSvg('sword')} ${totalAtk} 攻</span>
         </div>
       `;
 
@@ -1768,14 +1956,14 @@ function renderMyActionBar(me) {
   // 狀態簡報（包含狼人/樹精/僕從狀態）
   let stanceHtml = '';
   if (me.druidForm === 'werewolf') {
-    stanceHtml += ` <span class="badge-form-wolf">🐺 狼人形態 (傷害40點，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-wolf">${getIconSvg('summon')} 狼人形態 (傷害40點，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'treant') {
-    stanceHtml += ` <span class="badge-form-treant">🌳 樹精形態 (+100HP/減傷20%/自癒5%最大生命/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant">${getIconSvg('shield')} 樹精形態 (+100HP/減傷20%/自癒5%最大生命/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'tree') {
-    stanceHtml += ` <span class="badge-form-treant">🪵 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant">${getIconSvg('cooldown')} 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
   }
   if (me.minion) {
-    stanceHtml += ` <span class="badge-minion">🐾 僕從: ${escapeHtml(me.minion.name)} (❤️ ${me.minion.hp}/${me.minion.maxHp} | ⚔️ ${me.minion.atk})</span>`;
+    stanceHtml += ` <span class="badge-minion">${getIconSvg('summon')} 僕從: ${escapeHtml(me.minion.name)} (HP ${me.minion.hp}/${me.minion.maxHp} | 攻 ${me.minion.atk})</span>`;
   }
 
   elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
@@ -1786,12 +1974,12 @@ function renderMyActionBar(me) {
   const myEquipCount = myEquips.length;
   if (elements.myEquipsSummary) {
     if (myEquipCount === 0) {
-      elements.myEquipsSummary.innerHTML = `🎒 [裝備 0/3]: 無`;
+      elements.myEquipsSummary.innerHTML = `[裝備 0/3]: 無`;
     } else {
       const itemsHtml = myEquips.map((e, idx) => 
         `<span class="equip-pill">${escapeHtml(e.name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`
       ).join(', ');
-      elements.myEquipsSummary.innerHTML = `🎒 [裝備 ${myEquipCount}/3]: ${itemsHtml}`;
+      elements.myEquipsSummary.innerHTML = `[裝備 ${myEquipCount}/3]: ${itemsHtml}`;
 
       elements.myEquipsSummary.querySelectorAll('.unequip-btn').forEach(btn => {
         btn.addEventListener('click', (ev) => {
@@ -1812,38 +2000,49 @@ function renderMyActionBar(me) {
   // 狀態提醒
   if (isDead) {
     elements.myActionStatus.className = 'action-status-badge';
-    elements.myActionStatus.textContent = '🪦 你已倒地陣亡，本回合無法行動...';
+    elements.myActionStatus.textContent = '你已倒地陣亡，本回合無法行動...';
     elements.mySkillsRow.innerHTML = '<div style="color:#dc2626; font-weight: 600; padding: 10px;">你已倒下，本回合無法行動。</div>';
     return;
   }
 
   if (isSurrendered) {
     elements.myActionStatus.className = 'action-status-badge';
-    elements.myActionStatus.textContent = '🐺 你陷入【暗影魔狼族長】的血脈壓制臣服狀態，無法行動！';
-    elements.mySkillsRow.innerHTML = '<div style="color:#b45309; font-weight: 700; padding: 12px; font-size: 1rem;">👑🐺 源自靈魂深處的始祖狼王威壓讓你跪地臣服，全身無法動彈，直到暗影魔狼族長倒下！</div>';
+    elements.myActionStatus.textContent = '你陷入【暗影魔狼族長】的血脈壓制臣服狀態，無法行動！';
+    elements.mySkillsRow.innerHTML = '<div style="color:#b45309; font-weight: 700; padding: 12px; font-size: 1rem;">源自靈魂深處的始祖狼王威壓讓你跪地臣服，全身無法動彈，直到暗影魔狼族長倒下！</div>';
     return;
   }
 
   if (isTree) {
     elements.myActionStatus.className = 'action-status-badge';
-    elements.myActionStatus.textContent = '🪵 你受到致命傷化為古樹休眠中，本回合無法行動...';
-    elements.mySkillsRow.innerHTML = '<div style="color:#16a34a; font-weight: 700; padding: 12px; font-size: 1rem;">🪵 沉睡古樹休眠中，正在凝聚自然生機，本回合無法行動！</div>';
+    elements.myActionStatus.textContent = '你受到致命傷化為古樹休眠中，本回合無法行動...';
+    elements.mySkillsRow.innerHTML = '<div style="color:#16a34a; font-weight: 700; padding: 12px; font-size: 1rem;">沉睡古樹休眠中，正在凝聚自然生機，本回合無法行動！</div>';
     return;
   }
 
   if (isStunned) {
     elements.myActionStatus.className = 'action-status-badge';
-    elements.myActionStatus.textContent = '💫 你處於脫力虛弱狀態，正在喘息休息...';
+    elements.myActionStatus.textContent = '你處於脫力虛弱狀態，正在喘息休息...';
     elements.mySkillsRow.innerHTML = '<div style="color:#b45309; font-weight: 600; padding: 10px;">脫力後遺症中，本回合無法行動。</div>';
     return;
   }
 
-  if (isNarrating) {
+  const isResolving = roomState?.selectionState === 'RESOLVING';
+  const isLocked = Boolean(me.isLocked);
+
+  if (isLocked && me.action) {
+    currentPendingAction = me.action;
+    currentPendingTarget = me.targetPlayerId;
+  }
+
+  if (isResolving || isNarrating) {
     elements.myActionStatus.className = 'action-status-badge narrating';
-    elements.myActionStatus.textContent = '📜 雙方戰況交鋒敘述中... (請觀看戰況)';
-  } else if (me.hasActed) {
+    elements.myActionStatus.textContent = '全員鎖定！戰況交鋒結算中... (請觀看演出)';
+  } else if (isLocked) {
     elements.myActionStatus.className = 'action-status-badge submitted';
-    elements.myActionStatus.textContent = '✅ 已指定行動！等待全體隊友中... (可更換)';
+    elements.myActionStatus.textContent = '指令已鎖定！等待全體隊友確認 (全員鎖定前可取消)';
+  } else if (currentPendingAction) {
+    elements.myActionStatus.className = 'action-status-badge';
+    elements.myActionStatus.textContent = '已選取技能，請確認目標並按下「確定鎖定」';
   } else {
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '請點擊指定本回合施放行動：';
@@ -1851,7 +2050,7 @@ function renderMyActionBar(me) {
 
   elements.mySkillsRow.innerHTML = '';
 
-  // 渲染自身所有技能（支援雙手劍替換狂怒重劈與精靈木提琴替換催眠夜曲/狂亂殺戮曲）
+  // 渲染自身所有技能
   const activeSkills = (me.availableSkills && me.availableSkills.length > 0) ? me.availableSkills : roleConfig.skills;
 
   activeSkills.forEach(skill => {
@@ -1859,13 +2058,11 @@ function renderMyActionBar(me) {
     let isCoolingDown = cd > 0;
     let cdBadgeText = `CD: ${cd}`;
 
-    // 德魯伊形態轉變：若處於變身期間，顯示剩餘回合且無法再次變身
     if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
       isCoolingDown = true;
       cdBadgeText = `變身中 (${me.druidFormTurns}R)`;
     }
 
-    // 德魯伊僕從召喚：召喚物技能無 CD，但最高召喚 3 隻
     if (skill.id === 'dru_summon_treant' || skill.id === 'dru_summon_wolf') {
       const minionCount = (me.minions || []).length;
       if (minionCount >= 3) {
@@ -1874,23 +2071,46 @@ function renderMyActionBar(me) {
       }
     }
 
-    let skillDesc = skill.desc;
-
     const isSelected = (currentPendingAction === skill.id);
+    const tags = skill.tags || [skill.dmgType ? skill.dmgType.replace(/【|】/g, '') : '物理', '單體'];
 
-    const btn = document.createElement('button');
+    const btn = document.createElement('div');
     btn.className = `skill-btn ${isSelected ? 'selected' : ''}`;
-    btn.disabled = isCoolingDown || isNarrating;
+    if (isCoolingDown || isNarrating || isResolving || isLocked) {
+      btn.style.opacity = '0.6';
+      btn.style.cursor = 'not-allowed';
+    }
 
     btn.innerHTML = `
       <div class="skill-btn-title">
         <span>${skill.label}</span>
         ${isCoolingDown ? `<span class="skill-cd-badge">${cdBadgeText}</span>` : ''}
+        <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
       </div>
-      <div class="skill-btn-desc">${skillDesc}</div>
+      <div class="skill-tags-row">
+        ${tags.map(t => `<span class="skill-tag" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}
+      </div>
+      <div class="skill-popover hidden">
+        <div class="skill-popover-title">
+          <span>${escapeHtml(skill.label)}</span>
+          <span style="font-size:10.5px;color:#94a3b8;">${escapeHtml(skill.dmgType || '')}</span>
+        </div>
+        <div class="skill-popover-desc">${escapeHtml(skill.desc || '')}</div>
+      </div>
     `;
 
+    // 詳情 Popover 切換 (小型 non-blocking 浮層)
+    const detailBtn = btn.querySelector('.skill-detail-trigger');
+    const popover = btn.querySelector('.skill-popover');
+    detailBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const isClosed = popover.classList.contains('hidden');
+      document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
+      if (isClosed) popover.classList.remove('hidden');
+    });
+
     btn.addEventListener('click', () => {
+      if (isCoolingDown || isNarrating || isResolving || isLocked) return;
       handleSkillClick(skill.id, me);
     });
 
@@ -1901,19 +2121,44 @@ function renderMyActionBar(me) {
   if (me.role === 'bard') {
     const deadPlayers = roomState.players.filter(p => p.hp <= 0);
     if (deadPlayers.length > 0) {
-      const reviveBtn = document.createElement('button');
-      reviveBtn.className = 'skill-btn skill-revive-btn';
-      reviveBtn.disabled = isNarrating;
+      const isSelected = (currentPendingAction === 'b_revive');
+      const reviveBtn = document.createElement('div');
+      reviveBtn.className = `skill-btn skill-revive-btn ${isSelected ? 'selected' : ''}`;
+      if (isNarrating || isResolving || isLocked) {
+        reviveBtn.style.opacity = '0.6';
+        reviveBtn.style.cursor = 'not-allowed';
+      }
       reviveBtn.innerHTML = `
         <div class="skill-btn-title">
-          <span>🕊️ 甦生之歌 (復活)</span>
+          <span>甦生之歌 (復活)</span>
           <span style="color:#b45309; font-weight:700; font-size:0.75rem;">奇蹟</span>
+          <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
         </div>
-        <div class="skill-btn-desc">喚醒一名倒地隊友(恢復35%生命)，下回合雙方脫力無法行動！</div>
+        <div class="skill-tags-row">
+          <span class="skill-tag" data-tag="復活">復活</span>
+          <span class="skill-tag" data-tag="治療">治療</span>
+          <span class="skill-tag" data-tag="高風險">代價脫力</span>
+        </div>
+        <div class="skill-popover hidden">
+          <div class="skill-popover-title">
+            <span>甦生之歌</span>
+            <span style="font-size:10.5px;color:#94a3b8;">【奇蹟/治療】</span>
+          </div>
+          <div class="skill-popover-desc">喚醒一名倒地隊友(恢復35%生命)，下回合雙方脫力無法行動！</div>
+        </div>
       `;
 
+      const detailBtn = reviveBtn.querySelector('.skill-detail-trigger');
+      const popover = reviveBtn.querySelector('.skill-popover');
+      detailBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const isClosed = popover.classList.contains('hidden');
+        document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
+        if (isClosed) popover.classList.remove('hidden');
+      });
+
       reviveBtn.addEventListener('click', () => {
-        if (roomState?.isNarrating || isPlayingBattleNarrative) return;
+        if (isNarrating || isResolving || isLocked) return;
         openTargetModal('revive', deadPlayers);
       });
 
@@ -1922,32 +2167,127 @@ function renderMyActionBar(me) {
   }
 
   // 跳過回合按鈕
-  const skipBtn = document.createElement('button');
-  skipBtn.className = `skill-btn ${currentPendingAction === 'skip' ? 'selected' : ''}`;
-  skipBtn.disabled = isNarrating;
+  const isSkipSelected = (currentPendingAction === 'skip');
+  const skipBtn = document.createElement('div');
+  skipBtn.className = `skill-btn ${isSkipSelected ? 'selected' : ''}`;
+  if (isNarrating || isResolving || isLocked) {
+    skipBtn.style.opacity = '0.6';
+    skipBtn.style.cursor = 'not-allowed';
+  }
   skipBtn.innerHTML = `
     <div class="skill-btn-title">
-      <span>⏭️ 跳過回合</span>
+      <span>跳過回合</span>
+      <button type="button" class="skill-detail-trigger" title="點擊查看說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
     </div>
-    <div class="skill-btn-desc">本回合放棄行動，保留技能冷卻。</div>
+    <div class="skill-tags-row">
+      <span class="skill-tag">防守</span>
+      <span class="skill-tag">蓄力</span>
+    </div>
+    <div class="skill-popover hidden">
+      <div class="skill-popover-title"><span>跳過回合</span></div>
+      <div class="skill-popover-desc">本回合放棄行動，保留技能冷卻。</div>
+    </div>
   `;
 
+  const skipDetail = skipBtn.querySelector('.skill-detail-trigger');
+  const skipPopover = skipBtn.querySelector('.skill-popover');
+  skipDetail.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const isClosed = skipPopover.classList.contains('hidden');
+    document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
+    if (isClosed) skipPopover.classList.remove('hidden');
+  });
+
   skipBtn.addEventListener('click', () => {
-    if (roomState?.isNarrating || isPlayingBattleNarrative) return;
+    if (isNarrating || isResolving || isLocked) return;
     currentPendingAction = 'skip';
+    currentPendingTarget = null;
     playSound('click');
-    socket.emit('battle:action', { actionId: 'skip' });
+    renderMyActionBar(me);
   });
 
   elements.mySkillsRow.appendChild(skipBtn);
+
+  // 更新下方確認/鎖定操作列
+  updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, isNarrating, isResolving, isLocked, activeSkills);
 }
 
-// 點擊技能觸發
+// 相容別名：確保任何地方呼叫 renderBattleSkills 皆可正常執行
+const renderBattleSkills = renderMyActionBar;
+
+// 技能選擇與確認狀態條更新
+function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, isNarrating, isResolving, isLocked, activeSkills) {
+  if (!elements.skillSelectionBar) return;
+
+  const bar = elements.skillSelectionBar;
+  const prompt = elements.selectionPromptText;
+  const targetTxt = elements.selectionTargetText;
+  const btnLock = elements.btnConfirmLock;
+  const btnUnlock = elements.btnUnlockAction;
+
+  if (isResolving || isNarrating) {
+    bar.className = 'skill-selection-bar state-resolving';
+    prompt.textContent = '全員鎖定！正在進行回合結算...';
+    targetTxt.classList.add('hidden');
+    btnLock.disabled = true;
+    btnUnlock.classList.add('hidden');
+    return;
+  }
+
+  if (isDead || isStunned || isSurrendered || isTree) {
+    bar.className = 'skill-selection-bar';
+    prompt.textContent = '當前狀態本回合無法自選技能';
+    targetTxt.classList.add('hidden');
+    btnLock.disabled = true;
+    btnUnlock.classList.add('hidden');
+    return;
+  }
+
+  let skillName = '';
+  if (currentPendingAction === 'skip') {
+    skillName = '跳過回合';
+  } else if (currentPendingAction === 'b_revive') {
+    skillName = '甦生之歌';
+  } else if (currentPendingAction) {
+    const found = (activeSkills || []).find(s => s.id === currentPendingAction);
+    skillName = found ? found.label : currentPendingAction;
+  }
+
+  let targetName = '';
+  if (currentPendingTarget) {
+    const tp = (roomState?.players || []).find(p => p.id === currentPendingTarget);
+    if (tp) targetName = tp.name;
+  }
+
+  if (isLocked) {
+    bar.className = 'skill-selection-bar state-locked';
+    prompt.textContent = `已鎖定行動：【${skillName}】${targetName ? `(目標: ${targetName})` : ''}，等待其他隊友確認...`;
+    targetTxt.classList.add('hidden');
+    btnLock.disabled = true;
+    btnUnlock.classList.remove('hidden');
+  } else if (currentPendingAction) {
+    bar.className = 'skill-selection-bar';
+    prompt.textContent = `目前選擇：【${skillName}】${targetName ? `(目標: ${targetName})` : ''}`;
+    targetTxt.classList.add('hidden');
+    btnLock.disabled = false;
+    btnUnlock.classList.add('hidden');
+  } else {
+    bar.className = 'skill-selection-bar';
+    prompt.textContent = '請點選上方技能進行選擇';
+    targetTxt.classList.add('hidden');
+    btnLock.disabled = true;
+    btnUnlock.classList.add('hidden');
+  }
+}
+
+// 點擊技能只代表「選擇」，不直接發動
 function handleSkillClick(actionId, me) {
-  if (roomState?.isNarrating || isPlayingBattleNarrative) return;
+  if (roomState?.isNarrating || isPlayingBattleNarrative || me.isLocked) return;
+  if (roomState?.selectionState === 'RESOLVING') return;
+
   // 吟遊詩人治癒頌歌：若有多位活著隊友，彈出目標選擇
   if (me.role === 'bard' && actionId === 'b_heal') {
-    const alivePlayers = roomState.players.filter(p => p.hp > 0);
+    const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
     if (alivePlayers.length > 1) {
       openTargetModal('heal', alivePlayers);
       return;
@@ -1955,8 +2295,9 @@ function handleSkillClick(actionId, me) {
   }
 
   currentPendingAction = actionId;
+  currentPendingTarget = null;
   playSound(actionId === 'basic' ? 'hit' : 'magic');
-  socket.emit('battle:action', { actionId });
+  renderMyActionBar(me);
 }
 
 // 目標選擇 Modal (治癒額外目標 / 甦生之歌目標)
@@ -1965,10 +2306,10 @@ function openTargetModal(type, targetList) {
   elements.targetModalList.innerHTML = '';
 
   if (type === 'heal') {
-    elements.targetModalTitle.textContent = '🪕【治癒頌歌】專注目標';
+    elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【治癒頌歌】專注目標</span>`;
     elements.targetModalDesc.textContent = '全隊將獲得群療，請指定一名隊友額外獲得專注回復：';
   } else if (type === 'revive') {
-    elements.targetModalTitle.textContent = '🕊️【甦生之歌】奇蹟喚醒';
+    elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【甦生之歌】奇蹟喚醒</span>`;
     elements.targetModalDesc.textContent = '請選擇要喚醒歸隊的倒下隊友：(下回合雙方皆會脫力)';
   }
 
@@ -1980,22 +2321,41 @@ function openTargetModal(type, targetList) {
         ${getPlayerAvatarHtml(p, 'target-role-avatar')}
         <span>${escapeHtml(p.name)}</span>
       </span>
-      <span style="font-size:0.85rem; color:#475569; font-weight: 600;">${p.hp > 0 ? `❤️ ${p.hp}/${p.maxHp}` : '🪦 倒地'}</span>
+      <span style="font-size:0.85rem; color:var(--text-secondary); font-weight: 600;">${p.hp > 0 ? `HP ${p.hp}/${p.maxHp}` : `${getIconSvg('death')} 倒地`}</span>
     `;
 
     btn.addEventListener('click', () => {
       elements.targetModal.classList.add('hidden');
       playSound(type === 'heal' ? 'heal' : 'magic');
-      if (type === 'heal') {
-        currentPendingAction = 'b_heal';
-        socket.emit('battle:action', { actionId: 'b_heal', targetPlayerId: p.id });
-      } else if (type === 'revive') {
-        currentPendingAction = 'b_revive';
-        socket.emit('battle:action', { actionId: 'b_revive', targetPlayerId: p.id });
-      }
+      currentPendingAction = type === 'heal' ? 'b_heal' : 'b_revive';
+      currentPendingTarget = p.id;
+      const me = getMyPlayer();
+      if (me) renderMyActionBar(me);
     });
 
     elements.targetModalList.appendChild(btn);
+  });
+}
+
+// 技能確認鎖定 / 解鎖取消 按鈕事件監聽
+if (elements.btnConfirmLock) {
+  elements.btnConfirmLock.addEventListener('click', () => {
+    const me = getMyPlayer();
+    if (!me || me.isLocked || !currentPendingAction) return;
+    playSound('select');
+    socket.emit('battle:lock', {
+      actionId: currentPendingAction,
+      targetPlayerId: currentPendingTarget
+    });
+  });
+}
+
+if (elements.btnUnlockAction) {
+  elements.btnUnlockAction.addEventListener('click', () => {
+    const me = getMyPlayer();
+    if (!me || !me.isLocked) return;
+    playSound('cancel');
+    socket.emit('battle:unlock');
   });
 }
 
@@ -2018,34 +2378,33 @@ function showMinionDetailModal(player) {
   const totalAtk = player.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
 
   if (elements.minionDetailTitle) {
-    elements.minionDetailTitle.innerHTML = `🐾 <span>${escapeHtml(player.name)} 的僕從隊伍 (${player.minions.length}/3)</span>`;
+    elements.minionDetailTitle.innerHTML = `${getIconSvg('summon')} <span>${escapeHtml(player.name)} 的僕從隊伍 (${player.minions.length}/3)</span>`;
   }
   if (elements.minionDetailSubtitle) {
-    elements.minionDetailSubtitle.textContent = `合計生命 ❤️ ${totalHp}/${totalMaxHp} · 合計攻擊力 ⚔️ ${totalAtk} 點`;
+    elements.minionDetailSubtitle.textContent = `合計生命 ${totalHp}/${totalMaxHp} · 合計攻擊力 ${totalAtk} 點`;
   }
 
   if (elements.minionDetailList) {
     elements.minionDetailList.innerHTML = player.minions.map((m, idx) => {
       const mHpPct = Math.max(0, Math.min(100, Math.round((m.hp / m.maxHp) * 100)));
       const isWolf = m.type === 'wolf';
-      const icon = isWolf ? '🐺' : '🌱';
-      const typeBadge = isWolf ? '<span class="minion-detail-badge wolf">🐺 幼狼</span>' : '<span class="minion-detail-badge">🌱 小樹精</span>';
+      const typeBadge = isWolf ? '<span class="minion-detail-badge wolf">幼狼</span>' : '<span class="minion-detail-badge">小樹精</span>';
       const desc = isWolf 
-        ? '🐾 <strong>每回合自動攻擊 10 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。' 
-        : '🌱 <strong>每回合自動攻擊 1 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。';
+        ? '<strong>每回合自動攻擊 10 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。' 
+        : '<strong>每回合自動攻擊 1 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。';
 
       return `
         <div class="minion-detail-item">
           <div class="minion-detail-item-header">
-            <span class="name">${icon} <strong>${escapeHtml(m.name)} #${idx + 1}</strong></span>
+            <span class="name"><strong>${escapeHtml(m.name)} #${idx + 1}</strong></span>
             ${typeBadge}
           </div>
           <div class="teammate-hp-bg" style="margin: 6px 0;">
             <div class="teammate-hp-fill" style="width: ${mHpPct}%;"></div>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #166534;">
-            <span>❤️ 生命：${m.hp} / ${m.maxHp} (${mHpPct}%)</span>
-            <span>⚔️ 攻擊力：${m.atk} 攻</span>
+            <span>生命：${m.hp} / ${m.maxHp} (${mHpPct}%)</span>
+            <span>攻擊力：${m.atk} 攻</span>
           </div>
           <div class="minion-detail-desc">
             ${desc}
@@ -2087,16 +2446,16 @@ function openRoleDetailModal(roleKey) {
   if (!details || !elements.roleDetailModal) return;
 
   if (elements.roleDetailTitle) {
-    elements.roleDetailTitle.textContent = `${details.emoji} ${details.roleName} (${details.enName})`;
+    elements.roleDetailTitle.textContent = `${details.roleName} (${details.enName})`;
   }
   if (elements.roleDetailSubtitle) {
-    elements.roleDetailSubtitle.textContent = `定位：${details.type} ｜ 基礎生命值：❤️ ${details.hp} HP`;
+    elements.roleDetailSubtitle.textContent = `定位：${details.type} ｜ 基礎生命值：${details.hp} HP`;
   }
   if (elements.roleDetailAvatarWrap) {
     if (details.avatar) {
       elements.roleDetailAvatarWrap.innerHTML = `<img src="${details.avatar}" alt="${escapeHtml(details.roleName)}" class="role-detail-avatar-img">`;
     } else {
-      elements.roleDetailAvatarWrap.innerHTML = `<span class="role-detail-avatar-emoji">${details.emoji}</span>`;
+      elements.roleDetailAvatarWrap.innerHTML = `<div class="role-detail-avatar-icon">${getIconSvg(getRoleIconName(roleKey), 'svg-large')}</div>`;
     }
   }
 
@@ -2107,7 +2466,7 @@ function openRoleDetailModal(roleKey) {
       html += `
         <div class="role-detail-passive-card">
           <div style="font-weight:700; color:#fbbf24; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-            <span>✨</span> <span>職業被動與特性</span>
+            <span>${getIconSvg('sparkle')}</span> <span>職業被動與特性</span>
           </div>
           <div>${escapeHtml(details.passive)}</div>
         </div>
@@ -2119,7 +2478,7 @@ function openRoleDetailModal(roleKey) {
       html += `
         <div class="role-detail-section">
           <div class="role-detail-section-title">
-            <span>⚔️</span> <span>職業技能詳細機制與數值</span>
+            <span>${getIconSvg('sword')}</span> <span>職業技能詳細機制與數值</span>
           </div>
           ${details.skills.map(s => {
             let tagClass = 'tag-phys';
@@ -2185,10 +2544,10 @@ function renderCheckpoint(me, isLeader) {
 function renderGameOver(isLeader) {
   elements.endTitle.textContent = '挑戰失敗';
   if (roomState.gameOverReason === 'abandon') {
-    elements.endIcon.textContent = '🏳️';
+    elements.endIcon.innerHTML = getIconSvg('flag', 'svg-hero-icon');
     elements.endSubtitle.textContent = `小隊於深淵第 ${roomState.floor} 層中途結束，未能抵達第 5 層休息站，挑戰失敗！`;
   } else {
-    elements.endIcon.textContent = '💀';
+    elements.endIcon.innerHTML = getIconSvg('death', 'svg-hero-icon');
     elements.endSubtitle.textContent = `小隊全員在深淵第 ${roomState.floor} 層壯烈倒下，未能成功突破，挑戰失敗！`;
   }
   elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
@@ -2196,7 +2555,7 @@ function renderGameOver(isLeader) {
 }
 
 function renderVictory(isLeader) {
-  elements.endIcon.textContent = '🏆';
+  elements.endIcon.innerHTML = getIconSvg('sparkle', 'svg-hero-icon');
   elements.endTitle.textContent = '榮耀凱旋歸來！';
   elements.endSubtitle.textContent = `小隊成功突破至深淵第 ${roomState.floor} 層並滿載而歸！勇者威名永垂不朽！`;
   elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
@@ -2319,14 +2678,6 @@ elements.btnStartGame.addEventListener('click', () => {
   });
 });
 
-// 跳過開場劇情 (立即踏入深淵)
-if (elements.btnSkipPrologue) {
-  elements.btnSkipPrologue.addEventListener('click', () => {
-    playSound('click');
-    socket.emit('prologue:next');
-  });
-}
-
 // 休息站選擇：繼續
 elements.btnCpContinue.addEventListener('click', () => {
   playSound('heal');
@@ -2388,7 +2739,7 @@ function toggleChat(open = null) {
 function showChatBubble(senderName, message) {
   if (!elements.chatToastBubble) return;
   if (elements.chatBubbleSender) {
-    elements.chatBubbleSender.textContent = `💬 ${escapeHtml(senderName)}`;
+    elements.chatBubbleSender.innerHTML = `${getIconSvg('log')} <span>${escapeHtml(senderName)}</span>`;
   }
   if (elements.chatBubbleText) {
     elements.chatBubbleText.textContent = message;
@@ -2540,17 +2891,28 @@ if (elements.btnToggleLog) {
   elements.btnToggleLog.addEventListener('click', () => {
     if (elements.battleLogCard) {
       const isCollapsed = elements.battleLogCard.classList.toggle('collapsed');
-      elements.btnToggleLog.textContent = isCollapsed ? '展開' : '折疊';
+      if (elements.logToggleText) {
+        elements.logToggleText.textContent = isCollapsed ? '展開' : '折疊';
+      }
+      if (elements.logToggleIcon) {
+        elements.logToggleIcon.innerHTML = `<use href="#icon-${isCollapsed ? 'expand' : 'collapse'}"></use>`;
+      }
+      playSound('click');
     }
   });
 }
 
-// 點擊聊天室外部收起聊天視窗
+// 點擊聊天室外部收起聊天視窗；點擊技能詳情外部收起 Popover
 document.addEventListener('click', (e) => {
   if (isChatOpen && elements.chatPopupCard && elements.floatingChatBtn) {
     if (!elements.chatPopupCard.contains(e.target) && !elements.floatingChatBtn.contains(e.target)) {
       toggleChat(false);
     }
+  }
+
+  // 若點擊處不在任何 Popover 或觸發按鈕內，隱藏所有 Popover
+  if (!e.target.closest('.skill-popover') && !e.target.closest('.skill-detail-trigger')) {
+    document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
   }
 });
 
@@ -2586,6 +2948,9 @@ function submitInlineRename(newName) {
 // ==========================================
 // 戰鬥打擊感、視覺特效與浮動戰鬥數字
 // ==========================================
+// ==========================================
+// 戰鬥打擊感、視覺特效與浮動戰鬥數字
+// ==========================================
 function spawnFloatingText(container, text, type = 'damage') {
   if (!container) return;
   const numEl = document.createElement('div');
@@ -2597,32 +2962,44 @@ function spawnFloatingText(container, text, type = 'damage') {
   }, 1200);
 }
 
-function triggerSlashOnMonster(isCrit = false) {
-  if (elements.monsterSlashOverlay) {
-    elements.monsterSlashOverlay.classList.remove('active');
-    void elements.monsterSlashOverlay.offsetWidth;
-    elements.monsterSlashOverlay.classList.add('active');
+// 播放 Pixel FX 特效 (自動清理，零記憶體殘留)
+function playPixelFx(container, fxType) {
+  if (!container) return;
+  const fx = document.createElement('div');
+  fx.className = `pixel-fx pixel-fx-${fxType}`;
+  container.appendChild(fx);
+  setTimeout(() => {
+    fx.remove();
+  }, 450);
+}
+
+// 首領受擊演出 (帶有 x+8, y+3 之右後方向性位移 + Pixel FX)
+function triggerHitOnMonster(isCrit = false, fxType = 'slash', value = 0) {
+  if (elements.monsterCard) {
+    elements.monsterCard.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
+    void elements.monsterCard.offsetWidth;
+    elements.monsterCard.classList.add('hit-displace-boss');
+    if (isCrit) {
+      elements.monsterCard.classList.add('crit-frame-flash');
+    }
+    setTimeout(() => {
+      if (elements.monsterCard) {
+        elements.monsterCard.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
+      }
+    }, 420);
   }
-  if (elements.monsterAvatar) {
-    elements.monsterAvatar.classList.remove('shaking');
-    void elements.monsterAvatar.offsetWidth;
-    elements.monsterAvatar.classList.add('shaking');
-    setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 400);
+
+  if (elements.monsterPixelFx) {
+    playPixelFx(elements.monsterPixelFx, fxType);
   }
 }
 
+function triggerSlashOnMonster(isCrit = false) {
+  triggerHitOnMonster(isCrit, 'slash');
+}
+
 function triggerMagicOnMonster() {
-  if (elements.monsterMagicOverlay) {
-    elements.monsterMagicOverlay.classList.remove('active');
-    void elements.monsterMagicOverlay.offsetWidth;
-    elements.monsterMagicOverlay.classList.add('active');
-  }
-  if (elements.monsterAvatar) {
-    elements.monsterAvatar.classList.remove('shaking');
-    void elements.monsterAvatar.offsetWidth;
-    elements.monsterAvatar.classList.add('shaking');
-    setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 400);
-  }
+  triggerHitOnMonster(false, 'magic-runes');
 }
 
 function triggerHealOnTeammate(playerId, value) {
@@ -2633,11 +3010,13 @@ function triggerHealOnTeammate(playerId, value) {
   card.classList.add('heal-flash');
   setTimeout(() => card.classList.remove('heal-flash'), 700);
 
+  playPixelFx(card, 'heal-spark');
+
   const container = card.querySelector('.floating-text-container');
   spawnFloatingText(container, `+${value}`, 'heal');
 }
 
-function triggerShieldOnTeam(label = '🛡️ 壁壘守護 90%!') {
+function triggerShieldOnTeam(label = '壁壘守護 90%!') {
   const cards = document.querySelectorAll('.teammate-card');
   cards.forEach(card => {
     card.classList.remove('shield-flash');
@@ -2645,60 +3024,100 @@ function triggerShieldOnTeam(label = '🛡️ 壁壘守護 90%!') {
     card.classList.add('shield-flash');
     setTimeout(() => card.classList.remove('shield-flash'), 800);
 
+    playPixelFx(card, 'shield-flare');
+
     const container = card.querySelector('.floating-text-container');
     spawnFloatingText(container, label, 'shield');
   });
 }
 
-function triggerHitOnTeammate(playerId, value, dodged = false, stealthed = false, shieldMod = 1.0) {
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// 隊友受擊演出 (帶有 x-8, y+3 之左後方向性位移)
+function triggerHitOnTeammate(playerId, value, dodged = false, stealthed = false, shieldMod = 1.0, tempAbsorbed = 0, hpDmg = null) {
   const card = document.querySelector(`.teammate-card[data-player-id="${playerId}"]`);
   if (!card) return;
   const container = card.querySelector('.floating-text-container');
 
   if (stealthed) {
-    spawnFloatingText(container, '💨 匿蹤避開', 'dodge');
+    spawnFloatingText(container, '匿蹤避開', 'dodge');
+    playPixelFx(card, 'shield-flare');
     return;
   }
   if (dodged) {
-    spawnFloatingText(container, '🪶 閃避 MISS!', 'dodge');
+    spawnFloatingText(container, '閃避 MISS!', 'dodge');
     return;
   }
 
-  card.classList.remove('hit-flash', 'shaking');
+  card.classList.remove('hit-displace-player', 'hit-flash', 'shaking');
   void card.offsetWidth;
-  card.classList.add('hit-flash', 'shaking');
-  setTimeout(() => card.classList.remove('hit-flash', 'shaking'), 400);
+  card.classList.add('hit-displace-player', 'hit-flash');
+  setTimeout(() => card.classList.remove('hit-displace-player', 'hit-flash'), 420);
 
-  if (value > 0) {
-    spawnFloatingText(container, `-${value}`, 'damage');
+  if (tempAbsorbed > 0) {
+    spawnFloatingText(container, `超量吸收 -${tempAbsorbed}`, 'buff');
+    playPixelFx(card, 'shield-flare');
+  }
+  const actualHpDmg = hpDmg !== null ? hpDmg : (value - tempAbsorbed);
+  if (actualHpDmg > 0) {
+    spawnFloatingText(container, `-${actualHpDmg}`, 'damage');
   }
 }
 
-// 輔助函式：播放單一玩家行動的打擊特效
+// 輔助函式：播放單一玩家行動的打擊特效與專屬 Pixel FX
 function playSinglePlayerVisualEvent(ev) {
   if (!ev) return;
   if (ev.type === 'player_attack') {
+    let fxType = 'slash';
+    let sfxName = 'sword_slash';
+
     if (ev.dmgType === 'phys') {
-      triggerSlashOnMonster(ev.isCrit);
-      playSound('hit');
-      if (ev.isCrit) {
-        spawnFloatingText(elements.monsterFloatingContainer, `CRIT -${ev.value}!`, 'crit');
+      if (ev.sourceRole === 'assassin' || ev.isCrit) {
+        fxType = 'x-slash';
+        sfxName = 'dagger_crit';
+      } else if (ev.sourceRole === 'archer') {
+        fxType = 'arrow';
+        sfxName = 'arrow_hit';
+      } else if (ev.sourceRole === 'druid') {
+        fxType = 'wolf-claw';
+        sfxName = 'wolf_howl';
       } else {
-        spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
+        fxType = 'slash';
+        sfxName = 'sword_slash';
       }
     } else {
-      triggerMagicOnMonster();
-      playSound('magic');
+      if (ev.sourceRole === 'alchemist') {
+        fxType = 'acid-bubble';
+        sfxName = 'acid_hiss';
+      } else if (ev.sourceRole === 'druid') {
+        fxType = 'treant-vine';
+        sfxName = 'treant_creak';
+      } else {
+        fxType = 'magic-runes';
+        sfxName = 'magic';
+      }
+    }
+
+    triggerHitOnMonster(ev.isCrit, fxType, ev.value);
+    playSound(sfxName);
+
+    if (ev.isCrit) {
+      spawnFloatingText(elements.monsterFloatingContainer, `CRIT -${ev.value}!`, 'crit');
+    } else {
       spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
     }
   } else if (ev.type === 'shield_cast') {
-    triggerShieldOnTeam('🛡️ 築起壁壘守護！');
-    playSound('click');
+    triggerShieldOnTeam('築起壁壘守護！');
+    playSound('shield_cast');
   } else if (ev.type === 'stealth') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '💨 煙霧匿蹤', 'dodge');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '煙霧匿蹤', 'dodge');
+      playPixelFx(card, 'shield-flare');
+    }
+    playSound('unlock');
   } else if (ev.type === 'heal_group') {
-    playSound('heal');
+    playSound('heal_chime');
     roomState?.players?.forEach(p => {
       if (p.hp > 0) {
         let totalHeal = ev.groupValue;
@@ -2707,105 +3126,483 @@ function playSinglePlayerVisualEvent(ev) {
       }
     });
   } else if (ev.type === 'revive') {
-    playSound('heal');
+    playSound('heal_chime');
     triggerHealOnTeammate(ev.targetId, ev.value);
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🕊️ 甦生 +${ev.value}!`, 'heal');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), `甦生 +${ev.value}!`, 'heal');
+      playPixelFx(card, 'heal-spark');
+    }
   } else if (ev.type === 'heal') {
     triggerHealOnTeammate(ev.targetId, ev.value);
-    playSound('heal');
+    playSound('heal_chime');
   } else if (ev.type === 'self_damage') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
     if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `自傷 -${ev.value}`, 'damage');
+    playSound('hit');
   } else if (ev.type === 'alc_shield') {
-    triggerShieldOnTeam('🛡️ 命運護盾 70%減傷！');
-    playSound('heal');
+    triggerShieldOnTeam('命運護盾 70%減傷！');
+    playSound('shield_cast');
   } else if (ev.type === 'transform_wolf') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 變身狼人!', 'buff');
-    playSound('hit');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '變身狼人!', 'buff');
+      playPixelFx(card, 'wolf-claw');
+    }
+    playSound('wolf_howl');
   } else if (ev.type === 'transform_treant') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🌳 變身樹精!', 'heal');
-    playSound('heal');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '變身樹精!', 'heal');
+      playPixelFx(card, 'treant-vine');
+    }
+    playSound('treant_creak');
   } else if (ev.type === 'transform_tree') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🪵 化身古樹(免死)!', 'heal');
-    playSound('heal');
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '化身古樹(免死)!', 'heal');
+    playSound('heal_chime');
   } else if (ev.type === 'surrender') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '🐺 狼王威壓·臣服!', 'dodge');
+    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '狼王威壓·臣服!', 'dodge');
   } else if (ev.type === 'summon_minion') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 召喚${ev.minionName}!`, 'buff');
-    playSound('magic');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), `召喚${ev.minionName}!`, 'buff');
+      playPixelFx(card, 'heal-spark');
+    }
+    playSound('select');
   } else if (ev.type === 'minion_hit') {
     const card = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${ev.ownerId}"]`) || document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), `🐾 僕從抵擋 -${ev.value}`, 'shield');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), `僕從抵擋 -${ev.value}`, 'shield');
+      playPixelFx(card, 'shield-flare');
+    }
+    playSound('shield_block');
   }
 }
 
-// 輔助函式：播放怪物攻擊視覺事件
-function playMonsterVisualEvent(monsterAction) {
+// 輔助函式：播放怪物攻擊視覺事件 (支援 40ms AoE 漣漪序列)
+async function playMonsterVisualEvent(monsterAction) {
   if (!monsterAction) return;
   if (elements.monsterCard) {
     elements.monsterCard.classList.add('shaking');
     setTimeout(() => elements.monsterCard.classList.remove('shaking'), 450);
   }
 
-  // 如果有護盾阻擋，先閃出金色盾牌
-  if (monsterAction.shieldMod < 1.0) {
-    const shieldText = monsterAction.shieldMod === 0.1 ? '🛡️ 90% 傷害格擋！' : '🛡️ 40% 傷害格擋！';
-    triggerShieldOnTeam(shieldText);
+  if (monsterAction.isUlt) {
+    playSound('boss_roar');
+  } else {
+    playSound('hit');
   }
 
-  let hadDamage = false;
-  (monsterAction.hits || []).forEach(hit => {
-    triggerHitOnTeammate(hit.targetId, hit.value, hit.dodged, hit.stealthed, monsterAction.shieldMod);
-    if (hit.value > 0) hadDamage = true;
-  });
+  // 如果有護盾阻擋，先閃出金色盾牌
+  if (monsterAction.shieldMod < 1.0) {
+    const shieldText = monsterAction.shieldMod === 0.1 ? '90% 傷害格擋！' : '40% 傷害格擋！';
+    triggerShieldOnTeam(shieldText);
+    playSound('shield_block');
+  }
 
-  if (hadDamage) {
-    playSound('hit');
+  const hits = monsterAction.hits || [];
+  for (let idx = 0; idx < hits.length; idx++) {
+    const hit = hits[idx];
+    triggerHitOnTeammate(
+      hit.targetId,
+      hit.value,
+      hit.dodged,
+      hit.stealthed,
+      monsterAction.shieldMod,
+      hit.tempAbsorbed || 0,
+      hit.hpDmg
+    );
+    if (idx < hits.length - 1) {
+      await sleep(40); // 隊友間 40ms 漣漪受擊間隔
+    }
   }
 }
 
-// 監聽後端結算的戰鬥視覺事件與戰況交鋒敘述
-socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, duration }) => {
+// ==========================================
+// 沉浸式 Action Banner (3 欄式 CSS Grid: 來源頭像 - 行動意圖 - 目標頭像)
+// ==========================================
+function showCombatActionBanner({
+  theme = 'player',
+  badge = '',
+  title = '',
+  tags = [],
+  hiddenNote = null,
+  actorAvatarHtml = '',
+  actorName = '',
+  targetAvatarHtml = '',
+  targetName = ''
+}) {
+  if (!elements.combatActionBanner) return;
+
+  const banner = elements.combatActionBanner;
+  banner.className = `combat-action-banner ${theme === 'boss' ? 'boss-theme' : 'player-theme'}`;
+
+  // 1. 來源欄位
+  if (elements.combatBannerActorAvatar) {
+    elements.combatBannerActorAvatar.innerHTML = actorAvatarHtml || '';
+  }
+  if (elements.combatBannerActorName) {
+    elements.combatBannerActorName.textContent = actorName || '';
+  }
+
+  // 2. 中央意圖欄位
+  if (elements.combatBannerBadge) {
+    elements.combatBannerBadge.textContent = badge;
+  }
+  if (elements.combatBannerTitle) {
+    elements.combatBannerTitle.textContent = title;
+  }
+  if (elements.combatBannerTags) {
+    if (tags && tags.length > 0) {
+      elements.combatBannerTags.innerHTML = tags.map(t => {
+        const tagLabel = typeof t === 'object' ? (t.label || '') : String(t);
+        const tagType = typeof t === 'object' ? (t.type || '') : '';
+        const cls = tagType ? `skill-tag ${tagType}` : 'skill-tag';
+        return `<span class="${cls}">[${escapeHtml(tagLabel)}]</span>`;
+      }).join(' ');
+      elements.combatBannerTags.classList.remove('hidden');
+    } else {
+      elements.combatBannerTags.innerHTML = '';
+      elements.combatBannerTags.classList.add('hidden');
+    }
+  }
+  if (elements.combatBannerHiddenNote) {
+    if (hiddenNote) {
+      elements.combatBannerHiddenNote.textContent = `${hiddenNote}`;
+      elements.combatBannerHiddenNote.classList.remove('hidden');
+    } else {
+      elements.combatBannerHiddenNote.textContent = '';
+      elements.combatBannerHiddenNote.classList.add('hidden');
+    }
+  }
+
+  // 3. 目標欄位
+  if (elements.combatBannerTargetAvatar) {
+    elements.combatBannerTargetAvatar.innerHTML = targetAvatarHtml || '';
+  }
+  if (elements.combatBannerTargetName) {
+    elements.combatBannerTargetName.textContent = targetName || '';
+  }
+
+  banner.classList.remove('hidden');
+  void banner.offsetWidth; // 重新觸發進場 CSS 動畫
+}
+
+function hideCombatActionBanner() {
+  if (!elements.combatActionBanner) return;
+  elements.combatActionBanner.classList.add('hidden');
+}
+
+function updateMonsterHpDisplay(hp, maxHp) {
+  if (!elements.monsterHpText || !elements.monsterHpFill) return;
+  const safeHp = Math.max(0, hp);
+  elements.monsterHpText.textContent = `${safeHp} / ${maxHp}`;
+  const pct = Math.max(0, Math.min(100, (safeHp / maxHp) * 100));
+  elements.monsterHpFill.style.width = `${pct}%`;
+}
+
+// 專用非破壞性 HUD 增量更新 (P2-R1.1 Section 1)
+// 僅更新血條、數值、護盾與死亡視覺，嚴禁呼叫 renderTeammatesGrid 或重建任何主要 DOM
+function updateBattleHudFromSnapshot(snapshot) {
+  if (!snapshot) return;
+
+  // 1. 首領怪物 HP 與死亡視覺狀態
+  if (snapshot.monster) {
+    if (roomState && (roomState.monster || roomState.currentMonster)) {
+      if (roomState.monster) {
+        roomState.monster.hp = snapshot.monster.hp;
+        roomState.monster.maxHp = snapshot.monster.maxHp;
+      }
+      if (roomState.currentMonster) {
+        roomState.currentMonster.hp = snapshot.monster.hp;
+        roomState.currentMonster.maxHp = snapshot.monster.maxHp;
+      }
+    }
+    updateMonsterHpDisplay(snapshot.monster.hp, snapshot.monster.maxHp);
+    if (elements.monsterAvatar) {
+      if (snapshot.monster.hp <= 0) {
+        elements.monsterAvatar.classList.add('is-dead');
+      } else {
+        elements.monsterAvatar.classList.remove('is-dead');
+      }
+    }
+  }
+
+  // 2. 隊友 HP、額外生命、死亡狀態增量更新 (無重繪)
+  if (snapshot.players && roomState && roomState.players) {
+    roomState.players.forEach(p => {
+      const snapP = snapshot.players[p.id];
+      if (snapP) {
+        p.hp = snapP.hp;
+        p.tempHp = snapP.tempHp || 0;
+        p.displayHp = snapP.displayHp;
+        p.maxHp = snapP.maxHp;
+        p.displayMaxHp = snapP.displayMaxHp;
+      }
+
+      const card = document.querySelector(`.teammate-card[data-player-id="${p.id}"]`);
+      if (card) {
+        const isDead = p.hp <= 0;
+        if (isDead) {
+          card.classList.add('is-dead');
+        } else {
+          card.classList.remove('is-dead');
+        }
+
+        const hpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
+        let hpClass = '';
+        if (hpPct < 30) hpClass = 'low';
+        else if (hpPct < 60) hpClass = 'mid';
+
+        const hpFill = card.querySelector('.teammate-hp-fill');
+        if (hpFill) {
+          hpFill.className = `teammate-hp-fill ${hpClass}`;
+          hpFill.style.width = `${hpPct}%`;
+        }
+
+        let overhealFill = card.querySelector('.hp-bar-overheal');
+        if (p.tempHp > 0) {
+          const totalOverhealPct = Math.min(100, Math.round(((p.hp + p.tempHp) / (p.maxHp + p.tempHp)) * 100));
+          if (!overhealFill) {
+            overhealFill = document.createElement('div');
+            overhealFill.className = 'hp-bar-overheal';
+            const hpBg = card.querySelector('.teammate-hp-bg');
+            if (hpBg) hpBg.appendChild(overhealFill);
+          }
+          if (overhealFill) overhealFill.style.width = `${totalOverhealPct}%`;
+        } else if (overhealFill) {
+          overhealFill.remove();
+        }
+
+        const statsSub = card.querySelector('.teammate-stats-sub');
+        if (statsSub) {
+          const hpSpan = statsSub.querySelector('span:first-child');
+          if (hpSpan) {
+            hpSpan.innerHTML = `HP ${p.tempHp > 0 ? `${p.hp + p.tempHp}/${p.maxHp}` : `${p.hp}/${p.maxHp}`}${p.tempHp > 0 ? `<span class="teammate-overheal-badge">+${p.tempHp} 額外</span>` : ''}`;
+          }
+        }
+
+        const actionDot = card.querySelector('.action-status-dot');
+        if (actionDot && isDead) {
+          actionDot.className = 'action-status-dot ready';
+          actionDot.textContent = '陣亡';
+        }
+      }
+    });
+
+    // 德魯伊僕從 HP 更新
+    const druid = roomState.players.find(p => p.role === 'druid');
+    if (druid && druid.minions) {
+      const minionCard = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${druid.id}"]`);
+      if (minionCard) {
+        const totalHp = druid.minions.reduce((sum, m) => sum + (m.hp || 0), 0);
+        const totalMaxHp = druid.minions.reduce((sum, m) => sum + (m.maxHp || 0), 0);
+        const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
+        const minionFill = minionCard.querySelector('.teammate-hp-fill');
+        if (minionFill) minionFill.style.width = `${totalHpPct}%`;
+      }
+    }
+  }
+}
+
+// 根據戰鬥邏輯產生的快照精準更新顯示生命，確保演出與數值步調完全一致
+function applyHpSnapshot(snapshot) {
+  if (!snapshot) return;
+  updateBattleHudFromSnapshot(snapshot);
+}
+
+// 單一步驟演出 (P2-R1.1 Section 8-11: 14 步嚴格演出順序)
+async function playPresentationStep(step, round) {
+  if (!step) return;
+
+  // 1. 更新戰況交鋒字幕
+  if (step.narrative && elements.battleNarrativeText) {
+    elements.battleNarrativeText.innerHTML = formatMarkdown(step.narrative);
+    elements.battleNarrativeText.classList.remove('narrative-fade');
+    void elements.battleNarrativeText.offsetWidth;
+    elements.battleNarrativeText.classList.add('narrative-fade');
+  }
+
+  if (step.type === 'player_action' || step.type === 'boss_action') {
+    if (typeof playCombatActionPresentation === 'function') {
+      await playCombatActionPresentation(step);
+    } else {
+      if (step.visualEvents && step.visualEvents.length > 0) {
+        step.visualEvents.forEach(ev => playSinglePlayerVisualEvent(ev));
+      }
+      if (step.hpSnapshot) {
+        updateBattleHudFromSnapshot(step.hpSnapshot);
+      }
+      await sleep(1000);
+    }
+
+  } else if (step.type === 'overheal_cleanup') {
+    hideCombatActionBanner();
+    if (step.hpSnapshot) {
+      updateBattleHudFromSnapshot(step.hpSnapshot);
+    }
+    await sleep(400);
+
+  } else if (step.type === 'kill') {
+    hideCombatActionBanner();
+    playSound('victory');
+    spawnFloatingText(elements.monsterFloatingContainer, '擊殺！VICTORY', 'crit');
+    if (elements.monsterAvatar) {
+      elements.monsterAvatar.classList.add('shaking');
+      setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
+    }
+    if (step.hpSnapshot) {
+      updateBattleHudFromSnapshot(step.hpSnapshot);
+    }
+    await sleep(1200);
+  }
+}
+
+let isProcessingPresentationQueue = false;
+
+// 依序執行整條 Presentation Queue (P2-R1.1 Section 2: 完整錯誤保護，絕不悄悄中斷或推進)
+async function runPresentationQueue(queue, round, monsterKilled) {
+  if (!queue || queue.length === 0) return;
+  isProcessingPresentationQueue = true;
+  isPlayingBattleNarrative = true;
+  presentationManager.setBlocking(true);
+
+  const me = getMyPlayer();
+  if (me) renderMyActionBar(me);
+
+  if (elements.battleNarrativeBox) {
+    elements.battleNarrativeBox.style.display = 'block';
+  }
+
+  const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
+
+  try {
+    // 啟用 Phase 5 全螢幕戰鬥舞台
+    if (typeof enterCombatStage === 'function') {
+      await enterCombatStage();
+    }
+
+    let lastStepType = null;
+    for (let i = 0; i < queue.length; i++) {
+      const step = queue[i];
+      if (lastStepType) {
+        if (lastStepType === 'player_action' && step.type === 'player_action') {
+          await sleep(timing.actionGap || 200);
+        } else if (lastStepType === 'player_action' && step.type === 'boss_action') {
+          await sleep(timing.bossGap || 350);
+        }
+      }
+      await playPresentationStep(step, round);
+      if (step.type === 'player_action' || step.type === 'boss_action') {
+        lastStepType = step.type;
+      }
+    }
+
+    hideCombatActionBanner();
+
+    // 退出 Phase 5 全螢幕戰鬥舞台
+    if (typeof exitCombatStage === 'function') {
+      await exitCombatStage();
+    }
+
+    presentationManager.setBlocking(false);
+    isPlayingBattleNarrative = false;
+    isProcessingPresentationQueue = false;
+
+    // 若在演出期間收到了權威狀態更新 (Authoritative State)，現在才安全地套用並渲染最新狀態 (A5 規範)
+    if (pendingAuthoritativeState) {
+      roomState = pendingAuthoritativeState;
+      pendingAuthoritativeState = null;
+      renderApp();
+    } else {
+      const meNow = getMyPlayer();
+      if (meNow) renderMyActionBar(meNow);
+    }
+
+    // 向伺服器確認本客戶端 Presentation Queue 演出播放完畢 (A4 規範)
+    socket.emit('battle:presentation_complete', { round });
+  } catch (error) {
+    console.error('[PresentationQueue] Critical playback error:', error);
+    hideCombatActionBanner();
+    if (typeof exitCombatStage === 'function') {
+      exitCombatStage().catch(() => {});
+    }
+    // 嚴禁解鎖交互，嚴禁向伺服器發送 presentation_complete ACK (P2-R1.1 Section 2)
+    presentationManager.setBlocking(true);
+    isPlayingBattleNarrative = true;
+    isProcessingPresentationQueue = true;
+
+    // 開發者可見錯誤提示
+    const devErr = document.createElement('div');
+    devErr.className = 'dev-presentation-error';
+    devErr.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(220,38,38,0.95); color:#fff; padding:12px 20px; border-radius:8px; z-index:9999; font-weight:700; box-shadow:0 4px 20px rgba(0,0,0,0.5); font-family:monospace;';
+    devErr.innerHTML = `⚠️ Presentation Error: ${escapeHtml(error.message || String(error))}<br><small style="font-size:0.75rem; opacity:0.8;">Presentation paused to protect state. See console.</small>`;
+    document.body.appendChild(devErr);
+  }
+}
+
+// 監聽統一有序的 Presentation Queue
+socket.on('battle:presentation_queue', async ({ queue, round, monsterKilled }) => {
+  await runPresentationQueue(queue, round, monsterKilled);
+});
+
+// 監聽回合初效果 (DoT、Regen、Abyssal Corruption、脫力反噬等)
+socket.on('battle:round_start_events', async ({ events, hpSnapshot }) => {
   if (!events || events.length === 0) return;
 
-  // 1. 回合初流血與劇毒傷害
-  events.filter(e => e.type === 'bleed').forEach(e => {
-    const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
-    if (card) {
-      const container = card.querySelector('.floating-text-container');
-      spawnFloatingText(container, `🩸 -${e.value}`, 'damage');
-    }
-  });
-
-  events.filter(e => e.type === 'poison_damage').forEach(e => {
-    if (e.target === 'monster') {
-      spawnFloatingText(elements.monsterFloatingContainer, `🧪 -${e.value}`, 'poison');
-    } else {
+  events.forEach(e => {
+    if (e.type === 'bleed') {
       const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
       if (card) {
         const container = card.querySelector('.floating-text-container');
-        spawnFloatingText(container, `🧪 -${e.value}`, 'poison');
+        spawnFloatingText(container, `-${e.value} (流血)`, 'damage');
+      }
+    } else if (e.type === 'poison_damage') {
+      if (e.target === 'monster') {
+        spawnFloatingText(elements.monsterFloatingContainer, `-${e.value} (劇毒)`, 'poison');
+      } else {
+        const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
+        if (card) {
+          const container = card.querySelector('.floating-text-container');
+          spawnFloatingText(container, `-${e.value} (劇毒)`, 'poison');
+        }
+      }
+    } else if (e.type === 'regen') {
+      const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
+      if (card) {
+        const container = card.querySelector('.floating-text-container');
+        spawnFloatingText(container, `+${e.value} (再生)`, 'heal');
+      }
+    } else if (e.type === 'frenzy_drain') {
+      const card = document.querySelector(`.teammate-card[data-player-id="${e.target}"]`);
+      if (card) {
+        const container = card.querySelector('.floating-text-container');
+        spawnFloatingText(container, `-${e.value} (脫力反噬)`, 'damage');
       }
     }
   });
 
-  // 2. 詩人增傷協奏
-  if (events.some(e => e.type === 'bard_buff')) {
-    triggerShieldOnTeam('🪕 狂熱協奏 50%增傷');
+  if (hpSnapshot) {
+    applyHpSnapshot(hpSnapshot);
   }
+
+  // 等待回合初浮動文字特效顯示完畢，向伺服器發送完成確認 (A6 規範)
+  await sleep(1400);
+  socket.emit('battle:round_start_complete');
+});
+
+// 監聽後端結算的戰鬥視覺事件（相容性 Fallback；若 presentation_queue 正在執行則自動略過）
+socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, duration }) => {
+  if (isProcessingPresentationQueue) return;
+  if (!events || events.length === 0) return;
 
   const playerActions = events.filter(e =>
     ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
   );
   const monsterAction = events.find(e => e.type === 'monster_attack');
 
-  // 若有後端傳來的精彩交鋒文字敘述 (narratives)
   if (narratives && narratives.length > 0) {
     isPlayingBattleNarrative = true;
     const me = getMyPlayer();
@@ -2819,7 +3616,6 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
     const stepMs = Math.floor((totalMs - 800) / narratives.length);
 
     let playerActionIdx = 0;
-    let announcedBossBanner = false;
     narratives.forEach((nar, idx) => {
       setTimeout(() => {
         if (elements.battleNarrativeText) {
@@ -2831,24 +3627,12 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
 
         if (nar.type === 'player') {
           const ev = playerActions[playerActionIdx++];
-          if (ev) {
-            playSinglePlayerVisualEvent(ev);
-          }
+          if (ev) playSinglePlayerVisualEvent(ev);
         } else if (nar.type === 'monster') {
-          if (!announcedBossBanner) {
-            announcedBossBanner = true;
-            showCinematicBanner({
-              title: '【首領反擊・敵方行動】',
-              subtitle: `ROUND ${round || roomState?.battleRound || 1} · BOSS PHASE`,
-              theme: 'boss'
-            });
-          }
-          if (monsterAction) {
-            playMonsterVisualEvent(monsterAction);
-          }
+          if (monsterAction) playMonsterVisualEvent(monsterAction);
         } else if (nar.type === 'kill') {
           playSound('victory');
-          spawnFloatingText(elements.monsterFloatingContainer, '💀 擊殺！VICTORY', 'crit');
+          spawnFloatingText(elements.monsterFloatingContainer, '擊殺！VICTORY', 'crit');
           if (elements.monsterAvatar) {
             elements.monsterAvatar.classList.add('shaking');
             setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
@@ -2857,7 +3641,6 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
       }, idx * stepMs);
     });
 
-    // 敘述結束後，解鎖操作並重整按鈕狀態
     setTimeout(() => {
       isPlayingBattleNarrative = false;
       const meNow = getMyPlayer();
@@ -2865,7 +3648,6 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
     }, totalMs);
 
   } else {
-    // 舊版快速動畫（Fallback）
     playerActions.forEach((ev, idx) => {
       setTimeout(() => {
         playSinglePlayerVisualEvent(ev);
@@ -2874,17 +3656,9 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
 
     const monsterDelay = Math.max(500, playerActions.length * 280 + 350);
     setTimeout(() => {
-      if (monsterAction) {
-        showCinematicBanner({
-          title: '【首領反擊・敵方行動】',
-          subtitle: `ROUND ${round || roomState?.battleRound || 1} · BOSS PHASE`,
-          theme: 'boss'
-        });
-      }
-
       if (monsterKilled) {
         playSound('victory');
-        spawnFloatingText(elements.monsterFloatingContainer, '💀 擊殺！VICTORY', 'crit');
+        spawnFloatingText(elements.monsterFloatingContainer, '擊殺！VICTORY', 'crit');
         if (elements.monsterAvatar) {
           elements.monsterAvatar.classList.add('shaking');
           setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
@@ -2963,7 +3737,7 @@ function updateEntryAvatarPreview() {
       elements.entryAvatarPreview.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:26px;">${escapeHtml(savedAvatar)}</span>`;
     }
   } else {
-    elements.entryAvatarPreview.innerHTML = '👤';
+    elements.entryAvatarPreview.innerHTML = getIconSvg('user');
   }
 }
 
@@ -2979,18 +3753,18 @@ function updateModalPreview(avatar) {
       elements.modalAvatarTypeLabel.textContent = '已選擇：自訂照片';
     } else {
       elements.modalAvatarPreview.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:32px;">${escapeHtml(avatar)}</span>`;
-      elements.modalAvatarTypeLabel.textContent = `已選擇：Emoji【${avatar}】`;
+      elements.modalAvatarTypeLabel.textContent = `已選擇：自訂圖示【${avatar}】`;
     }
   } else {
     // 官方職業頭貼 (依玩家所選職業決定)
     if (roleInfo && roleInfo.avatar) {
       elements.modalAvatarPreview.innerHTML = `<img src="${roleInfo.avatar}" alt="${roleInfo.name}">`;
       elements.modalAvatarTypeLabel.textContent = `職業專屬頭貼【${roleInfo.name}】`;
-    } else if (roleInfo && roleInfo.emoji) {
-      elements.modalAvatarPreview.innerHTML = `<span style="font-size:32px;">${roleInfo.emoji}</span>`;
+    } else if (roleInfo) {
+      elements.modalAvatarPreview.innerHTML = `<div class="avatar-icon-badge" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">${getIconSvg(getRoleIconName(me.role), 'svg-large')}</div>`;
       elements.modalAvatarTypeLabel.textContent = `職業專屬頭貼【${roleInfo.name}】`;
     } else {
-      elements.modalAvatarPreview.innerHTML = '👤';
+      elements.modalAvatarPreview.innerHTML = getIconSvg('user');
       elements.modalAvatarTypeLabel.textContent = '職業專屬頭貼（在大廳選職後自動換上立繪）';
     }
   }
@@ -3006,19 +3780,19 @@ function updateHeroRoleOptionUI() {
     if (roleInfo.avatar) {
       elements.heroRoleOptionPreview.innerHTML = `<img src="${roleInfo.avatar}" alt="${roleInfo.name}">`;
     } else {
-      elements.heroRoleOptionPreview.innerHTML = roleInfo.emoji || '👤';
+      elements.heroRoleOptionPreview.innerHTML = getIconSvg(getRoleIconName(me.role));
     }
     elements.heroRoleOptionTitle.textContent = `職業官方立繪：${roleInfo.name}`;
     elements.heroRoleOptionDesc.textContent = `使用【${roleInfo.name}】官方頭貼。若更換職業將自動同步切換！`;
   } else {
-    elements.heroRoleOptionPreview.innerHTML = '👤';
+    elements.heroRoleOptionPreview.innerHTML = getIconSvg('user');
     elements.heroRoleOptionTitle.textContent = '職業官方專屬頭貼';
     elements.heroRoleOptionDesc.textContent = '自動隨你選擇的職業切換專屬立繪頭像（請至大廳挑選職業）';
   }
 
   if (pendingAvatar === null) {
     elements.heroRoleOptionCard.classList.add('selected');
-    if (elements.heroRoleOptionBadge) elements.heroRoleOptionBadge.textContent = '✓ 目前選用中';
+    if (elements.heroRoleOptionBadge) elements.heroRoleOptionBadge.textContent = '目前選用中';
   } else {
     elements.heroRoleOptionCard.classList.remove('selected');
     if (elements.heroRoleOptionBadge) elements.heroRoleOptionBadge.textContent = '點擊選用';
