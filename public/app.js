@@ -2192,6 +2192,20 @@ function renderMyActionBar(me) {
       }
     }
 
+    if (skill.id === 'a_reload' || skill.id === 'a_frenzy_reload') {
+      const ammoCount = (me.ammo || []).length;
+      if (ammoCount >= 3) {
+        isCoolingDown = true;
+        cdBadgeText = '彈匣已滿(3/3)';
+      }
+    }
+
+    let displayLabel = skill.label;
+    if (skill.id === 'basic' && me.ammo && me.ammo.length > 0) {
+      const ammoIcons = me.ammo.map(a => a === 'pierce' ? '🔴' : a === 'elemental' ? '🔵' : '💥').join('');
+      displayLabel = `普攻: 重弩齊射 [${ammoIcons}]`;
+    }
+
     const isSelected = (currentPendingAction === skill.id);
     const tags = skill.tags || [skill.dmgType ? skill.dmgType.replace(/【|】/g, '') : '物理', '單體'];
 
@@ -2204,7 +2218,7 @@ function renderMyActionBar(me) {
 
     btn.innerHTML = `
       <div class="skill-btn-title">
-        <span>${skill.label}</span>
+        <span>${escapeHtml(displayLabel)}</span>
         ${isCoolingDown ? `<span class="skill-cd-badge">${cdBadgeText}</span>` : ''}
         <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
       </div>
@@ -2295,6 +2309,12 @@ function renderMyActionBar(me) {
     skipBtn.style.opacity = '0.6';
     skipBtn.style.cursor = 'not-allowed';
   }
+  const hasCrossbow = (me.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+  const skipDesc = (me.role === 'archer' && hasCrossbow)
+    ? '本回合放棄行動，保留技能冷卻，並卸除清空已裝備的弩箭。'
+    : '本回合放棄行動，保留技能冷卻。';
+  const skipTag = (me.role === 'archer' && hasCrossbow) ? '清空弩箭' : '蓄力';
+
   skipBtn.innerHTML = `
     <div class="skill-btn-title">
       <span>跳過回合</span>
@@ -2302,11 +2322,11 @@ function renderMyActionBar(me) {
     </div>
     <div class="skill-tags-row">
       <span class="skill-tag">防守</span>
-      <span class="skill-tag">蓄力</span>
+      <span class="skill-tag">${skipTag}</span>
     </div>
     <div class="skill-popover hidden">
       <div class="skill-popover-title"><span>跳過回合</span></div>
-      <div class="skill-popover-desc">本回合放棄行動，保留技能冷卻。</div>
+      <div class="skill-popover-desc">${skipDesc}</div>
     </div>
   `;
 
@@ -2323,6 +2343,10 @@ function renderMyActionBar(me) {
     if (isNarrating || isResolving || isLocked) return;
     currentPendingAction = 'skip';
     currentPendingTarget = null;
+    if (me.role === 'archer' && hasCrossbow && me.ammo && me.ammo.length > 0) {
+      me.ammo = [];
+      socket.emit('battle:clear_ammo');
+    }
     playSound('click');
     renderMyActionBar(me);
   });

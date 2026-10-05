@@ -7,6 +7,7 @@ export const ACTION_CATEGORIES = Object.freeze([
 export const SKILL_CATEGORIES = Object.freeze({
   basic: 'OFFENSIVE', w_strike: 'OFFENSIVE', w_cleave: 'OFFENSIVE', w_shield: 'DEFENSE',
   m_blast: 'OFFENSIVE', m_drain: 'OFFENSIVE', a_shot: 'OFFENSIVE', a_rain: 'AOE_OFFENSIVE',
+  a_reload: 'DEFENSE', a_frenzy_reload: 'DEFENSE',
   s_stab: 'OFFENSIVE', s_smoke: 'OFFENSIVE', b_heal: 'HEAL', b_buff: 'BUFF',
   b_nocturne: 'DEBUFF', b_frenzy: 'BUFF', b_revive: 'REVIVE', alc_acid: 'OFFENSIVE',
   alc_poison: 'DEBUFF', alc_flask: 'OFFENSIVE', alc_fate: 'CLEANSE', dru_transform: 'TRANSFORM',
@@ -27,6 +28,11 @@ export function playerStatuses(player, room, balance) {
   if (player.druidForm === 'werewolf') add('wolf', '狼人形態', 'transform', player.druidFormTurns);
   if (player.warriorVulnerableTurns || player.warriorVulnerableNextTurn) add('vulnerable', 'VULNERABLE', 'debuff', 1);
   if (player.stealthStacks) add('stealth_stack', '匿蹤', 'stealth', 0, { stacks: player.stealthStacks });
+  if (player.isCrouchedThisRound) add('crouch', '架弩蹲伏 DR 20%', 'guard', 1);
+  if (player.ammo && player.ammo.length > 0) {
+    const ammoIcons = player.ammo.map(a => a === 'pierce' ? '🔴' : a === 'elemental' ? '🔵' : '💥').join('');
+    add('crossbow_ammo', `弩箭 [${ammoIcons}]`, 'buff', 0, { ammo: player.ammo });
+  }
   if (player.hp > 0 && player.isHiddenThisRound && !player.stealthBrokenThisRound) {
     add('hidden', '隱身', 'stealth', 1);
     add('follow_up', '追擊 ' + (player.followUpsThisRound || 0) + '/' + (room.getAssassinFollowUpCap(player)), 'stealth');

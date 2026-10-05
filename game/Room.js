@@ -22,7 +22,10 @@ import {
   BATTLE_NARRATIVES,
   getFloorDifficultyBonusPercent,
   getFloorDifficultyMultiplier,
-  getActionPriority
+  getActionPriority,
+  rollCrossbowAmmo,
+  getCrossbowAmmoLabel,
+  getCrossbowAmmoIcon
 } from './constants.js';
 
 export class Room {
@@ -105,13 +108,14 @@ export class Room {
     player.alcAcidEquipHalvedTurns = 0;
     player.alcAcidStack = 0;
     player.tempHp = 0;
+    player.isCrouchedThisRound = false;
     player.isLocked = false;
   }
 
   selectEquipOwner(matchingPlayers, drop = null) {
     if (!matchingPlayers || matchingPlayers.length === 0) return null;
     let pool = matchingPlayers;
-    if (drop && (['w_greatsword', 'b_violin'].includes(drop.id) || ['雙手劍', '精靈木提琴'].includes(drop.name))) {
+    if (drop && (['w_greatsword', 'b_violin', 'a_crossbow'].includes(drop.id) || ['雙手劍', '精靈木提琴', '改良型重弩'].includes(drop.name))) {
       const eligible = matchingPlayers.filter(p => !(p.equips || []).some(e => e.id === drop.id || e.name === drop.name));
       if (eligible.length > 0) pool = eligible;
     }
@@ -128,8 +132,8 @@ export class Room {
   }
 
   getEligiblePlayedLoots(activeRoles) {
-    const uniqueEquipIds = ['w_greatsword', 'b_violin'];
-    const uniqueEquipNames = ['雙手劍', '精靈木提琴'];
+    const uniqueEquipIds = ['w_greatsword', 'b_violin', 'a_crossbow'];
+    const uniqueEquipNames = ['雙手劍', '精靈木提琴', '改良型重弩'];
     return LOOT_TABLE.filter(l => {
       if (!activeRoles.has(l.role)) return false;
       if (uniqueEquipIds.includes(l.id) || uniqueEquipNames.includes(l.name)) {
@@ -201,6 +205,8 @@ export class Room {
       archerNextDodgeBonus: 0,
       archerNoDodgeTurns: 0,
       archerNoDodgeNextTurn: false,
+      ammo: [],
+      isCrouchedThisRound: false,
       isReady: false,
       hasDealtFirstBattleCrit: false,
       connected: true
@@ -1117,7 +1123,8 @@ export class Room {
   // 戰鬥回合流程 - Round Start (1. DoT 2. Regeneration 3. Abyssal Corruption 4. 其他回合初效果)
   executeRoundStart() {
     this.clearTimer();
-    this.roundModifiers = { equipmentEffectMultiplier: 1.0 }; // 每回合初確保裝備倍率恢復 100%
+    this.roundModifiers = { equipmentEffectMultiplier: 1.0, acidFlaskCount: 0 }; // 每回合初確保裝備倍率恢復 100%
+    Object.values(this.players).forEach(p => { p.isCrouchedThisRound = false; });
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) {
       this.handleGameOver();
@@ -1405,7 +1412,17 @@ export class Room {
             ((player.cooldowns['dru_summon_treant'] || 0) > 0 || (player.cooldowns['dru_summon_wolf'] || 0) > 0)) {
           return { success: false, message: '自然呼喚技能冷卻中！' };
         }
+        if ((actionId === 'a_reload' || actionId === 'a_frenzy_reload') && player.ammo && player.ammo.length >= 3) {
+          return { success: false, message: '彈匣已滿（上限 3 枚），無法再裝填！' };
+        }
         if ((player.cooldowns[actionId] || 0) > 0) return { success: false, message: '該技能冷卻中' };
+      }
+    }
+
+    if (actionId === 'skip') {
+      const hasCrossbow = (player.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+      if (player.role === 'archer' && hasCrossbow && player.ammo && player.ammo.length > 0) {
+        player.ammo = [];
       }
     }
 
@@ -1416,6 +1433,16 @@ export class Room {
 
     this.checkTurnCompletion();
     return { success: true };
+  }
+
+  clearPlayerAmmo(socketId) {
+    const player = this.players[socketId];
+    if (!player) return;
+    const hasCrossbow = (player.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+    if (player.role === 'archer' && hasCrossbow && player.ammo && player.ammo.length > 0) {
+      player.ammo = [];
+      this.broadcastState();
+    }
   }
 
   // 玩家取消鎖定 (允許在全員 Locked 前重新選擇)
@@ -1689,8 +1716,18 @@ export class Room {
         p.rolledFlaskType = Math.random() < 0.5 ? 'acid' : 'poison';
       }
     }
-    const acidUsedThisTurn = Object.values(this.players).some(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && (p.action === 'alc_acid' || (p.action === 'alc_flask' && p.rolledFlaskType === 'acid')));
-    this.roundModifiers.equipmentEffectMultiplier = acidUsedThisTurn ? 0.5 : 1.0;
+    const acidFlaskCount = Object.values(this.players).filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && (p.action === 'alc_acid' || (p.action === 'alc_flask' && p.rolledFlaskType === 'acid'))).length;
+    this.roundModifiers.equipmentEffectMultiplier = acidFlaskCount > 0 ? 0.5 : 1.0;
+    this.roundModifiers.acidFlaskCount = acidFlaskCount;
+
+    // 改良型重弩：裝填動作預先啟用【架弩蹲伏】（減傷 20%、無法閃避）
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree') {
+        if (p.action === 'a_reload' || p.action === 'a_frenzy_reload') {
+          p.isCrouchedThisRound = true;
+        }
+      }
+    }
 
     // 重設本回合催眠狀態
     this.monsterStunnedThisRound = false;
@@ -1794,7 +1831,13 @@ export class Room {
       if (p.hp <= 0) continue;
 
       if (p.action === 'skip') {
-        log.push({ text: `⏭️ **${p.name}** 選擇了保留實力，跳過了本回合行動！`, type: 'info' });
+        const hasCrossbow = (p.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+        if (p.role === 'archer' && hasCrossbow && p.ammo && p.ammo.length > 0) {
+          p.ammo = [];
+          log.push({ text: `🏹 **${p.name}** 跳過了本回合，卸除並清空了重弩彈匣！`, type: 'info' });
+        } else {
+          log.push({ text: `⏭️ **${p.name}** 選擇了保留實力，跳過了本回合行動！`, type: 'info' });
+        }
         continue;
       }
 
@@ -1810,6 +1853,87 @@ export class Room {
       }
       switch (p.action) {
         case 'basic': {
+          const hasCrossbow = (p.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+          if (p.role === 'archer' && hasCrossbow && p.ammo && p.ammo.length > 0) {
+            const count = p.ammo.length;
+            const poolBonus = count === 1 ? 35 : (count === 2 ? 53 : 79);
+            const basePool = 10 + poolBonus; // 45, 63, 89
+            // 改良型重弩受強酸腐蝕時造成傷害不影響（裝備加成不減半）
+            const effectiveBonusAtk = p.bonusAtk + (p.equips || []).reduce((sum, e) => sum + (e.bonusAtk || 0), 0);
+            const totalPool = Math.floor((basePool + effectiveBonusAtk) * bardDmgMultiplier);
+            const dmgPerArrow = Math.round(totalPool / count);
+
+            const pierceCount = p.ammo.filter(a => a === 'pierce').length;
+            const elementalCount = p.ammo.filter(a => a === 'elemental').length;
+            const burstCount = p.ammo.filter(a => a === 'burst').length;
+
+            let pierceDmg = 0;
+            let pierceResisted = false;
+            let pResPercent = 0;
+            if (pierceCount > 0) {
+              const rawPierce = dmgPerArrow * pierceCount;
+              const res = applyResistanceDamage(rawPierce, 'phys');
+              pierceDmg = res.dmg;
+              pierceResisted = res.isResisted;
+              pResPercent = res.resistPercent;
+              monster.hp -= pierceDmg;
+              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: pierceDmg, isCrit: false, label: '穿甲箭齊射' });
+            }
+
+            let elementalDmg = 0;
+            let eleResisted = false;
+            let eResPercent = 0;
+            if (elementalCount > 0) {
+              const rawEle = dmgPerArrow * elementalCount;
+              const res = applyResistanceDamage(rawEle, 'mag');
+              elementalDmg = res.dmg;
+              eleResisted = res.isResisted;
+              eResPercent = res.resistPercent;
+              monster.hp -= elementalDmg;
+              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: elementalDmg, isCrit: false, label: '元素箭齊射' });
+            }
+
+            let burstDmg = 0;
+            let selfDmg = 0;
+            if (burstCount > 0) {
+              burstDmg = dmgPerArrow * burstCount;
+              monster.hp -= burstDmg;
+              selfDmg = burstDmg;
+              p.hp = Math.max(0, p.hp - selfDmg);
+              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: burstDmg, isCrit: false, label: '爆裂箭齊射' });
+              visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg, label: '爆裂自傷' });
+            }
+
+            const shotDetails = [];
+            if (pierceCount > 0) {
+              const resNote = pierceResisted ? ` (🛡️抗性減免${pResPercent}%)` : '';
+              shotDetails.push(`🔴 穿甲箭 ×${pierceCount}：造成 **${pierceDmg}** 點【物理】傷害${resNote}`);
+            }
+            if (elementalCount > 0) {
+              const resNote = eleResisted ? ` (🔮抗性減免${eResPercent}%)` : '';
+              shotDetails.push(`🔵 元素箭 ×${elementalCount}：造成 **${elementalDmg}** 點【魔法】傷害${resNote}`);
+            }
+            if (burstCount > 0) {
+              shotDetails.push(`💥 爆裂箭 ×${burstCount}：造成 **${burstDmg}** 點【真實】傷害，自身扣除等量 **${selfDmg}** 點真實生命！`);
+            }
+
+            const totalMonsterDmg = pierceDmg + elementalDmg + burstDmg;
+            log.push({
+              text: `🏹💥 **${p.name}** 消耗 ${count} 枚弩箭發動【重弩齊射】（每發分配基準 ${dmgPerArrow} 點）！\n${shotDetails.join('\n')}\n合計對魔物造成 **${totalMonsterDmg}** 點傷害！`,
+              type: 'combat'
+            });
+
+            if (burstCount > 0 && p.hp <= 0) {
+              p.hp = 0;
+              this.clearPlayerDebuffs(p);
+              log.push({ text: `💀 爆裂弩箭反噬重創！**${p.name}** 不幸陣亡！`, type: 'damage' });
+            }
+
+            p.ammo = [];
+            actionOutcome = { type: 'volley', label: '重弩齊射', secondary: burstCount > 0 ? '爆裂自傷' : `${count}連發` };
+            break;
+          }
+
           const dmgType = (p.role === 'mage' || p.role === 'bard' || p.role === 'alchemist') ? 'mag' : 'phys';
           let baseAtk = 10;
           if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk = 40;
@@ -1984,6 +2108,49 @@ export class Room {
             log.push({ text: `🏹 **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}並削弱怪物 10 點攻擊！`, type: 'combat' });
           }
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '箭雨壓制' });
+          break;
+        }
+        case 'a_reload': {
+          p.ammo = p.ammo || [];
+          const acidLayers = (this.roundModifiers?.acidFlaskCount || 0) + (p.alcAcidStack || 0);
+          // 每層腐蝕效果將減少一隻箭矢裝填，最低保底裝一箭矢
+          const reloadCount = Math.max(1, 1 - acidLayers);
+          let newAmmo = null;
+          if (p.ammo.length < 3 && reloadCount > 0) {
+            newAmmo = rollCrossbowAmmo();
+            p.ammo.push(newAmmo);
+          }
+          p.isCrouchedThisRound = true;
+          actionOutcome = { type: 'reload', label: '戰術上膛', secondary: '架弩蹲伏' };
+          const ammoIcons = p.ammo.map(getCrossbowAmmoIcon).join('');
+          const acidNote = acidLayers > 0 ? '（⚠️ 受到強酸腐蝕影響，觸發最低保底裝填 1 枚）' : '';
+          log.push({ text: `🏹🔧 **${p.name}** 執行【戰術上膛】，裝填了 1 枚【${getCrossbowAmmoLabel(newAmmo)}】！${acidNote}（現有彈藥：${ammoIcons} [${p.ammo.length}/3]）`, type: 'combat' });
+          log.push({ text: `🛡️ **${p.name}** 蹲伏裝填弩箭，受傷降低 20% 但無法閃避。`, type: 'buff' });
+          visualEvents.push({ type: 'crouch_reload', sourceId: p.id, ammo: newAmmo, currentAmmo: [...p.ammo] });
+          break;
+        }
+        case 'a_frenzy_reload': {
+          p.ammo = p.ammo || [];
+          const missing = Math.max(0, 3 - p.ammo.length);
+          const acidLayers = (this.roundModifiers?.acidFlaskCount || 0) + (p.alcAcidStack || 0);
+          // 每層腐蝕效果將減少一隻箭矢裝填，最低保底裝一箭矢
+          const reloadCount = Math.min(missing, Math.max(1, missing - acidLayers));
+          const rolledList = [];
+          for (let i = 0; i < reloadCount; i++) {
+            const a = rollCrossbowAmmo();
+            p.ammo.push(a);
+            rolledList.push(a);
+          }
+          p.isCrouchedThisRound = true;
+          actionOutcome = { type: 'frenzy_reload', label: '極速狂熱裝填', secondary: '架弩蹲伏' };
+          const ammoIcons = p.ammo.map(getCrossbowAmmoIcon).join('');
+          const rolledLabels = rolledList.map(getCrossbowAmmoLabel).join('、');
+          const acidNote = (acidLayers > 0)
+            ? `（⚠️ 受到強酸腐蝕 ${acidLayers} 層影響減少 ${missing - reloadCount} 枚裝填，${missing > reloadCount ? `實裝 ${reloadCount} 枚` : '觸發最低保底裝填 1 枚'}）`
+            : '';
+          log.push({ text: `🏹⚡ **${p.name}** 執行【極速狂熱裝填】，裝填了 ${reloadCount} 枚弩箭（${rolledLabels}）！${acidNote}（現有彈藥：${ammoIcons} [${p.ammo.length}/3]）`, type: 'combat' });
+          log.push({ text: `🛡️ **${p.name}** 蹲伏裝填弩箭，受傷降低 20% 但無法閃避。`, type: 'buff' });
+          visualEvents.push({ type: 'crouch_reload', sourceId: p.id, rolled: rolledList, currentAmmo: [...p.ammo] });
           break;
         }
         case 's_stab': {
@@ -2709,6 +2876,10 @@ export class Room {
         if (alcShieldMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * alcShieldMod));
         if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * alcVulnMod);
         if (bardDmgReduction < 1.0) finalDmg = Math.floor(finalDmg * bardDmgReduction);
+        // 架弩蹲伏減傷 20%
+        if (player.isCrouchedThisRound) {
+          finalDmg = Math.floor(finalDmg * 0.80);
+        }
         // 樹精/古樹形態減傷由 GAME_BALANCE 管理
         if (player.druidForm === 'treant' || player.druidForm === 'tree') {
           finalDmg = Math.floor(finalDmg * (1 - GAME_BALANCE.treantDamageReduction));
@@ -2744,11 +2915,14 @@ export class Room {
         }
 
         let dodgeRate = 0;
-        if (p.role === 'archer') {
+        if (p.isCrouchedThisRound) {
+          dodgeRate = 0;
+          p.archerNextDodgeBonus = 0;
+        } else if (p.role === 'archer') {
           const angelBowCount = (p.equips || []).filter(e => e.id === 'a_archangel_bow' || e.id === 'a_bow' || e.name === '大天使重弓').length;
           dodgeRate = Math.max(0, CLASSES.archer.dodgeRate - 0.20 * angelBowCount);
         }
-        if ((dodgeRate > 0 || p.archerNextDodgeBonus > 0) && this.checkDodge(p, dodgeRate)) {
+        if (!p.isCrouchedThisRound && (dodgeRate > 0 || p.archerNextDodgeBonus > 0) && this.checkDodge(p, dodgeRate)) {
           log.push({ text: `🪶 **${p.name}** 身手矯健，閃避了所有反擊！`, type: 'buff' });
           monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
           continue;
@@ -2958,6 +3132,7 @@ export class Room {
 
     // 回合結束還原 roundModifiers（腐蝕強酸瓶等僅限本回合的效果在此完全清除）
     this.roundModifiers.equipmentEffectMultiplier = 1.0;
+    this.roundModifiers.acidFlaskCount = 0;
     this.roundModifiers.monsterAttackReduction = 0;
     this.bardBuffActive = false;
     for (const pl of Object.values(this.players)) { delete pl.rolledFlaskType; }
@@ -2969,6 +3144,10 @@ export class Room {
   }
 
   checkDodge(player, baseRate) {
+    if (player.isCrouchedThisRound) {
+      player.archerNextDodgeBonus = 0;
+      return false;
+    }
     const bonus = player.archerNextDodgeBonus || 0;
     player.archerNextDodgeBonus = 0;
     return Math.random() < Math.min(1, Math.max(0, baseRate + bonus));
@@ -3356,6 +3535,8 @@ export class Room {
         cannotCrit: p.cannotCrit,
         ...assassinState(p),
         statuses: playerStatuses(p, this, GAME_BALANCE),
+        ammo: (p.ammo || []).slice(),
+        isCrouchedThisRound: Boolean(p.isCrouchedThisRound),
         archerNoDodgeTurns: p.archerNoDodgeTurns || 0,
         alcAcidEquipHalvedTurns: p.alcAcidEquipHalvedTurns || 0,
         alcAcidStack: p.alcAcidStack || 0,

@@ -225,6 +225,13 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
+  socket.on('battle:clear_ammo', () => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    room.clearPlayerAmmo(socket.id);
+  });
+
   // 兼容舊版本提交戰鬥行動
   socket.on('battle:action', ({ actionId, targetPlayerId }, callback) => {
     const code = socketToRoom.get(socket.id);
