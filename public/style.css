@@ -1113,6 +1113,16 @@ input[type="text"]::placeholder {
   box-shadow: 0 3px 0 #1d4ed8;
 }
 
+.member-item.can-transfer-leader {
+  cursor: pointer;
+}
+
+.member-item.can-transfer-leader:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: 0 3px 0 #b45309;
+}
+
 .member-info-col {
   display: flex;
   align-items: center;

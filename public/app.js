@@ -200,6 +200,8 @@ function forceCloseAllModals() {
   if (endBattleModal) endBattleModal.classList.add('hidden');
   const targetModal = document.getElementById('targetModal');
   if (targetModal) targetModal.classList.add('hidden');
+  const transferLeaderModal = document.getElementById('transferLeaderModal');
+  if (transferLeaderModal) transferLeaderModal.classList.add('hidden');
 }
 if (typeof window !== 'undefined') window.forceCloseAllModals = forceCloseAllModals;
 
@@ -367,6 +369,10 @@ const elements = {
   btnToggleReady: document.getElementById('btnToggleReady'),
   readyBtnText: document.getElementById('readyBtnText'),
   startRequirementText: document.getElementById('startRequirementText'),
+  transferLeaderModal: document.getElementById('transferLeaderModal'),
+  transferLeaderModalDesc: document.getElementById('transferLeaderModalDesc'),
+  btnCancelTransferLeader: document.getElementById('btnCancelTransferLeader'),
+  btnConfirmTransferLeader: document.getElementById('btnConfirmTransferLeader'),
 
   // Game Start Overlay (P2-R1.1 Section 3)
   gameStartOverlay: document.getElementById('gameStartOverlay'),
@@ -998,36 +1004,24 @@ function renderPendingDropModal(me) {
   elements.equipDropModal.classList.remove('hidden');
 }
 
-// 渲染大廳小隊成員準備狀態圖標 (隊長 / 已準備 / 未準備 / 未選職)
+// 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職或未按準備: 維持原本的黃色驚嘆號，無文字)
 function renderMemberStatusBadge(p, isThisLeader) {
-  if (isThisLeader) {
-    return `<span class="member-status-icon ready" title="隊長" aria-label="隊長">👑 隊長</span>`;
-  }
-  if (!p.role) {
+  const isReady = isThisLeader ? Boolean(p.role) : (Boolean(p.role) && Boolean(p.isReady));
+  if (isReady) {
     return `
-      <span class="member-status-icon waiting" title="尚未選職" aria-label="尚未選職">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="13"></line>
-          <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-        </svg> 未選職
-      </span>
-    `;
-  }
-  if (p.isReady) {
-    return `
-      <span class="member-status-icon ready" title="已準備" aria-label="已準備">
+      <span class="member-status-icon ready" title="已就緒" aria-label="已就緒">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
-        </svg> 已準備
+        </svg>
       </span>
     `;
   }
   return `
-    <span class="member-status-icon waiting" title="未準備" aria-label="未準備">
+    <span class="member-status-icon waiting" title="尚未就緒" aria-label="尚未就緒">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="13"></line>
         <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-      </svg> 未準備
+      </svg>
     </span>
   `;
 }
@@ -1042,9 +1036,10 @@ function renderLobby(me, isLeader) {
     const isThisMe = p.id === myId;
     const isThisLeader = p.id === roomState.leaderId;
     const roleInfo = p.role ? classesData[p.role] : null;
+    const canTransferToThis = isLeader && !isThisMe;
 
     const div = document.createElement('div');
-    div.className = `member-item ${isThisMe ? 'is-me' : ''}`;
+    div.className = `member-item ${isThisMe ? 'is-me' : ''} ${canTransferToThis ? 'can-transfer-leader' : ''}`;
 
     if (isThisMe) {
       div.innerHTML = `
@@ -1063,7 +1058,7 @@ function renderLobby(me, isLeader) {
             ` : `
               <div class="member-name-row">
                 <span class="member-name">
-                  ${isThisLeader ? `<span class="crown-tag" title="隊長">${getIconSvg('flag')}</span>` : ''}
+                  ${isThisLeader ? `<span class="crown-tag">${getIconSvg('flag')}</span>` : ''}
                   <span class="member-name-text">${escapeHtml(p.name)}</span>
                   <span class="me-tag">(你)</span>
                 </span>
@@ -1148,7 +1143,7 @@ function renderLobby(me, isLeader) {
           </div>
           <div class="member-name-group">
             <span class="member-name">
-              ${isThisLeader ? `<span class="crown-tag" title="隊長">${getIconSvg('flag')}</span>` : ''}
+              ${isThisLeader ? `<span class="crown-tag">${getIconSvg('flag')}</span>` : ''}
               <span class="member-name-text">${escapeHtml(p.name)}</span>
             </span>
             <span class="member-role-tag">
@@ -1156,24 +1151,18 @@ function renderLobby(me, isLeader) {
             </span>
           </div>
         </div>
-        <div class="member-status-col" style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        <div class="member-status-col">
           ${renderMemberStatusBadge(p, isThisLeader)}
-          ${isLeader ? `<button type="button" class="btn-micro-action btn-transfer-leader" data-id="${p.id}" title="移交隊長職位" style="font-size:0.75rem; padding:2px 6px; cursor:pointer;">👑 移交隊長</button>` : ''}
         </div>
       `;
 
-      if (isLeader) {
-        const transferBtn = div.querySelector('.btn-transfer-leader');
-        if (transferBtn) {
-          transferBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (!confirm(`確定要將隊長職位移交給【${p.name}】嗎？`)) return;
-            playSound('click');
-            socket.emit('room:transfer_leader', { targetId: p.id }, (res) => {
-              if (res && !res.success) alert(res.message);
-            });
-          });
-        }
+      if (canTransferToThis) {
+        div.title = '點擊轉移位子';
+        div.addEventListener('click', (e) => {
+          if (e.target.closest('button, input')) return;
+          playSound('click');
+          openTransferLeaderModal(p);
+        });
       }
     }
 
@@ -1204,13 +1193,13 @@ function renderLobby(me, isLeader) {
     elements.memberWaitArea.classList.add('hidden');
     elements.btnStartGame.disabled = !(allPicked && allReady);
     if (!allPicked) {
-      elements.startRequirementText.textContent = '尚有隊員未完成選職';
+      elements.startRequirementText.textContent = '尚有成員未完成選職';
       elements.startRequirementText.style.color = '#dc2626';
     } else if (!allReady) {
-      elements.startRequirementText.textContent = '尚有隊員未準備就緒';
+      elements.startRequirementText.textContent = '尚有成員未準備就緒';
       elements.startRequirementText.style.color = '#dc2626';
     } else {
-      elements.startRequirementText.textContent = '小隊全體就緒！點擊開始冒險！';
+      elements.startRequirementText.textContent = '全體就緒！點擊開始冒險！';
       elements.startRequirementText.style.color = '#16a34a';
     }
   } else {
@@ -1228,7 +1217,7 @@ function renderRoleSelectionGrid() {
   elements.roleSelectionGrid.innerHTML = '';
 
   Object.entries(classesData).forEach(([roleKey, conf]) => {
-    // 找出所有選擇此職業的隊友（職業可重複選擇）
+    // 找出所有選擇此職業的成員（職業可重複選擇）
     const choosers = (roomState?.players || []).filter(p => p.role === roleKey);
     const isSelectedByMe = myRole === roleKey;
 
@@ -1240,7 +1229,7 @@ function renderRoleSelectionGrid() {
     let choosersHtml = '';
     if (choosers.length > 0) {
       choosersHtml = `<div class="role-card-choosers" style="margin-top:6px; font-size:0.75rem; color:#f59e0b; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-        ${getIconSvg('users')} <span>已選隊友: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
+        ${getIconSvg('users')} <span>已選擇: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
       </div>`;
     }
 
@@ -2848,6 +2837,49 @@ elements.btnStartGame.addEventListener('click', () => {
 });
 
 // 隊員切換準備狀態
+let pendingTransferTarget = null;
+function openTransferLeaderModal(targetPlayer) {
+  if (!targetPlayer) return;
+  pendingTransferTarget = targetPlayer;
+  if (elements.transferLeaderModalDesc) {
+    elements.transferLeaderModalDesc.textContent = `確定要將位子移交給【${targetPlayer.name}】嗎？`;
+  }
+  if (elements.transferLeaderModal) {
+    elements.transferLeaderModal.classList.remove('hidden');
+  }
+}
+
+function closeTransferLeaderModal() {
+  pendingTransferTarget = null;
+  if (elements.transferLeaderModal) {
+    elements.transferLeaderModal.classList.add('hidden');
+  }
+}
+
+if (elements.btnCancelTransferLeader) {
+  elements.btnCancelTransferLeader.addEventListener('click', closeTransferLeaderModal);
+}
+
+if (elements.btnConfirmTransferLeader) {
+  elements.btnConfirmTransferLeader.addEventListener('click', () => {
+    if (!pendingTransferTarget) return;
+    const targetId = pendingTransferTarget.id;
+    closeTransferLeaderModal();
+    playSound('click');
+    socket.emit('room:transfer_leader', { targetId }, (res) => {
+      if (res && !res.success) alert(res.message);
+    });
+  });
+}
+
+if (elements.transferLeaderModal) {
+  elements.transferLeaderModal.addEventListener('click', (e) => {
+    if (e.target === elements.transferLeaderModal) {
+      closeTransferLeaderModal();
+    }
+  });
+}
+
 if (elements.btnToggleReady) {
   elements.btnToggleReady.addEventListener('click', () => {
     playSound('click');
@@ -2862,7 +2894,7 @@ if (elements.btnLeaveParty) {
   elements.btnLeaveParty.addEventListener('click', () => {
     const isLeader = roomState?.leaderId === myId;
     const msg = isLeader
-      ? '確定要離開小隊嗎？\n（您是隊長，離開後隊長職位將由第一順位隊友繼承）'
+      ? '確定要離開小隊嗎？\n（離開後職位將由第一順位成員繼承）'
       : '確定要離開小隊嗎？';
     if (!confirm(msg)) return;
     playSound('click');
