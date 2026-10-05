@@ -57,7 +57,8 @@
 .is-boss-party .presentation-result-card { width: clamp(80px, 11cqw, 150px); }
 .is-compact .presentation-support-title { font-family: var(--font-stats), var(--font-body); font-size: 1.7rem; }
 .presentation-compact-minion { position: absolute; left: 10cqw; top: 44cqh; width: 90px; display: flex; flex-direction: column; animation: supportMinion 300ms ease-out both; }
-.presentation-summon-reveal { position: absolute; width: 170px; left: 110%; top: 0; display: flex; flex-direction: column; font-size: .8rem; animation: supportReveal 400ms ease-out both; }
+.presentation-summon-reveal { position: absolute; width: 170px; left: 110%; top: 0; display: flex; flex-direction: column; align-items: center; text-align: center; font-size: .8rem; animation: supportReveal 400ms ease-out both; }
+.presentation-summon-reveal img { width: 44px; height: 44px; object-fit: contain; border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(74, 222, 128, 0.4); }
 .is-cleansing .presentation-result-status { animation: supportExit 300ms both; }
 .is-off-key .presentation-support-actor { animation: supportUnstable 300ms steps(3) both; }
 .combat-status { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; color: #cbd5e1; margin: 3px; }
@@ -102,9 +103,15 @@
 }
 
 .presentation-form-reveal { position: absolute; inset: 0; display: grid; place-items: center; background: #18212af0; animation: supportReveal .35s both; }
-.presentation-form-reveal svg { width: 85%; height: 85%; }
+.presentation-form-reveal svg, .presentation-form-reveal img { width: 85%; height: 85%; object-fit: contain; }
 .is-stealth-cast .presentation-support-actor { animation: supportStealth 1.1s both; }
 @keyframes supportStealth { 30% { filter: blur(5px); opacity: .6; } 100% { filter: blur(12px); opacity: .15; } }
+.is-summon-cast .presentation-support-actor { animation: supportSummonPulse 800ms ease-out both; }
+@keyframes supportSummonPulse {
+  0% { transform: scale(0.95); filter: drop-shadow(0 0 0px #4ade80); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 0 25px #22c55e) brightness(1.2); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 10px #16a34a); }
+}
 
 .presentation-victory { pointer-events: auto; }
 

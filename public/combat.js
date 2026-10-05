@@ -167,7 +167,9 @@ const COMBAT_SKILL_PROFILES = Object.freeze({
   m_fireball: { fxType: 'arcane_burst', attackSfx: 'mage_burst', preSfx: 'magic_cast' },
   a_shot: { fxType: 'arrow_projectile', attackSfx: 'archer_twang', flightSfx: 'arrow_flight', impactSfx: 'arrow_impact' },
   s_stab: { fxType: 'cross_slash', attackSfx: 'assassin_dual' },
+  alc_flask: { fxType: 'acid_splash', attackSfx: 'acid_throw', impactSfx: 'acid_splash' },
   alc_acid: { fxType: 'acid_splash', attackSfx: 'acid_throw', impactSfx: 'acid_splash' },
+  alc_poison: { fxType: 'acid_splash', attackSfx: 'acid_throw', impactSfx: 'acid_splash' },
   dru_claw: { fxType: 'claw_slash', attackSfx: 'claw_slash' },
   boss_strike: { fxType: 'boss_claw', attackSfx: 'boss_attack', impactSfx: 'heavy_impact' },
   boss_ult: { fxType: 'boss_claw', attackSfx: 'boss_heavy_attack', impactSfx: 'heavy_impact' }
@@ -182,7 +184,7 @@ function getCombatProfile(step) {
     baseRole = step.sourceRole.toLowerCase();
   }
   const roleProfile = COMBAT_PRESENTATION_PROFILES[baseRole] || (isPlayer ? COMBAT_PRESENTATION_PROFILES.warrior : COMBAT_PRESENTATION_PROFILES.boss);
-  const skillProfile = (step.skillId && COMBAT_SKILL_PROFILES[step.skillId]) || {};
+  const skillProfile = (step.skillId && COMBAT_SKILL_PROFILES[step.skillId]) || (step.actionId && COMBAT_SKILL_PROFILES[step.actionId]) || {};
   return { ...roleProfile, ...skillProfile };
 }
 

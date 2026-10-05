@@ -172,6 +172,9 @@
         <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">
           <svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰
         </button>
+        <button id="btnLeaveParty" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
+          <svg class="svg-icon"><use href="#icon-close"></use></svg> 離開隊伍
+        </button>
         <button id="soundToggleBtn" class="btn-sound-toggle" title="切換音效">
           <img id="soundToggleImg" src="/sound/sound.webp" alt="音效" class="sound-toggle-img">
         </button>
@@ -258,7 +261,7 @@
             <div class="card-header card-header-stacked">
               <div class="header-title-block">
                 <h3><svg class="svg-icon"><use href="#icon-users"></use></svg> 冒險小隊名單 (<span id="lobbyMemberCount">1</span>/10)</h3>
-                <span class="card-tip">隊長可隨時啟程，1~10人皆可出發（職業可重複選擇）</span>
+                <span class="card-tip">1~10人皆可出發，全員準備後即可啟程（職業可重複選擇）</span>
               </div>
             </div>
             <div id="lobbyMemberList" class="member-list">
@@ -270,10 +273,13 @@
                 <button id="btnStartGame" class="btn btn-danger btn-large full-width" disabled>
                   <svg class="svg-icon"><use href="#icon-sword"></use></svg> 全員就緒，出發探險！
                 </button>
-                <p id="startRequirementText" class="start-tip">尚有隊友未完成選職</p>
+                <p id="startRequirementText" class="start-tip">尚有成員未完成選職</p>
               </div>
               <div id="memberWaitArea" class="member-actions hidden">
-                <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 等待隊長啟程出發...</div>
+                <button id="btnToggleReady" class="btn btn-primary btn-large full-width" style="margin-bottom: 8px;">
+                  <svg class="svg-icon"><use href="#icon-ready"></use></svg> <span id="readyBtnText">準備就緒</span>
+                </button>
+                <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 等待啟程出發...</div>
               </div>
             </div>
           </div>
@@ -741,6 +747,21 @@
         </div>
         <div style="margin-top: 18px; text-align: right;">
           <button type="button" class="btn btn-secondary btn-small" id="btnConfirmRoleDetailModal">關閉</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 轉移位子確認 Modal -->
+    <div id="transferLeaderModal" class="modal-overlay hidden">
+      <div class="modal-card" style="max-width: 360px; text-align: center;">
+        <div style="font-size: 2.2rem; margin-bottom: 8px;">👑</div>
+        <h3 id="transferLeaderModalTitle" style="margin-bottom: 8px;">轉移位子</h3>
+        <p id="transferLeaderModalDesc" style="color: var(--color-text-secondary); font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">
+          確定要將位子轉移給此成員嗎？
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button type="button" class="btn btn-secondary btn-small" id="btnCancelTransferLeader">取消</button>
+          <button type="button" class="btn btn-primary btn-small" id="btnConfirmTransferLeader">確認轉移</button>
         </div>
       </div>
     </div>

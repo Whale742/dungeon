@@ -113,8 +113,7 @@ const DEFAULT_ROLE_DETAILS = {
     passive: '神秘調和者，精通強酸腐蝕、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。' },
-      { type: '1 技能 A', name: '腐蝕強酸瓶', dmgType: '【魔法】', cd: '無 CD', desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果在本回合減半，回合結束還原。' },
-      { type: '1 技能 B', name: '劇毒煙霧瓶', dmgType: '【魔法】', cd: '無 CD', desc: '砸碎毒瓶造成 30 點傷害與輕微自傷 5 點，使敵我雙方皆陷入劇毒，全體後續 2 回合每回合初持續承受 5 點毒素傷害。' },
+      { type: '1 技能', name: '不穩定試劑瓶', dmgType: '【魔法/隨機】', cd: '無 CD', desc: '投擲未完全調和的試劑瓶，50% 機率隨機施放【腐蝕強酸瓶】（造成 50 魔法傷害，自身自傷 15 點，全隊裝備本回合減半）或【劇毒煙霧瓶】（造成 30 魔法傷害，自身自傷 5 點，敵我雙方陷入 2 回合劇毒，每回合 5 點毒傷可疊加）。' },
       { type: '2 技能', name: '命運煉成試劑', dmgType: '【驅散/調和】', cd: '2 回合', desc: '立即驅散全隊所有負面狀態（中毒/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。' }
     ]
   },
@@ -126,6 +125,23 @@ const DEFAULT_ROLE_DETAILS = {
     hp: 85,
     type: '物理 / 自然變形',
     passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    forms: {
+      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+    },
+    summons: {
+      treant: [
+        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+      ],
+      wolf: [
+        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+      ]
+    },
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '引導自然力量造成基礎 10 點物理傷害。' },
       { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
@@ -166,6 +182,29 @@ let chestRewardCompletedId = null;
 let routeInteractionReadyKey = null;
 let eventDoneKey = null;
 
+// 強制關閉全部彈窗（演出階段嚴格防阻擋）
+function forceCloseAllModals() {
+  document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.chat-popup-card').forEach(el => el.classList.add('hidden'));
+  const avatarModal = document.getElementById('avatarCustomModal');
+  if (avatarModal) avatarModal.classList.add('hidden');
+  const equipModal = document.getElementById('equipDropModal');
+  if (equipModal) equipModal.classList.add('hidden');
+  const minionModal = document.getElementById('minionDetailModal');
+  if (minionModal) minionModal.classList.add('hidden');
+  const roleModal = document.getElementById('roleDetailModal');
+  if (roleModal) roleModal.classList.add('hidden');
+  const chatPopup = document.getElementById('chatPopupCard');
+  if (chatPopup) chatPopup.classList.add('hidden');
+  const endBattleModal = document.getElementById('endBattleModal');
+  if (endBattleModal) endBattleModal.classList.add('hidden');
+  const targetModal = document.getElementById('targetModal');
+  if (targetModal) targetModal.classList.add('hidden');
+  const transferLeaderModal = document.getElementById('transferLeaderModal');
+  if (transferLeaderModal) transferLeaderModal.classList.add('hidden');
+}
+if (typeof window !== 'undefined') window.forceCloseAllModals = forceCloseAllModals;
+
 // ==========================================================================
 // Presentation Orchestrator & Duplicate Prevention (P2-R1 Section 0, 1, 2)
 // ==========================================================================
@@ -190,6 +229,9 @@ const presentationManager = {
 
   setBlocking(blocking) {
     this.isBlocking = Boolean(blocking);
+    if (this.isBlocking) {
+      forceCloseAllModals();
+    }
     const root = document.getElementById('presentationRoot');
     if (root) {
       if (this.isBlocking) {
@@ -286,6 +328,7 @@ const elements = {
   roomBadge: document.getElementById('roomBadge'),
   roomCodeText: document.getElementById('roomCodeText'),
   roomCopyToast: document.getElementById('roomCopyToast'),
+  btnLeaveParty: document.getElementById('btnLeaveParty'),
   soundToggleBtn: document.getElementById('soundToggleBtn'),
   soundToggleImg: document.getElementById('soundToggleImg'),
 
@@ -323,7 +366,13 @@ const elements = {
   btnStartGame: document.getElementById('btnStartGame'),
   leaderStartArea: document.getElementById('leaderStartArea'),
   memberWaitArea: document.getElementById('memberWaitArea'),
+  btnToggleReady: document.getElementById('btnToggleReady'),
+  readyBtnText: document.getElementById('readyBtnText'),
   startRequirementText: document.getElementById('startRequirementText'),
+  transferLeaderModal: document.getElementById('transferLeaderModal'),
+  transferLeaderModalDesc: document.getElementById('transferLeaderModalDesc'),
+  btnCancelTransferLeader: document.getElementById('btnCancelTransferLeader'),
+  btnConfirmTransferLeader: document.getElementById('btnConfirmTransferLeader'),
 
   // Game Start Overlay (P2-R1.1 Section 3)
   gameStartOverlay: document.getElementById('gameStartOverlay'),
@@ -586,9 +635,19 @@ socket.on('room:update', (state) => {
   syncChatMessages(state.chatMessages);
 });
 
-// 取得玩家頭貼 HTML (自訂頭貼 > 職業預設 > 預設頭像)
+// 取得玩家頭貼 HTML (變身形態 > 自訂頭貼 > 職業預設 > 預設頭像)
 function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   if (!player) return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
+
+  // 德魯伊變身形態優先顯示形態頭貼（狼人 / 遠古樹精）
+  if (player.role === 'druid' && player.druidForm) {
+    if (player.druidForm === 'werewolf') {
+      return `<img src="/photo/狼人.webp" class="${className} druid-transformed-avatar" alt="狼人">`;
+    } else if (player.druidForm === 'treant' || player.druidForm === 'tree') {
+      return `<img src="/photo/遠古樹精.webp" class="${className} druid-transformed-avatar" alt="遠古樹精">`;
+    }
+  }
+
   const roleInfo = player.role ? classesData[player.role] : null;
 
   // 1. 玩家自訂頭貼 (自訂照片或自訂頭像)
@@ -612,13 +671,22 @@ function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
 }
 
-// 取得職業標準圖像 HTML (Combat Resolution 規範：嚴禁使用自訂/Discord頭像，必須使用職業原畫)
+// 取得職業標準圖像 HTML (Combat Resolution 規範：嚴禁使用自訂/Discord頭像，必須使用職業原畫或變身原畫)
 function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait') {
   let roleKey = '';
+  let druidForm = null;
   if (typeof roleOrPlayer === 'string') {
     roleKey = roleOrPlayer;
   } else if (roleOrPlayer && typeof roleOrPlayer === 'object') {
     roleKey = roleOrPlayer.role || roleOrPlayer.sourceRole || '';
+    druidForm = roleOrPlayer.druidForm || null;
+  }
+  if (roleKey === 'druid' && druidForm) {
+    if (druidForm === 'werewolf') {
+      return `<img src="/photo/狼人.webp" class="${className}" alt="狼人">`;
+    } else if (druidForm === 'treant' || druidForm === 'tree') {
+      return `<img src="/photo/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
+    }
   }
   const roleInfo = roleKey ? classesData[roleKey] : null;
   if (roleInfo && roleInfo.avatar) {
@@ -936,9 +1004,10 @@ function renderPendingDropModal(me) {
   elements.equipDropModal.classList.remove('hidden');
 }
 
-// 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職: 黃色驚嘆號，無文字)
-function renderMemberStatusBadge(roleInfo) {
-  if (roleInfo) {
+// 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職或未按準備: 維持原本的黃色驚嘆號，無文字)
+function renderMemberStatusBadge(p, isThisLeader) {
+  const isReady = isThisLeader ? Boolean(p.role) : (Boolean(p.role) && Boolean(p.isReady));
+  if (isReady) {
     return `
       <span class="member-status-icon ready" title="已就緒" aria-label="已就緒">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -946,16 +1015,15 @@ function renderMemberStatusBadge(roleInfo) {
         </svg>
       </span>
     `;
-  } else {
-    return `
-      <span class="member-status-icon waiting" title="尚未選職" aria-label="尚未選職">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="13"></line>
-          <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-        </svg>
-      </span>
-    `;
   }
+  return `
+    <span class="member-status-icon waiting" title="尚未就緒" aria-label="尚未就緒">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="13"></line>
+        <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
+      </svg>
+    </span>
+  `;
 }
 
 // 1. 渲染大廳
@@ -968,9 +1036,10 @@ function renderLobby(me, isLeader) {
     const isThisMe = p.id === myId;
     const isThisLeader = p.id === roomState.leaderId;
     const roleInfo = p.role ? classesData[p.role] : null;
+    const canTransferToThis = isLeader && !isThisMe;
 
     const div = document.createElement('div');
-    div.className = `member-item ${isThisMe ? 'is-me' : ''}`;
+    div.className = `member-item ${isThisMe ? 'is-me' : ''} ${canTransferToThis ? 'can-transfer-leader' : ''}`;
 
     if (isThisMe) {
       div.innerHTML = `
@@ -989,7 +1058,7 @@ function renderLobby(me, isLeader) {
             ` : `
               <div class="member-name-row">
                 <span class="member-name">
-                  ${isThisLeader ? `<span class="crown-tag" title="隊長">${getIconSvg('flag')}</span>` : ''}
+                  ${isThisLeader ? `<span class="crown-tag">${getIconSvg('flag')}</span>` : ''}
                   <span class="member-name-text">${escapeHtml(p.name)}</span>
                   <span class="me-tag">(你)</span>
                 </span>
@@ -1004,7 +1073,7 @@ function renderLobby(me, isLeader) {
           </div>
         </div>
         <div class="member-status-col">
-          ${renderMemberStatusBadge(roleInfo)}
+          ${renderMemberStatusBadge(p, isThisLeader)}
         </div>
       `;
 
@@ -1074,7 +1143,7 @@ function renderLobby(me, isLeader) {
           </div>
           <div class="member-name-group">
             <span class="member-name">
-              ${isThisLeader ? `<span class="crown-tag" title="隊長">${getIconSvg('flag')}</span>` : ''}
+              ${isThisLeader ? `<span class="crown-tag">${getIconSvg('flag')}</span>` : ''}
               <span class="member-name-text">${escapeHtml(p.name)}</span>
             </span>
             <span class="member-role-tag">
@@ -1083,9 +1152,18 @@ function renderLobby(me, isLeader) {
           </div>
         </div>
         <div class="member-status-col">
-          ${renderMemberStatusBadge(roleInfo)}
+          ${renderMemberStatusBadge(p, isThisLeader)}
         </div>
       `;
+
+      if (canTransferToThis) {
+        div.title = '點擊轉移位子';
+        div.addEventListener('click', (e) => {
+          if (e.target.closest('button, input')) return;
+          playSound('click');
+          openTransferLeaderModal(p);
+        });
+      }
     }
 
     elements.lobbyMemberList.appendChild(div);
@@ -1094,18 +1172,35 @@ function renderLobby(me, isLeader) {
   // 更新角色選擇卡
   renderRoleSelectionGrid();
 
-  // 隊長出發按鈕判定
+  // 隊員準備按鈕狀態
+  if (elements.btnToggleReady) {
+    if (me?.isReady) {
+      if (elements.readyBtnText) elements.readyBtnText.textContent = '取消準備';
+      elements.btnToggleReady.className = 'btn btn-success btn-large full-width';
+    } else {
+      if (elements.readyBtnText) elements.readyBtnText.textContent = '準備就緒';
+      elements.btnToggleReady.className = 'btn btn-primary btn-large full-width';
+    }
+    elements.btnToggleReady.disabled = !me?.role;
+  }
+
+  // 隊長出發按鈕判定（需所有隊友已選職且非隊長成員皆已準備）
+  const otherMembers = roomState.players.filter(p => p.id !== roomState.leaderId);
+  const allReady = otherMembers.length === 0 || otherMembers.every(p => p.isReady);
   const allPicked = roomState.players.length > 0 && roomState.players.every(p => p.role);
   if (isLeader) {
     elements.leaderStartArea.classList.remove('hidden');
     elements.memberWaitArea.classList.add('hidden');
-    elements.btnStartGame.disabled = !allPicked;
-    if (allPicked) {
-      elements.startRequirementText.textContent = '小隊全體就緒！點擊開始冒險！';
-      elements.startRequirementText.style.color = '#16a34a';
-    } else {
-      elements.startRequirementText.textContent = '尚有隊員未完成選職';
+    elements.btnStartGame.disabled = !(allPicked && allReady);
+    if (!allPicked) {
+      elements.startRequirementText.textContent = '尚有成員未完成選職';
       elements.startRequirementText.style.color = '#dc2626';
+    } else if (!allReady) {
+      elements.startRequirementText.textContent = '尚有成員未準備就緒';
+      elements.startRequirementText.style.color = '#dc2626';
+    } else {
+      elements.startRequirementText.textContent = '全體就緒！點擊開始冒險！';
+      elements.startRequirementText.style.color = '#16a34a';
     }
   } else {
     elements.leaderStartArea.classList.add('hidden');
@@ -1122,7 +1217,7 @@ function renderRoleSelectionGrid() {
   elements.roleSelectionGrid.innerHTML = '';
 
   Object.entries(classesData).forEach(([roleKey, conf]) => {
-    // 找出所有選擇此職業的隊友（職業可重複選擇）
+    // 找出所有選擇此職業的成員（職業可重複選擇）
     const choosers = (roomState?.players || []).filter(p => p.role === roleKey);
     const isSelectedByMe = myRole === roleKey;
 
@@ -1134,7 +1229,7 @@ function renderRoleSelectionGrid() {
     let choosersHtml = '';
     if (choosers.length > 0) {
       choosersHtml = `<div class="role-card-choosers" style="margin-top:6px; font-size:0.75rem; color:#f59e0b; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-        ${getIconSvg('users')} <span>已選隊友: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
+        ${getIconSvg('users')} <span>已選擇: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
       </div>`;
     }
 
@@ -1924,11 +2019,18 @@ function renderTeammatesGrid(me) {
       const totalAtk = p.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
       const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
 
+      const minionPortraitsHtml = p.minions.map((m, idx) => {
+        const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+        return `<img src="${imgSrc}" class="minion-bar-thumb" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
+      }).join('');
+
       minionCard.innerHTML = `
         <div class="floating-text-container"></div>
         <div class="teammate-top">
           <span class="teammate-name-group">
-            <span class="minion-icon-wrap" style="display:inline-flex; align-items:center;">${getIconSvg('summon')}</span>
+            <span class="minion-icon-wrap" style="display:inline-flex; align-items:center; gap: 3px;">
+              ${minionPortraitsHtml}
+            </span>
             <span>${escapeHtml(p.name)}的僕從</span>
             <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看僕從詳細資訊">(${p.minions.length}/3)</button>
           </span>
@@ -2090,6 +2192,20 @@ function renderMyActionBar(me) {
       }
     }
 
+    if (skill.id === 'a_reload' || skill.id === 'a_frenzy_reload') {
+      const ammoCount = (me.ammo || []).length;
+      if (ammoCount >= 3) {
+        isCoolingDown = true;
+        cdBadgeText = '彈匣已滿(3/3)';
+      }
+    }
+
+    let displayLabel = skill.label;
+    if (skill.id === 'basic' && me.ammo && me.ammo.length > 0) {
+      const ammoIcons = me.ammo.map(a => a === 'pierce' ? '🔴' : a === 'elemental' ? '🔵' : '💥').join('');
+      displayLabel = `普攻: 重弩齊射 [${ammoIcons}]`;
+    }
+
     const isSelected = (currentPendingAction === skill.id);
     const tags = skill.tags || [skill.dmgType ? skill.dmgType.replace(/【|】/g, '') : '物理', '單體'];
 
@@ -2102,7 +2218,7 @@ function renderMyActionBar(me) {
 
     btn.innerHTML = `
       <div class="skill-btn-title">
-        <span>${skill.label}</span>
+        <span>${escapeHtml(displayLabel)}</span>
         ${isCoolingDown ? `<span class="skill-cd-badge">${cdBadgeText}</span>` : ''}
         <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
       </div>
@@ -2193,6 +2309,12 @@ function renderMyActionBar(me) {
     skipBtn.style.opacity = '0.6';
     skipBtn.style.cursor = 'not-allowed';
   }
+  const hasCrossbow = (me.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+  const skipDesc = (me.role === 'archer' && hasCrossbow)
+    ? '本回合放棄行動，保留技能冷卻，並卸除清空已裝備的弩箭。'
+    : '本回合放棄行動，保留技能冷卻。';
+  const skipTag = (me.role === 'archer' && hasCrossbow) ? '清空弩箭' : '蓄力';
+
   skipBtn.innerHTML = `
     <div class="skill-btn-title">
       <span>跳過回合</span>
@@ -2200,11 +2322,11 @@ function renderMyActionBar(me) {
     </div>
     <div class="skill-tags-row">
       <span class="skill-tag">防守</span>
-      <span class="skill-tag">蓄力</span>
+      <span class="skill-tag">${skipTag}</span>
     </div>
     <div class="skill-popover hidden">
       <div class="skill-popover-title"><span>跳過回合</span></div>
-      <div class="skill-popover-desc">本回合放棄行動，保留技能冷卻。</div>
+      <div class="skill-popover-desc">${skipDesc}</div>
     </div>
   `;
 
@@ -2221,6 +2343,10 @@ function renderMyActionBar(me) {
     if (isNarrating || isResolving || isLocked) return;
     currentPendingAction = 'skip';
     currentPendingTarget = null;
+    if (me.role === 'archer' && hasCrossbow && me.ammo && me.ammo.length > 0) {
+      me.ammo = [];
+      socket.emit('battle:clear_ammo');
+    }
     playSound('click');
     renderMyActionBar(me);
   });
@@ -2408,14 +2534,19 @@ function showMinionDetailModal(player) {
       const mHpPct = Math.max(0, Math.min(100, Math.round((m.hp / m.maxHp) * 100)));
       const isWolf = m.type === 'wolf';
       const typeBadge = isWolf ? '<span class="minion-detail-badge wolf">幼狼</span>' : '<span class="minion-detail-badge">小樹精</span>';
+      const minionAvatar = m.avatar || (isWolf ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
       const desc = isWolf 
         ? '<strong>每回合自動攻擊 10 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。' 
         : '<strong>每回合自動攻擊 1 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。';
+      const displayName = m.name?.match(/\d+$/) ? m.name : `${m.name} #${idx + 1}`;
 
       return `
         <div class="minion-detail-item">
           <div class="minion-detail-item-header">
-            <span class="name"><strong>${escapeHtml(m.name)} #${idx + 1}</strong></span>
+            <div style="display:flex; align-items:center; gap: 8px;">
+              <img src="${minionAvatar}" class="minion-modal-thumb" alt="${escapeHtml(m.name)}">
+              <span class="name"><strong>${escapeHtml(displayName)}</strong></span>
+            </div>
             ${typeBadge}
           </div>
           <div class="teammate-hp-bg" style="margin: 6px 0;">
@@ -2517,6 +2648,38 @@ function openRoleDetailModal(roleKey) {
               </div>
             `;
           }).join('')}
+        </div>
+      `;
+    }
+
+    if (roleKey === 'druid') {
+      html += `
+        <div class="role-detail-section">
+          <div class="role-detail-section-title">
+            <span>${getIconSvg('paw')}</span> <span>德魯伊變身形態與自然僕從</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 8px;">
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/狼人.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="狼人形態">
+              <div style="font-weight: 700; font-size: 13px; color: #f87171;">狼人形態</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">降低20%生命上限，普攻40傷</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/遠古樹精.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="遠古樹精形態">
+              <div style="font-weight: 700; font-size: 13px; color: #86efac;">遠古樹精形態</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">生命+100，減傷30%，分攤50%</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：小樹精">
+              <div style="font-weight: 700; font-size: 13px; color: #4ade80;">僕從：小樹精</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">肉盾守護，替隊伍吸收彈射傷</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(249, 115, 22, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/幼狼1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：幼狼">
+              <div style="font-weight: 700; font-size: 13px; color: #fb923c;">僕從：幼狼</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">敏捷撕咬，高攻擊僕從</div>
+            </div>
+          </div>
         </div>
       `;
     }
@@ -2696,6 +2859,80 @@ elements.btnStartGame.addEventListener('click', () => {
     if (!res.success) alert(res.message);
   });
 });
+
+// 隊員切換準備狀態
+let pendingTransferTarget = null;
+function openTransferLeaderModal(targetPlayer) {
+  if (!targetPlayer) return;
+  pendingTransferTarget = targetPlayer;
+  if (elements.transferLeaderModalDesc) {
+    elements.transferLeaderModalDesc.textContent = `確定要將位子移交給【${targetPlayer.name}】嗎？`;
+  }
+  if (elements.transferLeaderModal) {
+    elements.transferLeaderModal.classList.remove('hidden');
+  }
+}
+
+function closeTransferLeaderModal() {
+  pendingTransferTarget = null;
+  if (elements.transferLeaderModal) {
+    elements.transferLeaderModal.classList.add('hidden');
+  }
+}
+
+if (elements.btnCancelTransferLeader) {
+  elements.btnCancelTransferLeader.addEventListener('click', closeTransferLeaderModal);
+}
+
+if (elements.btnConfirmTransferLeader) {
+  elements.btnConfirmTransferLeader.addEventListener('click', () => {
+    if (!pendingTransferTarget) return;
+    const targetId = pendingTransferTarget.id;
+    closeTransferLeaderModal();
+    playSound('click');
+    socket.emit('room:transfer_leader', { targetId }, (res) => {
+      if (res && !res.success) alert(res.message);
+    });
+  });
+}
+
+if (elements.transferLeaderModal) {
+  elements.transferLeaderModal.addEventListener('click', (e) => {
+    if (e.target === elements.transferLeaderModal) {
+      closeTransferLeaderModal();
+    }
+  });
+}
+
+if (elements.btnToggleReady) {
+  elements.btnToggleReady.addEventListener('click', () => {
+    playSound('click');
+    socket.emit('room:toggle_ready', (res) => {
+      if (res && !res.success) alert(res.message);
+    });
+  });
+}
+
+// 離開隊伍
+if (elements.btnLeaveParty) {
+  elements.btnLeaveParty.addEventListener('click', () => {
+    const isLeader = roomState?.leaderId === myId;
+    const msg = isLeader
+      ? '確定要離開小隊嗎？\n（離開後職位將由第一順位成員繼承）'
+      : '確定要離開小隊嗎？';
+    if (!confirm(msg)) return;
+    playSound('click');
+    socket.emit('leave_party', () => {
+      roomState = null;
+      currentRoomCode = null;
+      currentActiveStage = 'NONE';
+      presentationManager.reset();
+      switchView('entry');
+      if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
+      renderApp();
+    });
+  });
+}
 
 // 休息站選擇：繼續
 elements.btnCpContinue.addEventListener('click', () => {
@@ -3167,6 +3404,8 @@ function playSinglePlayerVisualEvent(ev) {
     if (card) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身狼人!', 'buff');
       playPixelFx(card, 'wolf-claw');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/狼人.webp';
     }
     playSound('wolf_howl');
   } else if (ev.type === 'transform_treant') {
@@ -3174,12 +3413,32 @@ function playSinglePlayerVisualEvent(ev) {
     if (card) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身樹精!', 'heal');
       playPixelFx(card, 'treant-vine');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
     }
     playSound('treant_creak');
   } else if (ev.type === 'transform_tree') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '化身古樹(免死)!', 'heal');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '化身古樹(免死)!', 'heal');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
+    }
     playSound('heal_chime');
+  } else if (ev.type === 'transform_end') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '解除變身', 'buff');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) {
+        const p = (roomState && roomState.players && roomState.players.find(x => x.id === ev.sourceId));
+        const originalAvatar = (p && p.customAvatar) || (p && p.avatar) || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+        avatarImg.src = originalAvatar;
+        avatarImg.alt = (p && p.name) || '德魯伊';
+        avatarImg.classList.remove('druid-transformed-avatar');
+      }
+    }
+    playSound('buff');
   } else if (ev.type === 'surrender') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
     if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '狼王威壓·臣服!', 'dodge');
@@ -3413,10 +3672,33 @@ function updateBattleHudFromSnapshot(snapshot) {
           actionDot.className = 'action-status-dot ready';
           actionDot.textContent = '倒下・本層無法行動';
         }
+
+        // 德魯伊變身形態與頭像同步（結束變身時還原為原始德魯伊造型）
+        if (p.role === 'druid') {
+          const avatarImg = card.querySelector('.teammate-avatar-img');
+          if (avatarImg) {
+            if (p.druidForm === 'werewolf') {
+              const wolfSrc = '/photo/狼人.webp';
+              if (!avatarImg.src.endsWith(wolfSrc)) avatarImg.src = wolfSrc;
+              avatarImg.alt = '狼人';
+              avatarImg.classList.add('druid-transformed-avatar');
+            } else if (p.druidForm === 'treant' || p.druidForm === 'tree') {
+              const treantSrc = '/photo/遠古樹精.webp';
+              if (!avatarImg.src.endsWith(treantSrc)) avatarImg.src = treantSrc;
+              avatarImg.alt = '遠古樹精';
+              avatarImg.classList.add('druid-transformed-avatar');
+            } else {
+              const origSrc = p.customAvatar || p.avatar || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+              if (!avatarImg.src.endsWith(origSrc)) avatarImg.src = origSrc;
+              avatarImg.alt = p.name || '德魯伊';
+              avatarImg.classList.remove('druid-transformed-avatar');
+            }
+          }
+        }
       }
     });
 
-    // 德魯伊僕從 HP 更新
+    // 德魯伊僕從 HP 與縮圖更新
     const druid = roomState.players.find(p => p.role === 'druid');
     if (druid && druid.minions) {
       const minionCard = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${druid.id}"]`);
@@ -3426,6 +3708,13 @@ function updateBattleHudFromSnapshot(snapshot) {
         const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
         const minionFill = minionCard.querySelector('.teammate-hp-fill');
         if (minionFill) minionFill.style.width = `${totalHpPct}%`;
+        const iconWrap = minionCard.querySelector('.minion-icon-wrap');
+        if (iconWrap && druid.minions.length > 0) {
+          iconWrap.innerHTML = druid.minions.map((m, idx) => {
+            const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+            return `<img src="${imgSrc}" class="minion-bar-thumb" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
+          }).join('');
+        }
       }
     }
   }
@@ -3540,7 +3829,7 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
   if (!events || events.length === 0) return;
 
   const playerActions = events.filter(e =>
-    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
+    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'transform_end', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
   );
   const monsterAction = events.find(e => e.type === 'monster_attack');
 

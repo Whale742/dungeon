@@ -920,10 +920,19 @@ const DEFAULT_ROLE_AVATARS = {
 
 function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait') {
   let roleKey = '';
+  let druidForm = null;
   if (typeof roleOrPlayer === 'string') {
     roleKey = roleOrPlayer;
   } else if (roleOrPlayer && typeof roleOrPlayer === 'object') {
     roleKey = roleOrPlayer.role || roleOrPlayer.sourceRole || '';
+    druidForm = roleOrPlayer.druidForm || null;
+  }
+  if (roleKey === 'druid' && druidForm) {
+    if (druidForm === 'werewolf') {
+      return `<img src="/photo/狼人.webp" class="${className}" alt="狼人">`;
+    } else if (druidForm === 'treant' || druidForm === 'tree') {
+      return `<img src="/photo/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
+    }
   }
   const roleInfo = (typeof classesData !== 'undefined' && classesData[roleKey]) || DEFAULT_ROLE_AVATARS[roleKey];
   if (roleInfo && roleInfo.avatar) {

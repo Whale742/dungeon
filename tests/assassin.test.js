@@ -39,3 +39,26 @@ test('normal follow-up uses 10 damage, counts once, keeps hidden and crit progre
 test('capped assassin performs no further trigger rolls',t=>{const {room,p}=setup(t,4);hidden(p);p.followUpsThisRound=2;let calls=0;const old=Math.random;Math.random=()=>{calls++;return .1;};try{room.resolveAssassinFollowUps(room.players.p0,[],[],1,raw=>({dmg:raw}));}finally{Math.random=old;}assert.equal(calls,0);});
 test('lethal follow-up is queued before kill and victory waits for all viewers',t=>{const {room,p,queue}=setup(t,1);hidden(p);room.currentMonster.hp=25;roll(()=>room.resolveTurnActions());const q=queue();assert.equal(q.find(s=>s.category==='FOLLOW_UP').isLethal,true);assert.equal(q.at(-1).type,'kill');assert.equal(room.state,'IN_BATTLE');room.handlePresentationComplete('a',room.battlePresentationId,1);assert.equal(room.state,'IN_BATTLE');room.handlePresentationComplete('p0',room.battlePresentationId,1);assert.equal(room.state,'BATTLE_VICTORY');});
 test('bard same-floor revival preserves stacks without granting hidden or bypassing exhaustion',t=>{const {room,p}=setup(t,1);p.stealthStacks=3;p.hp=0;room.clearPlayerDebuffs(p);room.players.p0.role='bard';room.players.p0.action='b_revive';room.players.p0.targetPlayerId='a';roll(()=>room.resolveTurnActions());assert.equal(p.stealthStacks,3);assert.equal(p.isHiddenThisRound,false);assert.equal(p.stunnedNextTurn,true);assert.ok(p.hp>0);});
+
+test('assassin guaranteed critical on first damage of round 1 of first battle even with high random roll', t => {
+  const { room, p, queue } = setup(t, 0);
+  room.battleCount = 1;
+  room.battleRound = 1;
+  p.hasDealtFirstBattleCrit = false;
+  p.action = 'basic';
+  // Math.random returns 0.99 (would normally never crit since critRate is 0.5)
+  roll(() => room.resolveTurnActions(), 0.99);
+  const s = queue().find(s => s.type === 'player_action');
+  assert.equal(s.isCritical, true);
+  assert.equal(s.finalDamage, 20); // 10 * 2 = 20
+  assert.equal(p.hasDealtFirstBattleCrit, true);
+
+  // Subsequent attack in round 1 should NOT be guaranteed crit
+  room.battlePresentationAcks = new Set();
+  room.currentMonster.hp = 2000;
+  p.action = 'basic';
+  roll(() => room.resolveTurnActions(), 0.99);
+  const s2 = queue().find(s => s.type === 'player_action');
+  assert.equal(s2.isCritical, false);
+  assert.equal(s2.finalDamage, 10);
+});

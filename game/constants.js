@@ -72,8 +72,7 @@ export const CLASSES = {
     desc: '【生命 75】神秘調和者。精通強酸爆破、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體'], desc: '揮動燒瓶引發衝擊造成基礎魔法傷害。' },
-      { id: 'alc_acid', label: '1 技能 A: 腐蝕強酸瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '單體', '高風險'], desc: '投擲高濃度強酸重創目標，強酸濺射會對自身造成反噬自傷，全體裝備被腐蝕。' },
-      { id: 'alc_poison', label: '1 技能 B: 劇毒煙霧瓶', cd: 0, dmgType: 'mag', tags: ['魔法', 'DoT', '全體', '高風險'], desc: '砸碎毒瓶造成傷害與輕微自傷，使敵我雙方皆陷入劇毒，全體持續承受毒素傷害。' },
+      { id: 'alc_flask', label: '1 技能: 不穩定試劑瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '隨機', '高風險'], desc: '投擲調和試劑：50% 機率擲出【腐蝕強酸瓶】重創目標並腐蝕裝備；50% 機率引爆【劇毒煙霧瓶】使敵我陷入劇毒。' },
       { id: 'alc_fate', label: '2 技能: 命運煉成試劑', cd: 2, tags: ['淨化', '治療', '全體', '高風險'], desc: '立即驅散全隊所有負面狀態。可能煉金大成功或煉金失敗。' }
     ]
   },
@@ -83,6 +82,23 @@ export const CLASSES = {
     avatar: '/photo/Druid.webp',
     maxHp: 85,
     desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚僕從（小樹精/幼狼）。',
+    forms: {
+      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+    },
+    summons: {
+      treant: [
+        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+      ],
+      wolf: [
+        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+      ]
+    },
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '引導自然力量造成基礎自然打擊。' },
       { id: 'dru_transform', label: '1 技能: 形態轉變', cd: 0, tags: ['變身', '高風險'], desc: '有一半機率化身狼人/化身樹精' },
@@ -165,6 +181,13 @@ export const LOOT_TABLE = [
     bonusAtk: 20,
     dodgePenalty: 0.20,
     desc: '攻擊傷害 +20，但閃避機率降低 20%'
+  },
+  {
+    id: 'a_crossbow',
+    role: 'archer',
+    name: '改良型重弩',
+    isSpecial: true,
+    desc: '裝備後原有技能失效，替換為【戰術上膛】與【極速狂熱裝填】。裝填時獲得【架弩蹲伏】（減傷 20% 但無法閃避）；普通攻擊消耗彈匣弩箭齊射（穿甲物理／元素魔法／爆裂等量自傷）。不可重複穿戴'
   },
 
   // 刺客 (Assassin)
@@ -521,7 +544,12 @@ export const BATTLE_NARRATIVES = {
       case 'basic': {
         if (role === 'warrior') return `🛡️ **${name}** 雙手緊握沉重長劍踏步前壓，劍風呼嘯著在魔物身軀上狠狠劈出一道深痕！`;
         if (role === 'mage') return `🧙‍♂️ **${name}** 輕揮法杖引導元素微粒，指尖凝聚出一團藍白色的奧術魔彈轟向魔物！`;
-        if (role === 'archer') return `🏹 **${name}** 抽箭搭弦如滿月，離弦之箭撕裂空氣，化作一道白芒直刺魔物身軀！`;
+        if (role === 'archer') {
+          if (extra?.hasAmmo || (player.ammo && player.ammo.length > 0)) {
+            return `🏹💥 **${name}** 穩固重弩底座，扣動擊發扳機發動毀滅性的【重弩齊射】！`;
+          }
+          return `🏹 **${name}** 抽箭搭弦如滿月，離弦之箭撕裂空氣，化作一道白芒直刺魔物身軀！`;
+        }
         if (role === 'assassin') return `🗡️ **${name}** 身形如鬼魅般晃動，短匕如冷月寒芒，在魔物關節間切劃出凌厲傷痕！`;
         if (role === 'bard') return `🪕 **${name}** 輕巧撥動琴弦，激發出一道淡金色微光音波，穿透空氣打擊魔物！`;
         if (role === 'alchemist') return `⚗️ **${name}** 揮舞青銅研磨杵，帶著滾燙的藥劑殘渣狠狠砸向魔物！`;
@@ -543,7 +571,11 @@ export const BATTLE_NARRATIVES = {
       case 'a_shot':
         return `🏹 **${name}** 屏息凝神鎖定致命死角，疾風獵弓劇烈震顫，破甲重箭帶著呼嘯尖嘯貫穿而過！`;
       case 'a_rain':
-        return `🏹 **${name}** 朝地窟穹頂射出附魔光矢，光矢在空中分裂為漫天箭雨，暴雨般傾瀉而下壓制魔物凶焰！`;
+        return `🏹 **${name}** 朝地穹頂射出附魔光矢，光矢在空中分裂為漫天箭雨，暴雨般傾瀉而下壓制魔物凶焰！`;
+      case 'a_reload':
+        return `🏹🔧 **${name}** 迅速蹲伏架穩重弩，冷靜拉動絞盤裝填弩箭！`;
+      case 'a_frenzy_reload':
+        return `🏹⚡ **${name}** 壓低身形全力蹲伏，雙手化作殘影極速拉弦，瞬間填滿重弩彈匣！`;
       case 's_stab':
         if (extra.isCrit) {
           return `💥 **${name}** 抓住魔物轉瞬即逝的破綻瞬步突刺，染血利刃精準捅入最脆弱的心臟死穴！暴擊骨肉撕裂！`;
@@ -557,6 +589,11 @@ export const BATTLE_NARRATIVES = {
         return `🪕 **${name}** 琴音節奏驟然激昂高亢，戰意如烈火般燃燒！刺耳的共振聲波震顫著魔物身軀，撕裂其護甲防線！`;
       case 'b_revive':
         return `🕊️ **${name}** 唱響禁忌的甦生之曲，奇蹟的金光刺破死氣，將瀕死的隊友自深淵邊緣喚回人間！`;
+      case 'alc_flask':
+        if (extra?.flaskType === 'poison' || extra?.outcome === 'alchemy_poison') {
+          return `🧪 **${name}** 投擲【不穩定試劑瓶】引爆劇毒煙霧，致命的深紫色神經毒霧如浪潮般湧開，窒息般的劇毒迅速侵入敵我體內！`;
+        }
+        return `⚗️ **${name}** 投擲【不穩定試劑瓶】炸出高壓強酸，在魔物軀體上轟然炸裂，腐蝕性酸液瘋狂灼燒！`;
       case 'alc_acid':
         return `🧪 **${name}** 擲出冒著劇烈氣泡的高壓強酸燒瓶，在魔物軀體上轟然炸裂，腐蝕性酸液瘋狂灼燒！`;
       case 'alc_poison':
@@ -613,11 +650,11 @@ export function removeEquipStats(player, item) {
   }
 }
 
-// 檢查玩家是否可以裝備該物品（雙手劍及精靈木提琴不能重複穿戴）
+// 檢查玩家是否可以裝備該物品（雙手劍、精靈木提琴及改良型重弩不能重複穿戴）
 export function canPlayerEquipItem(player, drop, replaceIndex = -1) {
   if (!player || !drop) return false;
-  const uniqueEquipIds = ['w_greatsword', 'b_violin'];
-  const uniqueEquipNames = ['雙手劍', '精靈木提琴'];
+  const uniqueEquipIds = ['w_greatsword', 'b_violin', 'a_crossbow'];
+  const uniqueEquipNames = ['雙手劍', '精靈木提琴', '改良型重弩'];
   const isUnique = uniqueEquipIds.includes(drop.id) || uniqueEquipNames.includes(drop.name);
   if (isUnique) {
     const equips = player.equips || [];
@@ -729,16 +766,49 @@ export function getPlayerSkills(player) {
         };
       }
     }
+  } else if (player.role === 'archer') {
+    const hasCrossbow = equips.some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+    if (hasCrossbow) {
+      // 普攻描述更新
+      const basicSkill = baseSkills.find(s => s.id === 'basic');
+      if (basicSkill) {
+        basicSkill.desc = '消耗彈匣所有弩箭齊射。未裝填時造成基礎 10 點物理傷害；裝填時傷害大幅提升（1發45/2發63/3發89），依箭矢類型（穿甲物理／元素魔法／爆裂等量自傷）均分結算。';
+      }
+      // 1 技能替換為 戰術上膛
+      const idx1 = baseSkills.findIndex(s => s.id === 'a_shot');
+      if (idx1 !== -1) {
+        baseSkills[idx1] = {
+          id: 'a_reload',
+          label: '1 技能: 戰術上膛',
+          cd: 0,
+          dmgType: '【輔助】',
+          tags: ['裝填', '減傷', '無閃避'],
+          desc: '裝填 1 枚隨機弩箭（40%穿甲/40%元素/20%爆裂，彈匣上限 3 枚）。本回合觸發【架弩蹲伏】：受到的所有傷害降低 20%，但閃避率強制歸零無法閃避。'
+        };
+      }
+      // 2 技能替換為 極速狂熱裝填
+      const idx2 = baseSkills.findIndex(s => s.id === 'a_rain');
+      if (idx2 !== -1) {
+        baseSkills[idx2] = {
+          id: 'a_frenzy_reload',
+          label: '2 技能: 極速狂熱裝填',
+          cd: 3,
+          dmgType: '【輔助】',
+          tags: ['裝填', '減傷', '無閃避', '爆發'],
+          desc: '瞬間將彈匣補滿至 3 枚（缺幾發補幾發，每枚獨立判定）。本回合觸發【架弩蹲伏】：受到的所有傷害降低 20%，但閃避率強制歸零無法閃避。'
+        };
+      }
+    }
   }
 
   return baseSkills;
 }
 
-// 玩家行動優先權判定 (1: 淨化, 2: 復活, 3: 防禦/護盾, 4: 增益, 5: 治療, 6: 變身/召喚, 7: 敵方減益, 8: 攻擊技能)
+// 玩家行動優先權判定 (1: 淨化, 2: 復活, 3: 防禦/護盾/裝填蹲伏, 4: 增益, 5: 治療, 6: 變身/召喚, 7: 敵方減益, 8: 攻擊技能)
 export function getActionPriority(actionId) {
   if (actionId === 'alc_fate') return 1; // 1. 淨化 (Cleanse)
   if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)
-  if (actionId === 'w_shield') return 3; // 3. 防禦/護盾/免傷 (Defense / Mitigation)
+  if (actionId === 'w_shield' || actionId === 'a_reload' || actionId === 'a_frenzy_reload') return 3; // 3. 防禦/護盾/免傷/架弩蹲伏 (Defense / Mitigation)
   if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)
   if (actionId === 'b_heal') return 5; // 5. 治療 (Heal)
   if (actionId === 'dru_transform' || actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') return 6; // 6. 變身/召喚 (Transform / Summon)
@@ -945,18 +1015,11 @@ export const ROLE_DETAILS = {
         desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。'
       },
       {
-        type: '1 技能 A',
-        name: '腐蝕強酸瓶',
-        dmgType: '【魔法】',
+        type: '1 技能',
+        name: '不穩定試劑瓶',
+        dmgType: '【魔法/隨機】',
         cd: '無 CD',
-        desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果在本回合減半，回合結束還原。'
-      },
-      {
-        type: '1 技能 B',
-        name: '劇毒煙霧瓶',
-        dmgType: '【魔法】',
-        cd: '無 CD',
-        desc: '砸碎毒瓶造成 30 點傷害與輕微自傷 5 點，使敵我雙方皆陷入劇毒，全體後續 2 回合每回合初持續承受 5 點毒素傷害。'
+        desc: '投擲未完全調和的試劑瓶，50% 機率隨機施放【腐蝕強酸瓶】或【劇毒煙霧瓶】：\n・50% 腐蝕強酸瓶：造成 50 點魔法傷害，自身受到 15 點自傷，強酸濺射使本回合全體裝備效果減半。\n・50% 劇毒煙霧瓶：造成 30 點魔法傷害，自身受到 5 點自傷，敵我雙方陷入劇毒（每回合 5 點毒素傷害，持續 2 回合，毒傷可持續疊加）。\n※ 若裝備【精密滴管】可完全免疫兩種試劑帶來的自傷效果。'
       },
       {
         type: '2 技能',
@@ -975,6 +1038,23 @@ export const ROLE_DETAILS = {
     hp: 85,
     type: '物理 / 自然變形',
     passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    forms: {
+      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+    },
+    summons: {
+      treant: [
+        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+      ],
+      wolf: [
+        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+      ]
+    },
     skills: [
       {
         type: '普攻',
@@ -1015,3 +1095,25 @@ export const GAME_BALANCE = Object.freeze({
   werewolfMaxHpReduction: 0.20,
   treantDamageReduction: 0.30
 });
+
+// 改良型重弩彈藥隨機抽取與標籤輔助函式
+export function rollCrossbowAmmo() {
+  const r = Math.random();
+  if (r < 0.40) return 'pierce';
+  if (r < 0.80) return 'elemental';
+  return 'burst';
+}
+
+export function getCrossbowAmmoLabel(ammo) {
+  if (ammo === 'pierce') return '🔴 穿甲箭';
+  if (ammo === 'elemental') return '🔵 元素箭';
+  if (ammo === 'burst') return '💥 爆裂箭';
+  return ammo;
+}
+
+export function getCrossbowAmmoIcon(ammo) {
+  if (ammo === 'pierce') return '🔴';
+  if (ammo === 'elemental') return '🔵';
+  if (ammo === 'burst') return '💥';
+  return '▫️';
+}

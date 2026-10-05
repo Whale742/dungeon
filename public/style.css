@@ -1113,6 +1113,16 @@ input[type="text"]::placeholder {
   box-shadow: 0 3px 0 #1d4ed8;
 }
 
+.member-item.can-transfer-leader {
+  cursor: pointer;
+}
+
+.member-item.can-transfer-leader:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: 0 3px 0 #b45309;
+}
+
 .member-info-col {
   display: flex;
   align-items: center;
@@ -2982,6 +2992,42 @@ input[type="text"]::placeholder {
 .minion-count-badge:hover {
   background: #15803d;
   transform: scale(1.08);
+}
+
+.minion-bar-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  border: 1.5px solid rgba(74, 222, 128, 0.7);
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.minion-bar-thumb:hover {
+  transform: scale(1.15);
+}
+
+.minion-modal-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-xs);
+  border: 1.5px solid rgba(74, 222, 128, 0.6);
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.druid-transformed-avatar {
+  border: 2px solid #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  animation: pulseTransform 2s infinite ease-in-out;
+}
+
+@keyframes pulseTransform {
+  0%, 100% { box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.8); }
 }
 
 /* 德魯伊僕從詳細資訊 Modal (Game Window) */
