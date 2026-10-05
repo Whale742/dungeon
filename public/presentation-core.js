@@ -50,8 +50,12 @@ class SFXManager {
         alchemy_success: [523, 1046, .4, 'sine'], alchemy_failure: [370, 92, .3, 'sawtooth'],
         transform_wolf: [180, 75, .3, 'sawtooth'], transform_treant: [95, 48, .55, 'triangle'],
         summon_wolf: [240, 120, .24, 'sawtooth'], summon_treant: [140, 65, .45, 'triangle'],
+        vine_strike: [110, 65, .22, 'triangle'], reload_pull: [150, 240, .16, 'sawtooth'],
+        reload_insert: [900, 450, .07, 'triangle'], reload_lock: [1400, 850, .05, 'square'],
         minion_attack: [360, 160, .15, 'triangle'], minion_intercept: [180, 80, .18, 'square'],
-        revive_chime: [523, 1569, .45, 'sine']
+        revive_chime: [523, 1569, .45, 'sine'],
+        exhausted_apply: [160, 60, .32, 'sawtooth'], frenzy_burst: [587, 1174, .25, 'triangle'],
+        poison_puff: [240, 110, .18, 'sine']
       };
       if (supportVoices[type]) {
         const [start, end, duration, wave] = supportVoices[type];
@@ -918,28 +922,39 @@ const DEFAULT_ROLE_AVATARS = {
   druid: { name: '德魯伊', avatar: '/photo/Druid.webp', icon: 'paw' }
 };
 
-function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait') {
-  let roleKey = '';
-  let druidForm = null;
-  if (typeof roleOrPlayer === 'string') {
-    roleKey = roleOrPlayer;
-  } else if (roleOrPlayer && typeof roleOrPlayer === 'object') {
-    roleKey = roleOrPlayer.role || roleOrPlayer.sourceRole || '';
-    druidForm = roleOrPlayer.druidForm || null;
+// One resolver for HUD, cast, attacks, results and Lab. Explicit form always wins.
+function resolveBattlePortrait(descriptor = {}, options = {}) {
+  if (typeof descriptor === 'string') descriptor = { role: descriptor };
+  const role = descriptor.role || descriptor.sourceRole || 'warrior';
+  const form = descriptor.druidForm;
+  if (role === 'druid' && form === 'werewolf') return { src: '/photo/狼人.webp', name: '狼人', transformed: true };
+  if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: '/photo/遠古樹精.webp', name: '遠古樹精', transformed: true };
+  if (descriptor.entityType === 'minion' || descriptor.type === 'wolf' || descriptor.type === 'treant') {
+    const index = descriptor.minionIndex || 1;
+    return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然僕從' };
   }
-  if (roleKey === 'druid' && druidForm) {
-    if (druidForm === 'werewolf') {
-      return `<img src="/photo/狼人.webp" class="${className}" alt="狼人">`;
-    } else if (druidForm === 'treant' || druidForm === 'tree') {
-      return `<img src="/photo/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
-    }
+  if (descriptor.entityType === 'monster') return { src: descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp', name: descriptor.name || '首領' };
+  const override = options.allowCustom ? descriptor.customAvatar : null;
+  if (override) {
+    if (/^(data:image\/|https?:|\/)/.test(override)) return { src: override, name: descriptor.name || role };
+    return { emoji: override, name: descriptor.name || role };
   }
-  const roleInfo = (typeof classesData !== 'undefined' && classesData[roleKey]) || DEFAULT_ROLE_AVATARS[roleKey];
-  if (roleInfo && roleInfo.avatar) {
-    return `<img src="${roleInfo.avatar}" class="${className}" alt="${roleInfo.name || roleKey}">`;
-  }
-  const icon = roleInfo?.icon || 'shield';
-  return `<div class="${className} avatar-icon-badge">${getIconSvg(icon)}</div>`;
+  const info = (typeof classesData !== 'undefined' && classesData[role]) || DEFAULT_ROLE_AVATARS[role] || DEFAULT_ROLE_AVATARS.warrior;
+  return { src: descriptor.avatarOverride || (options.allowCustom && descriptor.avatar) || info.avatar, name: descriptor.name || info.name };
+}
+function battlePortraitHtml(descriptor, className = 'combat-banner-portrait', options = {}) {
+  const portrait = resolveBattlePortrait(descriptor, options);
+  if (portrait.emoji) return `<div class="${className} avatar-emoji-badge">${escapeHtml(portrait.emoji)}</div>`;
+  return `<img src="${escapeHtml(portrait.src)}" class="${className}${portrait.transformed ? ' druid-transformed-avatar' : ''}" alt="${escapeHtml(portrait.name)}">`;
+}
+function getClassPortraitHtml(descriptor, className = 'combat-banner-portrait') {
+  return battlePortraitHtml(descriptor, className);
+}
+function combatActorDescriptor(step) {
+  // Before snapshot prevents a final authoritative state from revealing a future form.
+  const actor = step.hpSnapshotBefore?.players?.find(p => p.id === step.sourceId);
+  if (actor) return actor;
+  return { role: step.sourceRole, druidForm: step.druidForm, name: step.sourceName };
 }
 
 function getClassDisplayName(roleOrPlayer) {

@@ -1885,7 +1885,10 @@ function renderBattle(me, isLeader) {
 
   // 怪物頭像
   if (monster.avatar) {
-    elements.monsterAvatar.innerHTML = `<img src="${monster.avatar}" class="monster-avatar-img" alt="${escapeHtml(monster.name)}">`;
+    elements.monsterAvatar.innerHTML = `<img src="${monster.avatar}" class="monster-avatar-img portrait-image" alt="${escapeHtml(monster.name)}">`;
+  if (typeof syncPortraitStatusFx === 'function') {
+    syncPortraitStatusFx(monster, elements.monsterAvatarWrap || elements.monsterAvatar, { scale: 1.1 });
+  }
   } else {
     elements.monsterAvatar.innerHTML = getIconSvg('sword', 'svg-hero-icon');
   }
@@ -1985,7 +1988,9 @@ function renderTeammatesGrid(me) {
       <div class="floating-text-container"></div>
       <div class="teammate-top">
         <span class="teammate-name-group">
-          ${getPlayerAvatarHtml(p, 'teammate-avatar-img')}
+          <span class="teammate-avatar-wrap portrait-root">
+            ${getPlayerAvatarHtml(p, 'teammate-avatar-img portrait-image')}
+          </span>
           <span>${escapeHtml(p.name)}</span>
           ${isThisMe ? '<span style="color:#2563eb; font-weight: 700;">(你)</span>' : ''}
         </span>
@@ -2005,6 +2010,11 @@ function renderTeammatesGrid(me) {
       <div class="equip-list" title="${escapeHtml(equipNames)}">[裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
     `;
     elements.battleTeammatesGrid.appendChild(card);
+
+    const avatarWrap = card.querySelector('.teammate-avatar-wrap');
+    if (avatarWrap && typeof syncPortraitStatusFx === 'function') {
+      syncPortraitStatusFx(p, avatarWrap, { scale: 0.28 });
+    }
 
     // 德魯伊召喚物暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
     if (p.minions && p.minions.length > 0) {
@@ -3605,6 +3615,9 @@ function updateBattleHudFromSnapshot(snapshot) {
       } else {
         elements.monsterAvatar.classList.remove('is-dead');
       }
+      if (typeof syncPortraitStatusFx === 'function') {
+        syncPortraitStatusFx(snapshot.monster, elements.monsterAvatarWrap || elements.monsterAvatar, { scale: 1.1 });
+      }
     }
   }
 
@@ -3675,25 +3688,41 @@ function updateBattleHudFromSnapshot(snapshot) {
 
         // 德魯伊變身形態與頭像同步（結束變身時還原為原始德魯伊造型）
         if (p.role === 'druid') {
-          const avatarImg = card.querySelector('.teammate-avatar-img');
-          if (avatarImg) {
-            if (p.druidForm === 'werewolf') {
-              const wolfSrc = '/photo/狼人.webp';
-              if (!avatarImg.src.endsWith(wolfSrc)) avatarImg.src = wolfSrc;
-              avatarImg.alt = '狼人';
-              avatarImg.classList.add('druid-transformed-avatar');
-            } else if (p.druidForm === 'treant' || p.druidForm === 'tree') {
-              const treantSrc = '/photo/遠古樹精.webp';
-              if (!avatarImg.src.endsWith(treantSrc)) avatarImg.src = treantSrc;
-              avatarImg.alt = '遠古樹精';
-              avatarImg.classList.add('druid-transformed-avatar');
+          const avatarEl = card.querySelector('.teammate-avatar-img');
+          if (avatarEl) {
+            const isEmoji = p.customAvatar && !p.customAvatar.startsWith('data:image/') && !p.customAvatar.startsWith('http') && !p.customAvatar.startsWith('/');
+            if (p.druidForm === 'werewolf' || p.druidForm === 'treant' || p.druidForm === 'tree') {
+              const formSrc = p.druidForm === 'werewolf' ? '/photo/狼人.webp' : '/photo/遠古樹精.webp';
+              const formAlt = p.druidForm === 'werewolf' ? '狼人' : '遠古樹精';
+              if (avatarEl.tagName === 'IMG') {
+                if (!avatarEl.src || !avatarEl.src.endsWith(formSrc)) avatarEl.src = formSrc;
+                avatarEl.alt = formAlt;
+                avatarEl.classList.add('druid-transformed-avatar');
+              } else if (typeof avatarEl.replaceWith === 'function') {
+                const temp = document.createElement('div');
+                temp.innerHTML = `<img src="${formSrc}" class="teammate-avatar-img druid-transformed-avatar" alt="${formAlt}">`;
+                if (temp.firstElementChild) avatarEl.replaceWith(temp.firstElementChild);
+              }
             } else {
-              const origSrc = p.customAvatar || p.avatar || (classesData['druid']?.avatar) || '/photo/Druid.webp';
-              if (!avatarImg.src.endsWith(origSrc)) avatarImg.src = origSrc;
-              avatarImg.alt = p.name || '德魯伊';
-              avatarImg.classList.remove('druid-transformed-avatar');
+              if (isEmoji) {
+                if (avatarEl.tagName !== 'DIV' && typeof avatarEl.replaceWith === 'function') {
+                  const temp = document.createElement('div');
+                  temp.innerHTML = `<div class="teammate-avatar-img avatar-emoji-badge">${escapeHtml(p.customAvatar)}</div>`;
+                  if (temp.firstElementChild) avatarEl.replaceWith(temp.firstElementChild);
+                }
+              } else if (avatarEl.tagName === 'IMG') {
+                const origSrc = p.customAvatar || p.avatar || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+                if (!avatarEl.src || !avatarEl.src.endsWith(origSrc)) avatarEl.src = origSrc;
+                avatarEl.alt = p.name || '德魯伊';
+                avatarEl.classList.remove('druid-transformed-avatar');
+              }
             }
           }
+        }
+
+        const avatarWrap = card.querySelector('.teammate-avatar-wrap');
+        if (avatarWrap && typeof syncPortraitStatusFx === 'function') {
+          syncPortraitStatusFx(p, avatarWrap, { scale: 0.28 });
         }
       }
     });

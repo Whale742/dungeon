@@ -259,7 +259,7 @@ export class Room {
       }
 
       if (this.state === 'IN_BATTLE') {
-        if (this.isAllPlayersDead()) {
+        if (Object.values(this.players).every(p => p.hp <= 0)) {
           this.handleGameOver();
         } else if (this.selectionState === 'SELECTING') {
           this.checkTurnCompletion();
@@ -1108,6 +1108,7 @@ export class Room {
         ...assassinState(p),
         statuses: playerStatuses(p, this, GAME_BALANCE),
         minions: structuredClone(p.minions || []),
+        ammo: [...(p.ammo || [])], isCrouchedThisRound: !!p.isCrouchedThisRound,
         maxHp: p.maxHp,
         tempHp: p.tempHp || 0,
         displayHp: p.hp + (p.tempHp || 0),
@@ -1770,8 +1771,8 @@ export class Room {
       return { dmg: Math.max(1, finalDmg), isResisted, resistPercent: Math.round(resistRate * 100) };
     };
 
-    // Compact minion combo shares this queue and retains independent hits.
-    for (const p of Object.values(this.players)) {
+    // Owner follow-up retains the existing damage formula and one hit per living minion.
+    const resolveMinionFollowUp = p => {
       const before = this.getHpSnapshot();
       const results = [];
       if (p.hp > 0) for (const m of p.minions || []) {
@@ -1779,17 +1780,19 @@ export class Room {
         const targetBefore = structuredClone(this.getHpSnapshot().monster);
         const { dmg } = applyResistanceDamage(Math.floor(m.atk * bardDmgMultiplier), 'phys');
         monster.hp = Math.max(0, monster.hp - dmg);
+        const snapshot = this.getHpSnapshot();
         results.push({ kind: 'damage', targetId: 'monster', minion: structuredClone(m),
-          targetBefore, targetAfter: structuredClone(this.getHpSnapshot().monster),
-          finalDamage: dmg, outcome: { type: 'normal' }, hpSnapshot: this.getHpSnapshot() });
+          targetBefore, targetAfter: snapshot.monster, damageType: 'physical',
+          finalDamage: dmg, outcome: { type: 'normal' }, hpSnapshot: snapshot });
         log.push({ text: `🐾 **${m.name}** 主動出擊造成 **${dmg}** 點傷害！`, type: 'combat' });
       }
       if (results.length) presentationQueue.push({ type: 'minion_action', category: 'MINION_ATTACK',
-        sourceId: p.id, sourceRole: p.role, skillName: '僕從聯擊', outcome: { type: 'normal' },
+        sourceId: p.id, sourceRole: p.role, sourceName: p.name, druidForm: p.druidForm,
+        skillName: '自然僕從・共擊', outcome: { type: 'normal' },
         targetId: 'monster', targetName: monster.name,
         monsterName: monster.name, monsterAvatar: monster.avatar,
         hpSnapshotBefore: before, hpSnapshot: this.getHpSnapshot(), results });
-    }
+    };
 
     // 2. 玩家行動結算 (依照 Priority 順序：1.淨化 2.復活 3.防禦 4.增益 5.治療 6.變身/召喚 7.敵方減益 8.攻擊技能，同順位依穩定順序)
     const getEffectiveBonusAtk = (pl) => pl.role === 'assassin' ? this.getAssassinBonusAtk(pl) : this.getEffectiveBonusAtk(pl);
@@ -1813,19 +1816,22 @@ export class Room {
       this.actionHeals = [];
       this.actionCleansedSnapshot = null;
       let actionOutcome = { type: 'normal' };
-      let summonedMinion = null;
+      let pendingWerewolfAttack = null;
       if (p.isSurrendered) {
         log.push({ text: `🐺 **${p.name}** 陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！`, type: 'warning' });
+        resolveMinionFollowUp(p);
         continue;
       }
 
       if (p.druidForm === 'tree') {
         log.push({ text: `🪵 **${p.name}** 化身為樹木休眠中，本回合無法行動！`, type: 'info' });
+        resolveMinionFollowUp(p);
         continue;
       }
 
       if (p.stunnedNextTurn) {
         log.push({ text: `💫 **${p.name}** 處於脫力虛脫狀態，本回合無法行動，正在努力調整呼吸！`, type: 'warning' });
+        resolveMinionFollowUp(p);
         continue;
       }
 
@@ -1839,11 +1845,13 @@ export class Room {
         } else {
           log.push({ text: `⏭️ **${p.name}** 選擇了保留實力，跳過了本回合行動！`, type: 'info' });
         }
+        resolveMinionFollowUp(p);
         continue;
       }
 
       if (!p.action) {
         log.push({ text: `⏳ **${p.name}** (${CLASSES[p.role]?.name || '勇者'}) 猶豫不決，本回合發呆！`, type: 'warning' });
+        resolveMinionFollowUp(p);
         continue;
       }
 
@@ -2460,13 +2468,9 @@ export class Room {
                 this.isWolfSurrenderGameOver = true;
               }
             } else {
-              // 變身當回合立即觸發一次強化普攻（造成 40 傷害）
+              // Calculate once, then resolve after the transform result has its own snapshot.
               const raw = Math.floor((40 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
-              const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
-              monster.hp -= dmg;
-              const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
-              log.push({ text: `🩸🐾 狼人 **${p.name}** 變身同時觸發【強化普攻】，狂暴利爪重創怪物造成 **${dmg}** 點【物理】傷害！${resNote}`, type: 'combat' });
-              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: true, label: '狼人強化普攻' });
+              pendingWerewolfAttack = applyResistanceDamage(raw, 'phys');
             }
           } else {
             p.druidForm = 'treant';
@@ -2513,7 +2517,7 @@ export class Room {
           log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】（HP ${treantMaxHp}/${treantMaxHp} · ATK ${treantAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: '小樹精' });
 
-          summonedMinion = newTreant;
+
           break;
         }
 
@@ -2552,7 +2556,7 @@ export class Room {
           log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】（HP ${wolfMaxHp}/${wolfMaxHp} · ATK ${wolfAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: '幼狼' });
 
-          summonedMinion = newWolf;
+
           break;
         }
       }
@@ -2592,6 +2596,8 @@ export class Room {
         sourceName: p.name,
         sourceRole: p.role,
         druidForm: p.druidForm,
+        ammoBefore: [...(snapshotTarget(actionBefore, p.id)?.ammo || [])],
+        ammoAfter: [...(p.ammo || [])],
         actionId: p.action,
         skillName: usedSkill ? usedSkill.label : (p.action === 'b_revive' ? '甦生之歌' : p.action === 'skip' ? '跳過回合' : p.action),
         tags: usedSkill ? (usedSkill.tags || []) : [],
@@ -2623,26 +2629,28 @@ export class Room {
         hpSnapshot: this.getHpSnapshot()
       });
 
-      // 登場攻擊是獨立事件；召喚快照保留攻擊前的敵人血量。
-      if (summonedMinion && monster.hp > 0) {
+      if (pendingWerewolfAttack && monster.hp > 0) {
         const before = this.getHpSnapshot();
-        const { dmg, isResisted, resistPercent } = applyResistanceDamage(
-          Math.floor(summonedMinion.attack * bardDmgMultiplier), 'phys');
+        const { dmg, isResisted, resistPercent } = pendingWerewolfAttack;
         monster.hp = Math.max(0, monster.hp - dmg);
         const after = this.getHpSnapshot();
         const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
-        const detail = `🐾 **${summonedMinion.name}** 登場突擊，造成 **${dmg}** 點傷害！${resNote}`;
+        const detail = `🩸🐾 狼人 **${p.name}** 變身後觸發【強化普攻】，造成 **${dmg}** 點【物理】傷害！${resNote}`;
         log.push({ text: detail, type: 'combat' });
-        presentationQueue.push({ type: 'minion_action', category: 'MINION_ATTACK',
-          sourceId: p.id, sourceName: p.name, sourceRole: p.role,
-          skillName: `${summonedMinion.name}突擊`, detail, outcome: { type: 'normal' },
-          monsterName: monster.name, monsterAvatar: monster.avatar,
+        presentationQueue.push({ type: 'player_action', category: 'OFFENSIVE',
+          sourceId: p.id, sourceName: p.name, sourceRole: p.role, druidForm: p.druidForm,
+          actionId: 'dru_claw', skillName: '狼人強化普攻', detail,
+          outcome: { type: 'critical', label: 'CRITICAL' }, isCritical: true,
+          targetId: 'monster', targetName: monster.name, monsterName: monster.name, monsterAvatar: monster.avatar,
+          finalDamage: dmg, damageType: 'physical', isLethal: monster.hp <= 0,
           hpSnapshotBefore: before, hpSnapshot: after,
-          results: [{ kind: 'damage', targetId: 'monster', minion: structuredClone(summonedMinion),
-            targetBefore: before.monster, targetAfter: after.monster,
-            finalDamage: dmg, damageType: 'physical', outcome: { type: 'normal' }, hpSnapshot: after }]
+          results: [{ kind: 'damage', targetId: 'monster', finalDamage: dmg,
+            targetBefore: before.monster, targetAfter: after.monster, damageType: 'physical',
+            outcome: { type: 'critical', label: 'CRITICAL' }, hpSnapshot: after }]
         });
       }
+
+      resolveMinionFollowUp(p);
 
       // 記錄該玩家行動敘述 (供舊版 Fallback 兼容)
       narratives.push({

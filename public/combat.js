@@ -57,6 +57,7 @@ async function enterCombatStage(context = {}) {
     presentationManager.setBlocking(true);
   }
 
+  preloadCombatFxAssets();
   await waitForPresentation(timing.overlayEnter, context.signal, speed);
 }
 
@@ -135,9 +136,9 @@ const COMBAT_PRESENTATION_PROFILES = Object.freeze({
     impactDelay: 90
   },
   druid: {
-    attackSfx: 'claw_slash',
-    impactSfx: 'heavy_impact',
-    fxType: 'claw_slash',
+    attackSfx: 'transform_treant',
+    impactSfx: 'physical_hit',
+    fxType: 'nature_strike',
     impactType: 'flash-physical',
     anticipationDelay: 220,
     impactDelay: 90
@@ -175,17 +176,68 @@ const COMBAT_SKILL_PROFILES = Object.freeze({
   boss_ult: { fxType: 'boss_claw', attackSfx: 'boss_heavy_attack', impactSfx: 'heavy_impact' }
 });
 
+const COMBAT_FX_ASSETS = Object.freeze({
+  werewolfClaw: '/assets/beast-claw-scratch.svg', bossClaw: '/assets/beast-claw-scratch.svg',
+  swordSlash: null, vineStrike: null, impactSpark: null, acidSplash: null, slashTexture: null
+});
+const COMBAT_FORM_PROFILES = Object.freeze({
+  werewolf: { fxType: 'claw_slash', attackSfx: 'claw_slash', impactSfx: 'heavy_impact', fxLead: 220 },
+  treant: { fxType: 'vine_strike', attackSfx: 'vine_strike', impactSfx: 'heavy_impact', fxLead: 160 },
+  tree: { fxType: 'vine_strike', attackSfx: 'vine_strike', impactSfx: 'heavy_impact', fxLead: 160 }
+});
+let combatFxPreload = null;
+const failedCombatFxAssets = new Set();
+function preloadCombatFxAssets() {
+  if (!combatFxPreload) combatFxPreload = Promise.all([...new Set(Object.values(COMBAT_FX_ASSETS).filter(Boolean))].map(src => {
+    const image = new Image(); image.src = src;
+    return image.decode().catch(() => { failedCombatFxAssets.add(src); });
+  }));
+  return combatFxPreload;
+}
 function getCombatProfile(step) {
   const isPlayer = step.type === 'player_action';
-  let baseRole = 'warrior';
-  if (!isPlayer) {
-    baseRole = 'boss';
-  } else if (step.sourceRole) {
-    baseRole = step.sourceRole.toLowerCase();
+  const role = isPlayer ? (step.sourceRole || 'warrior') : 'boss';
+  const base = COMBAT_PRESENTATION_PROFILES[role] || COMBAT_PRESENTATION_PROFILES.warrior;
+  const form = role === 'druid' ? COMBAT_FORM_PROFILES[combatActorDescriptor(step).druidForm] || {} : {};
+  const skill = COMBAT_SKILL_PROFILES[step.skillId || step.actionId] || {};
+  return { fxLead: role === 'boss' ? 300 : role === 'assassin' ? 220 : role === 'alchemist' ? 0 : 130, ...base, ...form, ...skill };
+}
+// Shared transient visual engine; every renderer routes through this helper.
+function createCombatFx({ type, target, direction = 'right', variant, speed = 1, reducedMotion = false }) {
+  const fx = document.createElement('div');
+  fx.className = 'presentation-combat-fx combat-fx-engine';
+  fx.dataset.fx = type; fx.dataset.direction = direction;
+  if (variant) fx.dataset.variant = variant;
+  fx.style.setProperty('--fx-speed', speed);
+  if (reducedMotion) fx.dataset.reducedMotion = 'true';
+  if (type === 'claw_slash' || type === 'boss_claw') {
+    const asset = type === 'boss_claw' ? COMBAT_FX_ASSETS.bossClaw : COMBAT_FX_ASSETS.werewolfClaw;
+    fx.classList.add('combat-fx-claw');
+    fx.style.setProperty('--claw-asset', `url("${asset}")`);
+    if (!asset || failedCombatFxAssets.has(asset)) fx.dataset.fallback = 'true';
+    for (let i = 0; i < 3; i++) {
+      const slice = document.createElement('div'); slice.className = 'combat-claw-slice';
+      slice.style.setProperty('--tear-index', i);
+      slice.innerHTML = '<i class="combat-claw-tear"></i>';
+      fx.appendChild(slice);
+    }
+  } else if (type === 'sword_slash' || type === 'cross_slash') {
+    fx.classList.add('combat-fx-arc');
+    fx.innerHTML = '<i class="combat-sword-arc"></i>' + (type === 'cross_slash' ? '<i class="combat-sword-arc is-second"></i>' : '');
+  } else if (type === 'vine_strike' || type === 'nature_strike') {
+    fx.classList.add('combat-fx-vine');
+    fx.innerHTML = '<i class="combat-vine-whip"></i><i class="combat-vine-whip is-root"></i>';
+  } else if (type === 'impact_spark' || type === 'arrow_projectile') {
+    fx.classList.add('combat-fx-spark');
+    fx.innerHTML = '<i></i><i></i><i></i>';
+  } else if (type === 'acid_projectile') {
+    fx.classList.add('combat-fx-bottle'); fx.innerHTML = '<i class="combat-bottle-neck"></i><i class="combat-bottle-glass"></i>';
+  } else {
+    fx.classList.add(type === 'acid_splash' ? 'presentation-combat-acid-fx' : 'presentation-combat-magic-fx');
   }
-  const roleProfile = COMBAT_PRESENTATION_PROFILES[baseRole] || (isPlayer ? COMBAT_PRESENTATION_PROFILES.warrior : COMBAT_PRESENTATION_PROFILES.boss);
-  const skillProfile = (step.skillId && COMBAT_SKILL_PROFILES[step.skillId]) || (step.actionId && COMBAT_SKILL_PROFILES[step.actionId]) || {};
-  return { ...roleProfile, ...skillProfile };
+  target.appendChild(fx);
+  fx.addEventListener('animationend', event => { if (event.target === fx) fx.remove(); });
+  return fx;
 }
 
 // 播放單一戰鬥動作全螢幕演出 (Player Action 或 Boss Action)
@@ -260,8 +312,10 @@ async function playCombatActionPresentation(step, context = {}) {
   // 2. 解析 Actor 肖像與名稱 (嚴格使用 Class Portrait 或 Boss Image，禁止 Discord/Generic)
   let actorPortraitHtml = '';
   let actorName = '';
+  let actorEntity = null;
   let targetPortraitHtml = '';
   let targetName = '';
+  let targetEntity = null;
 
   let targetHpBefore = 100;
   let targetHpAfter = 100;
@@ -270,13 +324,14 @@ async function playCombatActionPresentation(step, context = {}) {
   if (isPlayer) {
     // 玩家攻擊 Boss
     const roleKey = step.sourceRole || (typeof roomState !== 'undefined' && (roomState?.players || []).find(p => p.id === step.sourceId)?.role) || 'warrior';
-    const roleImg = `/photo/${roleKey.charAt(0).toUpperCase() + roleKey.slice(1)}.webp`;
-    actorPortraitHtml = `<img src="${roleImg}" class="presentation-combat-portrait-img" alt="${roleKey}">`;
+    actorEntity = combatActorDescriptor(step);
+    actorPortraitHtml = getClassPortraitHtml(actorEntity, 'presentation-combat-portrait-img');
     actorName = getClassDisplayName(roleKey);
 
     const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
-    targetPortraitHtml = `<img src="${mAvatar}" class="presentation-combat-portrait-img" alt="${escapeHtml(mName)}">`;
+    targetEntity = (typeof roomState !== 'undefined' && (roomState?.currentMonster || roomState?.monster)) || step.hpSnapshot?.monster || { name: mName, avatar: mAvatar };
+    targetPortraitHtml = battlePortraitHtml({ entityType: 'monster', avatar: mAvatar, name: mName }, 'presentation-combat-portrait-img');
     targetName = mName;
 
     targetMaxHp = step.targetMaxHp !== undefined ? step.targetMaxHp : ((typeof roomState !== 'undefined' && roomState?.currentMonster?.maxHp) || step.hpSnapshot?.monster?.maxHp || 120);
@@ -286,7 +341,8 @@ async function playCombatActionPresentation(step, context = {}) {
     // Boss 攻擊玩家
     const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
-    actorPortraitHtml = `<img src="${mAvatar}" class="presentation-combat-portrait-img" alt="${escapeHtml(mName)}">`;
+    actorEntity = (typeof roomState !== 'undefined' && (roomState?.currentMonster || roomState?.monster)) || step.hpSnapshot?.monster || { name: mName, avatar: mAvatar };
+    actorPortraitHtml = battlePortraitHtml({ entityType: 'monster', avatar: mAvatar, name: mName }, 'presentation-combat-portrait-img');
     actorName = mName;
 
     let targetRoleKey = 'warrior';
@@ -296,8 +352,9 @@ async function playCombatActionPresentation(step, context = {}) {
       const targetObj = (roomState?.players || []).find(p => p.id === step.targetId);
       if (targetObj?.role) targetRoleKey = targetObj.role;
     }
-    const roleImg = `/photo/${targetRoleKey.charAt(0).toUpperCase() + targetRoleKey.slice(1)}.webp`;
-    targetPortraitHtml = `<img src="${roleImg}" class="presentation-combat-portrait-img" alt="${targetRoleKey}">`;
+    const descriptor = step.hpSnapshotBefore?.players?.find(p => p.id === step.targetId) || { role: targetRoleKey };
+    targetEntity = descriptor;
+    targetPortraitHtml = getClassPortraitHtml(descriptor, 'presentation-combat-portrait-img');
     targetName = getClassDisplayName(targetRoleKey);
 
     const targetPlayerObj = (typeof roomState !== 'undefined' && (roomState?.players || []).find(p => p.id === step.targetId));
@@ -380,6 +437,16 @@ async function playCombatActionPresentation(step, context = {}) {
   `;
   canvas.appendChild(targetPositionWrap);
 
+  // Phase 7.2: Sync persistent portrait status FX on large combat portraits (50~70% scale)
+  const actorBoxEl = actorPositionWrap.querySelector('.presentation-combat-portrait-box');
+  if (actorBoxEl && actorEntity && typeof syncPortraitStatusFx === 'function') {
+    syncPortraitStatusFx(actorEntity, actorBoxEl, { scale: 1.2 });
+  }
+  const targetBoxEl = targetPositionWrap.querySelector('.presentation-combat-portrait-box');
+  if (targetBoxEl && targetEntity && typeof syncPortraitStatusFx === 'function') {
+    syncPortraitStatusFx(targetEntity, targetBoxEl, { scale: 1.2 });
+  }
+
   // --- STEP 1: 面板快速切入音效與交錯進場 (Shoo Sweep SFX & Interleaved Entry) ---
   playSound('panel_sweep');
   emitTiming('panel_sweep');
@@ -408,6 +475,7 @@ async function playCombatActionPresentation(step, context = {}) {
   if (profile.fxType === 'arrow_projectile') {
     if (profile.flightSfx) playSound(profile.flightSfx);
     const arrow = document.createElement('div');
+    arrow.dataset.ammo = step.ammoBefore?.[0] || '';
     arrow.className = `presentation-combat-arrow-projectile ${isPlayer ? 'fly-right' : 'fly-left'} ${missed ? 'is-miss' : ''}`;
     arrow.innerHTML = `
       <div class="presentation-combat-arrow-shaft"></div>
@@ -417,7 +485,18 @@ async function playCombatActionPresentation(step, context = {}) {
 
   }
 
-  await wait(timing.anticipation || 250);
+  if (profile.fxType === 'acid_splash') {
+    createCombatFx({ type: 'acid_projectile', target: canvas, speed, reducedMotion: context.reducedMotion });
+  }
+
+  const fxLead = ['claw_slash', 'boss_claw'].includes(profile.fxType) ? 0 : profile.fxLead;
+  await wait(Math.max(0, (timing.anticipation || 250) - fxLead));
+  const attackTarget = targetPositionWrap.querySelector('#combatTargetBox');
+  if (!missed && profile.fxType !== 'arrow_projectile') {
+    createCombatFx({ type: profile.fxType, target: attackTarget, direction: isPlayer ? 'right' : 'left', speed, reducedMotion: context.reducedMotion });
+    emitTiming('attack_fx');
+  }
+  if (fxLead > 0) await wait(fxLead);
 
   // --- STEP 3: 目標受擊反應與專屬 Hit FX (Target Portrait Impact, Knock, Flash) ---
   emitTiming('impact_start');
@@ -451,25 +530,13 @@ async function playCombatActionPresentation(step, context = {}) {
     impactOverlay.className = `presentation-combat-impact-overlay ${profile.impactType || (isMagic ? 'flash-magic' : 'flash-physical')}`;
   }
 
-  // 生成角色專屬 Hit FX (Target Portrait Box 內)
-  if (targetBox) {
-    const fx = document.createElement('div');
-    if (profile.fxType === 'cross_slash') {
-      fx.className = 'presentation-combat-fx presentation-combat-cross-slash-fx';
-      fx.innerHTML = '<div class="slash-1"></div><div class="slash-2"></div>';
-    } else if (profile.fxType === 'arcane_burst') {
-      fx.className = 'presentation-combat-fx presentation-combat-magic-fx';
-    } else if (profile.fxType === 'acid_splash') {
-      fx.className = 'presentation-combat-fx presentation-combat-acid-fx';
-    } else if (profile.fxType === 'claw_slash') {
-      fx.className = 'presentation-combat-fx presentation-combat-claw-fx';
-    } else if (profile.fxType === 'boss_claw') {
-      fx.className = 'presentation-combat-fx presentation-combat-boss-fx';
-    } else {
-      fx.className = 'presentation-combat-fx presentation-combat-slash-fx';
-    }
-    targetBox.appendChild(fx);
-
+  if (targetBox && ['sword_slash', 'arrow_projectile'].includes(profile.fxType)) {
+    createCombatFx({ type: 'impact_spark', target: targetBox, speed, reducedMotion: context.reducedMotion });
+  }
+  if (targetBox && typeof triggerPortraitStatusEvent === 'function') {
+    triggerPortraitStatusEvent(targetBox, 'vulnerable', 'hit');
+    triggerPortraitStatusEvent(targetBox, 'shield', 'block');
+    triggerPortraitStatusEvent(targetBox, 'guard', 'hit');
   }
 
   // --- STEP 4: 傷害數字與生命條動態扣除 (Floating Damage & HP Bar Animation) ---

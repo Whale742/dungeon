@@ -116,7 +116,7 @@ test('full minion slots produce no summon or arrival attack', t => {
   resolve(room);
   const steps = queue().queue;
   assert.equal(steps.filter(s => s.category === 'MINION_ATTACK').length, 1);
-  assert.equal(steps.find(s => s.category === 'SUMMON').results.some(r => r.kind === 'summon'), false);
+  assert.equal(steps.find(s => s.category === 'SUMMON').results.some(r => r.minions?.length), false);
 });
 
 test('three minions have three ordered hits, fatal hit still requires all viewer ACKs', t => {

@@ -1,0 +1,790 @@
+/* ==========================================================================
+   PORTRAIT STATUS FX SYSTEM (Phase 7.2 - Persistent Status FX)
+   Shared across Battle HUD, Presentation Result Card, Large Combat Portrait, and Boss.
+   ========================================================================== */
+
+:root {
+  --portrait-fx-scale: 1;
+}
+
+/* ==========================================================================
+   1. PORTRAIT ROOT & LAYER ARCHITECTURE
+   Layers:
+     portrait-root
+       -> portrait-image
+       -> status-fx-back
+       -> status-fx-surface
+       -> status-fx-front
+       -> impact-fx (optional overlay)
+       -> floating-result / HUD tags
+   ========================================================================== */
+
+.portrait-root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.portrait-root .portrait-image {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: filter 300ms ease, opacity 300ms ease, transform 300ms ease;
+}
+
+/* Base FX Layers */
+.status-fx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.status-fx-back {
+  z-index: 1;
+}
+
+.status-fx-surface {
+  z-index: 3;
+}
+
+.status-fx-front {
+  z-index: 4;
+}
+
+/* Container scale presets */
+.teammate-avatar-wrap {
+  width: 30px;
+  height: 30px;
+  --portrait-fx-scale: 0.28;
+  border-radius: var(--radius-xs, 4px);
+  overflow: visible;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.teammate-avatar-wrap .portrait-image {
+  border-radius: var(--radius-xs, 4px);
+  border: 1.5px solid var(--color-border, #1f293d);
+  box-shadow: 0 2px 0 #131b2e;
+}
+
+.monster-avatar-wrap {
+  --portrait-fx-scale: 1.1;
+  overflow: visible;
+}
+
+.presentation-combat-portrait-box {
+  --portrait-fx-scale: 1.6;
+  overflow: visible;
+}
+
+.presentation-result-portrait {
+  --portrait-fx-scale: 0.95;
+  overflow: visible;
+}
+
+/* Base Status FX Node */
+.status-fx-item {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 280ms ease, transform 280ms ease;
+  animation-fill-mode: both;
+}
+
+.status-fx-item.is-exiting {
+  opacity: 0 !important;
+  transform: scale(0.92);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+/* ==========================================================================
+   2. DOWNED (Terminal Portrait State)
+   - 100% Grayscale, translateY(6px), opacity 0.55
+   - No breathing, no red scan, completely quiet
+   ========================================================================== */
+.portrait-root.is-downed .portrait-image {
+  filter: grayscale(1) !important;
+  transform: translateY(calc(6px * var(--portrait-fx-scale)));
+  opacity: 0.55 !important;
+}
+
+/* ==========================================================================
+   3. EXHAUSTED (Downward Red Energy Drain)
+   - Semi-transparent dark red gradient block (35% height) drifting TOP -> BOTTOM
+   - Duration: 1.8s linear loop
+   - Portrait desaturation (-15%) & brightness (-8%)
+   ========================================================================== */
+.portrait-root.has-exhausted .portrait-image {
+  filter: saturate(0.82) brightness(0.92);
+}
+
+.status-fx--exhausted {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.status-fx--exhausted::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40%;
+  top: -40%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(175, 32, 48, 0.08) 25%,
+    rgba(185, 28, 45, 0.26) 65%,
+    transparent 100%
+  );
+  animation: exhaustedDrain 1.85s linear infinite;
+}
+
+@keyframes exhaustedDrain {
+  0% {
+    top: -40%;
+    opacity: 0.4;
+  }
+  20% {
+    opacity: 0.95;
+  }
+  80% {
+    opacity: 0.95;
+  }
+  100% {
+    top: 110%;
+    opacity: 0.2;
+  }
+}
+
+/* ==========================================================================
+   4. BARD FRENZY (Gold Stars + Music Pulse + Rim Light)
+   - 4-point SVG/CSS diamond stars (3-5 items staggered)
+   - Subtle warm gold music pulse ring (1.6s)
+   - Gentle warm rim light
+   ========================================================================== */
+.portrait-root.has-frenzy .portrait-image {
+  box-shadow: 0 0 calc(10px * var(--portrait-fx-scale)) rgba(245, 158, 11, 0.25);
+}
+
+.status-fx--frenzy-ring {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(251, 191, 36, 0.35);
+  animation: frenzyMusicPulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes frenzyMusicPulse {
+  0% {
+    transform: scale(0.84);
+    opacity: 0.35;
+  }
+  80% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+.status-fx-star {
+  position: absolute;
+  width: calc(10px * var(--portrait-fx-scale));
+  height: calc(10px * var(--portrait-fx-scale));
+  color: #fbbf24;
+  opacity: 0;
+  animation: frenzyStarFloat 1.7s ease-in-out infinite;
+}
+
+.status-fx-star svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.8));
+}
+
+.status-fx-star:nth-child(1) {
+  top: -8%;
+  left: 20%;
+  animation-delay: 0s;
+  animation-duration: 1.5s;
+}
+.status-fx-star:nth-child(2) {
+  top: 15%;
+  right: -8%;
+  animation-delay: 0.4s;
+  animation-duration: 1.9s;
+  transform: scale(0.85);
+}
+.status-fx-star:nth-child(3) {
+  bottom: -6%;
+  left: 65%;
+  animation-delay: 0.85s;
+  animation-duration: 1.6s;
+  transform: scale(1.15);
+}
+.status-fx-star:nth-child(4) {
+  bottom: 25%;
+  left: -8%;
+  animation-delay: 1.2s;
+  animation-duration: 2.1s;
+  transform: scale(0.75);
+}
+
+@keyframes frenzyStarFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4) rotate(0deg);
+  }
+  30% {
+    opacity: 0.95;
+    transform: translateY(-4px) scale(1) rotate(15deg);
+  }
+  75% {
+    opacity: 0.85;
+    transform: translateY(-10px) scale(0.85) rotate(35deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-15px) scale(0.5) rotate(50deg);
+  }
+}
+
+/* Frenzy Off-key Discord Cue */
+.status-fx--frenzy.is-off-key .status-fx-star {
+  animation: frenzyJitter 320ms steps(3) !important;
+  color: #f43f5e !important;
+}
+@keyframes frenzyJitter {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-3px, 2px) rotate(-10deg); }
+  75% { transform: translate(3px, -2px) rotate(10deg); }
+}
+
+/* ==========================================================================
+   5. POISON (Subtle Bottom Toxic Fog + 3~5 Floating Bubbles)
+   - Bottom 25% muted toxic green gradient
+   - 3-5 small toxic green bubbles floating up and popping
+   ========================================================================== */
+.status-fx--poison-fog {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    0deg,
+    rgba(34, 197, 94, 0.22) 0%,
+    rgba(22, 163, 74, 0.08) 22%,
+    transparent 35%
+  );
+  pointer-events: none;
+}
+
+.status-fx-bubble {
+  position: absolute;
+  bottom: 4%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(134, 239, 172, 0.9), rgba(34, 197, 94, 0.6) 60%, rgba(20, 83, 45, 0.8));
+  border: 1px solid rgba(187, 247, 208, 0.7);
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+  animation: poisonBubbleRise 2.1s ease-out infinite;
+  opacity: 0;
+}
+
+.status-fx-bubble:nth-child(1) {
+  left: 20%;
+  width: calc(7px * var(--portrait-fx-scale));
+  height: calc(7px * var(--portrait-fx-scale));
+  animation-delay: 0s;
+  animation-duration: 1.8s;
+}
+.status-fx-bubble:nth-child(2) {
+  left: 45%;
+  width: calc(9px * var(--portrait-fx-scale));
+  height: calc(9px * var(--portrait-fx-scale));
+  animation-delay: 0.6s;
+  animation-duration: 2.3s;
+}
+.status-fx-bubble:nth-child(3) {
+  left: 72%;
+  width: calc(6px * var(--portrait-fx-scale));
+  height: calc(6px * var(--portrait-fx-scale));
+  animation-delay: 1.2s;
+  animation-duration: 1.9s;
+}
+.status-fx-bubble:nth-child(4) {
+  left: 32%;
+  width: calc(8px * var(--portrait-fx-scale));
+  height: calc(8px * var(--portrait-fx-scale));
+  animation-delay: 1.6s;
+  animation-duration: 2.1s;
+}
+
+@keyframes poisonBubbleRise {
+  0% {
+    bottom: 4%;
+    opacity: 0;
+    transform: scale(0.6) translateX(0);
+  }
+  20% {
+    opacity: 0.65;
+  }
+  75% {
+    opacity: 0.6;
+    transform: scale(1) translateX(calc(3px * var(--portrait-fx-scale)));
+  }
+  90% {
+    opacity: 0.5;
+    transform: scale(1.3) translateX(calc(-2px * var(--portrait-fx-scale)));
+  }
+  100% {
+    bottom: 48%;
+    opacity: 0;
+    transform: scale(1.45) translateX(calc(1px * var(--portrait-fx-scale)));
+  }
+}
+
+/* Poison Tick Pulse */
+.status-fx--poison.is-tick {
+  animation: poisonTickPulse 320ms ease-out;
+}
+@keyframes poisonTickPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35) drop-shadow(0 0 8px rgba(34, 197, 94, 0.7)); }
+}
+
+/* ==========================================================================
+   6. BLEED (Dark Red Stylized Slash Wounds)
+   - 2 stylized subtle dark red wound marks
+   - Breathing opacity (0.28 <-> 0.55, 2s)
+   ========================================================================== */
+.status-fx--bleed-wound {
+  position: absolute;
+  width: calc(36px * var(--portrait-fx-scale));
+  height: calc(3px * var(--portrait-fx-scale));
+  background: linear-gradient(90deg, transparent, #b91c1c 20%, #ef4444 50%, #991b1b 80%, transparent);
+  border-radius: 2px;
+  box-shadow: 0 0 3px rgba(185, 28, 28, 0.6);
+  opacity: 0.35;
+  animation: bleedPulse 2s ease-in-out infinite;
+}
+
+.status-fx--bleed-wound:nth-child(1) {
+  top: 32%;
+  left: 18%;
+  transform: rotate(-25deg);
+  animation-delay: 0s;
+}
+.status-fx--bleed-wound:nth-child(2) {
+  top: 48%;
+  right: 15%;
+  width: calc(28px * var(--portrait-fx-scale));
+  transform: rotate(20deg);
+  animation-delay: 0.8s;
+}
+
+@keyframes bleedPulse {
+  0%, 100% { opacity: 0.28; }
+  50% { opacity: 0.58; }
+}
+
+.status-fx--bleed.is-tick .status-fx--bleed-wound {
+  opacity: 0.95;
+  filter: brightness(1.5);
+  box-shadow: 0 0 8px #ef4444;
+  transition: opacity 120ms, filter 120ms;
+}
+
+/* ==========================================================================
+   7. SHIELD (Persistent Cyan Protective Contour)
+   - Hexagonal / Shield arc contour with slow breathing
+   - Block flash & break shard animation
+   ========================================================================== */
+.status-fx--shield {
+  position: absolute;
+  inset: -6%;
+  border-radius: inherit;
+  border: calc(1.8px * var(--portrait-fx-scale)) solid rgba(34, 211, 238, 0.6);
+  box-shadow: inset 0 0 calc(10px * var(--portrait-fx-scale)) rgba(34, 211, 238, 0.2),
+              0 0 calc(10px * var(--portrait-fx-scale)) rgba(34, 211, 238, 0.35);
+  animation: shieldBreathe 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shieldBreathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.99); }
+  50% { opacity: 0.65; transform: scale(1.02); }
+}
+
+.status-fx--shield.is-block {
+  animation: shieldBlockRipple 240ms ease-out !important;
+}
+@keyframes shieldBlockRipple {
+  0% { filter: brightness(2.2); transform: scale(1.08); opacity: 1; }
+  100% { filter: brightness(1); transform: scale(1); opacity: 0.5; }
+}
+
+.status-fx--shield.is-break {
+  animation: shieldBreakFlash 320ms ease-out forwards !important;
+}
+@keyframes shieldBreakFlash {
+  0% { transform: scale(1.1); filter: brightness(2.5); opacity: 1; border-color: #67e8f9; }
+  60% { transform: scale(1.15); opacity: 0.8; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+
+/* ==========================================================================
+   8. GUARD (Steel Blue Defensive Sheen / Plates)
+   - Steel blue edge plates, distinct from Cyan Shield
+   ========================================================================== */
+.status-fx--guard {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.status-fx--guard::before,
+.status-fx--guard::after {
+  content: '';
+  position: absolute;
+  top: 15%;
+  bottom: 15%;
+  width: calc(3px * var(--portrait-fx-scale));
+  background: linear-gradient(180deg, transparent, #64748b 20%, #94a3b8 50%, #64748b 80%, transparent);
+  box-shadow: 0 0 calc(6px * var(--portrait-fx-scale)) rgba(148, 163, 184, 0.55);
+  opacity: 0.5;
+  animation: guardSheen 2.5s ease-in-out infinite;
+}
+.status-fx--guard::before { left: 2%; }
+.status-fx--guard::after { right: 2%; }
+
+@keyframes guardSheen {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+
+.status-fx--guard.is-hit::before,
+.status-fx--guard.is-hit::after {
+  opacity: 1;
+  background: #cbd5e1;
+  box-shadow: 0 0 10px #e2e8f0;
+}
+
+/* ==========================================================================
+   9. VULNERABLE (Red Target Brackets)
+   - 4-corner brackets breathing 1.08 <-> 0.96 (1.7s)
+   ========================================================================== */
+.status-fx--vulnerable {
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  animation: vulnerableBreath 1.7s ease-in-out infinite;
+}
+
+.status-fx--vulnerable-corner {
+  position: absolute;
+  width: calc(10px * var(--portrait-fx-scale));
+  height: calc(10px * var(--portrait-fx-scale));
+  border-color: #ef4444;
+  border-style: solid;
+  border-width: 0;
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
+}
+.status-fx--vulnerable-corner.tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+.status-fx--vulnerable-corner.tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+.status-fx--vulnerable-corner.bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+.status-fx--vulnerable-corner.br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+@keyframes vulnerableBreath {
+  0%, 100% { transform: scale(1.06); opacity: 0.42; }
+  50% { transform: scale(0.96); opacity: 0.75; }
+}
+
+.status-fx--vulnerable.is-hit {
+  animation: vulnerableSnap 200ms ease-out !important;
+}
+@keyframes vulnerableSnap {
+  0% { transform: scale(1.12); opacity: 1; }
+  50% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+/* ==========================================================================
+   10. DODGE UP (Cyan Afterimage Ghost)
+   - Semi-transparent silhouette drifting X 5~10px every 1.8s
+   - Pale cyan/blue, distinct from Assassin purple
+   ========================================================================== */
+.status-fx--dodge {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.status-fx--dodge-ghost {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  box-shadow: inset 0 0 6px rgba(103, 232, 249, 0.25);
+  animation: dodgeGhostSweep 1.9s ease-out infinite;
+}
+
+@keyframes dodgeGhostSweep {
+  0% {
+    transform: translateX(0);
+    opacity: 0.55;
+  }
+  60% {
+    transform: translateX(calc(9px * var(--portrait-fx-scale)));
+    opacity: 0.15;
+  }
+  100% {
+    transform: translateX(calc(14px * var(--portrait-fx-scale)));
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   11. HIDDEN / STEALTH (Deep Blue-Violet Smoke & Ghost Afterimage)
+   - Opacity 0.78, deep blue-violet smoke wisps
+   - Gentle horizontal ghost afterimage (2.1s)
+   ========================================================================== */
+.portrait-root.has-hidden .portrait-image {
+  opacity: 0.78;
+  filter: brightness(0.72) contrast(1.1) drop-shadow(0 0 8px rgba(76, 29, 149, 0.5));
+}
+
+.status-fx--hidden-smoke {
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 60%, rgba(91, 33, 182, 0.35), transparent 70%);
+  filter: blur(calc(6px * var(--portrait-fx-scale)));
+  animation: hiddenSmokeBreathe 2.3s ease-in-out infinite;
+}
+
+.status-fx--hidden-ghost {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(124, 58, 237, 0.15);
+  animation: hiddenGhostDrift 2.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes hiddenSmokeBreathe {
+  0%, 100% { opacity: 0.45; transform: scale(0.96); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes hiddenGhostDrift {
+  0% { transform: translateX(0); opacity: 0.45; }
+  60% { transform: translateX(calc(-6px * var(--portrait-fx-scale))); opacity: 0.12; }
+  100% { transform: translateX(calc(-10px * var(--portrait-fx-scale))); opacity: 0; }
+}
+
+.status-fx--hidden.is-breaking {
+  animation: hiddenBreakPull 240ms ease-in forwards !important;
+}
+@keyframes hiddenBreakPull {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.75); opacity: 0; filter: blur(0); }
+}
+
+/* ==========================================================================
+   12. SLEEP (Floating Z Markers + Desaturation)
+   - 2-3 stylized text/SVG Z floating upward-right
+   ========================================================================== */
+.portrait-root.has-sleep .portrait-image {
+  filter: brightness(0.75) saturate(0.65);
+}
+
+.status-fx-sleep-z {
+  position: absolute;
+  font-family: var(--font-display, "Cinzel", serif);
+  font-weight: 800;
+  color: #93c5fd;
+  text-shadow: 0 0 4px #3b82f6;
+  opacity: 0;
+  animation: sleepZDrift 2.4s ease-out infinite;
+}
+
+.status-fx-sleep-z:nth-child(1) {
+  top: 35%;
+  right: 25%;
+  font-size: calc(11px * var(--portrait-fx-scale));
+  animation-delay: 0s;
+}
+.status-fx-sleep-z:nth-child(2) {
+  top: 25%;
+  right: 15%;
+  font-size: calc(15px * var(--portrait-fx-scale));
+  animation-delay: 0.8s;
+}
+.status-fx-sleep-z:nth-child(3) {
+  top: 15%;
+  right: 5%;
+  font-size: calc(19px * var(--portrait-fx-scale));
+  animation-delay: 1.6s;
+}
+
+@keyframes sleepZDrift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.7);
+  }
+  30% {
+    opacity: 0.75;
+  }
+  80% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(12px * var(--portrait-fx-scale)), calc(-18px * var(--portrait-fx-scale))) scale(1.15);
+  }
+}
+
+/* Treant sleep bonus moss green bottom contour */
+.status-fx--sleep.is-treant::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 25%;
+  background: linear-gradient(0deg, rgba(74, 222, 128, 0.25), transparent);
+  border-bottom: 2px solid #22c55e;
+}
+
+/* ==========================================================================
+   13. CORRUPTION (Purple-Black Edge Tendrils & Subtle Pulse)
+   - Dark violet-black edge encroachment (6-12%)
+   - Slow violet pulse every 2.4s
+   ========================================================================== */
+.status-fx--corruption {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.status-fx--corruption-edge {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 calc(14px * var(--portrait-fx-scale)) rgba(59, 7, 100, 0.75),
+              inset 0 0 calc(6px * var(--portrait-fx-scale)) rgba(15, 3, 25, 0.9);
+  animation: corruptionPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes corruptionPulse {
+  0%, 100% { opacity: 0.65; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.02); }
+}
+
+.status-fx--corruption.is-tick .status-fx--corruption-edge {
+  opacity: 1;
+  box-shadow: inset 0 0 calc(20px * var(--portrait-fx-scale)) rgba(168, 85, 247, 0.95);
+  transition: box-shadow 150ms ease;
+}
+
+/* ==========================================================================
+   14. CRIT LOCK / NO CRIT (Broken Sparkle Marker)
+   - Small crossed/broken sparkle in upper-left corner
+   ========================================================================== */
+.status-fx--crit-lock {
+  position: absolute;
+  top: 4%;
+  left: 4%;
+  width: calc(14px * var(--portrait-fx-scale));
+  height: calc(14px * var(--portrait-fx-scale));
+  color: #94a3b8;
+  opacity: 0.75;
+  pointer-events: none;
+}
+.status-fx--crit-lock svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+/* ==========================================================================
+   15. GENERIC BUFF & DEBUFF FALLBACK
+   - Generic Buff: Soft pale gold/blue upward gentle aura
+   - Generic Debuff: Soft muted red downward pulse (distinct from Exhausted)
+   ========================================================================== */
+.status-fx--generic-buff {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 calc(8px * var(--portrait-fx-scale)) rgba(59, 130, 246, 0.25);
+  animation: genericBuffPulse 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes genericBuffPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.65; }
+}
+
+.status-fx--generic-debuff {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 calc(8px * var(--portrait-fx-scale)) rgba(239, 68, 68, 0.25);
+  animation: genericDebuffPulse 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes genericDebuffPulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.6; }
+}
+
+/* ==========================================================================
+   16. REDUCED MOTION ACCESSIBILITY
+   ========================================================================== */
+[data-reduced-motion="true"] .status-fx--exhausted::before,
+[data-reduced-motion="true"] .status-fx-star,
+[data-reduced-motion="true"] .status-fx-bubble,
+[data-reduced-motion="true"] .status-fx--dodge-ghost,
+[data-reduced-motion="true"] .status-fx-sleep-z,
+[data-reduced-motion="true"] .status-fx--frenzy-ring,
+@media (prefers-reduced-motion: reduce) {
+  .status-fx--exhausted::before {
+    animation: none !important;
+    top: 50% !important;
+    height: 50% !important;
+    opacity: 0.45 !important;
+  }
+  .status-fx-star {
+    animation: none !important;
+    opacity: 0.75 !important;
+    transform: none !important;
+  }
+  .status-fx-bubble {
+    animation: none !important;
+    opacity: 0.55 !important;
+    bottom: 12% !important;
+  }
+  .status-fx--dodge-ghost {
+    animation: none !important;
+    opacity: 0.35 !important;
+    transform: translateX(4px) !important;
+  }
+  .status-fx-sleep-z {
+    animation: none !important;
+    opacity: 0.65 !important;
+    transform: none !important;
+  }
+  .status-fx--frenzy-ring {
+    animation: none !important;
+    opacity: 0.25 !important;
+  }
+}

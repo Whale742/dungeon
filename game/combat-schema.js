@@ -68,6 +68,13 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
   if (step.cleansedSnapshot) for (const player of step.cleansedSnapshot.players.filter(p => p.hp > 0)) {
     append({ kind: 'cleanse', targetId: player.id, statuses: player.statuses, outcome: { type: 'normal' } }, player);
   }
+  for (const event of visuals.filter(e => e.type === 'crouch_reload')) {
+    const player = snapshotTarget(after, step.sourceId);
+    const old = snapshotTarget(before, step.sourceId);
+    append({ kind: 'reload', targetId: step.sourceId, ammoBefore: [...(old.ammo || [])],
+      ammoAfter: [...(player.ammo || [])], loaded: (player.ammo || []).slice((old.ammo || []).length),
+      statuses: player.statuses, outcome: step.outcome }, player);
+  }
   const attacks = visuals.filter(e => e.type === 'player_attack');
   if (step.category === 'TRANSFORM' || step.category === 'SUMMON') {
     const player = after.players.find(p => p.id === step.sourceId);

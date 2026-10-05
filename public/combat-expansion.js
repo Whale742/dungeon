@@ -21,15 +21,14 @@ function renderCombatStatuses(statuses = []) {
     (s.turns ? ' · ' + s.turns + ' 回合' : '') + (s.stacks ? ' ×' + s.stacks : '') + '</span>' +
     (s.locked ? combatStatusSvg({ icon: 'lock' }) : '') + '</span>').join('');
 }
-function minionPortraitSvg(type, avatar) {
-  const imgSrc = avatar || (type === 'wolf' ? '/photo/幼狼1.webp' : '/photo/小樹精1.webp');
-  return '<img class="presentation-minion-image" src="' + escapeHtml(imgSrc) + '" alt="' + escapeHtml(type || 'minion') + '">';
+function minionPortraitSvg(type, avatar, descriptor = {}) {
+  return battlePortraitHtml({ ...descriptor, type, avatar, entityType: 'minion' }, 'presentation-minion-image');
 }
 function resultTarget(result, before = true) { return before ? result.targetBefore : result.targetAfter; }
 function resultPortrait(result) {
   const target = resultTarget(result) || resultTarget(result, false) || {};
   if (result.targetId === 'monster') {
-    return '<img src="' + escapeHtml(result.monsterAvatar || '/BOSS/Ancient Guardian Golem.webp') + '" alt="' + escapeHtml(result.monsterName || 'Boss') + '">';
+    return battlePortraitHtml({ entityType: 'monster', avatar: result.monsterAvatar, name: result.monsterName }, 'presentation-support-image');
   }
   if (result.kind === 'intercept' || target.type === 'wolf' || target.type === 'treant') {
     const minion = result.minion || target;
@@ -42,7 +41,7 @@ function createResultCard(result) {
   const card = document.createElement('div');
   card.className = 'presentation-result-card';
   card.dataset.targetId = result.targetId;
-  card.innerHTML = '<div class="presentation-result-hit"><div class="presentation-result-portrait">' + resultPortrait(result) +
+  card.innerHTML = '<div class="presentation-result-hit"><div class="presentation-result-portrait portrait-root">' + resultPortrait(result) +
     '<div class="presentation-result-fx"></div><div class="presentation-result-numbers"></div></div></div>' +
     '<div class="presentation-result-name">' + escapeHtml(target.name || (target.role ? getClassDisplayName(target.role) : '首領')) + '</div>' +
     '<div class="presentation-result-hp-track"><div class="presentation-result-hp-fill" style="width:' +
@@ -63,12 +62,18 @@ function resultFloat(card, text, theme) {
 function updateResultCard(card, target) {
   card.classList.toggle('is-assassin-hidden', !!target?.isHiddenThisRound && !target?.stealthBrokenThisRound && target?.hp > 0);
   if (!target) return;
+  const portrait = card.querySelector('.presentation-result-portrait img');
+  if (portrait && target.role) portrait.src = resolveBattlePortrait(target).src;
   card.querySelector('.presentation-result-hp-fill').style.width = Math.max(0, target.hp / target.maxHp * 100) + '%';
   card.querySelector('.presentation-result-hp-text').textContent = target.hp + ' / ' + target.maxHp;
   const temp = card.querySelector('.presentation-result-temp');
   temp.classList.toggle('hidden', !(target.tempHp > 0));
   temp.textContent = target.tempHp > 0 ? 'TEMP +' + target.tempHp : '';
   card.querySelector('.presentation-result-status').innerHTML = renderCombatStatuses(target.statuses);
+  const resPortrait = card.querySelector('.presentation-result-portrait');
+  if (resPortrait && typeof syncPortraitStatusFx === 'function') {
+    syncPortraitStatusFx(target, resPortrait, { scale: 0.95 });
+  }
 }
 async function presentCombatResult(result, card, context = {}) {
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
@@ -95,6 +100,11 @@ async function presentCombatResult(result, card, context = {}) {
     if (result.guard || result.absorbed > 0) {
       card.classList.add('is-guarding');
       playSound('shield_block');
+      const presP = card.querySelector('.presentation-result-portrait');
+      if (presP && typeof triggerPortraitStatusEvent === 'function') {
+        triggerPortraitStatusEvent(presP, 'shield', 'block');
+        triggerPortraitStatusEvent(presP, 'guard', 'hit');
+      }
       if (result.absorbed > 0) resultFloat(card, 'ABSORB ' + result.absorbed, 'is-guard');
       await wait(100);
     }
@@ -103,6 +113,14 @@ async function presentCombatResult(result, card, context = {}) {
       resultFloat(card, 'BLOCK', 'is-guard');
       emit('block');
     } else if (damage > 0) {
+      const fxType = context.fxType || (context.direction === 'left' ? 'boss_claw' :
+        context.sourceRole === 'archer' ? 'arrow_projectile' : context.sourceRole === 'alchemist' ? 'acid_splash' :
+        context.sourceRole === 'druid' ? 'nature_strike' : null);
+      if (fxType && typeof createCombatFx === 'function') {
+        createCombatFx({ type: fxType, target: card.querySelector('.presentation-result-portrait'),
+          direction: context.direction || 'left', variant: context.compact ? 'compact' : undefined, speed: context.speed || 1, reducedMotion: context.reducedMotion });
+        if (fxType !== 'claw_slash' && fxType !== 'boss_claw') await wait(context.compact ? 90 : 130);
+      }
       const hit = card.querySelector('.presentation-result-hit');
       hit.classList.remove('is-hit-left', 'is-hit-right');
       void hit.offsetWidth;
@@ -111,7 +129,7 @@ async function presentCombatResult(result, card, context = {}) {
       void card.offsetWidth;
       card.classList.add('is-impacting');
       if (context.sourceRole === 'archer') { card.classList.add('has-arrow-rain'); playSound('arrow_flight'); }
-      else if (context.sourceRole === 'druid') { card.classList.add('has-claw-hit'); playSound('claw_slash'); }
+      else if (context.sourceRole === 'druid') playSound(fxType === 'claw_slash' ? 'claw_slash' : 'vine_strike');
       else if (context.sourceRole === 'alchemist') card.classList.add('has-poison-cloud');
       playSound(result.damageType === 'magic' ? 'magic_impact' : 'physical_hit');
       emit('impact');
@@ -147,13 +165,21 @@ async function presentCombatResult(result, card, context = {}) {
       }
     } else if (result.kind === 'transform') {
       card.dataset.form = target?.druidForm || '';
-      const formImg = target?.druidForm === 'werewolf' ? '/photo/狼人.webp' : (target?.druidForm === 'treant' || target?.druidForm === 'tree' ? '/photo/遠古樹精.webp' : '');
+      const formImg = target?.druidForm ? resolveBattlePortrait(target).src : '';
       if (formImg) card.querySelector('.presentation-result-portrait').insertAdjacentHTML('beforeend', '<div class="presentation-form-reveal"><img class="presentation-minion-image" src="' + formImg + '" alt="形態轉變"></div>');
       playSound(target?.druidForm === 'werewolf' ? 'transform_wolf' : 'transform_treant');
       resultFloat(card, result.outcome?.label || '形態轉變', 'is-nature');
       await wait(target?.druidForm === 'werewolf' ? 350 : 550);
     } else if (result.label === '匿蹤 -1') {
       resultFloat(card, result.label, 'is-status'); playSound('shadow_decay');
+    } else if (result.kind === 'status_tick' || result.actionId === 'status_tick') {
+      const presP = card.querySelector('.presentation-result-portrait');
+      if (presP && typeof triggerPortraitStatusEvent === 'function') {
+        triggerPortraitStatusEvent(presP, 'poison', 'tick');
+        triggerPortraitStatusEvent(presP, 'bleed', 'tick');
+        triggerPortraitStatusEvent(presP, 'corruption', 'tick');
+      }
+      if (result.statuses?.length) resultFloat(card, result.statuses.map(s => s.label).join(' · '), 'is-status');
     } else if (result.statuses?.length) {
       resultFloat(card, result.statuses.map(s => s.label).join(' · '), 'is-status');
     }
@@ -194,6 +220,166 @@ async function withCombatCanvas(context, category, action) {
   try { await action(canvas); }
   finally { context.signal?.removeEventListener('abort', cleanup); cleanup(); }
 }
+// CAST → RESULT uses the existing canvas owner and abort lifecycle.
+async function playSkillCastPresentation(step, context = {}, reveal) {
+  const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
+  await withCombatCanvas(context, step.category, async canvas => {
+    canvas.classList.add('presentation-skill-cast');
+    canvas.dataset.phase = 'cast';
+    if (context.reducedMotion) canvas.dataset.reducedMotion = 'true';
+    const nature = step.sourceRole === 'druid';
+    canvas.dataset.cast = nature ? 'nature' : step.actionId?.includes('reload') ? 'reload' : step.category.toLowerCase();
+    const strip = document.createElement('div');
+    strip.className = 'presentation-combat-strip-wrap is-player enter-left';
+    const title = step.category === 'SUMMON' ? '自然呼喚' : step.category === 'TRANSFORM' ? '形態轉變' : step.skillName;
+    strip.innerHTML = '<div class="presentation-combat-strip-skew"></div><div class="presentation-combat-strip-inner"><div class="presentation-combat-intent enter-intent"><h2 class="presentation-combat-intent-title">' +
+      escapeHtml(getClassDisplayName(step.sourceRole) + '施放「' + title + '」') + '</h2></div></div>';
+    canvas.appendChild(strip);
+    const actor = document.createElement('div');
+    actor.className = 'presentation-combat-portrait-wrap presentation-combat-actor-position presentation-combat-actor-left enter-actor';
+    actor.innerHTML = '<div class="presentation-combat-actor-visual"><div class="presentation-combat-portrait-box">' +
+      getClassPortraitHtml(combatActorDescriptor(step), 'presentation-combat-portrait-img') + '<div class="presentation-cast-energy"></div></div></div>';
+    canvas.appendChild(actor);
+    playSound('panel_sweep'); context.onTiming?.('cast_entry', { step });
+    await wait(500);
+    await wait(200);
+    actor.classList.add('is-casting');
+    playSound(nature ? 'support_cast' : step.category === 'HEAL' ? 'heal_wave' : step.category === 'DEFENSE' ? 'shield_apply' : 'support_cast');
+    context.onTiming?.('cast_fx', { step });
+    await wait(350);
+    context.onTiming?.('cast_complete', { step });
+    canvas.dataset.phase = 'result';
+    strip.className = 'presentation-combat-strip-wrap is-player exit-right';
+    await wait(180);
+    if (reveal) await reveal(canvas, actor, wait);
+    else actor.classList.add('exit-right');
+    canvas.classList.add('is-exiting');
+    await wait(300);
+  });
+}
+async function playSummonResultPresentation(step, context) {
+  const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
+  await withCombatCanvas(context, 'SUMMON', async canvas => {
+    canvas.classList.add('presentation-summon-result');
+    if (context.reducedMotion) canvas.dataset.reducedMotion = 'true';
+    for (const result of step.results || []) {
+      if (result.kind !== 'summon') continue;
+      for (const minion of result.minions || []) {
+        const reveal = document.createElement('div'); reveal.className = 'presentation-minion-reveal';
+        reveal.dataset.type = minion.type;
+        reveal.innerHTML = '<div class="presentation-minion-ground"></div>' + battlePortraitHtml({ ...minion, entityType: 'minion' }, 'presentation-minion-image') +
+          '<strong>' + escapeHtml(minion.name) + '</strong><span>HP ' + minion.hp + ' / ' + minion.maxHp + ' · ATK ' + (minion.attack ?? minion.atk) + '</span>';
+        canvas.appendChild(reveal);
+        playSound(minion.type === 'wolf' ? 'summon_wolf' : 'summon_treant');
+        context.onTiming?.('summon_reveal', { minion });
+        await wait(550);
+        if (typeof applyHpSnapshot === 'function') applyHpSnapshot({ players: [result.targetAfter] });
+        context.onTiming?.('summon_established', { minion });
+        reveal.classList.add('is-settling');
+        await wait(240);
+      }
+    }
+    if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
+    await wait(150);
+  });
+}
+async function playTransformPresentation(step, context) {
+  await playSkillCastPresentation(step, context, async (canvas, actor, wait) => {
+    const result = step.results.find(r => r.kind === 'transform');
+    if (!result) return;
+    actor.classList.remove('enter-actor'); actor.classList.add('is-transforming');
+    canvas.dataset.form = result.targetAfter.druidForm || '';
+    const box = actor.querySelector('.presentation-combat-portrait-box');
+    const after = document.createElement('div'); after.className = 'presentation-transform-after';
+    after.innerHTML = getClassPortraitHtml(result.targetAfter, 'presentation-combat-portrait-img');
+    box.appendChild(after);
+    playSound(result.targetAfter.druidForm === 'werewolf' ? 'transform_wolf' : 'transform_treant');
+    context.onTiming?.('transform_reveal', { result });
+    await wait(550);
+    const note = document.createElement('div'); note.className = 'presentation-transform-note';
+    const guard = result.targetAfter.statuses?.find(s => s.id === 'treant_guard');
+    note.textContent = 'Max HP ' + result.targetBefore.maxHp + ' → ' + result.targetAfter.maxHp + (guard ? ' · ' + guard.label : '');
+    actor.appendChild(note);
+    if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
+    context.onTiming?.('transform_established', { result });
+    await wait(200);
+  });
+}
+const AMMO_NAMES = Object.freeze({ pierce: '穿甲箭', elemental: '元素箭', burst: '爆裂箭' });
+function ammoArrowHtml(ammo) {
+  return '<span class="presentation-ammo-arrow" data-ammo="' + escapeHtml(ammo) + '"><i class="presentation-ammo-shaft"></i><i class="presentation-ammo-tip"></i></span>';
+}
+async function playReloadResultPresentation(step, context) {
+  const result = step.results.find(r => r.kind === 'reload');
+  if (!result) return;
+  const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
+  await withCombatCanvas(context, 'RELOAD', async canvas => {
+    canvas.classList.add('presentation-reload-result');
+    if (context.reducedMotion) canvas.dataset.reducedMotion = 'true';
+    const actor = document.createElement('div'); actor.className = 'presentation-reload-actor';
+    actor.innerHTML = getClassPortraitHtml(combatActorDescriptor(step), 'presentation-support-image'); canvas.appendChild(actor);
+    const magazine = document.createElement('div'); magazine.className = 'presentation-magazine';
+    const slots = [];
+    for (let i = 0; i < 3; i++) {
+      const slot = document.createElement('div'); slot.className = 'presentation-ammo-slot'; slot.dataset.slot = i;
+      if (result.ammoBefore[i]) slot.innerHTML = ammoArrowHtml(result.ammoBefore[i]) + '<small>' + AMMO_NAMES[result.ammoBefore[i]] + '</small>';
+      magazine.appendChild(slot); slots.push(slot);
+    }
+    canvas.appendChild(magazine);
+    playSound('reload_pull'); await wait(180);
+    for (let i = result.ammoBefore.length; i < result.ammoAfter.length; i++) {
+      const ammo = result.ammoAfter[i];
+      slots[i].innerHTML = ammoArrowHtml(ammo) + '<small>' + AMMO_NAMES[ammo] + '</small>';
+      slots[i].classList.add('is-loading'); playSound('reload_insert');
+      context.onTiming?.('ammo_insert', { slot: i, ammo });
+      await wait(step.actionId === 'a_frenzy_reload' ? 100 : 220);
+      slots[i].classList.add('is-locked'); playSound('reload_lock');
+    }
+    await wait(220);
+    const status = document.createElement('div'); status.className = 'presentation-reload-status';
+    status.textContent = result.statuses?.find(s => s.id === 'crouch')?.label || '';
+    magazine.appendChild(status);
+    if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
+    context.onTiming?.('reload_complete', { ammo: result.ammoAfter });
+    await wait(350);
+    canvas.classList.add('is-exiting'); await wait(200);
+  });
+}
+async function playMinionComboPresentation(step, context) {
+  const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
+  await withCombatCanvas(context, 'MINION_ATTACK', async canvas => {
+    canvas.classList.add('presentation-minion-combo');
+    if (context.reducedMotion) canvas.dataset.reducedMotion = 'true';
+    const strip = document.createElement('div'); strip.className = 'presentation-combat-strip-wrap is-player enter-left';
+    strip.innerHTML = '<div class="presentation-combat-strip-skew"></div><div class="presentation-combat-strip-inner"><div class="presentation-combat-intent"><h2 class="presentation-combat-intent-title">僕從追擊</h2></div></div>';
+    canvas.appendChild(strip);
+    const stack = document.createElement('div'); stack.className = 'presentation-minion-stack';
+    const living = step.hpSnapshotBefore.players.find(p => p.id === step.sourceId)?.minions?.filter(m => m.hp > 0 && m.alive !== false).slice(0, 3) || [];
+    const portraits = new Map();
+    for (let i = living.length - 1; i >= 0; i--) {
+      const m = living[i]; const portrait = document.createElement('div'); portrait.className = 'presentation-minion-stack-item';
+      portrait.style.setProperty('--minion-index', i); portrait.dataset.minionId = m.id;
+      portrait.innerHTML = battlePortraitHtml({ ...m, entityType: 'minion' }, 'presentation-minion-image') + '<span>' + escapeHtml(m.name) + '</span>';
+      stack.appendChild(portrait); portraits.set(m.id, portrait);
+    }
+    canvas.appendChild(stack);
+    const target = createResultCard({ ...step.results[0], monsterName: step.monsterName, monsterAvatar: step.monsterAvatar });
+    target.classList.add('presentation-minion-target'); canvas.appendChild(target);
+    playSound('panel_sweep'); context.onTiming?.('minion_combo_entry', { step });
+    await wait(300);
+    for (let i = 0; i < step.results.length; i++) {
+      if (i) await wait(100);
+      const result = step.results[i]; const portrait = portraits.get(result.minion.id);
+      portrait?.classList.add('is-attacking'); playSound('minion_attack');
+      context.onTiming?.('minion_attack', { result, index: i });
+      await presentCombatResult(result, target, { ...context, direction: 'right', fxType: result.minion.type === 'wolf' ? 'claw_slash' : 'vine_strike', compact: true });
+      portrait?.classList.remove('is-attacking');
+    }
+    if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
+    await wait(400); canvas.classList.add('is-exiting'); await wait(200);
+    context.onTiming?.('action_complete', { step });
+  });
+}
 async function playCategoryPresentation(step, context = {}) {
   if (typeof window !== 'undefined' && typeof window.forceCloseAllModals === 'function') {
     window.forceCloseAllModals();
@@ -209,12 +395,12 @@ async function playCategoryPresentation(step, context = {}) {
     title.className = boss ? 'presentation-combat-strip-wrap is-boss enter-right' : 'presentation-support-title';
     title.innerHTML = boss ? '<div class="presentation-combat-strip-skew"></div><div class="presentation-combat-intent">' +
       escapeHtml(step.monsterName + '發動「' + step.skillName + '」') + '</div>' : escapeHtml(step.skillName);
-    canvas.appendChild(title);
-    if (!compact && (boss || step.sourceRole)) {
+    if (!context.resultOnly) canvas.appendChild(title);
+    if (!context.resultOnly && !compact && (boss || step.sourceRole)) {
       const actor = document.createElement('div');
       actor.className = 'presentation-support-actor';
       actor.innerHTML = boss ? '<img src="' + escapeHtml(step.monsterAvatar) + '" alt="' + escapeHtml(step.monsterName) + '">' :
-        getClassPortraitHtml(step.sourcePlayer || { role: step.sourceRole, druidForm: step.druidForm }, 'presentation-support-image');
+        getClassPortraitHtml(combatActorDescriptor(step), 'presentation-support-image');
       canvas.appendChild(actor);
     }
     const row = document.createElement('div');
@@ -305,6 +491,14 @@ async function playCategoryPresentation(step, context = {}) {
 }
 async function playExpandedCombatPresentation(step, context = {}) {
   context = { ...context, signal: context.signal || context.controller?.signal };
+  if (step.category === 'MINION_ATTACK') return playMinionComboPresentation(step, context);
+  if (step.type === 'player_action' && !(step.results || []).some(r => r.targetId === 'monster' && r.kind === 'damage')) {
+    if (step.category === 'TRANSFORM') return playTransformPresentation(step, context);
+    await playSkillCastPresentation(step, context);
+    if (step.category === 'SUMMON') return playSummonResultPresentation(step, context);
+    if (step.results?.some(r => r.kind === 'reload')) return playReloadResultPresentation(step, context);
+    return playCategoryPresentation(step, { ...context, resultOnly: true });
+  }
   if (step.category === 'FOLLOW_UP') {
     await withCombatCanvas(context, 'FOLLOW_UP', async canvas => {
       canvas.classList.add('is-shadow-follow-up');
@@ -331,8 +525,8 @@ async function playExpandedCombatPresentation(step, context = {}) {
     });
     return;
   }
-  if (!step.category || step.category === 'OFFENSIVE') {
-    const primary = (step.results || []).find(r => r.targetId === 'monster');
+  if (!step.category || step.category === 'OFFENSIVE' || (step.type === 'player_action' && step.category !== 'AOE_OFFENSIVE' && step.results?.some(r => r.targetId === 'monster' && r.kind === 'damage'))) {
+    const primary = (step.results || []).find(r => r.targetId === 'monster' && r.kind === 'damage');
     const secondary = (step.results || []).filter(r => r !== primary);
     await playCombatActionPresentation(step, { ...context, onPrimaryResolved: async ({ canvas }) => {
       if (!secondary.length && !step.hiddenEffectNote) return;

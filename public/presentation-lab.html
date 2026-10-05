@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="chest.css">
   <link rel="stylesheet" href="combat.css">
   <link rel="stylesheet" href="combat-expansion.css">
+  <link rel="stylesheet" href="portrait-status-fx.css">
 
   <!-- Developer Harness CSS (Strictly .lab-* only) -->
   <link rel="stylesheet" href="presentation-lab.css">
@@ -141,6 +142,25 @@
                 <option value="floor_intro">樓層進場標題 (Floor 1 Cinematic Banner)</option>
                 <option value="screen_fade">全域黑屏轉場 (Curtain Fade)</option>
                 <option value="typewriter_test">打字機首幀閃爍測試 (Typewriter Lab)</option>
+              </optgroup>
+              <optgroup label="✨ 持續狀態特效 (Phase 7.2 Persistent Status FX)">
+                <option value="status_lab_suite">★ 狀態全覽展示台 (Status FX Gallery & Interactive)</option>
+                <option value="status_exhausted">Exhausted 疲憊 (向下赤紅能量流)</option>
+                <option value="status_frenzy">Bard Frenzy 狂熱 (黃金星芒 + 音波脈衝)</option>
+                <option value="status_poison">Poison 劇毒 (底層毒霧 + 毒性氣泡)</option>
+                <option value="status_bleed">Bleed 流血 (暗紅傷痕呼吸)</option>
+                <option value="status_shield">Shield 護盾 (青藍外緣輪廓呼吸)</option>
+                <option value="status_guard">Guard 防護 (鐵灰直向防禦板)</option>
+                <option value="status_vulnerable">Vulnerable 易傷 (四角紅色目標框)</option>
+                <option value="status_dodge">Dodge Up 閃避 (青藍殘影飄散)</option>
+                <option value="status_hidden">Stealth 匿蹤 (暗紫夜霧 + 殘影漂移)</option>
+                <option value="status_sleep">Sleep 休眠 (飄浮 Z 字符號)</option>
+                <option value="status_corruption">Corruption 腐化 (紫黑邊緣侵蝕)</option>
+                <option value="status_downed">Downed 倒下 (黑白靜止沉落)</option>
+                <option value="status_combo_frenzy_shield">複合狀態：狂熱 + 護盾</option>
+                <option value="status_combo_poison_exhausted">複合狀態：劇毒 + 疲憊</option>
+                <option value="status_combo_triple">複合狀態：狂熱 + 劇毒 + 護盾</option>
+                <option value="status_combo_stealth_dodge">複合狀態：匿蹤 + 閃避提升</option>
               </optgroup>
               <optgroup label="⚔️ 全螢幕戰鬥演出 (Phase 5.2 Choreography & Identity)">
                 <option value="combat_warrior">★ 戰士物理斬擊 (Warrior — Xing + Slash FX)</option>
@@ -395,6 +415,52 @@
           </div>
           <button type="button" id="btnTriggerHitFx" class="lab-btn lab-btn-outline lab-btn-sm" style="margin-top: 4px;">觸發飄字與打擊感</button>
         </div>
+
+        <!-- 7. 狀態特效實驗控制台 (Phase 7.2 Status FX Tuning) -->
+        <div id="labStatusFxCard" class="lab-card">
+          <div class="lab-card-title">
+            <span>持續狀態視覺測試 (Status FX Lab)</span>
+            <span class="lab-tag" style="background:#065f46; color:#34d399;">PHASE 7.2</span>
+          </div>
+          <div class="lab-form-group">
+            <label class="lab-label" for="labStatusFxSelect">狀態開關 / 組合：</label>
+            <select id="labStatusFxSelect" class="lab-select" style="width: 100%;">
+              <option value="exhausted">Exhausted 疲憊 (能量流失)</option>
+              <option value="frenzy">Bard Frenzy 狂熱 (星芒音波)</option>
+              <option value="poison">Poison 劇毒 (毒氣泡泡)</option>
+              <option value="bleed">Bleed 流血 (暗紅傷疤)</option>
+              <option value="shield">Shield 護盾 (青藍光環)</option>
+              <option value="guard">Guard 防護 (鐵灰護甲)</option>
+              <option value="vulnerable">Vulnerable 易傷 (四角鎖定)</option>
+              <option value="dodge">Dodge Up 閃避 (青藍殘影)</option>
+              <option value="hidden">Hidden 匿蹤 (深紫夜霧)</option>
+              <option value="sleep">Sleep 休眠 (漂浮 Z)</option>
+              <option value="corruption">Corruption 腐化 (深淵黑侵)</option>
+              <option value="downed">Downed 倒下 (灰色沉寂)</option>
+              <option value="crit_lock">Crit Lock 暴擊封鎖</option>
+              <option value="generic_buff">Generic Buff 增益光輝</option>
+              <option value="generic_debuff">Generic Debuff 負面濁霧</option>
+            </select>
+          </div>
+          <div class="lab-btn-group" style="gap: 6px; margin-bottom: 8px;">
+            <button type="button" id="btnApplyStatusFx" class="lab-btn lab-btn-success lab-btn-sm" style="flex:1;">施加 (Apply)</button>
+            <button type="button" id="btnRemoveStatusFx" class="lab-btn lab-btn-danger lab-btn-sm" style="flex:1;">移除 (Remove)</button>
+            <button type="button" id="btnClearAllStatusFx" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex:1;">全清 (Clear)</button>
+          </div>
+          <div style="font-size: 0.74rem; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">事件交互反應測試 (Events)：</div>
+          <div class="lab-btn-group" style="gap: 5px;">
+            <button type="button" id="btnTestStatusHit" class="lab-btn lab-btn-outline lab-btn-sm" style="flex:1; font-size:0.72rem;">受擊 (Hit)</button>
+            <button type="button" id="btnTestShieldBreak" class="lab-btn lab-btn-outline lab-btn-sm" style="flex:1; font-size:0.72rem;">破盾 (Break)</button>
+            <button type="button" id="btnTestStatusTick" class="lab-btn lab-btn-outline lab-btn-sm" style="flex:1; font-size:0.72rem;">DoT 跳跳 (Tick)</button>
+            <button type="button" id="btnTestOffKey" class="lab-btn lab-btn-outline lab-btn-sm" style="flex:1; font-size:0.72rem;">走音 (Off-key)</button>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.74rem; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">德魯伊切換形態：</div>
+          <div class="lab-btn-group" style="gap: 5px;">
+            <button type="button" id="btnTransformWolf" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex:1; font-size:0.72rem;">狼人 (Wolf)</button>
+            <button type="button" id="btnTransformTreant" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex:1; font-size:0.72rem;">樹精 (Treant)</button>
+            <button type="button" id="btnTransformHuman" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex:1; font-size:0.72rem;">人形 (Human)</button>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -451,6 +517,47 @@
 
             <!-- 正式遊戲 DOM 根結構 (Single Source of Truth) -->
             <div id="app" class="game-container" style="min-height: 100%; position: relative;">
+              <!-- 視圖：Phase 7.2 持續狀態特效展演區 -->
+              <section id="viewStatusLab" class="view-panel hidden" style="min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 20px;">
+                <div style="text-align: center; color: #e2e8f0;">
+                  <h2 style="font-family: var(--font-display, 'Cinzel', serif); margin: 0 0 6px 0; font-size: 1.5rem; color: #facc15;">PHASE 7.2 PERSISTENT STATUS FX GALLERY</h2>
+                  <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">真實 HUD、戰鬥大型肖像、首領頭像共享視覺層</p>
+                </div>
+                <div style="display: flex; gap: 30px; align-items: flex-end; flex-wrap: wrap; justify-content: center;">
+                  <!-- A. Small HUD Portrait (Scale 0.28) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700;">HUD (Small 30px)</div>
+                    <div class="teammate-avatar-wrap portrait-root" id="statusLabHudPortrait">
+                      <img src="/photo/Warrior.webp" class="teammate-avatar-img portrait-image" id="statusLabHudImg" alt="勇者">
+                    </div>
+                  </div>
+                  <!-- B. Result Card Portrait (Scale 0.95) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700;">Result Card (Medium 110px)</div>
+                    <div class="presentation-result-portrait portrait-root" id="statusLabCardPortrait" style="width: 110px; height: 110px; background: #0f172a; border-radius: 4px; border: 1px solid #334155;">
+                      <img src="/photo/Druid.webp" class="portrait-image" id="statusLabCardImg" alt="德魯伊">
+                    </div>
+                  </div>
+                  <!-- C. Large Combat Portrait Box (Scale 1.3) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700;">Combat Large (180×220px)</div>
+                    <div class="presentation-combat-portrait-box portrait-root" id="statusLabLargePortrait" style="width: 180px; height: 220px; background: rgba(15,23,42,0.6); border: 1px solid #1e293b;">
+                      <img src="/photo/Assassin.webp" class="presentation-combat-portrait-img portrait-image" id="statusLabLargeImg" alt="刺客">
+                    </div>
+                  </div>
+                  <!-- D. Boss Portrait (Scale 1.1) -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700;">Boss Portrait (124px)</div>
+                    <div class="monster-avatar-wrap portrait-root" id="statusLabBossPortrait">
+                      <div class="monster-avatar">
+                        <img src="/BOSS/Ancient Guardian Golem.webp" class="monster-avatar-img portrait-image" id="statusLabBossImg" alt="首領">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="statusLabActiveList" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 600px; min-height: 28px;"></div>
+              </section>
+
               <!-- 視圖：事件區 -->
               <section id="viewEvent" class="view-panel active" style="min-height: 100%; display: flex; align-items: center; justify-content: center;">
                 <!-- 1. 寶箱發現區塊 (探索層) -->
@@ -601,6 +708,7 @@
   <script src="combat.js"></script>
   <script src="combat-expansion.js"></script>
   <script src="victory.js"></script>
+  <script src="portrait-status-fx.js"></script>
   <script src="lab-combat-scenes.js"></script>
   <script src="presentation-lab.js"></script>
 </body>

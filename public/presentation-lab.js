@@ -349,7 +349,8 @@ window.elements = {
   views: {
     event: document.getElementById('viewEvent'),
     route: document.getElementById('viewRoute'),
-    prologue: document.getElementById('viewPrologue')
+    prologue: document.getElementById('viewPrologue'),
+    statusLab: document.getElementById('viewStatusLab')
   },
 
   // Chest elements
@@ -517,6 +518,15 @@ function resetLab() {
     elements.prologuePresBody.replaceChildren();
   }
 
+  // Hide view panels
+  if (elements.views.statusLab) {
+    elements.views.statusLab.classList.add('hidden');
+    elements.views.statusLab.classList.remove('active');
+  }
+  if (elements.views.event) elements.views.event.classList.add('hidden');
+  if (elements.views.route) elements.views.route.classList.add('hidden');
+  if (elements.views.prologue) elements.views.prologue.classList.add('hidden');
+
   // Reset body & stage classes
   document.body.classList.remove('presentation-chest-active', 'presentation-trap-active', 'presentation-floor-active');
   const stage = document.getElementById('labStage');
@@ -576,6 +586,127 @@ function updateMockHudHp(playerId, hp, maxHp) {
   if (hpEl) hpEl.textContent = `HP: ${hp}/${maxHp}`;
 }
 
+// Lab projects production snapshots only; it never invents presentation outcomes.
+window.applyHpSnapshot = snapshot => {
+  window.roomState = { ...window.roomState,
+    players: mergePresentationSnapshot({ players: window.roomState.players }, snapshot).players };
+  for (const player of snapshot.players || []) updateMockHudHp(player.id, player.hp, player.maxHp);
+};
+
+// Phase 7.2: Status Lab State & Scene Runner
+let labActiveStatuses = new Set();
+let labDruidForm = 'human';
+
+function getStatusLabPortraits() {
+  return [
+    { root: document.getElementById('statusLabHudPortrait'), scale: 0.28 },
+    { root: document.getElementById('statusLabCardPortrait'), scale: 0.95 },
+    { root: document.getElementById('statusLabLargePortrait'), scale: 1.3 },
+    { root: document.getElementById('statusLabBossPortrait'), scale: 1.1 }
+  ];
+}
+
+function updateStatusLabGallery() {
+  const entity = {
+    hp: labActiveStatuses.has('downed') ? 0 : 100,
+    maxHp: 100,
+    statuses: Array.from(labActiveStatuses).map(s => ({ id: s, name: s })),
+    druidForm: labDruidForm
+  };
+
+  const portraits = getStatusLabPortraits();
+  for (const p of portraits) {
+    if (p.root) syncPortraitStatusFx(entity, p.root, { scale: p.scale });
+  }
+
+  const listEl = document.getElementById('statusLabActiveList');
+  if (listEl) {
+    listEl.replaceChildren();
+    for (const s of labActiveStatuses) {
+      const badge = document.createElement('span');
+      badge.className = 'lab-tag';
+      badge.style.background = '#1e293b';
+      badge.style.color = '#38bdf8';
+      badge.style.border = '1px solid #334155';
+      badge.style.fontSize = '0.75rem';
+      badge.textContent = s;
+      listEl.appendChild(badge);
+    }
+  }
+}
+
+async function playStatusLabScene(sceneName, context) {
+  if (elements.views.statusLab) {
+    elements.views.statusLab.classList.remove('hidden');
+    elements.views.statusLab.classList.add('active');
+  }
+
+  labActiveStatuses.clear();
+  switch (sceneName) {
+    case 'status_exhausted':
+      labActiveStatuses.add('exhausted');
+      break;
+    case 'status_frenzy':
+      labActiveStatuses.add('frenzy');
+      break;
+    case 'status_poison':
+      labActiveStatuses.add('poison');
+      break;
+    case 'status_bleed':
+      labActiveStatuses.add('bleed');
+      break;
+    case 'status_shield':
+      labActiveStatuses.add('shield');
+      break;
+    case 'status_guard':
+      labActiveStatuses.add('guard');
+      break;
+    case 'status_vulnerable':
+      labActiveStatuses.add('vulnerable');
+      break;
+    case 'status_dodge':
+      labActiveStatuses.add('dodge');
+      break;
+    case 'status_hidden':
+      labActiveStatuses.add('hidden');
+      break;
+    case 'status_sleep':
+      labActiveStatuses.add('sleep');
+      break;
+    case 'status_corruption':
+      labActiveStatuses.add('corruption');
+      break;
+    case 'status_downed':
+      labActiveStatuses.add('downed');
+      break;
+    case 'status_combo_frenzy_shield':
+      labActiveStatuses.add('frenzy');
+      labActiveStatuses.add('shield');
+      break;
+    case 'status_combo_poison_exhausted':
+      labActiveStatuses.add('poison');
+      labActiveStatuses.add('exhausted');
+      break;
+    case 'status_combo_triple':
+      labActiveStatuses.add('frenzy');
+      labActiveStatuses.add('poison');
+      labActiveStatuses.add('shield');
+      break;
+    case 'status_combo_stealth_dodge':
+      labActiveStatuses.add('hidden');
+      labActiveStatuses.add('dodge');
+      break;
+    default:
+      if (sceneName.startsWith('status_')) {
+        labActiveStatuses.add(sceneName.replace('status_', ''));
+      }
+      break;
+  }
+
+  updateStatusLabGallery();
+  logLab('STATUS_FX', `Showing Status FX Scene: [${sceneName}] with active: [${Array.from(labActiveStatuses).join(', ')}]`, 'success');
+}
+
 // --- 6. 播放場景核心 (Scene Runner calling Production Functions) ---
 async function playScene(sceneName) {
   resetLab();
@@ -610,6 +741,10 @@ async function playScene(sceneName) {
   };
 
   try {
+    if (sceneName.startsWith('status_')) {
+      await playStatusLabScene(sceneName, context);
+      return;
+    }
     if (typeof PHASE6_LAB_SCENES !== 'undefined' && PHASE6_LAB_SCENES[sceneName]) {
       const scene = PHASE6_LAB_SCENES[sceneName];
       if (scene.trap) await playTrapPresentation(scene.trap, context);
@@ -1222,6 +1357,91 @@ function initLabController() {
       }
     });
   }
+
+  // Phase 7.2 Status FX Controls
+  const statusSelect = document.getElementById('labStatusFxSelect');
+  document.getElementById('btnApplyStatusFx')?.addEventListener('click', () => {
+    const sel = statusSelect?.value || 'exhausted';
+    labActiveStatuses.add(sel);
+    updateStatusLabGallery();
+    logLab('STATUS_APPLY', `Applied status FX: [${sel}]`);
+  });
+
+  document.getElementById('btnRemoveStatusFx')?.addEventListener('click', () => {
+    const sel = statusSelect?.value || 'exhausted';
+    labActiveStatuses.delete(sel);
+    updateStatusLabGallery();
+    logLab('STATUS_REMOVE', `Removed status FX: [${sel}]`);
+  });
+
+  document.getElementById('btnClearAllStatusFx')?.addEventListener('click', () => {
+    labActiveStatuses.clear();
+    updateStatusLabGallery();
+    logLab('STATUS_CLEAR', 'Cleared all status FX');
+  });
+
+  document.getElementById('btnTestStatusHit')?.addEventListener('click', () => {
+    const portraits = getStatusLabPortraits();
+    for (const p of portraits) {
+      if (p.root) {
+        for (const s of labActiveStatuses) triggerPortraitStatusEvent(p.root, s, 'hit');
+      }
+    }
+    logLab('STATUS_EVENT', 'Triggered hit event on active statuses');
+  });
+
+  document.getElementById('btnTestShieldBreak')?.addEventListener('click', () => {
+    const portraits = getStatusLabPortraits();
+    for (const p of portraits) {
+      if (p.root) triggerPortraitStatusEvent(p.root, 'shield', 'break');
+    }
+    labActiveStatuses.delete('shield');
+    setTimeout(updateStatusLabGallery, 350);
+    logLab('STATUS_EVENT', 'Triggered shield break event');
+  });
+
+  document.getElementById('btnTestStatusTick')?.addEventListener('click', () => {
+    const portraits = getStatusLabPortraits();
+    for (const p of portraits) {
+      if (p.root) {
+        triggerPortraitStatusEvent(p.root, 'poison', 'tick');
+        triggerPortraitStatusEvent(p.root, 'bleed', 'tick');
+      }
+    }
+    logLab('STATUS_EVENT', 'Triggered DoT tick event on poison/bleed');
+  });
+
+  document.getElementById('btnTestOffKey')?.addEventListener('click', () => {
+    const portraits = getStatusLabPortraits();
+    for (const p of portraits) {
+      if (p.root) triggerPortraitStatusEvent(p.root, 'frenzy', 'off_key');
+    }
+    logLab('STATUS_EVENT', 'Triggered Bard off-key distortion event');
+  });
+
+  document.getElementById('btnTransformWolf')?.addEventListener('click', () => {
+    labDruidForm = 'wolf';
+    const cardImg = document.getElementById('statusLabCardImg');
+    if (cardImg) cardImg.src = '/photo/Wolf.webp';
+    updateStatusLabGallery();
+    logLab('TRANSFORM', 'Druid transformed to Wolf form. Status layers preserved.');
+  });
+
+  document.getElementById('btnTransformTreant')?.addEventListener('click', () => {
+    labDruidForm = 'treant';
+    const cardImg = document.getElementById('statusLabCardImg');
+    if (cardImg) cardImg.src = '/photo/Treant.webp';
+    updateStatusLabGallery();
+    logLab('TRANSFORM', 'Druid transformed to Treant form (moss layer on sleep, guard aura).');
+  });
+
+  document.getElementById('btnTransformHuman')?.addEventListener('click', () => {
+    labDruidForm = 'human';
+    const cardImg = document.getElementById('statusLabCardImg');
+    if (cardImg) cardImg.src = '/photo/Druid.webp';
+    updateStatusLabGallery();
+    logLab('TRANSFORM', 'Druid reverted to Human form.');
+  });
 
   // Initialize unopened chest visual so unopened chest is never missing
   if (elements.chestVisualStage && typeof getChestSvgMarkup === 'function') {

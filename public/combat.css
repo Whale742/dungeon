@@ -391,33 +391,6 @@
   z-index: 945;
 }
 
-/* 1. 戰士物理斬擊特效 (Warrior Sword Slash Streak: -35deg, bright red/white core) */
-.presentation-combat-slash-fx {
-  width: 140px;
-  height: 140px;
-  position: relative;
-}
-
-.presentation-combat-slash-fx::before {
-  content: '';
-  position: absolute;
-  top: 15%;
-  left: 10%;
-  width: 80%;
-  height: 6px;
-  background: linear-gradient(90deg, transparent, #ef4444 30%, #ffffff 50%, #ef4444 70%, transparent);
-  transform: rotate(-35deg);
-  box-shadow: 0 0 16px #ef4444, 0 0 28px rgba(239, 68, 68, 0.8);
-  border-radius: 0;
-  animation: slashStreak 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes slashStreak {
-  0% { transform: scaleX(0.1) rotate(-35deg); opacity: 0; }
-  40% { transform: scaleX(1.3) rotate(-35deg); opacity: 1; }
-  100% { transform: scaleX(1.6) translate(15px, 15px) rotate(-35deg); opacity: 0; }
-}
-
 /* 2. 法師秘術爆破特效 (Mage Arcane Burst: Energy Compression & Ring Expansion) */
 .presentation-combat-magic-fx {
   width: 160px;
@@ -518,37 +491,6 @@
   filter: drop-shadow(0 0 6px #f59e0b);
 }
 
-/* 4. 刺客雙十字斬擊 (Assassin Cross Slash: X Shape) */
-.presentation-combat-cross-slash-fx {
-  width: 150px;
-  height: 150px;
-  position: relative;
-}
-
-.presentation-combat-cross-slash-fx .slash-1 {
-  position: absolute;
-  top: 20%;
-  left: 10%;
-  width: 80%;
-  height: 5px;
-  background: linear-gradient(90deg, transparent, #38bdf8 30%, #ffffff 50%, #38bdf8 70%, transparent);
-  transform: rotate(-45deg);
-  box-shadow: 0 0 16px #38bdf8;
-  animation: slashStreak 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.presentation-combat-cross-slash-fx .slash-2 {
-  position: absolute;
-  top: 20%;
-  left: 10%;
-  width: 80%;
-  height: 5px;
-  background: linear-gradient(90deg, transparent, #f43f5e 30%, #ffffff 50%, #f43f5e 70%, transparent);
-  transform: rotate(45deg);
-  box-shadow: 0 0 16px #f43f5e;
-  animation: slashStreak 220ms 75ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
 /* 5. 鍊金酸蝕噴濺 (Alchemist Acid Splash) */
 .presentation-combat-acid-fx {
   width: 150px;
@@ -571,45 +513,49 @@
   100% { transform: scale(1.5); opacity: 0; }
 }
 
-/* 6. 德魯伊爪擊 (Druid Claw Slash: ///) */
-.presentation-combat-claw-fx {
-  width: 140px;
-  height: 140px;
-  position: relative;
-}
-
-.presentation-combat-claw-fx::before {
-  content: '';
-  position: absolute;
-  top: 15%;
-  left: 10%;
-  width: 80%;
-  height: 8px;
-  background: repeating-linear-gradient(90deg, #f59e0b 0, #f59e0b 16px, transparent 16px, transparent 24px);
-  transform: rotate(-30deg);
-  box-shadow: 0 0 20px #d97706;
-  animation: slashStreak 260ms ease-out forwards;
-}
-
-/* 7. 首領重擊巨爪 (Boss Heavy Claw Slash) */
-.presentation-combat-boss-fx {
-  width: 160px;
-  height: 160px;
-  position: relative;
-}
-
-.presentation-combat-boss-fx::before {
-  content: '';
-  position: absolute;
-  top: 20%;
-  left: 5%;
-  width: 90%;
-  height: 8px;
-  background: linear-gradient(90deg, transparent, #f43f5e 25%, #ffffff 50%, #9f1239 80%, transparent);
-  transform: rotate(35deg);
-  box-shadow: 0 0 24px #e11d48, 0 0 40px rgba(225, 29, 72, 0.85);
-  animation: slashStreak 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+/* Phase 7.1 shared FX engine: a supplied tear texture, curved CSS fallbacks. */
+.combat-fx-engine { position: absolute; inset: -12%; width: auto; height: auto; transform: none; pointer-events: none; z-index: 945; animation: combatFxLifetime calc(420ms / var(--fx-speed, 1)) linear both; }
+.combat-fx-claw { --tear-duration: 190ms; --tear-gap: 0ms; --tear-core: #bd8559; --tear-edge: #662b26; animation-duration: calc(190ms / var(--fx-speed, 1)); }
+.combat-fx-claw[data-variant="compact"] { --tear-duration: 130ms; animation-duration: calc(130ms / var(--fx-speed, 1)); }
+.combat-fx-claw[data-fx="boss_claw"] { inset: -25%; --tear-duration: 220ms; --tear-core: #b34c5a; --tear-edge: #681326; animation-duration: calc(220ms / var(--fx-speed, 1)); transform: scaleX(-1) rotate(9deg); }
+.combat-claw-slice { position: absolute; inset: 0; }
+.combat-claw-slice:nth-child(1) { clip-path: polygon(0 0, 87% 0, 0 87%); }
+.combat-claw-slice:nth-child(2) { clip-path: polygon(87% 0, 100% 0, 100% 2%, 2% 100%, 0 100%, 0 87%); }
+.combat-claw-slice:nth-child(3) { clip-path: polygon(100% 2%, 100% 100%, 2% 100%); }
+.combat-claw-tear { position: absolute; inset: 0; mask: var(--claw-asset) center / contain no-repeat; -webkit-mask: var(--claw-asset) center / contain no-repeat; background: radial-gradient(ellipse at 54% 42%, var(--tear-core), #995d3e 27%, var(--tear-edge) 62%, #301216); filter: drop-shadow(0 0 3px var(--tear-edge)); animation: combatClawTear calc(var(--tear-duration) / var(--fx-speed, 1)) linear both; }
+[data-fx="boss_claw"] .combat-claw-tear { background: radial-gradient(ellipse at 48% 36%, var(--tear-core), #8e293d 26%, var(--tear-edge) 48%, #24060e); }
+@keyframes combatClawTear { 0%,30% { clip-path: inset(0); transform: scale(1); opacity: 1; } 100% { clip-path: inset(0); transform: scale(1); opacity: 0; } }
+@keyframes combatClawFlash { 0%,30% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes combatFxLifetime { 0%,90% { opacity: 1; } 100% { opacity: 0; } }
+.combat-sword-arc { position: absolute; left: 4%; top: 10%; width: 96%; height: 68%; border-top: 14px solid #f3eee0; border-radius: 58% 48% 0 0; filter: drop-shadow(0 2px 2px #7a91a4); transform: rotate(-30deg); animation: combatArcSweep calc(290ms / var(--fx-speed, 1)) cubic-bezier(.16,1,.3,1) both; }
+.combat-fx-arc[data-fx="cross_slash"] .combat-sword-arc { border-width: 9px; transform: rotate(-43deg); }
+.combat-fx-arc .combat-sword-arc.is-second { transform: rotate(43deg); animation-delay: calc(80ms / var(--fx-speed, 1)); }
+.is-critical .combat-sword-arc.is-second { border-color: #fff5ba; filter: drop-shadow(0 0 5px #d6ba80); }
+@keyframes combatArcSweep { 0% { clip-path: inset(0 100% 0 0); scale: .75 1; opacity: .3; } 50% { clip-path: inset(0); scale: 1.05 1; opacity: 1; } 100% { clip-path: inset(0); scale: 1.1 1; opacity: 0; } }
+.combat-vine-whip { position: absolute; bottom: 5%; left: -12%; width: 110%; height: 68%; border: solid #648b57; border-width: 0 0 13px 6px; border-radius: 0 0 70% 35%; filter: drop-shadow(0 2px 1px #172b17); transform-origin: bottom left; animation: combatVineWhip calc(320ms / var(--fx-speed, 1)) ease-out both; }
+.combat-vine-whip::after { content: ''; position: absolute; right: 0; bottom: 0; width: 25px; height: 35px; background: #8ca773; clip-path: polygon(0 80%,70% 0,100% 100%); }
+.combat-vine-whip.is-root { bottom: 0; left: -7%; width: 95%; height: 53%; border-width: 0 0 7px 3px; border-color: #8b7855; animation-delay: calc(45ms / var(--fx-speed, 1)); }
+[data-fx="nature_strike"] .combat-vine-whip { border-color: #8ca773; }
+@keyframes combatVineWhip { 0% { transform: rotate(-35deg) scaleX(.15); opacity: 0; } 30% { opacity: 1; } 60% { transform: rotate(8deg) scaleX(1.05); opacity: 1; } 100% { transform: rotate(14deg); opacity: 0; } }
+.combat-fx-spark { inset: 8%; animation-duration: calc(260ms / var(--fx-speed, 1)); }
+.combat-fx-spark i { position: absolute; top: 45%; left: 45%; width: 40%; height: 5px; background: #f5edc8; clip-path: polygon(0 40%,100% 0,80% 100%); transform-origin: left center; animation: combatSpark calc(230ms / var(--fx-speed, 1)) ease-out both; }
+.combat-fx-spark i:nth-child(2) { rotate: 90deg; }.combat-fx-spark i:nth-child(3) { rotate: -65deg; }
+.combat-fx-claw[data-fallback="true"] .combat-claw-slice { clip-path: none; }
+.combat-fx-claw[data-fallback="true"] .combat-claw-tear { mask: none; -webkit-mask: none; inset: 8% auto auto calc(12% + var(--tear-index) * 22%); width: 13%; height: calc(85% - var(--tear-index) * 9%); transform: rotate(30deg); clip-path: polygon(30% 0,72% 8%,90% 24%,65% 34%,95% 48%,58% 60%,65% 74%,0 100%,22% 69%,12% 49%,25% 28%); animation-name: combatClawFlash; }
+.combat-fx-engine.combat-fx-bottle { inset: auto; left: 17%; top: 47%; width: 24px; height: 38px; animation: acidBottleFlight calc(240ms / var(--fx-speed, 1)) ease-in both; }
+.combat-bottle-glass { position: absolute; inset: 8px 0 0; background: linear-gradient(transparent 32%, #7eac68 36%); border: 2px solid #d2dfc2; border-radius: 3px 3px 8px 8px; }
+.combat-bottle-neck { position: absolute; width: 9px; height: 10px; top: 0; left: 7px; background: #bbcbad; }
+@keyframes acidBottleFlight { 0% { left: 17%; top: 47%; rotate: -20deg; opacity: 0; } 15% { opacity: 1; } 60% { top: 36%; } 100% { left: 78%; top: 48%; rotate: 120deg; opacity: 0; } }
+.combat-fx-bottle[data-reduced-motion="true"] { animation-name: combatFxFade; left: 72%; }
+@keyframes combatSpark { from { scale: .2; opacity: 1; } to { scale: 1.1; opacity: 0; } }
+.combat-fx-engine[data-reduced-motion="true"] .combat-claw-tear { animation-name: combatClawFlash; }
+.combat-fx-engine[data-reduced-motion="true"] .combat-sword-arc, .combat-fx-engine[data-reduced-motion="true"] .combat-vine-whip { animation-name: combatFxFade; }
+@keyframes combatFxFade { 0% { opacity: 0; } 20%,65% { opacity: 1; } 100% { opacity: 0; } }
+.presentation-combat-arrow-projectile[data-ammo="pierce"] .presentation-combat-arrow-shaft { background: #dee4ea; }
+.presentation-combat-arrow-projectile[data-ammo="elemental"] .presentation-combat-arrow-shaft { background: #a5b4fc; box-shadow: 0 0 8px #818cf8; }
+.presentation-combat-arrow-projectile[data-ammo="burst"] .presentation-combat-arrow-shaft { background: #c69067; box-shadow: 0 0 8px #a04b45; }
+.presentation-combat-arrow-projectile.is-miss { animation-name: arrowFlightMiss; }
+@keyframes arrowFlightMiss { from { left: 16%; top: 48%; opacity: 1; } to { left: 95%; top: 12%; opacity: 0; } }
 
 /* --- 9. 浮動傷害數字 (Floating Damage Numbers) --- */
 .presentation-combat-damage-num {
