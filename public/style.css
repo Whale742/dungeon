@@ -5199,6 +5199,7 @@ input[type="text"]::placeholder {
   justify-content: flex-start;
   padding-top: 36px;
   overflow: hidden;
+  scrollbar-width: none;
   box-sizing: border-box;
 }
 

@@ -1692,6 +1692,7 @@ export class Room {
       this.actionHeals = [];
       this.actionCleansedSnapshot = null;
       let actionOutcome = { type: 'normal' };
+      let summonedMinion = null;
       if (p.isSurrendered) {
         log.push({ text: `🐺 **${p.name}** 陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！`, type: 'warning' });
         continue;
@@ -2190,15 +2191,7 @@ export class Room {
           log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】（HP ${treantMaxHp}/${treantMaxHp} · ATK ${treantAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: '小樹精' });
 
-          // 召喚當回合立即發動攻擊
-          if (monster.hp > 0) {
-            const raw = Math.floor(newTreant.attack * bardDmgMultiplier);
-            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
-            monster.hp -= dmg;
-            const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
-            log.push({ text: `🌱🐾 **${newTreant.name}** 登場立即撲向目標攻擊，造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: `${newTreant.name}突擊` });
-          }
+          summonedMinion = newTreant;
           break;
         }
 
@@ -2231,15 +2224,7 @@ export class Room {
           log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】（HP ${wolfMaxHp}/${wolfMaxHp} · ATK ${wolfAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
           visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: '幼狼' });
 
-          // 召喚當回合立即發動攻擊
-          if (monster.hp > 0) {
-            const raw = Math.floor(newWolf.attack * bardDmgMultiplier);
-            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
-            monster.hp -= dmg;
-            const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
-            log.push({ text: `🐺🐾 **${newWolf.name}** 登場撕咬撲襲，造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: `${newWolf.name}突擊` });
-          }
+          summonedMinion = newWolf;
           break;
         }
       }
@@ -2304,6 +2289,27 @@ export class Room {
         actorMaxHp: p.maxHp,
         hpSnapshot: this.getHpSnapshot()
       });
+
+      // 登場攻擊是獨立事件；召喚快照保留攻擊前的敵人血量。
+      if (summonedMinion && monster.hp > 0) {
+        const before = this.getHpSnapshot();
+        const { dmg, isResisted, resistPercent } = applyResistanceDamage(
+          Math.floor(summonedMinion.attack * bardDmgMultiplier), 'phys');
+        monster.hp = Math.max(0, monster.hp - dmg);
+        const after = this.getHpSnapshot();
+        const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+        const detail = `🐾 **${summonedMinion.name}** 登場突擊，造成 **${dmg}** 點傷害！${resNote}`;
+        log.push({ text: detail, type: 'combat' });
+        presentationQueue.push({ type: 'minion_action', category: 'MINION_ATTACK',
+          sourceId: p.id, sourceName: p.name, sourceRole: p.role,
+          skillName: `${summonedMinion.name}突擊`, detail, outcome: { type: 'normal' },
+          monsterName: monster.name, monsterAvatar: monster.avatar,
+          hpSnapshotBefore: before, hpSnapshot: after,
+          results: [{ kind: 'damage', targetId: 'monster', minion: structuredClone(summonedMinion),
+            targetBefore: before.monster, targetAfter: after.monster,
+            finalDamage: dmg, damageType: 'physical', outcome: { type: 'normal' }, hpSnapshot: after }]
+        });
+      }
 
       // 記錄該玩家行動敘述 (供舊版 Fallback 兼容)
       narratives.push({

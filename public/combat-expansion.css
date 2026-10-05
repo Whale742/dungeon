@@ -2,13 +2,14 @@
   position: absolute; inset: 0; display: flex; flex-direction: column;
   justify-content: center; align-items: center; gap: 22px; padding: 5cqh 4cqw;
   animation: supportReveal 300ms ease-out both; color: #e2e8f0;
+  overflow: hidden; scrollbar-width: none;
 }
 .presentation-support-canvas.is-exiting { animation: supportExit 300ms ease-in both; }
 .presentation-support-title { font-size: clamp(1.5rem, 3cqw, 2.7rem); letter-spacing: .08em; text-align: center; }
 .presentation-support-actor { height: 22cqh; max-width: 220px; }
 .presentation-support-actor img, .presentation-support-image { width: 100%; height: 100%; object-fit: contain; }
 .presentation-support-targets, .presentation-secondary-targets { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; }
-.presentation-support-targets { max-width: 90cqw; max-height: 48cqh; overflow-y: auto; padding: 15px; }
+.presentation-support-targets { max-width: 90cqw; max-height: 48cqh; overflow: hidden; scrollbar-width: none; padding: 15px; }
 .presentation-result-card { width: clamp(95px, 14cqw, 165px); text-align: center; position: relative; }
 .presentation-result-portrait { position: relative; aspect-ratio: 1; }
 .presentation-result-portrait img, .presentation-minion-image { width: 100%; height: 100%; object-fit: contain; }

@@ -76,6 +76,47 @@ test('wolf reduction is based on effective Max HP and treant has no round start 
   p.druidForm = 'treant'; p.hp = 50; p.action = 'skip'; p.poisonTurns = 0; p.bleedTurns = 0; room.currentMonster.poisonTurns = 0;
   room.executeRoundStart(); assert.equal(p.hp, 50); assert.equal(GAME_BALANCE.treantDamageReduction, .3);
 });
+for (const action of ['dru_summon_wolf', 'dru_summon_treant']) {
+  for (const fatal of [false, true]) test(`${action} presents summon before independent ${fatal ? 'fatal' : 'normal'} minion attack`, t => {
+    const { room, queue } = fixture(t, ['druid']);
+    room.players.p0.action = action;
+    room.currentMonster.resistance = 'phys';
+    if (fatal) room.currentMonster.hp = 1;
+    const hp = room.currentMonster.hp;
+    resolve(room);
+    const steps = queue().queue;
+    const index = steps.findIndex(s => s.category === 'SUMMON');
+    const summon = steps[index], attack = steps[index + 1];
+    assert.equal(summon.finalDamage, 0);
+    assert.equal(summon.hpSnapshot.monster.hp, hp);
+    assert.deepEqual(summon.results.map(r => r.kind), ['summon']);
+    assert.equal(summon.visualEvents.some(v => v.type === 'player_attack'), false);
+    assert.equal(attack.category, 'MINION_ATTACK');
+    assert.equal(attack.type, 'minion_action');
+    assert.deepEqual(attack.hpSnapshotBefore, summon.hpSnapshot);
+    assert.equal(attack.results.length, 1);
+    const hit = attack.results[0];
+    assert.equal(hit.minion.id, summon.results[0].minions[0].id);
+    assert.equal(hit.finalDamage, Math.max(1, Math.floor(hit.minion.attack * .3)));
+    assert.equal(hit.targetAfter.hp, Math.max(0, hp - hit.finalDamage));
+    if (fatal) {
+      assert.equal(steps[index + 2].type, 'kill');
+      assert.equal(steps.some(s => s.type === 'boss_action'), false);
+      assert.equal(room.state, 'IN_BATTLE');
+    }
+  });
+}
+
+test('full minion slots produce no summon or arrival attack', t => {
+  const { room, queue } = fixture(t, ['druid']);
+  room.players.p0.minions = [0, 1, 2].map(i => ({ id: 'm'+i, name: 'Wolf'+i, type: 'wolf', hp: 20, maxHp: 20, atk: 10 }));
+  room.players.p0.action = 'dru_summon_wolf';
+  resolve(room);
+  const steps = queue().queue;
+  assert.equal(steps.filter(s => s.category === 'MINION_ATTACK').length, 1);
+  assert.equal(steps.find(s => s.category === 'SUMMON').results.some(r => r.kind === 'summon'), false);
+});
+
 test('three minions have three ordered hits, fatal hit still requires all viewer ACKs', t => {
   const { room, queue } = fixture(t, ['druid', 'warrior']);
   room.players.p0.minions = [0, 1, 2].map(i => ({ id: 'm'+i, name: 'Wolf'+i, type: 'wolf', hp: 20, maxHp: 20, atk: 10 }));

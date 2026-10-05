@@ -20,6 +20,7 @@
   overflow: hidden;
   container-type: size;
   container-name: combat;
+  scrollbar-width: none;
 }
 
 .presentation-combat-stage.is-active {
