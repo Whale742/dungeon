@@ -21,18 +21,19 @@ function renderCombatStatuses(statuses = []) {
     (s.turns ? ' · ' + s.turns + ' 回合' : '') + (s.stacks ? ' ×' + s.stacks : '') + '</span>' +
     (s.locked ? combatStatusSvg({ icon: 'lock' }) : '') + '</span>').join('');
 }
-function minionPortraitSvg(type) {
-  const shape = type === 'wolf' ? 'M8 8 12 24 8 38l24 18 24-18-4-14 4-16-18 10H26Z M20 30l7 5m17-5-7 5M28 43h8'
-    : 'M20 7h24l12 20-8 16H36v14H28V43H16L8 27ZM18 57l10-14m18 14L36 43';
-  return '<svg class="presentation-minion-image" viewBox="0 0 64 64" aria-hidden="true"><path d="' + shape + '" fill="' +
-    (type === 'wolf' ? '#334155' : '#365b38') + '" stroke="#a3b899" stroke-width="3"/></svg>';
+function minionPortraitSvg(type, avatar) {
+  const imgSrc = avatar || (type === 'wolf' ? '/photo/幼狼1.webp' : '/photo/小樹精1.webp');
+  return '<img class="presentation-minion-image" src="' + escapeHtml(imgSrc) + '" alt="' + escapeHtml(type || 'minion') + '">';
 }
 function resultTarget(result, before = true) { return before ? result.targetBefore : result.targetAfter; }
 function resultPortrait(result) {
   const target = resultTarget(result) || resultTarget(result, false) || {};
-  if (result.minion || result.kind === 'intercept') return minionPortraitSvg((result.minion || target).type);
+  if (result.minion || result.kind === 'intercept') {
+    const minion = result.minion || target;
+    return minionPortraitSvg(minion.type, minion.avatar);
+  }
   if (result.targetId === 'monster') return '<img src="' + escapeHtml(result.monsterAvatar || '/BOSS/Ancient Guardian Golem.webp') + '" alt="' + escapeHtml(result.monsterName || 'Boss') + '">';
-  return getClassPortraitHtml(target.role || result.role, 'presentation-support-image');
+  return getClassPortraitHtml(target, 'presentation-support-image');
 }
 function createResultCard(result) {
   const target = resultTarget(result) || {};
@@ -137,14 +138,15 @@ async function presentCombatResult(result, card, context = {}) {
       for (const minion of result.minions || []) {
         const summon = document.createElement('div');
         summon.className = 'presentation-summon-reveal';
-        summon.innerHTML = minionPortraitSvg(minion.type) + '<strong>' + escapeHtml(minion.name) + '</strong><span>HP ' +
+        summon.innerHTML = minionPortraitSvg(minion.type, minion.avatar) + '<strong>' + escapeHtml(minion.name) + '</strong><span>HP ' +
           minion.hp + ' / ' + minion.maxHp + ' · ATK ' + (minion.attack ?? minion.atk) + '</span>';
         card.appendChild(summon);
         playSound(minion.type === 'wolf' ? 'summon_wolf' : 'summon_treant');
       }
     } else if (result.kind === 'transform') {
       card.dataset.form = target?.druidForm || '';
-      if (target?.druidForm === 'werewolf') card.querySelector('.presentation-result-portrait').insertAdjacentHTML('beforeend', '<div class="presentation-form-reveal">' + minionPortraitSvg('wolf') + '</div>');
+      const formImg = target?.druidForm === 'werewolf' ? '/photo/狼人.webp' : (target?.druidForm === 'treant' || target?.druidForm === 'tree' ? '/photo/遠古樹精.webp' : '');
+      if (formImg) card.querySelector('.presentation-result-portrait').insertAdjacentHTML('beforeend', '<div class="presentation-form-reveal"><img class="presentation-minion-image" src="' + formImg + '" alt="形態轉變"></div>');
       playSound(target?.druidForm === 'werewolf' ? 'transform_wolf' : 'transform_treant');
       resultFloat(card, result.outcome?.label || '形態轉變', 'is-nature');
       await wait(target?.druidForm === 'werewolf' ? 350 : 550);
@@ -207,7 +209,7 @@ async function playCategoryPresentation(step, context = {}) {
       const actor = document.createElement('div');
       actor.className = 'presentation-support-actor';
       actor.innerHTML = boss ? '<img src="' + escapeHtml(step.monsterAvatar) + '" alt="' + escapeHtml(step.monsterName) + '">' :
-        getClassPortraitHtml(step.sourceRole, 'presentation-support-image');
+        getClassPortraitHtml(step.sourcePlayer || { role: step.sourceRole, druidForm: step.druidForm }, 'presentation-support-image');
       canvas.appendChild(actor);
     }
     const row = document.createElement('div');
@@ -276,7 +278,7 @@ async function playCategoryPresentation(step, context = {}) {
           canvas.querySelector('.presentation-compact-minion')?.remove();
           const minion = document.createElement('div');
           minion.className = 'presentation-compact-minion';
-          minion.innerHTML = minionPortraitSvg(result.minion.type) + '<span>' + escapeHtml(result.minion.name) + '</span>';
+          minion.innerHTML = minionPortraitSvg(result.minion.type, result.minion.avatar) + '<span>' + escapeHtml(result.minion.name) + '</span>';
           canvas.appendChild(minion);
           playSound('minion_attack');
         }

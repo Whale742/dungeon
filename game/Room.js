@@ -2174,10 +2174,16 @@ export class Room {
           }
           const druidTotalAtk = this.getDruidEffectiveAttack(p);
           const treantAtk = Math.max(1, Math.floor(druidTotalAtk * 0.10));
+          const usedIndices = new Set(p.minions.filter(m => m.type === 'treant').map(m => m.minionIndex).filter(Boolean));
+          let minionIndex = [1, 2, 3].find(idx => !usedIndices.has(idx)) || ((p.minions.length % 3) + 1);
+          const minionName = `小樹精${minionIndex}`;
+          const minionAvatar = `/photo/小樹精${minionIndex}.webp`;
           const newTreant = {
             id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             type: 'treant',
-            name: '小樹精',
+            minionIndex: minionIndex,
+            name: minionName,
+            avatar: minionAvatar,
             hp: treantMaxHp,
             maxHp: treantMaxHp,
             attack: treantAtk,
@@ -2187,8 +2193,8 @@ export class Room {
           };
           p.minions.push(newTreant);
           p.minion = p.minions[0];
-          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【小樹精】（HP ${treantMaxHp}/${treantMaxHp} · ATK ${treantAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
-          visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: '小樹精' });
+          log.push({ text: `🌱 **${p.name}** 施展【自然呼喚】，召喚出【${minionName}】（HP ${treantMaxHp}/${treantMaxHp} · ATK ${treantAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
+          visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'treant', minionName: minionName, avatar: minionAvatar });
 
           // 召喚當回合立即發動攻擊
           if (monster.hp > 0) {
@@ -2215,10 +2221,16 @@ export class Room {
           if (hasNatureResonance) {
             wolfAtk += 2;
           }
+          const usedIndices = new Set(p.minions.filter(m => m.type === 'wolf').map(m => m.minionIndex).filter(Boolean));
+          let minionIndex = [1, 2, 3].find(idx => !usedIndices.has(idx)) || ((p.minions.length % 3) + 1);
+          const minionName = `幼狼${minionIndex}`;
+          const minionAvatar = `/photo/幼狼${minionIndex}.webp`;
           const newWolf = {
             id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             type: 'wolf',
-            name: '幼狼',
+            minionIndex: minionIndex,
+            name: minionName,
+            avatar: minionAvatar,
             hp: wolfMaxHp,
             maxHp: wolfMaxHp,
             attack: wolfAtk,
@@ -2228,8 +2240,8 @@ export class Room {
           };
           p.minions.push(newWolf);
           p.minion = p.minions[0];
-          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【幼狼】（HP ${wolfMaxHp}/${wolfMaxHp} · ATK ${wolfAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
-          visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: '幼狼' });
+          log.push({ text: `🐺 **${p.name}** 施展【自然呼喚】，召喚出【${minionName}】（HP ${wolfMaxHp}/${wolfMaxHp} · ATK ${wolfAtk}）！(現有僕從 ${p.minions.length}/3)`, type: 'buff' });
+          visualEvents.push({ type: 'summon_minion', sourceId: p.id, minionType: 'wolf', minionName: minionName, avatar: minionAvatar });
 
           // 召喚當回合立即發動攻擊
           if (monster.hp > 0) {
@@ -2278,6 +2290,7 @@ export class Room {
         sourceId: p.id,
         sourceName: p.name,
         sourceRole: p.role,
+        druidForm: p.druidForm,
         actionId: p.action,
         skillName: usedSkill ? usedSkill.label : (p.action === 'b_revive' ? '甦生之歌' : p.action === 'skip' ? '跳過回合' : p.action),
         tags: usedSkill ? (usedSkill.tags || []) : [],
@@ -2382,6 +2395,7 @@ export class Room {
             const formName = p.druidForm === 'tree' ? '沉睡古樹' : (p.druidForm === 'werewolf' ? '狼人' : '樹精');
             log.push({ text: `🌿 **${p.name}** 的【${formName}】形態結束，解除變身回復正常人身狀態。`, type: 'info' });
             p.druidForm = null;
+            visualEvents.push({ type: 'transform_end', sourceId: p.id, role: 'druid' });
           }
         }
       }
@@ -3177,6 +3191,8 @@ export class Room {
           id: m.id,
           type: m.type,
           name: m.name,
+          minionIndex: m.minionIndex,
+          avatar: m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || 1}.webp` : `/photo/小樹精${m.minionIndex || 1}.webp`),
           hp: m.hp,
           maxHp: m.maxHp,
           attack: m.attack ?? m.atk,
@@ -3187,6 +3203,7 @@ export class Room {
         })),
         minion: (p.minions && p.minions[0]) ? {
           ...p.minions[0],
+          avatar: p.minions[0].avatar || (p.minions[0].type === 'wolf' ? `/photo/幼狼${p.minions[0].minionIndex || 1}.webp` : `/photo/小樹精${p.minions[0].minionIndex || 1}.webp`),
           attack: p.minions[0].attack ?? p.minions[0].atk,
           atk: p.minions[0].attack ?? p.minions[0].atk,
           owner: p.name,
@@ -3194,6 +3211,7 @@ export class Room {
           alive: p.minions[0].hp > 0
         } : (p.minion ? {
           ...p.minion,
+          avatar: p.minion.avatar || (p.minion.type === 'wolf' ? `/photo/幼狼${p.minion.minionIndex || 1}.webp` : `/photo/小樹精${p.minion.minionIndex || 1}.webp`),
           attack: p.minion.attack ?? p.minion.atk,
           atk: p.minion.attack ?? p.minion.atk,
           owner: p.name,

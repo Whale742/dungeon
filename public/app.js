@@ -126,6 +126,23 @@ const DEFAULT_ROLE_DETAILS = {
     hp: 85,
     type: '物理 / 自然變形',
     passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    forms: {
+      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+    },
+    summons: {
+      treant: [
+        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+      ],
+      wolf: [
+        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+      ]
+    },
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '引導自然力量造成基礎 10 點物理傷害。' },
       { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
@@ -586,9 +603,19 @@ socket.on('room:update', (state) => {
   syncChatMessages(state.chatMessages);
 });
 
-// 取得玩家頭貼 HTML (自訂頭貼 > 職業預設 > 預設頭像)
+// 取得玩家頭貼 HTML (變身形態 > 自訂頭貼 > 職業預設 > 預設頭像)
 function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   if (!player) return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
+
+  // 德魯伊變身形態優先顯示形態頭貼（狼人 / 遠古樹精）
+  if (player.role === 'druid' && player.druidForm) {
+    if (player.druidForm === 'werewolf') {
+      return `<img src="/photo/狼人.webp" class="${className} druid-transformed-avatar" alt="狼人">`;
+    } else if (player.druidForm === 'treant' || player.druidForm === 'tree') {
+      return `<img src="/photo/遠古樹精.webp" class="${className} druid-transformed-avatar" alt="遠古樹精">`;
+    }
+  }
+
   const roleInfo = player.role ? classesData[player.role] : null;
 
   // 1. 玩家自訂頭貼 (自訂照片或自訂頭像)
@@ -612,13 +639,22 @@ function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
 }
 
-// 取得職業標準圖像 HTML (Combat Resolution 規範：嚴禁使用自訂/Discord頭像，必須使用職業原畫)
+// 取得職業標準圖像 HTML (Combat Resolution 規範：嚴禁使用自訂/Discord頭像，必須使用職業原畫或變身原畫)
 function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait') {
   let roleKey = '';
+  let druidForm = null;
   if (typeof roleOrPlayer === 'string') {
     roleKey = roleOrPlayer;
   } else if (roleOrPlayer && typeof roleOrPlayer === 'object') {
     roleKey = roleOrPlayer.role || roleOrPlayer.sourceRole || '';
+    druidForm = roleOrPlayer.druidForm || null;
+  }
+  if (roleKey === 'druid' && druidForm) {
+    if (druidForm === 'werewolf') {
+      return `<img src="/photo/狼人.webp" class="${className}" alt="狼人">`;
+    } else if (druidForm === 'treant' || druidForm === 'tree') {
+      return `<img src="/photo/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
+    }
   }
   const roleInfo = roleKey ? classesData[roleKey] : null;
   if (roleInfo && roleInfo.avatar) {
@@ -1924,11 +1960,18 @@ function renderTeammatesGrid(me) {
       const totalAtk = p.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
       const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
 
+      const minionPortraitsHtml = p.minions.map((m, idx) => {
+        const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+        return `<img src="${imgSrc}" class="minion-bar-thumb" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
+      }).join('');
+
       minionCard.innerHTML = `
         <div class="floating-text-container"></div>
         <div class="teammate-top">
           <span class="teammate-name-group">
-            <span class="minion-icon-wrap" style="display:inline-flex; align-items:center;">${getIconSvg('summon')}</span>
+            <span class="minion-icon-wrap" style="display:inline-flex; align-items:center; gap: 3px;">
+              ${minionPortraitsHtml}
+            </span>
             <span>${escapeHtml(p.name)}的僕從</span>
             <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看僕從詳細資訊">(${p.minions.length}/3)</button>
           </span>
@@ -2408,14 +2451,19 @@ function showMinionDetailModal(player) {
       const mHpPct = Math.max(0, Math.min(100, Math.round((m.hp / m.maxHp) * 100)));
       const isWolf = m.type === 'wolf';
       const typeBadge = isWolf ? '<span class="minion-detail-badge wolf">幼狼</span>' : '<span class="minion-detail-badge">小樹精</span>';
+      const minionAvatar = m.avatar || (isWolf ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
       const desc = isWolf 
         ? '<strong>每回合自動攻擊 10 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。' 
         : '<strong>每回合自動攻擊 1 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。';
+      const displayName = m.name?.match(/\d+$/) ? m.name : `${m.name} #${idx + 1}`;
 
       return `
         <div class="minion-detail-item">
           <div class="minion-detail-item-header">
-            <span class="name"><strong>${escapeHtml(m.name)} #${idx + 1}</strong></span>
+            <div style="display:flex; align-items:center; gap: 8px;">
+              <img src="${minionAvatar}" class="minion-modal-thumb" alt="${escapeHtml(m.name)}">
+              <span class="name"><strong>${escapeHtml(displayName)}</strong></span>
+            </div>
             ${typeBadge}
           </div>
           <div class="teammate-hp-bg" style="margin: 6px 0;">
@@ -2517,6 +2565,38 @@ function openRoleDetailModal(roleKey) {
               </div>
             `;
           }).join('')}
+        </div>
+      `;
+    }
+
+    if (roleKey === 'druid') {
+      html += `
+        <div class="role-detail-section">
+          <div class="role-detail-section-title">
+            <span>${getIconSvg('paw')}</span> <span>德魯伊變身形態與自然僕從</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 8px;">
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/狼人.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="狼人形態">
+              <div style="font-weight: 700; font-size: 13px; color: #f87171;">狼人形態</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">降低20%生命上限，普攻40傷</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/遠古樹精.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="遠古樹精形態">
+              <div style="font-weight: 700; font-size: 13px; color: #86efac;">遠古樹精形態</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">生命+100，減傷30%，分攤50%</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：小樹精">
+              <div style="font-weight: 700; font-size: 13px; color: #4ade80;">僕從：小樹精</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">肉盾守護，替隊伍吸收彈射傷</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(249, 115, 22, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/幼狼1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：幼狼">
+              <div style="font-weight: 700; font-size: 13px; color: #fb923c;">僕從：幼狼</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">敏捷撕咬，高攻擊僕從</div>
+            </div>
+          </div>
         </div>
       `;
     }
@@ -3167,6 +3247,8 @@ function playSinglePlayerVisualEvent(ev) {
     if (card) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身狼人!', 'buff');
       playPixelFx(card, 'wolf-claw');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/狼人.webp';
     }
     playSound('wolf_howl');
   } else if (ev.type === 'transform_treant') {
@@ -3174,12 +3256,32 @@ function playSinglePlayerVisualEvent(ev) {
     if (card) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身樹精!', 'heal');
       playPixelFx(card, 'treant-vine');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
     }
     playSound('treant_creak');
   } else if (ev.type === 'transform_tree') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
-    if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '化身古樹(免死)!', 'heal');
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '化身古樹(免死)!', 'heal');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
+    }
     playSound('heal_chime');
+  } else if (ev.type === 'transform_end') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '解除變身', 'buff');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) {
+        const p = (roomState && roomState.players && roomState.players.find(x => x.id === ev.sourceId));
+        const originalAvatar = (p && p.customAvatar) || (p && p.avatar) || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+        avatarImg.src = originalAvatar;
+        avatarImg.alt = (p && p.name) || '德魯伊';
+        avatarImg.classList.remove('druid-transformed-avatar');
+      }
+    }
+    playSound('buff');
   } else if (ev.type === 'surrender') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.targetId}"]`);
     if (card) spawnFloatingText(card.querySelector('.floating-text-container'), '狼王威壓·臣服!', 'dodge');
@@ -3413,10 +3515,33 @@ function updateBattleHudFromSnapshot(snapshot) {
           actionDot.className = 'action-status-dot ready';
           actionDot.textContent = '倒下・本層無法行動';
         }
+
+        // 德魯伊變身形態與頭像同步（結束變身時還原為原始德魯伊造型）
+        if (p.role === 'druid') {
+          const avatarImg = card.querySelector('.teammate-avatar-img');
+          if (avatarImg) {
+            if (p.druidForm === 'werewolf') {
+              const wolfSrc = '/photo/狼人.webp';
+              if (!avatarImg.src.endsWith(wolfSrc)) avatarImg.src = wolfSrc;
+              avatarImg.alt = '狼人';
+              avatarImg.classList.add('druid-transformed-avatar');
+            } else if (p.druidForm === 'treant' || p.druidForm === 'tree') {
+              const treantSrc = '/photo/遠古樹精.webp';
+              if (!avatarImg.src.endsWith(treantSrc)) avatarImg.src = treantSrc;
+              avatarImg.alt = '遠古樹精';
+              avatarImg.classList.add('druid-transformed-avatar');
+            } else {
+              const origSrc = p.customAvatar || p.avatar || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+              if (!avatarImg.src.endsWith(origSrc)) avatarImg.src = origSrc;
+              avatarImg.alt = p.name || '德魯伊';
+              avatarImg.classList.remove('druid-transformed-avatar');
+            }
+          }
+        }
       }
     });
 
-    // 德魯伊僕從 HP 更新
+    // 德魯伊僕從 HP 與縮圖更新
     const druid = roomState.players.find(p => p.role === 'druid');
     if (druid && druid.minions) {
       const minionCard = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${druid.id}"]`);
@@ -3426,6 +3551,13 @@ function updateBattleHudFromSnapshot(snapshot) {
         const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
         const minionFill = minionCard.querySelector('.teammate-hp-fill');
         if (minionFill) minionFill.style.width = `${totalHpPct}%`;
+        const iconWrap = minionCard.querySelector('.minion-icon-wrap');
+        if (iconWrap && druid.minions.length > 0) {
+          iconWrap.innerHTML = druid.minions.map((m, idx) => {
+            const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+            return `<img src="${imgSrc}" class="minion-bar-thumb" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
+          }).join('');
+        }
       }
     }
   }
@@ -3540,7 +3672,7 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
   if (!events || events.length === 0) return;
 
   const playerActions = events.filter(e =>
-    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
+    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'transform_end', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
   );
   const monsterAction = events.find(e => e.type === 'monster_attack');
 

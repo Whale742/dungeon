@@ -83,6 +83,23 @@ export const CLASSES = {
     avatar: '/photo/Druid.webp',
     maxHp: 85,
     desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚僕從（小樹精/幼狼）。',
+    forms: {
+      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+    },
+    summons: {
+      treant: [
+        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+      ],
+      wolf: [
+        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+      ]
+    },
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '引導自然力量造成基礎自然打擊。' },
       { id: 'dru_transform', label: '1 技能: 形態轉變', cd: 0, tags: ['變身', '高風險'], desc: '有一半機率化身狼人/化身樹精' },
@@ -975,6 +992,23 @@ export const ROLE_DETAILS = {
     hp: 85,
     type: '物理 / 自然變形',
     passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    forms: {
+      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+    },
+    summons: {
+      treant: [
+        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+      ],
+      wolf: [
+        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+      ]
+    },
     skills: [
       {
         type: '普攻',
