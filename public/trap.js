@@ -96,6 +96,9 @@ async function playTrapHit(hit, card, delay, signal) {
 }
 
 async function playTrapPresentation(ev, context = {}) {
+  if (typeof window !== 'undefined' && typeof window.forceCloseAllModals === 'function') {
+    window.forceCloseAllModals();
+  }
   const controller = context.controller || new AbortController();
   controller.presentationId = ev.presentationId;
   try { trapPresentationController = controller; } catch {}

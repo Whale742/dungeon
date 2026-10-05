@@ -31,14 +31,14 @@ test('treasure event enters with timer OFF and snapshots recorded', t => {
   assert.equal(room.getClientState().timerRemaining, null);
 });
 
-test('equipment decision timer starts at exactly 20 seconds only after equipment:interaction_ready', t => {
+test('equipment decision timer remains paused when equipment drops until player decides', t => {
   const room = fixture(t, 2);
   // Force a played drop for warrior
   room.handleTreasureEvent({ title: 'Chest', story: '寶箱' });
   const ev = room.currentEvent;
   assert.ok(ev.presentationId > 0);
 
-  // If a pendingDrop exists, timer must be null initially
+  // If a pendingDrop exists, timer must be null (paused)
   if (room.pendingDrop) {
     const ownerId = room.pendingDrop.ownerId;
     assert.equal(room.turnTimer, null);
@@ -50,14 +50,14 @@ test('equipment decision timer starts at exactly 20 seconds only after equipment
     room.handleEquipmentInteractionReady('unknown', ev.presentationId);
     assert.equal(room.turnTimer, null);
 
-    // Legitimate interaction_ready from owner starts the 20-second countdown
+    // Legitimate interaction_ready from owner still keeps timer paused
     room.handleEquipmentInteractionReady(ownerId, ev.presentationId);
-    assert.notEqual(room.turnTimer, null);
-    assert.equal(room.getClientState().timerRemaining, 20);
+    assert.equal(room.turnTimer, null);
+    assert.equal(room.getClientState().timerRemaining, null);
 
-    // Duplicate call cannot overwrite or restart timer
-    room.handleEquipmentInteractionReady(ownerId, ev.presentationId);
-    assert.equal(room.getClientState().timerRemaining, 20);
+    // Once owner decides to equip or discard, pendingDrop is cleared
+    room.handleEquipChoice(ownerId, true);
+    assert.equal(room.pendingDrop, null);
   }
 });
 

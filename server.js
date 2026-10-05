@@ -136,12 +136,30 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 4. 隊長點擊出發探險
+  // 3.1 隊員切換準備狀態
+  socket.on('room:toggle_ready', (callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.toggleReady(socket.id);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 3.2 隊長轉移
+  socket.on('room:transfer_leader', ({ targetId }, callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.transferLeader(socket.id, targetId);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 4. 隊長點擊出發探險 (需全體隊員就緒)
   socket.on('game:start', (callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.startAdventure(socket.id);
+    const res = room.startAdventure(socket.id, { checkReady: true });
     if (typeof callback === 'function') callback(res);
   });
 
@@ -320,6 +338,23 @@ io.on('connection', (socket) => {
     if (!room) return;
     const res = room.endBattle(socket.id);
     if (typeof cb === 'function') cb(res);
+  });
+
+  // 12. 離開隊伍 (若隊長退出則移交第一順位)
+  socket.on('leave_party', (callback) => {
+    const code = socketToRoom.get(socket.id);
+    if (code && rooms.has(code)) {
+      const room = rooms.get(code);
+      room.removePlayer(socket.id);
+      socket.leave(code);
+      socketToRoom.delete(socket.id);
+      if (room.memberIds.length === 0) {
+        room.clearTimer();
+        rooms.delete(code);
+        console.log(`[清理] 房間 ${code} 已無玩家，已銷毀。`);
+      }
+    }
+    if (typeof callback === 'function') callback({ success: true });
   });
 
   // 斷線處理

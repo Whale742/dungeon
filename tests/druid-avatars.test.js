@@ -150,3 +150,40 @@ test('Druid transformation ends and returns avatar to normal druid state', () =>
   playerState = clientState.players.find(x => x.id === 's_druid');
   assert.equal(playerState.druidForm, null);
 });
+
+test('Druid summon creates distinct SUMMON step followed by immediate MINION_ATTACK step targeting monster', () => {
+  let presentationQueue = null;
+  const mockIo = {
+    to: () => ({
+      emit: (event, data) => {
+        if (event === 'battle:presentation_queue') {
+          presentationQueue = data.queue;
+        }
+      }
+    }),
+    emit: () => {}
+  };
+  const mockSocket = { id: 's_druid', emit: () => {}, join: () => {}, on: () => {} };
+  const room = new Room('TEST_SUMMON', mockSocket, 'DruidHero', mockIo);
+  const p = room.players.s_druid;
+  p.role = 'druid';
+  room.state = 'IN_BATTLE';
+  room.currentMonster = { name: '木樁', hp: 9999, maxHp: 9999, atk: 0, avatar: '/BOSS/Lava Colossus.webp' };
+
+  p.action = 'dru_summon_treant';
+  room.resolveTurnActions();
+
+  assert.ok(presentationQueue, 'Presentation queue should be emitted');
+  const summonStepIndex = presentationQueue.findIndex(s => s.category === 'SUMMON' && s.sourceId === 's_druid');
+  assert.ok(summonStepIndex >= 0, 'Should contain a SUMMON category step');
+  assert.equal(presentationQueue[summonStepIndex].category, 'SUMMON');
+  assert.ok(presentationQueue[summonStepIndex].results.some(r => r.kind === 'summon'));
+
+  const immediateAttackIndex = presentationQueue.findIndex(s => s.category === 'MINION_ATTACK' && s.sourceId === 's_druid');
+  assert.ok(immediateAttackIndex > summonStepIndex, 'Immediate attack step must follow the summon step');
+  const attackStep = presentationQueue[immediateAttackIndex];
+  assert.equal(attackStep.type, 'minion_action');
+  assert.equal(attackStep.category, 'MINION_ATTACK');
+  assert.equal(attackStep.targetId, 'monster');
+  assert.equal(attackStep.results[0].targetId, 'monster');
+});

@@ -29,6 +29,8 @@ for (const [role, action, random, outcome, category] of [
   ['assassin', 's_stab', .1, 'critical', 'OFFENSIVE'],
   ['bard', 'b_heal', .1, 'off_key', 'HEAL'],
   ['bard', 'b_buff', .1, 'overload', 'BUFF'],
+  ['alchemist', 'alc_flask', .1, 'alchemy_acid', 'OFFENSIVE'],
+  ['alchemist', 'alc_flask', .9, 'alchemy_poison', 'OFFENSIVE'],
   ['alchemist', 'alc_fate', .1, 'alchemy_success', 'CLEANSE'],
   ['alchemist', 'alc_fate', .9, 'alchemy_failure', 'CLEANSE'],
   ['druid', 'dru_transform', .1, 'transform_wolf', 'TRANSFORM'],
@@ -61,12 +63,12 @@ test('miss does no boss damage and boss ripple includes independent dodge result
   const boss = queue().queue.find(s => s.type === 'boss_action'); assert.ok(boss.results.length >= 2);
   assert.ok(boss.results.some(r => r.targetId === 'p0' && r.outcome.type === 'dodge'));
 });
-test('drain damage precedes its actual heal and overheal preserves base Max HP', t => {
-  const { room, queue } = fixture(t, ['mage']); const p = room.players.p0; p.action = 'm_drain'; p.hp = p.maxHp;
+test('drain damage precedes its actual heal and lifesteal cannot overheal into tempHp', t => {
+  const { room, queue } = fixture(t, ['mage']); const p = room.players.p0; p.action = 'm_drain'; p.hp = p.maxHp - 10;
   const max = p.maxHp; resolve(room);
   const step = queue().queue.find(s => s.actionId === 'm_drain');
   assert.equal(step.results[0].kind, 'damage'); const heal = step.results.find(r => r.kind === 'heal');
-  assert.ok(heal.actualHeal > 0); assert.ok(heal.targetAfter.tempHp > 0); assert.equal(heal.targetAfter.maxHp, max);
+  assert.ok(heal.actualHeal > 0); assert.equal(heal.targetAfter.tempHp || 0, 0); assert.ok(heal.targetAfter.hp <= max);
 });
 test('wolf reduction is based on effective Max HP and treant has no round start regen', t => {
   const { room, queue } = fixture(t, ['druid']); const p = room.players.p0; p.maxHp = 173; p.hp = 173; p.tempHp = 100; p.action = 'dru_transform';
@@ -172,3 +174,46 @@ test('skill timer and resolution wait for the slowest viewer and reject stale ro
   assert.equal(room.selectionState,'RESOLVING'); assert.equal(room.turnTimer,null);
   room.state = 'GAME_OVER'; // Cancel the guarded 300ms transition during test cleanup.
 });
+
+test('alchemist alc_flask: 50% acid (dmg 50, self 15, equip halved) vs 50% poison (dmg 30, self 5, poison 2 turns) with burette protection', t => {
+  // Test acid branch (random < 0.5)
+  {
+    const { room, queue } = fixture(t, ['alchemist', 'warrior']);
+    room.players.p0.action = 'alc_flask';
+    resolve(room, 0.2);
+    const step = queue().queue.find(s => s.actionId === 'alc_flask');
+    assert.ok(step);
+    assert.equal(step.outcome.type, 'alchemy_acid');
+    assert.equal(step.finalDamage, 50);
+    assert.equal(step.actorHpAfter, 75 - 15);
+    assert.equal(step.hiddenEffectNote, '酸霧侵蝕裝備，全隊裝備效果降低 50%！');
+    assert.match(step.narrative, /腐蝕強酸|高壓強酸/);
+  }
+  // Test poison branch (random >= 0.5)
+  {
+    const { room, queue } = fixture(t, ['alchemist', 'warrior']);
+    room.players.p0.action = 'alc_flask';
+    resolve(room, 0.8);
+    const step = queue().queue.find(s => s.actionId === 'alc_flask');
+    assert.ok(step);
+    assert.equal(step.outcome.type, 'alchemy_poison');
+    assert.equal(step.finalDamage, 30);
+    assert.equal(step.actorHpAfter, 75 - 5);
+    assert.equal(room.currentMonster.poisonTurns, 2);
+    assert.equal(room.currentMonster.poisonDmg, 5);
+    assert.equal(room.players.p0.poisonTurns, 2);
+    assert.equal(room.players.p1.poisonTurns, 2);
+    assert.equal(step.hiddenEffectNote, null);
+    assert.match(step.narrative, /劇毒煙霧/);
+  }
+  // Test burette immunity to self damage
+  {
+    const { room, queue } = fixture(t, ['alchemist', 'warrior']);
+    room.players.p0.action = 'alc_flask';
+    room.players.p0.equips = [{ id: 'alc_burette', name: '精密滴管' }];
+    resolve(room, 0.2);
+    const step = queue().queue.find(s => s.actionId === 'alc_flask');
+    assert.equal(step.actorHpAfter, 75); // 0 self damage
+  }
+});
+

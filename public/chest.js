@@ -389,6 +389,9 @@ function applyChestSnapshot(snapshot) {
 }
 
 async function playChestPresentation(ev, context = {}) {
+  if (typeof window !== 'undefined' && typeof window.forceCloseAllModals === 'function') {
+    window.forceCloseAllModals();
+  }
   const controller = context.controller || new AbortController();
   controller.presentationId = ev.presentationId;
   try { chestPresentationController = controller; } catch {}

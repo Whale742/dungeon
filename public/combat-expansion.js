@@ -28,11 +28,13 @@ function minionPortraitSvg(type, avatar) {
 function resultTarget(result, before = true) { return before ? result.targetBefore : result.targetAfter; }
 function resultPortrait(result) {
   const target = resultTarget(result) || resultTarget(result, false) || {};
-  if (result.minion || result.kind === 'intercept') {
+  if (result.targetId === 'monster') {
+    return '<img src="' + escapeHtml(result.monsterAvatar || '/BOSS/Ancient Guardian Golem.webp') + '" alt="' + escapeHtml(result.monsterName || 'Boss') + '">';
+  }
+  if (result.kind === 'intercept' || target.type === 'wolf' || target.type === 'treant') {
     const minion = result.minion || target;
     return minionPortraitSvg(minion.type, minion.avatar);
   }
-  if (result.targetId === 'monster') return '<img src="' + escapeHtml(result.monsterAvatar || '/BOSS/Ancient Guardian Golem.webp') + '" alt="' + escapeHtml(result.monsterName || 'Boss') + '">';
   return getClassPortraitHtml(target, 'presentation-support-image');
 }
 function createResultCard(result) {
@@ -193,6 +195,9 @@ async function withCombatCanvas(context, category, action) {
   finally { context.signal?.removeEventListener('abort', cleanup); cleanup(); }
 }
 async function playCategoryPresentation(step, context = {}) {
+  if (typeof window !== 'undefined' && typeof window.forceCloseAllModals === 'function') {
+    window.forceCloseAllModals();
+  }
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
   await withCombatCanvas(context, step.category, async canvas => {
     const boss = step.type === 'boss_action';
@@ -253,6 +258,7 @@ async function playCategoryPresentation(step, context = {}) {
     }
     if (step.category === 'STEALTH') { canvas.classList.add('is-stealth-cast'); playSound('air_pass'); }
     if (step.category === 'DEFENSE' || step.category === 'SHIELD') canvas.classList.add('is-guard-cast');
+    if (step.category === 'SUMMON') { canvas.classList.add('is-summon-cast'); playSound('druid_cast'); }
     if (boss) {
       // One boss entry, independent target ripple, each consumes its own result.
       await wait(200);

@@ -113,8 +113,7 @@ const DEFAULT_ROLE_DETAILS = {
     passive: '神秘調和者，精通強酸腐蝕、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。' },
-      { type: '1 技能 A', name: '腐蝕強酸瓶', dmgType: '【魔法】', cd: '無 CD', desc: '投擲高濃度強酸重創目標造成 50 點傷害。強酸濺射會對自身造成 15 點自傷，強酸飛濺腐蝕全隊裝備，全體裝備效果在本回合減半，回合結束還原。' },
-      { type: '1 技能 B', name: '劇毒煙霧瓶', dmgType: '【魔法】', cd: '無 CD', desc: '砸碎毒瓶造成 30 點傷害與輕微自傷 5 點，使敵我雙方皆陷入劇毒，全體後續 2 回合每回合初持續承受 5 點毒素傷害。' },
+      { type: '1 技能', name: '不穩定試劑瓶', dmgType: '【魔法/隨機】', cd: '無 CD', desc: '投擲未完全調和的試劑瓶，50% 機率隨機施放【腐蝕強酸瓶】（造成 50 魔法傷害，自身自傷 15 點，全隊裝備本回合減半）或【劇毒煙霧瓶】（造成 30 魔法傷害，自身自傷 5 點，敵我雙方陷入 2 回合劇毒，每回合 5 點毒傷可疊加）。' },
       { type: '2 技能', name: '命運煉成試劑', dmgType: '【驅散/調和】', cd: '2 回合', desc: '立即驅散全隊所有負面狀態（中毒/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。' }
     ]
   },
@@ -183,6 +182,27 @@ let chestRewardCompletedId = null;
 let routeInteractionReadyKey = null;
 let eventDoneKey = null;
 
+// 強制關閉全部彈窗（演出階段嚴格防阻擋）
+function forceCloseAllModals() {
+  document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.chat-popup-card').forEach(el => el.classList.add('hidden'));
+  const avatarModal = document.getElementById('avatarCustomModal');
+  if (avatarModal) avatarModal.classList.add('hidden');
+  const equipModal = document.getElementById('equipDropModal');
+  if (equipModal) equipModal.classList.add('hidden');
+  const minionModal = document.getElementById('minionDetailModal');
+  if (minionModal) minionModal.classList.add('hidden');
+  const roleModal = document.getElementById('roleDetailModal');
+  if (roleModal) roleModal.classList.add('hidden');
+  const chatPopup = document.getElementById('chatPopupCard');
+  if (chatPopup) chatPopup.classList.add('hidden');
+  const endBattleModal = document.getElementById('endBattleModal');
+  if (endBattleModal) endBattleModal.classList.add('hidden');
+  const targetModal = document.getElementById('targetModal');
+  if (targetModal) targetModal.classList.add('hidden');
+}
+if (typeof window !== 'undefined') window.forceCloseAllModals = forceCloseAllModals;
+
 // ==========================================================================
 // Presentation Orchestrator & Duplicate Prevention (P2-R1 Section 0, 1, 2)
 // ==========================================================================
@@ -207,6 +227,9 @@ const presentationManager = {
 
   setBlocking(blocking) {
     this.isBlocking = Boolean(blocking);
+    if (this.isBlocking) {
+      forceCloseAllModals();
+    }
     const root = document.getElementById('presentationRoot');
     if (root) {
       if (this.isBlocking) {
@@ -303,6 +326,7 @@ const elements = {
   roomBadge: document.getElementById('roomBadge'),
   roomCodeText: document.getElementById('roomCodeText'),
   roomCopyToast: document.getElementById('roomCopyToast'),
+  btnLeaveParty: document.getElementById('btnLeaveParty'),
   soundToggleBtn: document.getElementById('soundToggleBtn'),
   soundToggleImg: document.getElementById('soundToggleImg'),
 
@@ -340,6 +364,8 @@ const elements = {
   btnStartGame: document.getElementById('btnStartGame'),
   leaderStartArea: document.getElementById('leaderStartArea'),
   memberWaitArea: document.getElementById('memberWaitArea'),
+  btnToggleReady: document.getElementById('btnToggleReady'),
+  readyBtnText: document.getElementById('readyBtnText'),
   startRequirementText: document.getElementById('startRequirementText'),
 
   // Game Start Overlay (P2-R1.1 Section 3)
@@ -972,26 +998,38 @@ function renderPendingDropModal(me) {
   elements.equipDropModal.classList.remove('hidden');
 }
 
-// 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職: 黃色驚嘆號，無文字)
-function renderMemberStatusBadge(roleInfo) {
-  if (roleInfo) {
-    return `
-      <span class="member-status-icon ready" title="已就緒" aria-label="已就緒">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      </span>
-    `;
-  } else {
+// 渲染大廳小隊成員準備狀態圖標 (隊長 / 已準備 / 未準備 / 未選職)
+function renderMemberStatusBadge(p, isThisLeader) {
+  if (isThisLeader) {
+    return `<span class="member-status-icon ready" title="隊長" aria-label="隊長">👑 隊長</span>`;
+  }
+  if (!p.role) {
     return `
       <span class="member-status-icon waiting" title="尚未選職" aria-label="尚未選職">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="13"></line>
           <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-        </svg>
+        </svg> 未選職
       </span>
     `;
   }
+  if (p.isReady) {
+    return `
+      <span class="member-status-icon ready" title="已準備" aria-label="已準備">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg> 已準備
+      </span>
+    `;
+  }
+  return `
+    <span class="member-status-icon waiting" title="未準備" aria-label="未準備">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="13"></line>
+        <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
+      </svg> 未準備
+    </span>
+  `;
 }
 
 // 1. 渲染大廳
@@ -1040,7 +1078,7 @@ function renderLobby(me, isLeader) {
           </div>
         </div>
         <div class="member-status-col">
-          ${renderMemberStatusBadge(roleInfo)}
+          ${renderMemberStatusBadge(p, isThisLeader)}
         </div>
       `;
 
@@ -1118,10 +1156,25 @@ function renderLobby(me, isLeader) {
             </span>
           </div>
         </div>
-        <div class="member-status-col">
-          ${renderMemberStatusBadge(roleInfo)}
+        <div class="member-status-col" style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+          ${renderMemberStatusBadge(p, isThisLeader)}
+          ${isLeader ? `<button type="button" class="btn-micro-action btn-transfer-leader" data-id="${p.id}" title="移交隊長職位" style="font-size:0.75rem; padding:2px 6px; cursor:pointer;">👑 移交隊長</button>` : ''}
         </div>
       `;
+
+      if (isLeader) {
+        const transferBtn = div.querySelector('.btn-transfer-leader');
+        if (transferBtn) {
+          transferBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!confirm(`確定要將隊長職位移交給【${p.name}】嗎？`)) return;
+            playSound('click');
+            socket.emit('room:transfer_leader', { targetId: p.id }, (res) => {
+              if (res && !res.success) alert(res.message);
+            });
+          });
+        }
+      }
     }
 
     elements.lobbyMemberList.appendChild(div);
@@ -1130,18 +1183,35 @@ function renderLobby(me, isLeader) {
   // 更新角色選擇卡
   renderRoleSelectionGrid();
 
-  // 隊長出發按鈕判定
+  // 隊員準備按鈕狀態
+  if (elements.btnToggleReady) {
+    if (me?.isReady) {
+      if (elements.readyBtnText) elements.readyBtnText.textContent = '取消準備';
+      elements.btnToggleReady.className = 'btn btn-success btn-large full-width';
+    } else {
+      if (elements.readyBtnText) elements.readyBtnText.textContent = '準備就緒';
+      elements.btnToggleReady.className = 'btn btn-primary btn-large full-width';
+    }
+    elements.btnToggleReady.disabled = !me?.role;
+  }
+
+  // 隊長出發按鈕判定（需所有隊友已選職且非隊長成員皆已準備）
+  const otherMembers = roomState.players.filter(p => p.id !== roomState.leaderId);
+  const allReady = otherMembers.length === 0 || otherMembers.every(p => p.isReady);
   const allPicked = roomState.players.length > 0 && roomState.players.every(p => p.role);
   if (isLeader) {
     elements.leaderStartArea.classList.remove('hidden');
     elements.memberWaitArea.classList.add('hidden');
-    elements.btnStartGame.disabled = !allPicked;
-    if (allPicked) {
-      elements.startRequirementText.textContent = '小隊全體就緒！點擊開始冒險！';
-      elements.startRequirementText.style.color = '#16a34a';
-    } else {
+    elements.btnStartGame.disabled = !(allPicked && allReady);
+    if (!allPicked) {
       elements.startRequirementText.textContent = '尚有隊員未完成選職';
       elements.startRequirementText.style.color = '#dc2626';
+    } else if (!allReady) {
+      elements.startRequirementText.textContent = '尚有隊員未準備就緒';
+      elements.startRequirementText.style.color = '#dc2626';
+    } else {
+      elements.startRequirementText.textContent = '小隊全體就緒！點擊開始冒險！';
+      elements.startRequirementText.style.color = '#16a34a';
     }
   } else {
     elements.leaderStartArea.classList.add('hidden');
@@ -2776,6 +2846,37 @@ elements.btnStartGame.addEventListener('click', () => {
     if (!res.success) alert(res.message);
   });
 });
+
+// 隊員切換準備狀態
+if (elements.btnToggleReady) {
+  elements.btnToggleReady.addEventListener('click', () => {
+    playSound('click');
+    socket.emit('room:toggle_ready', (res) => {
+      if (res && !res.success) alert(res.message);
+    });
+  });
+}
+
+// 離開隊伍
+if (elements.btnLeaveParty) {
+  elements.btnLeaveParty.addEventListener('click', () => {
+    const isLeader = roomState?.leaderId === myId;
+    const msg = isLeader
+      ? '確定要離開小隊嗎？\n（您是隊長，離開後隊長職位將由第一順位隊友繼承）'
+      : '確定要離開小隊嗎？';
+    if (!confirm(msg)) return;
+    playSound('click');
+    socket.emit('leave_party', () => {
+      roomState = null;
+      currentRoomCode = null;
+      currentActiveStage = 'NONE';
+      presentationManager.reset();
+      switchView('entry');
+      if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
+      renderApp();
+    });
+  });
+}
 
 // 休息站選擇：繼續
 elements.btnCpContinue.addEventListener('click', () => {

@@ -19,6 +19,9 @@ function setRouteChoicesHidden(hidden) {
 }
 
 async function playExplorationPresentation(presentationId, floor, paragraphs) {
+  if (typeof window !== 'undefined' && typeof window.forceCloseAllModals === 'function') {
+    window.forceCloseAllModals();
+  }
   const controller = new AbortController();
   controller.presentationId = presentationId;
   routePresentationController = controller;

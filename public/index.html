@@ -172,6 +172,9 @@
         <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">
           <svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰
         </button>
+        <button id="btnLeaveParty" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
+          <svg class="svg-icon"><use href="#icon-close"></use></svg> 離開隊伍
+        </button>
         <button id="soundToggleBtn" class="btn-sound-toggle" title="切換音效">
           <img id="soundToggleImg" src="/sound/sound.webp" alt="音效" class="sound-toggle-img">
         </button>
@@ -273,6 +276,9 @@
                 <p id="startRequirementText" class="start-tip">尚有隊友未完成選職</p>
               </div>
               <div id="memberWaitArea" class="member-actions hidden">
+                <button id="btnToggleReady" class="btn btn-primary btn-large full-width" style="margin-bottom: 8px;">
+                  <svg class="svg-icon"><use href="#icon-ready"></use></svg> <span id="readyBtnText">準備就緒</span>
+                </button>
                 <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 等待隊長啟程出發...</div>
               </div>
             </div>
