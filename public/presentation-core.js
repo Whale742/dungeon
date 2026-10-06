@@ -9,34 +9,149 @@ class SFXManager {
     this.ctx = null;
     this.lastPlayed = new Map();
     this.minInterval = 40; // 防音頻重疊破音 (ms)
-    this.soundEnabled = true;
-    this.volume = 1.0;
+    this._soundEnabled = true;
+    this._volume = 1;
+    this.masterGain = null;
+    this.assets = new Map();
+    this.activeVoices = new Set();
+    this.generation = 0;
   }
 
-  init() {
+  get soundEnabled() { return this._soundEnabled; }
+  set soundEnabled(value) { this._soundEnabled = Boolean(value); this.updateMaster(); }
+  get volume() { return this._volume; }
+  set volume(value) { this._volume = Math.max(0, Math.min(1, Number(value) || 0)); this.updateMaster(); }
+  updateMaster() {
+    if (this.masterGain) {
+      this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.masterGain.gain.value = this.soundEnabled ? this.volume : 0;
+    }
+  }
+  init(unlock = true) {
     if (!this.ctx && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.connect(this.ctx.destination); this.updateMaster();
+      }
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    if (unlock && this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {});
+  }
+  loadAsset(profile) {
+    if (this.assets.has(profile.src)) return this.assets.get(profile.src).promise;
+    this.init(false);
+    const entry = { buffer: null, failed: false, promise: null };
+    entry.promise = (async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch(profile.src, { signal: controller.signal });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const bytes = await response.arrayBuffer();
+        entry.buffer = await Promise.race([
+          this.ctx.decodeAudioData(bytes),
+          new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('Audio load/decode timeout')), { once: true }))
+        ]);
+        return entry.buffer;
+      } catch (error) {
+        entry.failed = true;
+        console.warn('[SFX] Asset unavailable; synth fallback:', profile.src, error.message);
+        return null;
+      } finally { clearTimeout(timeout); }
+    })();
+    this.assets.set(profile.src, entry);
+    return entry.promise;
+  }
+  preload() {
+    if (typeof SFX_ASSETS === 'undefined') return Promise.resolve([]);
+    this.init(false);
+    if (!this.ctx) return Promise.resolve([]);
+    return Promise.all(Object.values(SFX_ASSETS).map(profile => this.loadAsset(profile)));
+  }
+  stopAll() {
+    this.generation++;
+    for (const voice of [...this.activeVoices]) voice.stop();
+  }
+  duck(key, amount = .4) {
+    for (const voice of this.activeVoices) if (voice.key === key && voice.gain) {
+      voice.gain.gain.setTargetAtTime(voice.level * amount, this.ctx.currentTime, .05);
     }
   }
+  play(type, options = {}) {
+    if (!this.soundEnabled || options.signal?.aborted) return Promise.resolve(null);
+    this.init();
+    if (!this.ctx) return Promise.resolve(null);
+    const now = Date.now();
+    const throttleKey = options.instance || type;
+    if (now - (this.lastPlayed.get(throttleKey) || 0) < this.minInterval) return Promise.resolve(null);
+    this.lastPlayed.set(throttleKey, now);
+    const key = typeof SFX_ALIASES !== 'undefined' ? SFX_ALIASES[type] || type : type;
+    const profile = typeof SFX_ASSETS !== 'undefined' ? SFX_ASSETS[key] : null;
+    if (!profile || options.synthOnly) { this.playSynth(type, options); return Promise.resolve(null); }
+    const generation = this.generation;
+    return this.loadAsset(profile).then(buffer => {
+      if (generation !== this.generation || options.signal?.aborted || !this.soundEnabled) return null;
+      if (!buffer) { this.playSynth(profile.fallback, options); return null; }
+      const source = this.ctx.createBufferSource();
+      const gain = this.ctx.createGain();
+      source.buffer = buffer; source.playbackRate.value = 1;
+      const offset = Math.max(0, Math.min(options.offset ?? profile.offset, buffer.duration - .001));
+      const duration = Math.min(profile.maxDuration, buffer.duration - offset);
+      const level = profile.volume * (options.volume ?? 1);
+      const start = this.ctx.currentTime;
+      gain.gain.setValueAtTime(level, start);
+      gain.gain.setValueAtTime(level, start + Math.max(0, duration - .12));
+      gain.gain.linearRampToValueAtTime(0, start + duration);
+      source.connect(gain); gain.connect(this.masterGain);
+      let disposed = false;
+      let deadline;
+      const cleanup = () => {
+        if (disposed) return;
+        disposed = true;
+        clearTimeout(deadline);
+        source.onended = null;
+        options.signal?.removeEventListener('abort', voice.stop);
+        this.activeVoices.delete(voice); source.disconnect(); gain.disconnect();
+      };
+      const voice = { key, gain, level, source, stop: () => {
+        try { source.stop(); } catch {} cleanup();
+      } };
+      source.onended = cleanup;
+      options.signal?.addEventListener('abort', voice.stop, { once: true });
+      this.activeVoices.add(voice);
+      source.start(start, offset, duration);
+      // A suspended context must not retain stale cues until a later gesture.
+      deadline = setTimeout(voice.stop, Math.ceil(duration * 1000) + 250);
+      return voice;
+    }).catch(error => {
+      if (!options.signal?.aborted && generation === this.generation) {
+        console.warn('[SFX] Playback unavailable; synth fallback:', key, error.message);
+        this.playSynth(profile.fallback, options);
+      }
+      return null;
+    });
+  }
 
-  play(type) {
+  playSynth(type, options = {}) {
+
     if (!this.soundEnabled) return;
     try {
       this.init();
       if (!this.ctx) return;
 
-      const nowMs = Date.now();
-      const last = this.lastPlayed.get(type) || 0;
-      if (nowMs - last < this.minInterval) return;
-      this.lastPlayed.set(type, nowMs);
 
       const ctx = this.ctx;
       const t = ctx.currentTime;
-      const masterVol = this.volume;
+      const masterVol = options.volume ?? 1;
+      const output = ctx.createGain(); output.connect(this.masterGain);
+      const voice = { key: type, stop: () => {
+        output.disconnect(); this.activeVoices.delete(voice);
+        options.signal?.removeEventListener('abort', voice.stop); clearTimeout(timer);
+      } };
+      const timer = setTimeout(voice.stop, 4000);
+      this.activeVoices.add(voice);
+      options.signal?.addEventListener('abort', voice.stop, { once: true });
 
       // Phase 6 support/outcome identities, shared by production and Lab.
       const supportVoices = {
@@ -67,7 +182,7 @@ class SFXManager {
         gain.gain.setValueAtTime(.001, t);
         gain.gain.linearRampToValueAtTime(.24 * masterVol, t + .02);
         gain.gain.exponentialRampToValueAtTime(.002, t + duration);
-        osc.connect(gain); gain.connect(ctx.destination);
+        osc.connect(gain); gain.connect(output);
         osc.start(t); osc.stop(t + duration);
         return;
       }
@@ -83,7 +198,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.18 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.05);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.05);
           break;
@@ -97,7 +212,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.15 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.06);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.06);
           break;
@@ -111,7 +226,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.25 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.14);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.14);
           break;
@@ -125,7 +240,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.18 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.1);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.1);
           break;
@@ -140,7 +255,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.12 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.035);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.035);
           break;
@@ -173,7 +288,7 @@ class SFXManager {
 
           osc.connect(filter);
           filter.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.22);
           break;
@@ -207,7 +322,7 @@ class SFXManager {
           osc1.connect(filter);
           filter.connect(gain);
           osc2.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
 
           osc1.start(t);
           osc2.start(t);
@@ -243,7 +358,7 @@ class SFXManager {
           oscBody.connect(filter);
           filter.connect(gain);
           oscSub.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
 
           oscSub.start(t);
           oscBody.start(t);
@@ -263,7 +378,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.38 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.12);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.12);
           break;
@@ -284,7 +399,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.14);
           osc.connect(filter);
           filter.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.14);
           break;
@@ -299,7 +414,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.48 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.08);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.08);
           break;
@@ -318,7 +433,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.36 * masterVol, t + offset);
             gain.gain.exponentialRampToValueAtTime(0.005, t + offset + 0.09);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + offset);
             osc.stop(t + offset + 0.09);
           });
@@ -335,7 +450,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.28 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.14);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.14);
           break;
@@ -355,7 +470,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.20);
           osc1.connect(gain);
           osc2.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc1.start(t);
           osc2.start(t);
           osc1.stop(t + 0.20);
@@ -375,7 +490,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.32 * masterVol, t + offset);
             gain.gain.exponentialRampToValueAtTime(0.005, t + offset + 0.11);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + offset);
             osc.stop(t + offset + 0.11);
           });
@@ -392,7 +507,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.24 * masterVol, t + idx * 0.03);
             gain.gain.exponentialRampToValueAtTime(0.005, t + idx * 0.03 + 0.25);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + idx * 0.03);
             osc.stop(t + idx * 0.03 + 0.25);
           });
@@ -411,7 +526,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.55 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.18);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.18);
           break;
@@ -430,7 +545,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.22);
           osc1.connect(gain);
           osc2.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc1.start(t);
           osc2.start(t);
           osc1.stop(t + 0.22);
@@ -451,7 +566,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.28);
           osc.connect(gain);
           oscSub.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           oscSub.start(t);
           osc.stop(t + 0.28);
@@ -467,7 +582,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.48 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.24);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.24);
           break;
@@ -486,7 +601,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.32);
           osc.connect(filter);
           filter.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.32);
           break;
@@ -505,7 +620,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.26);
           osc1.connect(gain);
           osc2.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc1.start(t);
           osc2.start(t);
           osc1.stop(t + 0.26);
@@ -526,7 +641,7 @@ class SFXManager {
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.22);
           osc1.connect(gain);
           osc2.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc1.start(t);
           osc2.start(t);
           osc1.stop(t + 0.22);
@@ -542,7 +657,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.32 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.12);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.12);
           break;
@@ -557,7 +672,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.28 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.24);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.24);
           break;
@@ -571,7 +686,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.35 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.28);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.28);
           break;
@@ -589,7 +704,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.2 * masterVol, t + idx * 0.06);
             gain.gain.exponentialRampToValueAtTime(0.005, t + idx * 0.06 + 0.25);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + idx * 0.06);
             osc.stop(t + idx * 0.06 + 0.25);
           });
@@ -605,7 +720,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.3 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.28);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.28);
           break;
@@ -619,7 +734,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.32 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.15);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.15);
           break;
@@ -637,9 +752,55 @@ class SFXManager {
           gain.gain.setValueAtTime(0.22 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.14);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.14);
+          break;
+        }
+        case 'boss_warning': {
+          [620, 830].forEach((frequency, i) => {
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.type = 'square'; osc.frequency.value = frequency;
+            const start = t + i * .095;
+            gain.gain.setValueAtTime(.055 * masterVol, start);
+            gain.gain.exponentialRampToValueAtTime(.001, start + .085);
+            osc.connect(gain); gain.connect(output); osc.start(start); osc.stop(start + .09);
+          });
+          break;
+        }
+        case 'round_start': {
+          [330, 495].forEach((frequency, i) => {
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.type = 'triangle'; osc.frequency.value = frequency;
+            const start = t + i * .06;
+            gain.gain.setValueAtTime(.13 * masterVol, start);
+            gain.gain.exponentialRampToValueAtTime(.001, start + .17);
+            osc.connect(gain); gain.connect(output); osc.start(start); osc.stop(start + .18);
+          });
+          break;
+        }
+        case 'boss_rumble':
+        case 'boss_boom': {
+          const boom = type === 'boss_boom';
+          const duration = boom ? .42 : .32;
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(boom ? 135 : 62, t);
+          osc.frequency.exponentialRampToValueAtTime(boom ? 38 : 43, t + duration);
+          gain.gain.setValueAtTime(.001, t);
+          gain.gain.linearRampToValueAtTime((boom ? .32 : .09) * masterVol, t + .012);
+          gain.gain.exponentialRampToValueAtTime(.001, t + duration);
+          osc.connect(gain); gain.connect(output); osc.start(t); osc.stop(t + duration);
+          if (boom) {
+            const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * .2), ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+            const body = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), bodyGain = ctx.createGain();
+            body.buffer = buffer; filter.type = 'lowpass'; filter.frequency.value = 950;
+            bodyGain.gain.setValueAtTime(.12 * masterVol, t);
+            bodyGain.gain.exponentialRampToValueAtTime(.001, t + .2);
+            body.connect(filter); filter.connect(bodyGain); bodyGain.connect(output); body.start(t); body.stop(t + .2);
+          }
           break;
         }
         case 'boss_roar': {
@@ -651,7 +812,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.45 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.45);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.45);
           break;
@@ -669,7 +830,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.38 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.4);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.4);
           break;
@@ -683,7 +844,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.48 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.3);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.3);
           break;
@@ -699,7 +860,7 @@ class SFXManager {
           gain1.gain.setValueAtTime(0.25 * masterVol, t);
           gain1.gain.exponentialRampToValueAtTime(0.005, t + 0.06);
           osc1.connect(gain1);
-          gain1.connect(ctx.destination);
+          gain1.connect(output);
           osc1.start(t);
           osc1.stop(t + 0.06);
 
@@ -711,7 +872,7 @@ class SFXManager {
           gain2.gain.setValueAtTime(0.28 * masterVol, t + 0.04);
           gain2.gain.exponentialRampToValueAtTime(0.005, t + 0.28);
           osc2.connect(gain2);
-          gain2.connect(ctx.destination);
+          gain2.connect(output);
           osc2.start(t + 0.04);
           osc2.stop(t + 0.28);
           break;
@@ -725,7 +886,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.18 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.005, t + 0.35);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.35);
           break;
@@ -740,7 +901,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.22 * masterVol, t + idx * 0.1);
             gain.gain.exponentialRampToValueAtTime(0.005, t + idx * 0.1 + 0.3);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + idx * 0.1);
             osc.stop(t + idx * 0.1 + 0.3);
           });
@@ -756,7 +917,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.26 * masterVol, t + idx * 0.09);
             gain.gain.exponentialRampToValueAtTime(0.005, t + idx * 0.09 + 0.4);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + idx * 0.09);
             osc.stop(t + idx * 0.09 + 0.4);
           });
@@ -773,7 +934,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.22 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.01, t + 0.45);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.45);
           break;
@@ -788,7 +949,7 @@ class SFXManager {
             gain.gain.setValueAtTime(0.26 * masterVol, t + idx * 0.12);
             gain.gain.exponentialRampToValueAtTime(0.01, t + idx * 0.12 + 0.4);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(output);
             osc.start(t + idx * 0.12);
             osc.stop(t + idx * 0.12 + 0.4);
           });
@@ -803,7 +964,7 @@ class SFXManager {
           gain.gain.setValueAtTime(0.35 * masterVol, t);
           gain.gain.exponentialRampToValueAtTime(0.01, t + 0.55);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(output);
           osc.start(t);
           osc.stop(t + 0.55);
           break;
@@ -821,8 +982,16 @@ if (typeof window !== 'undefined') {
   window.sfxManager = sfxManager;
   window.SFXManager = SFXManager;
   if (!window.playSound) {
-    window.playSound = type => sfxManager.play(type);
+    window.playSound = (type, options) => sfxManager.play(type, options);
   }
+}
+
+if (typeof window !== 'undefined') {
+  sfxManager.preload();
+  const unlockAudio = () => sfxManager.init();
+  window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
+  window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+  window.addEventListener('pagehide', () => sfxManager.stopAll());
 }
 
 // --- 2. 非同步時序與幀輔助 ---

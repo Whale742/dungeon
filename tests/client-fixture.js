@@ -105,6 +105,8 @@ export function fixture() {
   };
   const context = vm.createContext({
     AbortController, DOMException,
+    performance: { now: () => now },
+    sfxManager: { play(name) { sounds.push({ name, at: now }); } },
     setTimeout: schedule,
     clearTimeout: id => tasks.delete(id),
     requestAnimationFrame: callback => schedule(callback, 16),
@@ -129,6 +131,7 @@ export function fixture() {
     socket: { emit: (name, data) => emissions.push({ name, data, at: now }) },
     console: { error: (...args) => errors.push(args) }
   });
+  vm.runInContext(fs.readFileSync(new URL('../public/sfx-assets.js', import.meta.url), 'utf8'), context);
   vm.runInContext(`
     let prologueCompleted = false;
     let isPrologueTyping = false;
@@ -145,6 +148,7 @@ export function fixture() {
       cinematicBannerTimeout = setTimeout(() => { cinematicBannerTimeout = null; }, 2200);
     }
     ${ownerSource}
+    function waitForPresentation(...args) { return waitForPrologue(...args); }
   `, context);
   return { context, app, body, elements, manager, emissions, errors, sounds, tasks, writes, advance, flush };
 }

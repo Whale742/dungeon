@@ -458,6 +458,7 @@ function escapeHtml(str) {
 
 // --- 5. 畫面重設 (Reset & Cleanup Strategy - Zero Memory Leak) ---
 function resetLab() {
+  sfxManager.stopAll();
   if (labState.activeController) {
     labState.activeController.abort();
     labState.activeController = null;
@@ -519,6 +520,7 @@ function resetLab() {
   }
 
   // Hide view panels
+  document.getElementById('labMockHud')?.classList.remove('hidden');
   if (elements.views.statusLab) {
     elements.views.statusLab.classList.add('hidden');
     elements.views.statusLab.classList.remove('active');
@@ -594,6 +596,11 @@ window.applyHpSnapshot = snapshot => {
 };
 
 // Phase 7.2: Status Lab State & Scene Runner
+const PHASE73_LAB_SCENES = Object.freeze({
+  p73_warning: 'Boss Warning', p73_reveal: 'Boss Reveal', p73_encounter: 'Full Boss Encounter → HUD → Round 1',
+  p73_weakened: 'Weakened Boss Encounter', p73_round1: 'Round 1', p73_round5: 'Round 5',
+  p73_reduced_boss: 'Reduced Motion Boss', p73_reduced_round: 'Reduced Motion Round'
+});
 let labActiveStatuses = new Set();
 let labDruidForm = 'human';
 
@@ -616,7 +623,10 @@ function updateStatusLabGallery() {
 
   const portraits = getStatusLabPortraits();
   for (const p of portraits) {
-    if (p.root) syncPortraitStatusFx(entity, p.root, { scale: p.scale });
+    if (p.root) {
+      p.root.dataset.reducedMotion = String(labState.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      syncPortraitStatusFx(entity, p.root, { scale: p.scale });
+    }
   }
 
   const listEl = document.getElementById('statusLabActiveList');
@@ -696,6 +706,12 @@ async function playStatusLabScene(sceneName, context) {
       labActiveStatuses.add('hidden');
       labActiveStatuses.add('dodge');
       break;
+    case 'status_combo_exhausted_vulnerable':
+      labActiveStatuses.add('exhausted'); labActiveStatuses.add('vulnerable'); break;
+    case 'status_combo_corruption_shield':
+      labActiveStatuses.add('corruption'); labActiveStatuses.add('shield'); break;
+    case 'status_combo_four':
+      ['poison','shield','frenzy','exhausted'].forEach(s => labActiveStatuses.add(s)); break;
     default:
       if (sceneName.startsWith('status_')) {
         labActiveStatuses.add(sceneName.replace('status_', ''));
@@ -741,6 +757,35 @@ async function playScene(sceneName) {
   };
 
   try {
+    if (sceneName.startsWith('chest_')) {
+      elements.views.event.classList.remove('hidden');
+      elements.views.event.classList.add('active');
+    }
+    if (sceneName === 'a73_warrior_action') {
+      const step = structuredClone(PHASE6_LAB_SCENES.p71_sword.steps[0]);
+      step.actionId = 'w_strike'; step.skillId = 'w_strike'; step.skillName = '堅定斬擊';
+      await enterCombatStage(context);
+      try { await playExpandedCombatPresentation(step, context); }
+      finally { await exitCombatStage(context); }
+      logLab('COMPLETE', 'Fight → heavy sword → physical impact', 'success');
+      return;
+    }
+    if (PHASE73_LAB_SCENES[sceneName]) {
+      const monster = { name: '遠古守衛石像', avatar: '/BOSS/Ancient Guardian Golem.webp', isWeakened: sceneName === 'p73_weakened' };
+      if (sceneName.includes('reduced')) context.reducedMotion = true;
+      if (sceneName === 'p73_warning' || sceneName === 'p73_reveal') {
+        await playBossIntro(monster, { ...context, segment: sceneName === 'p73_warning' ? 'warning' : 'reveal' });
+      } else if (sceneName === 'p73_round1' || sceneName === 'p73_round5' || sceneName === 'p73_reduced_round') {
+        await playRoundStartBanner(sceneName === 'p73_round5' ? 5 : 1, context);
+      } else {
+        document.getElementById('labMockHud').classList.add('hidden');
+        await playBattlePhaseOpening(monster, 1, { ...context, encounter: true, revealHud() {
+          document.getElementById('labMockHud').classList.remove('hidden');
+        } });
+      }
+      logLab('COMPLETE', PHASE73_LAB_SCENES[sceneName], 'success');
+      return;
+    }
     if (sceneName.startsWith('status_')) {
       await playStatusLabScene(sceneName, context);
       return;
@@ -860,9 +905,9 @@ async function playScene(sceneName) {
       case 'game_title': {
         elements.gameStartOverlay.classList.remove('hidden');
         elements.gameTitleContainer.classList.remove('hidden');
-        sfxManager.play('banner');
-        logLab('TITLE', 'Game Title displayed. Holding 1400ms...');
-        await waitForPresentation(1400, signal, labState.speed);
+        sfxManager.play('logo_intro', { signal });
+        logLab('TITLE', 'Game Title displayed. Holding the measured logo identity...');
+        await waitForPresentation(SFX_ASSETS.logo_intro.identityBeatMs, signal, labState.speed);
         elements.gameStartOverlay.classList.add('hidden');
         logLab('COMPLETE', 'Game Title finished.', 'success');
         break;
@@ -1112,6 +1157,16 @@ function initLabController() {
   const sceneSelect = document.getElementById('labSceneSelect');
   const activeSceneTag = document.getElementById('labActiveSceneTag');
   if (sceneSelect) {
+    const phase73Group = document.createElement('optgroup'); phase73Group.label = 'Phase 7.3 Boss / Round';
+    for (const [id, label] of Object.entries(PHASE73_LAB_SCENES)) {
+      const option = document.createElement('option'); option.value = id; option.textContent = label; phase73Group.appendChild(option);
+    }
+    for (const [id, label] of [['status_combo_exhausted_vulnerable','Exhausted + Vulnerable'], ['status_combo_corruption_shield','Corruption + Shield'], ['status_combo_four','Poison + Shield + Frenzy + Exhausted']]) {
+      const option = document.createElement('option'); option.value = id; option.textContent = label; phase73Group.appendChild(option);
+    }
+    sceneSelect.appendChild(phase73Group);
+    const audioSequence = document.createElement('option'); audioSequence.value = 'a73_warrior_action';
+    audioSequence.textContent = 'Audio · Warrior Fight → Heavy Slash → Impact'; phase73Group.appendChild(audioSequence);
     if (typeof PHASE6_LAB_SCENES !== 'undefined') {
       const group = document.createElement('optgroup'); group.label = 'Phase 6 · Production Combat';
       for (const [id, scene] of Object.entries(PHASE6_LAB_SCENES)) {
@@ -1203,6 +1258,16 @@ function initLabController() {
     sfxManager.volume = parseFloat(e.target.value);
   });
 
+  const audioChoices = document.getElementById('labSoundTypeSelect');
+  if (audioChoices) {
+    const group = document.createElement('optgroup'); group.label = '正式 MP3 音效';
+    for (const [key, profile] of Object.entries(SFX_ASSETS)) {
+      const option = document.createElement('option'); option.value = key;
+      option.textContent = key + ' — ' + profile.src.split('/').pop(); group.appendChild(option);
+    }
+    audioChoices.prepend(group);
+  }
+
   document.getElementById('btnTestSound')?.addEventListener('click', () => {
     const soundType = document.getElementById('labSoundTypeSelect')?.value;
     if (soundType) {
@@ -1218,8 +1283,7 @@ function initLabController() {
 
   document.getElementById('btnTestAttackSfx')?.addEventListener('click', () => {
     const role = document.getElementById('labCombatActorRoleSelect')?.value || 'warrior';
-    const profile = (typeof COMBAT_PRESENTATION_PROFILES !== 'undefined' && COMBAT_PRESENTATION_PROFILES[role]) || { attackSfx: 'warrior_xing' };
-    if (profile.preSfx) sfxManager.play(profile.preSfx);
+    const profile = { attackSfx: resolveCombatSfxProfile({ sourceRole: role, actionId: 'basic' }).key || 'support_cast' };
     sfxManager.play(profile.attackSfx);
     logLab('SFX_TEST', `② Played Attack SFX for [${role}]: [${profile.attackSfx}].`);
   });
@@ -1406,6 +1470,7 @@ function initLabController() {
       if (p.root) {
         triggerPortraitStatusEvent(p.root, 'poison', 'tick');
         triggerPortraitStatusEvent(p.root, 'bleed', 'tick');
+        triggerPortraitStatusEvent(p.root, 'corruption', 'tick');
       }
     }
     logLab('STATUS_EVENT', 'Triggered DoT tick event on poison/bleed');
@@ -1420,9 +1485,9 @@ function initLabController() {
   });
 
   document.getElementById('btnTransformWolf')?.addEventListener('click', () => {
-    labDruidForm = 'wolf';
+    labDruidForm = 'werewolf';
     const cardImg = document.getElementById('statusLabCardImg');
-    if (cardImg) cardImg.src = '/photo/Wolf.webp';
+    if (cardImg) cardImg.src = resolveBattlePortrait({ role: 'druid', druidForm: labDruidForm }).src;
     updateStatusLabGallery();
     logLab('TRANSFORM', 'Druid transformed to Wolf form. Status layers preserved.');
   });
@@ -1430,7 +1495,7 @@ function initLabController() {
   document.getElementById('btnTransformTreant')?.addEventListener('click', () => {
     labDruidForm = 'treant';
     const cardImg = document.getElementById('statusLabCardImg');
-    if (cardImg) cardImg.src = '/photo/Treant.webp';
+    if (cardImg) cardImg.src = resolveBattlePortrait({ role: 'druid', druidForm: labDruidForm }).src;
     updateStatusLabGallery();
     logLab('TRANSFORM', 'Druid transformed to Treant form (moss layer on sleep, guard aura).');
   });

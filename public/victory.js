@@ -56,9 +56,9 @@ async function playVictoryPresentation(victory, context = {}) {
     title.className = 'presentation-victory-title';
     title.innerHTML = '<div class="presentation-victory-heading">VICTORY</div><p>' + escapeHtml(victory.monsterName) + '已被擊敗</p>';
     canvas.appendChild(title);
-    playSound('victory');
+    playSound('victory', { signal });
     context.onTiming?.('victory_title', {});
-    await wait(750 + 1500);
+    await wait(Math.max(750 + 1500, SFX_ASSETS.victory.identityBeatMs));
     title.classList.add('exit');
     await wait(500);
     title.remove();

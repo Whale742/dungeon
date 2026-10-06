@@ -29,7 +29,7 @@ test('completion follows all exits, clears text, restores controls and ACKs exac
   assert.equal(f.manager.isBlocking, true);
   await f.advance(4000);
   assert.equal(f.emissions.length, 0);
-  await f.advance(8000);
+  await f.advance(12000);
   await promise;
   assert.deepEqual(f.emissions.map(item => item.name), ['prologue:next']);
   assert.equal(f.elements.prologuePresBody.textContent, '');

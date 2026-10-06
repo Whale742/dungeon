@@ -255,11 +255,11 @@ function initAudio() {
   if (sfx && typeof sfx.init === 'function') sfx.init();
 }
 
-function playSound(type) {
+function playSound(type, options) {
   if (sfx && typeof sfx.play === 'function') {
-    sfx.play(type);
+    return sfx.play(type, options);
   } else if (typeof window !== 'undefined' && window.playSound) {
-    window.playSound(type);
+    return window.playSound(type, options);
   }
 }
 
@@ -487,14 +487,6 @@ const elements = {
   presentationRoot: document.getElementById('presentationRoot'),
   trapPresentationOverlay: document.getElementById('trapPresentationOverlay'),
   trapVictimsContainer: document.getElementById('trapVictimsContainer'),
-  bossIntroOverlay: document.getElementById('bossIntroOverlay'),
-  bossIntroAvatar: document.getElementById('bossIntroAvatar'),
-  bossIntroTitle: document.getElementById('bossIntroTitle'),
-  bossIntroSubtitle: document.getElementById('bossIntroSubtitle'),
-  roundStartOverlay: document.getElementById('roundStartOverlay'),
-  roundStartBanner: document.getElementById('roundStartBanner'),
-  roundStartText: document.getElementById('roundStartText'),
-  roundStartSub: document.getElementById('roundStartSub'),
   presentationFxContainer: document.getElementById('presentationFxContainer'),
 
   // Combat Action Banner (3-column CSS Grid)
@@ -619,6 +611,10 @@ socket.on('init:constants', (data) => {
 let pendingAuthoritativeState = null;
 
 socket.on('room:update', (state) => {
+  if (battlePhaseController && (state.state !== 'IN_BATTLE' || battlePhaseController.battleKey !== battleSceneKey(state))) {
+    battlePhaseController.abort();
+    battleControlsReadyKey = null;
+  }
   if (combatQueueController && state.state !== 'IN_BATTLE') { combatQueueController.abort(); pendingAuthoritativeState = null; }
   // 若目前正透過 Presentation Queue 逐步演出戰鬥交鋒（A5 規範）
   // 嚴禁以權威狀態直接提前覆蓋演出中的 HP / tempHp / bossHp / death state！
@@ -709,7 +705,9 @@ function getClassDisplayName(roleOrPlayer) {
 }
 
 // 切換視圖
+let audioView = null;
 function switchView(viewName) {
+  if (audioView !== viewName) { if (audioView !== null) sfx?.stopAll(); audioView = viewName; }
   Object.keys(elements.views).forEach(key => {
     if (key === viewName) {
       elements.views[key].classList.add('active');
@@ -1483,7 +1481,7 @@ function checkStageTransition(state) {
   }
   // Exploration owns its full-screen floor intro and section reveal.
   if (state.state === 'BATTLE_VICTORY') return;
-  if (state.state === 'CHOOSING_ROUTE' ||
+  if (state.state === 'IN_BATTLE' || state.state === 'CHOOSING_ROUTE' ||
       (state.state === 'EVENT' && state.currentEvent?.type === 'trap')) return;
 
   // 1 秒淡出淡入轉場
@@ -1649,8 +1647,8 @@ async function renderProloguePresentation() {
     overlay.style.opacity = '1';
     overlay.classList.remove('hidden');
     title.classList.remove('hidden');
-    playSound('round_start');
-    await waitForPrologue(PROLOGUE_TIMING.titleEnter + PROLOGUE_TIMING.titleHold, signal);
+    playSound('logo_intro', { signal });
+    await waitForPrologue(Math.max(PROLOGUE_TIMING.titleEnter + PROLOGUE_TIMING.titleHold, SFX_ASSETS.logo_intro.identityBeatMs), signal);
     title.classList.add('exit');
     await waitForPrologue(PROLOGUE_TIMING.titleExit, signal);
     title.classList.add('hidden');
@@ -1774,67 +1772,71 @@ function renderEvent() {
 // --------------------------------------------------------------------------
 // Boss Intro Presentation (P2-R1 Section 23)
 // --------------------------------------------------------------------------
-async function playBossIntro(monster) {
-  const introOverlay = elements.bossIntroOverlay;
-  if (!introOverlay) return;
-
-  presentationManager.setBlocking(true);
-
-  if (elements.bossIntroAvatar) {
-    elements.bossIntroAvatar.innerHTML = monster.avatar 
-      ? `<img src="${monster.avatar}" alt="${escapeHtml(monster.name)}">`
-      : getIconSvg('target');
-  }
-  if (elements.bossIntroTitle) {
-    elements.bossIntroTitle.textContent = monster.name;
-  }
-  if (elements.bossIntroSubtitle) {
-    elements.bossIntroSubtitle.textContent = monster.isWeakened ? 'WEAKENED BOSS ENCOUNTER' : 'ABYSS LORD ENCOUNTER';
-  }
-
-  introOverlay.classList.remove('hidden');
-  introOverlay.style.opacity = '1';
-  playSound('danger_sting');
-
-  // Hold 1000ms
-  await sleep(1000);
-
-  // Exit fade
-  introOverlay.style.opacity = '0';
-  await sleep(400);
-  introOverlay.classList.add('hidden');
-
-  presentationManager.setBlocking(false);
+let battlePhaseController = null;
+let battlePhasePromise = Promise.resolve();
+let battleControlsReadyKey = null;
+let battleControlsEntryPromise = null;
+function battleSceneKey(state = roomState) {
+  return `${state?.code}:${state?.floor}:${state?.currentMonster?.name}`;
 }
-
-// --------------------------------------------------------------------------
-// Round Start Banner (P2-R1 Section 24)
-// --------------------------------------------------------------------------
-async function playRoundStartBanner(round) {
-  const roundOverlay = elements.roundStartOverlay;
-  const roundBanner = elements.roundStartBanner;
-  if (!roundOverlay || !roundBanner) return;
-
-  if (elements.roundStartText) {
-    elements.roundStartText.textContent = `ROUND ${round}`;
-  }
-  if (elements.roundStartSub) {
-    elements.roundStartSub.textContent = 'ADVENTURER PHASE';
-  }
-
-  roundBanner.classList.remove('exit');
-  roundOverlay.classList.remove('hidden');
-  roundOverlay.style.opacity = '1';
-  playSound('round_start');
-
-  // Hold 450ms
-  await sleep(450);
-
-  // Exit slide
-  roundBanner.classList.add('exit');
-  await sleep(250);
-  roundOverlay.classList.add('hidden');
-  roundBanner.classList.remove('exit');
+function battleRoundKey(state = roomState) { return `${battleSceneKey(state)}:${state?.battleRound}`; }
+function ensureBattlePhase(round, state = roomState) {
+  const monster = state?.currentMonster;
+  if (!monster) return battlePhasePromise;
+  const bossIntroKey = `BOSS_INTRO_${battleSceneKey(state)}`;
+  const encounter = !presentationManager.hasPlayed(bossIntroKey);
+  if (!encounter && lastAnnouncedBattleRound === round) return battlePhasePromise;
+  battlePhaseController?.abort();
+  const controller = new AbortController();
+  controller.battleKey = battleSceneKey(state);
+  battlePhaseController = controller;
+  if (encounter) presentationManager.markPlayed(bossIntroKey);
+  lastAnnouncedBattleRound = round;
+  battleControlsReadyKey = null;
+  elements.views.battle.classList.add('battle-phase-pending');
+  document.getElementById('playerActionCard').inert = true;
+  if (encounter) gateDestinationView('battle');
+  presentationManager.setBlocking(true);
+  battlePhasePromise = (async () => {
+    try {
+      await playBattlePhaseOpening(monster, round, {
+        encounter, controller, signal: controller.signal,
+        revealHud() {
+          revealDestinationView('battle');
+          elements.views.battle.classList.add('is-battle-hud-revealing');
+        }
+      });
+    } catch (error) {
+      if (error.name !== 'AbortError') console.error('[BattlePhase]', error);
+    } finally {
+      if (battlePhaseController === controller) {
+        battlePhaseController = null;
+        elements.views.battle.classList.remove('is-battle-hud-revealing');
+        if (!isProcessingPresentationQueue) presentationManager.setBlocking(false);
+        if (!controller.signal.aborted) void revealBattleControls();
+      }
+    }
+  })();
+  return battlePhasePromise;
+}
+async function revealBattleControls() {
+  const key = battleRoundKey();
+  if (roomState?.state !== 'IN_BATTLE' || roomState.selectionState !== 'SELECTING' ||
+      battlePhaseController || isProcessingPresentationQueue || battleControlsReadyKey === key || battleControlsEntryPromise) return;
+  const card = document.getElementById('playerActionCard');
+  elements.views.battle.classList.remove('battle-phase-pending');
+  card.inert = true;
+  card.classList.add('is-phase-entering');
+  battleControlsEntryPromise = (async () => {
+    await sleep(300);
+    card.classList.remove('is-phase-entering');
+    if (battleRoundKey() !== key || roomState.state !== 'IN_BATTLE' || roomState.selectionState !== 'SELECTING' || battlePhaseController || isProcessingPresentationQueue) return;
+    battleControlsReadyKey = key;
+    card.inert = false;
+    renderMyActionBar(getMyPlayer());
+    socket.emit('battle:selection_ready', { round: roomState.battleRound });
+  })();
+  try { await battleControlsEntryPromise; } finally { battleControlsEntryPromise = null; }
 }
 
 // 4. 渲染戰鬥畫面 (P2-R1 Section 23, 24: 首領進場與回合橫幅走 Presentation Root)
@@ -1846,30 +1848,11 @@ function renderBattle(me, isLeader) {
   elements.battleRoundNum.textContent = roomState.battleRound;
 
   // Boss Intro & Round 1 presentation (P2-R1 Section 23 & 24, P2-R1.1 Section 4 & 6)
-  const bossIntroKey = `BOSS_INTRO_${roomState.floor}_${monster.name}`;
-  if (!presentationManager.hasPlayed(bossIntroKey)) {
-    presentationManager.markPlayed(bossIntroKey);
-    lastAnnouncedBattleRound = 1;
-    gateDestinationView('battle');
-    (async () => {
-      await playBossIntro(monster);
-      await playRoundStartBanner(1);
-      revealDestinationView('battle');
-      await sleep(300); // 技能選擇 UI 進場完成、可互動
-      socket.emit('battle:selection_ready', { round: 1 });
-    })();
-  } else if (lastAnnouncedBattleRound !== roomState.battleRound && roomState.battleRound > 1) {
-    const announcedRound = roomState.battleRound;
-    lastAnnouncedBattleRound = announcedRound;
-    (async () => {
-      await playRoundStartBanner(announcedRound);
-      await sleep(300);
-      socket.emit('battle:selection_ready', { round: announcedRound });
-    })();
-  }
+  void ensureBattlePhase(roomState.battleRound);
+  void revealBattleControls();
 
   // 倒數計時：Resolving、Round Start 或計時尚未啟動時顯示 --，其餘正常顯示 (P2-R1.1 Section 6)
-  const isResolving = (roomState.selectionState === 'RESOLVING' || isProcessingPresentationQueue || roomState.selectionState === 'ROUND_START');
+  const isResolving = (roomState.selectionState === 'RESOLVING' || isProcessingPresentationQueue || battlePhaseController || battleControlsReadyKey !== battleRoundKey() || roomState.selectionState === 'ROUND_START');
   if (isResolving || roomState.timerRemaining === null) {
     elements.battleTimerCount.textContent = '--';
   } else {
@@ -2126,7 +2109,7 @@ function renderMyActionBar(me) {
   const isStunned = me.stunnedNextTurn;
   const isSurrendered = me.isSurrendered;
   const isTree = me.druidForm === 'tree';
-  const isNarrating = Boolean(roomState.isNarrating || isPlayingBattleNarrative);
+  const isNarrating = Boolean(roomState.isNarrating || isPlayingBattleNarrative || battlePhaseController || battleControlsReadyKey !== battleRoundKey());
 
   // 狀態提醒
   if (isDead) {
@@ -2858,6 +2841,7 @@ function updateSoundIcon() {
 if (elements.soundToggleBtn) {
   elements.soundToggleBtn.addEventListener('click', () => {
     soundEnabled = !soundEnabled;
+    if (sfx) sfx.soundEnabled = soundEnabled;
     updateSoundIcon();
   });
 }
@@ -2933,6 +2917,7 @@ if (elements.btnLeaveParty) {
     if (!confirm(msg)) return;
     playSound('click');
     socket.emit('leave_party', () => {
+      sfx?.stopAll();
       roomState = null;
       currentRoomCode = null;
       currentActiveStage = 'NONE';
@@ -3802,6 +3787,23 @@ let isProcessingPresentationQueue = false;
 let combatQueueController = null;
 let activeCombatContext = {};
 let lastCombatPresentationId = null;
+function isRoundStartPresentationState(state, round) {
+  return Boolean(state?.currentMonster && state.battleRound === round &&
+    state.state === 'IN_BATTLE');
+}
+function waitForBattleRoundState(round, signal) {
+  const matches = state => isRoundStartPresentationState(state, round);
+  const current = pendingAuthoritativeState || roomState;
+  if (matches(current)) return Promise.resolve(current);
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { socket.off('room:update', update); signal?.removeEventListener('abort', abort); };
+    const update = state => { if (matches(state)) { cleanup(); resolve(state); } };
+    const abort = () => { cleanup(); reject(new DOMException('Presentation cancelled', 'AbortError')); };
+    socket.on('room:update', update);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
+  });
+}
 async function runPresentationQueue(queue, round, monsterKilled, presentationId) {
   const queueKey = roomState?.code + ':' + presentationId;
   if (!queue?.length || queueKey === lastCombatPresentationId) return;
@@ -3830,6 +3832,18 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   };
   controller.signal.addEventListener('abort', cleanup, { once: true });
   try {
+    // Round-start queues can arrive before room:update; show the pre-tick snapshot
+    // while the same round banner runs, then resume the existing combat queue.
+    if (queue[0]?.category === 'STATUS_TICK') {
+      const state = await waitForBattleRoundState(round, controller.signal);
+      const snapshot = queue[0].hpSnapshotBefore;
+      roomState = { ...state,
+        players: mergePresentationSnapshot(state, snapshot).players,
+        currentMonster: { ...state.currentMonster, ...snapshot?.monster } };
+      renderApp();
+    }
+    await ensureBattlePhase(round);
+    if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
     await enterCombatStage(activeCombatContext);
     for (const step of queue) {
       await playPresentationStep(step, round);

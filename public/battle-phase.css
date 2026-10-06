@@ -1,0 +1,96 @@
+/* Presentation-local stages. Every moving layer owns its own transform. */
+.presentation-root { container-type: size; }
+.boss-encounter-stage { position: absolute; inset: 0; overflow: hidden; z-index: 101; pointer-events: none; }
+.boss-encounter-backdrop { position: absolute; inset: 0; z-index: 0; background: rgb(4 7 13 / .58); animation: phaseDarken calc(var(--darken-duration, 2000ms) / var(--phase-speed)) both; }
+.boss-encounter-impact-stage { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.boss-encounter-impact-stage::before { content: ''; position: absolute; inset: -12px; z-index: -1; background: url('/icon/background.webp') center / cover no-repeat; opacity: .22; }
+.boss-warning { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; }
+.boss-warning-strip { position: absolute; width: min(92%, 1200px); height: clamp(120px, 18vh, 175px); background: linear-gradient(100deg, #43131d, #801c30 55%, #45121e); border-block: 2px solid #b26666; clip-path: polygon(2% 0,100% 0,98% 100%,0 100%); opacity: 0; }
+.boss-warning-strip::after { content: ''; position: absolute; inset: 10px 0; border-block: 1px solid rgb(205 142 135 / .2); background: repeating-linear-gradient(120deg, transparent 0 24px, rgb(12 5 9 / .18) 25px 35px); }
+.boss-warning-copy { position: relative; text-align: center; color: #f0d7c5; opacity: 0; display: flex; flex-direction: column; gap: 12px; max-width: 88%; }
+.boss-warning-copy strong { font-family: 'Silkscreen', var(--font-stats), monospace; font-size: clamp(2.6rem, 7vw, 5.5rem); letter-spacing: .12em; line-height: 1; text-shadow: 0 4px 0 #3a1420; }
+.boss-warning-copy span { font-size: clamp(.68rem, 1.5vw, .95rem); letter-spacing: .13em; color: #d6aaa1; }
+.is-entering .boss-warning-strip { animation: phaseFromLeft calc(350ms / var(--phase-speed)) cubic-bezier(.16,1,.3,1) both; }
+.is-entering .boss-warning-copy { animation: phaseFromRight calc(350ms / var(--phase-speed)) calc(110ms / var(--phase-speed)) cubic-bezier(.16,1,.3,1) both; }
+.boss-warning.is-exiting .boss-warning-copy { animation: phaseToLeft calc(250ms / var(--phase-speed)) ease-in both; }
+.boss-warning.is-exiting .boss-warning-strip { animation: phaseToRight calc(250ms / var(--phase-speed)) calc(100ms / var(--phase-speed)) ease-in both; }
+.boss-warning[hidden] { display: none; }
+.boss-encounter-art { position: relative; z-index: 4; opacity: 0; height: 46cqh; max-width: 84%; }
+.boss-encounter-art img { display: block; width: auto; height: 100%; max-width: 100%; object-fit: contain; border: 0; border-radius: 0; filter: drop-shadow(0 12px 18px rgb(0 0 0 / .65)); }
+.boss-encounter-art.is-entering { animation: bossHeavyEntry calc(560ms / var(--phase-speed)) cubic-bezier(.12,.82,.19,1) both; }
+.boss-encounter-name { position: relative; z-index: 5; text-align: center; opacity: 0; max-width: 90%; margin-top: 22px; }
+.boss-encounter-name h1 { margin: 0; color: #e8d8c9; font-family: var(--font-display); font-size: clamp(1.9rem,4vw,3.5rem); text-shadow: 0 3px 2px #130c0e; }
+.boss-encounter-name span { display: block; margin-top: 10px; color: #bd8c81; letter-spacing: .28em; font: 700 .8rem var(--font-stats); }
+.boss-encounter-name.is-entering { animation: bossNameEntry calc(300ms / var(--phase-speed)) ease-out both; }
+.boss-encounter-name.is-exiting { animation: bossNameExit calc(240ms / var(--phase-speed)) ease-in both; }
+.boss-encounter-art.is-exiting { animation: bossArtExit calc(360ms / var(--phase-speed)) ease-in both; }
+.boss-encounter-stage.is-exiting { animation: phaseDarkExit calc(180ms / var(--phase-speed)) linear both; }
+.boss-entry-flash { position: absolute; inset: 0; z-index: 3; opacity: 0; background: #b77872; }
+.is-boom .boss-entry-flash { animation: bossImpactFlash calc(75ms / var(--phase-speed)) linear both; }
+.boss-encounter-impact-stage.is-pre-tremor { animation: bossPreTremor calc(80ms / var(--phase-speed)) linear 4; }
+.boss-encounter-impact-stage.is-boom { animation: bossStageTremor calc(420ms / var(--phase-speed)) linear both; }
+@keyframes bossPreTremor { 0%,100% { transform: translate(0); } 25% { transform: translate(-2px,1px); } 70% { transform: translate(2px,-1px); } }
+@keyframes bossStageTremor { 0%,100% { transform: translate(0); } 12% { transform: translate(-8px,3px); } 28% { transform: translate(10px,-4px); } 44% { transform: translate(-5px,-2px); } 63% { transform: translate(4px,2px); } 82% { transform: translate(-2px,0); } }
+@keyframes bossHeavyEntry { 0% { opacity: 0; transform: translateY(30px) scale(1.16); } 12% { opacity: 1; } 68% { transform: translateY(0) scale(1.02); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes bossNameEntry { from { opacity: 0; transform: translate(-20px,18px); } to { opacity: 1; transform: translate(0); } }
+@keyframes bossNameExit { to { opacity: 0; transform: translateX(25px); } }
+@keyframes bossArtExit { to { opacity: 0; transform: scale(.96); } }
+@keyframes bossImpactFlash { 0% { opacity: .12; } 100% { opacity: 0; } }
+@keyframes phaseDarken { from { opacity: 0; } to { opacity: 1; } }
+@keyframes phaseDarkExit { to { opacity: 0; } }
+@keyframes phaseFromLeft { from { opacity: 1; transform: translateX(-110%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes phaseFromRight { from { opacity: 0; transform: translateX(110%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes phaseToLeft { to { opacity: 0; transform: translateX(-110%); } }
+@keyframes phaseToRight { to { opacity: 0; transform: translateX(110%); } }
+.round-start-overlay { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 28cqh; pointer-events: none; z-index: 102; overflow: hidden; }
+.round-start-banner { position: relative; width: min(76%, 1100px); min-height: 116px; padding: 13px 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; box-sizing: border-box; }
+.round-start-strip { position: absolute; inset: 0; background: linear-gradient(105deg,#121e30,#263c51 60%,#152334); border-block: 2px solid #617e92; clip-path: polygon(2% 0,100% 0,98% 100%,0 100%); opacity: 0; }
+.round-start-strip::after { content: ''; position: absolute; inset: 7px 0; border-block: 1px solid rgb(163 185 198 / .16); }
+.round-start-main { position: relative; font-family: var(--font-display); font-size: clamp(2.4rem,5vw,4rem); line-height: 1.1; color: #e0e7e9; letter-spacing: .08em; text-shadow: 0 3px 0 #101a29; opacity: 0; }
+.round-start-sub { position: relative; color: #a7bdcb; font: 700 .75rem var(--font-stats); letter-spacing: .23em; opacity: 0; }
+.round-start-overlay.is-entering .round-start-strip { animation: phaseFromLeft calc(320ms / var(--phase-speed)) cubic-bezier(.16,1,.3,1) both; }
+.round-start-overlay.is-entering .round-start-main { animation: phaseFromRight calc(320ms / var(--phase-speed)) calc(90ms / var(--phase-speed)) cubic-bezier(.16,1,.3,1) both; }
+.round-start-overlay.is-entering .round-start-sub { animation: phaseFromLeft calc(320ms / var(--phase-speed)) calc(180ms / var(--phase-speed)) cubic-bezier(.16,1,.3,1) both; }
+.round-start-overlay.is-exiting .round-start-sub { animation: phaseToRight calc(180ms / var(--phase-speed)) ease-in both; }
+.round-start-overlay.is-exiting .round-start-main { animation: phaseToRight calc(180ms / var(--phase-speed)) calc(90ms / var(--phase-speed)) ease-in both; }
+.round-start-overlay.is-exiting .round-start-strip { animation: phaseToRight calc(180ms / var(--phase-speed)) calc(180ms / var(--phase-speed)) ease-in both; }
+.battle-phase-pending #playerActionCard { visibility: hidden; opacity: 0; pointer-events: none; }
+#playerActionCard.is-phase-entering { animation: battleControlsEntry 300ms ease-out both; pointer-events: none; }
+@keyframes battleControlsEntry { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes battleBossHpReveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.is-battle-hud-revealing { animation: phaseDarken 350ms ease-out both; }
+.is-battle-hud-revealing #monsterHpFill { transform-origin: left; animation: battleBossHpReveal 400ms ease-out both; }
+[data-reduced-motion="true"] .boss-warning-strip, [data-reduced-motion="true"] .boss-warning-copy { --phase-distance: 10px; }
+[data-reduced-motion="true"] .round-start-strip, [data-reduced-motion="true"] .round-start-main, [data-reduced-motion="true"] .round-start-sub { --phase-distance: 12px; }
+[data-reduced-motion="true"] .boss-warning.is-entering .boss-warning-strip, [data-reduced-motion="true"] .round-start-overlay.is-entering .round-start-strip, .round-start-overlay[data-reduced-motion="true"].is-entering .round-start-strip, .round-start-overlay[data-reduced-motion="true"].is-entering .round-start-sub { animation-name: phaseReducedLeft; }
+[data-reduced-motion="true"] .boss-warning.is-entering .boss-warning-copy, .round-start-overlay[data-reduced-motion="true"].is-entering .round-start-main { animation-name: phaseReducedRight; }
+[data-reduced-motion="true"] .boss-encounter-impact-stage.is-pre-tremor, [data-reduced-motion="true"] .boss-encounter-impact-stage.is-boom { animation-name: bossReducedTremor; }
+[data-reduced-motion="true"] .boss-encounter-art.is-entering { animation-name: bossReducedEntry; }
+[data-reduced-motion="true"] .boss-warning.is-exiting .boss-warning-copy { animation-name: phaseReducedExitLeft; }
+[data-reduced-motion="true"] .boss-warning.is-exiting .boss-warning-strip, .round-start-overlay[data-reduced-motion="true"].is-exiting :is(.round-start-main,.round-start-sub,.round-start-strip) { animation-name: phaseReducedExitRight; }
+@keyframes phaseReducedLeft { from { opacity: 0; transform: translateX(calc(-1 * var(--phase-distance,12px))); } to { opacity: 1; transform: translateX(0); } }
+@keyframes phaseReducedRight { from { opacity: 0; transform: translateX(var(--phase-distance,12px)); } to { opacity: 1; transform: translateX(0); } }
+@keyframes phaseReducedExitLeft { to { opacity: 0; transform: translateX(-10px); } }
+@keyframes phaseReducedExitRight { to { opacity: 0; transform: translateX(12px); } }
+@keyframes bossReducedTremor { 0%,100% { transform: translate(0); } 25% { transform: translate(-2px,0); } 60% { transform: translate(2px,0); } }
+@keyframes bossReducedEntry { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
+@media (max-width: 600px) {
+  .boss-encounter-art { height: 43vh; max-height: 43vh; max-width: 90%; }
+  .boss-warning-strip { width: 90vw; height: 125px; }
+  .boss-warning-copy strong { font-size: clamp(2rem,10vw,3.2rem); letter-spacing: .08em; }
+  .boss-warning-copy span { font-size: .62rem; letter-spacing: .04em; }
+  .boss-encounter-name h1 { font-size: clamp(1.5rem,6vw,2.1rem); overflow-wrap: anywhere; }
+  .round-start-banner { width: 90vw; min-height: 100px; }
+  .round-start-main { font-size: clamp(2rem,8vw,3rem); }
+  .round-start-sub { font-size: .65rem; letter-spacing: .12em; }
+}
+@container (max-width: 600px) {
+  .boss-encounter-art { height: 43cqh; max-height: 43cqh; max-width: 90%; }
+  .boss-warning-strip { width: 90%; height: 125px; }
+  .boss-warning-copy strong { font-size: clamp(2rem,10cqw,3.2rem); letter-spacing: .08em; }
+  .boss-warning-copy span { font-size: .62rem; letter-spacing: .04em; }
+  .boss-encounter-name h1 { font-size: clamp(1.5rem,6cqw,2.1rem); overflow-wrap: anywhere; }
+  .round-start-banner { width: 90%; min-height: 100px; }
+  .round-start-main { font-size: clamp(2rem,8cqw,3rem); }
+  .round-start-sub { font-size: .65rem; letter-spacing: .12em; }
+}

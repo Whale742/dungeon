@@ -290,6 +290,8 @@ test('Phase 7.2: Zero DOM leak over 60 simulated ticks across 4 players + boss',
     { root: createMockElement('div'), entity: { hp: 400, statuses: [{ id: 'corruption' }] } }
   ];
 
+  for (const actor of party) ctx.syncPortraitStatusFx(actor.entity, actor.root);
+  const initialCounts = party.map(actor => actor.root.querySelectorAll('*').length);
   // Run 60 ticks
   for (let tick = 0; tick < 60; tick++) {
     for (const actor of party) {
@@ -298,9 +300,8 @@ test('Phase 7.2: Zero DOM leak over 60 simulated ticks across 4 players + boss',
   }
 
   // After 60 ticks, verify total node counts in each root do not explode
-  for (const actor of party) {
+  for (const [index, actor] of party.entries()) {
     const totalNodes = actor.root.querySelectorAll('*').length;
-    // Layer containers (3) + items (1~2) + internal particles (< 10) = max 25 nodes
-    assert.ok(totalNodes <= 25, `Node count bounded (actual: ${totalNodes})`);
+    assert.equal(totalNodes, initialCounts[index], 'Reconciliation must reuse the full visual composition without adding nodes');
   }
 });

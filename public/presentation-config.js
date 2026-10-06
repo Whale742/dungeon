@@ -115,6 +115,16 @@ const PRESENTATION_CONFIG = Object.freeze({
     actionGap: 200,
     bossGap: 350,
     overlayExit: 300
+  },
+  bossEncounter: {
+    darkenDuration: 2000,
+    warningRevealAt: 3000,
+    warningEntry: 460,
+    warningHold: 750,
+    warningExit: 360,
+    preBossBeat: 180,
+    bossSettle: 560,
+    bossHold: 3200
   }
 });
 

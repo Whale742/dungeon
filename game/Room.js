@@ -939,6 +939,7 @@ export class Room {
 
   // 戰鬥事件
   handleBattleEvent(outcomeData = null, isWeakened = false) {
+    this.state = 'IN_BATTLE';
     const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
     const playerCount = this.memberIds.length;
     const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;

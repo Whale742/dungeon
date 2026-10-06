@@ -30,7 +30,7 @@ const STATUS_FX_PROFILES = Object.freeze({
       for (let i = 0; i < count; i++) {
         starsHtml += `<span class="status-fx-star" data-index="${i}">${FOUR_POINT_STAR_SVG}</span>`;
       }
-      return `<div class="status-fx--frenzy-ring"></div>${starsHtml}`;
+      return `<div class="status-fx--frenzy-ring"><i></i><i></i></div>${starsHtml}`;
     }
   },
   poison: {
@@ -56,7 +56,7 @@ const STATUS_FX_PROFILES = Object.freeze({
     layer: 'back',
     className: 'status-fx--shield',
     portraitClass: 'has-shield',
-    render: () => ''
+    render: () => '<svg class="status-fx-shield-contour" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M20 3H80L97 20V65L80 87L50 98L20 87L3 65V20Z"/><path class="status-fx-shield-crack" d="M48 3L55 30L42 45L61 62L50 98M42 45L3 53M61 62L97 40"/></svg><span class="status-fx-shield-shard"></span><span class="status-fx-shield-shard"></span><span class="status-fx-shield-shard"></span>'
   },
   guard: {
     layer: 'surface',
@@ -95,7 +95,7 @@ const STATUS_FX_PROFILES = Object.freeze({
     layer: 'surface',
     className: 'status-fx--corruption',
     portraitClass: 'has-corruption',
-    render: () => '<div class="status-fx--corruption-edge"></div>'
+    render: () => '<div class="status-fx--corruption-edge"></div><i class="status-fx-corruption-tendril"></i><i class="status-fx-corruption-tendril"></i><i class="status-fx-corruption-tendril"></i>'
   },
   crit_lock: {
     layer: 'front',
@@ -261,6 +261,15 @@ function syncPortraitStatusFx(entity, portraitRoot, options = {}) {
   if (!portraitRoot) return;
   const layers = ensurePortraitLayers(portraitRoot);
   if (!layers) return;
+
+  // Reuse the current portrait for visual echoes, including form changes.
+  const image = portraitRoot.querySelector('img');
+  if (image) {
+    image.classList.add('portrait-image');
+    if (portraitRoot.style.setProperty) portraitRoot.style.setProperty('--portrait-fx-image', `url("${image.getAttribute('src')}")`);
+  } else if (portraitRoot.style.removeProperty) {
+    portraitRoot.style.removeProperty('--portrait-fx-image');
+  }
 
   const activeProfiles = getEntityActiveFxProfiles(entity);
   let scale = options.scale;

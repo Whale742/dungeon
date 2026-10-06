@@ -200,7 +200,7 @@ function getCombatProfile(step) {
   const base = COMBAT_PRESENTATION_PROFILES[role] || COMBAT_PRESENTATION_PROFILES.warrior;
   const form = role === 'druid' ? COMBAT_FORM_PROFILES[combatActorDescriptor(step).druidForm] || {} : {};
   const skill = COMBAT_SKILL_PROFILES[step.skillId || step.actionId] || {};
-  return { fxLead: role === 'boss' ? 300 : role === 'assassin' ? 220 : role === 'alchemist' ? 0 : 130, ...base, ...form, ...skill };
+  return { sfxProfile: resolveCombatSfxProfile({ ...step, sourceRole: role }), fxLead: role === 'boss' ? 300 : role === 'assassin' ? 220 : role === 'alchemist' ? 0 : 130, ...base, ...form, ...skill };
 }
 // Shared transient visual engine; every renderer routes through this helper.
 function createCombatFx({ type, target, direction = 'right', variant, speed = 1, reducedMotion = false }) {
@@ -242,6 +242,8 @@ function createCombatFx({ type, target, direction = 'right', variant, speed = 1,
 
 // 播放單一戰鬥動作全螢幕演出 (Player Action 或 Boss Action)
 async function playCombatActionPresentation(step, context = {}) {
+  await sfxManager.preload();
+  if ((context.signal || context.controller?.signal)?.aborted) return;
   if (!step) return;
 
   const controller = context.controller || new AbortController();
@@ -271,6 +273,8 @@ async function playCombatActionPresentation(step, context = {}) {
   const isPlayer = step.type === 'player_action';
   const isMagic = step.dmgType === '【魔法】' || step.damageType === 'magic' || (step.tags && step.tags.some(t => (t.label || t).includes('魔法')));
   const profile = getCombatProfile(step);
+  const audio = createSfxPresentationScope({ ...context, signal });
+  const playSound = (key, options) => audio.play(key, options);
 
   // 1. 建立畫布與圖層節點
   const canvas = document.createElement('div');
@@ -464,16 +468,22 @@ async function playCombatActionPresentation(step, context = {}) {
   if (outcome.type === 'misfire') actorPositionWrap.classList.add('is-unstable');
   if (outcome.type === 'imbalance') actorPositionWrap.classList.add('is-unbalanced');
   if (outcome.type === 'critical') canvas.classList.add('is-critical');
-  if (profile.preSfx) {
-    playSound(profile.preSfx);
-  }
-  if (profile.attackSfx) {
-    playSound(profile.attackSfx);
+  if (profile.sfxProfile.key) {
+    playSound(profile.sfxProfile.key);
+    emitTiming('skill_audio');
+    if (profile.sfxProfile.doubleSlash) {
+      await waitForPresentation(90, signal); playSound(profile.sfxProfile.key, { volume: .85 });
+      emitTiming('second_slash_audio');
+    }
+  } else {
+    if (profile.preSfx) playSound(profile.preSfx);
+    // Human Druid retains the original procedural voice, not a transform MP3.
+    if (profile.attackSfx) playSound(profile.attackSfx, { synthOnly: true });
   }
 
   // 弓手飛行箭矢 Projectile (從 Actor 側貫穿至 Target 側)
   if (profile.fxType === 'arrow_projectile') {
-    if (profile.flightSfx) playSound(profile.flightSfx);
+    if (profile.flightSfx && !profile.sfxProfile.key) playSound(profile.flightSfx);
     const arrow = document.createElement('div');
     arrow.dataset.ammo = step.ammoBefore?.[0] || '';
     arrow.className = `presentation-combat-arrow-projectile ${isPlayer ? 'fly-right' : 'fly-left'} ${missed ? 'is-miss' : ''}`;
@@ -515,7 +525,7 @@ async function playCombatActionPresentation(step, context = {}) {
     await wait(timing.damageDelay || 75);
   } else {
   // 播放 Impact 命中音效 (音量最高潮)
-  playSound(profile.impactSfx || (isMagic ? 'magic_impact' : 'physical_hit'));
+  if (!profile.sfxProfile.suppressImpact) playSound(profile.sfxProfile.impactKey || profile.impactSfx || (isMagic ? 'magic_impact' : 'physical_hit'), { volume: profile.sfxProfile.impactVolume });
 
   // 內層 Hit Wrapper 觸發方向性撞擊 (完全不受外層 translateY(-50%) 衝突)
   if (targetHitEl) {
@@ -577,7 +587,7 @@ async function playCombatActionPresentation(step, context = {}) {
     emitTiming('outcome', { outcome: outcome.type });
   }
   if (typeof context.onPrimaryResolved === 'function') {
-    await context.onPrimaryResolved({ canvas, actorPositionWrap, targetPositionWrap, wait });
+    await context.onPrimaryResolved({ canvas, actorPositionWrap, targetPositionWrap, wait, audioScope: audio });
   }
 
   // --- STEP 4.5: 致命一擊與首領沉重倒下演出 (Boss Death Foundation) ---
@@ -592,6 +602,7 @@ async function playCombatActionPresentation(step, context = {}) {
 
   // --- STEP 5: 結算停留 (Hold After Impact) ---
   await wait(timing.resultHold || 280);
+  await audio.hold();
   emitTiming('hold_complete');
 
   // --- STEP 6: 動作交錯退場 (Interleaved Action Exit) ---

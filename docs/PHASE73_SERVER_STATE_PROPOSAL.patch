@@ -1,0 +1,6 @@
+--- a/game/Room.js
++++ b/game/Room.js
+@@ -941,2 +941,3 @@
+   handleBattleEvent(outcomeData = null, isWeakened = false) {
++    this.state = 'IN_BATTLE';
+     const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];

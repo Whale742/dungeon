@@ -372,6 +372,8 @@ body.lab-body {
 }
 
 /* Background options */
+#viewStatusLab { padding-top: 72px !important; justify-content: flex-start !important; }
+#viewStatusLab h2 { font-size: clamp(.9rem, 2cqw, 1.5rem) !important; }
 .lab-stage[data-bg="dungeon"] {
   background: radial-gradient(circle at center, rgba(15, 23, 42, 0.82) 0%, rgba(3, 7, 18, 0.96) 100%), url('/icon/background.webp') center/cover no-repeat;
 }
@@ -560,6 +562,9 @@ body.lab-body {
 /* --- Presentation Sandbox Framing in Lab Stage --- */
 .lab-stage .presentation-root {
   /* Production root uses viewport dimensions; the sandbox owns its viewport. */
+  position: absolute;
+  inset: 0;
+  padding-top: 0;
   width: 100%;
   height: 100%;
 }

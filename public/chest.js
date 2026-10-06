@@ -397,6 +397,8 @@ async function playChestPresentation(ev, context = {}) {
   try { chestPresentationController = controller; } catch {}
   if (typeof window !== 'undefined') window.chestPresentationController = controller;
   const { signal } = controller;
+  const audio = createSfxPresentationScope({ ...context, signal });
+  const playSound = (key, options) => audio.play(key, options);
 
   const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.chest : CHEST_TIMING);
   const speed = context.speed || 1.0;
@@ -521,7 +523,7 @@ async function playChestPresentation(ev, context = {}) {
     }
     interactionArea.classList.remove('hidden');
     interactionArea.classList.add('enter');
-    playSound('chest_reveal');
+    // Discovery has no lid-opening audio.
 
     await wait(timing.chestReveal);
     emitTiming('chest_revealed');
@@ -592,7 +594,7 @@ async function playChestPresentation(ev, context = {}) {
     if (visualStage) visualStage.classList.remove('is-shaking');
 
     // Lid Opens with SFX (觸發開蓋抬升 50% 壓扁後仰與光擴散 160%)
-    playSound('chest_open');
+    playSound('chest_reveal');
     emitTiming('lid_open');
     if (visualStage) visualStage.classList.add('is-open');
 
@@ -621,6 +623,7 @@ async function playChestPresentation(ev, context = {}) {
 
     // STEP 7: Reward Reveal
     await playRewardReveal(ev, { ...context, signal, rewardContent });
+    await audio.hold();
 
     // STEP 8: Presentation Settle / Exit
     overlay.classList.add('exit');

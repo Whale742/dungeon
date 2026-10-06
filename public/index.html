@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="combat.css">
   <link rel="stylesheet" href="combat-expansion.css">
   <link rel="stylesheet" href="portrait-status-fx.css">
+  <link rel="stylesheet" href="battle-phase.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
@@ -867,24 +868,6 @@
       </div>
     </div>
 
-    <!-- Boss Intro Overlay -->
-    <div id="bossIntroOverlay" class="boss-intro-overlay hidden">
-      <div class="boss-intro-backdrop"></div>
-      <div class="boss-intro-content">
-        <div id="bossIntroAvatar" class="boss-intro-avatar"></div>
-        <div id="bossIntroTitle" class="boss-intro-title"></div>
-        <div id="bossIntroSubtitle" class="boss-intro-subtitle"></div>
-      </div>
-    </div>
-
-    <!-- Round Start Overlay -->
-    <div id="roundStartOverlay" class="round-start-overlay hidden">
-      <div class="round-start-banner" id="roundStartBanner">
-        <span id="roundStartText" class="round-start-text">ROUND 1</span>
-        <span id="roundStartSub" class="round-start-sub">ADVENTURER TURN</span>
-      </div>
-    </div>
-
     <!-- Top Presentation Floating FX Container -->
     <div id="presentationFxContainer" class="presentation-fx-container"></div>
   </div>
@@ -907,7 +890,9 @@
   <!-- 主應用邏輯腳本 -->
   <!-- Presentation 核心與設定腳本 (Single Source of Truth) -->
   <script src="presentation-config.js"></script>
+  <script src="sfx-assets.js"></script>
   <script src="presentation-core.js"></script>
+  <script src="battle-phase.js"></script>
   <script src="exploration.js"></script>
   <script src="trap.js"></script>
   <script src="chest.js"></script>

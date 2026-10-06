@@ -74,7 +74,7 @@ test('complete chest flow: discovery story -> hold -> visual & button reveal -> 
   assert.equal(f.manager.isBlocking, false); // interaction enabled
 
   // Sounds up to reveal
-  assert.ok(f.sounds.some(s => s.name === 'chest_reveal'));
+  assert.ok(!f.sounds.some(s => s.name === 'chest_reveal'));
 
   // 4. Player clicks "開啟寶箱"
   f.elements.btnOpenChest.click();
@@ -94,7 +94,7 @@ test('complete chest flow: discovery story -> hold -> visual & button reveal -> 
   await f.advance(260);
   assert.equal(f.elements.presentationChestVisual.classList.contains('is-shaking'), false);
   assert.equal(f.elements.presentationChestVisual.classList.contains('is-open'), true);
-  assert.ok(f.sounds.some(s => s.name === 'chest_open'));
+  assert.ok(f.sounds.some(s => s.name === 'chest_reveal'));
   assert.ok(f.sounds.some(s => s.name === 'heal'));
 
   // 7. Reward Reveal (Common: 400ms reveal + 1000ms hold)
@@ -102,7 +102,7 @@ test('complete chest flow: discovery story -> hold -> visual & button reveal -> 
   assert.equal(f.elements.presentationRewardContent.classList.contains('hidden'), false);
   assert.ok(f.sounds.some(s => s.name === 'reward_common'));
 
-  await f.advance(1400); // commonReveal 400 + commonHold 1000
+  await f.advance(1500); // reward 1400ms + remaining 100ms MP3 identity
 
   // 8. Settle / Exit (500ms)
   assert.equal(f.elements.chestPresentationOverlay.classList.contains('exit'), true);

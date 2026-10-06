@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require('C:/Users/orgal/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const artifacts = path.resolve('artifacts/phase71'); fs.mkdirSync(artifacts, { recursive: true });
+const artifacts = path.resolve(process.env.LAB_ARTIFACTS || 'artifacts/phase71'); fs.mkdirSync(artifacts, { recursive: true });
 const browser = await chromium.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
 const errors = [], report = { lab: [], multiplayer: [], errors };
 async function pageFor(url, viewport = { width: 1440, height: 900 }) {
@@ -89,6 +89,7 @@ try {
     }
   }
   // Seven independent browser clients through the unmodified production Socket.IO handlers.
+  if (!process.env.LAB_ONLY) {
   const roles = ['warrior', 'mage', 'archer', 'assassin', 'bard', 'alchemist', 'druid'];
   const pages = [];
   for (const role of roles) {
@@ -127,8 +128,9 @@ try {
     report.multiplayer.push({ round, viewers }); console.log('Multiplayer round', round, 'seven viewers complete');
   }
   await pages[6].screenshot({ path: path.join(artifacts, 'multiplayer-druid.png') });
+  }
   assert.deepEqual(errors, [], 'No browser exceptions or console errors');
-  console.log('PASS', ids.length, 'Lab scenes, seven-player three-round regression, zero errors');
+  console.log('PASS', ids.length, process.env.LAB_ONLY ? 'combat Lab scenes, zero errors' : 'Lab scenes, seven-player three-round regression, zero errors');
 } finally {
   fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2));
   await browser.close();

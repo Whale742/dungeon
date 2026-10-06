@@ -76,6 +76,8 @@ function updateResultCard(card, target) {
   }
 }
 async function presentCombatResult(result, card, context = {}) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
@@ -88,7 +90,8 @@ async function presentCombatResult(result, card, context = {}) {
   if (result.kind === 'intercept') {
     card.classList.add('is-intercepting');
     resultFloat(card, '攔截', 'is-guard');
-    playSound('minion_intercept');
+    if (result.minion) { const cue = minionSound(result.minion, 'hurt'); playSound(cue.key, cue); }
+    else playSound('minion_intercept');
     await wait(180);
   }
   if ((result.kind === 'damage' || result.kind === 'intercept') && (outcome.type === 'miss' || outcome.type === 'dodge')) {
@@ -129,7 +132,7 @@ async function presentCombatResult(result, card, context = {}) {
       void card.offsetWidth;
       card.classList.add('is-impacting');
       if (context.sourceRole === 'archer') { card.classList.add('has-arrow-rain'); playSound('arrow_flight'); }
-      else if (context.sourceRole === 'druid') playSound(fxType === 'claw_slash' ? 'claw_slash' : 'vine_strike');
+      else if (context.sourceRole === 'druid' && !context.minionAudio) playSound(fxType === 'claw_slash' ? 'claw_slash' : 'vine_strike', { synthOnly: true });
       else if (context.sourceRole === 'alchemist') card.classList.add('has-poison-cloud');
       playSound(result.damageType === 'magic' ? 'magic_impact' : 'physical_hit');
       emit('impact');
@@ -145,7 +148,8 @@ async function presentCombatResult(result, card, context = {}) {
   } else if (result.kind === 'heal' || result.kind === 'revive') {
     card.classList.remove('is-downed');
     card.classList.add(result.kind === 'revive' ? 'is-reviving' : 'is-healing');
-    playSound(result.kind === 'revive' ? 'revive_chime' : 'recovery_chime');
+    updateResultCard(card, target);
+    audio.playResult('healing_result', { volume: context.sourceRole === 'bard' ? .7 : 1 });
     if (result.actualHeal > 0) resultFloat(card, '+' + result.actualHeal, 'is-heal');
     emit('heal_float');
     await wait(100);
@@ -161,7 +165,7 @@ async function presentCombatResult(result, card, context = {}) {
         summon.innerHTML = minionPortraitSvg(minion.type, minion.avatar) + '<strong>' + escapeHtml(minion.name) + '</strong><span>HP ' +
           minion.hp + ' / ' + minion.maxHp + ' · ATK ' + (minion.attack ?? minion.atk) + '</span>';
         card.appendChild(summon);
-        playSound(minion.type === 'wolf' ? 'summon_wolf' : 'summon_treant');
+        const cue = minionSound(minion, 'summon'); playSound(cue.key, cue);
       }
     } else if (result.kind === 'transform') {
       card.dataset.form = target?.druidForm || '';
@@ -196,6 +200,7 @@ async function presentCombatResult(result, card, context = {}) {
     else if (result.kind !== 'intercept') applyHpSnapshot({ players: [target] });
   }
   emit('hp_update');
+  if (!context.audioScope) await audio.hold();
   if (outcome.protection) {
     card.classList.add('is-protected');
     resultFloat(card, '古樹庇護 · 休眠', 'is-nature');
@@ -222,6 +227,8 @@ async function withCombatCanvas(context, category, action) {
 }
 // CAST → RESULT uses the existing canvas owner and abort lifecycle.
 async function playSkillCastPresentation(step, context = {}, reveal) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
   await withCombatCanvas(context, step.category, async canvas => {
     canvas.classList.add('presentation-skill-cast');
@@ -244,7 +251,9 @@ async function playSkillCastPresentation(step, context = {}, reveal) {
     await wait(500);
     await wait(200);
     actor.classList.add('is-casting');
-    playSound(nature ? 'support_cast' : step.category === 'HEAL' ? 'heal_wave' : step.category === 'DEFENSE' ? 'shield_apply' : 'support_cast');
+    const sfxProfile = resolveCombatSfxProfile(step);
+    if (sfxProfile.key) playSound(sfxProfile.key);
+    else playSound(nature ? 'support_cast' : step.category === 'DEFENSE' ? 'shield_apply' : 'support_cast', { volume: .3 });
     context.onTiming?.('cast_fx', { step });
     await wait(350);
     context.onTiming?.('cast_complete', { step });
@@ -252,12 +261,15 @@ async function playSkillCastPresentation(step, context = {}, reveal) {
     strip.className = 'presentation-combat-strip-wrap is-player exit-right';
     await wait(180);
     if (reveal) await reveal(canvas, actor, wait);
-    else actor.classList.add('exit-right');
+    if (reveal) await audio.hold();
+    if (!reveal) actor.classList.add('exit-right');
     canvas.classList.add('is-exiting');
     await wait(300);
   });
 }
 async function playSummonResultPresentation(step, context) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
   await withCombatCanvas(context, 'SUMMON', async canvas => {
     canvas.classList.add('presentation-summon-result');
@@ -270,7 +282,7 @@ async function playSummonResultPresentation(step, context) {
         reveal.innerHTML = '<div class="presentation-minion-ground"></div>' + battlePortraitHtml({ ...minion, entityType: 'minion' }, 'presentation-minion-image') +
           '<strong>' + escapeHtml(minion.name) + '</strong><span>HP ' + minion.hp + ' / ' + minion.maxHp + ' · ATK ' + (minion.attack ?? minion.atk) + '</span>';
         canvas.appendChild(reveal);
-        playSound(minion.type === 'wolf' ? 'summon_wolf' : 'summon_treant');
+        const cue = minionSound(minion, 'summon'); playSound(cue.key, cue);
         context.onTiming?.('summon_reveal', { minion });
         await wait(550);
         if (typeof applyHpSnapshot === 'function') applyHpSnapshot({ players: [result.targetAfter] });
@@ -280,10 +292,12 @@ async function playSummonResultPresentation(step, context) {
       }
     }
     if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
-    await wait(150);
+    await wait(150); await audio.hold();
   });
 }
 async function playTransformPresentation(step, context) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
   await playSkillCastPresentation(step, context, async (canvas, actor, wait) => {
     const result = step.results.find(r => r.kind === 'transform');
     if (!result) return;
@@ -302,7 +316,7 @@ async function playTransformPresentation(step, context) {
     actor.appendChild(note);
     if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
     context.onTiming?.('transform_established', { result });
-    await wait(200);
+    await wait(200); await audio.hold();
   });
 }
 const AMMO_NAMES = Object.freeze({ pierce: '穿甲箭', elemental: '元素箭', burst: '爆裂箭' });
@@ -310,6 +324,8 @@ function ammoArrowHtml(ammo) {
   return '<span class="presentation-ammo-arrow" data-ammo="' + escapeHtml(ammo) + '"><i class="presentation-ammo-shaft"></i><i class="presentation-ammo-tip"></i></span>';
 }
 async function playReloadResultPresentation(step, context) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
   const result = step.results.find(r => r.kind === 'reload');
   if (!result) return;
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
@@ -346,6 +362,8 @@ async function playReloadResultPresentation(step, context) {
   });
 }
 async function playMinionComboPresentation(step, context) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
   const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
   await withCombatCanvas(context, 'MINION_ATTACK', async canvas => {
     canvas.classList.add('presentation-minion-combo');
@@ -370,17 +388,21 @@ async function playMinionComboPresentation(step, context) {
     for (let i = 0; i < step.results.length; i++) {
       if (i) await wait(100);
       const result = step.results[i]; const portrait = portraits.get(result.minion.id);
-      portrait?.classList.add('is-attacking'); playSound('minion_attack');
+      portrait?.classList.add('is-attacking');
+      const cue = minionSound(result.minion, 'attack', i); playSound(cue.key, cue);
       context.onTiming?.('minion_attack', { result, index: i });
-      await presentCombatResult(result, target, { ...context, direction: 'right', fxType: result.minion.type === 'wolf' ? 'claw_slash' : 'vine_strike', compact: true });
+      await presentCombatResult(result, target, { ...context, audioScope: audio, direction: 'right', fxType: result.minion.type === 'wolf' ? 'claw_slash' : 'vine_strike', compact: true, minionAudio: true });
       portrait?.classList.remove('is-attacking');
     }
     if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
-    await wait(400); canvas.classList.add('is-exiting'); await wait(200);
+    await wait(400); await audio.hold(); canvas.classList.add('is-exiting'); await wait(200);
     context.onTiming?.('action_complete', { step });
   });
 }
 async function playCategoryPresentation(step, context = {}) {
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  context = { ...context, audioScope: audio, sourceRole: step.sourceRole };
+  const playSound = (key, options) => audio.play(key, options);
   if (typeof window !== 'undefined' && typeof window.forceCloseAllModals === 'function') {
     window.forceCloseAllModals();
   }
@@ -414,7 +436,7 @@ async function playCategoryPresentation(step, context = {}) {
       row.appendChild(card);
       cards.set(result.targetId, card);
     }
-    if (boss) playSound('panel_sweep');
+    if (!context.resultOnly && step.category !== 'STATUS_TICK') playSound('fight');
     await wait(compact ? 200 : SUPPORT_TIMING.enter + SUPPORT_TIMING.settle);
     if (step.category === 'CLEANSE') {
       canvas.classList.add('is-cleansing');
@@ -428,9 +450,13 @@ async function playCategoryPresentation(step, context = {}) {
     if (step.outcome?.type === 'off_key') {
       canvas.classList.add('is-off-key');
       playSound('bard_off_key');
-    } else playSound(boss ? 'boss_attack' : compact ? 'minion_attack' : step.category === 'HEAL' ? 'heal_wave' :
-      step.category === 'DEFENSE' || step.category === 'SHIELD' ? 'shield_apply' : 'support_cast');
-    if (step.outcome?.type.startsWith('alchemy_')) {
+    } else if (!context.resultOnly && step.category !== 'STATUS_TICK') {
+      const profile = resolveCombatSfxProfile(step);
+      if (profile.key) playSound(profile.key);
+      else if (boss) playSound('boss_attack');
+      else if (!compact) playSound('support_cast', { volume: .3 });
+    }
+    if (step.outcome?.type?.startsWith('alchemy_')) {
       canvas.classList.add('is-alchemy');
       await wait(350);
       playSound(step.outcome.type === 'alchemy_success' ? 'alchemy_success' : 'alchemy_failure');
@@ -472,7 +498,7 @@ async function playCategoryPresentation(step, context = {}) {
           minion.className = 'presentation-compact-minion';
           minion.innerHTML = minionPortraitSvg(result.minion.type, result.minion.avatar) + '<span>' + escapeHtml(result.minion.name) + '</span>';
           canvas.appendChild(minion);
-          playSound('minion_attack');
+          const cue = minionSound(result.minion, 'attack', i); playSound(cue.key, cue);
         }
         await presentCombatResult(result, cards.get(result.targetId), { ...context, direction: 'right', sourceRole: step.sourceRole });
 
@@ -484,13 +510,18 @@ async function playCategoryPresentation(step, context = {}) {
     }
     if (step.hpSnapshot && typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
     await wait(compact ? SUPPORT_TIMING.float : 450);
+    await audio.hold();
     canvas.classList.add('is-exiting');
     await wait(SUPPORT_TIMING.exit);
     context.onTiming?.('action_complete', { step });
   });
 }
 async function playExpandedCombatPresentation(step, context = {}) {
-  context = { ...context, signal: context.signal || context.controller?.signal };
+  await sfxManager.preload();
+  if ((context.signal || context.controller?.signal)?.aborted) return;
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const playSound = (key, options) => audio.play(key, options);
+  context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
   if (step.category === 'MINION_ATTACK') return playMinionComboPresentation(step, context);
   if (step.type === 'player_action' && !(step.results || []).some(r => r.targetId === 'monster' && r.kind === 'damage')) {
     if (step.category === 'TRANSFORM') return playTransformPresentation(step, context);
@@ -508,7 +539,9 @@ async function playExpandedCombatPresentation(step, context = {}) {
       const result = step.results[0];
       const target = createResultCard({ ...result, monsterName: step.monsterName, monsterAvatar: step.monsterAvatar });
       target.classList.add('presentation-shadow-target'); canvas.appendChild(target);
-      playSound('shadow_follow_up');
+      playSound('fight');
+      await waitForPresentation(300, context.signal, context.speed || 1);
+      playSound('assassin_pursuit');
       await waitForPresentation(100, context.signal, context.speed || 1);
       target.classList.add('has-shadow-slash');
       if (step.isCritical) resultFloat(target, 'CRITICAL', 'is-shadow-critical');
@@ -519,6 +552,7 @@ async function playExpandedCombatPresentation(step, context = {}) {
       }
       if (typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
       await waitForPresentation(400, context.signal, context.speed || 1);
+      await audio.hold();
       canvas.classList.add('is-exiting');
       await waitForPresentation(150, context.signal, context.speed || 1);
       context.onTiming?.('action_complete', { step });
@@ -528,13 +562,13 @@ async function playExpandedCombatPresentation(step, context = {}) {
   if (!step.category || step.category === 'OFFENSIVE' || (step.type === 'player_action' && step.category !== 'AOE_OFFENSIVE' && step.results?.some(r => r.targetId === 'monster' && r.kind === 'damage'))) {
     const primary = (step.results || []).find(r => r.targetId === 'monster' && r.kind === 'damage');
     const secondary = (step.results || []).filter(r => r !== primary);
-    await playCombatActionPresentation(step, { ...context, onPrimaryResolved: async ({ canvas }) => {
+    await playCombatActionPresentation(step, { ...context, onPrimaryResolved: async ({ canvas, audioScope }) => {
       if (!secondary.length && !step.hiddenEffectNote) return;
       const row = document.createElement('div'); row.className = 'presentation-secondary-targets'; canvas.appendChild(row);
-      if (step.actionId === 'm_drain') { canvas.classList.add('has-drain-stream'); playSound('heal_wave'); await waitForPresentation(220, context.signal, context.speed || 1); }
+      if (step.actionId === 'm_drain') { canvas.classList.add('has-drain-stream'); await waitForPresentation(220, context.signal, context.speed || 1); }
       for (const result of secondary) {
         const card = createResultCard(result); row.appendChild(card);
-        await presentCombatResult(result, card, context);
+        await presentCombatResult(result, card, { ...context, audioScope, sourceRole: step.sourceRole });
       }
       if (step.hiddenEffectNote) { const note = document.createElement('div'); note.className = 'presentation-support-outcome'; note.textContent = step.hiddenEffectNote; row.appendChild(note); }
     } });
