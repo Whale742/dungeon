@@ -1,0 +1,45 @@
+/* 264 log + 24 gap + 900 usable battle area + frame/padding: 1280 breakpoint. */
+.floating-log-card { left:16px;right:auto;top:100px;bottom:auto;width:264px;max-width:none;height:auto;max-height:calc(100vh - 140px);padding:12px;background:rgba(7,15,30,.62);backdrop-filter:blur(3px);border:1px solid #38475f;box-shadow:0 8px 24px #0004;overflow:visible; }
+.floating-log-card .battle-log-window {background:transparent;border:0;overflow:hidden;scrollbar-width:none;max-height:280px;min-height:0;height:auto;flex:none;display:block;}
+.log-line {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;max-height:3em;padding:0;margin:4px 0;opacity:var(--log-opacity,1);font-size:12px;transition:opacity 220ms;}
+.log-line.log-new {animation:logEntry 240ms ease-out both;}
+@keyframes logEntry {from{opacity:0;transform:translateY(6px);}to{opacity:var(--log-opacity,1);transform:translateY(0);}}
+.log-drawer-handle {display:none;position:absolute;right:-30px;top:10px;width:30px;height:48px;border:1px solid #485773;background:#101d30;color:#e2e8f0;border-radius:0 8px 8px 0;cursor:pointer;}
+body:not(:has(#viewBattle.active)) .floating-log-card{display:none;}
+@media(min-width:1280px){body:has(#viewBattle.active) .game-container {max-width:calc(100vw - 316px);margin-left:292px;} .floating-log-card.collapsed{height:auto!important;bottom:auto!important;top:100px!important;}.floating-log-card.collapsed .battle-log-window{display:block;}#btnToggleLog{display:none;}}
+@media(max-width:1279px){.floating-log-card{left:0;top:110px;bottom:auto;width:min(300px,calc(100vw - 48px));transform:translateX(-100%);transition:transform 240ms ease;}.floating-log-card.is-open{transform:translateX(0);}.log-drawer-handle{display:block;}.floating-log-card.collapsed{height:auto!important;top:110px!important;bottom:auto!important;}.floating-log-card.collapsed .battle-log-window{display:block;}}
+.compact-role-state {display:flex;align-items:center;gap:8px;height:40px;min-height:40px;max-height:40px;color:#d9e4f3;font-size:12px;line-height:1.45;margin:6px 0;}
+.compact-role-state span {overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.compact-role-state button {flex:none;}
+.teammate-card.arena-absent{opacity:.25;filter:grayscale(1);transform:translateY(8px);pointer-events:none;}
+body:has(.teammate-card.arena-absent) #viewBattle{background:radial-gradient(ellipse,#4c1b1b55,transparent 70%);}
+.role-detail-body details {margin:12px 0;border:1px solid #334155;border-radius:6px;padding:10px;}
+.role-detail-body summary {cursor:pointer;color:#e2e8f0;font-weight:700;}
+.p8-presentation {--p8-color:#b9a4df;--p8-secondary:#d4af68;overflow:hidden;scrollbar-width:none;}
+.p8-presentation[data-role=stargazer]{--p8-color:#b9e9ff;--p8-secondary:#629ebc;background:radial-gradient(ellipse at center,#16304866,#020914);}
+.p8-presentation[data-role=gladiator]{--p8-color:#bc3c42;--p8-secondary:#b39565;background:radial-gradient(ellipse at center,#52141c88,#0e090b);}
+.p8-presentation[data-role=samurai]{--p8-color:#c4e9ff;--p8-secondary:#718ba4;}
+.p8-presentation[data-role=sage]{--p8-color:#f5da85;--p8-secondary:#d4aa4e;background:radial-gradient(ellipse at center,#57481444,#100e07);}
+.p8-reveal {position:absolute;top:12%;left:12%;right:12%;text-align:center;font-size:clamp(18px,3vw,36px);font-weight:800;color:var(--p8-color);text-shadow:0 0 18px var(--p8-secondary);z-index:3;}
+.p8-glyph {position:absolute;inset:18%;pointer-events:none;border:1px solid var(--p8-secondary);border-radius:50%;box-shadow:0 0 30px color-mix(in srgb,var(--p8-color) 20%,transparent);animation:p8Orbit 1.2s ease-out both;}
+.p8-glyph svg {width:100%;height:100%;fill:none;stroke:var(--p8-color);stroke-width:1;}
+.p8-presentation[data-role=dreamweaver] .p8-glyph{border-radius:18% 70%;transform:rotate(-20deg);}
+.p8-presentation[data-role=gladiator] .p8-glyph{border-radius:2%;border-width:3px;}
+.p8-presentation[data-role=samurai] .p8-glyph{border-radius:0;border-width:0 0 2px;}
+.p8-presentation[data-outcome=blackhole] .p8-glyph{background:radial-gradient(circle,#000 28%,#648aa944 30%,transparent 50%);animation:p8Collapse 900ms ease-in both;}
+.p8-presentation[data-outcome=galaxy] .p8-glyph{border-style:dashed;animation:p8Orbit 1.2s linear both;}
+.p8-presentation[data-outcome=boundary] .p8-glyph{inset:7%;border-width:3px;}
+.p8-property-labels {position:absolute;bottom:6%;left:0;right:0;display:flex;justify-content:center;gap:12px;color:var(--p8-color);font:700 12px monospace;}
+.p8-property-labels span{animation:logEntry 240ms both;animation-delay:calc(var(--index)*120ms);}
+@keyframes p8Orbit{from{opacity:0;transform:scale(.75) rotate(-35deg);}to{opacity:1;transform:scale(1) rotate(0);}}
+@keyframes p8Collapse{from{opacity:0;transform:scale(1.4);}to{opacity:1;transform:scale(.7);}}
+.p8-presentation .presentation-support-targets{padding-top:60px;}
+.status-fx--dream,.status-fx--astronomy,.status-fx--soul,.status-fx--blood,.status-fx--equation{inset:-10%;opacity:.55;color:#aa93ca;pointer-events:none;}
+.status-fx--astronomy{color:#a2d8f2;}.status-fx--soul{color:#aedbff;}.status-fx--blood{color:#963039;}.status-fx--equation{color:#dec579;opacity:.32;}
+.status-fx--dream svg,.status-fx--astronomy svg,.status-fx--soul svg,.status-fx--blood svg,.status-fx--equation svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.2;fill:none;}
+.p8-hit-fx {position:absolute;inset:15%;border:2px solid var(--p8-color);transform:rotate(-30deg);animation:p8Impact 320ms both;pointer-events:none;}
+@keyframes p8Impact {from{opacity:1;transform:scale(1.2) rotate(-30deg);}to{opacity:0;transform:scale(.8) rotate(10deg);}}
+.arrow-rain-wave {position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.arrow-rain-wave i {position:absolute;left:calc(10% + var(--arrow)*14%);top:-10%;width:2px;height:80px;background:linear-gradient(transparent,#b5d9ff);transform:rotate(22deg);animation:rainFall 480ms linear both;animation-delay:calc(var(--arrow)*40ms);}
+@keyframes rainFall{to{top:100%;opacity:0;}}
+@media(prefers-reduced-motion:reduce){.p8-glyph,.p8-hit-fx,.arrow-rain-wave i,.log-line.log-new{animation-duration:1ms!important;}}

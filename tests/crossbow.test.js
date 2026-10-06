@@ -403,10 +403,10 @@ test('Room: Alchemist acid flask reduces reload count by 1 per layer (min 1 guar
   // Crossbow pool with 3 arrows is 89 + bonusAtk(10) = 99 (unaffected by acid halving).
   // dmgPerArrow = Math.round(99 / 3) = 33.
   // 3 pierce arrows = 33 * 3 = 99 damage to monster.
-  // Plus alchemist's 50 acid damage = 149 damage total.
+  // Plus alchemist's 40 acid damage = 139 damage total.
   // If crossbow bonusAtk were halved, bonusAtk would be 5, pool 94, dmg 93 (31*3).
   // Because "造成傷害不影響", full bonusAtk is preserved!
   const monsterDamageTaken = monsterHpBefore - room.currentMonster.hp;
-  assert.ok(monsterDamageTaken >= 149, `Crossbow volley damage should not be reduced by acid: taken ${monsterDamageTaken}`);
+  assert.ok(monsterDamageTaken >= 139, `Crossbow volley damage should not be reduced by acid: taken ${monsterDamageTaken}`);
 });
 

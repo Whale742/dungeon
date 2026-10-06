@@ -315,7 +315,7 @@ function getRoleIconName(roleKey) {
     assassin: 'sword',
     bard: 'sparkle',
     alchemist: 'poison',
-    druid: 'summon'
+    druid: 'summon', dreamweaver:'magic', stargazer:'sparkle', gladiator:'shield', samurai:'sword', sage:'info'
   };
   return map[roleKey] || 'user';
 }
@@ -1957,7 +1957,7 @@ function renderTeammatesGrid(me) {
     else if (hpPct < 60) hpClass = 'mid';
 
     // One authoritative status list; the queue updates this same container.
-    const tags = ['<div class="combat-status-list">' + renderCombatStatuses(p.statuses || []) + '</div>'];
+    const tags = ['<div class="combat-status-list">' + renderCombatStatuses(p.statuses || []) + '</div>', '<div class="compact-role-state combat-resource-summary">'+escapeHtml(p.resourceSummary||'')+'</div>'];
 
     // 裝備列表 (清晰呈現 [裝備 X/3]: 裝備1, 裝備2)
     const pEquips = p.equips || [];
@@ -1967,6 +1967,7 @@ function renderTeammatesGrid(me) {
     const card = document.createElement('div');
     card.className = `teammate-card ${p.isHiddenThisRound && !p.stealthBrokenThisRound ? 'is-assassin-hidden' : ''} ${isThisMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
     card.setAttribute('data-player-id', p.id);
+    card.classList.toggle('arena-absent',!!p.arenaBlocked);
     card.innerHTML = `
       <div class="floating-text-container"></div>
       <div class="teammate-top">
@@ -2072,7 +2073,7 @@ function renderMyActionBar(me) {
   if (me.druidForm === 'werewolf') {
     stanceHtml += ` <span class="badge-form-wolf">${getIconSvg('summon')} 狼人形態 (傷害40點，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'treant') {
-    stanceHtml += ` <span class="badge-form-treant">${getIconSvg('shield')} 樹精形態 (+100HP/減傷20%/自癒5%最大生命/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant">${getIconSvg('shield')} 樹精形態 (護盾85%/減傷30%/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'tree') {
     stanceHtml += ` <span class="badge-form-treant">${getIconSvg('cooldown')} 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
   }
@@ -2082,6 +2083,12 @@ function renderMyActionBar(me) {
 
   elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
   elements.myAtkSummary.textContent = `+${me.bonusAtk} 攻`;
+  let compact=document.getElementById('compactRoleState');
+  if(!compact){compact=document.createElement('div');compact.id='compactRoleState';compact.className='compact-role-state';elements.mySkillsRow.parentNode.insertBefore(compact,elements.mySkillsRow);}
+  compact.replaceChildren();
+  if(me.resourceSummary||roleConfig.stateHint){const text=document.createElement('span');text.textContent=[me.resourceSummary,roleConfig.stateHint].filter(Boolean).join(' · ');compact.appendChild(text);}
+  const detail=document.createElement('button');detail.className='btn btn-secondary btn-tiny';detail.textContent='職業詳情';detail.onclick=()=>openRoleDetailModal(me.role);compact.appendChild(detail);
+  if(me.arenaBlocked){elements.mySkillsRow.innerHTML='<div class="action-status-badge">死亡競技場進行中，本輪無法行動。</div>';elements.btnConfirmLock.disabled=true;return;}
 
   // 玩家當前裝備列表 [裝備 X/3]
   const myEquips = me.equips || [];
@@ -2169,7 +2176,7 @@ function renderMyActionBar(me) {
 
   activeSkills.forEach(skill => {
     let cd = me.cooldowns[skill.id] || 0;
-    let isCoolingDown = cd > 0;
+    let isCoolingDown = cd > 0 || (skill.id==='sa_tsubame' && me.soul<4);
     let cdBadgeText = `CD: ${cd}`;
 
     if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
@@ -2247,7 +2254,7 @@ function renderMyActionBar(me) {
 
   // 吟遊詩人專屬：當有隊友倒地時，動態顯示「甦生之歌」
   if (me.role === 'bard') {
-    const deadPlayers = roomState.players.filter(p => p.hp <= 0);
+    const deadPlayers = roomState.players.filter(p => p.hp <= 0 && !p.noReviveThisFloor);
     if (deadPlayers.length > 0) {
       const isSelected = (currentPendingAction === 'b_revive');
       const reviveBtn = document.createElement('div');
@@ -2423,6 +2430,7 @@ function handleSkillClick(actionId, me) {
   if (roomState?.isNarrating || isPlayingBattleNarrative || me.isLocked) return;
   if (roomState?.selectionState === 'RESOLVING') return;
 
+  if(actionId==='dw_butterfly') {openTargetModal('dream',[...(roomState.players||[]).filter(p=>p.hp>0),{id:'monster',name:roomState.currentMonster?.name||'魔物',hp:roomState.currentMonster?.hp||1,maxHp:roomState.currentMonster?.maxHp||1,role:null,customAvatar:roomState.currentMonster?.avatar}]);return;}
   // 吟遊詩人治癒頌歌：若有多位活著隊友，彈出目標選擇
   if (me.role === 'bard' && actionId === 'b_heal') {
     const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
@@ -2443,6 +2451,7 @@ function openTargetModal(type, targetList) {
   elements.targetModal.classList.remove('hidden');
   elements.targetModalList.innerHTML = '';
 
+  if(type==='dream'){elements.targetModalTitle.textContent='夢蝶振翅・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
   if (type === 'heal') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【治癒頌歌】專注目標</span>`;
     elements.targetModalDesc.textContent = '全隊將獲得群療，請指定一名隊友額外獲得專注回復：';
@@ -2465,7 +2474,7 @@ function openTargetModal(type, targetList) {
     btn.addEventListener('click', () => {
       elements.targetModal.classList.add('hidden');
       playSound(type === 'heal' ? 'heal' : 'magic');
-      currentPendingAction = type === 'heal' ? 'b_heal' : 'b_revive';
+      currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : 'b_revive';
       currentPendingTarget = p.id;
       const me = getMyPlayer();
       if (me) renderMyActionBar(me);
@@ -2660,7 +2669,7 @@ function openRoleDetailModal(roleKey) {
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
               <img src="/photo/遠古樹精.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="遠古樹精形態">
               <div style="font-weight: 700; font-size: 13px; color: #86efac;">遠古樹精形態</div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">生命+100，減傷30%，分攤50%</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">護盾85%，減傷30%，分攤50%</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
               <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：小樹精">
@@ -2677,7 +2686,11 @@ function openRoleDetailModal(roleKey) {
       `;
     }
 
+    if(details.equipment?.length) html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>'<p><strong>'+escapeHtml(e.name)+'</strong>：'+escapeHtml(e.desc)+'</p>').join('')+'</details>';
     elements.roleDetailBody.innerHTML = html;
+    elements.roleDetailBody.querySelectorAll('.role-detail-passive-card,.role-detail-skill-item').forEach(card=>{
+      const wrapper=document.createElement('details'),summary=document.createElement('summary');summary.textContent=card.querySelector('.role-detail-skill-title')?.textContent||'被動與完整規則';card.before(wrapper);wrapper.append(summary,card);
+    });
   }
 
   elements.roleDetailModal.classList.remove('hidden');
@@ -2739,15 +2752,8 @@ function renderVictory(isLeader) {
 
 // 7. 日誌渲染與自動滾動
 function renderLogs() {
-  if (!roomState || !roomState.logs) return;
-  elements.combatLogWindow.innerHTML = '';
-  roomState.logs.forEach(log => {
-    const line = document.createElement('div');
-    line.className = `log-line ${log.type || 'info'}`;
-    line.innerHTML = `[${log.time}] ${formatMarkdown(log.text)}`;
-    elements.combatLogWindow.appendChild(line);
-  });
-  elements.combatLogWindow.scrollTop = elements.combatLogWindow.scrollHeight;
+  if (!roomState || !roomState.logs || !elements.combatLogWindow) return;
+  renderRecentBattleLogs(elements.combatLogWindow,roomState.logs);
 }
 
 // 輔助格式化 Markdown 粗體
@@ -3141,7 +3147,7 @@ if (elements.btnClearLog) {
 if (elements.btnToggleLog) {
   elements.btnToggleLog.addEventListener('click', () => {
     if (elements.battleLogCard) {
-      const isCollapsed = elements.battleLogCard.classList.toggle('collapsed');
+      const isCollapsed = !elements.battleLogCard.classList.toggle('is-open');
       if (elements.logToggleText) {
         elements.logToggleText.textContent = isCollapsed ? '展開' : '折疊';
       }
@@ -3621,6 +3627,9 @@ function updateBattleHudFromSnapshot(snapshot) {
 
       const card = document.querySelector(`.teammate-card[data-player-id="${p.id}"]`);
       if (card) {
+        card.classList.toggle('arena-absent',!!p.arenaBlocked);
+        const resource=card.querySelector('.combat-resource-summary');
+        if(resource)resource.textContent=p.resourceSummary||'';
         let status = card.querySelector('.combat-status-list');
         if (!status) { status = document.createElement('div'); status.className = 'combat-status-list'; card.appendChild(status); }
         status.innerHTML = renderCombatStatuses(p.statuses || []);
@@ -3770,6 +3779,9 @@ async function playPresentationStep(step, round) {
       await sleep(1000);
     }
 
+  } else if (step.type === 'status_cleanup') {
+    if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);
+    await waitForPresentation(150,activeCombatContext.signal);
   } else if (step.type === 'overheal_cleanup') {
     hideCombatActionBanner();
     if (step.hpSnapshot) {
@@ -4318,3 +4330,10 @@ function initAvatarModal() {
 initAvatarModal();
 updateEntryAvatarPreview();
 updateSoundIcon();
+
+document.getElementById('logDrawerHandle')?.addEventListener('click',()=>{
+    const card=elements.battleLogCard,open=card.classList.toggle('is-open');
+    const handle=document.getElementById('logDrawerHandle');handle.textContent=open?'‹':'›';handle.setAttribute('aria-expanded',String(open));
+  });
+// Fixed drawers belong to the viewport, outside animated view containers.
+if(elements.battleLogCard)document.body.appendChild(elements.battleLogCard);

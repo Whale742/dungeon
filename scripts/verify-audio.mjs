@@ -30,7 +30,7 @@ try {
   if(scene==='p6_assassin_crit'){const slashes=trace.filter(e=>e.key==='warrior_skill1');assert.equal(slashes.length,2);assert(slashes[1].time>slashes[0].time);}
   if(scene.includes('reload')){assert(!keys.includes('arrow_release'));assert(keys.includes('reload_insert'));}
   if(scene==='p6_alchemy_failure'){assert(keys.includes('alchemy_failure'));assert(keys.indexOf('healing_result')>keys.indexOf('alchemy_failure'));}
-  if(scene==='p6_alchemy_flask_acid'){assert(keys.includes('alchemy_skill1'));assert(!keys.includes('bottle_impact'));}
+  if(scene==='p6_alchemy_flask_acid'){assert(keys.includes('alchemy_skill1'));assert(keys.indexOf('bottle_throw')<keys.indexOf('bottle_impact'));assert(keys.indexOf('bottle_impact')<keys.indexOf('alchemy_skill1'));}
   if(scene==='p6_status_tick')assert(!keys.includes('fight'));
   console.log('PASS',scene);
  }

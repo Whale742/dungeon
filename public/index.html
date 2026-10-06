@@ -7,6 +7,7 @@
   <link rel="icon" type="image/webp" href="/icon/icon.webp">
   <link rel="apple-touch-icon" href="/icon/icon.webp">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="phase8.css">
   <link rel="stylesheet" href="exploration.css">
   <link rel="stylesheet" href="trap.css">
   <link rel="stylesheet" href="chest.css">
@@ -487,6 +488,7 @@
 
         <!-- 左側（綠色框框）獨立即時戰況事件表 -->
         <div class="card battle-log-card floating-log-card" id="battleLogCard">
+          <button class="log-drawer-handle" id="logDrawerHandle" title="展開戰況日誌" aria-expanded="false">›</button>
           <div class="card-header mini-header">
             <div class="battle-log-title">
               <span><svg class="svg-icon"><use href="#icon-log"></use></svg> 戰況事件表</span>
@@ -889,6 +891,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <!-- 主應用邏輯腳本 -->
   <!-- Presentation 核心與設定腳本 (Single Source of Truth) -->
+  <script src="battle-log.js"></script>
   <script src="presentation-config.js"></script>
   <script src="sfx-assets.js"></script>
   <script src="presentation-core.js"></script>

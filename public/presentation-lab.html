@@ -13,6 +13,7 @@
 
   <!-- Production Stylesheets (Single Source of Truth) -->
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="phase8.css">
   <link rel="stylesheet" href="exploration.css">
   <link rel="stylesheet" href="trap.css">
   <link rel="stylesheet" href="chest.css">
@@ -273,6 +274,11 @@
             <label class="lab-label" for="labCombatActorRoleSelect">出招玩家職業 (Actor Role)：</label>
             <select id="labCombatActorRoleSelect" class="lab-select" style="width: 100%;">
               <option value="warrior" selected>戰士 (Warrior)</option>
+              <option value="dreamweaver">織夢者 (Dreamweaver)</option>
+              <option value="stargazer">觀星者 (Stargazer)</option>
+              <option value="gladiator">角鬥士 (Gladiator)</option>
+              <option value="samurai">武士 (Samurai)</option>
+              <option value="sage">智者 (Sage)</option>
               <option value="mage">法師 (Mage)</option>
               <option value="archer">弓箭手 (Archer)</option>
               <option value="assassin">刺客 (Assassin)</option>
@@ -701,6 +707,7 @@
   </div>
 
   <!-- Scripts: Production Single Source of Truth + Lab Controller -->
+  <script src="battle-log.js"></script>
   <script src="presentation-config.js"></script>
   <script src="sfx-assets.js"></script>
   <script src="presentation-core.js"></script>

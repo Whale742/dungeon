@@ -1,3 +1,4 @@
+import { NEW_CLASSES, NEW_LOOT, NEW_ROLE_DETAILS } from './phase8-config.js';
 // 遊戲常數與數值定義 (100% 完整移植自 index.js)
 
 export const CLASSES = {
@@ -9,8 +10,8 @@ export const CLASSES = {
     desc: '【生命 120】前排坦鋒。具備強大的守護壁壘，全技能皆為物理傷害。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '對單一目標造成基礎物理打擊。' },
-      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。' },
-      { id: 'w_shield', label: '壁壘守護', cd: 2, tags: ['護盾', '全體'], desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害，次回合提供殘餘減傷；有機率盾牌延長技能冷卻。' }
+      { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。施放後自身減傷 60% 持續 3 回合，每輪末反擊本輪實受傷害。' },
+      { id: 'w_shield', label: '壁壘守護', cd: 2, tags: ['護盾', '全體'], desc: '全隊獲得戰士最大生命 40% 的護盾；有機率盾牌龜裂延長冷卻。' }
     ]
   },
   mage: {
@@ -21,8 +22,8 @@ export const CLASSES = {
     desc: '【生命 80】遠程法系。站樁高爆發與生命汲取，全技能皆為魔法傷害。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體'], desc: '引導微光魔力造成基礎魔法打擊。' },
-      { id: 'm_blast', label: '奧術爆破', cd: 1, dmgType: 'mag', tags: ['魔法', '單體', '高風險'], desc: '引爆狂暴魔力轟炸敵方；有機率發生法力走火導致威力驟降，並對自身造成魔力反噬。' },
-      { id: 'm_drain', label: '生命汲取', cd: 1, dmgType: 'mag', tags: ['魔法', '單體', '治療'], desc: '對敵方造成劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取生命回復自身。' }
+      { id: 'm_blast', label: '奧術爆破', cd: 2, dmgType: 'mag', tags: ['魔法', '單體', '高風險'], desc: '引爆狂暴魔力轟炸敵方；有機率發生法力走火導致威力驟降，並對自身造成魔力反噬。' },
+      { id: 'm_drain', label: '生命汲取', cd: 2, dmgType: 'mag', tags: ['魔法', '單體', '治療'], desc: '對敵方造成劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取生命回復自身。' }
     ]
   },
   archer: {
@@ -105,11 +106,13 @@ export const CLASSES = {
       { id: 'dru_summon_treant', label: '2 技能 A: 召喚小樹精', cd: 0, tags: ['召喚', '護盾'], desc: '召喚肉盾型樹精僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' },
       { id: 'dru_summon_wolf', label: '2 技能 B: 召喚幼狼', cd: 0, tags: ['召喚', '物理'], desc: '召喚敏捷型幼狼僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
-  }
+  },
+  ...NEW_CLASSES
 };
 
 // 完整重構裝備池 (共 19 種專屬裝備)
 export const LOOT_TABLE = [
+  ...NEW_LOOT,
   // 戰士 (Warrior)
   {
     id: 'w_sword',
@@ -655,7 +658,7 @@ export function canPlayerEquipItem(player, drop, replaceIndex = -1) {
   if (!player || !drop) return false;
   const uniqueEquipIds = ['w_greatsword', 'b_violin', 'a_crossbow'];
   const uniqueEquipNames = ['雙手劍', '精靈木提琴', '改良型重弩'];
-  const isUnique = uniqueEquipIds.includes(drop.id) || uniqueEquipNames.includes(drop.name);
+  const isUnique = drop.unique || uniqueEquipIds.includes(drop.id) || uniqueEquipNames.includes(drop.name);
   if (isUnique) {
     const equips = player.equips || [];
     const existingIndex = equips.findIndex(e => e.id === drop.id || e.name === drop.name);
@@ -719,6 +722,10 @@ export function formatPlayerEquips(player) {
 export function getPlayerSkills(player) {
   if (!player || !player.role || !CLASSES[player.role]) return [];
   const baseSkills = CLASSES[player.role].skills.map(s => ({ ...s }));
+  if (player.role === 'gladiator' && player.arenaActive) {
+    Object.assign(baseSkills[1], {label:'競技場・血砂重擊',dmgType:'phys',category:'OFFENSIVE'});
+    Object.assign(baseSkills[2], {label:'同歸於盡',cd:0,dmgType:'phys',category:'OFFENSIVE'});
+  }
   const equips = player.equips || [];
 
   if (player.role === 'warrior') {
@@ -806,6 +813,8 @@ export function getPlayerSkills(player) {
 
 // 玩家行動優先權判定 (1: 淨化, 2: 復活, 3: 防禦/護盾/裝填蹲伏, 4: 增益, 5: 治療, 6: 變身/召喚, 7: 敵方減益, 8: 攻擊技能)
 export function getActionPriority(actionId) {
+  if (['dw_butterfly','sg_clock','g_sacrifice','g_arena'].includes(actionId)) return 4;
+  if (['dw_false_dream','sg_observe'].includes(actionId)) return 7;
   if (actionId === 'alc_fate') return 1; // 1. 淨化 (Cleanse)
   if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)
   if (actionId === 'w_shield' || actionId === 'a_reload' || actionId === 'a_frenzy_reload') return 3; // 3. 防禦/護盾/免傷/架弩蹲伏 (Defense / Mitigation)
@@ -838,6 +847,7 @@ export function getFloorDifficultyMultiplier(floor) {
 
 // 7 大職業完整詳細技能介紹與數值機制（供選職業介面查看）
 export const ROLE_DETAILS = {
+  ...NEW_ROLE_DETAILS,
   warrior: {
     roleName: '戰士',
     enName: 'Warrior',
@@ -845,7 +855,7 @@ export const ROLE_DETAILS = {
     avatar: '/photo/Warrior.webp',
     hp: 120,
     type: '物理 / 前排坦鋒',
-    passive: '前排坦鋒，擁有全職業最高的基礎生命值（120 HP）與強大減傷防護。',
+    passive: '每次實際扣除生命的受傷事件，攻擊 +1，最多 15，戰鬥結束清空。全盾吸收、閃避與零傷不增加。',
     skills: [
       {
         type: '普攻',
@@ -859,14 +869,14 @@ export const ROLE_DETAILS = {
         name: '堅定斬擊',
         dmgType: '【物理】',
         cd: '無 CD',
-        desc: '揮動巨劍造成物理傷害。80% 機率造成 18 點傷害；20% 機率因揮砍失衡僅造成 5 點傷害，並使下回合自身承受傷害提高 20%。'
+        desc: '自身減傷 60% 持續 3 回合；每輪末反擊本輪實際受到的生命與護盾傷害。揮動巨劍造成物理傷害。80% 機率造成 18 點傷害；20% 機率因揮砍失衡僅造成 5 點傷害，並使下回合自身承受傷害提高 20%。'
       },
       {
         type: '2 技能',
         name: '壁壘守護',
         dmgType: '【防護】',
         cd: '2 回合',
-        desc: '展開厚重盾勢，大幅降低全隊本回合受到的傷害（阻擋 90% 傷害，有 25% 機率盾牌龜裂使冷卻延長 1 回合）；次回合仍提供殘餘 40% 減傷。'
+        desc: '全隊獲得戰士最大生命 40% 護盾，持續本回合；有 25% 機率盾牌龜裂，使冷卻額外 +1。'
       }
     ]
   },
@@ -890,15 +900,15 @@ export const ROLE_DETAILS = {
         type: '1 技能',
         name: '奧術爆破',
         dmgType: '【魔法】',
-        cd: '1 回合',
+        cd: '2 回合',
         desc: '引爆狂暴魔力轟炸敵方造成 45 點魔法傷害。有 25% 機率發生法力走火導致威力驟降為 10 點傷害，並對自身造成 10 點魔力反噬。'
       },
       {
         type: '2 技能',
         name: '生命汲取',
         dmgType: '【魔法】',
-        cd: '1 回合',
-        desc: '對敵方造成 1~40 點劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取 20% 生命回復自身。'
+        cd: '2 回合',
+        desc: '對敵方造成 1~50 點劇烈浮動的魔法傷害，並依據最終造成的傷害量吸取 20% 生命回復自身。'
       }
     ]
   },
@@ -1019,7 +1029,7 @@ export const ROLE_DETAILS = {
         name: '不穩定試劑瓶',
         dmgType: '【魔法/隨機】',
         cd: '無 CD',
-        desc: '投擲未完全調和的試劑瓶，50% 機率隨機施放【腐蝕強酸瓶】或【劇毒煙霧瓶】：\n・50% 腐蝕強酸瓶：造成 50 點魔法傷害，自身受到 15 點自傷，強酸濺射使本回合全體裝備效果減半。\n・50% 劇毒煙霧瓶：造成 30 點魔法傷害，自身受到 5 點自傷，敵我雙方陷入劇毒（每回合 5 點毒素傷害，持續 2 回合，毒傷可持續疊加）。\n※ 若裝備【精密滴管】可完全免疫兩種試劑帶來的自傷效果。'
+        desc: '投擲未完全調和的試劑瓶，50% 機率隨機施放【腐蝕強酸瓶】或【劇毒煙霧瓶】：\n・50% 腐蝕強酸瓶：造成 40 點魔法傷害，全體存活隊友各承受 20 點傷害（走現有護盾與減傷流程，不觸發閃避或招架），強酸濺射使本回合全體裝備效果減半。\n・50% 劇毒煙霧瓶：造成 30 點魔法傷害，自身受到 5 點自傷，敵我雙方陷入劇毒（每回合 5 點毒素傷害，持續 2 回合，毒傷可持續疊加）。\n※ 若裝備【精密滴管】可免疫毒煙瓶的 5 點自傷；強酸全隊飛濺仍生效。'
       },
       {
         type: '2 技能',
@@ -1068,7 +1078,7 @@ export const ROLE_DETAILS = {
         name: '形態轉變',
         dmgType: '【變身】',
         cd: '無 CD (持續2回合)',
-        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
+        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（獲得自身最大生命 85% 護盾、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
       },
       {
         type: '2 技能 A',

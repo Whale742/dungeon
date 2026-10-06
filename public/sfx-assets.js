@@ -22,10 +22,10 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['treant_action', 'druid-treant-action', .7, 'vine_strike', 0, 400],
   ['wolf_action', 'druid-wolf-action', .5, 'minion_attack', .05, 800],
   ['logo_intro', 'logo-intro', .4, 'round_start', 0, 5800],
-  ['chest_reveal', 'chest-reveal', .65, 'chest_open', .25, 1900],
+  ['chest_reveal', 'chest-reveal', .46, 'chest_open', .25, 1900],
   ['boss_warning', 'warning', .55, 'boss_warning', 0, 4700],
-  ['boss_entrance', 'boss', .38, 'boss_boom', .65, 3500],
-  ['victory', 'victory', .45, 'victory', 0, 3900]
+  ['boss_entrance', 'boss', .27, 'boss_boom', .65, 3500],
+  ['victory', 'victory', .32, 'victory', 0, 3900]
 ].map(([key, file, volume, fallback, offset, identityBeatMs]) => [key, Object.freeze({
   src: '/sound/' + file + '.mp3', volume, fallback, offset, identityBeatMs,
   // A short fade preserves the tail without waiting for silence/file ended.
@@ -43,6 +43,11 @@ const SFX_ALIASES = Object.freeze({
 
 // Single owner for role + skill + form audio choices. Result cues remain server driven.
 const SFX_PRESENTATION_PROFILES = Object.freeze({
+  dreamweaver: {basic:'mage_basic',dw_butterfly:'bard_skill2',dw_false_dream:'mage_skill2'},
+  stargazer: {basic:'mage_basic',sg_observe:'mage_skill2',sg_clock:'bard_skill2'},
+  gladiator: {basic:'warrior_basic',g_sacrifice:'warrior_skill1',g_arena:'warrior_skill1'},
+  samurai: {basic:'warrior_basic',sa_cut:'warrior_skill1',sa_tsubame:'assassin_pursuit',sa_counter:'warrior_basic'},
+  sage: {basic:'warrior_basic',sge_deduce:'mage_basic',sge_induce:'mage_skill2',sge_equation:'mage_skill1'},
   warrior: { basic: 'warrior_basic', w_strike: 'warrior_skill1', w_shield_slam: 'warrior_skill1', w_cleave: 'warrior_skill1', w_shield: 'warrior_defense' },
   mage: { basic: 'mage_basic', m_blast: 'mage_skill1', m_fireball: 'mage_skill1', m_drain: 'mage_skill2' },
   archer: { basic: 'arrow_release', a_shot: 'arrow_release', a_rain: 'arrow_release', a_reload: null, a_frenzy_reload: null },
@@ -61,8 +66,9 @@ function resolveCombatSfxProfile(step) {
   if (step.category === 'FOLLOW_UP') key = 'assassin_pursuit';
   const doubleSlash = role === 'assassin' && key === 'warrior_skill1' && action === 's_stab';
   return { key, doubleSlash, identityBeatMs: SFX_ASSETS[key]?.identityBeatMs || 0,
-    impactKey: role === 'alchemist' && action === 'basic' ? 'bottle_impact' : null,
-    suppressImpact: role === 'alchemist' && key === 'alchemy_skill1',
+    impactKey: role === 'alchemist' ? 'bottle_impact' : null,
+    suppressImpact: false,
+    bottleSequence: role === 'alchemist' && key === 'alchemy_skill1',
     impactVolume: ['warrior', 'assassin', 'mage'].includes(role) ? .28 : 1 };
 }
 

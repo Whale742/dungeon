@@ -1,3 +1,5 @@
+import { NEW_CLASSES } from './phase8-config.js';
+import { p8State } from './phase8.js';
 // Wire contract: gameplay decides every outcome and value before presentation.
 export const ACTION_CATEGORIES = Object.freeze([
   'OFFENSIVE', 'AOE_OFFENSIVE', 'HEAL', 'DEFENSE', 'SHIELD', 'BUFF', 'DEBUFF',
@@ -5,6 +7,7 @@ export const ACTION_CATEGORIES = Object.freeze([
   'MINION_INTERCEPT', 'STATUS_TICK', 'FOLLOW_UP'
 ]);
 export const SKILL_CATEGORIES = Object.freeze({
+  ...Object.fromEntries(Object.values(NEW_CLASSES).flatMap(c=>c.skills.filter(s=>s.id!=='basic').map(s=>[s.id,s.category]))),
   basic: 'OFFENSIVE', w_strike: 'OFFENSIVE', w_cleave: 'OFFENSIVE', w_shield: 'DEFENSE',
   m_blast: 'OFFENSIVE', m_drain: 'OFFENSIVE', a_shot: 'OFFENSIVE', a_rain: 'AOE_OFFENSIVE',
   a_reload: 'DEFENSE', a_frenzy_reload: 'DEFENSE',
@@ -47,6 +50,7 @@ export function playerStatuses(player, room, balance) {
     if (player.tempHp > 0) add('temp_hp', 'TEMP HP', 'shield', 1, { value: player.tempHp });
     if (player.corruption) add('corruption', '深淵腐化', 'corruption', 0, { locked: true, stacks: player.corruption });
   }
+  statuses.push(...p8State(player, room).phase8Statuses);
   return statuses;
 }
 

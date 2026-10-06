@@ -10,10 +10,10 @@ test('basic audio distinguishes seven roles and Druid form without replacing hum
   assert.equal(context.resolve({ sourceRole: 'druid', actionId: 'basic', druidForm: 'treant' }).key, 'treant_action');
   assert.equal(context.resolve({ sourceRole: 'druid', actionId: 'basic', druidForm: 'werewolf' }).key, 'claw_slash');
 });
-test('reload overrides and acid impact never borrow arrow or bottle sounds', () => {
+test('reload stays quiet and acid explicitly uses ordered bottle impact', () => {
   for (const actionId of ['a_reload', 'a_frenzy_reload']) assert.equal(context.resolve({ sourceRole: 'archer', actionId }).key, null);
   assert.equal(context.resolve({ sourceRole: 'alchemist', actionId: 'basic' }).impactKey, 'bottle_impact');
-  assert.equal(context.resolve({ sourceRole: 'alchemist', actionId: 'alc_flask' }).suppressImpact, true);
+  assert.equal(context.resolve({ sourceRole: 'alchemist', actionId: 'alc_flask' }).bottleSequence, true);
 });
 test('assassin skill cross slash doubles heavy identity while pursuit stays compact', () => {
   assert.equal(context.resolve({ sourceRole: 'assassin', actionId: 's_stab' }).doubleSlash, true);

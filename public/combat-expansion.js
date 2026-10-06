@@ -252,7 +252,7 @@ async function playSkillCastPresentation(step, context = {}, reveal) {
     await wait(200);
     actor.classList.add('is-casting');
     const sfxProfile = resolveCombatSfxProfile(step);
-    if (sfxProfile.key) playSound(sfxProfile.key);
+    if (sfxProfile.key) playSound(sfxProfile.key,{detune:step.outcome?.type==='off_key'});
     else playSound(nature ? 'support_cast' : step.category === 'DEFENSE' ? 'shield_apply' : 'support_cast', { volume: .3 });
     context.onTiming?.('cast_fx', { step });
     await wait(350);
@@ -449,7 +449,7 @@ async function playCategoryPresentation(step, context = {}) {
     }
     if (step.outcome?.type === 'off_key') {
       canvas.classList.add('is-off-key');
-      playSound('bard_off_key');
+      if(!context.resultOnly)playSound('bard_skill1', {detune:true});
     } else if (!context.resultOnly && step.category !== 'STATUS_TICK') {
       const profile = resolveCombatSfxProfile(step);
       if (profile.key) playSound(profile.key);
@@ -467,6 +467,12 @@ async function playCategoryPresentation(step, context = {}) {
       outcome.textContent = step.outcome.label;
       canvas.appendChild(outcome);
       await wait(200);
+    }
+    if(step.actionId==='a_rain') {
+      for(let wave=0;wave<5;wave++) {
+        const rain=document.createElement('div');rain.className='arrow-rain-wave';rain.innerHTML=Array.from({length:6},(_,i)=>'<i style="--arrow:'+i+'"></i>').join('');canvas.appendChild(rain);
+        playSound('arrow_release',{volume:.25,instance:'rain-'+wave,noHold:true});await wait(400);rain.remove();
+      }
     }
     if (step.category === 'STEALTH') { canvas.classList.add('is-stealth-cast'); playSound('air_pass'); }
     if (step.category === 'DEFENSE' || step.category === 'SHIELD') canvas.classList.add('is-guard-cast');
@@ -492,6 +498,13 @@ async function playCategoryPresentation(step, context = {}) {
         if (i) await wait(step.category === 'MINION_ATTACK' ? SUPPORT_TIMING.minionGap - SUPPORT_TIMING.impactDelay : SUPPORT_TIMING.ripple);
         const result = step.results[i];
         if (result.kind === 'cleanse') continue;
+        // Keep the delayed stray hit visibly inside the rain, after the main waves.
+        let tailRain;
+        if (step.actionId === 'a_rain' && result.targetId !== 'monster') {
+          tailRain=document.createElement('div');tailRain.className='arrow-rain-wave';
+          tailRain.innerHTML=Array.from({length:6},(_,j)=>'<i style="--arrow:'+j+'"></i>').join('');canvas.appendChild(tailRain);
+          playSound('arrow_release',{volume:.2,instance:'rain-stray-'+i,noHold:true});
+        }
         if (result.minion && compact) {
           canvas.querySelector('.presentation-compact-minion')?.remove();
           const minion = document.createElement('div');
@@ -501,6 +514,7 @@ async function playCategoryPresentation(step, context = {}) {
           const cue = minionSound(result.minion, 'attack', i); playSound(cue.key, cue);
         }
         await presentCombatResult(result, cards.get(result.targetId), { ...context, direction: 'right', sourceRole: step.sourceRole });
+        tailRain?.remove();
 
       }
     }
@@ -516,12 +530,53 @@ async function playCategoryPresentation(step, context = {}) {
     context.onTiming?.('action_complete', { step });
   });
 }
+async function playPhase8Presentation(step, context = {}) {
+  const wait=ms=>waitForPresentation(ms,context.signal,context.speed||1);
+  const audio=context.audioScope || createSfxPresentationScope(context);
+  await playSkillCastPresentation(step,{...context,audioScope:audio},async(canvas,actor)=>{
+    canvas.classList.add('p8-presentation');canvas.dataset.role=step.sourceRole;
+    if(context.reducedMotion)canvas.dataset.reducedMotion='true';
+    canvas.dataset.outcome=step.outcome?.type||'normal';
+    const reveal=document.createElement('div');reveal.className='p8-reveal';
+    reveal.textContent=step.outcome?.type==='equation'?'Operand '+step.outcome.operand:step.outcome?.label||step.skillName;
+    canvas.appendChild(reveal);context.onTiming?.('outcome_reveal',{step});
+    const glyph=document.createElement('div');glyph.className='p8-glyph';
+    const paths={dreamweaver:'M10 50Q30 5 50 50Q70 95 90 50M10 70Q50 20 90 70M50 10v80',
+      stargazer:'M20 30 40 15 70 40 55 80 20 30M40 15 55 80M5 50h90M50 5v90',
+      gladiator:'M5 90 20 10 50 30 80 10 95 90M20 80h60M40 70 60 30',
+      samurai:'M5 80 95 20M10 90 85 10M5 50h90',
+      sage:'M10 90V10h80v80ZM10 50h80M50 10v80M20 75 50 25 80 75Z'};
+    glyph.innerHTML='<svg viewBox="0 0 100 100" aria-hidden="true"><path d="'+paths[step.sourceRole]+'"/></svg>';canvas.appendChild(glyph);
+    audio.play('recovery_chime',{volume:.3,synthOnly:true,noHold:true});await wait(350);
+    if(step.outcome?.type==='equation') {
+      reveal.textContent='η('+step.outcome.x+') = '+step.outcome.eta.toFixed(3);await wait(300);
+      reveal.textContent='Equation = '+step.outcome.equationDamage;await wait(300);
+    }
+    const row=document.createElement('div');row.className='presentation-support-targets';canvas.appendChild(row);
+    const cards=new Map();
+    for(const result of step.results||[]) {
+      let card=cards.get(result.targetId);
+      if(!card){card=createResultCard({...result,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});cards.set(result.targetId,card);row.appendChild(card);}
+      const hit=document.createElement('div');hit.className='p8-hit-fx';card.querySelector('.presentation-result-portrait').appendChild(hit);
+      await presentCombatResult(result,card,{...context,audioScope:audio,sourceRole:step.sourceRole,direction:'right',fxType:step.sourceRole==='samurai'?'sword_slash':undefined});
+      hit.remove();await wait(step.outcome?.type==='tsubame'?100:70);
+    }
+    if(step.outcome?.properties?.length) {
+      const properties=document.createElement('div');properties.className='p8-property-labels';
+      step.outcome.properties.forEach((name,i)=>{const tag=document.createElement('span');tag.textContent=name;tag.style.setProperty('--index',i);properties.appendChild(tag);});canvas.appendChild(properties);
+      await wait(400);if(step.outcome.resolution)reveal.textContent=step.outcome.resolution;
+    }
+    if(step.hpSnapshot && typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
+    context.onTiming?.('action_complete',{step});await wait(350);
+  });
+}
 async function playExpandedCombatPresentation(step, context = {}) {
   await sfxManager.preload();
   if ((context.signal || context.controller?.signal)?.aborted) return;
   const audio = context.audioScope || createSfxPresentationScope(context);
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
+  if (['dreamweaver','stargazer','gladiator','samurai','sage'].includes(step.sourceRole)) return playPhase8Presentation(step,context);
   if (step.category === 'MINION_ATTACK') return playMinionComboPresentation(step, context);
   if (step.type === 'player_action' && !(step.results || []).some(r => r.targetId === 'monster' && r.kind === 'damage')) {
     if (step.category === 'TRANSFORM') return playTransformPresentation(step, context);

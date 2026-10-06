@@ -93,6 +93,11 @@ async function exitCombatStage(context = {}) {
 // Centralized Skill & Role Profiles for Audio, Visual FX, and Timing
 // ==========================================================================
 const COMBAT_PRESENTATION_PROFILES = Object.freeze({
+  dreamweaver:{fxType:'arcane_burst',attackSfx:'mage_basic',impactSfx:'magic_impact'},
+  stargazer:{fxType:'arcane_burst',attackSfx:'mage_basic',impactSfx:'magic_impact'},
+  gladiator:{fxType:'sword_slash',attackSfx:'warrior_skill1',impactSfx:'physical_hit'},
+  samurai:{fxType:'sword_slash',attackSfx:'warrior_basic',impactSfx:'physical_hit'},
+  sage:{fxType:'sword_slash',attackSfx:'mage_basic',impactSfx:'physical_hit'},
   warrior: {
     attackSfx: 'warrior_xing',
     impactSfx: 'physical_hit',
@@ -469,7 +474,7 @@ async function playCombatActionPresentation(step, context = {}) {
   if (outcome.type === 'imbalance') actorPositionWrap.classList.add('is-unbalanced');
   if (outcome.type === 'critical') canvas.classList.add('is-critical');
   if (profile.sfxProfile.key) {
-    playSound(profile.sfxProfile.key);
+    playSound(profile.sfxProfile.bottleSequence ? 'bottle_throw' : profile.sfxProfile.key);
     emitTiming('skill_audio');
     if (profile.sfxProfile.doubleSlash) {
       await waitForPresentation(90, signal); playSound(profile.sfxProfile.key, { volume: .85 });
@@ -526,6 +531,7 @@ async function playCombatActionPresentation(step, context = {}) {
   } else {
   // 播放 Impact 命中音效 (音量最高潮)
   if (!profile.sfxProfile.suppressImpact) playSound(profile.sfxProfile.impactKey || profile.impactSfx || (isMagic ? 'magic_impact' : 'physical_hit'), { volume: profile.sfxProfile.impactVolume });
+  if(profile.sfxProfile.bottleSequence){await wait(80);playSound('alchemy_skill1');emitTiming('chemical_audio');}
 
   // 內層 Hit Wrapper 觸發方向性撞擊 (完全不受外層 translateY(-50%) 衝突)
   if (targetHitEl) {

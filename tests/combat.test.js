@@ -216,7 +216,7 @@ test('skill timer and resolution wait for the slowest viewer and reject stale ro
   room.state = 'GAME_OVER'; // Cancel the guarded 300ms transition during test cleanup.
 });
 
-test('alchemist alc_flask: 50% acid (dmg 50, self 15, equip halved) vs 50% poison (dmg 30, self 5, poison 2 turns) with burette protection', t => {
+test('alchemist alc_flask: 50% acid (dmg 40, party 20, equip halved) vs 50% poison (dmg 30, self 5, poison 2 turns) with burette protection', t => {
   // Test acid branch (random < 0.5)
   {
     const { room, queue } = fixture(t, ['alchemist', 'warrior']);
@@ -225,8 +225,8 @@ test('alchemist alc_flask: 50% acid (dmg 50, self 15, equip halved) vs 50% poiso
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_acid');
-    assert.equal(step.finalDamage, 50);
-    assert.equal(step.actorHpAfter, 75 - 15);
+    assert.equal(step.finalDamage, 40);
+    assert.equal(step.actorHpAfter, 75 - 20);
     assert.equal(step.hiddenEffectNote, '酸霧侵蝕裝備，全隊裝備效果降低 50%！');
     assert.match(step.narrative, /腐蝕強酸|高壓強酸/);
   }
@@ -254,7 +254,7 @@ test('alchemist alc_flask: 50% acid (dmg 50, self 15, equip halved) vs 50% poiso
     room.players.p0.equips = [{ id: 'alc_burette', name: '精密滴管' }];
     resolve(room, 0.2);
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
-    assert.equal(step.actorHpAfter, 75); // 0 self damage
+    assert.equal(step.actorHpAfter, 55); // fixed party splash is not removed by a burette
   }
 });
 

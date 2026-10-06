@@ -528,6 +528,7 @@ function resetLab() {
   if (elements.views.event) elements.views.event.classList.add('hidden');
   if (elements.views.route) elements.views.route.classList.add('hidden');
   if (elements.views.prologue) elements.views.prologue.classList.add('hidden');
+  document.getElementById('p8LabLog')?.remove();
 
   // Reset body & stage classes
   document.body.classList.remove('presentation-chest-active', 'presentation-trap-active', 'presentation-floor-active');
@@ -792,7 +793,13 @@ async function playScene(sceneName) {
     }
     if (typeof PHASE6_LAB_SCENES !== 'undefined' && PHASE6_LAB_SCENES[sceneName]) {
       const scene = PHASE6_LAB_SCENES[sceneName];
-      if (scene.trap) await playTrapPresentation(scene.trap, context);
+      if(scene.logs) {
+        const panel=document.createElement('div');panel.className='p8-lab-log';panel.id='p8LabLog';
+        panel.style.cssText='position:absolute;left:20px;top:30px;width:280px;padding:16px;background:rgba(7,15,30,.62);border:1px solid #38475f;z-index:100';
+        document.getElementById('p8LabLog')?.remove();document.getElementById('labStage').appendChild(panel);
+        renderRecentBattleLogs(panel,scene.logs);
+      }
+      else if (scene.trap) await playTrapPresentation(scene.trap, context);
       else if (scene.revival) await playFloorRevivalPresentation(scene.revival, context);
       else {
         await enterCombatStage(context);

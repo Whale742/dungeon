@@ -8,6 +8,11 @@ const BROKEN_STAR_SVG = '<svg viewBox="0 0 24 24"><path d="M12 2 L13.5 7 L17 4 L
 
 // 1. Status FX Profiles
 const STATUS_FX_PROFILES = Object.freeze({
+  dream: {layer:'back',className:'status-fx--dream',portraitClass:'has-dream',render:()=>'<svg viewBox="0 0 100 100"><path d="M5 35Q30 5 50 50Q70 95 95 65M5 65Q30 95 50 50Q70 5 95 35M12 20 88 80M12 80 88 20"/></svg>'},
+  astronomy: {layer:'back',className:'status-fx--astronomy',portraitClass:'has-astronomy',render:()=>'<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><path d="M20 30 70 15 85 65 35 85 20 30M70 15 35 85"/></svg>'},
+  soul: {layer:'front',className:'status-fx--soul',portraitClass:'has-soul',render:()=>'<svg viewBox="0 0 100 100"><path d="M10 95 35 70 25 45M90 95 65 70 75 45M50 80V40"/></svg>'},
+  blood: {layer:'surface',className:'status-fx--blood',portraitClass:'has-blood',render:()=>'<svg viewBox="0 0 100 100"><path d="M10 85V15h15M90 85V15H75M5 95h90"/></svg>'},
+  equation: {layer:'back',className:'status-fx--equation',portraitClass:'has-equation',render:()=>'<svg viewBox="0 0 100 100"><path d="M5 25h90M5 50h90M5 75h90M25 5v90M50 5v90M75 5v90M10 90 90 10"/></svg>'},
   downed: {
     layer: 'terminal',
     className: 'status-fx--downed',
@@ -119,7 +124,14 @@ const STATUS_FX_PROFILES = Object.freeze({
 
 // 2. Status ID Adapter (Normalizes server IDs & state fields to Visual Status Profile IDs)
 function mapStatusToFxProfile(statusId, entity = {}) {
+  if(typeof statusId!=='string')return null;
   switch (statusId) {
+    case 'dream_butterfly':case 'mirror':case 'dissociate':case 'nightmare_weak':case 'frenzy_backfire':case 'false_history':return 'dream';
+    case 'galaxy':case 'boundary':case 'overload':return 'astronomy';
+    case 'soul':case 'kyoutou':return 'soul';
+    case 'rage':case 'blood_stacks':case 'blood_heal':case 'arena_challenge':return 'blood';
+    case 'sage_equation':case 'sage_exposed':case 'sage_square':return 'equation';
+    case 'warrior_resolve':return 'guard';
     case 'downed':
       return 'downed';
     case 'exhausted':

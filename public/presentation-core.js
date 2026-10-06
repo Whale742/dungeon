@@ -100,6 +100,10 @@ class SFXManager {
       const duration = Math.min(profile.maxDuration, buffer.duration - offset);
       const level = profile.volume * (options.volume ?? 1);
       const start = this.ctx.currentTime;
+      if(options.detune && source.detune) {
+        source.detune.setValueAtTime(0,start);
+        for(let t=.1,i=0;t<duration;t+=.18,i++)source.detune.linearRampToValueAtTime(i%2?35:-45,start+t);
+      }
       gain.gain.setValueAtTime(level, start);
       gain.gain.setValueAtTime(level, start + Math.max(0, duration - .12));
       gain.gain.linearRampToValueAtTime(0, start + duration);
@@ -1082,6 +1086,7 @@ function getIconSvg(name, extraClass = '') {
 }
 
 const DEFAULT_ROLE_AVATARS = {
+  dreamweaver:{name:'織夢術士',avatar:'/photo/Dreamweaver.webp'},stargazer:{name:'觀星者',avatar:'/photo/Stargazer.webp'},gladiator:{name:'角鬥士',avatar:'/photo/Gladiator.webp'},samurai:{name:'武士',avatar:'/photo/武士.webp'},sage:{name:'智者',avatar:'/photo/智者.webp'},
   warrior: { name: '戰士', avatar: '/photo/Warrior.webp', icon: 'shield' },
   mage: { name: '法師', avatar: '/photo/Mage.webp', icon: 'sparkle' },
   archer: { name: '弓箭手', avatar: '/photo/Archer.webp', icon: 'target' },
