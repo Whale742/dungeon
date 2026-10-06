@@ -78,7 +78,7 @@ function updateResultCard(card, target) {
 async function presentCombatResult(result, card, context = {}) {
   const audio = context.audioScope || createSfxPresentationScope(context);
   const playSound = (key, options) => audio.play(key, options);
-  const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
+  const wait = ms => waitForPresentation(context.fastResult?Math.min(ms,30):ms, context.signal, context.speed || 1);
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
   const emit = beat => context.onTiming?.(beat, { targetId: result.targetId, result });
@@ -100,9 +100,10 @@ async function presentCombatResult(result, card, context = {}) {
     resultFloat(card, 'MISS', 'is-miss');
     emit('miss');
   } else if (result.kind === 'damage' || result.kind === 'intercept') {
+    if(outcome.parry)playSound('samurai_parry',{noHold:true});
     if (result.guard || result.absorbed > 0) {
       card.classList.add('is-guarding');
-      playSound('shield_block');
+      if(!outcome.parry)playSound('shield_block');
       const presP = card.querySelector('.presentation-result-portrait');
       if (presP && typeof triggerPortraitStatusEvent === 'function') {
         triggerPortraitStatusEvent(presP, 'shield', 'block');
@@ -119,7 +120,7 @@ async function presentCombatResult(result, card, context = {}) {
       const fxType = context.fxType || (context.direction === 'left' ? 'boss_claw' :
         context.sourceRole === 'archer' ? 'arrow_projectile' : context.sourceRole === 'alchemist' ? 'acid_splash' :
         context.sourceRole === 'druid' ? 'nature_strike' : null);
-      if (fxType && typeof createCombatFx === 'function') {
+      if (!context.suppressFx && fxType && typeof createCombatFx === 'function') {
         createCombatFx({ type: fxType, target: card.querySelector('.presentation-result-portrait'),
           direction: context.direction || 'left', variant: context.compact ? 'compact' : undefined, speed: context.speed || 1, reducedMotion: context.reducedMotion });
         if (fxType !== 'claw_slash' && fxType !== 'boss_claw') await wait(context.compact ? 90 : 130);
@@ -252,7 +253,7 @@ async function playSkillCastPresentation(step, context = {}, reveal) {
     await wait(200);
     actor.classList.add('is-casting');
     const sfxProfile = resolveCombatSfxProfile(step);
-    if (sfxProfile.key) playSound(sfxProfile.key,{detune:step.outcome?.type==='off_key'});
+    if (sfxProfile.key && !context.skipCastAudio) playSound(sfxProfile.key,{detune:step.outcome?.type==='off_key'});
     else playSound(nature ? 'support_cast' : step.category === 'DEFENSE' ? 'shield_apply' : 'support_cast', { volume: .3 });
     context.onTiming?.('cast_fx', { step });
     await wait(350);
@@ -533,21 +534,16 @@ async function playCategoryPresentation(step, context = {}) {
 async function playPhase8Presentation(step, context = {}) {
   const wait=ms=>waitForPresentation(ms,context.signal,context.speed||1);
   const audio=context.audioScope || createSfxPresentationScope(context);
-  await playSkillCastPresentation(step,{...context,audioScope:audio},async(canvas,actor)=>{
+  const showResults=async(canvas,actor)=>{
     canvas.classList.add('p8-presentation');canvas.dataset.role=step.sourceRole;
     if(context.reducedMotion)canvas.dataset.reducedMotion='true';
     canvas.dataset.outcome=step.outcome?.type||'normal';
     const reveal=document.createElement('div');reveal.className='p8-reveal';
     reveal.textContent=step.outcome?.type==='equation'?'Operand '+step.outcome.operand:step.outcome?.label||step.skillName;
     canvas.appendChild(reveal);context.onTiming?.('outcome_reveal',{step});
-    const glyph=document.createElement('div');glyph.className='p8-glyph';
-    const paths={dreamweaver:'M10 50Q30 5 50 50Q70 95 90 50M10 70Q50 20 90 70M50 10v80',
-      stargazer:'M20 30 40 15 70 40 55 80 20 30M40 15 55 80M5 50h90M50 5v90',
-      gladiator:'M5 90 20 10 50 30 80 10 95 90M20 80h60M40 70 60 30',
-      samurai:'M5 80 95 20M10 90 85 10M5 50h90',
-      sage:'M10 90V10h80v80ZM10 50h80M50 10v80M20 75 50 25 80 75Z'};
-    glyph.innerHTML='<svg viewBox="0 0 100 100" aria-hidden="true"><path d="'+paths[step.sourceRole]+'"/></svg>';canvas.appendChild(glyph);
-    audio.play('recovery_chime',{volume:.3,synthOnly:true,noHold:true});await wait(350);
+    const motes=document.createElement('div');motes.className='p81-motes';
+    if(step.sourceRole!=='samurai')motes.innerHTML=Array.from({length:12},(_,i)=>'<i style="--i:'+i+'"></i>').join('');canvas.appendChild(motes);
+    await wait(180);
     if(step.outcome?.type==='equation') {
       reveal.textContent='η('+step.outcome.x+') = '+step.outcome.eta.toFixed(3);await wait(300);
       reveal.textContent='Equation = '+step.outcome.equationDamage;await wait(300);
@@ -557,18 +553,30 @@ async function playPhase8Presentation(step, context = {}) {
     for(const result of step.results||[]) {
       let card=cards.get(result.targetId);
       if(!card){card=createResultCard({...result,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});cards.set(result.targetId,card);row.appendChild(card);}
-      const hit=document.createElement('div');hit.className='p8-hit-fx';card.querySelector('.presentation-result-portrait').appendChild(hit);
-      await presentCombatResult(result,card,{...context,audioScope:audio,sourceRole:step.sourceRole,direction:'right',fxType:step.sourceRole==='samurai'?'sword_slash':undefined});
-      hit.remove();await wait(step.outcome?.type==='tsubame'?100:70);
+      const samurai=step.sourceRole==='samurai',rapid=step.actionId==='sa_tsubame';
+      const index=(step.results||[]).indexOf(result),start=performance.now();
+      let slash;
+      if(samurai && result.kind==='damage') {
+        slash=document.createElement('div');slash.className='p81-straight-slash'+(step.actionId==='sa_cut'?' is-heavy':'');
+        slash.style.setProperty('--angle',[-24,32,-62,8][index%4]+'deg');slash.style.setProperty('--slash-speed',context.speed||1);
+        card.querySelector('.presentation-result-portrait').appendChild(slash);
+        audio.play(step.actionId==='sa_cut'?'warrior_skill1':'warrior_basic',{instance:'samurai-hit-'+index,noHold:true});
+        context.onTiming?.('samurai_slash',{index,angle:[-24,32,-62,8][index%4],step});
+      }
+      await presentCombatResult(result,card,{...context,audioScope:audio,sourceRole:step.sourceRole,direction:'right',suppressFx:samurai,fastResult:rapid});
+      if(rapid)await wait(Math.max(0,300-(performance.now()-start)*(context.speed||1)));else await wait(70);
+      slash?.remove();
     }
     if(step.outcome?.properties?.length) {
       const properties=document.createElement('div');properties.className='p8-property-labels';
-      step.outcome.properties.forEach((name,i)=>{const tag=document.createElement('span');tag.textContent=name;tag.style.setProperty('--index',i);properties.appendChild(tag);});canvas.appendChild(properties);
-      await wait(400);if(step.outcome.resolution)reveal.textContent=step.outcome.resolution;
+      step.outcome.properties.forEach((name,i)=>{const tag=document.createElement('span');tag.textContent={EVEN:'彈性碰撞與衝量吸收',ODD:'完全非彈性形變',PRIME:'結構固有頻率共振',SQUARE:'完整平方結構'}[name]||name;tag.style.setProperty('--index',i);properties.appendChild(tag);});canvas.appendChild(properties);
+      await wait(400);if(step.outcome.resolution)reveal.textContent={SUCCESS:'推演成功',CONFUSION:'思緒紊亂',NOTHING:'無事發生'}[step.outcome.resolution]||step.outcome.resolution;
     }
     if(step.hpSnapshot && typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
     context.onTiming?.('action_complete',{step});await wait(350);
-  });
+  };
+  if(step.actionId?.endsWith('_result'))return withCombatCanvas(context,step.category,showResults);
+  return playSkillCastPresentation(step,{...context,audioScope:audio,skipCastAudio:step.sourceRole==='samurai'},showResults);
 }
 async function playExpandedCombatPresentation(step, context = {}) {
   await sfxManager.preload();

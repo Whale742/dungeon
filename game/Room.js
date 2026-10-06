@@ -370,6 +370,7 @@ export class Room {
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
     player.cooldowns = initialCooldowns;
     Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,sageX:10,sageOperand:0,sagePhase:'hypothesis'});
+    player.stealthStacks=roleKey==='assassin'?1:0;
     delete player.noReviveFloor;
     this.p8RefreshEquipment();
 
@@ -1174,9 +1175,10 @@ export class Room {
     for (const p of alivePlayers.filter(p => p.role === 'assassin')) {
       p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       const old = p.stealthStacks || 0;
-      p.stealthStacks = Math.max(0, old - 1);
+      const decay=this.battleRound>=3 && this.battleRound%3===0;
+      p.stealthStacks = Math.max(0, old - (decay?1:0));
       p.isHiddenThisRound = p.stealthStacks > 0;
-      if (old) {
+      if (old && decay) {
         log.push({ text: `**${p.name}**【匿蹤】層數降低 1，剩餘 ${p.stealthStacks}。`, type: 'buff' });
         visualEvents.push({ type: 'stealth_decay', targetId: p.id, label: '匿蹤 -1' });
       }
@@ -1422,6 +1424,7 @@ export class Room {
     if (!player) return { success: false, message: '玩家不存在' };
     if (player.hp <= 0) return { success: false, message: '你已陣亡，無法行動' };
     if (this.arena && this.arena.playerId !== player.id) return {success:false,message:'死亡競技場期間無法行動'};
+    if(player.role==='sage'&&player.sagePhase==='solve'&&player.sagePreviousAction===actionId)return {success:false,message:'求解階段不可重複上一回合的技能'};
     if (actionId === 'sa_tsubame' && (player.soul||0)<4) return {success:false,message:'燕返需要 4 劍魂'};
     if (actionId === 'dw_butterfly' && targetPlayerId !== 'monster' && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp<=0)) return {success:false,message:'請指定存活隊友或魔物'};
     if (actionId === 'b_revive' && this.players[targetPlayerId]?.noReviveFloor===this.floor) return {success:false,message:'同歸於盡者本層不能甦生'};
@@ -2001,7 +2004,7 @@ export class Room {
 
           const dmgType = (p.role === 'mage' || p.role === 'bard' || p.role === 'alchemist') ? 'mag' : 'phys';
           let baseAtk = 10;
-          if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk = 40;
+          if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk = 35;
           if (p.role === 'druid' && p.druidForm === 'treant') baseAtk = Math.max(1, baseAtk - 5);
           const isGuaranteedCrit = (p.role === 'assassin' && this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit);
           const basicCrit = p.role === 'assassin' && (isGuaranteedCrit || Math.random() < assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier));
@@ -2541,7 +2544,7 @@ export class Room {
               }
             } else {
               // Calculate once, then resolve after the transform result has its own snapshot.
-              const raw = Math.floor((40 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+              const raw = Math.floor((35 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
               pendingWerewolfAttack = applyResistanceDamage(raw, 'phys');
             }
           } else {
@@ -2700,6 +2703,9 @@ export class Room {
         hpSnapshot: this.getHpSnapshot()
       });
 
+      if(p.role==='dreamweaver')this.p8SplitDreamPresentation(presentationQueue,p);
+      if(p.role==='sage')this.p8ResolveEquation(p,presentationQueue,log,applyResistanceDamage);
+
       if (pendingWerewolfAttack && monster.hp > 0) {
         const before = this.getHpSnapshot();
         const { dmg, isResisted, resistPercent } = pendingWerewolfAttack;
@@ -2835,6 +2841,7 @@ export class Room {
     }
 
     this.p8Cooldowns();
+    for(const p of Object.values(this.players))if(p.sagePrimeResetPending){for(const key of Object.keys(p.cooldowns))p.cooldowns[key]=0;p.sagePrimeResetPending=false;}
 
     // 4.9 檢查德魯伊狼王臣服失敗判定（若其他隊友都死亡或是只有他一人，直接判定挑戰失敗）
     if (this.isWolfSurrenderGameOver) {
@@ -3434,7 +3441,7 @@ export class Room {
       p.maxHp = p.hp;
       p.tempHp = 0;
       p.isLocked = false;
-      p.bonusAtk = 0; p.stealthStacks = 0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
+      p.bonusAtk = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       p.equips = [];
       p.equipCounts = {};
       Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,sageX:10,sageOperand:0,sagePhase:'hypothesis',sageMomentum:0});

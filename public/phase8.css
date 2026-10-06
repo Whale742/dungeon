@@ -1,13 +1,13 @@
 /* 264 log + 24 gap + 900 usable battle area + frame/padding: 1280 breakpoint. */
-.floating-log-card { left:16px;right:auto;top:100px;bottom:auto;width:264px;max-width:none;height:auto;max-height:calc(100vh - 140px);padding:12px;background:rgba(7,15,30,.62);backdrop-filter:blur(3px);border:1px solid #38475f;box-shadow:0 8px 24px #0004;overflow:visible; }
+.floating-log-card { left:16px;right:auto;top:100px;bottom:10px;width:264px;max-width:none;height:auto;max-height:none;padding:12px;background:rgba(0,0,0,.66);backdrop-filter:blur(14px);border:0;box-shadow:none;overflow:visible; }
 .floating-log-card .battle-log-window {background:transparent;border:0;overflow:hidden;scrollbar-width:none;max-height:280px;min-height:0;height:auto;flex:none;display:block;}
 .log-line {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;max-height:3em;padding:0;margin:4px 0;opacity:var(--log-opacity,1);font-size:12px;transition:opacity 220ms;}
 .log-line.log-new {animation:logEntry 240ms ease-out both;}
 @keyframes logEntry {from{opacity:0;transform:translateY(6px);}to{opacity:var(--log-opacity,1);transform:translateY(0);}}
 .log-drawer-handle {display:none;position:absolute;right:-30px;top:10px;width:30px;height:48px;border:1px solid #485773;background:#101d30;color:#e2e8f0;border-radius:0 8px 8px 0;cursor:pointer;}
 body:not(:has(#viewBattle.active)) .floating-log-card{display:none;}
-@media(min-width:1280px){body:has(#viewBattle.active) .game-container {max-width:calc(100vw - 316px);margin-left:292px;} .floating-log-card.collapsed{height:auto!important;bottom:auto!important;top:100px!important;}.floating-log-card.collapsed .battle-log-window{display:block;}#btnToggleLog{display:none;}}
-@media(max-width:1279px){.floating-log-card{left:0;top:110px;bottom:auto;width:min(300px,calc(100vw - 48px));transform:translateX(-100%);transition:transform 240ms ease;}.floating-log-card.is-open{transform:translateX(0);}.log-drawer-handle{display:block;}.floating-log-card.collapsed{height:auto!important;top:110px!important;bottom:auto!important;}.floating-log-card.collapsed .battle-log-window{display:block;}}
+@media(min-width:1280px){body:has(#viewBattle.active) .game-container {max-width:calc(100vw - 316px);margin-left:292px;} .floating-log-card.collapsed{height:auto!important;bottom:10px!important;top:100px!important;}.floating-log-card.collapsed .battle-log-window{display:block;}#btnToggleLog{display:none;}}
+@media(max-width:1279px){.floating-log-card{left:0;top:110px;bottom:10px;width:min(300px,calc(100vw - 48px));transform:translateX(-100%);transition:transform 240ms ease;}.floating-log-card.is-open{transform:translateX(0);}.log-drawer-handle{display:block;}.floating-log-card.collapsed{height:auto!important;top:110px!important;bottom:10px!important;}.floating-log-card.collapsed .battle-log-window{display:block;}}
 .compact-role-state {display:flex;align-items:center;gap:8px;height:40px;min-height:40px;max-height:40px;color:#d9e4f3;font-size:12px;line-height:1.45;margin:6px 0;}
 .compact-role-state span {overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .compact-role-state button {flex:none;}
@@ -43,3 +43,21 @@ body:has(.teammate-card.arena-absent) #viewBattle{background:radial-gradient(ell
 .arrow-rain-wave i {position:absolute;left:calc(10% + var(--arrow)*14%);top:-10%;width:2px;height:80px;background:linear-gradient(transparent,#b5d9ff);transform:rotate(22deg);animation:rainFall 480ms linear both;animation-delay:calc(var(--arrow)*40ms);}
 @keyframes rainFall{to{top:100%;opacity:0;}}
 @media(prefers-reduced-motion:reduce){.p8-glyph,.p8-hit-fx,.arrow-rain-wave i,.log-line.log-new{animation-duration:1ms!important;}}
+/* Phase 8.1: restrained particles, no geometric background emblems. */
+body.battle-intro-active .floating-log-card{display:none!important;}
+.boss-encounter-stage{background:#04070d;}
+.boss-encounter-impact-stage::before{opacity:.5;background-color:#04070d;}
+.p8-presentation{background:radial-gradient(ellipse at center,#111827aa,#030509);}
+.p8-glyph,.p8-hit-fx{display:none;}
+.p81-motes{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.p81-motes i{position:absolute;left:calc(8% + var(--i)*7%);top:calc(24% + mod(var(--i),4)*13%);width:3px;height:3px;border-radius:50%;background:var(--p8-color);box-shadow:0 0 8px var(--p8-color);animation:p81Drift 1.8s ease-out both;animation-delay:calc(var(--i)*35ms);}
+.p8-presentation[data-role=dreamweaver] .p81-motes i{width:8px;height:4px;border-radius:50% 0;opacity:.45;}
+.p8-presentation[data-role=gladiator] .p81-motes i{height:20px;width:2px;}
+@keyframes p81Drift{from{opacity:0;transform:translateY(18px);}35%{opacity:.55;}to{opacity:0;transform:translateY(-32px);}}
+.p81-straight-slash{position:absolute;z-index:12;left:-25%;top:48%;width:150%;height:7px;background:linear-gradient(90deg,transparent,#c9e9ff 15%,#fff 50%,#c9e9ff 85%,transparent);clip-path:polygon(0 50%,45% 0,55% 0,100% 50%,55% 100%,45% 100%);filter:drop-shadow(0 0 5px #8dd7ff);transform:rotate(var(--angle));animation:p81Slash calc(240ms / var(--slash-speed,1)) ease-out both;pointer-events:none;}
+.p81-straight-slash.is-heavy{height:15px;}
+@keyframes p81Slash{0%{opacity:0;transform:rotate(var(--angle)) scaleX(.1);}12%{opacity:1;transform:rotate(var(--angle)) scaleX(1);}65%{opacity:1;transform:rotate(var(--angle)) scaleY(.3);}100%{opacity:0;transform:rotate(var(--angle)) scaleY(0);}}
+.skill-copy-toggle{display:flex;align-items:center;gap:6px;font-size:12px;margin:8px 0;color:#cbd5e1;}
+.role-detail-skill-desc,.role-detail-passive-card,.skill-popover-desc{white-space:pre-line;}
+.role-card-hp{display:inline-block!important;color:#86efac!important;}
+@media(prefers-reduced-motion:reduce){.p81-motes i,.p81-straight-slash{animation-duration:1ms!important;}}

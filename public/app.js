@@ -144,7 +144,7 @@ const DEFAULT_ROLE_DETAILS = {
     },
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '引導自然力量造成基礎 10 點物理傷害。' },
-      { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
+      { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 35 點、立即造成 35 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
       { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚肉盾型樹精僕從（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
       { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚敏捷型幼狼僕從（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
@@ -604,6 +604,7 @@ socket.on('init:constants', (data) => {
   if (data.roleDetails) {
     roleDetailsData = data.roleDetails;
   }
+  if(typeof registerSkillCopies==='function')registerSkillCopies(classesData,roleDetailsData);
   renderRoleSelectionGrid();
   updateHeroRoleOptionUI();
 });
@@ -1795,14 +1796,14 @@ function ensureBattlePhase(round, state = roomState) {
   battleControlsReadyKey = null;
   elements.views.battle.classList.add('battle-phase-pending');
   document.getElementById('playerActionCard').inert = true;
-  if (encounter) gateDestinationView('battle');
+  if (encounter) {gateDestinationView('battle');document.body.classList.add('battle-intro-active');}
   presentationManager.setBlocking(true);
   battlePhasePromise = (async () => {
     try {
       await playBattlePhaseOpening(monster, round, {
         encounter, controller, signal: controller.signal,
         revealHud() {
-          revealDestinationView('battle');
+          revealDestinationView('battle');document.body.classList.remove('battle-intro-active');
           elements.views.battle.classList.add('is-battle-hud-revealing');
         }
       });
@@ -2071,7 +2072,7 @@ function renderMyActionBar(me) {
   // 狀態簡報（包含狼人/樹精/僕從狀態）
   let stanceHtml = '';
   if (me.druidForm === 'werewolf') {
-    stanceHtml += ` <span class="badge-form-wolf">${getIconSvg('summon')} 狼人形態 (傷害40點，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-wolf">${getIconSvg('summon')} 狼人形態 (傷害35點，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'treant') {
     stanceHtml += ` <span class="badge-form-treant">${getIconSvg('shield')} 樹精形態 (護盾85%/減傷30%/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'tree') {
@@ -2087,8 +2088,10 @@ function renderMyActionBar(me) {
   if(!compact){compact=document.createElement('div');compact.id='compactRoleState';compact.className='compact-role-state';elements.mySkillsRow.parentNode.insertBefore(compact,elements.mySkillsRow);}
   compact.replaceChildren();
   if(me.resourceSummary||roleConfig.stateHint){const text=document.createElement('span');text.textContent=[me.resourceSummary,roleConfig.stateHint].filter(Boolean).join(' · ');compact.appendChild(text);}
+  const toggle=document.createElement('label');toggle.className='skill-copy-toggle';
+  const input=document.createElement('input');input.type='checkbox';input.checked=skillCopyDetailed;input.onchange=()=>{setSkillCopyDetailed(input.checked);renderMyActionBar(me);};toggle.append(input,document.createTextNode('詳細'));compact.appendChild(toggle);
   const detail=document.createElement('button');detail.className='btn btn-secondary btn-tiny';detail.textContent='職業詳情';detail.onclick=()=>openRoleDetailModal(me.role);compact.appendChild(detail);
-  if(me.arenaBlocked){elements.mySkillsRow.innerHTML='<div class="action-status-badge">死亡競技場進行中，本輪無法行動。</div>';elements.btnConfirmLock.disabled=true;return;}
+  if(me.arenaBlocked){elements.mySkillsRow.innerHTML='<div class="action-status-badge">死亡角鬥場進行中，本輪無法行動。</div>';elements.btnConfirmLock.disabled=true;return;}
 
   // 玩家當前裝備列表 [裝備 X/3]
   const myEquips = me.equips || [];
@@ -2176,8 +2179,8 @@ function renderMyActionBar(me) {
 
   activeSkills.forEach(skill => {
     let cd = me.cooldowns[skill.id] || 0;
-    let isCoolingDown = cd > 0 || (skill.id==='sa_tsubame' && me.soul<4);
-    let cdBadgeText = `CD: ${cd}`;
+    let isCoolingDown = skill.phaseBlocked || cd > 0 || (skill.id==='sa_tsubame' && me.soul<4);
+    let cdBadgeText = skill.phaseBlocked?'求解：前輪技能不可重複':`CD: ${cd}`;
 
     if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
       isCoolingDown = true;
@@ -2230,7 +2233,7 @@ function renderMyActionBar(me) {
           <span>${escapeHtml(skill.label)}</span>
           <span style="font-size:10.5px;color:#94a3b8;">${escapeHtml(skill.dmgType || '')}</span>
         </div>
-        <div class="skill-popover-desc">${escapeHtml(skill.desc || '')}</div>
+        <div class="skill-popover-desc">${escapeHtml(getSkillDescription(me.role,skill))}</div>
       </div>
     `;
 
@@ -2451,7 +2454,7 @@ function openTargetModal(type, targetList) {
   elements.targetModal.classList.remove('hidden');
   elements.targetModalList.innerHTML = '';
 
-  if(type==='dream'){elements.targetModalTitle.textContent='夢蝶振翅・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
+  if(type==='dream'){elements.targetModalTitle.textContent='清醒夢・薛丁格之蝶・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
   if (type === 'heal') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【治癒頌歌】專注目標</span>`;
     elements.targetModalDesc.textContent = '全隊將獲得群療，請指定一名隊友額外獲得專注回復：';
@@ -2613,6 +2616,7 @@ function openRoleDetailModal(roleKey) {
 
   if (elements.roleDetailBody) {
     let html = '';
+    html+='<label class="skill-copy-toggle"><input type="checkbox" id="skillCopyDetailToggle" '+(skillCopyDetailed?'checked':'')+'> 詳細技能敘述</label>';
     // 被動特性
     if (details.passive) {
       html += `
@@ -2646,7 +2650,7 @@ function openRoleDetailModal(roleKey) {
                     <span class="role-detail-tag tag-cd">${escapeHtml(s.cd)}</span>
                   </div>
                 </div>
-                <div class="role-detail-skill-desc">${escapeHtml(s.desc)}</div>
+                <div class="role-detail-skill-desc">${escapeHtml(getSkillDescription(roleKey,classesData[roleKey]?.skills?.[details.skills.indexOf(s)]||s))}</div>
               </div>
             `;
           }).join('')}
@@ -2664,7 +2668,7 @@ function openRoleDetailModal(roleKey) {
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
               <img src="/photo/狼人.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="狼人形態">
               <div style="font-weight: 700; font-size: 13px; color: #f87171;">狼人形態</div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">降低20%生命上限，普攻40傷</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">降低20%生命上限，普攻35傷</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
               <img src="/photo/遠古樹精.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="遠古樹精形態">
@@ -2686,8 +2690,9 @@ function openRoleDetailModal(roleKey) {
       `;
     }
 
-    if(details.equipment?.length) html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>'<p><strong>'+escapeHtml(e.name)+'</strong>：'+escapeHtml(e.desc)+'</p>').join('')+'</details>';
+    if(roomState?.state!=='LOBBY'&&details.equipment?.length) html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>'<p><strong>'+escapeHtml(e.name)+'</strong>：'+escapeHtml(e.desc)+'</p>').join('')+'</details>';
     elements.roleDetailBody.innerHTML = html;
+    document.getElementById('skillCopyDetailToggle')?.addEventListener('change',e=>{setSkillCopyDetailed(e.target.checked);openRoleDetailModal(roleKey);if(roomState?.state==='IN_BATTLE')renderMyActionBar(getMyPlayer());});
     elements.roleDetailBody.querySelectorAll('.role-detail-passive-card,.role-detail-skill-item').forEach(card=>{
       const wrapper=document.createElement('details'),summary=document.createElement('summary');summary.textContent=card.querySelector('.role-detail-skill-title')?.textContent||'被動與完整規則';card.before(wrapper);wrapper.append(summary,card);
     });

@@ -56,7 +56,7 @@ test('werewolf cast snapshot has no damage, reveal precedes normal offensive cla
   assert.equal(cast.results.length, 1); assert.equal(cast.hpSnapshot.players[0].druidForm, 'werewolf');
   assert.equal(attack.category, 'OFFENSIVE'); assert.equal(attack.actionId, 'dru_claw');
   assert.equal(attack.hpSnapshotBefore.players[0].druidForm, 'werewolf');
-  assert.equal(attack.finalDamage, 40); assert.equal(attack.hpSnapshot.monster.hp, 4960);
+  assert.equal(attack.finalDamage, 35); assert.equal(attack.hpSnapshot.monster.hp, 4965);
 });
 test('treant transform has no fabricated follow-up damage', t => {
   const { room, resolve } = setup(t); room.players.p0.action = 'dru_transform';

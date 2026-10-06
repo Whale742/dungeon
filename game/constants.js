@@ -660,7 +660,7 @@ export function canPlayerEquipItem(player, drop, replaceIndex = -1) {
   const uniqueEquipNames = ['雙手劍', '精靈木提琴', '改良型重弩'];
   const isUnique = drop.unique || uniqueEquipIds.includes(drop.id) || uniqueEquipNames.includes(drop.name);
   if (isUnique) {
-    const equips = player.equips || [];
+  const equips = player.equips || [];
     const existingIndex = equips.findIndex(e => e.id === drop.id || e.name === drop.name);
     if (existingIndex !== -1 && existingIndex !== replaceIndex) {
       return false; // 已穿戴且不是替換同一格，禁止重複穿戴
@@ -722,8 +722,9 @@ export function formatPlayerEquips(player) {
 export function getPlayerSkills(player) {
   if (!player || !player.role || !CLASSES[player.role]) return [];
   const baseSkills = CLASSES[player.role].skills.map(s => ({ ...s }));
+  if(player.role==='sage'&&player.sagePhase==='solve')for(const skill of baseSkills)skill.phaseBlocked=skill.id===player.sagePreviousAction;
   if (player.role === 'gladiator' && player.arenaActive) {
-    Object.assign(baseSkills[1], {label:'競技場・血砂重擊',dmgType:'phys',category:'OFFENSIVE'});
+    Object.assign(baseSkills[1], {label:'鮮血獻祭',dmgType:'phys',category:'OFFENSIVE'});
     Object.assign(baseSkills[2], {label:'同歸於盡',cd:0,dmgType:'phys',category:'OFFENSIVE'});
   }
   const equips = player.equips || [];
@@ -951,7 +952,7 @@ export const ROLE_DETAILS = {
     avatar: '/photo/Assassin.webp',
     hp: 50,
     type: '物理 / 近戰刺殺',
-    passive: '常駐 50% 暴擊，輕甲承傷 +25%。每 2 次有效暴擊獲得 1 層匿蹤（跨戰鬥保留）。回合初先減 1 層，再判定隱身；隱身免傷，主動攻擊解除當回合隱身。隱身時其他玩家每次正式行動有 50% 機率追擊，基礎上限 2 次、追擊暴擊率 50%。100% 避開陷阱。',
+    passive: '常駐 50% 暴擊，輕甲承傷 +25%。每 2 次有效暴擊獲得 1 層匿蹤（跨戰鬥保留）。初始獲得 1 層匿蹤；每 3 回合開始減 1 層（第 3 回合起），再判定隱身；隱身免傷，主動攻擊解除當回合隱身。隱身時其他玩家每次正式行動有 50% 機率追擊，基礎上限 2 次、追擊暴擊率 50%。100% 避開陷阱。',
     skills: [
       {
         type: '普攻',
@@ -1078,7 +1079,7 @@ export const ROLE_DETAILS = {
         name: '形態轉變',
         dmgType: '【變身】',
         cd: '無 CD (持續2回合)',
-        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 40 點、立即造成 40 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（獲得自身最大生命 85% 護盾、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
+        desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 35 點、立即造成 35 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（獲得自身最大生命 85% 護盾、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。'
       },
       {
         type: '2 技能 A',

@@ -468,7 +468,15 @@
             <button type="button" id="btnTransformHuman" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex:1; font-size:0.72rem;">人形 (Human)</button>
           </div>
         </div>
+      <section class="lab-copy-editor" id="skillCopyEditor" style="padding:16px">
+        <h3>技能敘述編輯（名稱固定）</h3>
+        <select id="copyRole"></select><select id="copySkill"></select>
+        <label style="display:block">簡略敘述<textarea id="copyShort" rows="3" style="width:100%"></textarea></label>
+        <label style="display:block">完整敘述<textarea id="copyFull" rows="9" style="width:100%"></textarea></label>
+        <button id="copySave" type="button">儲存到此瀏覽器</button><button id="copyReset" type="button">恢復原始敘述</button><button id="copyExport" type="button">匯出敘述 JSON</button><span id="copyNotice"></span>
+      </section>
       </div>
+
     </aside>
 
     <!-- 右側主要預覽區 (Preview Canvas & Device Sandbox) -->
@@ -693,6 +701,7 @@
         </div>
       </div>
 
+
       <!-- 底部時序日誌與控制台 (Timing & Console Log) -->
       <div class="lab-bottom-panel">
         <div class="lab-bottom-header">
@@ -707,6 +716,7 @@
   </div>
 
   <!-- Scripts: Production Single Source of Truth + Lab Controller -->
+  <script src="skill-copy.js"></script>
   <script src="battle-log.js"></script>
   <script src="presentation-config.js"></script>
   <script src="sfx-assets.js"></script>
@@ -720,6 +730,7 @@
   <script src="victory.js"></script>
   <script src="portrait-status-fx.js"></script>
   <script src="lab-combat-scenes.js"></script>
+  <script src="skill-copy-editor.js"></script>
   <script src="presentation-lab.js"></script>
 </body>
 </html>

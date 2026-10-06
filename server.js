@@ -28,6 +28,8 @@ app.use('/boss', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/icon', express.static(path.join(__dirname, 'public', 'icon')));
 app.use('/sound', express.static(path.join(__dirname, 'public', 'sound')));
 
+app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(CLASSES).map(([id,c])=>[id,{...c,skills:c.skills.map(skill=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.find(s=>s.name===skill.label)?.desc??skill.desc}))}]))));
+
 // 遊戲房間登錄表 (code -> Room)
 const rooms = new Map();
 // 玩家 Socket 與房間對照表 (socketId -> code)

@@ -21,7 +21,7 @@ try {
  if(process.env.P8_LAYOUT_ONLY!=='1') {assert(report.audio.some(a=>a.key==='bard_skill1'&&a.detune));
  const acid=report.audio.filter(a=>['bottle_throw','bottle_impact','alchemy_skill1'].includes(a.key));assert(acid.length>=3);assert(acid.at(-3).key==='bottle_throw'&&acid.at(-2).key==='bottle_impact'&&acid.at(-1).key==='alchemy_skill1');}
  for(const id of process.env.P8_LAYOUT_ONLY==='1'?[]:['p8_dream_mirror','p8_observe_galaxy','p8_arena_g_sacrifice','p8_samurai_tsubame','p8_sage_solve']) {
-   await page.evaluate(id=>{labState.speed=3;window.captureRun=playScene(id);},id);await page.locator('.p8-glyph').waitFor({state:'visible'});
+   await page.evaluate(id=>{labState.speed=3;window.captureRun=playScene(id);},id);await page.locator('.p8-presentation').waitFor({state:'visible'});
    const path='artifacts/phase8/'+id+'.png';await page.screenshot({path});report.screenshots.push(path);await page.evaluate(()=>window.captureRun);
  }
  const socket=id=>({id,join(){}}),room=new Room('QA',socket('p0'),'智者',{to:()=>({emit(){}})});

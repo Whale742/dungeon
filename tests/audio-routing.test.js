@@ -21,11 +21,11 @@ test('assassin skill cross slash doubles heavy identity while pursuit stays comp
   assert.equal(context.resolve({ category: 'FOLLOW_UP' }).key, 'assassin_pursuit');
   assert(context.registry.assassin_pursuit.identityBeatMs < 500);
 });
-test('canonical asset registry references existing files and reserves parry', () => {
+test('canonical asset registry references existing files and includes samurai parry', () => {
   for (const profile of Object.values(context.registry)) {
     assert(fs.existsSync(new URL('../public' + profile.src, import.meta.url)));
     assert(!profile.src.includes('_'));
     assert(profile.identityBeatMs > 0);
-    assert.notEqual(profile.src, '/sound/parry.mp3');
+    if(profile.src==='/sound/parry.mp3')assert.equal(profile.fallback,'shield_block');
   }
 });

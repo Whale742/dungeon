@@ -3,6 +3,44 @@ import assert from 'node:assert/strict';
 import {Room} from '../game/Room.js';
 import {CLASSES,LOOT_TABLE,getPlayerSkills,equipItemToPlayer,unequipItemFromPlayer,canPlayerEquipItem,getActionPriority} from '../game/constants.js';
 import {eta,isPrime,P8_ROLES} from '../game/phase8.js';
+test('Phase 8.1 canonical skill names and complete outcomes remain in copy',()=>{
+ assert.equal(CLASSES.dreamweaver.skills[0].label,'恍惚編織');assert.equal(CLASSES.dreamweaver.skills[1].label,'清醒夢・薛丁格之蝶');assert.equal(CLASSES.dreamweaver.skills[2].label,'偽造殘夢');
+ for(const name of ['潛意識混淆','鏡像夢境','解離痛楚','萎靡夢魘','狂亂夢遊'])assert(CLASSES.dreamweaver.skills[0].desc.includes(name));
+ assert(CLASSES.samurai.passive.includes('狂刀'));assert(CLASSES.samurai.passive.includes('武魂'));assert.equal(CLASSES.samurai.skills[2].label,'秘劍 • 燕返');
+});
+test('lethal dreamweaver attack cannot revive the boss through nightmare weakening',t=>{
+ const {room,resolve}=fixture(t,['dreamweaver']);room.currentMonster.hp=1;room.players.p0.action='basic';
+ let n=0;const q=resolve(()=>n++===0?.1:.51);assert.equal(room.currentMonster.hp,0);assert(!q.some(s=>s.actionId==='basic_result'));assert.equal(q.at(-1).type,'kill');
+});
+test('assassin starts with one stack and only decays at rounds 3,6,9',t=>{
+ const {room}=fixture(t,['assassin']);const p=room.players.p0;assert.equal(p.stealthStacks,1);
+ p.stealthStacks=3;
+ for(const [round,expected] of [[1,3],[2,3],[3,2],[4,2],[5,2],[6,1]]){room.battleRound=round;random(.9,()=>room.executeRoundStart());assert.equal(p.stealthStacks,expected);}
+});
+test('dream buffs have a separate next presentation without premature snapshot reveal',t=>{
+ for(const action of ['basic','dw_butterfly','dw_false_dream']){
+  const {room,resolve}=fixture(t,['dreamweaver']);room.players.p0.action=action;room.players.p0.targetPlayerId='p0';
+  const q=resolve(.1),cast=q.find(s=>s.actionId===action),result=q[q.indexOf(cast)+1];
+  assert.equal(result.actionId,action+'_result');assert(result.results.every(r=>r.kind==='status'));assert.equal(cast.outcome.type,'normal');
+  assert(!cast.hpSnapshot.monster.statuses?.some(s=>s.id==='mirror'));assert.deepEqual(result.hpSnapshotBefore,cast.hpSnapshot);
+ }
+});
+test('sage equation is the immediate next event after solving attack, before ally and boss',t=>{
+ const {room,resolve}=fixture(t,['sage','warrior']);const p=room.players.p0;Object.assign(p,{sagePhase:'solve',sageOperand:12,sageX:80,action:'sge_deduce'});room.players.p1.action='basic';
+ const q=resolve(.9),index=q.findIndex(s=>s.sourceId===p.id&&s.actionId==='sge_deduce');assert.equal(q[index+1].actionId,'sge_equation');assert(q.findIndex(s=>s.type==='boss_action')>index+1);
+});
+test('sage solve blocks the previous hypothesis skill and prime reset survives common CD charge',t=>{
+ const {room,resolve}=fixture(t,['sage']);const p=room.players.p0;Object.assign(p,{sagePhase:'solve',sagePreviousAction:'basic',sageOperand:2,sageX:80});
+ assert.equal(room.lockAction(p.id,'basic').success,false);assert(getPlayerSkills(p)[0].phaseBlocked);
+ p.action='sge_deduce';resolve(.9);assert.equal(p.cooldowns.sge_deduce,0);
+});
+test('enhanced boundary grants extra barrier only if target already full, never auto-heals',t=>{
+ for(const full of [false,true]){
+  const {room,resolve}=fixture(t,['stargazer']);const p=room.players.p0;for(const id of ['sg_eyepiece','sg_tube','sg_mount'])equip(p,id);
+  if(!full)p.hp=10;p.action='sg_observe';const before=p.hp;const q=resolve(.99),step=q.find(s=>s.actionId==='sg_observe');
+  assert.equal(step.hpSnapshot.players[0].hp,before);assert.equal(p.p8Effects.boundary.barrier,full);
+ }
+});
 test('restart clears Phase 8 equipment contributions and same-floor revival ban',t=>{
   const {room}=fixture(t,['sage']);const p=room.players.p0;
   Object.assign(p,{p8TeamHp:20,p8DisabledHp:20,p8CorrodedHp:10,noReviveFloor:8,sageX:100});
@@ -62,7 +100,7 @@ test('treant receives 85% shield without maxHP mutation or regen and lasts two b
 });
 for(const [r,id] of [[.01,'mirror'],[.26,'dissociate'],[.51,'nightmare_weak'],[.76,'frenzy_backfire']])test('dream confusion server branch '+id,t=>{
   const {room,resolve}=fixture(t,['dreamweaver']);room.players.p0.action='basic';let n=0;const q=resolve(()=>++n===1?0:r);
-  assert.equal(actionStep(q).outcome.type,id);assert(room.currentMonster.p8Effects[id]);
+  assert.equal(q.find(s=>s.actionId?.endsWith('_result')).outcome.type,id);assert(room.currentMonster.p8Effects[id]);
 });
 test('dream butterfly converts before mitigation; nightmare true damage + loom heal; duration belongs to caster',t=>{
   const {room}=fixture(t,['dreamweaver','warrior']),p=room.players.p1,caster=room.players.p0;equip(caster,'dw_loom');equip(caster,'dw_history');
@@ -72,7 +110,7 @@ test('dream butterfly converts before mitigation; nightmare true damage + loom h
   caster.action='dw_butterfly';caster.targetPlayerId=p.id;room.resolveTurnActions();assert.equal(p.p8Effects.dream_butterfly.until,2);assert.equal(p.poisonTurns,0);
 });
 for(const [r,id] of [[.01,'shallow'],[.26,'deep'],[.51,'lone'],[.76,'horde']])test('false history calculation override without floor mutation: '+id,t=>{
-  const {room,resolve}=fixture(t,['dreamweaver','warrior']);room.players.p0.action='dw_false_dream';const q=resolve(r);assert.equal(actionStep(q).outcome.type,id);assert.equal(room.floor,8);
+  const {room,resolve}=fixture(t,['dreamweaver','warrior']);room.players.p0.action='dw_false_dream';const q=resolve(r);assert.equal(q.find(s=>s.actionId?.endsWith('_result')).outcome.type,id);assert.equal(room.floor,8);
   const effect=room.currentMonster.p8Effects.false_history;assert.equal(effect.floor,id==='shallow'?6:id==='deep'?10:8);assert.equal(effect.players,id==='lone'?1:id==='horde'?5:2);
   room.battleRound=2;room.p8Expire(room.currentMonster);assert.equal(room.currentMonster.maxHp,5000);assert.equal(room.currentMonster.attack,20);
 });
@@ -154,10 +192,10 @@ for(const action of ['basic','sge_deduce','sge_induce'])test('sage hypothesis/so
 for(const [r,resolution] of [[.1,'SUCCESS'],[.65,'CONFUSION'],[.95,'NOTHING']])test('sage equation X outcome '+resolution,t=>{
   const {room,resolve}=fixture(t,['sage']),p=room.players.p0;p.sageX=20;p.sageOperand=10;p.sagePhase='solve';p.action='skip';const q=resolve(r),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.resolution,resolution);assert.equal(p.sageX,resolution==='SUCCESS'?30:resolution==='CONFUSION'?15:20);
 });
-test('sage unbroken shield residual vs touched shield and equipment success/damage stacking',t=>{
+test('sage unbroken shield residual vs partially consumed shield and equipment success/damage stacking',t=>{
   const {room}=fixture(t,['sage','warrior']),p=room.players.p0,ally=room.players.p1;
   room.p8GrantShield(ally,50,1,'sage',p.id);room.battleRound=2;random(.1,()=>room.p8RoundStart());assert.equal(p.sageOperand,4+10);
-  room.p8GrantShield(ally,50,1,'sage',p.id);room.applyDamageToPlayer(ally,1);room.battleRound=3;p.sageCycleRound=1;room.p8RoundStart();assert.equal(p.sageMomentum,0);
+  room.p8GrantShield(ally,50,1,'sage',p.id);room.applyDamageToPlayer(ally,1);room.battleRound=3;p.sageCycleRound=1;room.p8RoundStart();assert.equal(p.sageMomentum,9);
   equip(p,'sge_rule');equip(p,'sge_rule');assert.equal((p.equips||[]).length,2);
 });
 test('session retains 250 logs and all twelve roles resolve within existing ten-player capacity',t=>{

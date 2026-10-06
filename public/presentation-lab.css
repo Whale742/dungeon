@@ -586,3 +586,4 @@ body.lab-body {
   width: 100% !important;
   height: 100% !important;
 }
+.lab-copy-editor{flex:none;padding:16px;border:1px solid #334155;background:#0f172a;border-radius:8px;user-select:text}.lab-copy-editor select,.lab-copy-editor textarea{width:100%;margin:6px 0;background:#030712;color:#e2e8f0;border:1px solid #475569;padding:8px}.lab-copy-editor button{padding:6px;margin:4px;background:#1e293b;color:#e2e8f0;border:1px solid #475569;cursor:pointer}

@@ -2,6 +2,7 @@
 // Durations and identity windows measured from decoded PCM (artifacts/audio).
 const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['fight', 'fight', .45, 'panel_sweep', .30, 850],
+  ['samurai_parry', 'parry', .55, 'shield_block', 0, 300],
   ['warrior_basic', 'sword-slash-light', .65, 'warrior_xing', .55, 450],
   ['warrior_skill1', 'sword-slash-heavy', .5, 'warrior_xing', .05, 750],
   ['mage_basic', 'mage-basic', .5, 'mage_burst', .30, 850],
@@ -46,7 +47,7 @@ const SFX_PRESENTATION_PROFILES = Object.freeze({
   dreamweaver: {basic:'mage_basic',dw_butterfly:'bard_skill2',dw_false_dream:'mage_skill2'},
   stargazer: {basic:'mage_basic',sg_observe:'mage_skill2',sg_clock:'bard_skill2'},
   gladiator: {basic:'warrior_basic',g_sacrifice:'warrior_skill1',g_arena:'warrior_skill1'},
-  samurai: {basic:'warrior_basic',sa_cut:'warrior_skill1',sa_tsubame:'assassin_pursuit',sa_counter:'warrior_basic'},
+  samurai: {basic:'warrior_basic',sa_cut:'warrior_skill1',sa_tsubame:'warrior_basic',sa_counter:'warrior_basic'},
   sage: {basic:'warrior_basic',sge_deduce:'mage_basic',sge_induce:'mage_skill2',sge_equation:'mage_skill1'},
   warrior: { basic: 'warrior_basic', w_strike: 'warrior_skill1', w_shield_slam: 'warrior_skill1', w_cleave: 'warrior_skill1', w_shield: 'warrior_defense' },
   mage: { basic: 'mage_basic', m_blast: 'mage_skill1', m_fireball: 'mage_skill1', m_drain: 'mage_skill2' },
