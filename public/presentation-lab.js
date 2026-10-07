@@ -796,7 +796,7 @@ async function playScene(sceneName) {
       const scene = PHASE6_LAB_SCENES[sceneName];
       if(scene.logs) {
         const panel=document.createElement('div');panel.className='p8-lab-log';panel.id='p8LabLog';
-        panel.style.cssText='position:absolute;left:20px;top:10px;bottom:10px;width:280px;padding:16px;box-sizing:border-box;background:rgba(0,0,0,.66);backdrop-filter:blur(14px);overflow-y:auto;scrollbar-width:none;z-index:100';
+        panel.style.cssText='position:absolute;left:20px;top:10px;bottom:10px;width:280px;padding:16px;box-sizing:border-box;isolation:isolate;z-index:100';
         document.getElementById('p8LabLog')?.remove();document.getElementById('labStage').appendChild(panel);
         renderRecentBattleLogs(panel,scene.logs);
       }
