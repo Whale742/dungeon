@@ -6,7 +6,7 @@
 .skill-dream-threads{fill:none;stroke:#e6c784;stroke-width:1.6;opacity:.85}.skill-outcome-butterfly{position:absolute;inset:10%;color:var(--butterfly-color,#b291ee);opacity:.5;pointer-events:none;z-index:8}.skill-outcome-butterfly svg{width:100%;height:100%}
 .sage-hand{position:absolute;width:330px;height:440px;left:570px;top:165px;object-fit:contain;z-index:5;opacity:0}.sage-term{position:absolute;top:355px;width:230px;margin-left:-115px;text-align:center;color:#fff0c0;z-index:6;font:48px Georgia,serif}.sage-term small{display:block;font:14px sans-serif;letter-spacing:3px;color:#c5a362;margin-bottom:15px}.sage-number-motion{display:block}.sage-fraction{position:absolute;left:480px;top:345px;width:480px;z-index:7;opacity:0;color:#fff1bf;font:36px Georgia,serif;display:flex;align-items:center;justify-content:center;gap:18px}.sage-fraction .fraction{display:flex;flex-direction:column;text-align:center}.sage-fraction .numerator{border-bottom:2px solid #e6c784;padding:0 12px 8px}.sage-fraction .denominator{padding-top:8px}.sage-answer{position:absolute;left:530px;top:370px;width:380px;text-align:center;font:56px Georgia,serif;color:#fff4cc;opacity:0;z-index:7}.sage-wave{position:absolute;left:720px;top:405px;height:2px;width:580px;margin-left:-290px;background:linear-gradient(90deg,transparent,#fff4cf,transparent);opacity:0;z-index:8}.sage-beam{position:absolute;left:720px;top:405px;height:3px;width:450px;transform-origin:left center;background:linear-gradient(90deg,#f7d993,#fff,transparent);opacity:0;z-index:7}.sage-properties{position:absolute;left:400px;right:400px;top:565px;text-align:center;color:#eed59c;z-index:6}.sage-properties span{display:block;padding:8px;opacity:0}
 .skill-reveal{position:absolute;left:450px;right:450px;top:550px;text-align:center;color:#fff;font-size:27px;z-index:7;opacity:0}.skill-orbit{position:absolute;left:570px;top:255px;width:300px;height:300px;z-index:5;color:white}.skill-orbit svg{width:100%;height:100%;overflow:visible}.skill-orbit-star{position:absolute;left:145px;top:145px;width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff}.skill-star-trail{position:absolute;inset:0;border:1px solid transparent;border-top:2px solid currentColor;border-right:1px solid currentColor;border-radius:50%;opacity:.65}.skill-celestial{position:absolute;left:600px;top:285px;width:240px;height:240px;color:white;z-index:5;opacity:0}.skill-celestial svg{width:100%;height:100%;overflow:visible}.skill-reticle{position:absolute;left:565px;top:250px;width:310px;height:310px;color:#64e6fa;z-index:4}.skill-reticle svg{width:100%;height:100%}.skill-white-star{position:absolute;left:670px;top:355px;width:100px;height:100px;z-index:5;color:#fff;opacity:0}.skill-white-star svg{width:100%;height:100%}.skill-shock{position:absolute;left:570px;top:255px;width:300px;height:300px;border:2px solid white;border-radius:50%;z-index:5;opacity:0}.skill-gladius-scene{position:absolute;inset:0;width:1440px;height:810px;z-index:4}.skill-gladius-motion{transform-origin:0 0}.skill-gladius-cracks{opacity:0;stroke:#a97445;stroke-width:2;fill:none}
-.skill-production-stage[data-reduced-motion=true] .skill-wing{animation:none}.skill-production-stage[data-reduced-motion=true] 
+.skill-production-stage[data-reduced-motion=true] .skill-wing{animation:none}.skill-production-stage[data-reduced-motion=true]
 
 .sage-operand-flags{position:absolute;left:370px;right:370px;top:250px;text-align:center;color:#c9aa76;font-size:17px;letter-spacing:2px;z-index:6}
 
@@ -28,3 +28,62 @@
 .skill-production-frame .sage-gold-wash{position:absolute;inset:0;z-index:4;pointer-events:none;background:radial-gradient(ellipse at 50% 37%,#ffe6a13d,transparent 48%);opacity:0;mix-blend-mode:screen}
 
 .sage-hand{z-index:3}
+
+/* Stargazer glow values copied from temp/style.css, scoped to the production stage. */
+.stargazer-prototype-stage{--cyan:#4deeea;background:none}
+.stargazer-prototype-stage .stargazer-reticle-frame {
+    stroke: var(--cyan);
+    filter: drop-shadow(0 0 8px rgba(77, 238, 234, 0.7));
+  }
+.stargazer-prototype-stage .stargazer-star-flare {
+    fill: #ffffff;
+    stroke: #ffffff;
+    transform-origin: 0px 0px !important;
+    filter: drop-shadow(0 0 10px #ffffff) drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+  }
+.stargazer-prototype-stage .ambient-star {
+    fill: #ffffff;
+    filter: drop-shadow(0 0 4px #ffffff);
+  }
+.stargazer-prototype-stage .celestial-display-icon {
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 25px rgba(255, 255, 255, 0.4));
+    animation: stargazerPrototypeBreathe var(--stargazer-breathe, 3s) ease-in-out infinite alternate;
+  }
+.stargazer-prototype-stage .cosmic-white-wall {
+    filter: drop-shadow(0 0 30px #ffffff) drop-shadow(0 0 60px rgba(255, 255, 255, 0.8));
+  }
+.stargazer-prototype-stage .supernova-shockwave {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 3;
+    filter: drop-shadow(0 0 18px #ffffff) drop-shadow(0 0 35px var(--cyan));
+  }
+.stargazer-prototype-stage .overload-arc {
+    fill: none;
+    stroke: #fc8181;
+    stroke-width: 2;
+    filter: drop-shadow(0 0 8px #fc8181);
+  }
+.stargazer-prototype-stage .orbit-ring {
+    fill: none;
+    stroke: var(--cyan);
+    stroke-width: 1.2;
+    opacity: 0.35;
+  }
+.stargazer-prototype-stage .orbit-trail {
+    fill: none;
+    stroke: #ffffff;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 6px #ffffff) drop-shadow(0 0 14px var(--cyan));
+  }
+.stargazer-prototype-stage .orbit-node {
+    fill: #ffffff;
+    stroke: var(--cyan);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 8px #ffffff) drop-shadow(0 0 16px var(--cyan));
+  }
+@keyframes stargazerPrototypeBreathe {
+    0% { transform: scale(0.97); opacity: 0.95; }
+    100% { transform: scale(1.03); opacity: 1; }
+  }
+.stargazer-prototype-stage[data-reduced-motion="true"] .celestial-display-icon{animation:none}

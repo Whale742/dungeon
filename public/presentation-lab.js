@@ -329,7 +329,7 @@ const LAB_MOCK_DATA = Object.freeze({
 // --- 2. Lab 狀態管理者 (Lab State) ---
 const labState = {
   currentScene: 'chest_full',
-  speed: 1.0,
+  speed: 0.5,
   variant: 'current',
   glow: 'low',
   particles: 'low',

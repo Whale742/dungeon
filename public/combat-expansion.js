@@ -590,8 +590,9 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const audio = context.audioScope || createSfxPresentationScope(context);
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
+  const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
-  if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
+  if(step.sourceRole==='dreamweaver'&&!sharedBasic)return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
   if(step.sourceRole==='stargazer'&&['sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
   if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{
@@ -599,7 +600,7 @@ async function playExpandedCombatPresentation(step, context = {}) {
     const cards=new Map();
     for(const result of step.results){let card=cards.get(result.targetId);if(!card){card=createResultCard({...result,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});cards.set(result.targetId,card);row.appendChild(card);}await presentCombatResult(result,card,{...context,sourceRole:step.sourceRole,direction:'right'});}
   });
-  if (['dreamweaver','stargazer','gladiator','samurai','sage'].includes(step.sourceRole)) return playPhase8Presentation(step,context);
+  if (!sharedBasic && ['dreamweaver','stargazer','gladiator','samurai','sage'].includes(step.sourceRole)) return playPhase8Presentation(step,context);
   if (step.category === 'MINION_ATTACK') return playMinionComboPresentation(step, context);
   if (step.type === 'player_action' && !(step.results || []).some(r => r.targetId === 'monster' && r.kind === 'damage')) {
     if (step.category === 'TRANSFORM') return playTransformPresentation(step, context);
