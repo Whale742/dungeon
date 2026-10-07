@@ -1,3 +1,4 @@
+import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { phase8Methods, p8State, P8_ROLES } from './phase8.js';
 import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRate, isAssassinHidden, addAssassinCritical } from './assassin.js';
 // 遊戲房間管理核心 (Game Room Engine)
@@ -945,6 +946,23 @@ export class Room {
     else this.advanceToNextFloorOrCheckpoint();
   }
 
+  monsterAllowsEffect(label) {
+    if (!this.currentMonster || this.currentMonster.hp <= 0) return false;
+    const resistance = getBossResistance(this.currentMonster, 'effect');
+    if (resistance > 0 && Math.random() < resistance / 100) {
+      this.p8Log(`🛡️ **${this.currentMonster.name}** 以 ${resistance}% 效果抗性免疫【${label}】！`, 'combat');
+      return false;
+    }
+    return true;
+  }
+
+  applyMonsterPoison(damage) {
+    if (!this.monsterAllowsEffect('劇毒')) return false;
+    this.currentMonster.poisonTurns = 2;
+    this.currentMonster.poisonDmg = (this.currentMonster.poisonDmg || 0) + damage;
+    return true;
+  }
+
   // 戰鬥事件
   handleBattleEvent(outcomeData = null, isWeakened = false) {
     this.state = 'IN_BATTLE';
@@ -973,7 +991,7 @@ export class Room {
       hp: scaledHp,
       maxHp: scaledHp,
       baseHp: baseMonster.hp,
-      resistance: baseMonster.resistance,
+      ...createBossResistances(baseMonster, this.floor),
       ultName: baseMonster.ultName,
       poisonTurns: 0,
       poisonDmg: 0
@@ -1745,6 +1763,7 @@ export class Room {
     let assassinDidCrit = false;
     let bardBuffActive = false;
     const bardOutcomes = new Map();
+    const bardResistanceOutcomes = new Map();
 
     // ==========================================
     // PRE-RESOLUTION 階段
@@ -1789,7 +1808,9 @@ export class Room {
           const buffBoost = 0.50 * (1 + 0.10 * harpCount);
           bardDmgMultiplier = Math.max(bardDmgMultiplier, 1.0 + buffBoost);
           bardDmgReduction = 0.75;
-          bardBuffActive = true;
+          const resistanceReduced = this.monsterAllowsEffect('抗性降低');
+          bardResistanceOutcomes.set(p.id, resistanceReduced);
+          bardBuffActive = resistanceReduced || bardBuffActive;
 
 
           bardOutcomes.set(p.id, Math.random() < 0.25);
@@ -1815,20 +1836,11 @@ export class Room {
         return {dmg:dream.damage,isResisted:false,resistPercent:0};
       }
       if(this.arena || dmgType==='true' || options.penetration===1)return {dmg:Math.max(0,Math.floor(rawDmg)),isResisted:false,resistPercent:0};
-      const resistance=this.p8Has(monster,'mirror')?(monster.resistance==='phys'?'mag':monster.resistance==='mag'?'phys':monster.resistance):monster.resistance;
-      let finalDmg = rawDmg;
-      let isResisted = false;
-      const resistRate = bardBuffActive ? 0.65 : 0.70;
-      const penetrationMultiplier = 1 - resistRate;
-
-      if (resistance === 'phys' && dmgType === 'phys') {
-        finalDmg = Math.floor(finalDmg * (penetrationMultiplier + resistRate*(options.penetration||0)));
-        isResisted = true;
-      } else if (resistance === 'mag' && dmgType === 'mag') {
-        finalDmg = Math.floor(finalDmg * (penetrationMultiplier + resistRate*(options.penetration||0)));
-        isResisted = true;
-      }
-      return { dmg: Math.max(1, finalDmg), isResisted, resistPercent: Math.round(resistRate * 100) };
+      const mirrored = Boolean(this.p8Has(monster, 'mirror'));
+      const type = dmgType === 'phys' ? (mirrored ? 'magic' : 'physical') : (mirrored ? 'physical' : 'magic');
+      const resistPercent = Math.max(0, getBossResistance(monster, type) - (bardBuffActive ? 5 : 0)) * (1 - (options.penetration || 0));
+      const finalDmg = Math.floor(rawDmg * (1 - resistPercent / 100));
+      return { dmg: Math.max(1, finalDmg), isResisted: resistPercent > 0, resistPercent };
     };
 
     // Owner follow-up retains the existing damage formula and one hit per living minion.
@@ -2156,7 +2168,8 @@ export class Room {
           break;
         }
         case 'a_rain': {
-          monsterAttackReduction += 10;
+          const attackReduced = this.monsterAllowsEffect('攻擊降低');
+          if (attackReduced) monsterAttackReduction += 10;
           this.roundModifiers.monsterAttackReduction = monsterAttackReduction;
           const raw = Math.floor((20 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
@@ -2170,7 +2183,7 @@ export class Room {
               const victim = livingAllies[Math.floor(Math.random() * livingAllies.length)];
               const friendlyDamage = isAssassinHidden(victim) ? 0 : 10;
               victim.hp = Math.max(0, victim.hp - friendlyDamage);
-              log.push({ text: `🏹🌪️ **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}並削弱怪物 10 點攻擊！但引發【狂風亂流】，偏折箭矢${friendlyDamage ? '誤傷' : '穿過隱身殘影'} **${victim.name}** ${friendlyDamage} 點傷害！（❤️ ${victim.hp}/${victim.maxHp}）`, type: 'warning' });
+              log.push({ text: `🏹🌪️ **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}${attackReduced ? '並削弱怪物 10 點攻擊' : '；怪物免疫攻擊降低'}！但引發【狂風亂流】，偏折箭矢${friendlyDamage ? '誤傷' : '穿過隱身殘影'} **${victim.name}** ${friendlyDamage} 點傷害！（❤️ ${victim.hp}/${victim.maxHp}）`, type: 'warning' });
               visualEvents.push({ type: 'self_damage', targetId: victim.id, value: friendlyDamage, outcome: friendlyDamage ? { type: 'normal' } : { type: 'dodge', stealth: true } });
               if (victim.hp <= 0) {
                 victim.hp = 0;
@@ -2179,7 +2192,7 @@ export class Room {
               }
             }
           } else {
-            log.push({ text: `🏹 **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}並削弱怪物 10 點攻擊！`, type: 'combat' });
+            log.push({ text: `🏹 **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}${attackReduced ? '並削弱怪物 10 點攻擊' : '；怪物免疫攻擊降低'}！`, type: 'combat' });
           }
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '箭雨壓制' });
           break;
@@ -2289,7 +2302,7 @@ export class Room {
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const isStun = Math.random() < 0.30;
+          const isStun = Math.random() < 0.30 && this.monsterAllowsEffect('催眠');
           if (isStun) {
             actionOutcome = { type: 'sleep', label: '催眠成功' };
             this.monsterStunnedThisRound = true;
@@ -2322,7 +2335,7 @@ export class Room {
               visualEvents.push({ type: 'self_damage', targetId: ally.id, value: oldHp - ally.hp });
             }
           }
-          log.push({ text: `🪕 **${p.name}** 奏響【狂熱協奏】！全隊增傷、減傷，敵方抗性降低。${overdrawn ? '節奏過激，隊友受到反噬！' : ''}`, type: 'buff' });
+          log.push({ text: `🪕 **${p.name}** 奏響【狂熱協奏】！全隊增傷、減傷，${bardResistanceOutcomes.get(p.id) ? '敵方物魔抗性降低 5 個百分點' : '敵方免疫抗性降低'}。${overdrawn ? '節奏過激，隊友受到反噬！' : ''}`, type: 'buff' });
           break;
         }
 
@@ -2380,8 +2393,7 @@ export class Room {
             monster.hp -= dmg;
             p.hp = Math.max(0, p.hp - selfDmg);
             const addedPoisonDmg = 5;
-            monster.poisonTurns = 2; // 持續時間刷新回 2 回合
-            monster.poisonDmg = (monster.poisonDmg || 0) + addedPoisonDmg; // 毒傷疊加
+            const bossPoisoned = this.applyMonsterPoison(addedPoisonDmg);
             for (const pl of Object.values(this.players)) {
               if (pl.hp > 0) {
                 pl.poisonTurns = 2; // 持續時間刷新回 2 回合
@@ -2390,7 +2402,7 @@ export class Room {
             }
             const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
             const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
-            log.push({ text: `🧪 **${p.name}** 投擲【不穩定試劑瓶】引爆了【劇毒煙霧】！造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}濃烈毒霧覆蓋全場，**敵我雙方陷入劇毒（毒傷疊加至每回合 ${monster.poisonDmg} 點，持續時間刷新為 2 回合）**！`, type: 'combat' });
+            log.push({ text: `🧪 **${p.name}** 投擲【不穩定試劑瓶】引爆了【劇毒煙霧】！造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}濃烈毒霧覆蓋全場，**隊友陷入劇毒；${bossPoisoned ? `敵方毒傷疊加至每回合 ${monster.poisonDmg} 點，持續 2 回合` : '敵方免疫本次劇毒'}**！`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '不穩定試劑瓶(劇毒)' });
             if (selfDmg > 0) {
               visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
@@ -2443,8 +2455,7 @@ export class Room {
           monster.hp -= dmg;
           p.hp = Math.max(0, p.hp - selfDmg);
           const addedPoisonDmg = 5;
-          monster.poisonTurns = 2; // 持續時間刷新回 2 回合
-          monster.poisonDmg = (monster.poisonDmg || 0) + addedPoisonDmg; // 毒傷疊加
+          const bossPoisoned = this.applyMonsterPoison(addedPoisonDmg);
           for (const pl of Object.values(this.players)) {
             if (pl.hp > 0) {
               pl.poisonTurns = 2; // 持續時間刷新回 2 回合
@@ -2453,7 +2464,7 @@ export class Room {
           }
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
           const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
-          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}濃烈毒霧覆蓋全場，**敵我雙方陷入劇毒（毒傷疊加至每回合 ${monster.poisonDmg} 點，持續時間刷新為 2 回合）**！`, type: 'combat' });
+          log.push({ text: `🧪 **${p.name}** 引爆【劇毒煙霧瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}濃烈毒霧覆蓋全場，**隊友陷入劇毒；${bossPoisoned ? `敵方毒傷疊加至每回合 ${monster.poisonDmg} 點，持續 2 回合` : '敵方免疫本次劇毒'}**！`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '劇毒煙霧瓶' });
           if (selfDmg > 0) {
             visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });

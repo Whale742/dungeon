@@ -3421,29 +3421,6 @@ input[type="text"]::placeholder {
   display: none;
 }
 
-.floating-log-card .mini-header {
-  margin-bottom: 8px;
-  flex-shrink: 0;
-  border-bottom: 2px solid var(--color-border);
-  padding-bottom: 6px;
-}
-
-.battle-log-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.battle-log-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--color-text-primary);
-}
-
 .battle-log-window {
   flex: 1;
   min-height: 0;

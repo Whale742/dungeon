@@ -540,10 +540,6 @@ const elements = {
   // Logs & Floating Chat
   combatLogWindow: document.getElementById('combatLogWindow'),
   battleLogCard: document.getElementById('battleLogCard'),
-  btnClearLog: document.getElementById('btnClearLog'),
-  btnToggleLog: document.getElementById('btnToggleLog'),
-  logToggleIcon: document.getElementById('logToggleIcon'),
-  logToggleText: document.getElementById('logToggleText'),
   floatingChatContainer: document.getElementById('floatingChatContainer'),
   floatingChatBtn: document.getElementById('floatingChatBtn'),
   chatUnreadBadge: document.getElementById('chatUnreadBadge'),
@@ -1805,17 +1801,14 @@ function renderBattle(me, isLeader) {
     elements.monsterAvatar.innerHTML = getIconSvg('sword', 'svg-hero-icon');
   }
 
-  // 抗性標籤
-  if (monster.resistance === 'phys') {
-    elements.monsterResTag.className = 'res-tag res-phys';
-    elements.monsterResTag.innerHTML = `${getIconSvg('shield')} 物理抗性 (-70%)`;
-  } else if (monster.resistance === 'mag') {
-    elements.monsterResTag.className = 'res-tag res-mag';
-    elements.monsterResTag.innerHTML = `${getIconSvg('magic')} 魔法抗性 (-70%)`;
-  } else {
-    elements.monsterResTag.className = 'res-tag res-none';
-    elements.monsterResTag.textContent = '無抗性';
-  }
+  // 每場戰鬥固定的三抗；鏡像夢境交換物魔抗性。
+  const resistances = monster.resistances || { physical: monster.resistance === 'phys' ? 70 : 0, magic: monster.resistance === 'mag' ? 70 : 0, effect: 0 };
+  const mirrored = monster.p8Effects?.mirror?.until >= roomState.battleRound;
+  const physical = mirrored ? resistances.magic : resistances.physical;
+  const magic = mirrored ? resistances.physical : resistances.magic;
+  elements.monsterResTag.className = 'res-tag res-none';
+  elements.monsterResTag.textContent = `物抗 ${physical}% · 魔抗 ${magic}% · 效果抗性 ${resistances.effect}%`;
+  elements.monsterResTag.title = '效果抗性：免疫負面狀態的機率。額外三抗於開戰時分別抽取 0～50%，樓層越深越容易抽到高值。';
 
   // 怪物威脅度與必殺警告
   const isUltRound = (roomState.battleRound % 3 === 0);
@@ -3065,29 +3058,6 @@ if (elements.chatInput) {
   elements.chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       sendChat();
-    }
-  });
-}
-
-// 清空事件表日誌按鈕
-if (elements.btnClearLog) {
-  elements.btnClearLog.addEventListener('click', () => {
-    if (elements.combatLogWindow) elements.combatLogWindow.innerHTML = '';
-  });
-}
-
-// 折疊/展開事件表按鈕
-if (elements.btnToggleLog) {
-  elements.btnToggleLog.addEventListener('click', () => {
-    if (elements.battleLogCard) {
-      const isCollapsed = !elements.battleLogCard.classList.toggle('is-open');
-      if (elements.logToggleText) {
-        elements.logToggleText.textContent = isCollapsed ? '展開' : '折疊';
-      }
-      if (elements.logToggleIcon) {
-        elements.logToggleIcon.innerHTML = `<use href="#icon-${isCollapsed ? 'expand' : 'collapse'}"></use>`;
-      }
-      playSound('click');
     }
   });
 }

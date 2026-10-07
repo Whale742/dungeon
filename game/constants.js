@@ -284,7 +284,7 @@ export const ENCOUNTERS = [
     hp: 100, 
     desc: '巨石與高溫熔岩構成的巨像，岩石外殼極為厚重！', 
     attack: 10,
-    resistance: 'phys',
+    baseResistances: { physical: 20, magic: 20, effect: 0 },
     ultName: '崩山滅世重砸'
   },
   { 
@@ -293,16 +293,16 @@ export const ENCOUNTERS = [
     hp: 70, 
     desc: '動作敏捷的狼王，周身幽暗的暗影能量流動！', 
     attack: 5,
-    resistance: 'mag',
+    baseResistances: { physical: 15, magic: 15, effect: 10 },
     ultName: '血影狂暴撕裂'
   },
   { 
     name: '古代守護魔偶', 
     avatar: '/BOSS/Ancient Guardian Golem.webp',
     hp: 120, 
-    desc: '鋼鐵機體具備堅固的物理防禦壁壘！', 
+    desc: '古代鋼鐵魔偶的意志堅不可摧，擅長抵禦負面狀態！',
     attack: 15,
-    resistance: 'phys',
+    baseResistances: { physical: 0, magic: 0, effect: 20 },
     ultName: '過載超導電弧'
   },
   { 
@@ -311,7 +311,7 @@ export const ENCOUNTERS = [
     hp: 100, 
     desc: '赤月能量構築出強大的魔法護盾！', 
     attack: 15,
-    resistance: 'mag',
+    baseResistances: { physical: 0, magic: 20, effect: 15 },
     ultName: '赤月血幕絕罰'
   },
   { 
@@ -320,16 +320,16 @@ export const ENCOUNTERS = [
     hp: 110, 
     desc: '毒沼中的巨蟒，體表黏液對元素魔法有極高抗性！', 
     attack: 12,
-    resistance: 'mag',
+    baseResistances: { physical: 10, magic: 10, effect: 20 },
     ultName: '滅絕劇毒狂湧'
   },
   { 
     name: '霜骨亡靈騎士', 
     avatar: '/BOSS/Frostbone Death Knight.webp',
     hp: 120, 
-    desc: '身披玄鐵重鎧的古老騎兵，刀槍難入！', 
+    desc: '古老亡靈騎兵的寒霜魔力能抵禦法術與負面狀態！',
     attack: 14,
-    resistance: 'phys',
+    baseResistances: { physical: 0, magic: 20, effect: 20 },
     ultName: '寒霜斷頭烈斬'
   },
   { 
@@ -338,16 +338,16 @@ export const ENCOUNTERS = [
     hp: 160, 
     desc: '體型龐大且長滿利齒的惡臭憎惡，飢渴地撲向生者！', 
     attack: 8,
-    resistance: 'none',
+    baseResistances: { physical: 5, magic: 5, effect: 20 },
     ultName: '吞天噬地暴嚼'
   },
   { 
     name: '幻惑幽魂歌姬', 
     avatar: '/BOSS/Spectral Banshee.webp',
     hp: 80, 
-    desc: '純粹的精神虛無體，一般法術難以侵蝕其心智！', 
+    desc: '純粹的精神虛無體，尋常物理攻擊難以觸及！',
     attack: 16,
-    resistance: 'mag',
+    baseResistances: { physical: 20, magic: 0, effect: 0 },
     ultName: '亡靈攝魂尖叫'
   },
   { 
@@ -356,7 +356,7 @@ export const ENCOUNTERS = [
     hp: 115, 
     desc: '紫晶甲殼堅不可摧，擅長彈開物理兵刃！', 
     attack: 13,
-    resistance: 'phys',
+    baseResistances: { physical: 20, magic: 5, effect: 0 },
     ultName: '晶化貫通連刺'
   },
   { 
@@ -365,7 +365,7 @@ export const ENCOUNTERS = [
     hp: 145, 
     desc: '自地心火海中爬出的惡魔，氣息粗暴凶悍！', 
     attack: 13,
-    resistance: 'none',
+    baseResistances: { physical: 10, magic: 10, effect: 10 },
     ultName: '末日天火焚世'
   }
 ];

@@ -38,8 +38,10 @@ export const phase8Methods = {
     queue.push(result);
   },
   p8Log(text,type='buff') { (this.p8LogBuffer || this.logs).push(this.p8LogBuffer?{text,type}:{id:Date.now()+Math.random().toString(36),time:new Date().toLocaleTimeString(),text,type}); },
-  p8Effect(target,id,label,turns=1,extra={}) {
+  p8Effect(target,id,label,turns=1,extra={},resistanceChecked=false) {
+    if (target === this.currentMonster && !resistanceChecked && !this.monsterAllowsEffect(label)) return false;
     target.p8Effects ||= {}; target.p8Effects[id]={label,until:this.battleRound+turns-1,...extra};
+    return true;
   },
   p8Has(target,id) { return target?.p8Effects?.[id]?.until>=this.battleRound ? target.p8Effects[id] : null; },
   p8GrantShield(p,value,turns=1,kind='shield',ownerId=null) {
@@ -226,29 +228,30 @@ export const phase8Methods = {
     const damage=(n,type='phys',extra={})=>this.p8DamageMonster(p,n,type,resistance,extra);
     const stat=this.getEffectiveBonusAtk(p),m=this.currentMonster;
     let outcome={type:'normal'},category=null;
-    const effect=(target,id,label,turns=1,extra={})=>{
-      const before=this.getHpSnapshot();this.p8Effect(target,id,label,turns,extra);
+    const effect=(target,id,label,turns=1,extra={},resistanceChecked=false)=>{
+      const before=this.getHpSnapshot();if (!this.p8Effect(target,id,label,turns,extra,resistanceChecked)) return false;
       const after=this.getHpSnapshot();this.p8Results.push({kind:'status',targetId:target===m?'monster':target.id,targetBefore:target===m?before.monster:before.players.find(x=>x.id===target.id),targetAfter:target===m?after.monster:after.players.find(x=>x.id===target.id),hpSnapshot:after});
+      return true;
     };
     if(p.role==='dreamweaver') {
       const turns=1+(countEquip(p,'dw_history')?1:0);
       if(p.action==='basic') {
         damage(Math.floor((10+stat)*bardMultiplier),'mag');
         const rate=countEquip(p,'dw_spindle')?.75:.5;
-        if(m.hp>0 && Math.random()<rate) {
+        if(m.hp>0 && Math.random()<rate && this.monsterAllowsEffect('夢境混亂')) {
           const id=roll(['mirror','dissociate','nightmare_weak','frenzy_backfire']);
           const names={mirror:'鏡像夢境',dissociate:'解離痛楚',nightmare_weak:'萎靡夢魘',frenzy_backfire:'狂亂夢遊'};
           if(id==='nightmare_weak'&&!this.p8Has(m,id)) {
-            const max=m.maxHp;m.maxHp=Math.max(1,Math.round(m.maxHp*.9));m.hp=Math.max(1,Math.round(m.hp*.9));effect(m,id,names[id],turns,{originalMaxHp:max});
-          } else effect(m,id,names[id],turns,id==='nightmare_weak'?{originalMaxHp:this.p8Has(m,id)?.originalMaxHp}:{});
+            const max=m.maxHp;m.maxHp=Math.max(1,Math.round(m.maxHp*.9));m.hp=Math.max(1,Math.round(m.hp*.9));effect(m,id,names[id],turns,{originalMaxHp:max},true);
+          } else effect(m,id,names[id],turns,id==='nightmare_weak'?{originalMaxHp:this.p8Has(m,id)?.originalMaxHp}:{},true);
           outcome={type:id,label:names[id]};this.p8Log(`織夢術士撥動夢境纖維，魔物陷入【${names[id]}】狀態！`);
         }
       } else if(p.action==='dw_butterfly') {
         const dreamOutcome=Math.random()<.6?'dream_heal':'nightmare';
-        effect(this.players[p.targetPlayerId]||m,'dream_butterfly','夢蝶迷思',turns,{ownerId:p.id,dreamOutcome});
-        outcome={type:dreamOutcome,label:dreamOutcome==='dream_heal'?'美夢化生':'夢魘成真'};
+        const applied=effect(this.players[p.targetPlayerId]||m,'dream_butterfly','夢蝶迷思',turns,{ownerId:p.id,dreamOutcome});
+        outcome=applied?{type:dreamOutcome,label:dreamOutcome==='dream_heal'?'美夢化生':'夢魘成真'}:{type:'immune',label:'效果免疫'};
       }
-      else if(p.action==='dw_false_dream') {
+      else if(p.action==='dw_false_dream' && this.monsterAllowsEffect('虛構歷史')) {
         const id=roll(['shallow','deep','lone','horde']),living=alive(this).length;
         const floor=id==='shallow'?Math.floor((this.floor-1)/5)*5+1:id==='deep'?Math.floor((this.floor-1)/5)*5+5:this.floor;
         const players=id==='lone'?Math.max(1,living-3):id==='horde'?living+3:this.memberIds.length;
@@ -256,16 +259,16 @@ export const phase8Methods = {
         const hpScale=getFloorDifficultyMultiplier(floor)/getFloorDifficultyMultiplier(this.floor)*players/this.memberIds.length;
         const atkScale=getFloorDifficultyMultiplier(floor)/getFloorDifficultyMultiplier(this.floor)*(1+(players-1)*.5)/(1+(this.memberIds.length-1)*.5);
         const ratio=m.hp/m.maxHp;m.maxHp=Math.max(1,Math.round(originalMaxHp*hpScale));m.hp=Math.max(1,Math.round(m.maxHp*ratio));m.attack=Math.max(1,Math.round(originalAttack*atkScale));
-        const label={shallow:'淺層清夢',deep:'深淵墜夢',lone:'孤影殘夢 (-3人)',horde:'百鬼夜行 (+3人)'}[id];effect(m,'false_history',label,turns,{originalMaxHp,originalAttack,floor,players});outcome={type:id,label};
+        const label={shallow:'淺層清夢',deep:'深淵墜夢',lone:'孤影殘夢 (-3人)',horde:'百鬼夜行 (+3人)'}[id];effect(m,'false_history',label,turns,{originalMaxHp,originalAttack,floor,players},true);outcome={type:id,label};
         this.p8Log(`虛構的歷史覆蓋了戰場！魔物陷入【${label}】的幻覺之中！`);
-      }
+      } else if(p.action==='dw_false_dream') outcome={type:'immune',label:'效果免疫'};
     } else if(p.role==='stargazer') {
       if(p.action==='basic')damage(Math.floor((10+stat)*bardMultiplier),'mag');
       else if(p.action==='sg_observe') {
         const enhanced=['sg_eyepiece','sg_tube','sg_mount'].every(id=>countEquip(p,id));const r=Math.random();
         const id=enhanced?['planet','galaxy','blackhole','boundary'][Math.min(3,Math.floor(r*4))]:r<.6?'star':r<.7?'planet':r<.8?'galaxy':r<.9?'blackhole':'boundary';
         outcome={type:id,label:{star:'發現星座',planet:'發現星球',galaxy:'發現星系',blackhole:'發現黑洞',boundary:'發現宇宙邊界'}[id],enhanced};
-        if(id==='star'||id==='planet') {damage(Math.floor(((id==='star'?15:enhanced?35:25)+stat)*bardMultiplier),'mag');if(id==='planet'&&Math.random()<(enhanced?.3:.1)){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
+        if(id==='star'||id==='planet') {damage(Math.floor(((id==='star'?15:enhanced?35:25)+stat)*bardMultiplier),'mag');if(id==='planet'&&Math.random()<(enhanced?.3:.1)&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
         if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:5});
         if(id==='blackhole') {
           damage(enhanced?10:5,'true');
@@ -328,7 +331,7 @@ export const phase8Methods = {
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;
       p.sageLastAction=p.action;this.p8Log(`${p.name}【${p.sagePhase==='solve'?'求解':'假設'}】X=${p.sageX}，Operand=${p.sageOperand}。`);
     }
-    if(!this.p8Results.length){const snap=this.getHpSnapshot();this.p8Results.push({kind:'status',targetId:p.id,targetBefore:snap.players.find(x=>x.id===p.id),targetAfter:snap.players.find(x=>x.id===p.id),hpSnapshot:snap});}
+    if(!this.p8Results.length){const snap=this.getHpSnapshot(),target=outcome.type==='immune'?snap.monster:snap.players.find(x=>x.id===p.id);this.p8Results.push({kind:'status',targetId:outcome.type==='immune'?'monster':p.id,outcome,targetBefore:target,targetAfter:target,hpSnapshot:snap});}
     for(const r of this.p8Results){r.monsterName=m.name;r.monsterAvatar=m.avatar;}
     this.p8Visuals=null;return {outcome,category};
   },
