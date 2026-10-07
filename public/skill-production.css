@@ -87,3 +87,5 @@
     100% { transform: scale(1.03); opacity: 1; }
   }
 .stargazer-prototype-stage[data-reduced-motion="true"] .celestial-display-icon{animation:none}
+.sage-hand-motion{position:absolute;z-index:3;pointer-events:none;will-change:transform,opacity}
+.sage-hand-motion .sage-hand{z-index:auto}
