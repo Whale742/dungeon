@@ -83,7 +83,6 @@ async function presentCombatResult(result, card, context = {}) {
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
   const emit = beat => context.onTiming?.(beat, { targetId: result.targetId, result });
-  if(['dream_heal','nightmare'].includes(outcome.type)&&typeof revealDreamOutcomeButterfly==='function')await revealDreamOutcomeButterfly(card,outcome.type,context);
   if (result.sharedFrom) {
     card.classList.add('has-root-link');
     resultFloat(card, '傷害分攤', 'is-nature');
@@ -592,7 +591,6 @@ async function playExpandedCombatPresentation(step, context = {}) {
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
-  if(step.sourceRole==='dreamweaver'&&!sharedBasic)return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
   if(step.sourceRole==='stargazer'&&['sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
   if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{
