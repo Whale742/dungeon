@@ -143,6 +143,8 @@ function mapStatusToFxProfile(statusId, entity = {}) {
       return 'poison';
     case 'bleed':
       return 'bleed';
+    case 'alchemy_corrosion':
+      return 'generic_debuff';
     case 'shield':
     case 'temp_hp':
       return 'shield';

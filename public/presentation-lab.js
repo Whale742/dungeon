@@ -796,7 +796,7 @@ async function playScene(sceneName) {
       const scene = PHASE6_LAB_SCENES[sceneName];
       if(scene.logs) {
         const panel=document.createElement('div');panel.className='p8-lab-log';panel.id='p8LabLog';
-        panel.style.cssText='position:absolute;left:20px;top:30px;width:280px;padding:16px;background:rgba(7,15,30,.62);border:1px solid #38475f;z-index:100';
+        panel.style.cssText='position:absolute;left:20px;top:10px;bottom:10px;width:280px;padding:16px;box-sizing:border-box;background:rgba(0,0,0,.66);backdrop-filter:blur(14px);overflow-y:auto;scrollbar-width:none;z-index:100';
         document.getElementById('p8LabLog')?.remove();document.getElementById('labStage').appendChild(panel);
         renderRecentBattleLogs(panel,scene.logs);
       }
@@ -1176,11 +1176,21 @@ function initLabController() {
     const audioSequence = document.createElement('option'); audioSequence.value = 'a73_warrior_action';
     audioSequence.textContent = 'Audio · Warrior Fight → Heavy Slash → Impact'; phase73Group.appendChild(audioSequence);
     if (typeof PHASE6_LAB_SCENES !== 'undefined') {
-      const group = document.createElement('optgroup'); group.label = 'Phase 6 · Production Combat';
-      for (const [id, scene] of Object.entries(PHASE6_LAB_SCENES)) {
-        const option = document.createElement('option'); option.value = id; option.textContent = scene.label; group.appendChild(option);
+      const groups = new Map();
+      const roleOrder=['warrior','mage','archer','assassin','bard','alchemist','druid','dreamweaver','stargazer','gladiator','sage','samurai'];
+      for(const role of roleOrder){const group=document.createElement('optgroup');group.label=getClassDisplayName(role);groups.set(role,group);}
+      for(const role of ['warrior','mage','archer','assassin','alchemist','druid']){
+        const legacyOption=sceneSelect.querySelector('option[value="combat_'+role+'"]');
+        if(legacyOption){legacyOption.textContent='特效範例';groups.get(role).appendChild(legacyOption);}
       }
-      sceneSelect.appendChild(group);
+      const events = document.createElement('optgroup'); events.label = '戰鬥與狀態事件';
+      for (const [id, scene] of Object.entries(PHASE6_LAB_SCENES)) {
+        const group=groups.get(scene.role)||events;
+        const option = document.createElement('option'); option.value = id; option.textContent = scene.label;
+        if(id.startsWith('basic_'))group.prepend(option);else group.appendChild(option);
+      }
+      for(const group of groups.values())if(group.children.length)sceneSelect.appendChild(group);
+      if(events.children.length)sceneSelect.appendChild(events);
     }
     sceneSelect.addEventListener('change', () => {
       labState.currentScene = sceneSelect.value;

@@ -598,7 +598,7 @@ async function playExpandedCombatPresentation(step, context = {}) {
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
   if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
-  if(step.sourceRole==='stargazer'&&['sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
+  if(step.sourceRole==='stargazer'&&['basic','sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
   if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{
     const row=document.createElement('div');row.className='presentation-support-targets';canvas.appendChild(row);
     const cards=new Map();

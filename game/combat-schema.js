@@ -21,8 +21,8 @@ export function playerStatuses(player, room, balance) {
   const statuses = [];
   const add = (id, label, icon, turns = 0, extra = {}) => statuses.push({ id, label, icon, turns, ...extra });
   if (player.hp <= 0) add('downed', '倒下・本層無法行動', 'downed');
-  if (player.poisonTurns) add('poison', 'POISON', 'poison', player.poisonTurns, { stacks: player.poisonDmg });
-  if (player.bleedTurns) add('bleed', 'BLEED', 'bleed', player.bleedTurns);
+  if (player.poisonTurns) add('poison', 'POISON', 'poison', player.poisonTurns, { stacks: player.poisonDmg, isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.bleedTurns) add('bleed', 'BLEED', 'bleed', player.bleedTurns, {isNegative:true,category:'DEBUFF',isDot:true});
   if (player.cannotCrit) add('crit_lock', 'CRIT LOCK', 'lock', 1);
   if (player.archerNextDodgeBonus) add('dodge_bonus', 'DODGE ↑', 'dodge', 1, { value: '+' + player.archerNextDodgeBonus * 100 + '%' });
   if (player.stunnedNextTurn || player.nextTurnStunFlag) add('exhausted', 'EXHAUSTED', 'exhausted', 1);
@@ -42,6 +42,7 @@ export function playerStatuses(player, room, balance) {
   }
   if (player.isSurrendered) add('surrender', '血脈臣服', 'lock', 0, { locked: true });
   if (player.hp > 0) {
+    if ((room.roundModifiers?.acidFlaskCount||0)>0 || (room.roundModifiers?.equipmentEffectMultiplier??1)<1 || player.alcAcidStack>0) add('alchemy_corrosion','強酸腐蝕・裝備效果降低','debuff',1,{isNegative:true,category:'DEBUFF',stacks:(room.roundModifiers?.acidFlaskCount||0)+(player.alcAcidStack||0)});
     if (room.warriorShieldTurn) add('guard', 'GUARD', 'guard', room.warriorShieldTurn === 1 ? 2 : 1);
     if (room.alcShieldTurns) add('alchemy_guard', 'DR 70%', 'guard', room.alcShieldTurns);
     if (room.alcVulnerableTurns || room.alcVulnerableNextTurn) add('alchemy_vulnerable', 'VULNERABLE', 'debuff', 1);

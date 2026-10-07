@@ -1120,7 +1120,7 @@ export class Room {
         hp: Math.max(0, this.currentMonster.hp),
         maxHp: this.currentMonster.maxHp,
         name: this.currentMonster.name,
-        statuses: [ ...p8State(this.currentMonster,this).phase8Statuses, ...(this.currentMonster.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: this.currentMonster.poisonTurns, stacks: this.currentMonster.poisonDmg }] : []),
+        statuses: [ ...p8State(this.currentMonster,this).phase8Statuses, ...(this.currentMonster.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: this.currentMonster.poisonTurns, stacks: this.currentMonster.poisonDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
           ...(this.roundModifiers?.monsterAttackReduction ? [{ id: 'attack_down', label: 'ATK DOWN', icon: 'debuff', turns: 1, value: this.roundModifiers.monsterAttackReduction }] : []) ]
       } : null,
       players: Object.values(this.players).map(p => ({
@@ -2467,7 +2467,7 @@ export class Room {
         }
 
         case 'alc_fate': {
-          const hasAbnormalStatus = (p.poisonTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
+          const hasAbnormalStatus = ((this.roundModifiers?.acidFlaskCount||0)>0 || (this.roundModifiers?.equipmentEffectMultiplier??1)<1 || p.alcAcidStack>0 || p.poisonTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
 
           for (const ally of Object.values(this.players).filter(ally => ally.hp > 0)) {
             ally.bleedTurns = 0; ally.poisonTurns = 0; ally.poisonDmg = 0;
@@ -2475,6 +2475,9 @@ export class Room {
             ally.warriorVulnerableTurns = 0; ally.warriorVulnerableNextTurn = false;
           }
           this.alcVulnerableTurns = 0; this.alcVulnerableNextTurn = false;
+          for(const ally of Object.values(this.players))ally.alcAcidStack=0;
+          this.roundModifiers.equipmentEffectMultiplier=1;this.roundModifiers.acidFlaskCount=0;
+          this.p8RefreshEquipment();
           this.actionCleansedSnapshot = this.getHpSnapshot();
           if (!hasAbnormalStatus) {
             // 身上無異常狀態：2技能效果變成回復 15 點血（全員回復 15 點生命值，不觸發命運反噬）

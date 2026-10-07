@@ -17,7 +17,45 @@ try {
   await page.evaluate(async id=>{const step=PHASE6_LAB_SCENES[id].steps.find(s=>s.actionId==='sg_observe'||s.actionId==='sg_clock');await playExpandedCombatPresentation(step,{mode:'lab',speed:10});},id);
   assert.equal(await page.locator('.skill-production-stage').count(),0); report.skills.push(id);
  }
- for(const role of ['stargazer','samurai','sage','gladiator']){
+ report.stargazerBasic=await page.evaluate(async()=>{
+   const all=Object.values(PHASE6_LAB_SCENES).flatMap(s=>s.steps||[]);
+   const step=structuredClone(all.find(s=>s.type==='player_action'&&s.actionId==='basic'&&s.sourceRole==='stargazer')||all.find(s=>s.type==='player_action'&&s.actionId==='basic'));
+   step.sourceRole='stargazer';step.outcome={type:'normal'};
+   const beats=[];let start,contact,damageBeforeContact=false;
+   await playExpandedCombatPresentation(step,{mode:'lab',speed:2,onTiming:(name,data)=>{
+     beats.push(name);
+     const aim=document.querySelector('#stargazerBasicAim');
+     if(name==='stargazer_aim_start')start={x:data.x,y:data.y,transform:aim.getAttribute('transform'),corners:aim.querySelectorAll('polyline').length,glow:getComputedStyle(aim.firstElementChild).filter,ambient:!!document.querySelector('#ambientStarsGroup')};
+     if(name==='stargazer_aim_contact')contact={x:data.x,y:data.y,transform:aim.getAttribute('transform')};
+     if(['impact','damage_float','hp_update'].includes(name)&&!contact)damageBeforeContact=true;
+   }});
+   return {start,contact,beats,damageBeforeContact,remaining:document.querySelectorAll('.skill-production-stage').length};
+ });
+ assert.deepEqual([report.stargazerBasic.start.x,report.stargazerBasic.start.y],[720,405]);
+ assert.equal(report.stargazerBasic.start.corners,4);assert(report.stargazerBasic.start.glow.includes('drop-shadow'));assert(!report.stargazerBasic.start.ambient);
+ assert.equal(report.stargazerBasic.contact.transform,`translate(${report.stargazerBasic.contact.x}, ${report.stargazerBasic.contact.y})`);
+ assert(report.stargazerBasic.contact.x>1000);assert(!report.stargazerBasic.damageBeforeContact);assert(report.stargazerBasic.beats.includes('damage_float'));assert.equal(report.stargazerBasic.remaining,0);
+ report.stargazerBasicAbort=await page.evaluate(async()=>{
+   const step=structuredClone(Object.values(PHASE6_LAB_SCENES).flatMap(s=>s.steps||[]).find(s=>s.type==='player_action'&&s.actionId==='basic'));
+   step.sourceRole='stargazer';step.outcome={type:'normal'};
+   const controller=new AbortController(),beats=[];
+   await playExpandedCombatPresentation(step,{mode:'lab',signal:controller.signal,onTiming:name=>{beats.push(name);if(name==='stargazer_aim_start')controller.abort();}}).catch(e=>{if(e.name!=='AbortError')throw e;});
+   return {beats,remaining:document.querySelectorAll('.skill-production-stage').length};
+ });
+ assert(!report.stargazerBasicAbort.beats.includes('stargazer_aim_contact'));assert(!report.stargazerBasicAbort.beats.includes('damage_float'));assert.equal(report.stargazerBasicAbort.remaining,0);
+ await page.evaluate(()=>{
+   const step=structuredClone(Object.values(PHASE6_LAB_SCENES).flatMap(s=>s.steps||[]).find(s=>s.type==='player_action'&&s.actionId==='basic'));
+   step.sourceRole='stargazer';step.outcome={type:'normal'};window.basicAimBeat='';
+   window.basicAimRun=playExpandedCombatPresentation(step,{mode:'lab',speed:.1,onTiming:name=>{window.basicAimBeat=name;}});
+ });
+ await page.waitForFunction(()=>window.basicAimBeat==='stargazer_aim_start');
+ await page.screenshot({path:dir+'/basic-center.png'});
+ await page.waitForTimeout(2200);
+ report.basicTravelTransform=await page.locator('#stargazerBasicAim').getAttribute('transform');
+ assert.notEqual(report.basicTravelTransform,'translate(720, 405)');assert.notEqual(report.basicTravelTransform,'translate(1170, 430)');
+ await page.screenshot({path:dir+'/basic-travel.png'});
+ await page.evaluate(()=>basicAimRun);
+ for(const role of ['samurai','sage','gladiator']){
   const result=await page.evaluate(async role=>{
    const all=Object.values(PHASE6_LAB_SCENES).flatMap(s=>s.steps||[]);
    const step=structuredClone(all.find(s=>s.type==='player_action'&&s.actionId==='basic'&&s.sourceRole===role)||all.find(s=>s.type==='player_action'&&s.actionId==='basic'));

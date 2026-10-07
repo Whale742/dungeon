@@ -13,7 +13,7 @@ async function playStargazerPresentation(step, context = {}) {
     const strip = s.el('div', 'stargazer-action-strip');
     const reveal = s.el('div', 'skill-reveal');
     // Display authoritative result names, including the original special terminology.
-    const actorStatus = {style: reveal.style, set innerText(value) {reveal.textContent = step.outcome.label || value;}};
+    const actorStatus = {style: reveal.style, set innerText(value) {reveal.textContent = step.outcome?.label || value;}};
     const getStageCenter = () => ({cx:720, cy:405});
     const cues = {focus:'mage_skill2', snap:'magic_impact', barrier_hit:'shield_block', heavy_impact:'physical_hit', blade_spin:'air_pass', overload_glitch:'magic_impact', slash:'warrior_basic', whiff_drop:'air_pass'};
     const sfx = {play: key => context.audioScope.play(cues[key], {noHold:true})};
@@ -126,6 +126,33 @@ async function playStargazerPresentation(step, context = {}) {
     }
   }
 
+  function getReticleMarkup() {
+    return `<g id="stargazerReticle" class="stargazer-reticle-frame" fill="none" stroke-linecap="square">
+          <polyline points="-60,-35 -60,-60 -35,-60" stroke-width="3"/>
+          <polyline points="35,-60 60,-60 60,-35" stroke-width="3"/>
+          <polyline points="60,35 60,60 35,60" stroke-width="3"/>
+          <polyline points="-35,60 -60,60 -60,35" stroke-width="3"/>
+        </g>`;
+  }
+
+  async function runStargazerBasic() {
+    const {cx, cy} = getStageCenter();
+    const target = s.anchors.get('monster') || SKILL_STAGE.target;
+    fx.innerHTML = `<g id="stargazerBasicAim" transform="translate(${cx}, ${cy})">${getReticleMarkup()}</g>`;
+    const aim = document.getElementById('stargazerBasicAim');
+    context.onTiming?.('stargazer_aim_start', {step, x:cx, y:cy});
+    await tl.wait(180);
+    await s.tick(500, p => {
+      const progress = p * p * (3 - 2 * p);
+      aim.setAttribute('transform', `translate(${cx + (target.x - cx) * progress}, ${cy + (target.y - cy) * progress})`);
+    });
+    if (s.signal.aborted) return;
+    context.onTiming?.('stargazer_aim_contact', {step, x:target.x, y:target.y});
+    await s.resolveResults();
+    s.animate(aim, [{opacity:1}, {opacity:0}], 180);
+    await tl.wait(180);
+  }
+
   async function runStargazerObservation(tl, outcomeType, outcomeTitle) {
     targetUnit.style.display = 'none';
     skillName.innerText = '【天體觀測・深空探索】';
@@ -139,12 +166,7 @@ async function playStargazerPresentation(step, context = {}) {
     fx.innerHTML = `
       <g transform="translate(${cx}, ${cy})">
         <g id="ambientStarsGroup">${getAmbientStarsMarkup()}</g>
-        <g id="stargazerReticle" class="stargazer-reticle-frame" fill="none" stroke-linecap="square">
-          <polyline points="-60,-35 -60,-60 -35,-60" stroke-width="3"/>
-          <polyline points="35,-60 60,-60 60,-35" stroke-width="3"/>
-          <polyline points="60,35 60,60 35,60" stroke-width="3"/>
-          <polyline points="-35,60 -60,60 -60,35" stroke-width="3"/>
-        </g>
+        ${getReticleMarkup()}
         <g id="starFlareNode" style="transform-origin: 0px 0px; opacity: 1; transition: opacity ${tl.sec(0.25)} ease-out, transform ${tl.sec(0.35)} ease-out;">
           <polygon class="stargazer-star-flare" points="0,-22 4.5,-4.5 22,0 4.5,4.5 0,22 -4.5,4.5 -22,0 -4.5,-4.5"/>
           <circle cx="0" cy="0" r="3.5" fill="#ffffff"/>
@@ -496,6 +518,7 @@ async function playStargazerPresentation(step, context = {}) {
 
 
     try {
+      if(step.actionId === 'basic') {await runStargazerBasic(); return;}
       if(step.actionId === 'sg_observe') await runStargazerObservation(tl, step.outcome.type === 'star' ? 'constellation' : step.outcome.type, step.outcome.label);
       else await runOrbitReshapeEvent(tl, {accelerate:'minor_shift', reset:'supernova', overload:'overload', nothing:'whiff'}[step.outcome.type]);
       targetUnit.style.display = ''; context.onTiming?.('outcome_reveal', {step});

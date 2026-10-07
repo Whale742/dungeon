@@ -184,6 +184,42 @@ test('cleanse removes known negative statuses before healing and does not clear 
   assert.equal(clean.find(s => s.id === 'corruption').locked, true);
   assert.ok(step.results.slice(2).some(r => r.kind === 'heal'));
 });
+test('player and monster DOTs are negative statuses and corrosion affects every living ally', t => {
+  const { room } = fixture(t, ['alchemist', 'warrior']);
+  room.players.p0.poisonTurns = 2; room.players.p0.poisonDmg = 5;
+  room.players.p1.bleedTurns = 2;
+  room.currentMonster.poisonTurns = 2; room.currentMonster.poisonDmg = 5;
+  room.roundModifiers.equipmentEffectMultiplier = .5; room.roundModifiers.acidFlaskCount = 1;
+  const snapshot = room.getHpSnapshot();
+  const dots = [...snapshot.players.flatMap(p => p.statuses), ...snapshot.monster.statuses].filter(s => ['poison','bleed'].includes(s.id));
+  assert.equal(dots.length, 3);
+  for (const status of dots) {
+    assert.equal(status.isNegative, true); assert.equal(status.isDot, true); assert.equal(status.category, 'DEBUFF');
+  }
+  for (const player of snapshot.players) {
+    const corrosion = player.statuses.find(s => s.id === 'alchemy_corrosion');
+    assert.equal(corrosion.isNegative, true); assert.equal(corrosion.category, 'DEBUFF'); assert.equal(corrosion.stacks, 1);
+  }
+});
+
+for (const [random, outcome] of [[.1, 'alchemy_success'], [.9, 'alchemy_failure']]) {
+  test(`corrosion alone activates ${outcome} and is cleansed before healing`, t => {
+    const { room, queue } = fixture(t, ['alchemist', 'alchemist']);
+    room.players.p0.action = 'alc_fate'; room.players.p1.action = 'alc_acid';
+    room.players.p0.hp -= 30; room.players.p1.hp -= 30;
+    resolve(room, random);
+    const step = queue().queue.find(s => s.actionId === 'alc_fate');
+    assert.equal(step.outcome.type, outcome);
+    assert.ok(step.hpSnapshotBefore.players.every(p => p.statuses.some(s => s.id === 'alchemy_corrosion')));
+    const cleanses = step.results.filter(r => r.kind === 'cleanse');
+    assert.equal(cleanses.length, 2);
+    assert.ok(cleanses.every(r => !r.targetAfter.statuses.some(s => s.id === 'alchemy_corrosion')));
+    assert.ok(step.results.findIndex(r => r.kind === 'heal') > step.results.findLastIndex(r => r.kind === 'cleanse'));
+    assert.equal(room.roundModifiers.equipmentEffectMultiplier, 1);
+    assert.equal(Object.values(room.players).some(p => p.alcAcidStack > 0), false);
+  });
+}
+
 test('minion death remains in intercept result until presentation, then is absent from final slots', t => {
   const { room, queue } = fixture(t, ['druid']); room.players.p0.minions = [{id:'m',type:'wolf',name:'Wolf',hp:3,maxHp:3,atk:1}];
   resolve(room); const boss = queue().queue.find(s => s.type === 'boss_action');
@@ -257,4 +293,3 @@ test('alchemist alc_flask: 50% acid (dmg 40, party 20, equip halved) vs 50% pois
     assert.equal(step.actorHpAfter, 55); // fixed party splash is not removed by a burette
   }
 });
-
