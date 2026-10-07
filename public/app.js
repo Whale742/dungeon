@@ -3765,6 +3765,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    if(controller.signal.aborted&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
     if (combatQueueController === controller) {
       combatQueueController = null;
       isProcessingPresentationQueue = false;

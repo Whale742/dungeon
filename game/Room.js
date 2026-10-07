@@ -2675,6 +2675,11 @@ export class Room {
       presentationQueue.push({
         category: actionCategory, outcome: actionOutcome, results: actionResults,
         hpSnapshotBefore: actionBefore,
+        ...(p.role==='sage'?{sagePresentation:{
+          sagePhase:p.sagePhase,operandBefore:snapshotTarget(actionBefore,p.id)?.sageOperand,
+          operandAfter:p.sageOperand,xBefore:snapshotTarget(actionBefore,p.id)?.sageX,xAfter:p.sageX,
+          actualDamage:finalDamage,sampling:!!p.sageInduction
+        }}:{}),
         monsterName: monster.name, monsterAvatar: monster.avatar,
         type: 'player_action', hiddenBeforeAction, consumedStacks,
         sourceId: p.id,
@@ -3123,6 +3128,7 @@ export class Room {
           hit.hpSnapshot = hit.hpSnapshot || hitAfter;
           hit.targetAfter = snapshotTarget(hit.hpSnapshot, hit.targetId);
           hit.finalDamage = hit.value;
+          if(hit.targetId===p.id&&dmgRes.sageMomentumCapture)hit.sageMomentumCapture=dmgRes.sageMomentumCapture;
           hit.guard = shieldDamageMod < 1 || alcShieldMod < 1 || bardDmgReduction < 1 || hit.targetAfter?.druidForm === 'treant';
           hit.absorbed = hit.tempAbsorbed || 0;
           hit.shieldBreak = (hit.targetBefore?.tempHp || 0) > 0 && !(hit.targetAfter?.tempHp > 0);
@@ -3153,6 +3159,9 @@ export class Room {
         target.hp = Math.max(hit.outcome.protection ? 1 : 0, target.hp - (value - absorbed));
         if (i === parts.length - 1) Object.assign(target, hit.targetAfter);
         expandedHits.push({ ...hit, value, finalDamage: value, absorbed, tempAbsorbed: absorbed, hpDmg: value - absorbed,
+          // Aggregate gameplay records one operand increment. Do not repeat it
+          // for each presentation-only scatter segment.
+          sageMomentumCapture:i===parts.length-1?hit.sageMomentumCapture:undefined,
           targetBefore: before, targetAfter: structuredClone(target), hpSnapshot: structuredClone(display),
           shieldBreak: before.tempHp > 0 && target.tempHp === 0,
           outcome: { type: absorbed > 0 && absorbed === value ? 'block' : 'normal', protection: i === parts.length - 1 && hit.outcome.protection },

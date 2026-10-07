@@ -176,7 +176,7 @@ for (const [id, fixture] of Object.entries(fixtures)) {
   const action=fixture.steps?.find(s=>s.type==='player_action'&&s.sourceId==='hero');
   const role=action?.sourceRole||fixture.steps?.find(s=>s.sourceRole&&s.sourceRole!=='boss'&&s.type!=='boss_action')?.sourceRole;
   if(role&&CLASSES[role])fixture.role=role;
-  if(!action||action.actionId==='skip'||id.startsWith('basic_'))continue;
+  if(!action||action.actionId==='skip'||id.startsWith('basic_')||id.startsWith('sage_'))continue;
   const outcome=fixture.steps.find(s=>s.actionId===action.actionId+'_result')?.outcome||action.outcome;
   const variant=outcome?.label||fixture.label.split('・').slice(1).join('・');
   fixture.label=action.skillName+(variant&&variant!==action.skillName?'｜'+variant:'');

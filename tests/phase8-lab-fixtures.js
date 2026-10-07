@@ -1,6 +1,29 @@
 import {equipItemToPlayer,LOOT_TABLE} from '../game/constants.js';
 const equip=(p,id)=>equipItemToPlayer(p,structuredClone(LOOT_TABLE.find(e=>e.id===id)));
 export function addPhase8LabFixtures(fixtures,scene,add) {
+  const sageNames={basic:'普通攻擊',sge_deduce:'向量定軌・貫穿演算',sge_induce:'動量回授・慣性取樣'};
+  for(const action of ['basic','sge_deduce','sge_induce'])for(const phase of ['hypothesis','solve']) {
+    add(`sage_${action}_${phase}`,`${sageNames[action]}｜${phase==='solve'?'求解':'假設'}`,'sage',action,.9,room=>{
+      Object.assign(room.players.hero,{sageOperand:17,sageX:24,sagePhase:phase});room.currentMonster.resistance='phys';
+    });
+  }
+  {
+    const {wire}=scene('sage','sge_induce',.9,room=>{room.players.hero.sageOperand=17;room.currentMonster.attack=12;});
+    fixtures.sage_sampling_capture={role:'sage',label:'動量回授・慣性取樣｜Boss 傷害取樣',steps:wire.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup')};
+  }
+  {
+    const {wire}=scene('sage','sge_induce',.1,room=>{room.battleRound=3;room.players.hero.sageOperand=17;room.currentMonster.attack=12;});
+    fixtures.sage_sampling_multi={role:'sage',label:'動量回授・慣性取樣｜多段攻擊／伺服器合計取樣',steps:wire.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup')};
+  }
+  for(const [id,r] of [['success',.1],['confusion',.65]]) {
+    const {room,wire}=scene('sage','sge_induce',.9,room=>{Object.assign(room.players.hero,{sageOperand:17,sageX:24});room.currentMonster.attack=6;});
+    const first=wire.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup');
+    let second;room.io={to:()=>({emit(name,data){if(name==='battle:presentation_queue')second=data;}})};
+    const old=Math.random;Math.random=()=>r;
+    try {room.state='IN_BATTLE';room.battleRound=2;room.p8RoundStart();room.players.hero.action='sge_deduce';room.players.ally.action='skip';room.resolveTurnActions();}
+    finally {Math.random=old;room.clearTimer();}
+    fixtures['sage_full_cycle_'+id]={role:'sage',label:'演算週期｜慣性取樣 → 求解 → 方程結算 → '+(id==='success'?'推演成功':'思緒紊亂'),steps:[...first,...second.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup')]};
+  }
   for(const [r,id] of [[0,'mirror'],[.25,'dissociate'],[.5,'nightmare'],[.75,'frenzy']]) {
     let n=0;add('p8_dream_'+id,'夢境混亂・'+id,'dreamweaver','basic',()=>++n===1?0:r);
   }
@@ -28,6 +51,6 @@ export function addPhase8LabFixtures(fixtures,scene,add) {
     ['even_square','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:16,sageX:80});},.9],
     ['odd_prime','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:13,sageX:80});},.9],
     ['success','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:10,sageX:20});},.1],
-    ['confusion','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:10,sageX:20});},.65]])add('p8_sage_'+id,{reference_17_24:'方程結算・運算元 17／變量 24',hypothesis:'普通攻擊・假設',solve:'歸納證明・求解',even_square:'方程結算・偶數與平方數',odd_prime:'方程結算・奇數與質數',success:'方程結算・推演成功',confusion:'方程結算・思緒紊亂'}[id],'sage',action,r,configure);
+    ['confusion','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:10,sageX:20});},.65]])add('p8_sage_'+id,{reference_17_24:'方程結算・運算元 17／變量 24',hypothesis:'普通攻擊・假設',solve:'動量回授・慣性取樣・求解',even_square:'方程結算・偶數與平方數',odd_prime:'方程結算・奇數與質數',success:'方程結算・推演成功',confusion:'方程結算・思緒紊亂'}[id],'sage',action,r,configure);
   for(const n of [1,3,5,6,30])fixtures['p8_logs_'+n]={label:'日誌・'+n+' 筆／完整可捲動日誌',logs:Array.from({length:n},(_,i)=>({id:'log-'+i,time:'12:00',type:'combat',text:'第 '+(i+1)+' 筆戰鬥紀錄：這是一筆包含完整內容的事件，最新訊息位於底部，完整文字保留供查看。'}))};
 }

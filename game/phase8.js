@@ -15,11 +15,12 @@ export function p8State(p,room) {
     if(p.bloodStacks)effects.push({id:'blood_stacks',icon:'buff',label:'血祭',stacks:p.bloodStacks});
     if(p.role==='sage')effects.push({id:'sage_equation',icon:'buff',label:p.sagePhase==='solve'?'求解':'假設',value:p.sageOperand??0});
   }
-  const resource=p.role==='sage'?`X ${p.sageX ?? 10} · 運算元 ${p.sageOperand ?? 0} · ${p.sagePhase==='solve'?'求解':'假設'}`:
+  const resource=p.role==='sage'?`變量(X) ${p.sageX ?? 10} · 運算元 ${p.sageOperand ?? 0} · ${p.sagePhase==='solve'?'求解':'假設'}`:
     p.role==='samurai'?`武魂 ${p.soul||0}/8${p.kyoutou?' · 狂刀':''}`:
     p.role==='gladiator'?`怒氣 ${p.rage||0} · 血祭 ${p.bloodStacks||0}${room.arena?.playerId===p.id?' · 死亡角鬥場':''}`:
     p.role==='warrior'?`受傷攻擊 +${p.warriorStacks||0}/15`:'';
   return {resourceSummary:resource, sageX:p.sageX, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
+    sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
     arenaBlocked:!!room.arena && room.arena.playerId!==p.id, noReviveThisFloor:p.noReviveFloor===room.floor,
     phase8Statuses:effects};
@@ -70,6 +71,7 @@ export const phase8Methods = {
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
       p.rage=0;p.bloodStacks=0;p.soul=0;p.kyoutou=false;p.parryChecked=false;
       p.sageX=10;p.sageOperand=Math.floor(Math.random()*30)+1;p.sagePhase='hypothesis';p.sageCycleRound=0;p.sageMomentum=0;delete p.sagePreviousAction;p.sagePrimeResetPending=false;
+      p.sageSamplingEnded=true;
     }
     if(this.currentMonster)this.currentMonster.p8Effects={};
     this.p8RefreshEquipment();
@@ -151,7 +153,11 @@ export const phase8Methods = {
     }
     if(this.p8Has(p,'warrior_resolve'))p.warriorRoundDamage=(p.warriorRoundDamage||0)+result.hpDmg+result.tempAbsorbed;
     if(result.hpDmg>0&&p.role==='gladiator'&&!p.rageRoundGain) {p.rage=(p.rage||0)+1;p.rageRoundGain=true;this.p8Log(`${p.name}實際受傷，怒氣 ${p.rage}。`);}
-    if(context.kind==='enemy_direct'&&p.sageInduction)p.sageOperand+=result.hpDmg+result.tempAbsorbed;
+    if(context.kind==='enemy_direct'&&p.sageInduction) {
+      const operandBefore=p.sageOperand;
+      p.sageOperand+=result.hpDmg+result.tempAbsorbed;
+      if(p.sageOperand!==operandBefore)result.sageMomentumCapture={operandBefore,operandAfter:p.sageOperand,delta:result.hpDmg+result.tempAbsorbed};
+    }
   },
   p8Incoming(p,raw,mitigate,context={kind:'enemy_direct'}) {
     if(this.arena&&this.arena.playerId!==p.id&&context.kind==='enemy_direct')return {damage:0,outcome:'arena_absent'};
@@ -206,7 +212,7 @@ export const phase8Methods = {
       if(result.hpDmg>0 && this.currentMonster.baseHp<100)p.bleedTurns=2;
       const snapshot=this.getHpSnapshot();
       hits.push({kind:incoming.outcome==='dream_heal'?'heal':'damage',targetId:p.id,role:p.role,
-        value:result.actualDmg,finalDamage:result.actualDmg,hpDmg:result.hpDmg,tempAbsorbed:result.tempAbsorbed,absorbed:result.tempAbsorbed,
+        value:result.actualDmg,finalDamage:result.actualDmg,hpDmg:result.hpDmg,tempAbsorbed:result.tempAbsorbed,absorbed:result.tempAbsorbed,sageMomentumCapture:result.sageMomentumCapture,
         actualHeal:incoming.heal||0,damageType:incoming.outcome==='nightmare'?'true':'physical',guard:incoming.outcome==='parry',
         outcome:{type:['dream_heal','nightmare'].includes(incoming.outcome)?incoming.outcome:result.actualDmg===0?'block':'normal',parry:incoming.outcome==='parry'},
         targetBefore,targetAfter:snapshot.players.find(a=>a.id===p.id),hpSnapshot:snapshot,
@@ -317,7 +323,7 @@ export const phase8Methods = {
       if(p.sagePhase==='hypothesis') {
         if(p.action==='basic')p.sageOperand=actual;
         else if(p.action==='sge_deduce')p.sageOperand+=actual;
-        else p.sageInduction=true;
+        else {p.sageInduction=true;p.sageSamplingEnded=false;}
       } else p.sageOperand=p.action==='sge_induce'?p.sageOperand*2:p.sageOperand+(p.action==='sge_deduce'?5:2);
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;
       p.sageLastAction=p.action;this.p8Log(`${p.name}【${p.sagePhase==='solve'?'求解':'假設'}】X=${p.sageX}，Operand=${p.sageOperand}。`);
@@ -361,6 +367,7 @@ export const phase8Methods = {
           if(r<success){p.sageX=Math.round(x+(action==='sge_induce'?operand/4:operand));outcome.resolution='SUCCESS';}
           else if(r<success+Math.min(confusion,1-success)){p.sageX=Math.max(10,Math.round(x*.75));outcome.resolution='CONFUSION';}
           else outcome.resolution='NOTHING';
+          outcome.xBefore=x;outcome.xAfter=p.sageX;outcome.variableContribution=outcome.resolution==='SUCCESS'?p.sageX-x:0;
           queue[queue.length-1].hpSnapshot=this.getHpSnapshot();
           if(prime)p.sagePrimeResetPending=true;
           this.p8Log(`${p.name}方程 ${operand} × η(${x}) = ${raw}【${properties.join(' / ')}】，${outcome.resolution}，X=${p.sageX}。`);
@@ -379,6 +386,7 @@ export const phase8Methods = {
       this.p8Results=null;this.p8Visuals=null;
     };
     for(const p of alive(this)) {
+      p.sageSamplingEnded=true;
       if(m.hp>0&&p.role==='warrior'&&this.p8Has(p,'warrior_resolve')&&p.warriorRoundDamage>0)event(p,'堅定反擊','w_counter',()=>{this.p8DamageMonster(p,p.warriorRoundDamage,'phys',resistance);this.p8Log(`${p.name}【堅定反擊】返還本輪實受 ${p.warriorRoundDamage} 傷害。`);});
       p.warriorRoundDamage=0;
       if(m.hp>0&&p.role==='samurai'&&p.parriedCount>0) {

@@ -458,6 +458,8 @@ function escapeHtml(str) {
 
 // --- 5. 畫面重設 (Reset & Cleanup Strategy - Zero Memory Leak) ---
 function resetLab() {
+  if(typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
+  renderSageLabHud([{id:'mock-warrior',name:'亞瑟',role:'warrior',hp:120,maxHp:120},{id:'mock-mage',name:'梅林',role:'mage',hp:80,maxHp:80}]);
   sfxManager.stopAll();
   if (labState.activeController) {
     labState.activeController.abort();
@@ -593,8 +595,22 @@ function updateMockHudHp(playerId, hp, maxHp) {
 window.applyHpSnapshot = snapshot => {
   window.roomState = { ...window.roomState,
     players: mergePresentationSnapshot({ players: window.roomState.players }, snapshot).players };
-  for (const player of snapshot.players || []) updateMockHudHp(player.id, player.hp, player.maxHp);
+  for (const player of snapshot.players || []) {
+    updateMockHudHp(player.id, player.hp, player.maxHp);
+    const chip=[...document.querySelectorAll('.lab-mock-player-chip')].find(n=>n.dataset.playerId===player.id);
+    if(chip){const resource=chip.querySelector('.combat-resource-summary');if(resource)resource.textContent=player.resourceSummary||'';syncPortraitStatusFx(player,chip.querySelector('.lab-sage-portrait'));}
+  }
 };
+function renderSageLabHud(players){
+  const party=document.querySelector('#labMockHud .lab-mock-party');if(!party)return;
+  party.replaceChildren();
+  for(const p of players){
+    const chip=document.createElement('div');chip.className='lab-mock-player-chip teammate-card';chip.dataset.playerId=p.id;
+    chip.innerHTML='<div class="lab-sage-portrait">'+getClassPortraitHtml(p.role,'presentation-support-image')+'</div><span class="lab-mock-player-hp"></span><div class="combat-resource-summary"></div><div class="floating-text-container"></div>';
+    party.appendChild(chip);updateMockHudHp(p.id,p.hp,p.maxHp);chip.querySelector('.combat-resource-summary').textContent=p.resourceSummary||'';
+    syncPortraitStatusFx(p,chip.querySelector('.lab-sage-portrait'));
+  }
+}
 
 // Phase 7.2: Status Lab State & Scene Runner
 const PHASE73_LAB_SCENES = Object.freeze({
@@ -794,6 +810,7 @@ async function playScene(sceneName) {
     }
     if (typeof PHASE6_LAB_SCENES !== 'undefined' && PHASE6_LAB_SCENES[sceneName]) {
       const scene = PHASE6_LAB_SCENES[sceneName];
+      if(scene.role==='sage')renderSageLabHud(scene.steps?.[0]?.hpSnapshotBefore?.players||[]);
       if(scene.logs) {
         const panel=document.createElement('div');panel.className='p8-lab-log';panel.id='p8LabLog';
         panel.style.cssText='position:absolute;left:20px;top:10px;bottom:10px;width:280px;padding:16px;box-sizing:border-box;isolation:isolate;z-index:100';
@@ -804,7 +821,10 @@ async function playScene(sceneName) {
       else if (scene.revival) await playFloorRevivalPresentation(scene.revival, context);
       else {
         await enterCombatStage(context);
-        try { for (const step of scene.steps || []) await playExpandedCombatPresentation(step, context); }
+        try { for (const step of scene.steps || []) {
+          if(step.type==='status_cleanup'){applyHpSnapshot(step.hpSnapshot);continue;}
+          await playExpandedCombatPresentation(step, context);
+        } }
         finally { await exitCombatStage(context); }
         if (scene.victory) await playVictoryPresentation(scene.victory, context);
       }

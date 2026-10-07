@@ -11,7 +11,7 @@ async function playSageEquationPresentation(step,context) {
     hand1.src='assets/sage-snap-1.png';hand2.src='assets/sage-snap-2.png';
     const operand=el('div','sage-term','<small>運算元</small><span class="sage-number-motion">0</span>');position(operand,470,355);
     const eta=el('div','sage-term','<small>η(X)</small><span class="sage-number-motion">η</span>');position(eta,720,355);
-    const variable=el('div','sage-term','<small>變量 X</small><span class="sage-number-motion">0</span>');position(variable,970,355);
+    const variable=el('div','sage-term','<small>變量(X)</small><span class="sage-number-motion">0</span>');position(variable,970,355);
     const opNum=operand.lastChild,xNum=variable.lastChild,etaNum=eta.lastChild;
     operand.style.opacity=variable.style.opacity=eta.style.opacity='0';
     const fraction=el('div','sage-fraction','<span class="constant">0.25 +</span><span class="fraction"><span class="numerator">1.75 × '+escapeHtml(String(o.x))+'</span><span class="denominator">'+escapeHtml(String(o.x))+' + 80</span></span>');
@@ -26,8 +26,9 @@ async function playSageEquationPresentation(step,context) {
     animate(hand1,[{opacity:0,transform:'translateY(45px) rotate(-12deg)'},{opacity:1,transform:'translateY(0) rotate(0)'}],580);
     await wait(650);if(signal?.aborted)return;
     hand1.style.visibility='hidden';hand2.style.opacity='1';
-    context.audioScope.play('magic_impact',{noHold:true});context.onTiming?.('sage_snap',{step});
+    context.audioScope.play('sage_snap',{noHold:true});context.onTiming?.('sage_snap',{step});
     animate(hand2,[{opacity:1,transform:'scale(1.03)'},{opacity:0,transform:'scale(.97)'}],800);
+    context.audioScope.play('sage_func',{noHold:true});context.audioScope.play('sage_cal',{noHold:true});context.onTiming?.('sage_curves_start',{step});
     if(s.reduced)background.render(background.snapAt+.8);
     else s.startRenderer(time=>background.render(background.snapAt+time));
     await wait(430);
@@ -43,7 +44,7 @@ async function playSageEquationPresentation(step,context) {
     animate(fraction.querySelector('.numerator'),[{transform:'translate(-15px,12px)'},{transform:'translate(0,0)'}],350);
     animate(fraction.querySelector('.denominator'),[{transform:'translate(-15px,-12px)'},{transform:'translate(0,0)'}],350);
     animate(wave,[{opacity:1,transform:'scaleX(.12)'},{opacity:0,transform:'scaleX(.8)'}],180);
-    context.onTiming?.('sage_first_contact',{step});
+    context.audioScope.play('sage_pong',{noHold:true});context.onTiming?.('sage_first_contact',{step});
     await wait(950);
     animate(fraction,[{opacity:1,transform:'scale(1)',filter:'blur(0px)'},{opacity:0,transform:'scale(.12)',filter:'blur(2px)'}],280);
     await wait(280);fraction.style.visibility='hidden';eta.style.opacity='1';etaNum.textContent='0.000';
@@ -52,15 +53,16 @@ async function playSageEquationPresentation(step,context) {
     operand.style.opacity=eta.style.opacity='0';answer.style.opacity='1';
     animate(wave,[{opacity:1,transform:'scaleX(.06)'},{opacity:0,transform:'scaleX(1.4)'}],200);
     animate(answer,[{opacity:1,transform:'translateX(0)'},{opacity:1,transform:'translateX(16px)',offset:.35},{opacity:1,transform:'translateX(-5px)',offset:.7},{opacity:1,transform:'translateX(0)'}],380);
-    context.onTiming?.('sage_second_contact',{step});await wait(560);
+    context.audioScope.play('sage_pong',{noHold:true});context.onTiming?.('sage_second_contact',{step});await wait(560);
     animate(answer,[{opacity:1,transform:'scale(1)'},{opacity:1,transform:'scale(.02)'}],540);await wait(540);await wait(100);
     const target=s.anchors.get('monster')||SKILL_STAGE.target,dx=target.x-720,dy=target.y-405;
     beam.style.width=Math.hypot(dx,dy)+'px';beam.style.rotate=Math.atan2(dy,dx)+'rad';
     animate(beam,[{opacity:1,transform:'scaleX(.01)'},{opacity:1,transform:'scaleX(1)',offset:.65},{opacity:0,transform:'scaleX(1)'}],180);
-    answer.style.visibility='hidden';context.audioScope.play('magic_impact',{noHold:true});await wait(120);
-    await s.resolveResults();
+    answer.style.visibility='hidden';context.audioScope.play('sage_laser',{noHold:true});context.onTiming?.('sage_laser',{step});await wait(120);
+    await s.resolveResults({applyFinalSnapshot:false});
     for(const tag of tags){if(signal?.aborted)return;animate(tag,[{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],180);await wait(300);}
-    if(o.resolution){const resolution=el('div','skill-reveal');resolution.textContent={SUCCESS:'推演成功',CONFUSION:'思緒紊亂',NOTHING:'無事發生'}[o.resolution]||o.resolution;resolution.style.top='705px';animate(resolution,[{opacity:0},{opacity:1}],180);}
+    await playSageEquationOutcome(s,step,context,operand,variable);
+    if(!signal.aborted&&step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
     await wait(450);
   });
 }

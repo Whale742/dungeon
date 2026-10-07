@@ -27,8 +27,8 @@ export const NEW_CLASSES = {
     stateHint:'假設建立運算元；求解攻擊後觸發方程結算。',
     desc: '兩輪演算，以假設與求解建立方程。', passive: '開戰 X=10，每兩回合一循環，Operand 隨機整數 1–30。A 輪假設、B 輪求解，B 輪末 Equation=round(abs(Operand × (0.25 + 1.75X/(X+80))))，獨立物理事件。偶數：全隊方程傷害 40% 護盾 1 回合，完全未破時餘盾 20% 轉下循環基數；奇數：方程穿透物抗，下輪魔物承傷 +10%；質數：另 15 真傷、智者 CD 歸零；完全平方數：下輪魔物直接傷害 -25%。屬性全部疊加。',
     skills: [skill('basic', '普通攻擊', 0, 'phys', '10 物理；假設時 Operand=實傷，求解時 +2。方程後：60% 成功 X+=Operand，15% 混亂 X×0.75（至少 10），25% 無效。'),
-      skill('sge_deduce', '演繹推理', 1, 'phys', '10 物理，50% 穿透物抗。假設時 Operand+=實傷，求解 +5；方程後 50% 成功 X+=Operand，25% 混亂 -25%，25% 無效。'),
-      skill('sge_induce', '歸納證明', 1, 'phys', '10 物理；假設時記錄基數，直到本輪末僅魔物直接傷害累加 Operand；求解時 Operand×2。方程後 40% 成功 X+=Operand/4，35% 混亂 -25%，25% 無效。')] }
+      skill('sge_deduce', '向量定軌・貫穿演算', 1, 'phys', '10 物理，50% 穿透物抗。假設時 Operand+=實傷，求解 +5；方程後 50% 成功 X+=Operand，25% 混亂 -25%，25% 無效。'),
+      skill('sge_induce', '動量回授・慣性取樣', 1, 'phys', '10 物理；假設時記錄基數，直到本輪末僅魔物直接傷害累加 Operand；求解時 Operand×2。方程後 40% 成功 X+=Operand/4，35% 混亂 -25%，25% 無效。')] }
 };
 const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, ...stats, unique });
 export const NEW_LOOT = [

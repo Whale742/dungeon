@@ -275,6 +275,7 @@ function syncPortraitStatusFx(entity, portraitRoot, options = {}) {
   if (!portraitRoot) return;
   const layers = ensurePortraitLayers(portraitRoot);
   if (!layers) return;
+  if(typeof syncSageSamplingIndicator==='function')syncSageSamplingIndicator(entity,layers.surface);
 
   // Reuse the current portrait for visual echoes, including form changes.
   const image = portraitRoot.querySelector('img');

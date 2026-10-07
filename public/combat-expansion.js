@@ -147,7 +147,7 @@ async function presentCombatResult(result, card, context = {}) {
       else if (context.sourceRole === 'alchemist') card.classList.add('has-poison-cloud');
       playSound(result.damageType === 'magic' ? 'magic_impact' : 'physical_hit');
       emit('impact');
-      await wait(SUPPORT_TIMING.impactDelay);
+      if(!context.immediateImpact)await wait(SUPPORT_TIMING.impactDelay);
       resultFloat(card, '-' + damage, result.damageType === 'magic' ? 'is-magic' : 'is-damage');
       emit('damage_float');
     }
@@ -208,9 +208,13 @@ async function presentCombatResult(result, card, context = {}) {
     // Ripple targets may complete in different orders. Apply only this target's
     // authoritative snapshot, never another victim's future result.
     if (result.targetId === 'monster') applyHpSnapshot({ monster: target });
-    else if (result.kind !== 'intercept') applyHpSnapshot({ players: [target] });
+    else if (result.kind !== 'intercept') {
+      const displayTarget=result.sageMomentumCapture?{...target,sageOperand:result.targetBefore?.sageOperand,resourceSummary:result.targetBefore?.resourceSummary}:target;
+      applyHpSnapshot({ players: [displayTarget] });
+    }
   }
   emit('hp_update');
+  if(result.sageMomentumCapture&&typeof playSageMomentumCapture==='function')await playSageMomentumCapture(result,card,context);
   if (!context.audioScope) await audio.hold();
   if (outcome.protection) {
     card.classList.add('is-protected');
@@ -597,6 +601,7 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
+  if(step.type==='player_action'&&step.sourceRole==='sage'&&['basic','sge_deduce','sge_induce'].includes(step.actionId))return playSageSkillPresentation(step,context);
   if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
   if(step.sourceRole==='stargazer'&&['basic','sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
   if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{

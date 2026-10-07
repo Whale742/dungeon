@@ -3,6 +3,46 @@ import assert from 'node:assert/strict';
 import {Room} from '../game/Room.js';
 import {CLASSES,LOOT_TABLE,getPlayerSkills,equipItemToPlayer,unequipItemFromPlayer,canPlayerEquipItem,getActionPriority} from '../game/constants.js';
 import {eta,isPrime,P8_ROLES} from '../game/phase8.js';
+
+test('sage display metadata matches authoritative hypothesis and solve snapshots',t=>{
+ for(const phase of ['hypothesis','solve'])for(const action of ['basic','sge_deduce','sge_induce']){
+  const {room,resolve}=fixture(t,['sage']);const p=room.players.p0;
+  Object.assign(p,{sagePhase:phase,sageOperand:17,sageX:24,action});room.currentMonster.resistance='phys';
+  const q=resolve(.1),s=q.find(s=>s.actionId===action),d=s.sagePresentation;
+  assert.equal(d.operandBefore,s.hpSnapshotBefore.players[0].sageOperand);
+  assert.equal(d.operandAfter,s.hpSnapshot.players[0].sageOperand);
+  assert.equal(d.actualDamage,s.finalDamage);assert.equal(d.sagePhase,phase);
+  if(phase==='solve'){
+   const e=q[q.indexOf(s)+1];assert.equal(e.actionId,'sge_equation');
+   assert.equal(e.outcome.xBefore,d.xAfter);assert.equal(e.outcome.xAfter,e.hpSnapshot.players[0].sageX);
+  }
+ }
+ assert.equal(CLASSES.sage.skills[1].label,'向量定軌・貫穿演算');
+ assert.equal(CLASSES.sage.skills[2].label,'動量回授・慣性取樣');
+});
+test('sage capture metadata excludes secondary sources and preserves each direct hit delta',t=>{
+ const {room}=fixture(t,['sage']);const p=room.players.p0;
+ Object.assign(p,{sageInduction:true,sageOperand:17});
+ for(const kind of ['dot','trap','environment','friendly','secondary','self']){
+  const result=room.applyDamageToPlayer(p,1,{kind});assert.equal(result.sageMomentumCapture,undefined);assert.equal(p.sageOperand,17);
+ }
+ const zero=room.applyDamageToPlayer(p,0,{kind:'enemy_direct'});assert.equal(zero.sageMomentumCapture,undefined);
+ const hits=[];room.p8ResolveBossHits(p,[3,5],n=>n,hits);
+ assert.deepEqual(hits.map(h=>h.sageMomentumCapture),[
+  {operandBefore:17,operandAfter:20,delta:3},{operandBefore:20,operandAfter:25,delta:5}]);
+ assert.equal(room.getHpSnapshot().players[0].sageSampling,true);
+ room.p8EndRound([],[],n=>n);assert.equal(room.getHpSnapshot().players[0].sageSampling,false);
+});
+test('sage aggregate boss damage emits its operand capture only once across visual segments',t=>{
+ const {room,resolve}=fixture(t,['sage']);room.battleRound=3;const p=room.players.p0;
+ Object.assign(p,{action:'sge_induce',sageOperand:17});
+ const q=resolve(.1),boss=q.find(s=>s.type==='boss_action'),hits=boss.results.filter(r=>r.targetId===p.id);
+ const captures=hits.filter(r=>r.sageMomentumCapture);
+ assert(hits.length>1);assert.equal(captures.length,1);
+ assert.equal(captures[0].sageMomentumCapture.operandAfter,p.sageOperand);
+ assert.equal(captures[0].sageMomentumCapture.delta,p.sageOperand-17);
+ assert.equal(hits.at(-1).sageMomentumCapture,captures[0].sageMomentumCapture);
+});
 test('Phase 8.1 canonical skill names and complete outcomes remain in copy',()=>{
  assert.equal(CLASSES.dreamweaver.skills[0].label,'恍惚編織');assert.equal(CLASSES.dreamweaver.skills[1].label,'清醒夢・薛丁格之蝶');assert.equal(CLASSES.dreamweaver.skills[2].label,'偽造殘夢');
  for(const name of ['潛意識混淆','鏡像夢境','解離痛楚','萎靡夢魘','狂亂夢遊'])assert(CLASSES.dreamweaver.skills[0].desc.includes(name));

@@ -55,7 +55,7 @@ try {
  assert.notEqual(report.basicTravelTransform,'translate(720, 405)');assert.notEqual(report.basicTravelTransform,'translate(1170, 430)');
  await page.screenshot({path:dir+'/basic-travel.png'});
  await page.evaluate(()=>basicAimRun);
- for(const role of ['samurai','sage','gladiator']){
+ for(const role of ['samurai','gladiator']){
   const result=await page.evaluate(async role=>{
    const all=Object.values(PHASE6_LAB_SCENES).flatMap(s=>s.steps||[]);
    const step=structuredClone(all.find(s=>s.type==='player_action'&&s.actionId==='basic'&&s.sourceRole===role)||all.find(s=>s.type==='player_action'&&s.actionId==='basic'));

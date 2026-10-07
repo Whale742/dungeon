@@ -130,22 +130,24 @@ async function withSkillPresentationStage(step,context,play) {
   if(!cards.has('monster')&&step.actionId==='g_arena')addCard({targetId:'monster',targetBefore:step.hpSnapshotBefore?.monster||step.hpSnapshot?.monster||{},kind:'status'},0);
   const debug=(label,p)=>{if(context.mode!=='lab'||!context.showAnchors)return;const n=el('div','skill-debug-anchor');position(n,p.x,p.y);n.textContent=label;};
   debug('actor',SKILL_STAGE.actor);debug('target',SKILL_STAGE.target);debug('stage / reticle',SKILL_STAGE.center);
-  const resolveResults=async()=>{
+  const resolveResults=async(options={})=>{
     for(const result of step.results||[]) {
       if(signal?.aborted)return;
-      await presentCombatResult(result,cards.get(result.targetId),{...context,signal,sourceRole:step.sourceRole,direction:'right',suppressFx:true,prewarmed:true,motion:animate});
+      await presentCombatResult(result,cards.get(result.targetId),{...context,...options,signal,sourceRole:step.sourceRole,direction:'right',suppressFx:true,prewarmed:true,motion:animate});
     }
-    if(!signal?.aborted&&step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
+    if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
   };
   const stop=()=>{cancelAnimationFrame(raf);raf=0;for(const a of animations)a.cancel();animations.clear();root.remove();};
   signal?.addEventListener('abort',stop,{once:true});
   try {
+    const stageApi={root,frame,el,position,animate,tick,startRenderer,wait,actor,cards,anchors,debug,resolveResults,signal,reduced};
+    context.prepareStage?.(stageApi);
     await Promise.all([...frame.querySelectorAll('img')].map(img=>img.decode().catch(()=>{})));
     await presentationFrame(signal);await presentationFrame(signal);
     if(!signal.aborted){
-      const profile=resolveCombatSfxProfile(step);if(profile.key&&!step.actionId?.endsWith('_result'))context.audioScope.play(profile.key);
+      const profile=resolveCombatSfxProfile(step);if(profile.key&&!step.actionId?.endsWith('_result'))context.audioScope.play(profile.key,{noHold:!!context.castAudioNoHold});
       context.onTiming?.('cast_entry',{step});
-      await play({root,frame,el,position,animate,tick,startRenderer,wait,actor,cards,anchors,debug,resolveResults,signal,reduced});
+      await play(stageApi);
     }
     if(!signal?.aborted){await context.audioScope?.hold();context.onTiming?.('action_complete',{step});}
   } finally {parentSignal?.removeEventListener('abort',relayAbort);signal.removeEventListener('abort',stop);controller.abort();stop();}
