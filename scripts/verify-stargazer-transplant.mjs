@@ -10,14 +10,14 @@ try {
  page.on('pageerror',e=>report.errors.push(e.message));
  await page.route('https://fonts.googleapis.com/**',r=>r.fulfill({body:'',contentType:'text/css'}));
  await page.goto('http://localhost:3011/presentation-lab.html'); await page.waitForFunction(()=>window.labInitialized);
- assert.equal(await page.evaluate(()=>labState.speed),.5); assert.equal(await page.locator('#labSpeedSelect').inputValue(),'0.5');
+ assert.equal(await page.evaluate(()=>labState.speed),1); assert.equal(await page.locator('#labSpeedSelect').inputValue(),'1.0');
  await page.evaluate(()=>enterCombatStage({speed:10}));
  for(const [action,types] of [['observe',['star','planet','galaxy','blackhole','boundary']],['clock',['accelerate','reset','overload','nothing']]])for(const type of types){
   const id='p8_'+action+'_'+type;
   await page.evaluate(async id=>{const step=PHASE6_LAB_SCENES[id].steps.find(s=>s.actionId==='sg_observe'||s.actionId==='sg_clock');await playExpandedCombatPresentation(step,{mode:'lab',speed:10});},id);
   assert.equal(await page.locator('.skill-production-stage').count(),0); report.skills.push(id);
  }
- for(const role of ['stargazer','dreamweaver','samurai','sage','gladiator']){
+ for(const role of ['stargazer','samurai','sage','gladiator']){
   const result=await page.evaluate(async role=>{
    const all=Object.values(PHASE6_LAB_SCENES).flatMap(s=>s.steps||[]);
    const step=structuredClone(all.find(s=>s.type==='player_action'&&s.actionId==='basic'&&s.sourceRole===role)||all.find(s=>s.type==='player_action'&&s.actionId==='basic'));

@@ -2,6 +2,12 @@
 // Durations and identity windows measured from decoded PCM (artifacts/audio).
 const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['fight', 'fight', .45, 'panel_sweep', .30, 850],
+  ['dreamwaver-swoosh', 'swoosh', .6, null, .05, 300],
+  ['dreamwaver-rope', 'dreamwaver-rope', .65, null, 0, 816],
+  ['dreamwaver-pa', 'dreamwaver-pa', .65, null, 0, 1104],
+  ['dreamwaver-dream', 'dreamwaver-dream', .5, null, 0, 2350, 9.936],
+  ['dreamwaver-posi', 'dreamwaver-posi', .6, null, 0, 2424],
+  ['dreamwaver-nage', 'dreamwaver-nage', .6, null, 0, 4102],
   ['samurai_parry', 'parry', .55, 'shield_block', 0, 300],
   ['warrior_basic', 'sword-slash-light', .65, 'warrior_xing', .55, 450],
   ['warrior_skill1', 'sword-slash-heavy', .5, 'warrior_xing', .05, 750],
@@ -27,10 +33,10 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['boss_warning', 'warning', .55, 'boss_warning', 0, 4700],
   ['boss_entrance', 'boss', .27, 'boss_boom', .65, 3500],
   ['victory', 'victory', .32, 'victory', 0, 3900]
-].map(([key, file, volume, fallback, offset, identityBeatMs]) => [key, Object.freeze({
+].map(([key, file, volume, fallback, offset, identityBeatMs, maxDuration]) => [key, Object.freeze({
   src: '/sound/' + file + '.mp3', volume, fallback, offset, identityBeatMs,
   // A short fade preserves the tail without waiting for silence/file ended.
-  maxDuration: (identityBeatMs + 200) / 1000
+  maxDuration: maxDuration ?? (identityBeatMs + 200) / 1000
 })])));
 
 const SFX_ALIASES = Object.freeze({
@@ -44,7 +50,7 @@ const SFX_ALIASES = Object.freeze({
 
 // Single owner for role + skill + form audio choices. Result cues remain server driven.
 const SFX_PRESENTATION_PROFILES = Object.freeze({
-  dreamweaver: {basic:'mage_basic',dw_butterfly:'bard_skill2',dw_false_dream:'mage_skill2'},
+  dreamweaver: {basic:null,dw_butterfly:null,dw_false_dream:null},
   stargazer: {basic:'mage_basic',sg_observe:'mage_skill2',sg_clock:'bard_skill2'},
   gladiator: {basic:'warrior_basic',g_sacrifice:'warrior_skill1',g_arena:'warrior_skill1'},
   samurai: {basic:'warrior_basic',sa_cut:'warrior_skill1',sa_tsubame:'warrior_basic',sa_counter:'warrior_basic'},

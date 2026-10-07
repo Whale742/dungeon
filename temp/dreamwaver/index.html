@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10191c">
+  <meta name="description" content="織夢術士技能特效：金色螺旋束縛、四蝶交错編織、四蝶入體與十種夢蝶觸發分支。離線互動展示。">
+  <title>織夢術士 · Dreamweaver — 技能特效實驗場</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+  <symbol id="i-butterfly" viewBox="0 0 32 32"><path d="M16 13C11 6 8 5 2 3c0 8 4 13 13 15C8 15 4 17 5 24c6 0 9-3 11-7 2 4 5 7 11 7 1-7-3-9-10-6C26 16 30 11 30 3c-6 2-9 3-14 10Z" fill="none" stroke="currentColor" stroke-width=".8"/><path d="m2 3 14 14L30 3M5 24l11-7 11 7M16 10v14m0-13-3-4m3 4 3-4" fill="none" stroke="currentColor" stroke-width=".6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 10 7-10 7Z" fill="currentColor"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 11v6m0-11v2" stroke="currentColor" stroke-width="1.5"/></symbol>
+</defs></svg>
+<main class="app">
+  <header class="masthead">
+    <div class="wordmark"><svg><use href="#i-butterfly"/></svg><span>VEIL / 織夢術式檔案</span></div>
+    <div class="masthead-right">INTERACTIVE SPELL STUDY — 001</div>
+  </header>
+  <section class="hero" aria-labelledby="pageTitle">
+    <div>
+      <div class="eyebrow">THE ART OF WEAVING DREAMS</div>
+      <h1 id="pageTitle">織夢術士<i>Dreamweaver</i></h1>
+      <p>蝶影牽起金色長絲，將片刻幻夢織入現實。</p>
+    </div>
+    <div class="collection-count" aria-label="三組技能演出、十種觸發分支">
+      <div><strong>03</strong><span>技能<br>演出</span></div><div class="divider"></div>
+      <div><strong>10</strong><span>觸發<br>分支</span></div>
+    </div>
+  </section>
+  <div class="workspace">
+    <section class="left" aria-label="技能特效預覽">
+      <nav class="tabs" role="tablist" aria-label="選擇演出">
+        <button type="button" class="tab" id="tab-attack" role="tab" data-type="attack" aria-selected="true" aria-controls="previewPanel"><span class="tab-index">01</span>普通攻擊</button>
+        <button type="button" class="tab" id="tab-skill1" role="tab" data-type="skill1" aria-selected="false" aria-controls="previewPanel" tabindex="-1"><span class="tab-index">02</span>技能一</button>
+        <button type="button" class="tab" id="tab-skill2" role="tab" data-type="skill2" aria-selected="false" aria-controls="previewPanel" tabindex="-1"><span class="tab-index">03</span>技能二</button>
+        <button type="button" class="tab" id="tab-trigger" role="tab" data-type="trigger" aria-selected="false" aria-controls="previewPanel" tabindex="-1"><svg style="width:15px;height:15px"><use href="#i-butterfly"/></svg>觸發效果</button>
+      </nav>
+      <div id="previewPanel" role="tabpanel" aria-labelledby="tab-attack" class="theatre">
+        <div class="stage-header">
+          <div class="stage-title"><span class="small-diamond"></span><span id="stageTitle">螺旋纏繞 · 四散勒緊</span></div>
+          <div class="stage-header-right">
+            <div class="live-status" id="liveStatus"><span class="status-dot"></span><span id="statusText">準備就緒</span></div>
+            <button type="button" class="icon-btn" id="fullscreenButton" aria-label="全螢幕預覽" title="全螢幕預覽"><svg><use href="#i-fullscreen"/></svg></button>
+          </div>
+        </div>
+        <div id="stage" class="stage" aria-label="織夢術士在左方，夢魘殘像在右方；技能特效在兩者之間演出。">
+          <canvas id="environment" class="environment" aria-hidden="true"></canvas>
+          <div class="stage-top-note">DREAMBOUND / COMBAT PREVIEW</div>
+          <div class="stage-coordinates" id="stageCoordinates">FX · 001</div>
+          <div class="scene-watermark" aria-hidden="true">Somnium</div>
+          <div class="actor actor-caster" id="casterActor">
+            <div class="actor-overline">THE DREAMWEAVER</div>
+            <div class="avatar-box" id="casterAnchor">
+              <div class="avatar-visual" id="casterAvatar"><img class="caster-image" id="casterImage" src="Dreamweaver.webp" alt="身披兜帽的織夢術士，手持金色命運絲線，身旁環繞晶質夢蝶。" draggable="false"></div>
+            </div>
+            <div class="actor-info"><div class="actor-name">織夢術士</div><div class="actor-subtitle">THE THREADKEEPER</div><div class="hp-track"><div class="hp-fill"></div></div><div class="hp-value"><span>100 / 100</span><span>HP</span></div></div>
+          </div>
+          <div class="actor actor-target" id="targetActor">
+            <div class="status-chip" id="statusChip">夢蝶迷思</div>
+            <div class="actor-overline">THE NIGHTMARE</div>
+            <div class="avatar-box" id="targetAnchor">
+              <div class="avatar-visual" id="targetAvatar">
+                <svg class="enemy-art" viewBox="0 0 180 218" role="img" aria-label="供特效測試的夢魘殘像頭像">
+                  <defs>
+                    <radialGradient id="enemySky" cx=".5" cy=".38" r=".7"><stop stop-color="#343137"/><stop offset=".65" stop-color="#182125"/><stop offset="1" stop-color="#0a1218"/></radialGradient>
+                    <linearGradient id="hood" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#665e62"/><stop offset=".35" stop-color="#333239"/><stop offset="1" stop-color="#121d23"/></linearGradient>
+                    <linearGradient id="hoodRim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a2917c"/><stop offset=".3" stop-color="#776b68"/><stop offset="1" stop-color="#253137"/></linearGradient>
+                    <linearGradient id="cloak" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#34373b"/><stop offset=".4" stop-color="#151d23"/><stop offset=".8" stop-color="#39383c"/><stop offset="1" stop-color="#10191e"/></linearGradient>
+                    <radialGradient id="rift"><stop stop-color="#ffe0bc"/><stop offset=".18" stop-color="#edbaa3"/><stop offset=".52" stop-color="#99717c" stop-opacity=".7"/><stop offset="1" stop-color="#785471" stop-opacity="0"/></radialGradient>
+                  </defs>
+                  <rect width="180" height="218" fill="url(#enemySky)"/>
+                  <g fill="none" stroke="#ac9682" stroke-width=".45" opacity=".28"><circle cx="90" cy="97" r="69"/><circle cx="90" cy="97" r="64"/><path d="M90 22v10m0 130v10M15 97h10m130 0h10M37 44l7 7m92 92 7 7M37 150l7-7m92-92 7-7"/></g>
+                  <g fill="#bbabb0" opacity=".3"><circle cx="21" cy="60" r=".6"/><circle cx="151" cy="40" r=".8"/><circle cx="33" cy="122" r=".7"/><circle cx="137" cy="131" r=".5"/><circle cx="59" cy="29" r=".6"/><circle cx="124" cy="21" r=".5"/><circle cx="160" cy="91" r=".5"/></g>
+                  <path d="M9 218 25 175 46 160 54 127 49 93Q55 46 91 31q35 17 41 58l-6 44 10 29 25 24 11 32Z" fill="url(#cloak)"/>
+                  <path d="M40 168Q61 128 48 103q6-49 42-73 39 28 44 70-13 43 7 69l-37-18-22 9Z" fill="url(#hood)"/>
+                  <path d="M58 119Q57 84 89 54q34 32 33 65l-17 31-25 5Z" fill="#080f15"/>
+                  <path d="M44 153Q57 129 53 108q4-42 37-70 35 32 39 68-6 28 8 56l-20-13m-58-3 19 11 33-8" fill="none" stroke="url(#hoodRim)" stroke-width="3"/>
+                  <path d="M62 113Q63 82 90 57l8 30-3 26 9 23-12 14-17-7Z" fill="#10191f"/>
+                  <path d="m89 59 7 30-5 22 9 24-10 16" fill="none" stroke="#af9699" stroke-width=".7" opacity=".5"/>
+                  <ellipse cx="90" cy="109" rx="24" ry="33" fill="url(#rift)" opacity=".35"/>
+                  <path d="m76 100 10 4-2 4-8-5m19 1 11-5-2 5-8 4" fill="#d5a5a2" opacity=".8"/>
+                  <path d="M30 185 74 170l15 23 22-27 40 25M47 171l23 45M130 169l-14 49M77 174l9 39" fill="none" stroke="#8e7e7780" stroke-width="1"/>
+                  <path d="m32 187 29 9-8 22M135 192l-11 26M62 163l22 10 30-12" fill="none" stroke="#b2a291" stroke-width=".65" opacity=".4"/>
+                  <path d="m89 177 9 12-9 12-9-12Z" fill="#171f23" stroke="#aa8e77" stroke-width=".7"/><path d="m89 182 5 7-5 7-5-7Z" fill="#7d686d"/>
+                </svg>
+              </div>
+            </div>
+            <div class="actor-info"><div class="actor-name">夢魘殘像</div><div class="actor-subtitle">TRAINING APPARITION</div><div class="hp-track"><div class="hp-fill" id="enemyHpFill"></div></div><div class="hp-value"><span id="enemyHpValue">1,000 / 1,000</span><span>HP</span></div></div>
+          </div>
+          <div class="damage-number" id="damageNumber" aria-hidden="true">−128</div>
+          <div class="trigger-label" id="triggerLabel" aria-hidden="true">鏡像夢境</div>
+          <div class="stage-bottom-note">GOLDEN THREADS · CRYSTALLINE WINGS</div>
+          <div class="transparent-tag">棋盤格僅供預覽 · 特效層透明</div>
+        </div>
+        <div class="timeline">
+          <div class="timeline-top"><span class="phase-label" id="phaseLabel">等待施放</span><span class="time-code"><b id="currentTime">00.00</b> <span>/ <span id="totalTime">04.80</span> S</span></span></div>
+          <label class="sr-only" for="scrubber">拖曳檢視動畫時間</label><input id="scrubber" class="scrubber" type="range" min="0" max="4.8" step="0.001" value="0">
+          <div id="phaseMarkers" class="phase-markers" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="transport">
+        <div class="transport-left">
+          <button type="button" class="cast-button" id="castButton"><svg><use href="#i-butterfly"/></svg>施放術式</button>
+          <button type="button" class="secondary-button" id="pauseButton" title="暫停 / 繼續" aria-label="暫停"><svg><use id="pauseIcon" href="#i-pause"/></svg><span class="pause-text" id="pauseText">暫停</span></button>
+          <button type="button" class="secondary-button" id="resetButton" title="清除演出，回到起點" aria-label="清除演出並重設"><svg><use href="#i-reset"/></svg></button>
+        </div>
+        <div class="transport-right"><label for="speedSelect">速度</label><select id="speedSelect" class="speed-select"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1.0×</option><option value="1.5">1.5×</option><option value="2">2.0×</option></select></div>
+      </div>
+      <div class="hint-line"><span class="note">拖曳時間軸可逐段檢視。頭像與血量僅為演出測試，非正式遊戲數值。</span><span class="keyboard-hint"><kbd>SPACE</kbd> 暫停 <span style="margin:0 3px">·</span> <kbd>R</kbd> 重播</span></div>
+    </section>
+    <aside class="console" aria-label="術式控制">
+      <div class="console-intro">
+        <div class="console-kicker"><span>術式控制</span><span id="spellId">BASIC / 01</span></div>
+        <h2 id="spellName">螺旋纏繞</h2>
+        <p class="spell-description" id="spellDescription">四隻夢蝶牽引三道金色螺旋，反向拉扯收緊絲弦，直至夢境崩斷。</p>
+        <div class="spell-stats" id="spellStats"><span class="stat-tag">四蝶包夾</span><span class="stat-tag">頭像壓縮 80%</span></div>
+        <div class="console-rule"></div>
+      </div>
+      <div class="console-settings">
+        <label class="field-label" for="branchSelect"><span>觸發分支</span><span class="minor" id="branchCount">4 種結果</span></label>
+        <div class="select-wrap"><span class="branch-swatch" id="branchSwatch"></span><select class="branch-select" id="branchSelect" aria-describedby="branchNote"></select></div>
+        <div class="palette-row" id="paletteRow" aria-label="快速切換觸發分支"></div>
+        <div class="branch-note" id="branchNote">紫色夢蝶 · 顯影 1 秒 · 最高透明度 50%</div>
+        <div class="field-label"><span>判定對象</span><span class="minor">TRIGGER TARGET</span></div>
+        <div class="target-choice" role="group" aria-label="選擇觸發效果的對象"><button type="button" class="target-btn" id="targetEnemy" data-target="enemy" aria-pressed="true">敵方頭像</button><button type="button" class="target-btn" id="targetAlly" data-target="ally" aria-pressed="false" disabled>我方角色</button></div>
+        <div class="field-help" id="targetHelp">普攻的判定效果固定出現在敵方。</div>
+        <div class="console-rule"></div>
+        <label class="switch-row" for="autoTrigger"><span>演出後接續觸發分支</span><input type="checkbox" id="autoTrigger" class="switch" checked></label>
+        <label class="switch-row" for="transparentToggle"><span>透明背景檢視</span><input type="checkbox" id="transparentToggle" class="switch"></label>
+      </div>
+      <div class="settings-foot">
+        <div class="console-rule"></div>
+        <button type="button" id="specButton" class="spec-link"><svg><use href="#i-info"/></svg>演出規格與整合說明</button>
+        <div class="quality-row"><label for="qualitySelect">渲染品質</label><select id="qualitySelect" class="quality-select"><option value="auto">自動 · 建議</option><option value="high">高畫質</option><option value="eco">節能</option></select></div>
+      </div>
+    </aside>
+  </div>
+  <footer class="page-footer"><div class="footer-brand">DREAMWEAVER <span style="color:#495e65;margin:0 7px">/</span> SPELL EFFECT ARCHIVE</div><div class="footer-dots"><span></span> 晶質夢蝶 × 金色絲線 × 夢境侵蝕</div></footer>
+</main>
+<div id="toast" class="toast" role="status"></div>
+<dialog class="spec-dialog" id="specDialog" aria-labelledby="dialogTitle">
+  <div class="dialog-head"><h3 id="dialogTitle">演出規格與整合</h3><button type="button" id="closeDialog" class="icon-btn" aria-label="關閉說明"><svg><use href="#i-close"/></svg></button></div>
+  <div class="dialog-body">
+    <h4>01 / 普通攻擊：包夾 → 勒緊 → 崩斷</h4>
+    <p>四隻晶質夢蝶牽引三道傾斜交錯的金色螺旋。四蝶向外反拉，絲弦轉為白金色，敵方頭像實際縮至 80%；2.94 秒時崩斷，頭像彈簧回彈、震顫，同步顯示跳字與扣血。</p>
+    <h4>02–03 / 技能一、二：兩組編織 → 四蝶入體</h4>
+    <p>兩個技能依附檔共用相同主體演出，差別在後續判定分支。組 A 是展翼半徑 135px 的橫向 8 字，組 B 是錯速垂直波浪；兩條長絲向下深垂約 78px 與 88px，帶有流動波紋與交疊。小畫面等比例縮放。四蝶同時收攏，接觸時折翼塌縮，4.42 秒掛載「夢蝶迷思」。</p>
+    <h4>04 / 觸發效果</h4>
+    <p>蝴蝶在頭像上顯影 1 秒，圖層最大不透明度為 50%，包括短暫淡入與淡出。技能一可選敵方或我方；此選擇只影響判定蝴蝶，不改變原始四蝶入體的目標。</p>
+    <div class="branch-grid" id="branchLegend"></div>
+    <h4>透明層 / 獨立頭像</h4>
+    <p>兩層 Canvas 分別繪製頭像後方與前方的特效，沒有背景填色。人物是獨立 DOM，背景是另一張靜態 Canvas；「透明背景檢視」的棋盤格只用於預覽。</p>
+    <p>特效控制器公開於 <code>window.DreamweaverFX</code>。可呼叫 <code>play()</code>、<code>pause()</code>、<code>resume()</code>、<code>seek()</code>、<code>cancel()</code>、<code>destroy()</code>；現有展示實例為 <code>window.dreamweaverDemo.fx</code>。</p>
+    <p class="callout">附檔沒有給定完整戰鬥數值、機率或施放時長。本頁固定 −128、測試頭像、血條與時間安排皆屬展示設定；不新增技能效果，也不替遊戲決定判定結果。正式整合請由遊戲傳入分支與傷害，並在 <code>onImpact</code>、<code>onStatus</code>、<code>onTrigger</code> 接回既有流程。</p>
+    <p>快捷鍵：空白鍵暫停／繼續；R 重播；1–4 切換演出。切換頁籤會取消前一次演出，避免疊加。遵循「減少動態效果」偏好時不會自動播放，仍可手動施放。</p>
+  </div>
+</dialog>
+<noscript><p class="error-notice">此特效展示需要啟用 JavaScript。</p></noscript>
+<script src="dreamweaver-fx.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>

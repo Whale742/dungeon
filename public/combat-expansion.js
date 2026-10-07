@@ -77,12 +77,15 @@ function updateResultCard(card, target) {
   }
 }
 async function presentCombatResult(result, card, context = {}) {
-  const audio = context.audioScope || createSfxPresentationScope(context);
+  const resultOutcome = result.outcome?.type;
+  const baseAudio = context.audioScope || createSfxPresentationScope(context);
+  const audio = ['dream_heal','nightmare'].includes(resultOutcome) ? dreamweaverAudioScope(baseAudio) : baseAudio;
   const playSound = (key, options) => audio.play(key, options);
   const wait = ms => waitForPresentation(context.fastResult?Math.min(ms,30):ms, context.signal, context.speed || 1);
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
   const emit = beat => context.onTiming?.(beat, { targetId: result.targetId, result });
+  if(!context.dreamweaverOriginalTrigger && ['dream_heal','nightmare'].includes(outcome.type))revealDreamOutcomeButterfly(card,outcome.type,context);
   if (result.sharedFrom) {
     card.classList.add('has-root-link');
     resultFloat(card, '傷害分攤', 'is-nature');
@@ -126,17 +129,19 @@ async function presentCombatResult(result, card, context = {}) {
           direction: context.direction || 'left', variant: context.compact ? 'compact' : undefined, speed: context.speed || 1, reducedMotion: context.reducedMotion });
         if (fxType !== 'claw_slash' && fxType !== 'boss_claw') await wait(context.compact ? 90 : 130);
       }
-      const hit = card.querySelector('.presentation-result-hit');
-      if(context.prewarmed&&context.motion){
-        const direction=context.direction==='right'?1:-1;
-        context.motion(hit,[{transform:'translateX(0)'},{transform:'translateX('+(direction*10)+'px)',offset:.3},{transform:'translateX(0)'}],220);
+      if(!context.originalDreamweaverFx) {
+        const hit = card.querySelector('.presentation-result-hit');
+        if(context.prewarmed&&context.motion){
+          const direction=context.direction==='right'?1:-1;
+          context.motion(hit,[{transform:'translateX(0)'},{transform:'translateX('+(direction*10)+'px)',offset:.3},{transform:'translateX(0)'}],220);
+        }
+        hit.classList.remove('is-hit-left', 'is-hit-right');
+        if(!context.prewarmed)void hit.offsetWidth;
+        hit.classList.add(context.direction === 'right' ? 'is-hit-right' : 'is-hit-left');
+        card.classList.remove('is-impacting');
+        if(!context.prewarmed)void card.offsetWidth;
+        card.classList.add('is-impacting');
       }
-      hit.classList.remove('is-hit-left', 'is-hit-right');
-      if(!context.prewarmed)void hit.offsetWidth;
-      hit.classList.add(context.direction === 'right' ? 'is-hit-right' : 'is-hit-left');
-      card.classList.remove('is-impacting');
-      if(!context.prewarmed)void card.offsetWidth;
-      card.classList.add('is-impacting');
       if (context.sourceRole === 'archer') { card.classList.add('has-arrow-rain'); playSound('arrow_flight'); }
       else if (context.sourceRole === 'druid' && !context.minionAudio) playSound(fxType === 'claw_slash' ? 'claw_slash' : 'vine_strike', { synthOnly: true });
       else if (context.sourceRole === 'alchemist') card.classList.add('has-poison-cloud');
@@ -590,6 +595,7 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
+  if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
   if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
   if(step.sourceRole==='stargazer'&&['sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);

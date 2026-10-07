@@ -6,7 +6,7 @@ export const NEW_CLASSES = {
   dreamweaver: { name: '織夢術士', avatar: '/photo/Dreamweaver.webp', maxHp: 75,
     desc: '夢境纖維扭轉傷害與現實。', passive: '普通攻擊有 50% 機率使魔物混亂 1 回合：鏡像交換物魔抗性；解離承傷 +10%；夢魘虛弱暫降當前與最大生命 10%；狂亂反噬傷害 +10%。四種等機率。',
     skills: [skill('basic', '夢境纖維', 0, 'mag', '10 魔法傷害；50% 使魔物陷入隨機混亂。'),
-      skill('dw_butterfly', '清醒夢・薛丁格之蝶', 2, null, '指定隊友或魔物，持續 1 回合。每次傷害有 60% 轉為等額治療，40% 化為無視抗性的真實傷害。', 'BUFF'),
+      skill('dw_butterfly', '清醒夢・薛丁格之蝶', 2, null, '指定隊友或魔物，持續 1 回合。施放時抽定夢境：60%【美夢化生】將傷害轉為等額治療，40%【夢魘成真】將傷害轉為無視抗性的真實傷害；狀態期間受擊沿用所選夢境。', 'BUFF'),
       skill('dw_false_dream', '虛構歷史', 3, null, '魔物 1 回合計算覆寫：淺夢為樓層區段起點，深夢為終點，孤影為存活人數 -3（至少 1），群影為存活人數 +3；等機率。', 'DEBUFF')] },
   stargazer: { name: '觀星者', avatar: '/photo/Stargazer.webp', maxHp: 70,
     desc: '探索深空，重塑星軌與時間。', passive: '無隨機普攻被動。三件望遠鏡零件必須同時裝備，才能啟動克卜勒的深空天眼。',

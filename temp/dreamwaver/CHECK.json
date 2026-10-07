@@ -1,0 +1,38 @@
+{
+  "results": [
+    {
+      "type": "skill1",
+      "target": "caster",
+      "passed": true
+    },
+    {
+      "type": "skill1",
+      "target": "enemy",
+      "passed": true
+    },
+    {
+      "type": "skill1",
+      "target": "other ally",
+      "passed": true
+    },
+    {
+      "type": "skill2",
+      "target": "caster",
+      "passed": true
+    },
+    {
+      "type": "skill2",
+      "target": "enemy",
+      "passed": true
+    },
+    {
+      "type": "skill2",
+      "target": "other ally",
+      "passed": true
+    }
+  ],
+  "threadSamplesFinite": true,
+  "frontSegments": 3913,
+  "backSegments": 0,
+  "verification": "Node coordinate checks; browser runtime unavailable"
+}

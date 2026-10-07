@@ -248,3 +248,15 @@ test('arena excludes absent minions, hidden assassin followups and scatter targe
   const q=resolve(.1);assert.equal(actionStep(q).finalDamage,10);assert(!q.some(s=>s.category==='FOLLOW_UP'||s.category==='MINION_INTERCEPT'));
   const boss=q.find(s=>s.type==='boss_action');assert(boss.results.every(r=>r.targetId===p.id));assert.equal(boss.results.reduce((n,s)=>n+s.finalDamage,0),20);assert.equal(room.players.p1.minions[0].hp,100);
 });
+
+for(const [roll,expected] of [[.1,'dream_heal'],[.9,'nightmare']])test('dream is selected at cast and remains stable across hits: '+expected,t=>{
+ const {room,resolve}=fixture(t,['dreamweaver']);const p=room.players.p0;p.action='dw_butterfly';p.targetPlayerId=p.id;p.hp=30;
+ const queue=resolve(roll),cast=queue.find(s=>s.actionId==='dw_butterfly'),reveal=queue[queue.indexOf(cast)+1];
+ assert.equal(reveal.actionId,'dw_butterfly_result');assert.equal(reveal.outcome.type,expected);
+ assert.equal(p.p8Effects.dream_butterfly.dreamOutcome,expected);
+ room.p8LogBuffer=[]; // Log IDs use randomness independently of dream selection.
+ for(let i=0;i<3;i++){
+  const hit=random(()=>{throw Error('A hit must not reroll the dream');},()=>room.p8DreamDamage(p,2));
+  assert.equal(hit.outcome,expected);
+ }
+});

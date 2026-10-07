@@ -127,7 +127,8 @@ export const phase8Methods = {
   },
   p8DreamDamage(target,raw) {
     const effect=this.p8Has(target,'dream_butterfly');if(!effect||raw<=0)return null;
-    if(Math.random()<.6) {
+    const dream = effect.dreamOutcome || (Math.random()<.6 ? 'dream_heal' : 'nightmare');
+    if(dream==='dream_heal') {
       let healed;
       if(target===this.currentMonster) {
         const before=target.hp;target.hp=Math.min(target.maxHp,target.hp+raw);healed=target.hp-before;
@@ -236,7 +237,11 @@ export const phase8Methods = {
           } else effect(m,id,names[id],turns,id==='nightmare_weak'?{originalMaxHp:this.p8Has(m,id)?.originalMaxHp}:{});
           outcome={type:id,label:names[id]};this.p8Log(`織夢術士撥動夢境纖維，魔物陷入【${names[id]}】狀態！`);
         }
-      } else if(p.action==='dw_butterfly') {effect(this.players[p.targetPlayerId]||m,'dream_butterfly','夢蝶迷思',turns,{ownerId:p.id});outcome={type:'butterfly',label:'清醒夢・薛丁格之蝶'};}
+      } else if(p.action==='dw_butterfly') {
+        const dreamOutcome=Math.random()<.6?'dream_heal':'nightmare';
+        effect(this.players[p.targetPlayerId]||m,'dream_butterfly','夢蝶迷思',turns,{ownerId:p.id,dreamOutcome});
+        outcome={type:dreamOutcome,label:dreamOutcome==='dream_heal'?'美夢化生':'夢魘成真'};
+      }
       else if(p.action==='dw_false_dream') {
         const id=roll(['shallow','deep','lone','horde']),living=alive(this).length;
         const floor=id==='shallow'?Math.floor((this.floor-1)/5)*5+1:id==='deep'?Math.floor((this.floor-1)/5)*5+5:this.floor;
