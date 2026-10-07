@@ -22,6 +22,7 @@ export function addPhase8LabFixtures(fixtures,scene,add) {
     const {wire}=scene('samurai',action,r,configure);fixtures['p8_samurai_'+id]={label:'武士・'+id,steps:wire.queue.filter(s=>s.category)};
   }
   for(const [id,action,configure,r] of [
+    ['reference_17_24','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:17,sageX:24});},.9],
     ['hypothesis','basic',room=>{room.players.hero.sageOperand=8;},.9],
     ['solve','sge_induce',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:8,sageX:80});},.9],
     ['even_square','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:16,sageX:80});},.9],

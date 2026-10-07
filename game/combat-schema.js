@@ -88,9 +88,10 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       minions: (player.minions || []).filter(m => !(old?.minions || []).some(n => n.id === m.id)) }, player);
   }
   for (const event of attacks) {
+    if(event.outcome?.type==='dream_heal'&&event.value===0)continue;
     const next = { ...display.monster, hp: Math.max(0, display.monster.hp - event.value) };
     append({ kind: 'damage', targetId: 'monster', finalDamage: event.value,
-      outcome: step.outcome, damageType: event.dmgType === 'mag' ? 'magic' : 'physical' }, next);
+      outcome: event.outcome || step.outcome, damageType: event.outcome?.type==='nightmare'?'true':event.dmgType === 'mag' ? 'magic' : 'physical' }, next);
   }
   // Certain equipment adds a separate actual boss damage result.
   if (display.monster && after.monster && display.monster.hp > Math.max(0, after.monster.hp)) {
@@ -98,7 +99,7 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       outcome: { type: 'normal' }, damageType: 'magic' }, { ...after.monster, hp: Math.max(0, after.monster.hp) });
   }
   for (const heal of heals) append({ kind: 'heal', targetId: heal.targetId, actualHeal: heal.actualHeal,
-    outcome: { type: 'normal' } }, heal.targetAfter);
+    outcome: heal.outcome || { type: 'normal' } }, heal.targetAfter);
   if (step.category === 'BUFF') {
     for (const player of after.players.filter(p => p.hp > 0)) {
       const old = snapshotTarget(display, player.id);

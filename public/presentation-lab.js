@@ -743,6 +743,7 @@ async function playScene(sceneName) {
     particles: labState.particles,
     shake: labState.shake,
     reducedMotion: labState.reducedMotion,
+    showAnchors: !!document.getElementById("labShowAnchors")?.checked,
     controller, signal,
     onTiming: (beat, ts) => {
       if (labState.showTiming) {

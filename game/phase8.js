@@ -131,12 +131,12 @@ export const phase8Methods = {
       let healed;
       if(target===this.currentMonster) {
         const before=target.hp;target.hp=Math.min(target.maxHp,target.hp+raw);healed=target.hp-before;
-        this.actionHeals?.push({targetId:'monster',actualHeal:healed,targetAfter:this.getHpSnapshot().monster});
+        this.actionHeals?.push({targetId:'monster',actualHeal:healed,outcome:{type:'dream_heal'},targetAfter:this.getHpSnapshot().monster});
       } else healed=this.applyHealCapped(target,raw);
       this.p8Log('清醒夢・薛丁格之蝶！現實化為【美夢化生】（傷害轉為治療）！');
       return {damage:0,heal:healed,outcome:'dream_heal'};
     }
-    this.p8Log('清醒夢・薛丁格之蝶！現實化為【惡夢侵襲】（無視抗性的真實傷害）！');
+    this.p8Log('清醒夢・薛丁格之蝶！現實化為【夢魘成真】（無視抗性的真實傷害）！');
     return {damage:raw,outcome:'nightmare',ownerId:effect.ownerId};
   },
   p8NightmareHeal(p,ownerId) {
@@ -180,8 +180,8 @@ export const phase8Methods = {
   p8DamageMonster(p,raw,type,resistance,extra={}) {
     const before=this.getHpSnapshot();const {dmg}=resistance(raw,type,{...extra,actor:p});
     const actual=Math.min(this.currentMonster.hp,dmg);this.currentMonster.hp=Math.max(0,this.currentMonster.hp-dmg);
-    const after=this.getHpSnapshot();const outcome={type:extra.critical?'critical':'normal'};
-    const result={kind:this.p8BossOutcome==='dream_heal'?'heal':'damage',targetId:'monster',actualHeal:Math.max(0,after.monster.hp-before.monster.hp),finalDamage:actual,damageType:type==='mag'?'magic':type==='true'?'true':'physical',outcome,targetBefore:before.monster,targetAfter:after.monster,hpSnapshot:after};
+    const after=this.getHpSnapshot();const outcome={type:this.p8BossOutcome|| (extra.critical?'critical':'normal')};
+    const result={kind:this.p8BossOutcome==='dream_heal'?'heal':'damage',targetId:'monster',actualHeal:Math.max(0,after.monster.hp-before.monster.hp),finalDamage:actual,damageType:this.p8BossOutcome==='nightmare'?'true':type==='mag'?'magic':type==='true'?'true':'physical',outcome,targetBefore:before.monster,targetAfter:after.monster,hpSnapshot:after};
     this.p8Results?.push(result);this.p8Visuals?.push({type:'player_attack',sourceId:p.id,target:'monster',dmgType:type,value:actual,isCrit:!!extra.critical});
     return actual;
   },
@@ -207,10 +207,10 @@ export const phase8Methods = {
       hits.push({kind:incoming.outcome==='dream_heal'?'heal':'damage',targetId:p.id,role:p.role,
         value:result.actualDmg,finalDamage:result.actualDmg,hpDmg:result.hpDmg,tempAbsorbed:result.tempAbsorbed,absorbed:result.tempAbsorbed,
         actualHeal:incoming.heal||0,damageType:incoming.outcome==='nightmare'?'true':'physical',guard:incoming.outcome==='parry',
-        outcome:{type:incoming.outcome==='dream_heal'?'dream_heal':result.actualDmg===0?'block':'normal',parry:incoming.outcome==='parry'},
+        outcome:{type:['dream_heal','nightmare'].includes(incoming.outcome)?incoming.outcome:result.actualDmg===0?'block':'normal',parry:incoming.outcome==='parry'},
         targetBefore,targetAfter:snapshot.players.find(a=>a.id===p.id),hpSnapshot:snapshot,
         shieldBreak:targetBefore.tempHp>0&&p.tempHp===0,segment:'direct',isDead:p.hp<=0});
-      this.p8Log(`${p.name}【${incoming.outcome==='parry'?'招架':incoming.outcome==='dream_heal'?'美夢化生':incoming.outcome==='nightmare'?'惡夢侵襲':'直接攻擊'}】${incoming.heal?'+ '+incoming.heal:result.actualDmg}。`,'combat');
+      this.p8Log(`${p.name}【${incoming.outcome==='parry'?'招架':incoming.outcome==='dream_heal'?'美夢化生':incoming.outcome==='nightmare'?'夢魘成真':'直接攻擊'}】${incoming.heal?'+ '+incoming.heal:result.actualDmg}。`,'combat');
     }
   },
   p8Action(p,resistance,bardMultiplier,visuals,log) {

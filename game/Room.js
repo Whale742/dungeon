@@ -1801,6 +1801,7 @@ export class Room {
     let phase8Actor = null;
     const applyResistanceDamage = (rawDmg, dmgType, options = {}) => {
       this.p8BossOutcome=null;
+      const presentationCue={};this.p8DamagePresentationOutcomes?.push(presentationCue);
       if (!options.equation && dmgType!=='true') {
         const actor=options.actor||phase8Actor;
         rawDmg += this.p8Has(actor,'galaxy')?.value || 0;
@@ -1808,7 +1809,11 @@ export class Room {
       }
       if(this.p8Has(monster,'dissociate') || (this.p8Has(monster,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
       const dream=this.p8DreamDamage(monster,rawDmg);
-      if(dream) { this.p8BossOutcome=dream.outcome; return {dmg:dream.damage,isResisted:false,resistPercent:0}; }
+      if(dream) {
+        this.p8BossOutcome=dream.outcome;
+        presentationCue.type=dream.outcome;
+        return {dmg:dream.damage,isResisted:false,resistPercent:0};
+      }
       if(this.arena || dmgType==='true' || options.penetration===1)return {dmg:Math.max(0,Math.floor(rawDmg)),isResisted:false,resistPercent:0};
       const resistance=this.p8Has(monster,'mirror')?(monster.resistance==='phys'?'mag':monster.resistance==='mag'?'phys':monster.resistance):monster.resistance;
       let finalDmg = rawDmg;
@@ -1864,7 +1869,7 @@ export class Room {
     for (const p of sortedPlayers) {
       if (monster.hp <= 0) break;
       if (this.arena && this.arena.playerId !== p.id) continue;
-      phase8Actor=p; this.p8Results=null;
+      phase8Actor=p; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
       const beforeVisualCount = visualEvents.length;
       const beforeLogCount = log.length;
       const monsterHpBefore = monster.hp;
@@ -2659,6 +2664,9 @@ export class Room {
       monster.hp = Math.max(0, monster.hp);
       const actionAfter = this.getHpSnapshot();
       const actionCategory = p8Action?.category || SKILL_CATEGORIES[p.action] || 'OFFENSIVE';
+      stepVisuals.filter(event=>event.type==='player_attack').forEach((event,i)=>{
+        const cue=this.p8DamagePresentationOutcomes[i];if(cue?.type)event.outcome={type:cue.type};
+      });
       const actionResults = this.p8Results || buildActionResults({ outcome: actionOutcome, category: actionCategory, sourceId: p.id, cleansedSnapshot: this.actionCleansedSnapshot }, actionBefore, actionAfter, stepVisuals, this.actionHeals);
       this.actionHeals = null;
       presentationQueue.push({

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeon Abyss — Presentation Lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 控制列：職業、技能、速度、播放控制 -->
+  <header id="controlPanel">
+    <div class="control-group">
+      <label for="classSelect">職業</label>
+      <select id="classSelect"></select>
+    </div>
+
+    <div class="control-group">
+      <label for="skillSelect">技能演出</label>
+      <select id="skillSelect"></select>
+    </div>
+
+    <div class="control-group">
+      <label for="speedSelect">播放速度</label>
+      <select id="speedSelect">
+        <option value="0.25">0.25x (極慢定格)</option>
+        <option value="0.5" selected>0.5x (半速慢放)</option>
+        <option value="0.75">0.75x (微慢)</option>
+        <option value="1.0">1.0x (標準速度)</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group buttons">
+      <button id="btnPlay" class="btn primary">開始播放</button>
+      <button id="btnPause" class="btn" disabled>暫停播放</button>
+      <button id="btnReplay" class="btn">重播</button>
+      <button id="btnReset" class="btn danger">重置</button>
+    </div>
+
+    <div class="status-indicator">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">待命</span>
+    </div>
+  </header>
+
+  <!-- 戰鬥演出主舞台 -->
+  <main id="presentationRoot">
+    <svg id="fxOverlay" aria-hidden="true"></svg>
+
+    <div id="presentationCombatStage">
+      <section class="action-strip" id="actionStrip">
+        <div class="skill-intent" id="skillName">【技能名稱】</div>
+
+        <div class="strip-inner">
+          <!-- 施法者 (ACTOR) -->
+          <div class="combatant" id="actorUnit">
+            <div class="position-wrapper" id="actorPos">
+              <div class="hit-wrapper" id="actorHit">
+                <div class="portrait-box actor" id="actorPortrait"></div>
+                <div class="status-tag" id="actorStatus"></div>
+              </div>
+            </div>
+            <div class="unit-meta">
+              <div class="unit-name" id="actorName">角色</div>
+              <div class="hp-bar-bg">
+                <div class="hp-bar-fill" id="actorHp"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 承受者 (TARGET / BOSS) -->
+          <div class="combatant" id="targetUnit">
+            <div class="position-wrapper" id="targetPos">
+              <div class="hit-wrapper" id="targetHit">
+                <div class="portrait-box target" id="targetPortrait"></div>
+                <div class="status-tag" id="targetStatus"></div>
+              </div>
+            </div>
+            <div class="unit-meta">
+              <div class="unit-name" id="targetName">深淵領主</div>
+              <div class="hp-bar-bg">
+                <div class="hp-bar-fill" id="targetHp"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Golden Snap - Interactive Animation</title>
+  <style>
+    :root {
+      --gold: #edc86f;
+      --cream: #eee8d9;
+      --muted: #82857f;
+      --line: rgba(224, 199, 138, .13);
+      --bg: #090b0c;
+      font-family: Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      color: var(--cream);
+      background: var(--bg)
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      background: radial-gradient(ellipse at 50% 0%, #1c201e 0, transparent 55%), #090b0c
+    }
+
+    button,
+    input {
+      font: inherit
+    }
+
+    button {
+      color: inherit;
+      cursor: pointer
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 5px
+    }
+
+    button {
+      touch-action: manipulation
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed
+    }
+
+    .app {
+      width: min(1320px, calc(100% - 88px));
+      margin: 0 auto;
+      padding: 40px 0 26px
+    }
+
+    .masthead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 25px;
+      gap: 20px
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px
+    }
+
+    .brand-mark {
+      width: 43px;
+      height: 43px;
+      flex: none;
+      color: var(--gold)
+    }
+
+    .eyebrow {
+      font-size: 10px;
+      letter-spacing: .25em;
+      color: #af9566;
+      margin: 0 0 8px
+    }
+
+    .title {
+      font-size: 24px;
+      line-height: 1.3;
+      letter-spacing: .13em;
+      margin: 0;
+      font-weight: 500
+    }
+
+    .masthead-note {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #9b9e97;
+      letter-spacing: .08em;
+      font-size: 11px
+    }
+
+    .status-light {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 10px #e3bb5e60
+    }
+
+    .stage-shell {
+      border: 1px solid var(--line);
+      background: #07090a;
+      box-shadow: 0 25px 90px #0005;
+      position: relative;
+      overflow: hidden;
+      border-radius: 5px
+    }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      overflow: hidden;
+      isolation: isolate;
+      background: radial-gradient(ellipse at 50% 43%, #181d1c 0, #0b1012 41%, #06090c 81%)
+    }
+
+    .stage:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      aspect-ratio: auto;
+      border: 0
+    }
+
+    .stage canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none
+    }
+
+    .environment {
+      z-index: 0
+    }
+
+    .backfx {
+      z-index: 2
+    }
+
+    .frontfx {
+      z-index: 5
+    }
+
+    .floor-glow {
+      position: absolute;
+      left: 20%;
+      right: 20%;
+      height: 8%;
+      bottom: 10%;
+      background: radial-gradient(ellipse, #bf934513, transparent 70%);
+      filter: blur(22px);
+      z-index: 1
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 110px 26px #0204057a;
+      pointer-events: none;
+      z-index: 7
+    }
+
+    .frame-corner {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-color: #d5b15c55;
+      border-style: solid;
+      z-index: 8;
+      opacity: .65
+    }
+
+    .tl {
+      left: 21px;
+      top: 21px;
+      border-width: 1px 0 0 1px
+    }
+
+    .tr {
+      right: 21px;
+      top: 21px;
+      border-width: 1px 1px 0 0
+    }
+
+    .bl {
+      left: 21px;
+      bottom: 21px;
+      border-width: 0 0 1px 1px
+    }
+
+    .br {
+      right: 21px;
+      bottom: 21px;
+      border-width: 0 1px 1px 0
+    }
+
+    .scene-meta {
+      position: absolute;
+      z-index: 8;
+      top: 31px;
+      left: 39px;
+      pointer-events: none
+    }
+
+    .scene-overline {
+      font: 9px/1.3 ui-monospace, Consolas, monospace;
+      letter-spacing: .22em;
+      color: #a28c604d
+    }
+
+    .scene-phase {
+      font-size: 12px;
+      font-weight: 400;
+      color: #c2b495a8;
+      letter-spacing: .22em;
+      margin-top: 12px;
+      transition: color .2s
+    }
+
+    .scene-right {
+      position: absolute;
+      right: 38px;
+      top: 34px;
+      font: 9px ui-monospace, Consolas, monospace;
+      color: #b9b09a5e;
+      letter-spacing: .13em;
+      z-index: 8
+    }
+
+    .scene-caption {
+      position: absolute;
+      bottom: 34px;
+      left: 39px;
+      z-index: 8;
+      pointer-events: none
+    }
+
+    .caption-title {
+      font: italic 22px Georgia, "Times New Roman", serif;
+      color: #d5c6a36e;
+      letter-spacing: .025em
+    }
+
+    .caption-sub {
+      margin-top: 9px;
+      font-size: 9px;
+      letter-spacing: .24em;
+      color: #9e9f8866
+    }
+
+    .scene-number {
+      position: absolute;
+      right: 38px;
+      bottom: 33px;
+      color: #b9b09a48;
+      font: 10px ui-monospace, Consolas, monospace;
+      letter-spacing: .1em;
+      z-index: 8
+    }
+
+    .hand-wrap {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+      will-change: transform, opacity;
+      transform-origin: 19.1% 27.9%;
+    }
+
+    .hand-frame {
+      position: absolute;
+      display: block;
+      max-width: none;
+      user-select: none;
+      background-position: center;
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      will-change: transform, opacity;
+      transform-origin: 50% 58%;
+      filter: drop-shadow(14px 22px 14px rgba(0, 0, 0, .48))
+    }
+
+    .hand-pre {
+      left: 28px;
+      top: 0;
+      width: 630px;
+      height: 1008px
+    }
+
+    .hand-snap {
+      left: 8px;
+      top: 0;
+      width: 683px;
+      height: 1008px
+    }
+
+    .gold-wash {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 50% 37%, #ffe6a13d, transparent 48%);
+      opacity: 0;
+      mix-blend-mode: screen
+    }
+
+    .timeline {
+      position: relative;
+      background: #111615;
+      height: 3px;
+      overflow: hidden
+    }
+
+    .timeline-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #806640, #eecb78);
+      pointer-events: none
+    }
+
+    .scrubber {
+      position: absolute;
+      inset: -9px 0;
+      width: 100%;
+      height: 21px;
+      opacity: 0;
+      cursor: ew-resize;
+      margin: 0;
+      z-index: 10
+    }
+
+    .timeline-zone {
+      height: 3px;
+      position: relative;
+      z-index: 10
+    }
+
+    .controls {
+      min-height: 80px;
+      padding: 18px 25px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      background: linear-gradient(120deg, #111614, #101312);
+      border-top: 1px solid #ffffff04
+    }
+
+    .control-left,
+    .control-right,
+    .speed-group {
+      display: flex;
+      align-items: center;
+      gap: 9px
+    }
+
+    .btn {
+      border: 1px solid #e4d4a216;
+      background: #ffffff03;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 12px;
+      padding: 11px 17px;
+      line-height: 1.3;
+      white-space: nowrap;
+      transition: background .2s, border-color .2s
+    }
+
+    .btn:hover {
+      background: #e5cf9320;
+      border-color: #e4d4a230
+    }
+
+    .btn.primary {
+      background: #e5c77f;
+      color: #211e16;
+      border-color: #e5c77f;
+      font-weight: 600
+    }
+
+    .btn.primary:hover {
+      background: #f4db9e
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      flex: none
+    }
+
+    .btn.icon-only {
+      padding: 11px
+    }
+
+    .divider {
+      height: 20px;
+      width: 1px;
+      background: var(--line);
+      margin: 0 8px
+    }
+
+    .small-label {
+      color: var(--muted);
+      font-size: 11px;
+      margin-right: 5px
+    }
+
+    .speed-group {
+      gap: 3px;
+      border: 1px solid #e4d4a211;
+      border-radius: 5px;
+      padding: 3px;
+      background: #080b0b77
+    }
+
+    .speed {
+      border: 0;
+      background: none;
+      border-radius: 3px;
+      padding: 7px 10px;
+      font-size: 11px;
+      color: #83877f;
+      min-width: 39px
+    }
+
+    .speed[aria-pressed="true"] {
+      color: #eed599;
+      background: #c5a46520
+    }
+
+    .loop-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #9ba095;
+      white-space: nowrap;
+      cursor: pointer
+    }
+
+    .loop-label input {
+      accent-color: var(--gold);
+      width: 13px;
+      height: 13px;
+      margin: 0
+    }
+
+    .time {
+      font: 10px ui-monospace, Consolas, monospace;
+      color: #939386;
+      min-width: 71px;
+      text-align: right
+    }
+
+    .below {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 20px 2px 0
+    }
+
+    .description {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.9;
+      letter-spacing: .055em;
+      color: #8c9085
+    }
+
+    .description strong {
+      font-weight: 400;
+      color: #c8b78d
+    }
+
+    .tech {
+      font: 9px/2 ui-monospace, Consolas, monospace;
+      letter-spacing: .13em;
+      color: #626960;
+      text-align: right
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0
+    }
+
+    @media(min-width:1550px) {
+      .app {
+        padding-top: 55px
+      }
+
+      .masthead {
+        margin-bottom: 31px
+      }
+    }
+
+    @media(max-width:950px) {
+      .app {
+        width: calc(100% - 40px);
+        padding-top: 27px
+      }
+
+      .controls {
+        padding: 15px;
+        gap: 12px
+      }
+
+      .control-left,
+      .control-right {
+        gap: 7px
+      }
+
+      .divider {
+        margin: 0 3px
+      }
+
+      .small-label {
+        display: none
+      }
+
+      .time {
+        display: none
+      }
+
+      .btn {
+        padding: 10px 13px
+      }
+    }
+
+    @media(max-width:640px) {
+      .app {
+        width: calc(100% - 24px);
+        padding-top: 22px
+      }
+
+      .title {
+        font-size: 20px
+      }
+
+      .eyebrow {
+        font-size: 8px;
+        letter-spacing: .19em
+      }
+
+      .brand {
+        gap: 11px
+      }
+
+      .brand-mark {
+        width: 35px;
+        height: 35px
+      }
+
+      .masthead {
+        margin-bottom: 20px
+      }
+
+      .masthead-note {
+        font-size: 9px;
+        letter-spacing: 0
+      }
+
+      .controls {
+        flex-wrap: wrap;
+        padding: 13px;
+        gap: 14px
+      }
+
+      .control-left {
+        width: 100%;
+        justify-content: space-between
+      }
+
+      .control-right {
+        width: 100%;
+        justify-content: flex-end;
+        gap: 14px
+      }
+
+      .speed-group {
+        margin-left: auto
+      }
+
+      .divider {
+        display: none
+      }
+
+      .btn {
+        font-size: 11px
+      }
+
+      .frame-corner {
+        width: 9px;
+        height: 9px
+      }
+
+      .tl,
+      .bl {
+        left: 11px
+      }
+
+      .tr,
+      .br {
+        right: 11px
+      }
+
+      .tl,
+      .tr {
+        top: 11px
+      }
+
+      .bl,
+      .br {
+        bottom: 11px
+      }
+
+      .scene-meta {
+        left: 21px;
+        top: 20px
+      }
+
+      .scene-overline {
+        font-size: 5px
+      }
+
+      .scene-phase {
+        font-size: 8px;
+        margin-top: 7px
+      }
+
+      .scene-right {
+        font-size: 6px;
+        right: 22px;
+        top: 21px
+      }
+
+      .scene-caption {
+        bottom: 19px;
+        left: 21px
+      }
+
+      .caption-title {
+        font-size: 12px
+      }
+
+      .caption-sub {
+        font-size: 5px;
+        margin-top: 5px
+      }
+
+      .scene-number {
+        right: 20px;
+        bottom: 19px;
+        font-size: 7px
+      }
+
+      .stage::after {
+        box-shadow: inset 0 0 35px 8px #0204057a
+      }
+
+      .below {
+        display: block;
+        padding: 16px 2px 0
+      }
+
+      .description {
+        font-size: 10px;
+        line-height: 1.95
+      }
+
+      .tech {
+        text-align: left;
+        margin-top: 9px;
+        font-size: 8px
+      }
+
+      .loop-label {
+        font-size: 10px
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+      * {
+        scroll-behavior: auto !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header class="masthead">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <path d="M24 3L45 24 24 45 3 24Z" stroke="currentColor" stroke-opacity=".48" />
+          <circle cx="24" cy="24" r="11" stroke="currentColor" stroke-width=".75" />
+          <path d="M12 28c4-18 8-18 12-4s8 14 12-4M24 8v32M8 24h32" stroke="currentColor" stroke-width=".75" />
+          <circle cx="24" cy="24" r="2" fill="currentColor" />
+        </svg>
+        <div>
+          <p class="eyebrow">SAGE / MOTION STUDY 001</p>
+          <h1 class="title" data-i18n="title"></h1>
+        </div>
+      </div>
+      <div class="masthead-note"><span class="status-light"></span><span data-i18n="realtime"></span></div>
+    </header>
+    <section class="stage-shell" aria-label="Golden mathematical finger snap animation">
+      <div class="stage" id="stage">
+        <div class="hand-wrap" id="handWrap" aria-hidden="true">
+          <div class="hand-frame hand-pre" id="handPre" style="background-image:url('../sage-snap-1.png')"></div>
+          <div class="hand-frame hand-snap" id="handSnap" style="background-image:url('../sage-snap-2.png')"></div>
+        </div>
+        <canvas class="environment" id="environment" aria-hidden="true"></canvas>
+        <div class="floor-glow"></div>
+        <canvas class="backfx" id="backfx" aria-hidden="true"></canvas>
+        <div class="gold-wash" id="goldWash"></div>
+        <canvas class="frontfx" id="frontfx" aria-hidden="true"></canvas>
+        <div class="frame-corner tl"></div>
+        <div class="frame-corner tr"></div>
+        <div class="frame-corner bl"></div>
+        <div class="frame-corner br"></div>
+        <div class="scene-meta">
+          <div class="scene-overline">FIELD NOTES / 001</div>
+          <div class="scene-phase" id="phase"></div>
+        </div>
+        <div class="scene-right">X &#8712; &#8477; &nbsp; / &nbsp; 16:9</div>
+        <div class="scene-caption">
+          <div class="caption-title">A snap. An answer.</div>
+          <div class="caption-sub" data-i18n="caption"></div>
+        </div>
+        <div class="scene-number" id="sceneNumber">t + 0.000</div>
+      </div>
+      <div class="timeline-zone">
+        <div class="timeline">
+          <div class="timeline-fill" id="progress"></div>
+        </div><input class="scrubber" id="scrubber" type="range" min="0" max="6.8" step="0.001" value="0"
+          aria-label="Animation timeline">
+      </div>
+      <div class="controls">
+        <div class="control-left">
+          <button class="btn primary" id="replay"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M4.4 6a6.5 6.5 0 1 1-1 6M4.5 2v4.5H9" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg><span data-i18n="replay"></span></button>
+          <button class="btn" id="playPause"><svg id="playIcon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="2" />
+            </svg><span id="playLabel"></span></button>
+          <div class="divider"></div><span class="small-label" data-i18n="speed"></span>
+          <div class="speed-group" role="group" aria-label="Playback speed"><button class="speed" data-speed="0.5"
+              aria-pressed="false">0.5&#215;</button><button class="speed" data-speed="1"
+              aria-pressed="true">1&#215;</button><button class="speed" data-speed="1.5"
+              aria-pressed="false">1.5&#215;</button></div>
+        </div>
+        <div class="control-right">
+          <label class="loop-label"><input id="loop" type="checkbox" checked><span data-i18n="loop"></span></label>
+          <button class="btn icon-only" id="sound" aria-label="Enable finger snap sound" aria-pressed="false"><svg
+              viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M3 8h3l4-3v10l-4-3H3V8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+              <path id="soundWaves" d="m13 8 4 4m0-4-4 4" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" />
+            </svg></button>
+          <button class="btn icon-only" id="fullscreen" aria-label="Fullscreen"><svg viewBox="0 0 20 20" fill="none"
+              aria-hidden="true">
+              <path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg></button>
+          <span class="time" id="time">00.00 / 06.80</span>
+        </div>
+      </div>
+    </section>
+    <footer class="below">
+      <p class="description" id="description"></p>
+      <div class="tech">DIV HAND FRAMES + CANVAS TRAJECTORIES<br>SELF-CONTAINED / NO EXTERNAL ASSETS</div>
+    </footer>
+  </main>
+  <script>
+    'use strict';
+    /*
+     * GOLDEN SNAP - standalone, offline animation study.
+     * Public API: window.GoldenSnap.play(), pause(), restart(), seek(seconds),
+     *             setSpeed(rate), setLoop(boolean), getState().
+     * Timing and visual density can be changed in CONFIG below.
+     * Hand artwork is embedded as PNG backgrounds on two div frames.
+     * No external assets, network requests or build step required.
+     */
+    const I18N = { title: '\u5f48\u6307\u30fb\u6f14\u7b97', realtime: '\u5373\u6642\u52d5\u756b\u7fd2\u4f5c', caption: '\u4e00\u500b\u52d5\u4f5c\uff0c\u5c55\u958b\u7121\u6578\u89e3\u7b54\u3002', replay: '\u91cd\u64ad\u52d5\u756b', pause: '\u66ab\u505c', play: '\u64ad\u653e', speed: '\u64ad\u653e\u901f\u5ea6', loop: '\u5faa\u74b0\u64ad\u653e', ready: '01 / \u5047\u8a2d', hold: '02 / \u84c4\u52e2', snap: '03 / \u6c42\u89e3', echo: '04 / \u9918\u97fb', wait: '00 / \u975c\u9ed8', soundOn: '\u95dc\u9589\u5f48\u6307\u97f3\u6548', soundOff: '\u958b\u555f\u5f48\u6307\u97f3\u6548', fullscreen: '\u5168\u87a2\u5e55', exitFullscreen: '\u96e2\u958b\u5168\u87a2\u5e55' };
+    document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = I18N[el.dataset.i18n]);
+    document.title = I18N.title + ' | Golden Snap';
+    document.getElementById('description').innerHTML = '<strong>\u53f3\u624b\u62ac\u8d77\u3001\u84c4\u52e2\u3001\u5f48\u6307\u3002</strong>\u6307\u5c16\u91cb\u653e\u91d1\u8272\u66f2\u7dda\uff0c\u624b\u5fae\u5fae\u4e0b\u58d3\u5f8c\u6d88\u5931\u3002<br>\u62d6\u66f3\u756b\u9762\u4e0b\u65b9\u7684\u91d1\u8272\u9032\u5ea6\u5217\u53ef\u6aa2\u8996\u52d5\u4f5c\uff1b\u4f7f\u7528 0.5\u00d7 \u89c0\u5bdf\u5f48\u6307\u77ac\u9593\u3002';
+    const CONFIG = Object.freeze({ width: 1440, height: 810, duration: 6.8, snapAt: 2.12, handFadeStart: 2.47, handFadeEnd: 3.10, originX: 720, originY: 304, handScale: .56, curveCount: 31, sparkCount: 105, maxDpr: 2 });
+    const HAND_LAYOUT = Object.freeze({ width: 760, height: 1020, anchorX: 145, anchorY: 285 });
+    const $ = id => document.getElementById(id);
+    const stage = $('stage'), hand = $('handWrap'), handPre = $('handPre'), handSnap = $('handSnap'), back = $('backfx'), front = $('frontfx'), env = $('environment');
+    const b = back.getContext('2d'), f = front.getContext('2d'), e = env.getContext('2d');
+    if (!b || !f || !e) throw new Error('This animation requires Canvas 2D support.');
+    const clamp = (v, a = 0, z = 1) => Math.max(a, Math.min(z, v));
+    const lerp = (a, z, t) => a + (z - a) * t;
+    const smooth = t => { t = clamp(t); return t * t * (3 - 2 * t) };
+    const out3 = t => 1 - Math.pow(1 - clamp(t), 3);
+    const out5 = t => 1 - Math.pow(1 - clamp(t), 5);
+    const between = (t, a, z) => clamp((t - a) / (z - a));
+    const TAU = Math.PI * 2;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let t = reduced ? 1.5 : 0, playing = !reduced, speed = 1, loop = true, soundEnabled = false, last = 0, raf = 0, manual = false;
+    let audio = null, view = { scale: 1, offsetX: 0, offsetY: 0, width: 1440, height: 810, dpr: 1 };
+    let seed = 103;
+    function rand() { seed = (Math.imul(1664525, seed) + 1013904223) >>> 0; return seed / 4294967296 }
+    function random(a, z) { return a + rand() * (z - a) }
+    const ambient = Array.from({ length: 65 }, () => ({ x: random(0, 1440), y: random(0, 810), r: random(.35, 1.15), a: random(.025, .16), phase: random(0, TAU), speed: random(2, 9) }));
+
+    // Hand poses are independent DOM div layers. drawHand() uses the same
+    // playback clock as the Canvas effects, preserving scrub/resize synchronization.
+
+    // A deterministic library of true parametric mathematical curves.
+    // All paths pass through the emission point at their first vertex.
+    const curves = [];
+    function addCurve(kind, index) {
+      const points = [], count = 250, angle = random(0, TAU), c = Math.cos(angle), s = Math.sin(angle);
+      const length = random(230, 650), amp = random(30, 115), freq = random(1.0, 2.8), width = random(.60, 1.35);
+      let raw = [];
+      for (let k = 0; k <= count; k++) {
+        const u = k / count;
+        let x, y;
+        if (kind === 'sine') { x = u * length; y = Math.sin(u * TAU * freq) * amp * Math.sin(Math.PI * u * .75) }
+        else if (kind === 'parabola') { x = u * length; y = (u * u - u * .24) * amp * 2.2 }
+        else if (kind === 'spiral') { const a = u * TAU * 1.35, r = u * length * .52; x = Math.cos(a) * r; y = Math.sin(a) * r * .75 }
+        else if (kind === 'lissajous') { const a = u * TAU; x = Math.sin(a * 2) * length * .47; y = Math.sin(a * 3) * amp * 1.35 }
+        else if (kind === 'orbit') { const a = u * TAU; x = (Math.cos(a) - 1) * length * .43; y = Math.sin(a) * amp }
+        else if (kind === 'cubic') { x = u * length; y = (Math.pow(u - .42, 3) + Math.pow(.42, 3)) * amp * 6 }
+        else { x = u * length; y = Math.sin(u * TAU * 2.3) * amp * Math.exp(-u * 1.6) }
+        points.push({ x: x * c - y * s, y: (x * s + y * c) * .70 });
+      }
+      curves.push({ kind, points, width, delay: index < 6 ? random(0, .055) : random(.025, .29), drawTime: random(.36, .9), life: random(2.2, 3.5), alpha: random(.28, .84), phase: random(0, TAU), index });
+    }
+    const kinds = ['sine', 'parabola', 'orbit', 'cubic', 'sine', 'lissajous', 'spiral', 'sine', 'orbit', 'parabola', 'damped'];
+    for (let i = 0; i < CONFIG.curveCount; i++)addCurve(kinds[i % kinds.length], i);
+    // Long lateral curves give the burst a panoramic silhouette.
+    for (const [flip, vertical] of [[1, 1], [-1, -1]]) {
+      const points = []; for (let k = 0; k <= 310; k++) { let u = k / 310; points.push({ x: flip * u * 640, y: vertical * Math.sin(u * TAU * 1.36) * 112 * (.3 + u * .7) + u * 22 }) }
+      curves.push({ kind: 'hero', points, width: 1.95, delay: .01, drawTime: .57, life: 3.5, alpha: .97, phase: 0, index: curves.length });
+    }
+    const sparks = Array.from({ length: CONFIG.sparkCount }, () => {
+      const angle = random(0, TAU), v = random(100, 780); return { dx: Math.cos(angle), dy: Math.sin(angle), v, life: random(.3, 1.35), size: random(.7, 2.0), length: random(6, 25), gravity: random(9, 50), delay: random(0, .065) };
+    });
+    const fragments = Array.from({ length: 36 }, () => ({ a: random(0, TAU), r: random(90, 520), spin: random(-4, 4), size: random(1.0, 3.8), life: random(1.2, 2.7) }));
+    const equations = [
+      { text: 'y = sin(x)', x: -424, y: -98, rot: -.10, delay: .34 },
+      { text: 'f(x) = ax\u00b2 + bx + c', x: 268, y: 163, rot: .10, delay: .5 },
+      { text: 'x\u00b2 + y\u00b2 = r\u00b2', x: -371, y: 188, rot: -.12, delay: .56 },
+      { text: 'e\u2071\u03c0 + 1 = 0', x: 228, y: -138, rot: .06, delay: .38 },
+      { text: '\u222b f(x) dx', x: -111, y: -172, rot: -.04, delay: .62 },
+      { text: '\u2207\u00b2\u03c6 = 0', x: 432, y: -3, rot: .06, delay: .7 },
+      { text: 'lim f(x)', x: -170, y: 219, rot: -.04, delay: .8 },
+      { text: '\u03b8 \u2208 [0, 2\u03c0]', x: 150, y: 245, rot: .08, delay: .86 }
+    ];
+    function prepareContext(ctx) { ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0); ctx.clearRect(0, 0, view.width, view.height); ctx.translate(view.offsetX, view.offsetY); ctx.scale(view.scale, view.scale) }
+    function resize() {
+      const rect = stage.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, CONFIG.maxDpr);
+      const scale = Math.min(rect.width / 1440, rect.height / 810);
+      view = { width: rect.width, height: rect.height, dpr, scale, offsetX: (rect.width - 1440 * scale) / 2, offsetY: (rect.height - 810 * scale) / 2 };
+      for (const canvas of [back, front, env]) { canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr) }
+      const hs = CONFIG.handScale * scale;
+      hand.style.width = (HAND_LAYOUT.width * hs) + 'px'; hand.style.height = (HAND_LAYOUT.height * hs) + 'px';
+      hand.style.left = (view.offsetX + (CONFIG.originX - HAND_LAYOUT.anchorX * CONFIG.handScale) * scale) + 'px';
+      hand.style.top = (view.offsetY + (CONFIG.originY - HAND_LAYOUT.anchorY * CONFIG.handScale) * scale) + 'px';
+      render(t);
+    }
+    function drawEnvironment(time) {
+      prepareContext(e);
+      // An understated grid and broken circular guides, not a full-screen HUD.
+      e.strokeStyle = 'rgba(145,170,154,.032)'; e.lineWidth = .75;
+      e.beginPath(); for (let x = 0; x < 1440; x += 90) { e.moveTo(x, 0); e.lineTo(x, 810) } for (let y = 34; y < 810; y += 90) { e.moveTo(0, y); e.lineTo(1440, y) } e.stroke();
+      e.save(); e.translate(CONFIG.originX, CONFIG.originY);
+      e.strokeStyle = 'rgba(169,160,117,.060)'; e.setLineDash([2, 11]); e.beginPath(); e.ellipse(0, 38, 320, 280, 0, 0, TAU); e.stroke(); e.setLineDash([]);
+      e.strokeStyle = 'rgba(184,171,122,.055)'; e.beginPath(); e.moveTo(-460, 0); e.lineTo(-325, 0); e.moveTo(325, 0); e.lineTo(460, 0); e.moveTo(0, -252); e.lineTo(0, -224); e.stroke();
+      e.strokeStyle = 'rgba(184,171,122,.09)'; for (const x of [-460, 460]) { e.beginPath(); e.moveTo(x, -4); e.lineTo(x, 4); e.stroke() } e.restore();
+      for (const p of ambient) { const y = (p.y - time * p.speed + 810) % 810; const alpha = p.a * (.65 + .35 * Math.sin(time * .7 + p.phase)); e.fillStyle = `rgba(226,215,172,${alpha})`; e.beginPath(); e.arc(p.x + Math.sin(time * .2 + p.phase) * 8, y, p.r, 0, TAU); e.fill() }
+    }
+    function drawHand(time) {
+      const enter = out3(between(time, .35, 1.22)), charge = smooth(between(time, 1.63, 2.12));
+      const dt = time - CONFIG.snapAt, frameSwitch = smooth(between(dt, -.015, .07));
+      const recoil = dt < 0 ? 0 : dt < .125 ? out3(dt / .125) : lerp(1, .72, smooth((dt - .125) / .36));
+      const fade = smooth(between(time, CONFIG.handFadeStart, CONFIG.handFadeEnd));
+      const x = (1 - enter) * -24 + recoil * 4 + fade * 8;
+      const y = (1 - enter) * 88 - charge * 9 + recoil * 28 + fade * 23;
+      const rot = (1 - enter) * -8 - charge * 3.3 + recoil * 4.2;
+      const scale = 0.4 - .025 * (1 - enter);
+      const opacity = enter * (1 - fade);
+      hand.style.opacity = opacity.toFixed(4);
+      hand.style.transform = `translate(${x * view.scale}px,${y * view.scale}px) rotate(${rot}deg) scale(${scale})`;
+      hand.style.filter = `blur(${((1 - enter) * 5 + fade * 4) * view.scale}px)`;
+      handPre.style.opacity = (opacity * (1 - frameSwitch)).toFixed(4);
+      handSnap.style.opacity = (opacity * frameSwitch).toFixed(4);
+      handPre.style.transform = `translateY(${(-3 * charge * view.scale).toFixed(2)}px) rotate(${(charge * 1.3).toFixed(2)}deg)`;
+      handSnap.style.transform = `translateY(${(24 + recoil * 12) * view.scale}px) rotate(${(frameSwitch * .7).toFixed(2)}deg)`;
+    }
+    function pathRange(ctx, pts, start, end, expansion, drift = 0) {
+      const lastIndex = pts.length - 1, a = Math.max(0, Math.floor(start * lastIndex)), z = Math.min(lastIndex, Math.ceil(end * lastIndex));
+      if (z <= a) return false;
+      ctx.beginPath(); ctx.moveTo(pts[a].x * expansion, pts[a].y * expansion + drift);
+      for (let k = a + 1; k <= z; k++)ctx.lineTo(pts[k].x * expansion, pts[k].y * expansion + drift);
+      return true;
+    }
+    function drawCurves(dt) {
+      if (dt < 0 || dt > 4.4) return;
+      b.save(); b.translate(CONFIG.originX, CONFIG.originY - 9); b.globalCompositeOperation = 'lighter';
+      const expansion = lerp(.30, 1, out5(dt / .75)) * (1 + Math.max(0, dt - .75) * .022);
+      for (const curve of curves) {
+        const local = dt - curve.delay; if (local < 0 || local > curve.life + .5) continue;
+        const reveal = out3(local / curve.drawTime), fade = 1 - smooth((local - 1.0) / (curve.life - 1.0));
+        const alpha = curve.alpha * fade; if (alpha < .003) continue;
+        const drift = -Math.max(0, dt - 1) * 7;
+        // A wide translucent halo plus a fine luminous mathematical filament.
+        if (pathRange(b, curve.points, 0, reveal, expansion, drift)) {
+          b.strokeStyle = `rgba(234,160,36,${alpha * .075})`; b.lineWidth = curve.width * 7; b.stroke();
+          b.strokeStyle = `rgba(255,198,57,${alpha * .15})`; b.lineWidth = curve.width * 3.0; b.stroke();
+          b.strokeStyle = `rgba(255,207,80,${alpha * .82})`; b.lineWidth = curve.width; b.stroke();
+        }
+        // A traveling glint makes the equation feel written in light.
+        const glint = (local * .42 + curve.index * .087) % 1;
+        if (glint < reveal && pathRange(b, curve.points, glint, Math.min(glint + .04, reveal), expansion, drift)) {
+          b.strokeStyle = `rgba(255,243,173,${alpha * .85})`; b.lineWidth = curve.width * 1.5; b.stroke();
+        }
+      }
+      // Local coordinate axes, a parabola and calibration marks unfold at the core.
+      const axisIn = out3((dt - .09) / .48), axisFade = (1 - smooth((dt - 1.45) / 1.55)) * .40;
+      if (axisIn > 0 && axisFade > 0) {
+        b.save(); b.rotate(-.055); b.strokeStyle = `rgba(255,217,113,${axisFade})`; b.lineWidth = .8;
+        b.beginPath(); b.moveTo(-340 * axisIn, 0); b.lineTo(340 * axisIn, 0); b.moveTo(0, -198 * axisIn); b.lineTo(0, 227 * axisIn); b.stroke();
+        for (let x = -300; x <= 300; x += 30) { if (x === 0 || Math.abs(x) > axisIn * 340) continue; b.beginPath(); b.moveTo(x, -3); b.lineTo(x, 3); b.stroke() }
+        for (let y = -180; y <= 210; y += 30) { if (y === 0 || Math.abs(y) > axisIn * 227) continue; b.beginPath(); b.moveTo(-3, y); b.lineTo(3, y); b.stroke() }
+        b.restore();
+      }
+      for (const q of equations) {
+        const local = dt - q.delay; if (local < 0) continue;
+        const opacity = smooth(local / .35) * (1 - smooth((local - 1.0) / 1.4)) * .55;
+        if (opacity < .003) continue;
+        b.save(); b.translate(q.x * lerp(.87, 1, out3(local / .8)), q.y - 9 * local); b.rotate(q.rot);
+        b.fillStyle = `rgba(248,214,128,${opacity})`; b.font = 'italic 17px Georgia, "Times New Roman", serif'; b.fillText(q.text, 0, 0); b.restore();
+      }
+      b.restore();
+    }
+    function drawBurst(dt) {
+      if (dt < 0 || dt > 3.6) return;
+      f.save(); f.translate(CONFIG.originX, CONFIG.originY - 9); f.globalCompositeOperation = 'lighter';
+      const flash = Math.exp(-dt * 15), core = Math.exp(-dt * 7.3);
+      if (flash > .002) {
+        const radius = 100 + out3(dt / .23) * 170;
+        const g = f.createRadialGradient(0, 0, 0, 0, 0, radius); g.addColorStop(0, `rgba(255,245,191,${flash * .82})`); g.addColorStop(.075, `rgba(255,221,113,${flash * .6})`); g.addColorStop(.33, `rgba(242,164,30,${flash * .20})`); g.addColorStop(1, 'rgba(211,142,24,0)'); f.fillStyle = g; f.fillRect(-radius, -radius, radius * 2, radius * 2);
+      }
+      if (core > .005) {
+        f.strokeStyle = `rgba(255,245,176,${core * .80})`; f.lineWidth = 1.4;
+        f.beginPath(); f.moveTo(-190 * core, 0); f.lineTo(190 * core, 0); f.moveTo(0, -94 * core); f.lineTo(0, 94 * core); f.stroke();
+        f.fillStyle = `rgba(255,253,223,${core})`; f.beginPath(); f.arc(0, 0, Math.max(1.2, 7 * core), 0, TAU); f.fill();
+      }
+      // The first 320 ms are an impulsive burst, not a slowly growing particle emitter.
+      for (const p of sparks) {
+        const life = dt - p.delay; if (life < 0 || life > p.life) continue;
+        const eased = 1 - Math.exp(-life * 3.1), radius = p.v * eased * .68;
+        const x = p.dx * radius, y = p.dy * radius + life * life * p.gravity;
+        const opacity = Math.pow(1 - life / p.life, 1.7), trail = p.length * (1 - life / p.life);
+        f.strokeStyle = `rgba(255,216,111,${opacity * .8})`; f.lineWidth = p.size;
+        f.beginPath(); f.moveTo(x, y); f.lineTo(x - p.dx * trail, y - p.dy * trail); f.stroke();
+        if (p.size > 1.4) { f.fillStyle = `rgba(255,243,186,${opacity})`; f.fillRect(x - 1, y - 1, 1.8, 1.8) }
+      }
+      for (const p of fragments) {
+        if (dt > p.life) continue;
+        const u = dt / p.life, r = p.r * out3(dt / .8), angle = p.a + p.spin * dt * .03;
+        const x = Math.cos(angle) * r, y = Math.sin(angle) * r + dt * dt * 10;
+        const opacity = Math.pow(1 - u, 1.6) * .65;
+        f.save(); f.translate(x, y); f.rotate(p.a + p.spin * dt); f.strokeStyle = `rgba(241,203,111,${opacity})`; f.lineWidth = .8; f.strokeRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.8); f.restore();
+      }
+      // A thin, tilted shock ring fades before it can become a dominant circle.
+      if (dt < .6) { const u = dt / .6; f.save(); f.rotate(-.27); f.strokeStyle = `rgba(255,210,95,${(1 - u) * .20})`; f.lineWidth = .85; f.beginPath(); f.ellipse(0, 0, 32 + u * 235, 13 + u * 105, 0, 0, TAU); f.stroke(); f.restore() }
+      f.restore();
+    }
+    let lastPhase = '';
+    function render(time) {
+      drawEnvironment(time); drawHand(time); prepareContext(b); prepareContext(f);
+      const dt = time - CONFIG.snapAt; drawCurves(dt); drawBurst(dt);
+      $('goldWash').style.opacity = (dt >= 0 ? Math.exp(-dt * 5.5) * .85 : 0).toFixed(3);
+      const phase = time < .35 ? 'wait' : time < 1.57 ? 'ready' : time < CONFIG.snapAt ? 'hold' : time < 3.5 ? 'snap' : time < 5.7 ? 'echo' : 'wait';
+      if (phase !== lastPhase) { $('phase').textContent = I18N[phase]; lastPhase = phase }
+      $('progress').style.width = (time / CONFIG.duration * 100) + '%'; $('scrubber').value = time;
+      $('time').textContent = time.toFixed(2).padStart(5, '0') + ' / 06.80'; $('sceneNumber').textContent = 't + ' + time.toFixed(3);
+    }
+    function syncControls() {
+      $('playLabel').textContent = playing ? I18N.pause : I18N.play;
+      $('playIcon').innerHTML = playing ? '<path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="2"/>' : '<path d="m7 4 9 6-9 6V4Z" fill="currentColor"/>';
+      $('playPause').setAttribute('aria-label', playing ? I18N.pause : I18N.play);
+    }
+    function emitSnap() {
+      if (!soundEnabled || !audio || audio.state !== 'running') return;
+      const now = audio.currentTime;
+      // Short dry click plus a faint resonant golden tail. Never autoplays sound.
+      const length = Math.floor(audio.sampleRate * .052), buffer = audio.createBuffer(1, length, audio.sampleRate), data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) { const u = i / length; data[i] = (Math.random() * 2 - 1) * Math.pow(1 - u, 5) }
+      const source = audio.createBufferSource(); source.buffer = buffer; const hp = audio.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1650; const gain = audio.createGain(); gain.gain.setValueAtTime(.25, now); source.connect(hp).connect(gain).connect(audio.destination); source.start(now);
+      const osc = audio.createOscillator(), g = audio.createGain(); osc.type = 'triangle'; osc.frequency.setValueAtTime(1750, now); osc.frequency.exponentialRampToValueAtTime(740, now + .12); g.gain.setValueAtTime(.025, now); g.gain.exponentialRampToValueAtTime(.0001, now + .22); osc.connect(g).connect(audio.destination); osc.start(now); osc.stop(now + .23);
+    }
+    function tick(now) {
+      const delta = last ? Math.min((now - last) / 1000, .08) : 0; last = now;
+      if (playing && !manual && !document.hidden) {
+        const before = t; t += delta * speed;
+        if (before < CONFIG.snapAt && t >= CONFIG.snapAt) emitSnap();
+        if (t >= CONFIG.duration) { if (loop) t %= CONFIG.duration; else { t = CONFIG.duration; playing = false; syncControls() } }
+        render(t);
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    function play() { manual = false; if (t >= CONFIG.duration) t = 0; playing = true; last = 0; syncControls() }
+    function pause() { playing = false; syncControls() }
+    function restart() { t = 0; manual = false; playing = true; last = 0; render(t); syncControls() }
+    function seek(seconds) { if (!Number.isFinite(seconds)) return; manual = false; t = clamp(seconds, 0, CONFIG.duration); render(t) }
+    function setSpeed(value) { if (!Number.isFinite(value) || value <= 0) return; speed = clamp(value, .1, 3); document.querySelectorAll('[data-speed]').forEach(el => el.setAttribute('aria-pressed', String(Number(el.dataset.speed) === speed))) }
+    $('replay').addEventListener('click', restart);
+    $('playPause').addEventListener('click', () => playing ? pause() : play());
+    document.querySelectorAll('[data-speed]').forEach(el => el.addEventListener('click', () => setSpeed(Number(el.dataset.speed))));
+    $('loop').addEventListener('change', event => loop = event.target.checked);
+    $('scrubber').addEventListener('input', event => { pause(); seek(Number(event.target.value)) });
+    $('sound').title = I18N.soundOff; $('sound').setAttribute('aria-label', I18N.soundOff);
+    $('sound').addEventListener('click', async () => {
+      if (!soundEnabled) { try { const AudioCtor = window.AudioContext || window.webkitAudioContext; if (!AudioCtor) throw new Error('Web Audio unavailable'); audio = audio || new AudioCtor(); await audio.resume(); soundEnabled = true } catch (err) { $('sound').disabled = true; console.warn(err); return } }
+      else soundEnabled = false;
+      $('sound').setAttribute('aria-pressed', String(soundEnabled)); $('sound').title = soundEnabled ? I18N.soundOn : I18N.soundOff; $('sound').setAttribute('aria-label', $('sound').title);
+      $('soundWaves').setAttribute('d', soundEnabled ? 'M13 7c2 1 2 5 0 6m2-8c4 2 4 8 0 10' : 'm13 8 4 4m0-4-4 4');
+    });
+    $('fullscreen').title = I18N.fullscreen; $('fullscreen').setAttribute('aria-label', I18N.fullscreen);
+    $('fullscreen').addEventListener('click', async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else if (stage.requestFullscreen) await stage.requestFullscreen(); else { stage.scrollIntoView({ block: 'center' }); $('fullscreen').disabled = true } } catch (err) { console.warn('Fullscreen is not available in this browser context.', err) } });
+    document.addEventListener('fullscreenchange', () => { $('fullscreen').setAttribute('aria-label', document.fullscreenElement ? I18N.exitFullscreen : I18N.fullscreen); resize() });
+    document.addEventListener('visibilitychange', () => { last = 0 });
+    document.addEventListener('keydown', event => {
+      if (event.target.matches('input,button,select,textarea') || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.code === 'Space') { event.preventDefault(); playing ? pause() : play() }
+      if (event.code === 'KeyR') restart();
+      if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') { event.preventDefault(); pause(); seek(t + (event.code === 'ArrowLeft' ? -.05 : .05)) }
+    });
+    window.GoldenSnap = Object.freeze({ play, pause, restart, seek, setSpeed, setLoop(value) { loop = !!value; $('loop').checked = loop }, getState() { return { time: t, playing, speed, loop, duration: CONFIG.duration } }, config: CONFIG });
+    // Deterministic render hook for screenshots and frame-by-frame QA.
+    window.renderAt = function (seconds) { pause(); manual = true; t = clamp(seconds, 0, CONFIG.duration); render(t) };
+    window.addEventListener('pagehide', () => { cancelAnimationFrame(raf); if (audio) audio.suspend() });
+    window.addEventListener('pageshow', event => { if (event.persisted) { last = 0; raf = requestAnimationFrame(tick) } });
+    const observer = new ResizeObserver(resize); observer.observe(stage);
+    syncControls(); resize(); raf = requestAnimationFrame(tick);
+  </script>
+</body>
+
+</html>

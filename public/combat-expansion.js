@@ -54,10 +54,11 @@ function createResultCard(result) {
 }
 function resultFloat(card, text, theme) {
   if (!text || text === '-0') return;
-  const number = document.createElement('div');
+  const number = card._preparedNumbers?.shift() || document.createElement('div');
+  number.hidden=false;
   number.className = 'presentation-result-number ' + theme;
   number.textContent = text;
-  card.querySelector('.presentation-result-numbers').appendChild(number);
+  if(!number.parentNode)card.querySelector('.presentation-result-numbers').appendChild(number);
 }
 function updateResultCard(card, target) {
   card.classList.toggle('is-assassin-hidden', !!target?.isHiddenThisRound && !target?.stealthBrokenThisRound && target?.hp > 0);
@@ -82,6 +83,7 @@ async function presentCombatResult(result, card, context = {}) {
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
   const emit = beat => context.onTiming?.(beat, { targetId: result.targetId, result });
+  if(['dream_heal','nightmare'].includes(outcome.type)&&typeof revealDreamOutcomeButterfly==='function')await revealDreamOutcomeButterfly(card,outcome.type,context);
   if (result.sharedFrom) {
     card.classList.add('has-root-link');
     resultFloat(card, '傷害分攤', 'is-nature');
@@ -126,11 +128,15 @@ async function presentCombatResult(result, card, context = {}) {
         if (fxType !== 'claw_slash' && fxType !== 'boss_claw') await wait(context.compact ? 90 : 130);
       }
       const hit = card.querySelector('.presentation-result-hit');
+      if(context.prewarmed&&context.motion){
+        const direction=context.direction==='right'?1:-1;
+        context.motion(hit,[{transform:'translateX(0)'},{transform:'translateX('+(direction*10)+'px)',offset:.3},{transform:'translateX(0)'}],220);
+      }
       hit.classList.remove('is-hit-left', 'is-hit-right');
-      void hit.offsetWidth;
+      if(!context.prewarmed)void hit.offsetWidth;
       hit.classList.add(context.direction === 'right' ? 'is-hit-right' : 'is-hit-left');
       card.classList.remove('is-impacting');
-      void card.offsetWidth;
+      if(!context.prewarmed)void card.offsetWidth;
       card.classList.add('is-impacting');
       if (context.sourceRole === 'archer') { card.classList.add('has-arrow-rain'); playSound('arrow_flight'); }
       else if (context.sourceRole === 'druid' && !context.minionAudio) playSound(fxType === 'claw_slash' ? 'claw_slash' : 'vine_strike', { synthOnly: true });
@@ -584,6 +590,15 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const audio = context.audioScope || createSfxPresentationScope(context);
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
+  if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
+  if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
+  if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
+  if(step.sourceRole==='stargazer'&&['sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
+  if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{
+    const row=document.createElement('div');row.className='presentation-support-targets';canvas.appendChild(row);
+    const cards=new Map();
+    for(const result of step.results){let card=cards.get(result.targetId);if(!card){card=createResultCard({...result,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});cards.set(result.targetId,card);row.appendChild(card);}await presentCombatResult(result,card,{...context,sourceRole:step.sourceRole,direction:'right'});}
+  });
   if (['dreamweaver','stargazer','gladiator','samurai','sage'].includes(step.sourceRole)) return playPhase8Presentation(step,context);
   if (step.category === 'MINION_ATTACK') return playMinionComboPresentation(step, context);
   if (step.type === 'player_action' && !(step.results || []).some(r => r.targetId === 'monster' && r.kind === 'damage')) {

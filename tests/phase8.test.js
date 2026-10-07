@@ -109,6 +109,16 @@ test('dream butterfly converts before mitigation; nightmare true damage + loom h
   r=random(.9,()=>room.p8Incoming(p,30,()=>1));assert.equal(r.damage,30);room.applyDamageToPlayer(p,r.damage);room.p8NightmareHeal(p,r.ownerId);assert.equal(p.hp,47);
   caster.action='dw_butterfly';caster.targetPlayerId=p.id;room.resolveTurnActions();assert.equal(p.p8Effects.dream_butterfly.until,2);assert.equal(p.poisonTurns,0);
 });
+test('dream outcomes on another class carry the authoritative portrait cue without duplicate healing',t=>{
+  for(const [roll,type] of [[.1,'dream_heal'],[.9,'nightmare']]) {
+    const {room,resolve}=fixture(t,['warrior']);room.currentMonster.hp=4000;
+    room.p8Effect(room.currentMonster,'dream_butterfly','夢蝶迷思',1,{ownerId:'p0'});room.players.p0.action='basic';
+    const step=resolve(roll).find(s=>s.type==='player_action'&&s.sourceId==='p0');
+    const results=step.results.filter(r=>r.targetId==='monster');assert.equal(results.length,1);assert.equal(results[0].outcome.type,type);
+    if(type==='dream_heal'){assert.equal(results[0].kind,'heal');assert.equal(results[0].actualHeal,10);assert.equal(step.hpSnapshot.monster.hp,4010);}
+    else {assert.equal(results[0].finalDamage,10);assert.equal(step.hpSnapshot.monster.hp,3990);}
+  }
+});
 for(const [r,id] of [[.01,'shallow'],[.26,'deep'],[.51,'lone'],[.76,'horde']])test('false history calculation override without floor mutation: '+id,t=>{
   const {room,resolve}=fixture(t,['dreamweaver','warrior']);room.players.p0.action='dw_false_dream';const q=resolve(r);assert.equal(q.find(s=>s.actionId?.endsWith('_result')).outcome.type,id);assert.equal(room.floor,8);
   const effect=room.currentMonster.p8Effects.false_history;assert.equal(effect.floor,id==='shallow'?6:id==='deep'?10:8);assert.equal(effect.players,id==='lone'?1:id==='horde'?5:2);
