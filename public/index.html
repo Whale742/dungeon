@@ -8,6 +8,7 @@
   <link rel="apple-touch-icon" href="/icon/icon.webp">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="phase8.css">
+  <link rel="stylesheet" href="lobby.css">
   <link rel="stylesheet" href="skill-production.css">
   <link rel="stylesheet" href="exploration.css">
   <link rel="stylesheet" href="trap.css">
@@ -289,15 +290,21 @@
           </div>
 
           <!-- 職業選擇面版 -->
-          <div class="card roles-card">
-            <div class="card-header">
-              <h3><svg class="svg-icon"><use href="#icon-users"></use></svg> 選擇你的英雄職業 (各職業唯一)</h3>
-              <span class="card-tip">點擊卡片選擇職業</span>
+          <section class="role-command-panel" aria-label="職業資訊與選擇">
+            <div class="role-panel-heading"><span>英雄檔案 <small>HERO ARCHIVE</small></span><span id="roleSelectionStatus">選擇你的職業</span></div>
+            <div class="role-panel-main">
+              <div class="role-overview">
+                <div class="role-identity">
+                  <div class="role-hero-portrait"><img id="lobbyRoleAvatar" src="/photo/Warrior.webp" alt="戰士"></div>
+                  <div class="role-identity-copy"><span class="role-eyebrow">深淵遠征 / CLASS PROFILE</span><h2 id="lobbyRoleName">戰士</h2><div id="lobbyRoleEnglish" class="role-english">WARRIOR</div><div id="lobbyRoleTags" class="role-profile-tags"></div><div id="lobbyRoleHp" class="role-hp-meta"></div></div>
+                </div>
+                <figure class="role-radar"><svg id="lobbyRoleRadar" viewBox="0 0 280 240" role="img" aria-label="職業特性圖譜"></svg><figcaption>特性圖譜 · 難度 S 為最難</figcaption></figure>
+              </div>
+              <div class="role-tab-toolbar"><div class="role-skill-tabs" role="tablist" aria-label="技能資訊"><button type="button" role="tab" data-role-tab="passive" aria-selected="true" aria-controls="lobbyRoleDescription">被動與特性</button><button type="button" role="tab" data-role-tab="0" aria-selected="false" aria-controls="lobbyRoleDescription">普通攻擊</button><button type="button" role="tab" data-role-tab="1" aria-selected="false" aria-controls="lobbyRoleDescription">一技能</button><button type="button" role="tab" data-role-tab="2" aria-selected="false" aria-controls="lobbyRoleDescription">二技能</button></div><label class="role-copy-toggle"><span>詳細</span><input id="lobbyRoleDetailed" type="checkbox" role="switch" aria-label="切換詳細技能描述"><span class="role-switch-track"></span><span>精簡</span></label></div>
+              <article id="lobbyRoleDescription" class="role-description" role="tabpanel" aria-live="polite"><div class="role-description-heading"><h3 id="lobbySkillName"></h3><div id="lobbySkillMeta"></div></div><p id="lobbySkillCopy"></p></article>
             </div>
-            <div id="roleSelectionGrid" class="roles-grid">
-              <!-- 動態渲染 5 個職業 -->
-            </div>
-          </div>
+            <div class="role-portrait-deck"><div class="role-deck-caption"><span>選擇職業</span><small>SELECT YOUR HERO</small></div><div id="roleSelectionGrid" class="role-portrait-strip" aria-label="十二職業選擇"></div></div>
+          </section>
         </div>
       </section>
 
@@ -912,6 +919,7 @@
   <script src="stargazer-presentation.js"></script>
   <script src="victory.js"></script>
   <script src="portrait-status-fx.js"></script>
+  <script src="lobby.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

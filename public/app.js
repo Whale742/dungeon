@@ -1003,7 +1003,7 @@ function renderPendingDropModal(me) {
   elements.equipDropModal.classList.remove('hidden');
 }
 
-// 渲染大廳小隊成員準備狀態圖標 (已就緒: 綠勾勾 / 尚未選職或未按準備: 維持原本的黃色驚嘆號，無文字)
+// Lobby readiness uses the existing leader/member rules, with a visible label.
 function renderMemberStatusBadge(p, isThisLeader) {
   const isReady = isThisLeader ? Boolean(p.role) : (Boolean(p.role) && Boolean(p.isReady));
   if (isReady) {
@@ -1011,7 +1011,7 @@ function renderMemberStatusBadge(p, isThisLeader) {
       <span class="member-status-icon ready" title="已就緒" aria-label="已就緒">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
+        </svg><span class="member-ready-label">已就緒</span>
       </span>
     `;
   }
@@ -1020,7 +1020,7 @@ function renderMemberStatusBadge(p, isThisLeader) {
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="13"></line>
         <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-      </svg>
+      </svg><span class="member-ready-label">${p.role ? '未準備' : '未選職'}</span>
     </span>
   `;
 }
@@ -1057,8 +1057,8 @@ function renderLobby(me, isLeader) {
             ` : `
               <div class="member-name-row">
                 <span class="member-name">
-                  ${isThisLeader ? `<span class="crown-tag">${getIconSvg('flag')}</span>` : ''}
-                  <span class="member-name-text">${escapeHtml(p.name)}</span>
+                  ${isThisLeader ? `<span class="crown-tag" title="房主">${getIconSvg('flag')}<small>房主</small></span>` : ''}
+                  <span class="member-name-text" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
                   <span class="me-tag">(你)</span>
                 </span>
                 <button type="button" class="btn-icon-rename" id="btnTriggerInlineRename" title="修改暱稱">${getIconSvg('ready')}</button>
@@ -1142,8 +1142,8 @@ function renderLobby(me, isLeader) {
           </div>
           <div class="member-name-group">
             <span class="member-name">
-              ${isThisLeader ? `<span class="crown-tag">${getIconSvg('flag')}</span>` : ''}
-              <span class="member-name-text">${escapeHtml(p.name)}</span>
+              ${isThisLeader ? `<span class="crown-tag" title="房主">${getIconSvg('flag')}<small>房主</small></span>` : ''}
+              <span class="member-name-text" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
             </span>
             <span class="member-role-tag">
               ${roleInfo ? escapeHtml(roleInfo.name) : '<span class="role-unselected">未選職</span>'}
@@ -1210,85 +1210,13 @@ function renderLobby(me, isLeader) {
 // 渲染選職卡片
 function renderRoleSelectionGrid() {
   if (!classesData || Object.keys(classesData).length === 0) return;
-  const me = roomState?.players?.find(p => p.id === myId);
-  const myRole = me?.role;
-
-  elements.roleSelectionGrid.innerHTML = '';
-
-  Object.entries(classesData).forEach(([roleKey, conf]) => {
-    // 找出所有選擇此職業的成員（職業可重複選擇）
-    const choosers = (roomState?.players || []).filter(p => p.role === roleKey);
-    const isSelectedByMe = myRole === roleKey;
-
-    const card = document.createElement('div');
-    card.className = `role-card ${isSelectedByMe ? 'selected' : ''}`;
-
-    let buttonText = isSelectedByMe ? '已選擇' : '選擇此職業';
-
-    let choosersHtml = '';
-    if (choosers.length > 0) {
-      choosersHtml = `<div class="role-card-choosers" style="margin-top:6px; font-size:0.75rem; color:#f59e0b; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-        ${getIconSvg('users')} <span>已選擇: ${choosers.map(c => escapeHtml(c.name)).join(', ')}</span>
-      </div>`;
-    }
-
-    const badges = ROLE_BADGES[roleKey] || [{ text: '冒險者', type: '' }];
-    const tagsHtml = `<div class="role-card-tags">
-      ${badges.map(b => `<span class="role-tag-badge ${b.type}">[${b.text}]</span>`).join('')}
-    </div>`;
-
-    card.innerHTML = `
-      <div class="role-card-inner">
-        ${conf.avatar ? `
-          <div class="role-card-avatar-wrap">
-            <img src="${conf.avatar}" alt="${conf.name}" class="role-card-avatar" loading="lazy">
-            <button type="button" class="role-skill-detail-btn" data-role="${roleKey}" title="查看職業詳細技能與數值介紹">
-              ${getIconSvg('info', 'ui-icon--sm')} <span>技能詳情</span>
-            </button>
-          </div>
-        ` : `
-          <div class="role-card-top" style="position: relative;">
-            <span class="role-card-icon">${getIconSvg(getRoleIconName(roleKey))}</span>
-            <button type="button" class="role-skill-detail-btn" data-role="${roleKey}" title="查看職業詳細技能與數值介紹">
-              ${getIconSvg('info', 'ui-icon--sm')} <span>技能詳情</span>
-            </button>
-          </div>
-        `}
-        <div class="role-card-top">
-          <span class="role-card-name">${conf.name}</span>
-          <span class="role-card-hp">HP: ${conf.maxHp}</span>
-        </div>
-        ${tagsHtml}
-        <p class="role-card-desc">${conf.desc}</p>
-        ${choosersHtml}
-      </div>
-      <button class="btn ${isSelectedByMe ? 'btn-success' : 'btn-primary'} role-card-btn">
-        ${buttonText}
-      </button>
-    `;
-
-    const detailBtn = card.querySelector('.role-skill-detail-btn');
-    if (detailBtn) {
-      detailBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        playSound('click');
-        openRoleDetailModal(roleKey);
-      });
-    }
-
-    card.addEventListener('click', () => {
-      playSound('click');
-      socket.emit('player:select_role', { roleKey }, (res) => {
-        if (!res.success) {
-          alert(res.message);
-        }
-      });
+  renderRoleLobby({classes:classesData,details:roleDetailsData||DEFAULT_ROLE_DETAILS,players:roomState?.players||[],myId,onSelect:roleKey=>{
+    playSound('click');
+    socket.emit('player:select_role',{roleKey},res=>{
+      if(!res.success){alert(res.message);lobbyRoleUi.role=roomState?.players?.find(p=>p.id===myId)?.role||'warrior';renderRoleSelectionGrid();}
     });
-
-    elements.roleSelectionGrid.appendChild(card);
-  });
+  }});
 }
-
 // --------------------------------------------------------------------------
 // 全域轉場、大字幕與打字機函式
 // --------------------------------------------------------------------------
