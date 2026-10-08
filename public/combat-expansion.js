@@ -77,6 +77,7 @@ function updateResultCard(card, target) {
   }
 }
 async function presentCombatResult(result, card, context = {}) {
+  if (context.samuraiOriginalFx) return resolveSamuraiCombatResult(result, card, context);
   const resultOutcome = result.outcome?.type;
   const baseAudio = context.audioScope || createSfxPresentationScope(context);
   const audio = ['dream_heal','nightmare'].includes(resultOutcome) ? dreamweaverAudioScope(baseAudio) : baseAudio;
@@ -104,7 +105,9 @@ async function presentCombatResult(result, card, context = {}) {
     resultFloat(card, 'MISS', 'is-miss');
     emit('miss');
   } else if (result.kind === 'damage' || result.kind === 'intercept') {
+    const samuraiParry=outcome.parry&&(result.role==='samurai'||result.targetBefore?.role==='samurai');
     if(outcome.parry)playSound('samurai_parry',{noHold:true});
+    if(samuraiParry)flashSamuraiParryPortrait(card,context);
     if (result.guard || result.absorbed > 0) {
       card.classList.add('is-guarding');
       if(!outcome.parry)playSound('shield_block');
@@ -118,7 +121,7 @@ async function presentCombatResult(result, card, context = {}) {
     }
     const damage = result.absorbed > 0 ? result.hpDmg : result.finalDamage;
     if (outcome.type === 'block' || damage === 0) {
-      resultFloat(card, 'BLOCK', 'is-guard');
+      resultFloat(card, samuraiParry?'格擋':'BLOCK', samuraiParry?'is-guard is-samurai-parry':'is-guard');
       emit('block');
     } else if (damage > 0) {
       const fxType = context.fxType || (context.direction === 'left' ? 'boss_claw' :
@@ -546,6 +549,7 @@ async function playCategoryPresentation(step, context = {}) {
   });
 }
 async function playPhase8Presentation(step, context = {}) {
+  if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
   const wait=ms=>waitForPresentation(ms,context.signal,context.speed||1);
   const audio=context.audioScope || createSfxPresentationScope(context);
   const showResults=async(canvas,actor)=>{
@@ -598,6 +602,8 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const audio = context.audioScope || createSfxPresentationScope(context);
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
+  if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
+  if (typeof hasSamuraiParry === "function" && hasSamuraiParry(step)) rememberSamuraiEnemyPhase(step, context);
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);

@@ -29,3 +29,11 @@ test('canonical asset registry references existing files and includes samurai pa
     if(profile.src==='/sound/parry.mp3')assert.equal(profile.fallback,'shield_block');
   }
 });
+
+test('Samurai skills share their dedicated sound and Tsubame intro uses the full file',()=>{
+ for(const actionId of ['sa_cut','sa_tsubame'])assert.equal(context.resolve({sourceRole:'samurai',actionId}).key,'samurai-skill');
+ assert.equal(context.registry['samurai-skill'].src,'/sound/samurai-skill.mp3');
+ assert.equal(context.registry['samurai-skill2-intro'].src,'/sound/samurai-skill2-intro.mp3');
+ assert.equal(context.registry['samurai-skill2-intro'].offset,0);
+ assert(context.registry['samurai-skill2-intro'].maxDuration>1);
+});

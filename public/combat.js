@@ -41,6 +41,7 @@ function getOrCreateCombatStage() {
 
 // 啟用全螢幕戰鬥舞台 (Combat Resolution 開始)
 async function enterCombatStage(context = {}) {
+  if (typeof clearSamuraiPresentationState === "function") clearSamuraiPresentationState(context);
   const stage = getOrCreateCombatStage();
   const speed = context.speed || 1.0;
   const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
@@ -57,12 +58,13 @@ async function enterCombatStage(context = {}) {
     presentationManager.setBlocking(true);
   }
 
-  preloadCombatFxAssets();
+  preloadCombatFxAssets().catch(error => console.warn("Combat FX preload", error));
   await waitForPresentation(timing.overlayEnter, context.signal, speed);
 }
 
 // 退出全螢幕戰鬥舞台 (所有動作播放完畢)
 async function exitCombatStage(context = {}) {
+  if (typeof clearSamuraiPresentationState === "function") clearSamuraiPresentationState(context);
   const stage = document.getElementById('presentationCombatStage');
   const speed = context.speed || 1.0;
   const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
@@ -197,7 +199,7 @@ function preloadCombatFxAssets() {
     const image = new Image(); image.src = src;
     return image.decode().catch(() => { failedCombatFxAssets.add(src); });
   }));
-  return combatFxPreload;
+  return typeof preloadSamuraiFxAssets === "function" ? Promise.all([combatFxPreload, preloadSamuraiFxAssets()]) : combatFxPreload;
 }
 function getCombatProfile(step) {
   const isPlayer = step.type === 'player_action';
@@ -247,6 +249,7 @@ function createCombatFx({ type, target, direction = 'right', variant, speed = 1,
 
 // 播放單一戰鬥動作全螢幕演出 (Player Action 或 Boss Action)
 async function playCombatActionPresentation(step, context = {}) {
+  if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
   await sfxManager.preload();
   if ((context.signal || context.controller?.signal)?.aborted) return;
   if (!step) return;

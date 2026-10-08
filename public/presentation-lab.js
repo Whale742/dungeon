@@ -808,6 +808,13 @@ async function playScene(sceneName) {
       await playStatusLabScene(sceneName, context);
       return;
     }
+    if (typeof SAMURAI_LAB_SCENES !== 'undefined' && SAMURAI_LAB_SCENES[sceneName]) {
+      const scene=SAMURAI_LAB_SCENES[sceneName];
+      await enterCombatStage(context);
+      try { for (const step of scene.steps) await playExpandedCombatPresentation(structuredClone(step),context); }
+      finally { await exitCombatStage(context); }
+      logLab('COMPLETE',scene.label,'success');return;
+    }
     if (typeof PHASE6_LAB_SCENES !== 'undefined' && PHASE6_LAB_SCENES[sceneName]) {
       const scene = PHASE6_LAB_SCENES[sceneName];
       if(scene.role==='sage')renderSageLabHud(scene.steps?.[0]?.hpSnapshotBefore?.players||[]);
@@ -1211,6 +1218,11 @@ function initLabController() {
       }
       for(const group of groups.values())if(group.children.length)sceneSelect.appendChild(group);
       if(events.children.length)sceneSelect.appendChild(events);
+    }
+    if (typeof SAMURAI_LAB_SCENES !== 'undefined') {
+      const group=document.createElement('optgroup');group.label='Samurai · Prototype Migration';
+      for(const [id,scene] of Object.entries(SAMURAI_LAB_SCENES)){const option=document.createElement('option');option.value=id;option.textContent=scene.label;group.appendChild(option);}
+      sceneSelect.appendChild(group);
     }
     sceneSelect.addEventListener('change', () => {
       labState.currentScene = sceneSelect.value;

@@ -1,0 +1,70 @@
+const T={damageReduction:'減傷 50%',blocked:'格擋',soulGainText:'武魂 +',guardBuffText:'狂刀機率 +30%'};
+const state={plan,disposed:false,shake:!context.reducedMotion,flash:true};
+const world=document.createElement('div');world.className='samurai-world';root.appendChild(world);
+const dom={world};
+const node=(id,cls,parent=world,tag='div')=>{const el=document.createElement(tag);el.className='samurai-'+cls;parent.appendChild(el);dom[id]=el;return el;};
+const player=node('player','position samurai-player');
+const playerVisual=node('playerVisual','motion',player);playerCard.classList.add('samurai-card');playerVisual.appendChild(playerCard);
+dom.playerHit=playerCard.querySelector('.presentation-result-hit');
+const boss=node('bossPosition','position samurai-boss');bossCard.classList.add('samurai-card');boss.appendChild(bossCard);
+dom.bossVisual=bossCard.querySelector('.presentation-result-hit');
+const playerPortrait=playerCard.querySelector('.presentation-result-portrait'),bossPortrait=bossCard.querySelector('.presentation-result-portrait');
+node('playerEcho','shadow-silhouette',playerVisual).style.backgroundImage=`url("${playerPortrait.querySelector('img')?.src||''}")`;
+node('playerFlare','portrait-flare',playerPortrait);node('bossFlare','portrait-flare',bossPortrait);
+node('sceneDimmer','scene-dimmer');node('focusAura','focus-aura');
+const canvas=node('vfx','vfx',world,'canvas'),ctx=canvas.getContext('2d',{alpha:true});
+const damageLayer=node('damageLayer','damage-layer');
+const eye=node('eyeCutin','eye-cutin'),art=node('eyeArt','eye-art',eye);
+function imageNode(id,cls,src,parent){const img=node(id,cls,parent,'img');img.src=src;img.alt='';img.draggable=false;return img;}
+imageNode('eyeClosed','eye-closed','/assets/samurai-eye.png',art);
+imageNode('eyeOpen','eye-open','/assets/samurai-eye.png',art);
+node('eyeFlare','eye-flare',art);node('eyeSweep','eye-sweep',art);
+node('pupilLeft','eye-pupil samurai-left',art);node('pupilRight','eye-pupil samurai-right',art);
+node('eyeRule','eye-rule',eye);node('eyeCaption','eye-caption',eye).textContent='秘劍 • 燕返';
+node('screenFlash','screen-flash');node('screenSlice','screen-slice');
+const zan=node('zanOverlay','zan-overlay');
+imageNode('zanFull','zan-mark samurai-zan-full','/assets/samurai-fx/zan-full.png',zan);
+imageNode('zanSplit','zan-mark samurai-zan-split','/assets/samurai-fx/zan-split.png',zan);
+node('zanSlash','zan-slash',zan);
+imageNode('titleImage','title-image','/assets/samurai-fx/swallow-title.png',node('swallowTitleIcon','swallow-title-icon'));
+node('guardTag','guard-tag',player).textContent='狂刀';node('guardSub','guard-sub',player);node('soulGain','floating-gain',player);
+const soulWrap=node('soulWrap','soul-wrap',player),soulPips=node('soulPips','soul-pips',soulWrap);
+const pips=Array.from({length:8},()=>node('pip','soul-pip',soulPips));node('soulCount','soul-count',soulWrap);
+const box=root.getBoundingClientRect(),pr=playerPortrait.getBoundingClientRect(),br=bossPortrait.getBoundingClientRect();
+const anchor=r=>({x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height});
+const geometry={w:box.width,h:box.height,dpr:Math.min(devicePixelRatio||1,2),p:anchor(pr),b:anchor(br),pips:pips.map(el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2};})};
+canvas.width=Math.max(1,Math.round(geometry.w*geometry.dpr));canvas.height=Math.max(1,Math.round(geometry.h*geometry.dpr));
+const damageNodes=[...plan.hits,...plan.incoming.filter(h=>h.result&&h.taken>0)].map(hit=>{
+ const el=node('damage','damage-number'+(hit.burst?' samurai-critical':'')+(hit.target==='player'?' samurai-player-damage':''),damageLayer);
+ el.textContent=hit.displayText??('-'+hit.value);
+ if(hit.ignore){const label=document.createElement('small');label.textContent='PURE';el.appendChild(label);}
+ return {el,hit};
+});
+function renderDamage(t){
+ const p=plan,{w,p:pl,b}=geometry,scale=w/1000;
+ const soul=plan.soulChanges.reduce((n,c)=>t>=c.time?n+c.delta:n,plan.startSouls);
+ dom.soulCount.textContent=String(soul).padStart(2,'0')+' / 08';
+ for(let i=0;i<8;i++){pips[i].classList.toggle('lit',i<soul);let opacity=1;if(plan.gather&&t>=plan.gather.start&&t<plan.gather.end&&i>=plan.startSouls-4&&i<plan.startSouls)opacity=1-clamp((t-plan.gather.start)/(plan.gather.end-plan.gather.start))*.9;pips[i].style.opacity=String(opacity);}
+ for(const obj of damageNodes){
+   const hit=obj.hit,m=t-hit.time,life=hit.kind==='arc'?490:p.skill==='swallow'?570:640;
+   const visible=m>=0&&m<life,progress=clamp(m/life),a=visible?clamp(m/22)*(1-smooth((progress-.5)/.5)):0;
+   const target=hit.target==='player'?pl:b;
+   const n=p.skill==='swallow'&&hit.target==='boss'?hit.index:0;
+   const spread=p.skill==='swallow'?[-.23,.05,-.07,.27][n%4]*b.w:0;
+   const x=target.x+spread,y=p.skill==='swallow'&&hit.target==='boss'?target.y+target.h*.33-(out3(progress)*48-(n%2)*15)*scale:target.y-target.h*.10-(20+out3(progress)*50)*scale;
+   const size=1+Math.exp(-m/43)*.24;
+   obj.el.style.opacity=a.toFixed(3);obj.el.style.transform=`translate(${x.toFixed(2)}px,${y.toFixed(2)}px) translate(-50%,-50%) scale(${visible?size.toFixed(3):1})`;
+ }
+}
+
+function measure(){
+ const movers=[world,playerVisual,dom.playerHit,dom.bossVisual,boss];const transforms=movers.map(n=>n.style.transform);movers.forEach(n=>n.style.transform='none');
+ const box=root.getBoundingClientRect();geometry.w=box.width;geometry.h=box.height;geometry.dpr=Math.min(devicePixelRatio||1,2);
+ const get=el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height};};
+ geometry.p=get(playerPortrait);geometry.b=get(bossPortrait);geometry.pips=pips.map(get);
+ canvas.width=Math.max(1,Math.round(geometry.w*geometry.dpr));canvas.height=Math.max(1,Math.round(geometry.h*geometry.dpr));
+ movers.forEach((n,i)=>n.style.transform=transforms[i]);
+}
+
+// The requested minimal Haori variant reuses the source's blue particle stroke.
+function renderSamuraiVariant(t,p){for(const c of p.soulChanges)if(c.delta>1)sparks(geometry.p.x,geometry.p.y,t-c.time,91,8,.35,-1.57);}

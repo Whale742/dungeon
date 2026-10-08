@@ -8,6 +8,8 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['dreamwaver-dream', 'dreamwaver-dream', .5, null, 0, 2350, 9.936],
   ['dreamwaver-posi', 'dreamwaver-posi', .6, null, 0, 2424],
   ['dreamwaver-nage', 'dreamwaver-nage', .6, null, 0, 4102],
+  ['samurai-skill', 'samurai-skill', .65, 'warrior_skill1', 0, 1000, 30],
+  ['samurai-skill2-intro', 'samurai-skill2-intro', .65, null, 0, 1000, 30],
   ['samurai_parry', 'parry', .55, 'shield_block', 0, 300],
   ['sage_snap', 'sage_snap', .55, 'physical_hit', 0, 200, 30],
   ['sage-attack', 'sage-attack', .55, 'physical_hit', 0, 200, 30],
@@ -47,6 +49,7 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
 
 const SFX_ALIASES = Object.freeze({
   panel_sweep: 'fight', panel_shoo: 'fight', action_whoosh: 'fight', combat_skill_sweep: 'fight',
+  'assassin-pursuit': 'assassin_pursuit', 'sword-slash-light': 'warrior_basic', 'sword-slash-heavy': 'warrior_skill1',
   warrior_xing: 'warrior_skill1', sword_slash: 'warrior_skill1', sword_whoosh: 'warrior_skill1',
   mage_burst: 'mage_skill1', arcane_bomb: 'mage_skill1', archer_twang: 'arrow_release',
   assassin_dual: 'warrior_skill1', shadow_follow_up: 'assassin_pursuit', bard_tone: 'bard_basic',
@@ -59,7 +62,7 @@ const SFX_PRESENTATION_PROFILES = Object.freeze({
   dreamweaver: {basic:null,dw_butterfly:null,dw_false_dream:null},
   stargazer: {basic:'mage_basic',sg_observe:'mage_skill2',sg_clock:'bard_skill2'},
   gladiator: {basic:'warrior_basic',g_sacrifice:'warrior_skill1',g_arena:'warrior_skill1'},
-  samurai: {basic:'warrior_basic',sa_cut:'warrior_skill1',sa_tsubame:'warrior_basic',sa_counter:'warrior_basic'},
+  samurai: {basic:'warrior_basic',sa_cut:'samurai-skill',sa_tsubame:'samurai-skill',sa_counter:'samurai-skill'},
   sage: {basic:'sage-attack',sge_deduce:'sage-attack',sge_induce:'sage-attack',sge_equation:null},
   warrior: { basic: 'warrior_basic', w_strike: 'warrior_skill1', w_shield_slam: 'warrior_skill1', w_cleave: 'warrior_skill1', w_shield: 'warrior_defense' },
   mage: { basic: 'mage_basic', m_blast: 'mage_skill1', m_fireball: 'mage_skill1', m_drain: 'mage_skill2' },

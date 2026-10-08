@@ -1,0 +1,27 @@
+{
+  "reference": "public/assets/temp/samurai_skill_prototype_fixed_v4.html",
+  "sha256": "5ff7446c546f43289ba55335229a22def706764ab375b55aed80f57773700a13",
+  "frames": [
+    {
+      "file": "zan-full.png",
+      "sha256": "437cfe3587d0ae8aa14716d8dbf55539f18826e96c9c96502867d4d5ebe8de86",
+      "source": "samurai-skill1.png"
+    },
+    {
+      "file": "zan-split.png",
+      "sha256": "f39cf50ec6794177eed0a19512a70b9479adff5028db085c317fc6753e6932eb",
+      "source": "samurai-skill1.png"
+    },
+    {
+      "file": "swallow-title.png",
+      "sha256": "d796f5935dbd584b239ddd8a7ca70f795cf844fb8812895b2ebcb1a861a1ca7d",
+      "source": "samurai-skill2.png"
+    }
+  ],
+  "eye": {
+    "url": "/assets/samurai-eye.png",
+    "closed": "upper half",
+    "open": "lower half",
+    "sha256": "910bcb1796d3356e24a30ad47df0d319c60beead5d1d7ba3fd1638dcd968bed6"
+  }
+}

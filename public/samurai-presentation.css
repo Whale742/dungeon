@@ -1,0 +1,81 @@
+/* fixed_v4 FX declarations, scoped to Samurai. */
+.samurai-fx-owner .samurai-portrait-flare{position:absolute;inset:0;opacity:0;background:#b5edff;mix-blend-mode:screen;z-index:4;pointer-events:none}
+.samurai-fx-owner .samurai-boss .samurai-portrait-flare{background:#dcf6ff}
+.samurai-fx-owner .samurai-shadow-silhouette{position:absolute;inset:0;opacity:0;border:1px solid #5fd5fb70;transform:translateX(0);background:#3b8faf18;will-change:transform,opacity;pointer-events:none;z-index:-1}
+.samurai-fx-owner .samurai-guard-tag{position:absolute;left:50%;top:35%;transform:translate(-50%,-50%);font-family:var(--serif);font-size:clamp(22px,3vw,40px);font-weight:600;color:#eefaff;letter-spacing:.3em;opacity:0;z-index:16;white-space:nowrap;text-shadow:0 0 20px #37c9ff}
+.samurai-fx-owner .samurai-guard-sub{position:absolute;top:56%;width:100%;text-align:center;color:#a4deff;letter-spacing:.2em;font-size:10px;opacity:0;z-index:16}
+.samurai-fx-owner .samurai-floating-gain{position:absolute;width:160%;left:-30%;bottom:-28%;text-align:center;font-size:10px;letter-spacing:.1em;color:#a9e1ff;opacity:0;z-index:16}
+.samurai-fx-owner .samurai-scene-dimmer{position:absolute;inset:0;background:#00090f;opacity:0;z-index:7;pointer-events:none}
+.samurai-fx-owner .samurai-focus-aura{position:absolute;inset:-10%;z-index:0;opacity:0;pointer-events:none;background:radial-gradient(ellipse at 25% 48%,#36c9ff18,transparent 30%)}
+.samurai-fx-owner .samurai-vfx{position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none}
+.samurai-fx-owner .samurai-damage-layer{position:absolute;inset:0;z-index:22;pointer-events:none}
+.samurai-fx-owner .samurai-damage-number{position:absolute;left:0;top:0;opacity:0;font-family:"Arial Narrow","Segoe UI",sans-serif;font-size:clamp(25px,3vw,43px);font-weight:300;line-height:1;letter-spacing:-.06em;color:#e8f8ff;text-shadow:0 2px 3px #061120,0 0 13px #28a8d955;will-change:transform,opacity;white-space:nowrap;transform-origin:50% 100%;font-variant-numeric:tabular-nums}
+.samurai-fx-owner .samurai-damage-number.samurai-critical{font-size:clamp(32px,4vw,57px);font-weight:500;color:#fcfdff}
+.samurai-fx-owner .samurai-damage-number.samurai-player-damage{font-size:clamp(18px,2.2vw,31px);color:#e6b8a5}
+.samurai-fx-owner .samurai-damage-number small{display:block;font-size:7px;font-weight:500;letter-spacing:.2em;line-height:1.5;color:#8ad5f4;text-align:center;margin-top:5px}
+.samurai-fx-owner .samurai-eye-cutin{position:absolute;width:83%;left:8.5%;top:18.5%;aspect-ratio:1440/292;z-index:26;opacity:0;pointer-events:none;will-change:transform,opacity;filter:drop-shadow(0 0 16px #000b)}
+.samurai-fx-owner .samurai-eye-art{position:absolute;inset:0;overflow:hidden;background:#03080d;clip-path:polygon(0 5%,3% 0,98% 0,100% 8%,99.3% 89%,100% 100%,1.5% 100%,0 88%)}
+.samurai-fx-owner .samurai-eye-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
+.samurai-fx-owner .samurai-eye-open{opacity:0}
+.samurai-fx-owner .samurai-eye-flare{position:absolute;inset:0;background:#a0e6ff;opacity:0;mix-blend-mode:screen}
+.samurai-fx-owner .samurai-eye-sweep{position:absolute;width:38%;height:2px;top:61%;left:0;opacity:0;background:linear-gradient(90deg,#fff0,#f5ffff 40%,white 75%,#fff0);box-shadow:0 0 10px #aee8ff,0 0 24px #5ecbff;mix-blend-mode:screen}
+.samurai-fx-owner .samurai-eye-caption{position:absolute;right:3%;bottom:-20%;font-family:var(--serif);font-size:clamp(10px,1.25vw,17px);letter-spacing:.3em;color:#e3f4ff;text-shadow:0 0 10px #001625;white-space:nowrap}
+.samurai-fx-owner .samurai-eye-rule{position:absolute;left:-5%;width:110%;height:1px;top:-6px;background:linear-gradient(90deg,transparent,#b8eeffad 25%,#e8f7ffcc 70%,transparent)}
+.samurai-fx-owner .samurai-eye-pupil{position:absolute;width:9%;height:20%;top:54%;background:radial-gradient(ellipse,#dfffff88,#39c9ff44 40%,transparent 73%);mix-blend-mode:screen;opacity:0}
+.samurai-fx-owner .samurai-eye-pupil.samurai-left{left:39%}
+.samurai-fx-owner .samurai-eye-pupil.samurai-right{left:60%}
+.samurai-fx-owner .samurai-swallow-title-icon{position:absolute;left:50%;top:50%;z-index:4;width:120%;height:120%;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.98);transform-origin:50% 50%;will-change:transform,opacity;filter:drop-shadow(0 0 7px #7fd8ff55) drop-shadow(0 0 14px #2dafff2a);overflow:hidden}
+.samurai-fx-owner .samurai-swallow-title-icon img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.samurai-fx-owner .samurai-screen-flash{position:absolute;inset:0;z-index:23;background:#ecfaff;opacity:0;pointer-events:none}
+.samurai-fx-owner .samurai-screen-slice{position:absolute;inset:0;z-index:20;opacity:0;pointer-events:none;background:linear-gradient(149deg,transparent 47.2%,#c7efff0a 47.3%,#d2f1ff18 49.6%,transparent 49.7%)}
+.samurai-fx-owner .samurai-zan-overlay{position:absolute;z-index:18;width:24%;aspect-ratio:1;left:50%;top:50%;pointer-events:none;opacity:0;will-change:transform,opacity;transform:translate(-50%,-50%) rotate(0deg) scale(.88)}
+.samurai-fx-owner .samurai-zan-mark{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:screen;opacity:0;filter:drop-shadow(0 0 7px #bdf3ff) drop-shadow(0 0 16px #4fcfff88)}
+.samurai-fx-owner .samurai-zan-overlay.samurai-is-burst .samurai-zan-mark{filter:drop-shadow(0 0 7px #bdf3ff) drop-shadow(0 0 16px #4fcfff88)}
+.samurai-fx-owner .samurai-zan-full{transform:scale(1)}
+.samurai-fx-owner .samurai-zan-split{transform:scale(1.02)}
+.samurai-fx-owner .samurai-zan-slash{position:absolute;inset:-6%;opacity:0;mix-blend-mode:screen;background:linear-gradient(62deg,transparent 46.5%,#6fd9ff05 47.5%,#9fe6ff55 48.4%,#ffffff 49.3%,#9fe6ff 50.2%,#4fc8ff4d 51.1%,transparent 52.1%);filter:drop-shadow(0 0 8px #53cbff) drop-shadow(0 0 16px #60d4ff);transform:scale(1.02)}
+.samurai-fx-owner .samurai-eye-cutin{top:20%;left:4%;width:92%}
+.samurai-fx-owner .samurai-swallow-title-icon{left:50%;top:50%;right:auto;bottom:auto;width:130%;height:130%;transform:translate(-50%,-50%) scale(.98)}
+.samurai-fx-owner .samurai-eye-caption{font-size:10px}
+.samurai-fx-owner .samurai-guard-tag{font-size:24px;letter-spacing:.16em}
+.samurai-fx-owner .samurai-guard-sub{font-size:8px}
+.samurai-fx-owner .samurai-floating-gain{font-size:8px;bottom:-41%}
+.samurai-fx-owner .samurai-damage-number{font-size:26px}
+.samurai-fx-owner .samurai-damage-number.samurai-critical{font-size:34px}
+.samurai-fx-owner .samurai-damage-number small{font-size:6px}
+/* Production coordinate and layer adapters only. */
+.samurai-fx-owner{position:absolute;inset:0;overflow:hidden;isolation:isolate;pointer-events:none;font-family:Inter,"Segoe UI","Noto Sans TC",sans-serif;--serif:"Noto Serif TC","Songti TC","PMingLiU",serif}
+.samurai-world{position:absolute;inset:0;transform-origin:50% 50%;will-change:transform}
+.samurai-position{position:absolute;width:21%;top:27%;z-index:5}
+.samurai-player{left:14.5%}.samurai-boss{right:14.5%}
+.samurai-motion{position:relative;transform-origin:50% 65%;will-change:transform}
+.samurai-fx-owner .samurai-card{width:100%;margin:0;animation:none;opacity:1;transform:none}
+.samurai-fx-owner .samurai-card .presentation-result-portrait{width:100%;height:auto;aspect-ratio:.87;max-width:none;margin:0;overflow:hidden}
+.samurai-fx-owner .samurai-card .presentation-result-hit{width:100%;animation:none;transform-origin:50% 65%}
+.samurai-fx-owner .samurai-card .presentation-result-portrait img{width:100%;height:100%;object-fit:cover}
+.samurai-fx-owner .samurai-card .presentation-result-name{font:500 clamp(12px,1.25vw,18px) var(--serif);margin-top:11px}
+.samurai-fx-owner .samurai-card .presentation-result-numbers{display:none}
+.samurai-fx-owner .samurai-shadow-silhouette{background-size:cover;z-index:-1}
+.samurai-fx-owner .samurai-portrait-flare{position:absolute;inset:0}
+.samurai-soul-wrap{display:flex;justify-content:space-between;gap:8px;margin-top:12px;color:#a9e1ff;font-size:9px}
+.samurai-soul-pips{display:flex;gap:6px}
+.samurai-soul-pip{width:5px;height:11px;transform:skew(-15deg);border:1px solid #58768c66}
+.samurai-soul-pip.lit{border-color:#a5e7ff;background:#a5e7ff;box-shadow:0 0 9px #58bdf666}
+.samurai-fx-owner .samurai-guard-tag{width:100%;text-align:center;letter-spacing:.3em}
+.samurai-fx-owner .samurai-swallow-title-icon{z-index:24}
+.samurai-fx-owner .samurai-eye-cutin{z-index:26}
+.samurai-fx-owner .samurai-screen-flash{z-index:28}
+.samurai-fx-owner .samurai-vfx{z-index:30}
+.samurai-fx-owner .samurai-damage-layer{z-index:40}
+.samurai-other-targets{position:absolute;left:5%;right:5%;bottom:2%;display:flex;justify-content:center;gap:12px;z-index:5}
+.samurai-other-targets .presentation-result-card{width:90px}
+.samurai-other-targets .presentation-result-portrait{width:70px;height:70px}
+
+.samurai-fx-owner .samurai-card.is-dying{animation:supportDeath calc(650ms / var(--samurai-speed,1)) ease-in both}
+
+/* The user-supplied eye sheet is the sole eye source: upper closed / lower open. */
+.samurai-fx-owner .samurai-eye-art .samurai-eye-closed,.samurai-fx-owner .samurai-eye-art .samurai-eye-open{height:200%;width:100%;object-fit:fill;bottom:auto}
+.samurai-fx-owner .samurai-eye-art .samurai-eye-closed{top:0}
+.samurai-fx-owner .samurai-eye-art .samurai-eye-open{top:-100%}
+
+.presentation-result-number.is-samurai-parry{font-size:clamp(.8rem,1.6cqw,1.15rem)}

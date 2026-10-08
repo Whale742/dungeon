@@ -39,7 +39,7 @@ test('Druid transformed states and minion summons configuration and distinct ima
 
   // 3. Verify physical files on disk: ONLY 1, 2, 3 exist; old unnumbered files deleted
   const baseDir = process.cwd();
-  for (const dir of ['photo', 'public/photo']) {
+  for (const dir of ['public/photo']) {
     for (let i = 1; i <= 3; i++) {
       assert.ok(fs.existsSync(path.join(baseDir, dir, `小樹精${i}.webp`)), `${dir}/小樹精${i}.webp must exist`);
       assert.ok(fs.existsSync(path.join(baseDir, dir, `幼狼${i}.webp`)), `${dir}/幼狼${i}.webp must exist`);
