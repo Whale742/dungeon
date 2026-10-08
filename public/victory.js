@@ -103,7 +103,7 @@ async function playVictoryPresentation(victory, context = {}) {
     if (app) app.inert = false;
     stage.classList.remove('is-exiting');stage.classList.add('is-active');
     const equipmentModal = document.getElementById('equipDropModal');
-    if (equipmentModal) equipmentModal.style.zIndex = '1000';
+    if (equipmentModal) equipmentModal.style.zIndex = '1100';
     presentationManager.setBlocking(false);
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'presentation-victory-continue'; button.textContent = '繼續深入';

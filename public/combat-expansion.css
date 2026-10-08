@@ -29,7 +29,7 @@
 .presentation-result-fx { position: absolute; inset: -8%; pointer-events: none; opacity: 0; }
 .is-impacting .presentation-result-fx { background: #ef4444; animation: supportImpact 250ms ease-out both; }
 .is-healing .presentation-result-fx, .is-reviving .presentation-result-fx { background: radial-gradient(ellipse, transparent 35%, #86efac 70%, transparent); animation: supportPulse 550ms ease-out both; }
-.is-guarding .presentation-result-fx, .is-guard-cast .presentation-result-fx { border: 4px solid #67e8f9; animation: supportPulse 650ms ease-out both; }
+.is-guarding .presentation-result-fx, .is-guard-cast .presentation-result-fx { border: 2px solid rgba(103, 232, 249, 0.45); box-shadow: inset 0 0 8px rgba(103, 232, 249, 0.2); animation: supportPulse 650ms ease-out both; }
 .is-shield-broken .presentation-result-fx { clip-path: polygon(0 0, 40% 0, 52% 50%, 45% 100%, 0 100%, 0 0, 60% 0, 100% 0, 100% 100%, 55% 100%, 65% 50%); }
 .is-downed { filter: grayscale(1); opacity: .6; transform: translateY(5px); }
 .is-reviving { animation: supportRevive 600ms ease-out both; }

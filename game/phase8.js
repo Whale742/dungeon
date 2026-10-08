@@ -13,13 +13,22 @@ export function p8State(p,room) {
     if(p.kyoutou)effects.push({id:'kyoutou',icon:'guard',label:'狂刀',turns:1});
     if(p.rage)effects.push({id:'rage',icon:'buff',label:'怒氣',stacks:p.rage});
     if(p.bloodStacks)effects.push({id:'blood_stacks',icon:'buff',label:'血祭',stacks:p.bloodStacks});
-    if(p.role==='sage')effects.push({id:'sage_equation',icon:'buff',label:p.sagePhase==='solve'?'求解':'假設',value:p.sageOperand??0});
+    if(p.role==='sage') {
+      const mastery = 1 + 0.1 * Math.min(3, Math.floor((p.sageX ?? 30) / 100));
+      effects.push({id:'sage_equation',icon:'buff',label:p.sagePhase==='solve'?'求解':'假設',value:p.sageOperand??0});
+      if(mastery > 1)effects.push({id:'sage_mastery',icon:'buff',label:'演算精通',value:`${mastery.toFixed(1)}×`});
+      if(p.sageConfusion)effects.push({id:'sage_confusion',icon:'debuff',label:'思緒紊亂',turns:1});
+    }
   }
-  const resource=p.role==='sage'?`變量(X) ${p.sageX ?? 10} · 運算元 ${p.sageOperand ?? 0} · ${p.sagePhase==='solve'?'求解':'假設'}`:
+  const x = p.sageX ?? 30;
+  const mastery = 1 + 0.1 * Math.min(3, Math.floor(x / 100));
+  const masteryLabel = mastery > 1 ? ` · 演算精通 ${mastery.toFixed(1)}×` : '';
+  const resource=p.role==='sage'?`變量(X) ${x}${masteryLabel} · 運算元 ${p.sageOperand ?? 0} · ${p.sagePhase==='solve'?'求解':'假設'}`:
     p.role==='samurai'?`武魂 ${p.soul||0}/8${p.kyoutou?' · 狂刀':''}`:
     p.role==='gladiator'?`怒氣 ${p.rage||0} · 血祭 ${p.bloodStacks||0}${room.arena?.playerId===p.id?' · 死亡角鬥場':''}`:
     p.role==='warrior'?`受傷攻擊 +${p.warriorStacks||0}/15`:'';
-  return {resourceSummary:resource, sageX:p.sageX, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
+  return {resourceSummary:resource, sageX:x, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
+    sageMastery:mastery,
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
     arenaActive:!!room.arena && room.arena.playerId===p.id,
@@ -73,7 +82,8 @@ export const phase8Methods = {
     for(const p of Object.values(this.players)) {
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
       p.rage=0;p.bloodStacks=0;p.soul=0;p.kyoutou=false;p.parryChecked=false;
-      p.sageX=10;p.sageOperand=Math.floor(Math.random()*30)+1;p.sagePhase='hypothesis';p.sageCycleRound=0;p.sageMomentum=0;delete p.sagePreviousAction;p.sagePrimeResetPending=false;
+      p.sageX=p.sageX??30;p.sageOperand=Math.floor(Math.random()*30)+1;p.sagePhase='hypothesis';p.sageCycleRound=0;p.sageMomentum=0;delete p.sagePreviousAction;p.sagePrimeResetPending=false;
+      delete p.sageConfusion;p.sagePriorShieldApplied=false;
       p.sageSamplingEnded=true;
     }
     if(this.currentMonster)this.currentMonster.p8Effects={};
@@ -138,6 +148,18 @@ export const phase8Methods = {
       }
       this.arenaPending=null;
     }
+    if(this.battleRound===1) {
+      for(const p of Object.values(this.players)) {
+        if(p.role==='sage'&&p.hp>0&&!p.sagePriorShieldApplied) {
+          p.sagePriorShieldApplied=true;
+          const x=p.sageX??30;
+          const shieldVal=Math.floor(p.maxHp*.25+Math.min(x,300)*.10);
+          this.p8GrantShield(p,shieldVal,2,'sage_prior',p.id);
+          this.p8Effect(p,'sage_prior_shield','先驗防壁',2,{value:shieldVal,icon:'guard'});
+          this.p8Log(`${p.name}獲得【先驗防壁】護盾 ${shieldVal} 點，持續至第二回合結束。`);
+        }
+      }
+    }
     for(const p of Object.values(this.players)) {
       this.p8Expire(p);p.parryChecked=false;p.kyoutou=false;p.parriedCount=0;p.parryChance=.4;p.rageRoundGain=false;p.warriorRoundDamage=0;p.sageInduction=false;p.sageEquationResolved=false;
       p.p8Shields=(p.p8Shields||[]).filter(s=>{
@@ -152,7 +174,11 @@ export const phase8Methods = {
     // Shield expiry for every ally precedes drawing any Sage's next cycle.
     for(const p of Object.values(this.players)) {
       if(p.role==='sage'&&p.hp>0) {
-        if(!p.sageCycleRound) {p.sageOperand=Math.floor(Math.random()*30)+1+(p.sageMomentum||0);p.sageMomentum=0;}
+        if(!p.sageCycleRound) {
+          let baseOp=Math.floor(Math.random()*30)+1;
+          if(p.sageConfusion){baseOp=Math.max(1,Math.floor(baseOp*.75));delete p.sageConfusion;delete p.p8Effects?.sage_confusion;}
+          p.sageOperand=baseOp+(p.sageMomentum||0);p.sageMomentum=0;
+        }
         p.sagePhase=p.sageCycleRound?'solve':'hypothesis';
       }
     }
@@ -353,12 +379,18 @@ export const phase8Methods = {
       }
       this.p8Log(`${p.name}【${outcome.label||'居合攻擊'}】，武魂 ${p.soul||0}/8。`);
     } else if(p.role==='sage') {
-      p.sageX ??=10;p.sageOperand ??=Math.floor(Math.random()*30)+1;p.sagePhase ||= 'hypothesis';
+      p.sageX ??=30;p.sageOperand ??=Math.floor(Math.random()*30)+1;p.sagePhase ||= 'hypothesis';
       const actual=damage(Math.floor((10+stat)*bardMultiplier),'phys',{penetration:p.action==='sge_deduce'?.5:0});
       if(p.sagePhase==='hypothesis') {
         if(p.action==='basic')p.sageOperand=actual;
         else if(p.action==='sge_deduce')p.sageOperand+=actual;
-        else {p.sageInduction=true;p.sageSamplingEnded=false;}
+        else {
+          p.sageInduction=true;p.sageSamplingEnded=false;
+          const samplingShield=Math.max(15,Math.floor(p.maxHp*.10));
+          this.p8GrantShield(p,samplingShield,1,'sage_sampling',p.id);
+          this.p8Effect(p,'sage_sampling_shield','慣性緩衝',1,{value:samplingShield,icon:'guard'});
+          this.p8Log(`${p.name}獲得【慣性緩衝】護盾 ${samplingShield} 點，持續至本回合結束。`);
+        }
       } else p.sageOperand=p.action==='sge_induce'?p.sageOperand*2:p.sageOperand+(p.action==='sge_deduce'?5:2);
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;
       p.sageLastAction=p.action;this.p8Log(`${p.name}【${p.sagePhase==='solve'?'求解':'假設'}】X=${p.sageX}，Operand=${p.sageOperand}。`);
@@ -374,7 +406,7 @@ export const phase8Methods = {
     }
     this.p8ClockEvents=[];
   },
-  p8ResolveEquation(p,queue,log,resistance) {
+  p8ResolveEquation(p,queue,log,resistance,bardMultiplier=1.0) {
     const m=this.currentMonster;this.p8LogBuffer=log;
     const event=(p,name,id,resolve,outcome={type:'normal'})=>{
       const before=this.getHpSnapshot();this.p8Results=[];this.p8Visuals=[];resolve();const after=this.getHpSnapshot();
@@ -384,34 +416,43 @@ export const phase8Methods = {
     };
       if(p.role==='sage' && (!this.arena||this.arena.playerId===p.id)) {
         if(p.sagePhase==='solve'&&m.hp>0) {
-          const operand=Math.round(p.sageOperand), x=p.sageX??10, lens=countEquip(p,'sge_lens'),rule=countEquip(p,'sge_rule');
+          const operand=Math.round(p.sageOperand), x=p.sageX??30, lens=countEquip(p,'sge_lens'),rule=countEquip(p,'sge_rule');
           const even=operand%2===0,prime=isPrime(operand),square=Number.isInteger(Math.sqrt(operand));
-          const raw=Math.round(Math.abs(operand*eta(x))*(1+(rule?.10+(rule-1)*.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1)));
+          const etaVal=eta(x), mastery=1+0.1*Math.min(3,Math.floor(x/100)), A=p.victoryAtkBonus||0, B=bardMultiplier??1.0;
+          const R=1+(rule?0.10+(rule-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
+          const baseEquation=Math.abs(operand)*etaVal+8+A*0.5;
+          const raw=Math.floor(baseEquation*B*mastery*R);
           const properties=[even?'EVEN':'ODD',...(prime?['PRIME']:[]),...(square?['SQUARE']:[])];
-          const outcome={type:'equation',label:'方程結算',operand,x,eta:eta(x),equationDamage:raw,properties};
+          const outcome={type:'equation',label:'方程結算',operand,x,eta:etaVal,mastery,equationDamage:raw,properties};
           event(p,'方程結算','sge_equation',()=>{
-            const actual=this.p8DamageMonster(p,raw,'phys',resistance,{penetration:even?0:1,equation:true});
-            if(even)for(const ally of alive(this))this.p8GrantShield(ally,actual*.4,1,'sage',p.id);
+            const actual=this.p8DamageMonster(p,raw,'phys',resistance,{penetration:even?0.4:1,equation:true});
+            if(even)for(const ally of alive(this))this.p8GrantShield(ally,Math.floor(actual*.4),1,'sage',p.id);
             else this.p8Effect(m,'sage_exposed','ODD 承傷 +10%',2,{starts:this.battleRound+1});
             if(prime){if(m.hp>0)this.p8DamageMonster(p,15,'true',resistance,{equation:true});for(const key of Object.keys(p.cooldowns))p.cooldowns[key]=0;}
             if(square)this.p8Effect(m,'sage_square','SQUARE 直接傷害 -25%',2,{starts:this.battleRound+1});
             for(const ally of alive(this)){const snap=this.getHpSnapshot();this.p8Results.push({kind:'status',targetId:ally.id,targetBefore:snap.players.find(a=>a.id===ally.id),targetAfter:snap.players.find(a=>a.id===ally.id),hpSnapshot:snap});}
           },outcome);
+          const baseXGain=Math.max(5,Math.round(operand*.20));
           const action=p.sageLastAction||'basic',base=action==='basic'?.6:action==='sge_deduce'?.5:.4,confusion=action==='basic'?.15:action==='sge_deduce'?.25:.35;
-          const success=Math.min(1,base+(lens?.10+(lens-1)*.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1)),r=Math.random();
-          if(r<success){p.sageX=Math.round(x+(action==='sge_induce'?operand/4:operand));outcome.resolution='SUCCESS';}
-          else if(r<success+Math.min(confusion,1-success)){p.sageX=Math.max(10,Math.round(x*.75));outcome.resolution='CONFUSION';}
+          const lensBonus=(lens?0.10+(lens-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
+          const shiftNothing=Math.min(0.25,lensBonus),remainingLens=lensBonus-shiftNothing,shiftConfusion=Math.min(confusion,remainingLens);
+          const successRate=Math.min(1,base+shiftNothing+shiftConfusion),confusionRate=Math.max(0,confusion-shiftConfusion);
+          const r=Math.random();let bonusX=0;
+          if(r<successRate){bonusX=action==='sge_induce'?Math.round(operand/4):operand;outcome.resolution='SUCCESS';}
+          else if(r<successRate+confusionRate){outcome.resolution='CONFUSION';p.sageConfusion=true;this.p8Effect(p,'sage_confusion','思緒紊亂',1,{icon:'debuff'});}
           else outcome.resolution='NOTHING';
-          outcome.xBefore=x;outcome.xAfter=p.sageX;outcome.variableContribution=outcome.resolution==='SUCCESS'?p.sageX-x:0;
+          const totalXGain=baseXGain+bonusX;
+          p.sageX=x+totalXGain;
+          outcome.xBefore=x;outcome.xAfter=p.sageX;outcome.baseXGain=baseXGain;outcome.bonusX=bonusX;outcome.variableContribution=totalXGain;
           queue[queue.length-1].hpSnapshot=this.getHpSnapshot();
           if(prime)p.sagePrimeResetPending=true;
-          this.p8Log(`${p.name}方程 ${operand} × η(${x}) = ${raw}【${properties.join(' / ')}】，${outcome.resolution}，X=${p.sageX}。`);
+          this.p8Log(`${p.name}方程 ${operand} × η(${x}) = ${raw}【${properties.join(' / ')}】，${outcome.resolution}（基礎 +${baseXGain}${bonusX?`，額外 +${bonusX}`:''}），X=${p.sageX}。`);
           p.sageCycleRound=0;
         } else p.sageCycleRound=1;
       }
     p.sageEquationResolved=true;this.p8LogBuffer=log;
   },
-  p8EndRound(queue,log,resistance) {
+  p8EndRound(queue,log,resistance,bardMultiplier=1.0) {
     this.p8LogBuffer=log;
     const m=this.currentMonster;
     const event=(p,name,id,resolve,outcome={type:'normal'})=>{
@@ -428,7 +469,7 @@ export const phase8Methods = {
         const n=countEquip(p,'sa_murasame')?20+p.parriedCount*2:countEquip(p,'sa_haori')?5:10+p.parriedCount;
         event(p,'狂刀反擊','sa_counter',()=>this.p8DamageMonster(p,n,'phys',resistance));this.p8Log(`${p.name}統一反擊 ${n}（招架 ${p.parriedCount} 次）。`);
       }
-      if(p.role==='sage'&&!p.sageEquationResolved)this.p8ResolveEquation(p,queue,log,resistance);
+      if(p.role==='sage'&&!p.sageEquationResolved)this.p8ResolveEquation(p,queue,log,resistance,bardMultiplier);
     }
     // The arena restores its original maximum using the exit ratio, including death.
     if(this.arena)this.p8ExitArena(queue);

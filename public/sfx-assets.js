@@ -16,7 +16,12 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['sage_func', 'sage_func', .45, 'magic_impact', 0, 200, 30],
   ['sage_cal', 'sage_cal', .45, 'magic_impact', 0, 200, 30],
   ['sage_pong', 'sage_pong', .55, 'physical_hit', 0, 200, 30],
-  ['sage_laser', 'sage_laser', .55, 'magic_impact', 0, 200, 30],
+  ['sage_laser', 'sage_laser', .55, 'magic_impact', 0, 1600, 2.5],
+  ['sage-laser', 'sage_laser', .55, 'magic_impact', 0, 1600, 2.5],
+  ['stargazer_obv', 'stargazer-obv', .55, 'mage_skill2', 0, 1000],
+  ['stargazer-obv', 'stargazer-obv', .55, 'mage_skill2', 0, 1000],
+  ['stargazer_confir', 'stargazer-confir', .6, 'magic_impact', 0, 1200],
+  ['stargazer-confir', 'stargazer-confir', .6, 'magic_impact', 0, 1200],
   ['warrior_basic', 'sword-slash-light', .65, 'warrior_xing', .55, 450],
   ['warrior_skill1', 'sword-slash-heavy', .5, 'warrior_xing', .05, 750],
   ['mage_basic', 'mage-basic', .5, 'mage_burst', .30, 850],
@@ -39,7 +44,7 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['logo_intro', 'logo-intro', .4, 'round_start', 0, 5800, Infinity],
   ['chest_reveal', 'chest-reveal', .46, 'chest_open', .25, 1900],
   ['boss_warning', 'warning', .55, 'boss_warning', 0, 4700],
-  ['boss_entrance', 'boss', .27, 'boss_boom', 0, 5000, Infinity],
+  ['boss_entrance', 'boss', .27, 'boss_boom', 0, 1000, Infinity],
   ['walk', 'walk', .4, null, 0, 2000, 120],
   ['victory', 'victory', .16, 'victory', 0, 3900]
 ].map(([key, file, volume, fallback, offset, identityBeatMs, maxDuration]) => [key, Object.freeze({
@@ -61,7 +66,7 @@ const SFX_ALIASES = Object.freeze({
 // Single owner for role + skill + form audio choices. Result cues remain server driven.
 const SFX_PRESENTATION_PROFILES = Object.freeze({
   dreamweaver: {basic:null,dw_butterfly:null,dw_false_dream:null},
-  stargazer: {basic:'mage_basic',sg_observe:'mage_skill2',sg_clock:'bard_skill2'},
+  stargazer: {basic:null,sg_observe:'stargazer_obv',sg_clock:'bard_skill2'},
   gladiator: {basic:'warrior_basic',g_sacrifice:'warrior_skill1',g_arena:'warrior_skill1'},
   samurai: {basic:'warrior_basic',sa_cut:'samurai-skill',sa_tsubame:'samurai-skill',sa_counter:'samurai-skill'},
   sage: {basic:'sage-attack',sge_deduce:'sage-attack',sge_induce:'sage-attack',sge_equation:null},

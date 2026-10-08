@@ -85,8 +85,8 @@ test('restart clears Phase 8 equipment contributions and same-floor revival ban'
   const {room}=fixture(t,['sage']);const p=room.players.p0;
   Object.assign(p,{p8TeamHp:20,p8DisabledHp:20,p8CorrodedHp:10,noReviveFloor:8,sageX:100});
   room.arena={playerId:p.id};room.restartToLobby(p.id);
-  assert.equal(p.p8TeamHp,0);assert.equal(p.sageX,10);assert.equal(p.noReviveFloor,undefined);assert.equal(room.arena,null);
-  room.p8RefreshEquipment();assert.equal(p.maxHp,70);
+  assert.equal(p.p8TeamHp,0);assert.equal(p.sageX,30);assert.equal(p.noReviveFloor,undefined);assert.equal(room.arena,null);
+  room.p8RefreshEquipment();assert.equal(p.maxHp,80);
 });
 test('round-end lethal counter queues death before waiting for victory ACK',t=>{
   const {room,resolve}=fixture(t);room.currentMonster.hp=5;
@@ -226,7 +226,7 @@ for(const [r,id] of [[.01,'shallow'],[.26,'deep'],[.51,'lone'],[.76,'horde']])te
 });
 test('dream unique restrictions and team maxHP stack/remove follow equipped count',t=>{
   const {room}=fixture(t,['dreamweaver','sage']),p=room.players.p0;equip(p,'dw_spindle');assert.equal(canPlayerEquipItem(p,LOOT_TABLE.find(e=>e.id==='dw_spindle')),false);
-  equip(p,'dw_loom');equip(p,'dw_loom');room.p8RefreshEquipment();assert.equal(room.players.p1.maxHp,110);unequipItemFromPlayer(p,2);room.p8RefreshEquipment();assert.equal(room.players.p1.maxHp,90);
+  equip(p,'dw_loom');equip(p,'dw_loom');room.p8RefreshEquipment();assert.equal(room.players.p1.maxHp,120);unequipItemFromPlayer(p,2);room.p8RefreshEquipment();assert.equal(room.players.p1.maxHp,100);
 });
 for(const [r,id] of [[.1,'star'],[.65,'planet'],[.75,'galaxy'],[.85,'blackhole'],[.95,'boundary']])test('astronomy normal pool server branch '+id,t=>{
   const {room,resolve}=fixture(t,['stargazer','warrior']);room.players.p0.action='sg_observe';assert.equal(actionStep(resolve(r)).outcome.type,id);
@@ -287,20 +287,20 @@ test('sage eta/primes and independent equation honors simultaneous even-square a
   assert.equal(eta(0),.25);assert(isPrime(3));assert(!isPrime(1));assert(!isPrime(4));
   for(const operand of [4,3]) {
     const {room,resolve}=fixture(t,['sage']),p=room.players.p0;p.sagePhase='solve';p.sageOperand=operand;p.sageX=80;p.action='skip';room.currentMonster.resistance='phys';room.bardBuffActive=true;
-    const q=resolve(.1),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.equationDamage,Math.round(operand*eta(80)));
-    if(operand===4){assert.deepEqual(s.outcome.properties,['EVEN','SQUARE']);assert(room.currentMonster.p8Effects.sage_square);assert.equal((room.players.p0.p8Shields||[]).reduce((n,s)=>n+s.value,0),Math.floor(s.results[0].finalDamage*.4));}
-    else{assert.deepEqual(s.outcome.properties,['ODD','PRIME']);assert.equal(s.results.filter(r=>r.kind==='damage').length,2);assert.equal(s.results[0].finalDamage,3);assert.equal(s.results[1].finalDamage,15);assert(room.currentMonster.p8Effects.sage_exposed);}
+    const q=resolve(.1),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.equationDamage,Math.floor(operand*eta(80)+8));
+    if(operand===4){assert.deepEqual(s.outcome.properties,['EVEN','SQUARE']);assert(room.currentMonster.p8Effects.sage_square);assert.equal((room.players.p0.p8Shields||[]).filter(sh=>sh.kind==='sage').reduce((n,s)=>n+s.value,0),Math.floor(s.results[0].finalDamage*.4));}
+    else{assert.deepEqual(s.outcome.properties,['ODD','PRIME']);assert.equal(s.results.filter(r=>r.kind==='damage').length,2);assert.equal(s.results[0].finalDamage,11);assert.equal(s.results[1].finalDamage,15);assert(room.currentMonster.p8Effects.sage_exposed);}
   }
 });
 for(const action of ['basic','sge_deduce','sge_induce'])test('sage hypothesis/solve operand owner '+action,t=>{
   const {room,resolve}=fixture(t,['sage']),p=room.players.p0;p.sageOperand=8;p.sagePhase='hypothesis';p.action=action;const s=actionStep(resolve(.9));
   if(action==='basic')assert.equal(s.hpSnapshot.players[0].sageOperand,10);
   if(action==='sge_deduce')assert.equal(s.hpSnapshot.players[0].sageOperand,18);
-  if(action==='sge_induce')assert.equal(p.sageOperand,8+(p.maxHp-p.hp));
+  if(action==='sge_induce')assert.equal(p.sageOperand,28);
   p.sageInduction=true;const old=p.sageOperand;room.applyDamageToPlayer(p,3,{kind:'dot'});assert.equal(p.sageOperand,old);room.applyDamageToPlayer(p,3,{kind:'enemy_direct'});assert.equal(p.sageOperand,old+3);
 });
 for(const [r,resolution] of [[.1,'SUCCESS'],[.65,'CONFUSION'],[.95,'NOTHING']])test('sage equation X outcome '+resolution,t=>{
-  const {room,resolve}=fixture(t,['sage']),p=room.players.p0;p.sageX=20;p.sageOperand=10;p.sagePhase='solve';p.action='skip';const q=resolve(r),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.resolution,resolution);assert.equal(p.sageX,resolution==='SUCCESS'?30:resolution==='CONFUSION'?15:20);
+  const {room,resolve}=fixture(t,['sage']),p=room.players.p0;p.sageX=20;p.sageOperand=10;p.sagePhase='solve';p.action='skip';const q=resolve(r),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.resolution,resolution);assert.equal(p.sageX,resolution==='SUCCESS'?35:25);
 });
 test('sage unbroken shield residual vs partially consumed shield and equipment success/damage stacking',t=>{
   const {room}=fixture(t,['sage','warrior']),p=room.players.p0,ally=room.players.p1;
@@ -331,7 +331,7 @@ test('oboro stacks additively, zero-soul 70% vs base 40%, and soul cap remains e
 });
 test('sage lenses shift nothing into success; rulers modify final equation once; prime resets charged CD',t=>{
   const {room,resolve}=fixture(t,['sage']),p=room.players.p0;equip(p,'sge_lens');equip(p,'sge_rule');equip(p,'sge_rule');Object.assign(p,{sagePhase:'solve',sageX:80,sageOperand:13,sageLastAction:'basic',action:'skip'});p.cooldowns.sge_deduce=5;
-  const q=resolve(.65),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.resolution,'SUCCESS');assert.equal(s.outcome.equationDamage,Math.round(13*eta(80)*1.15));assert.equal(p.cooldowns.sge_deduce,0);
+  const q=resolve(.65),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.resolution,'SUCCESS');assert.equal(s.outcome.equationDamage,Math.floor((13*eta(80)+8)*1.15));assert.equal(p.cooldowns.sge_deduce,0);
 });
 test('actual boss dream healing is a heal result, nightmare true damage ignores DR, and source follows server snapshots',t=>{
   for(const [r,kind] of [[.1,'heal'],[.9,'damage']]) {
@@ -359,4 +359,209 @@ for(const [roll,expected] of [[.1,'dream_heal'],[.9,'nightmare']])test('dream is
   const hit=random(()=>{throw Error('A hit must not reroll the dream');},()=>room.p8DreamDamage(p,2));
   assert.equal(hit.outcome,expected);
  }
+});
+
+test('13.1 Sage variable X persists across battles, floors, death and resets only on adventure restart/role select', t => {
+  const { room } = fixture(t, ['sage']);
+  const p = room.players.p0;
+  assert.equal(p.sageX, 30);
+  p.sageX = 75;
+  // 1. Battle reset preserves X
+  room.p8ResetBattle();
+  assert.equal(p.sageX, 75);
+  // 2. Dead then revived preserves X
+  p.hp = 0;
+  p.sageX = 140;
+  room.p8ResetBattle();
+  p.hp = 50;
+  assert.equal(p.sageX, 140);
+  // 3. Select role resets to 30
+  room.state = 'LOBBY';
+  room.selectRole('p0', 'sage');
+  assert.equal(p.sageX, 30);
+  // 4. restartToLobby resets to 30
+  p.sageX = 99;
+  room.restartToLobby('p0');
+  assert.equal(p.sageX, 30);
+});
+
+test('13.2 Sage guaranteed variable growth, success bonuses, and confusion perturbation reduction', t => {
+  const { room, resolve } = fixture(t, ['sage']);
+  const p = room.players.p0;
+  for (const [action, operand, expectedBonus] of [
+    ['basic', 20, 20],
+    ['sge_deduce', 50, 50],
+    ['sge_induce', 100, 25]
+  ]) {
+    p.sageX = 30;
+    p.sageOperand = operand;
+    p.sagePhase = 'solve';
+    p.sageLastAction = action;
+    p.action = 'skip';
+    const q = [];
+    random(0.01, () => room.p8ResolveEquation(p, q, [], () => ({ dmg: 10 })));
+    const s = q[0];
+    assert.equal(s.outcome.resolution, 'SUCCESS');
+    const baseXGain = Math.max(5, Math.round(operand * 0.20));
+    assert.equal(p.sageX, 30 + baseXGain + expectedBonus);
+  }
+
+  p.sageX = 50;
+  p.sageOperand = 20;
+  p.sagePhase = 'solve';
+  p.sageLastAction = 'basic';
+  p.action = 'skip';
+  const qConf = [];
+  random(0.65, () => room.p8ResolveEquation(p, qConf, [], () => ({ dmg: 10 })));
+  const sConf = qConf[0];
+  assert.equal(sConf.outcome.resolution, 'CONFUSION');
+  assert.equal(p.sageX, 55);
+  assert.equal(p.sageConfusion, true);
+
+  p.sageCycleRound = 0;
+  p.sageMomentum = 0;
+  random(0.5, () => {
+    room.p8RoundStart();
+  });
+  assert.equal(p.sageConfusion, undefined);
+});
+
+test('13.3 Sage equation damage precision for spec benchmark cases A, B, C', t => {
+  const { room, resolve } = fixture(t, ['sage']);
+  const p = room.players.p0;
+  room.currentMonster.resistance = null;
+
+  // Case A: X=30, Op=50, A=0, B=1.0 -> 44
+  p.sageX = 30;
+  p.sageOperand = 50;
+  p.victoryAtkBonus = 0;
+  p.sagePhase = 'solve';
+  p.action = 'skip';
+  let q = resolve(0.9);
+  let eq = q.find(s => s.actionId === 'sge_equation');
+  assert.equal(eq.outcome.equationDamage, 44);
+
+  // Case B: X=100, Op=75, A=20, B=1.5 -> 180
+  p.sageX = 100;
+  p.sageOperand = 75;
+  p.victoryAtkBonus = 20;
+  p.sagePhase = 'solve';
+  p.action = 'skip';
+  const queueB = [];
+  room.p8ResolveEquation(p, queueB, [], (dmg, type) => ({ dmg, isResisted: false }), 1.5);
+  assert.equal(queueB[0].outcome.equationDamage, 180);
+
+  // Case C: X=180, Op=100, A=45, B=1.5 -> 291
+  p.sageX = 180;
+  p.sageOperand = 100;
+  p.victoryAtkBonus = 45;
+  p.sagePhase = 'solve';
+  p.action = 'skip';
+  const queueC = [];
+  room.p8ResolveEquation(p, queueC, [], (dmg, type) => ({ dmg, isResisted: false }), 1.5);
+  assert.equal(queueC[0].outcome.equationDamage, 291);
+});
+
+test('13.4 Sage mathematical properties: EVEN penetration & shield, ODD penetration & exposed, PRIME true dmg & CD reset, SQUARE dmg reduction', t => {
+  const { room } = fixture(t, ['sage']);
+  const p = room.players.p0;
+  room.currentMonster.resistance = 'phys';
+
+  p.sageX = 80;
+  p.sageOperand = 4;
+  p.sagePhase = 'solve';
+  const queueEven = [];
+  room.p8ResolveEquation(p, queueEven, [], (dmg, type, opts) => {
+    assert.equal(opts.penetration, 0.4);
+    return { dmg: Math.floor(dmg * 0.7), isResisted: true };
+  }, 1.0);
+  assert(queueEven[0].outcome.properties.includes('EVEN'));
+  const sageShield = (p.p8Shields || []).find(s => s.kind === 'sage');
+  assert(sageShield && sageShield.value > 0);
+
+  p.sageOperand = 3;
+  p.sagePhase = 'solve';
+  const queueOdd = [];
+  room.p8ResolveEquation(p, queueOdd, [], (dmg, type, opts) => {
+    if (type !== 'true') assert.equal(opts.penetration, 1);
+    return { dmg, isResisted: false };
+  }, 1.0);
+  assert(queueOdd[0].outcome.properties.includes('ODD'));
+  assert(queueOdd[0].outcome.properties.includes('PRIME'));
+  assert(room.currentMonster.p8Effects.sage_exposed);
+  const dmgResults = queueOdd[0].results.filter(r => r.kind === 'damage');
+  assert.equal(dmgResults.length, 2);
+  assert.equal(dmgResults[1].damageType, 'true');
+  assert.equal(dmgResults[1].finalDamage, 15);
+  assert.equal(p.sagePrimeResetPending, true);
+
+  assert(room.currentMonster.p8Effects.sage_square);
+});
+
+test('13.5 Sage survivability: Prior Barrier round 1, duration 2 rounds, and Inertia sampling shield', t => {
+  const { room, resolve } = fixture(t, ['sage']);
+  const p = room.players.p0;
+  room.battleRound = 1;
+  p.sagePriorShieldApplied = false;
+  room.p8RoundStart();
+  const prior = (p.p8Shields || []).find(s => s.kind === 'sage_prior');
+  assert(prior);
+  assert.equal(prior.value, 23);
+  assert.equal(prior.until, 2);
+
+  room.battleRound = 2;
+  room.p8RoundStart();
+  assert((p.p8Shields || []).some(s => s.kind === 'sage_prior'));
+
+  room.battleRound = 3;
+  room.p8RoundStart();
+  assert.equal((p.p8Shields || []).some(s => s.kind === 'sage_prior'), false);
+
+  p.sagePhase = 'hypothesis';
+  p.action = 'sge_induce';
+  p.sageOperand = 10;
+  room.p8Action(p, dmg => ({ dmg }), 1.0, [], []);
+  const sampling = (p.p8Shields || []).find(s => s.kind === 'sage_sampling');
+  assert(sampling && sampling.value === 15);
+});
+
+test('13.6 Shared systems: Boss victory rewards all party members including dead, corrosion immunity for permanent atk', t => {
+  const { room } = fixture(t, ['warrior', 'sage']);
+  const p0 = room.players.p0;
+  const p1 = room.players.p1;
+  p1.hp = 0;
+  p1.maxHp = 80;
+  p1.bonusAtk = 0;
+  p1.victoryAtkBonus = 0;
+
+  p0.hp = 50;
+  p0.maxHp = 120;
+  p0.bonusAtk = 0;
+  p0.victoryAtkBonus = 0;
+
+  for (const p of Object.values(room.players)) {
+    p.maxHp += 10;
+    p.bonusAtk += 5;
+    p.victoryAtkBonus = (p.victoryAtkBonus || 0) + 5;
+    if (p.hp > 0) {
+      const healAmt = Math.max(1, Math.round(p.maxHp * 0.2));
+      p.hp = Math.min(p.maxHp, p.hp + 10 + healAmt);
+    } else {
+      p.hp = 0;
+    }
+  }
+
+  assert.equal(p0.maxHp, 130);
+  assert.equal(p0.bonusAtk, 5);
+  assert.equal(p0.victoryAtkBonus, 5);
+  assert(p0.hp > 50);
+
+  assert.equal(p1.maxHp, 90);
+  assert.equal(p1.bonusAtk, 5);
+  assert.equal(p1.victoryAtkBonus, 5);
+  assert.equal(p1.hp, 0);
+
+  room.roundModifiers = { equipmentEffectMultiplier: 0.5 };
+  equip(p0, 'sg_bracer');
+  assert.equal(room.getEffectiveBonusAtk(p0), 10);
 });

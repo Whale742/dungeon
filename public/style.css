@@ -203,8 +203,8 @@
   --z-battle-log: 25;
   --z-presentation: 100;
   --z-curtain: 150;
-  --z-system-modal: 200;
-  --z-chat: 210;
+  --z-system-modal: 1000;
+  --z-chat: 1010;
 }
 
 /* Arcade Animations */
@@ -2564,13 +2564,15 @@ input[type="text"]::placeholder {
 }
 
 /* 9. Shield Perimeter Flash */
+.pixel-fx-shield-flare { z-index: 1; pointer-events: none; }
 .pixel-fx-shield-flare::before {
   content: '';
   position: absolute;
   inset: -4px;
-  border: 3px solid #38bdf8;
+  border: 2px solid rgba(56, 189, 248, 0.5);
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 20px #38bdf8, inset 0 0 14px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3), inset 0 0 6px rgba(56, 189, 248, 0.12);
+  pointer-events: none;
   animation: fxShieldFlare 380ms ease-out forwards;
 }
 
@@ -2611,8 +2613,8 @@ input[type="text"]::placeholder {
 }
 @keyframes fxShieldFlare {
   0% { transform: scale(0.95); opacity: 0; }
-  35% { transform: scale(1.04); opacity: 1; }
-  100% { transform: scale(1.08); opacity: 0; }
+  35% { transform: scale(1.02); opacity: 0.35; }
+  100% { transform: scale(1.04); opacity: 0; }
 }
 
 .slash-overlay,
@@ -2871,6 +2873,14 @@ input[type="text"]::placeholder {
   opacity: 0.5;
   filter: grayscale(0.7);
   box-shadow: 0 2px 0 #131b2e;
+}
+
+.teammate-top,
+.teammate-hp-bg,
+.teammate-stats-sub,
+.teammate-tags {
+  position: relative;
+  z-index: 2;
 }
 
 .teammate-top {
@@ -3935,7 +3945,7 @@ input[type="text"]::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-system-modal, 200);
+  z-index: var(--z-system-modal, 1000);
   animation: modalFadeIn var(--duration-fast) var(--ease-standard);
 }
 
@@ -4679,6 +4689,10 @@ input[type="text"]::placeholder {
   align-items: center;
   gap: 6px;
   box-shadow: 0 2px 0 #78350f;
+}
+
+#equipDropModal:not(.hidden) {
+  z-index: 1100;
 }
 
 .equip-modal-card {

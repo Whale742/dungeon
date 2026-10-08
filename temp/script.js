@@ -195,6 +195,23 @@ const PORTRAIT_ASSETS = {
       if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (this.ctx.state === 'suspended') this.ctx.resume();
     }
+    playAudioFile(filename) {
+      const candidatePaths = [
+        `../public/sound/${filename}`,
+        `/sound/${filename}`,
+        `/public/sound/${filename}`,
+        `sound/${filename}`
+      ];
+      for (const p of candidatePaths) {
+        try {
+          const audio = new Audio(p);
+          audio.volume = 0.65;
+          const prom = audio.play();
+          if (prom) prom.catch(() => {});
+          break;
+        } catch (e) {}
+      }
+    }
     play(type) {
       this._init();
       const now = this.ctx.currentTime;
@@ -204,6 +221,39 @@ const PORTRAIT_ASSETS = {
       gain.connect(this.ctx.destination);
   
       switch (type) {
+        case 'stargazer-obv':
+        case 'stargazer_obv':
+        case 'obv':
+          this.playAudioFile('stargazer-obv.mp3');
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.4);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.4);
+          osc.start(now); osc.stop(now + 0.4);
+          break;
+        case 'stargazer-confir':
+        case 'stargazer_confir':
+        case 'confir':
+          this.playAudioFile('stargazer-confir.mp3');
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(660, now);
+          osc.frequency.exponentialRampToValueAtTime(1320, now + 0.3);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.35);
+          osc.start(now); osc.stop(now + 0.35);
+          break;
+        case 'sage-laser':
+        case 'sage_laser':
+        case 'laser':
+          this.playAudioFile('sage_laser.mp3');
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(1600, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.22);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.22);
+          osc.start(now); osc.stop(now + 0.22);
+          break;
         case 'flutter':
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(500, now);
@@ -310,6 +360,17 @@ const PORTRAIT_ASSETS = {
   
     ms(baseMs) {
       return baseMs / this.speed;
+    }
+
+    async tick(durationMs, cb) {
+      const fps = 60;
+      const totalSteps = Math.max(1, Math.round((durationMs / 1000) * fps));
+      const stepDuration = durationMs / totalSteps;
+      for (let i = 0; i <= totalSteps; i++) {
+        if (this.isAborted) return;
+        cb(i / totalSteps);
+        if (i < totalSteps) await this.wait(stepDuration);
+      }
     }
   
     pause() { this.isPaused = true; }
@@ -452,6 +513,15 @@ const PORTRAIT_ASSETS = {
     `).join('');
   }
   
+  function getReticleMarkup() {
+    return `<g id="stargazerReticle" class="stargazer-reticle-frame" fill="none" stroke-linecap="square">
+          <polyline points="-60,-35 -60,-60 -35,-60" stroke-width="3"/>
+          <polyline points="35,-60 60,-60 60,-35" stroke-width="3"/>
+          <polyline points="60,35 60,60 35,60" stroke-width="3"/>
+          <polyline points="-35,60 -60,60 -60,35" stroke-width="3"/>
+        </g>`;
+  }
+
   function getCelestialIconSvgMarkup(type) {
     if (type === 'constellation') {
       return `
@@ -481,31 +551,36 @@ const PORTRAIT_ASSETS = {
       `;
     } else if (type === 'galaxy') {
       return `
-        <g class="celestial-display-icon" transform="scale(0.9)" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round">
-          <circle cx="0" cy="0" r="10" fill="#ffffff"/>
-          <path d="M 0,0 C 18,-12 40,-18 60,-6 C 72,0 76,18 70,34" />
-          <path d="M 0,0 C -18,12 -40,18 -60,6 C -72,0 -76,-18 -70,-34" />
-          <path d="M 0,0 C 12,18 18,40 6,60 C 0,72 -18,76 -34,70" />
-          <path d="M 0,0 C -12,-18 -18,-40 -6,-60 C 0,-72 18,-76 34,-70" />
-          <circle cx="40" cy="-32" r="3.5" fill="#ffffff" stroke="none"/>
-          <circle cx="-40" cy="32" r="3.5" fill="#ffffff" stroke="none"/>
-          <circle cx="32" cy="40" r="3" fill="#ffffff" stroke="none"/>
-          <circle cx="-32" cy="-40" r="3" fill="#ffffff" stroke="none"/>
+        <g class="celestial-display-icon" transform="scale(0.22)">
+          <g transform="translate(-250.88, -250.88)">
+            <!-- Outer Spiral Arms (Most transparent) -->
+            <path fill="#ffffff" opacity="0.12" d="M477.729,22.02c-56.681-56.681-205.096-0.162-331.494,126.237 C301.69,26.208,386.373,32.094,420.799,45.168c6.279,2.178,11.918,5.232,16.835,9.192c0.077,0.062,0.151,0.128,0.228,0.191 c0.615,0.501,1.227,1.008,1.819,1.538c0.699,0.623,1.382,1.265,2.047,1.93c0,0,0.001,0.001,0.001,0.001v0h0 c20.678,20.678,21.853,57.311,7.044,101.105c-1.819,5.378-3.892,10.87-6.187,16.448c-0.493,1.198-0.995,2.4-1.51,3.607 c-20.626,48.373-58.534,103.284-109.584,154.334c-1.906,1.906-3.819,3.788-5.735,5.658c-0.585,0.571-1.172,1.134-1.758,1.701 c-1.355,1.312-2.712,2.616-4.072,3.91c-0.66,0.628-1.32,1.253-1.982,1.877c-1.362,1.285-2.727,2.558-4.093,3.824 c-0.588,0.545-1.175,1.093-1.763,1.634c-3.875,3.563-7.764,7.05-11.663,10.46c-0.582,0.509-1.164,1.01-1.746,1.515 c-1.39,1.206-2.781,2.404-4.174,3.591c-0.661,0.563-1.321,1.123-1.982,1.681c-1.393,1.176-2.786,2.341-4.18,3.497 c-0.583,0.484-1.167,0.971-1.75,1.452c-3.925,3.23-7.855,6.379-11.785,9.446c-0.568,0.443-1.135,0.878-1.702,1.318 c-1.417,1.097-2.834,2.186-4.251,3.262c-0.648,0.492-1.295,0.981-1.943,1.469c-1.414,1.063-2.826,2.115-4.239,3.156 c-0.57,0.421-1.141,0.845-1.711,1.262c-3.937,2.88-7.869,5.676-11.792,8.385c-0.539,0.372-1.078,0.737-1.617,1.106 c-1.435,0.983-2.868,1.956-4.301,2.915c-0.628,0.421-1.256,0.839-1.884,1.256c-1.421,0.943-2.841,1.873-4.259,2.792 c-0.547,0.355-1.095,0.714-1.641,1.065c-1.937,1.246-3.872,2.475-5.802,3.677c94.887-57.2,214.697-151.023,258.415-267.47 C505.886,93.897,503.887,48.178,477.729,22.02z"/>
+            <path fill="#ffffff" opacity="0.12" d="M42.234,366.992c0.031-0.148,0.062-0.296,0.094-0.443c0.232-1.092,0.474-2.19,0.73-3.295 c0.06-0.258,0.122-0.517,0.183-0.775c0.244-1.034,0.494-2.07,0.758-3.114c0.083-0.326,0.171-0.655,0.255-0.983 c0.26-1.004,0.522-2.01,0.8-3.023c0.089-0.323,0.185-0.65,0.276-0.974c0.656-2.342,1.35-4.703,2.104-7.093l0-0.004 c0.005-0.016,0.01-0.032,0.015-0.048c0.051-0.161,0.105-0.323,0.156-0.483c0.356-1.171,0.744-2.354,1.162-3.549 c17.77-52.968,59.005-116.492,117.465-174.951c39.73-39.73,81.799-71.501,121.305-93.363 C35.723,211.774-36.148,423.606,19.997,479.751c47.452,47.452,159.198,15.527,268.495-70.28 c-184.956,94.549-232.601,54.07-244.957,14.421C37.86,408.438,37.614,389.008,42.234,366.992z"/>
+            <!-- Outer-Mid Swirl Ring -->
+            <path fill="#ffffff" opacity="0.28" d="M237.11,410.68c1.418-0.92,2.837-1.849,4.259-2.792c0.628-0.417,1.256-0.835,1.884-1.256 c1.432-0.96,2.866-1.932,4.301-2.915c0.539-0.369,1.078-0.734,1.617-1.106c3.923-2.709,7.855-5.505,11.792-8.385 c0.57-0.417,1.14-0.841,1.711-1.262c1.413-1.042,2.826-2.093,4.239-3.156c0.648-0.487,1.295-0.977,1.943-1.469 c1.417-1.076,2.834-2.164,4.251-3.262c0.568-0.439,1.135-0.875,1.702-1.318c3.93-3.067,7.86-6.216,11.785-9.446 c0.584-0.48,1.167-0.968,1.75-1.452c1.394-1.156,2.788-2.321,4.18-3.497c0.661-0.558,1.321-1.119,1.982-1.681 c1.392-1.186,2.783-2.384,4.174-3.591c0.582-0.505,1.164-1.006,1.746-1.515c3.899-3.409,7.788-6.896,11.663-10.46 c0.589-0.541,1.176-1.09,1.763-1.634c1.366-1.266,2.73-2.539,4.093-3.824c0.661-0.623,1.322-1.249,1.982-1.877 c1.36-1.293,2.717-2.598,4.072-3.91c0.586-0.567,1.173-1.131,1.758-1.701c1.916-1.869,3.829-3.752,5.735-5.658 c51.05-51.05,88.958-105.961,109.584-154.334c0.515-1.207,1.017-2.409,1.51-3.607c2.294-5.578,4.368-11.07,6.187-16.448 c14.809-43.793,13.635-80.427-7.044-101.105v0c0,0-0.001-0.001-0.001-0.001c-0.665-0.665-1.35-1.305-2.047-1.93 c-0.592-0.53-1.203-1.036-1.819-1.538c-0.077-0.063-0.151-0.129-0.228-0.191c-4.917-3.96-10.556-7.014-16.835-9.192 c-31.924-11.076-80.285,0.41-133.26,29.725c-39.506,21.862-81.575,53.633-121.305,93.363 C107.775,226.715,66.54,290.24,48.769,343.208c-0.399,1.188-0.787,2.371-1.162,3.549c-0.051,0.161-0.105,0.323-0.156,0.483 c-0.005,0.017-0.01,0.035-0.016,0.052c-0.755,2.389-1.448,4.75-2.104,7.093c-0.091,0.324-0.187,0.651-0.276,0.974 c-0.279,1.013-0.541,2.019-0.8,3.023c-0.085,0.327-0.173,0.656-0.255,0.983c-0.265,1.044-0.514,2.081-0.758,3.114 c-0.061,0.258-0.123,0.517-0.183,0.775c-0.256,1.105-0.498,2.203-0.73,3.295c-0.031,0.148-0.063,0.296-0.094,0.443 c-4.621,22.017-4.374,41.446,1.301,56.9c2.808,7.646,6.931,14.328,12.462,19.859c31.385,31.385,99.526,17.84,173.67-28.329 c1.93-1.202,3.865-2.432,5.802-3.677C236.016,411.394,236.563,411.035,237.11,410.68z M91.997,407.751 c-32.38-32.38,11.602-128.86,98.237-215.495S373.349,61.64,405.729,94.019s-11.602,128.86-98.237,215.495 C220.857,396.149,124.377,440.131,91.997,407.751z"/>
+            <!-- Mid Ring -->
+            <path fill="#ffffff" opacity="0.48" d="M405.729,94.019c-32.38-32.38-128.86,11.602-215.495,98.237S59.617,375.371,91.997,407.751 c32.38,32.38,128.86-11.602,215.495-98.237C394.126,222.879,438.108,126.399,405.729,94.019z M138.296,361.452 c-20.355-20.355,12.647-86.358,73.711-147.423s127.068-94.066,147.423-73.711c20.355,20.355-12.647,86.358-73.711,147.423 C224.654,348.805,158.651,381.807,138.296,361.452z"/>
+            <!-- Inner Ring -->
+            <path fill="#ffffff" opacity="0.75" d="M359.43,140.318c-20.355-20.355-86.358,12.647-147.423,73.711s-94.066,127.068-73.711,147.423 c20.355,20.355,86.358-12.647,147.423-73.711C346.783,226.676,379.785,160.673,359.43,140.318z M263.605,265.628 c-32.568,32.568-65.569,52.369-73.711,44.227c-8.142-8.142-0.354-53.157,32.214-85.725c32.568-32.568,77.583-40.356,85.725-32.214 C315.974,200.058,296.173,233.06,263.605,265.628z"/>
+            <!-- Brightest Core Center -->
+            <path fill="#ffffff" opacity="1" filter="drop-shadow(0 0 10px #ffffff)" d="M222.107,224.13c-32.568,32.568-40.356,77.583-32.214,85.725 c8.142,8.142,41.144-11.659,73.711-44.227c32.568-32.568,52.369-65.569,44.227-73.711 C299.69,183.774,254.675,191.562,222.107,224.13z"/>
+          </g>
         </g>
       `;
     } else if (type === 'blackhole') {
       return `
-        <g class="celestial-display-icon" transform="scale(0.88)">
-          <g stroke="#ffffff" stroke-width="3.5" fill="none" opacity="0.9">
-            <path d="M -16,-22 Q -45,-50 -68,-16 Q -45,6 -22,16" />
-            <path d="M 22,-16 Q 50,-45 16,-68 Q -6,-45 -16,-22" />
-            <path d="M 16,22 Q 45,50 68,16 Q 45,-6 22,-16" />
-            <path d="M -22,16 Q -50,45 -16,68 Q 6,45 16,22" />
-          </g>
-          <circle cx="0" cy="0" r="30" fill="#050608" stroke="#ffffff" stroke-width="5"/>
-          <circle cx="0" cy="0" r="18" fill="#000000"/>
-          <polygon points="-52,-52 -50,-47 -45,-46 -49,-43 -47,-38 -52,-41 -57,-38 -55,-43 -59,-46 -54,-47" fill="#ffffff"/>
-          <polygon points="52,52 50,47 45,46 49,43 47,38 52,41 57,38 55,43 59,46 54,47" fill="#ffffff"/>
+        <g class="celestial-display-icon" transform="scale(0.95)">
+          <!-- 超大白色光暈層 (圍繞黑色圓型) -->
+          <circle class="blackhole-mega-glow" cx="0" cy="0" r="32" fill="none" stroke="#ffffff" stroke-width="8"/>
+          <circle class="blackhole-soft-halo" cx="0" cy="0" r="37" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.75"/>
+          <circle class="blackhole-outer-ambient" cx="0" cy="0" r="44" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.4"/>
+
+          <!-- 黑色圓型：深邃純黑核心 (事件視界) -->
+          <circle cx="0" cy="0" r="28" fill="#000000"/>
+
+          <!-- 中間一條線 + 白色光暈，白線兩端為尖 (水平貫穿兩端收束) -->
+          <path class="blackhole-tapered-beam" d="M -90,0 Q 0,-3.5 90,0 Q 0,3.5 -90,0 Z" fill="#ffffff"/>
+          <line class="blackhole-core-line" x1="-88" y1="0" x2="88" y2="0" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
         </g>
       `;
     } else {
@@ -517,63 +592,164 @@ const PORTRAIT_ASSETS = {
       `;
     }
   }
-  
+
+  // ==========================================
+  // 觀星者：普通攻擊 (方框縮放進場 -> 移動至目標 -> 放大消散後造成傷害)
+  // ==========================================
+  async function runStargazerBasic(tl) {
+    targetUnit.style.display = 'flex';
+    skillName.innerText = '【觀星者・普通攻擊】';
+    strip.classList.add('active');
+    skillName.classList.add('active');
+    await tl.wait(200);
+
+    const { cx, cy } = getStageCenter();
+    const tPos = getCenter(targetHit);
+
+    fx.innerHTML = `<g id="stargazerBasicAim" transform="translate(${cx}, ${cy}) scale(2)" style="opacity: 0;">${getReticleMarkup()}</g>`;
+    const aim = document.getElementById('stargazerBasicAim');
+
+    // 1. 方框進場時從 scale 2 opacity 0 變成 scale 1 opacity 1 (起手完全不播放音效)
+    await tl.tick(280, p => {
+      const scale = 2 - p;
+      aim.setAttribute('transform', `translate(${cx}, ${cy}) scale(${scale})`);
+      aim.style.opacity = String(p);
+    });
+    if (tl.isAborted) return;
+    await tl.wait(100);
+
+    // 2. 移動到 BOSS 頭像 (保持 scale 1 opacity 1)
+    await tl.tick(450, p => {
+      const progress = p * p * (3 - 2 * p);
+      const curX = cx + (tPos.x - cx) * progress;
+      const curY = cy + (tPos.y - cy) * progress;
+      aim.setAttribute('transform', `translate(${curX}, ${curY}) scale(1)`);
+      aim.style.opacity = '1';
+    });
+    if (tl.isAborted) return;
+
+    // 3. 移動到 BOSS 頭像後 scale 1 opacity 1 變成 scale 2 opacity 0
+    await tl.tick(260, p => {
+      const scale = 1 + p;
+      aim.setAttribute('transform', `translate(${tPos.x}, ${tPos.y}) scale(${scale})`);
+      aim.style.opacity = String(1 - p);
+    });
+    if (tl.isAborted) return;
+
+    // 4. 並在 scale 2 後才造成傷害，命中使用 sage-laser.mp3 (去除額外受擊音效)
+    sfx.play('sage-laser');
+    targetHit.classList.add('flinch-down');
+    showDamage(tPos.x - 12, tPos.y - 65, '-24');
+    targetHp.style.width = '65%';
+    targetStatus.innerText = '【直擊判定】';
+    targetStatus.style.opacity = '1';
+
+    await tl.wait(500);
+    fx.innerHTML = '';
+    await tl.wait(300);
+    strip.classList.remove('active');
+    skillName.classList.remove('active');
+  }
+
   async function runStargazerObservation(tl, outcomeType, outcomeTitle) {
     targetUnit.style.display = 'none';
     skillName.innerText = '【天體觀測・深空探索】';
     strip.classList.add('active');
     skillName.classList.add('active');
     await tl.wait(250);
-  
-    sfx.play('focus');
+
+    // 天體觀測時播放 stargazer-obv.mp3
+    sfx.play('stargazer-obv');
     const { cx, cy } = getStageCenter();
-  
+
+    // 模擬望遠鏡遮罩：整個天體觀測都加上，圓圈直徑再放大 (半徑 140，直徑 280) 確保觀察到的天體不被切掉
+    const telescopeRadius = 140;
+    const telescopeMarkup = `
+      <g id="stargazerTelescopeGroup" class="stargazer-telescope-viewport">
+        <!-- Outer solid black mask covering stage with centered circular opening -->
+        <path class="stargazer-telescope-mask" fill="#000000" fill-rule="evenodd"
+          d="M -3000,-2000 L 3000,-2000 L 3000,2000 L -3000,2000 Z M 0,-${telescopeRadius} A ${telescopeRadius} ${telescopeRadius} 0 1 0 0,${telescopeRadius} A ${telescopeRadius} ${telescopeRadius} 0 1 0 0,-${telescopeRadius} Z" />
+        <!-- Telescope eyepiece cylindrical bezel rings -->
+        <circle cx="0" cy="0" r="${telescopeRadius}" fill="none" stroke="#1d2433" stroke-width="3.5" />
+        <circle cx="0" cy="0" r="${telescopeRadius + 2}" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.2" />
+        <circle cx="0" cy="0" r="${telescopeRadius - 2.5}" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="2" />
+      </g>
+    `;
+
     fx.innerHTML = `
       <g transform="translate(${cx}, ${cy})">
         <g id="ambientStarsGroup">${getAmbientStarsMarkup()}</g>
-        <g id="stargazerReticle" class="stargazer-reticle-frame" fill="none" stroke-linecap="square">
-          <polyline points="-60,-35 -60,-60 -35,-60" stroke-width="3"/>
-          <polyline points="35,-60 60,-60 60,-35" stroke-width="3"/>
-          <polyline points="60,35 60,60 35,60" stroke-width="3"/>
-          <polyline points="-35,60 -60,60 -60,35" stroke-width="3"/>
-        </g>
+        ${getReticleMarkup()}
         <g id="starFlareNode" style="transform-origin: 0px 0px; opacity: 1; transition: opacity ${tl.sec(0.25)} ease-out, transform ${tl.sec(0.35)} ease-out;">
           <polygon class="stargazer-star-flare" points="0,-22 4.5,-4.5 22,0 4.5,4.5 0,22 -4.5,4.5 -22,0 -4.5,-4.5"/>
           <circle cx="0" cy="0" r="3.5" fill="#ffffff"/>
         </g>
         <g id="celestialSlot"></g>
+        ${telescopeMarkup}
       </g>
     `;
-  
-    await tl.wait(400);
-  
+
+    // 1. 觀察過程拉長 (深空凝視，探尋天體)
+    await tl.wait(1300);
+
     const flareNode = document.getElementById('starFlareNode');
     if (flareNode) {
-      flareNode.style.transform = 'scale(2.2)';
+      flareNode.style.transform = 'scale(2.4)';
       flareNode.style.opacity = '0';
     }
-    await tl.wait(260);
+    await tl.wait(350);
     if (flareNode) flareNode.remove();
-  
+
     const reticleNode = document.getElementById('stargazerReticle');
     if (outcomeType === 'boundary') {
       if (reticleNode) reticleNode.remove();
-      sfx.play('barrier_hit');
-    } else if (outcomeType === 'blackhole') {
-      sfx.play('heavy_impact');
-    } else {
-      sfx.play('snap');
     }
-  
+
+    // 2. 觀測到結果後播放 stargazer-confir.mp3
+    sfx.play('stargazer-confir');
+
     actorStatus.innerText = outcomeTitle;
     actorStatus.style.opacity = '1';
-  
+
     const slot = document.getElementById('celestialSlot');
     if (slot) slot.innerHTML = getCelestialIconSvgMarkup(outcomeType);
-  
-    await tl.wait(900);
+
+    // 3. 觀測到結果後定格展示天體
+    await tl.wait(1000);
+
+    // 4. 望遠鏡放大並淡出：突破視場淡出
+    const telescopeGroup = document.getElementById('stargazerTelescopeGroup');
+    const ambientStars = document.getElementById('ambientStarsGroup');
+    await tl.tick(600, p => {
+      const ease = p * p * (3 - 2 * p);
+      const scale = 1 + ease * 1.8;
+      const op = String(1 - ease);
+      if (telescopeGroup) {
+        telescopeGroup.setAttribute('transform', `scale(${scale})`);
+        telescopeGroup.style.opacity = op;
+      }
+      if (slot) slot.style.opacity = String(1 - p);
+      if (reticleNode) reticleNode.style.opacity = String(1 - p);
+      if (ambientStars) ambientStars.style.opacity = String(1 - p);
+    });
+
+    actorStatus.style.opacity = '0';
     strip.classList.remove('active');
     skillName.classList.remove('active');
+    fx.innerHTML = '';
+
+    // 5. 等到望遠鏡完全淡出後，才觸發攻擊 (星座或星球命中 BOSS)
+    targetUnit.style.display = 'flex';
+    if (outcomeType === 'constellation' || outcomeType === 'planet') {
+      const tPos = getCenter(targetHit);
+      showDamage(tPos.x - 12, tPos.y - 65, outcomeType === 'planet' ? '-35' : '-20');
+      targetHit.classList.add('flinch-down');
+      targetHp.style.width = outcomeType === 'planet' ? '40%' : '55%';
+      sfx.play('heavy_impact');
+      await tl.wait(600);
+    } else {
+      await tl.wait(300);
+    }
   }
   
   // ==========================================
@@ -894,6 +1070,12 @@ const PORTRAIT_ASSETS = {
       name: '觀星者',
       portrait: PORTRAIT_ASSETS.stargazer,
       skills: {
+        basic: {
+          label: '【普通攻擊】(方框聚焦・光束轟擊)',
+          runner: async (tl) => {
+            await runStargazerBasic(tl);
+          }
+        },
         orbit_shift: {
           label: '【星軌干涉】(事件1：軌道微調・回轉半圈)',
           runner: async (tl) => {

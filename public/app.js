@@ -148,6 +148,40 @@ const DEFAULT_ROLE_DETAILS = {
       { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚肉盾型樹精僕從（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
       { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚敏捷型幼狼僕從（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
+
+  },
+  sage: {
+    roleName: '智者',
+    enName: 'Sage',
+    emoji: '📜',
+    avatar: '/photo/智者.webp',
+    hp: 80,
+    type: '長軸輸出 / 演算成長 / 戰術輔助',
+    passive: `智者於每趟冒險開始時擁有 30 點「變量 X」，跨戰鬥保留。每兩回合一演算週期（假設／求解）。
+求解攻擊後觸發【方程結算】：
+               1.75 × X
+η(X) = 0.25 + ──────────
+                X + 80
+
+                            A
+方程基礎傷害 = |運算元| × η(X) + ─── + 8
+                            2
+（A：擊敗 Boss 累積獲得之永久攻擊力加成）
+
+最終方程傷害 = ⌊ 方程基礎傷害 × B × M(X) × R ⌋
+（B：全隊增傷，M(X)：精通倍率 1.0~1.3，R：慣性計算尺加成）
+
+每次結算必定獲得基本變量成長：
+                      運算元
+BaseXGain = max( 5,  round( ────── ) )
+                        5
+
+數論特性：偶數 40% 穿透與護盾；奇數 100% 穿透與易傷 10%；質數 15 真傷與 CD 歸零；平方數 Boss 傷害 -25%。`,
+    skills: [
+      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '【假設階段】：運算元重置為本次造成傷害。\n【求解階段】：運算元 +2，方程結算基礎傷害=|Op|×η(X)+A/2+8，推演成功率 60%（額外 X += Op）。' },
+      { type: '1 技能', name: '向量定軌', dmgType: '【物理】', cd: '無 CD', desc: '【假設階段】：運算元累加本次造成傷害。\n【求解階段】：運算元 +5，方程結算基礎傷害=|Op|×η(X)+A/2+8，推演成功率 50%（額外 X += Op）。' },
+      { type: '2 技能', name: '動量回授', dmgType: '【護盾/乘算】', cd: '無 CD', desc: '【假設階段】：獲得 1 回合慣性緩衝護盾，吸收傷害計入運算元。\n【求解階段】：運算元 ×2，方程結算基礎傷害=|Op|×η(X)+A/2+8，推演成功率 40%（額外 X += Op/4）。' }
+    ]
   }
 };
 
@@ -704,19 +738,10 @@ function getClassDisplayName(roleOrPlayer) {
 
 // 切換視圖
 let audioView = null;
-function captureEncounterScene(){
- const content=document.querySelector('.main-content');
- if(!content||document.querySelector('.encounter-scene-snapshot'))return;
- const snapshot=document.createElement('div');snapshot.className='encounter-scene-snapshot';snapshot.inert=true;snapshot.setAttribute('aria-hidden','true');
- const clone=content.cloneNode(true),originals=[content,...content.querySelectorAll('*')],copies=[clone,...clone.querySelectorAll('*')];
- originals.forEach((node,i)=>{const computed=getComputedStyle(node);for(const property of computed)copies[i].style.setProperty(property,computed.getPropertyValue(property));copies[i].removeAttribute('id');});
- const rect=content.getBoundingClientRect();Object.assign(clone.style,{position:'absolute',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px',margin:'0'});
- snapshot.appendChild(clone);document.getElementById('presentationRoot').appendChild(snapshot);
-}
+
 function switchView(viewName) {
- if(viewName!=='battle')document.querySelector('.encounter-scene-snapshot')?.remove();
- if(viewName==='battle'&&['route','transition','event'].includes(audioView)&&roomState?.state==='IN_BATTLE')captureEncounterScene();
-  document.body.classList.toggle('is-exploring',['route','transition','event'].includes(viewName));
+  document.querySelector(".encounter-scene-snapshot")?.remove();
+  document.body.classList.toggle("is-exploring", ["route", "transition", "event", "battle"].includes(viewName));
   if (audioView !== viewName) {
     if (audioView !== null&&!(viewName==='battle'&&roomState?.state==='IN_BATTLE')) sfx?.stopAll({preserveTails:true});
     const preserveDefeatMusic=viewName==='end'&&roomState?.state==='GAME_OVER'&&
@@ -1435,7 +1460,7 @@ function checkStageTransition(state) {
   // Exploration owns its full-screen floor intro and section reveal.
   if (state.state === 'BATTLE_VICTORY') return;
   if (state.state === 'IN_BATTLE' || state.state === 'CHOOSING_ROUTE' ||
-      (state.state === 'EVENT' && state.currentEvent?.type === 'trap')) return;
+      state.state === 'EVENT') return;
 
   // 1 秒淡出淡入轉場
   triggerScreenTransition();
@@ -1757,6 +1782,7 @@ function ensureBattlePhase(round, state = roomState) {
     try {
       await playBattlePhaseOpening(monster, round, {
         encounter, controller, signal: controller.signal,
+        routeId: state?.currentMonster?.routeId || state?.currentTransition?.routeId,
         revealHud() {
           revealDestinationView('battle');
           elements.views.battle.classList.add('is-battle-hud-revealing');
@@ -2014,6 +2040,87 @@ function renderTeammatesGrid(me) {
   }
 }
 
+function renderSageEquationPreview(me) {
+  let sagePreview = document.getElementById('sageEquationPreview');
+  if (!sagePreview) {
+    sagePreview = document.createElement('div');
+    sagePreview.id = 'sageEquationPreview';
+    if (elements.mySkillsRow && elements.mySkillsRow.parentNode) {
+      elements.mySkillsRow.parentNode.insertBefore(sagePreview, elements.mySkillsRow);
+    }
+  }
+  sagePreview.replaceChildren();
+  if (!me || me.role !== 'sage' || me.hp <= 0 || me.isSurrendered || me.stunnedNextTurn || me.druidForm === 'tree') {
+    sagePreview.className = '';
+    return;
+  }
+  const x = me.sageX ?? 30;
+  const op = me.sageOperand || 0;
+  const phase = me.sagePhase || 'hypothesis';
+  const etaVal = 0.25 + (1.75 * x) / (x + 80);
+  const mastery = 1 + 0.1 * Math.min(3, Math.floor(x / 100));
+  const A = me.victoryAtkBonus || 0;
+  const isPrimeNum = n => {
+    if (n < 2) return false;
+    for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
+    return true;
+  };
+
+  if (phase === 'solve') {
+    sagePreview.className = 'sage-preview-panel';
+    const header = document.createElement('div');
+    header.className = 'sage-preview-header';
+    header.innerHTML = `<span>📐 即將結算的方程預覽</span><div class="sage-preview-vars"><span>X=${x}</span><span>M(X)=${mastery.toFixed(1)}</span><span>η(X)=${etaVal.toFixed(3)}</span><span>目前 Op=${op}</span></div>`;
+    
+    const table = document.createElement('table');
+    table.className = 'sage-preview-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>求解技能</th>
+          <th>運算元</th>
+          <th>數論特性</th>
+          <th>預估基礎傷害</th>
+          <th>狀態</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${[
+          { id: 'basic', name: '普通攻擊', predOp: op + 2 },
+          { id: 'sge_deduce', name: '向量定軌', predOp: op + 5 },
+          { id: 'sge_induce', name: '動量回授', predOp: op * 2 }
+        ].map(s => {
+          const blocked = me.sageBlockedAction === s.id;
+          const even = s.predOp % 2 === 0;
+          const prime = isPrimeNum(s.predOp);
+          const square = Number.isInteger(Math.sqrt(s.predOp));
+          const props = [even ? '偶數' : '奇數', prime ? '質數' : null, square ? '平方' : null].filter(Boolean).join(' · ');
+          const baseEst = Math.floor(Math.abs(s.predOp) * etaVal + 8 + A * 0.5);
+          const rawEst = Math.floor(baseEst * mastery);
+          return `
+            <tr style="${blocked ? 'opacity:0.4;' : ''}">
+              <td>${s.name}</td>
+              <td><b>${s.predOp}</b></td>
+              <td>${props}</td>
+              <td><b>${rawEst}</b> <span style="font-size:10px;color:#94a3b8;">(基${baseEst})</span></td>
+              <td>${blocked ? '<span style="color:#ef4444;">前輪使用已阻擋</span>' : '<span style="color:#22c55e;">可選</span>'}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    `;
+
+    const note = document.createElement('div');
+    note.className = 'sage-preview-note';
+    note.textContent = '※ 預估傷害僅供參考，實際傷害仍受 Boss 抗性、暴擊與團隊增傷影響；但數論特性判定與運算元為確定結果。';
+
+    sagePreview.append(header, table, note);
+  } else {
+    sagePreview.className = 'sage-hypothesis-notice';
+    sagePreview.innerHTML = `<span>💡 <b>目前為假設階段</b>：請先決定運算元建立方式，下回合進入求解階段並結算方程。（當前變量 X = <b>${x}</b>）</span>`;
+  }
+}
+
 // 玩家專屬技能列
 function renderMyActionBar(me) {
   if (!me || !me.role || !classesData[me.role]) return;
@@ -2044,6 +2151,7 @@ function renderMyActionBar(me) {
   const toggle=document.createElement('label');toggle.className='skill-copy-toggle';
   const input=document.createElement('input');input.type='checkbox';input.checked=skillCopyDetailed;input.onchange=()=>{setSkillCopyDetailed(input.checked);renderMyActionBar(me);};toggle.append(input,document.createTextNode('詳細'));compact.appendChild(toggle);
   const detail=document.createElement('button');detail.className='btn btn-secondary btn-tiny';detail.textContent='職業詳情';detail.onclick=()=>openRoleDetailModal(me.role);compact.appendChild(detail);
+  renderSageEquationPreview(me);
   if(me.arenaBlocked){elements.mySkillsRow.innerHTML='<div class="action-status-badge">死亡角鬥場進行中，本輪無法行動。</div>';elements.btnConfirmLock.disabled=true;return;}
 
   // 玩家當前裝備列表 [裝備 X/3]
@@ -4298,3 +4406,7 @@ document.getElementById('logDrawerHandle')?.addEventListener('click',()=>{
   });
 // Fixed drawers belong to the viewport, outside animated view containers.
 if(elements.battleLogCard)document.body.appendChild(elements.battleLogCard);
+['equipDropModal', 'targetModal', 'endBattleModal', 'avatarModalOverlay', 'minionDetailModal', 'roleDetailModal', 'transferLeaderModal'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el && el.parentElement !== document.body) document.body.appendChild(el);
+});

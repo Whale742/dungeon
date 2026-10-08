@@ -12,6 +12,7 @@ body.is-exploring .main-content,
 #viewTransition .transition-story-box,
 #viewEvent .event-card,
 #viewEvent .event-details,
+#viewBattle .battle-layout,
 .exploration-trap,
 .exploration-chest,
 .presentation-trap,
@@ -50,8 +51,7 @@ body.is-exploring .game-container{position:relative;z-index:1}
 #viewRoute .route-item{background:rgba(15,23,42,.92);border:1px solid #475569;box-shadow:0 4px 14px #0005}
 #viewRoute .route-item:hover:not(:disabled){background:rgba(30,41,59,.98);border-color:#d4a84b}
 #viewRoute .route-item.my-vote{background:rgba(55,43,20,.95);border-color:#fbbf24}
-.presentation-trap,.presentation-chest{background:rgba(0,0,0,.48)}
-.encounter-scene-snapshot{position:fixed;inset:0;z-index:100;pointer-events:none;background:#030712 url('/icon/background.webp') center/cover no-repeat;overflow:hidden}
+.encounter-scene-snapshot{display:none!important}
 .boss-encounter-stage{background:transparent}
-.boss-encounter-impact-stage::before{opacity:0;transition:opacity 2s}
-.boss-encounter-stage.is-darkening .boss-encounter-impact-stage::before{opacity:.5}
+.boss-encounter-impact-stage::before{display:none!important}
+.boss-encounter-stage.is-darkening .boss-encounter-impact-stage::before{display:none!important}

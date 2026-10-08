@@ -47,8 +47,8 @@ body:has(.teammate-card.arena-absent) #viewBattle{background:radial-gradient(ell
 @media(prefers-reduced-motion:reduce){.p8-glyph,.p8-hit-fx,.arrow-rain-wave i,.log-line.log-new{animation-duration:1ms!important;}}
 /* Phase 8.1: restrained particles, no geometric background emblems. */
 body.battle-intro-active .floating-log-card{display:none!important;}
-.boss-encounter-stage{background:#04070d;}
-.boss-encounter-impact-stage::before{opacity:.5;background-color:#04070d;}
+.boss-encounter-stage{background:transparent;}
+.boss-encounter-impact-stage::before{display:none!important;}
 .p8-presentation{background:radial-gradient(ellipse at center,#111827aa,#030509);}
 .p8-glyph,.p8-hit-fx{display:none;}
 .p81-motes{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -95,3 +95,12 @@ body.battle-intro-active .floating-log-card{display:none!important;}
 .lab-sage-portrait{position:relative;width:38px;height:42px;flex-shrink:0;}
 .lab-sage-portrait img{width:100%;height:100%;object-fit:contain;}
 .lab-mock-player-chip .combat-resource-summary{font-size:10px;max-width:240px;}
+.sage-preview-panel{background:rgba(18,24,38,0.92);border:1px solid #7c6836;border-radius:8px;padding:8px 12px;margin:8px 0;color:#e2e8f0;font-size:12px;}
+.sage-preview-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #4a3e20;padding-bottom:4px;margin-bottom:6px;font-weight:600;color:#f5da85;}
+.sage-preview-vars{display:flex;gap:12px;font-family:ui-monospace,monospace;}
+.sage-preview-table{width:100%;border-collapse:collapse;font-size:11px;}
+.sage-preview-table th,.sage-preview-table td{padding:4px 6px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sage-preview-table th{color:#b7a47a;font-weight:600;}
+.sage-preview-note{font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.3;}
+.sage-hypothesis-notice{background:rgba(22,28,42,0.85);border:1px dashed #7c6836;border-radius:6px;padding:6px 10px;margin:6px 0;color:#e3d2a9;font-size:12px;}
+

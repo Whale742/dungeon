@@ -106,7 +106,7 @@ async function exitCombatStage(context = {}) {
 // ==========================================================================
 const COMBAT_PRESENTATION_PROFILES = Object.freeze({
   dreamweaver:{fxType:'arcane_burst',attackSfx:'mage_basic',impactSfx:'magic_impact'},
-  stargazer:{fxType:'arcane_burst',attackSfx:'mage_basic',impactSfx:'magic_impact'},
+  stargazer:{fxType:'arcane_burst',attackSfx:null,impactSfx:null},
   gladiator:{fxType:'sword_slash',attackSfx:'warrior_skill1',impactSfx:'physical_hit'},
   samurai:{fxType:'sword_slash',attackSfx:'warrior_basic',impactSfx:'physical_hit'},
   sage:{fxType:'sword_slash',attackSfx:'mage_basic',impactSfx:'physical_hit'},

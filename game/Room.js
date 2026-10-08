@@ -21,6 +21,8 @@ import {
   getPlayerSkills,
   STORY_TEXTS,
   ROUTE_STORIES,
+  ROUTE_BOSS_STORIES,
+  getRouteBossStory,
   BATTLE_NARRATIVES,
   getFloorDifficultyBonusPercent,
   getFloorDifficultyMultiplier,
@@ -177,6 +179,8 @@ export class Room {
       tempHp: 0,
       isLocked: false,
       bonusAtk: 0,
+      victoryAtkBonus: 0,
+      sageX: 30,
       equips: [], // 上限 3 件裝備陣列
       equipCounts: {},
       cooldowns: {},
@@ -362,6 +366,7 @@ export class Room {
     player.equips = [];
     player.equipCounts = {};
     player.bonusAtk = 0;
+    player.victoryAtkBonus = 0;
     player.hp = CLASSES[roleKey].maxHp;
     player.maxHp = CLASSES[roleKey].maxHp;
     player.tempHp = 0;
@@ -370,7 +375,7 @@ export class Room {
     const initialCooldowns = {};
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
     player.cooldowns = initialCooldowns;
-    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,sageX:10,sageOperand:0,sagePhase:'hypothesis'});
+    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,sageX:30,sageOperand:0,sagePhase:'hypothesis'});
     player.stealthStacks=roleKey==='assassin'?1:0;
     delete player.noReviveFloor;
     this.p8RefreshEquipment();
@@ -647,7 +652,8 @@ export class Room {
       return Math.max(0, (pl.bonusAtk || 0)+resourceAtk);
     }
     // 當本回合裝備效果降低時（如強酸瓶降低 50%）：
-    let total = 0;
+    const permAtk = pl.victoryAtkBonus !== undefined ? (pl.victoryAtkBonus || 0) : Math.max(0, (pl.bonusAtk || 0) - (pl.equips || []).reduce((sum, e) => sum + (e.bonusAtk || 0), 0));
+    let total = permAtk;
     for (const eq of (pl.equips || [])) {
       const bAtk = eq.bonusAtk || 0;
       if (bAtk === 0) continue;
@@ -981,9 +987,16 @@ export class Room {
       scaledAtk = Math.max(5, Math.floor(scaledAtk * 0.75));
     }
 
+    const routeId = this.currentTransition?.routeId || 'route_trail';
+    const bossStory = getRouteBossStory(routeId, baseMonster.name);
+    const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
+    const encounterStory = bossStory + weakenedSuffix;
+
     this.currentMonster = {
       name: isWeakened ? `【削弱】${baseMonster.name}` : baseMonster.name,
       originalName: baseMonster.name,
+      routeId,
+      encounterStory,
       isWeakened: Boolean(isWeakened),
       avatar: baseMonster.avatar,
       desc: isWeakened ? `${baseMonster.desc} (⚠️ 負傷削弱：傷害與血量為原本 75%)` : baseMonster.desc,
@@ -1030,9 +1043,10 @@ export class Room {
       p.alcAcidEquipHalvedTurns = 0;
     }
 
-    if (outcomeData && outcomeData.story) {
-      this.addLog(`⚠️ **${outcomeData.story}**`, 'warning');
+    if (outcomeData) {
+      outcomeData.story = encounterStory;
     }
+    this.addLog(`⚠️ **${encounterStory}**`, 'warning');
     if (isWeakened) {
       this.addLog(`⚔️🥀 **遭遇削弱BOSS！【${this.currentMonster.name}】（傷害及血量削弱為原本 75%）擋住了去路！**`, 'warning');
     } else {
@@ -1610,13 +1624,19 @@ export class Room {
     for (const p of Object.values(this.players)) { p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false; }
     const recoveryBefore = this.getHpSnapshot();
     for (const p of Object.values(this.players)) {
+      p.maxHp += 10;
+      p.bonusAtk += 5;
+      p.victoryAtkBonus = (p.victoryAtkBonus || 0) + 5;
       if (p.hp > 0) {
         const hpBeforeRecovery = p.hp;
-        p.maxHp += 10;
-        p.bonusAtk += 5;
+        // maxHp already increased
+        // bonusAtk already increased
         const healAmt = Math.max(1, Math.round(p.maxHp * 0.2));
         p.hp = Math.min(p.maxHp, p.hp + 10 + healAmt);
         log.push({ text: `💪 **${p.name}** HP上限 +10、攻擊力 +5，並恢復了 ${p.hp - hpBeforeRecovery} 生命（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
+      } else {
+        p.hp = 0;
+        log.push({ text: `💪 **${p.name}** 雖已倒下，仍獲得戰鬥歷練：HP上限 +10、攻擊力 +5（HP 維持 0，待後續甦生）`, type: 'info' });
       }
     }
 
@@ -2749,7 +2769,7 @@ export class Room {
       if(this.arena?.playerId===p.id&&p.hp<=0){this.arenaRoundLock={...this.arena};this.p8ExitArena(presentationQueue,'gladiator_dead');}
 
       if(p.role==='dreamweaver')this.p8SplitDreamPresentation(presentationQueue,p);
-      if(p.role==='sage')this.p8ResolveEquation(p,presentationQueue,log,applyResistanceDamage);
+      if(p.role==='sage')this.p8ResolveEquation(p,presentationQueue,log,applyResistanceDamage,bardDmgMultiplier);
 
       if (pendingWerewolfAttack && monster.hp > 0) {
         const before = this.getHpSnapshot();
@@ -3286,7 +3306,7 @@ export class Room {
     } // 結束怪物存活時的反擊結算 (else 區塊)
 
     if(this.arena&&this.players[this.arena.playerId]?.hp<=0)this.p8ExitArena(presentationQueue,'gladiator_dead');
-    phase8Actor=null;this.p8EndRound(presentationQueue,log,applyResistanceDamage);
+    phase8Actor=null;this.p8EndRound(presentationQueue,log,applyResistanceDamage,bardDmgMultiplier);
     for(const p of Object.values(this.players)){
       // 德魯伊變身持續時間處理
       if (p.role === 'druid') {
@@ -3491,10 +3511,11 @@ export class Room {
       p.maxHp = p.hp;
       p.tempHp = 0;
       p.isLocked = false;
-      p.bonusAtk = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
+      p.bonusAtk = 0; p.victoryAtkBonus = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       p.equips = [];
       p.equipCounts = {};
-      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,sageX:10,sageOperand:0,sagePhase:'hypothesis',sageMomentum:0});
+      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,sageX:30,sageOperand:0,sagePhase:'hypothesis',sageMomentum:0});
+      delete p.sageConfusion; delete p.sagePriorShieldApplied; delete p.sagePreviousAction;
       delete p.noReviveFloor;
       p.cooldowns = {};
       if (p.role) {
