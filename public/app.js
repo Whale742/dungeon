@@ -330,7 +330,7 @@ const elements = {
   roomCopyToast: document.getElementById('roomCopyToast'),
   btnLeaveParty: document.getElementById('btnLeaveParty'),
   soundToggleBtn: document.getElementById('soundToggleBtn'),
-  soundToggleImg: document.getElementById('soundToggleImg'),
+  soundToggleIcon: document.getElementById('soundToggleIcon'),
 
   // Cinematic Banner & Transition Curtain
   screenTransitionCurtain: document.getElementById('screenTransitionCurtain'),
@@ -608,6 +608,7 @@ socket.on('init:constants', (data) => {
 let pendingAuthoritativeState = null;
 
 socket.on('room:update', (state) => {
+  if(state.state!=='IN_BATTLE'&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
   if (battlePhaseController && (state.state !== 'IN_BATTLE' || battlePhaseController.battleKey !== battleSceneKey(state))) {
     battlePhaseController.abort();
     battleControlsReadyKey = null;
@@ -703,8 +704,27 @@ function getClassDisplayName(roleOrPlayer) {
 
 // 切換視圖
 let audioView = null;
+function captureEncounterScene(){
+ const content=document.querySelector('.main-content');
+ if(!content||document.querySelector('.encounter-scene-snapshot'))return;
+ const snapshot=document.createElement('div');snapshot.className='encounter-scene-snapshot';snapshot.inert=true;snapshot.setAttribute('aria-hidden','true');
+ const clone=content.cloneNode(true),originals=[content,...content.querySelectorAll('*')],copies=[clone,...clone.querySelectorAll('*')];
+ originals.forEach((node,i)=>{const computed=getComputedStyle(node);for(const property of computed)copies[i].style.setProperty(property,computed.getPropertyValue(property));copies[i].removeAttribute('id');});
+ const rect=content.getBoundingClientRect();Object.assign(clone.style,{position:'absolute',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px',margin:'0'});
+ snapshot.appendChild(clone);document.getElementById('presentationRoot').appendChild(snapshot);
+}
 function switchView(viewName) {
-  if (audioView !== viewName) { if (audioView !== null) sfx?.stopAll(); audioView = viewName; }
+ if(viewName!=='battle')document.querySelector('.encounter-scene-snapshot')?.remove();
+ if(viewName==='battle'&&['route','transition','event'].includes(audioView)&&roomState?.state==='IN_BATTLE')captureEncounterScene();
+  document.body.classList.toggle('is-exploring',['route','transition','event'].includes(viewName));
+  if (audioView !== viewName) {
+    if (audioView !== null&&!(viewName==='battle'&&roomState?.state==='IN_BATTLE')) sfx?.stopAll({preserveTails:true});
+    const preserveDefeatMusic=viewName==='end'&&roomState?.state==='GAME_OVER'&&
+      typeof bgmManager!=='undefined'&&['normal','boss','encounter','dying'].includes(bgmManager.mode);
+    if (['entry','lobby','prologue','end'].includes(viewName)&&typeof bgmManager!=='undefined'&&!preserveDefeatMusic)bgmManager.reset();
+    audioView = viewName;
+    if(['route','transition','event'].includes(viewName)&&typeof bgmManager!=='undefined'&&bgmManager.mode==='idle')void bgmManager.resumeNormal();
+  }
   Object.keys(elements.views).forEach(key => {
     if (key === viewName) {
       elements.views[key].classList.add('active');
@@ -984,19 +1004,27 @@ function renderPendingDropModal(me) {
       return;
     }
     playSound('heal');
-    socket.emit('equip:choice', { action: 'equip', replaceIndex: selectedReplaceIndex });
-    elements.equipDropModal.classList.add('hidden');
-    selectedReplaceIndex = -1;
+    submitEquipmentChoice({action:'equip',replaceIndex:selectedReplaceIndex});
   };
 
   elements.btnDiscardItem.onclick = () => {
     playSound('click');
-    socket.emit('equip:choice', { action: 'discard' });
-    elements.equipDropModal.classList.add('hidden');
-    selectedReplaceIndex = -1;
+    submitEquipmentChoice({action:'discard'});
   };
 
   elements.equipDropModal.classList.remove('hidden');
+}
+
+function submitEquipmentChoice(choice){
+ elements.btnEquipItem.disabled=true;elements.btnDiscardItem.disabled=true;
+ socket.emit('equip:choice',choice,result=>{
+  elements.btnEquipItem.disabled=false;elements.btnDiscardItem.disabled=false;
+  if(!result?.success){alert(result?.message||'裝備選擇失敗，請重新選擇');renderPendingDropModal(getMyPlayer());return;}
+  selectedReplaceIndex=-1;
+  // The authoritative room update clears pendingDrop and unlocks victory.
+  if(!roomState?.pendingDrop)elements.equipDropModal.classList.add('hidden');
+  refreshVictoryControls();
+ });
 }
 
 // Lobby readiness uses the existing leader/member rules, with a visible label.
@@ -1517,6 +1545,7 @@ async function typePrologueParagraphs(container, paragraphs, signal, timing = PR
 async function renderProloguePresentation() {
   if (prologueCompleted || isPrologueTyping) return;
   isPrologueTyping = true;
+  if(typeof bgmManager!=='undefined')void bgmManager.preload();
   const controller = new AbortController();
   prologueController = controller;
   const { signal } = controller;
@@ -1572,7 +1601,7 @@ async function renderProloguePresentation() {
     overlay.style.opacity = '1';
     overlay.classList.remove('hidden');
     title.classList.remove('hidden');
-    playSound('logo_intro', { signal });
+    playSound('logo_intro', { preserveAcrossViews:true });
     await waitForPrologue(Math.max(PROLOGUE_TIMING.titleEnter + PROLOGUE_TIMING.titleHold, SFX_ASSETS.logo_intro.identityBeatMs), signal);
     title.classList.add('exit');
     await waitForPrologue(PROLOGUE_TIMING.titleExit, signal);
@@ -1604,6 +1633,7 @@ async function renderProloguePresentation() {
 
   if (completed && !signal.aborted && roomState?.state === 'PROLOGUE') {
     prologueCompleted = true;
+    if(typeof bgmManager!=='undefined')void bgmManager.resumeNormal();
     socket.emit('prologue:next');
   }
 }
@@ -1621,6 +1651,7 @@ function renderTransition() {
   const key = `${trans.floor}_${trans.routeId}_${trans.outcomeType}`;
   if (lastTypedTransitionKey !== key) {
     lastTypedTransitionKey = key;
+    playSound('walk',{instance:'route-walk-'+key,preserveAcrossViews:true});
     if (elements.transitionRouteTag) {
       elements.transitionRouteTag.innerHTML = `${getIconSvg('flag')} <span>前往路線：${escapeHtml(trans.routeName)}</span>`;
     }
@@ -1707,7 +1738,7 @@ function battleSceneKey(state = roomState) {
 function battleRoundKey(state = roomState) { return `${battleSceneKey(state)}:${state?.battleRound}`; }
 function ensureBattlePhase(round, state = roomState) {
   const monster = state?.currentMonster;
-  if (!monster) return battlePhasePromise;
+  if (!monster||state?.state!=='IN_BATTLE') return battlePhasePromise;
   const bossIntroKey = `BOSS_INTRO_${battleSceneKey(state)}`;
   const encounter = !presentationManager.hasPlayed(bossIntroKey);
   if (!encounter && lastAnnouncedBattleRound === round) return battlePhasePromise;
@@ -1727,7 +1758,7 @@ function ensureBattlePhase(round, state = roomState) {
       await playBattlePhaseOpening(monster, round, {
         encounter, controller, signal: controller.signal,
         revealHud() {
-          revealDestinationView('battle');document.body.classList.remove('battle-intro-active');
+          revealDestinationView('battle');
           elements.views.battle.classList.add('is-battle-hud-revealing');
         }
       });
@@ -1736,6 +1767,7 @@ function ensureBattlePhase(round, state = roomState) {
     } finally {
       if (battlePhaseController === controller) {
         battlePhaseController = null;
+        document.body.classList.remove('battle-intro-active');renderLogs();
         elements.views.battle.classList.remove('is-battle-hud-revealing');
         if (!isProcessingPresentationQueue) presentationManager.setBlocking(false);
         if (!controller.signal.aborted) void revealBattleControls();
@@ -2665,7 +2697,7 @@ function renderGameOver(isLeader) {
     elements.endSubtitle.textContent = `小隊全員在深淵第 ${roomState.floor} 層壯烈倒下，未能成功突破，挑戰失敗！`;
   }
   elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
-  playSound('gameover');
+  if(typeof bgmManager!=='undefined')void bgmManager.battleDefeated().catch(error=>console.warn('[Defeat:BGM]',error));
 }
 
 function renderVictory(isLeader) {
@@ -2679,6 +2711,9 @@ function renderVictory(isLeader) {
 // 7. 日誌渲染與自動滾動
 function renderLogs() {
   if (!roomState || !roomState.logs || !elements.combatLogWindow) return;
+  const suppressed=document.body.classList.contains('battle-intro-active')||!['IN_BATTLE','BATTLE_VICTORY'].includes(roomState.state);
+  if(elements.battleLogCard)elements.battleLogCard.dataset.suppressed=String(suppressed);
+  if(suppressed)return;
   renderRecentBattleLogs(elements.combatLogWindow,roomState.logs);
 }
 
@@ -2762,8 +2797,11 @@ if (elements.roomCodeText) {
 
 // 音效開關與圖示切換
 function updateSoundIcon() {
-  if (elements.soundToggleImg) {
-    elements.soundToggleImg.src = soundEnabled ? '/sound/sound.webp' : '/sound/mute.webp';
+  if(elements.soundToggleIcon){
+    elements.soundToggleIcon.querySelector('.sound-on').style.display=soundEnabled?'':'none';
+    elements.soundToggleIcon.querySelector('.sound-off').style.display=soundEnabled?'none':'';
+    elements.soundToggleBtn.setAttribute('aria-label',soundEnabled?'靜音所有聲音':'開啟所有聲音');
+    elements.soundToggleBtn.setAttribute('aria-pressed',String(!soundEnabled));
   }
   if (elements.soundToggleBtn) {
     elements.soundToggleBtn.title = soundEnabled ? '切換音效 (目前已開啟)' : '切換音效 (目前已靜音)';
@@ -2777,6 +2815,21 @@ if (elements.soundToggleBtn) {
     updateSoundIcon();
   });
 }
+
+// Music volume is independent of sound effects and the shared mute switch.
+{
+ const button=document.getElementById('bgmVolumeBtn'),panel=document.getElementById('bgmVolumePanel'),slider=document.getElementById('bgmVolumeSlider'),value=document.getElementById('bgmVolumeValue');
+ if(button&&panel&&slider&&value&&typeof bgmManager!=='undefined'){
+  let initial=.5;try{const saved=localStorage.getItem('dungeon-bgm-volume');if(saved!==null&&Number.isFinite(Number(saved)))initial=Math.max(0,Math.min(1,Number(saved)));}catch{}
+  bgmManager.setVolume(initial);slider.value=String(Math.round(initial*100));value.textContent=slider.value+'%';
+  const close=()=>{panel.hidden=true;button.setAttribute('aria-expanded','false');};
+  button.addEventListener('click',()=>{panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));});
+  slider.addEventListener('input',()=>{bgmManager.setVolume(Number(slider.value)/100);value.textContent=slider.value+'%';try{localStorage.setItem('dungeon-bgm-volume',String(bgmManager.volume));}catch{}});
+  document.addEventListener('click',event=>{if(!button.parentElement.contains(event.target))close();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){close();}});
+ }
+}
+updateSoundIcon();
 
 // 隊長出發探險
 elements.btnStartGame.addEventListener('click', () => {
@@ -3693,6 +3746,7 @@ async function playPresentationStep(step, round) {
     await sleep(400);
 
   } else if (step.type === 'kill') {
+    if(typeof bgmManager!=='undefined')void bgmManager.bossDefeated();
     if (step.hpSnapshot) applyHpSnapshot(step.hpSnapshot);
     await waitForPresentation(300, activeCombatContext.signal);
   }
@@ -3726,7 +3780,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   const controller = new AbortController();
   combatQueueController = controller;
   lastCombatPresentationId = queueKey;
-  activeCombatContext = { controller, signal: controller.signal };
+  activeCombatContext = { controller, signal: controller.signal,onTiming:beat=>{if(beat==='boss_death_start'&&typeof bgmManager!=='undefined')void bgmManager.bossDefeated();} };
   isProcessingPresentationQueue = true;
   isPlayingBattleNarrative = true;
   presentationManager.setBlocking(true);
@@ -3742,7 +3796,10 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       isPlayingBattleNarrative = false;
       presentationManager.setBlocking(false);
       const stage = document.getElementById('presentationCombatStage');
-      stage?.replaceChildren(); stage?.classList.remove('is-active', 'is-exiting');
+      if(controller.signal.aborted&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
+      if(typeof hasGladiatorArenaStage!=='function'||!hasGladiatorArenaStage()){
+        stage?.replaceChildren();stage?.classList.remove('is-active','is-exiting');
+      }
       document.getElementById('app').inert = false;
     }
   };
@@ -3750,7 +3807,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   try {
     // Round-start queues can arrive before room:update; show the pre-tick snapshot
     // while the same round banner runs, then resume the existing combat queue.
-    if (queue[0]?.category === 'STATUS_TICK') {
+    if (queue[0]?.category === 'STATUS_TICK' || queue[0]?.type === 'arena_enter') {
       const state = await waitForBattleRoundState(round, controller.signal);
       const snapshot = queue[0].hpSnapshotBefore;
       roomState = { ...state,

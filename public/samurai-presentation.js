@@ -70,6 +70,7 @@ function resolveSamuraiCombatResult(result,card,context){
  if(target&&typeof applyHpSnapshot==='function')applyHpSnapshot(result.targetId==='monster'?{monster:target}:{players:[target]});
  const emit=beat=>context.onTiming?.(beat,{result,targetId:result.targetId});
  const missed=['miss','dodge'].includes(result.outcome?.type),n=result.finalDamage??result.value;
+ if(missed)resultFloat(card,'MISS','is-miss');else if(n>0)resultFloat(card,'-'+(result.absorbed>0?result.hpDmg:n),'is-damage');else resultFloat(card,'格擋','is-guard');
  if(missed)emit('miss');else if(n>0){if(!context.suppressImpactAudio)context.audioScope.play('physical_hit',{noHold:true});emit('impact');}else emit('block');
  if(result.absorbed>0)resultFloat(card,'ABSORB '+result.absorbed,'is-guard');
  if(result.shieldBreak){resultFloat(card,'BREAK','is-guard');if(!context.suppressImpactAudio)context.audioScope.play('shield_break',{noHold:true});}
@@ -79,14 +80,20 @@ function samuraiSound(event,audio,step){const keys={parry:'samurai_parry',impact
 async function runSamuraiChoreography(step,context,plans){
  const parent=context.signal||context.controller?.signal,controller=new AbortController(),signal=controller.signal;
  const abort=()=>controller.abort();parent?.addEventListener('abort',abort,{once:true});if(parent?.aborted)abort();
- const local={...context,signal,audioScope:createSfxPresentationScope({...context,signal})};
+ // Tsubame and counter audio belong to the combat queue so its tail survives visual disposal.
+ // A real queue cancellation still stops all of its voices via the parent signal.
+ const audioSignal=plans.some(x=>x.plan.skill==='swallow'||x.plan.counterAt!=null)?parent:signal;
+ const local={...context,signal,audioScope:createSfxPresentationScope({...context,signal:audioSignal})};
  const state=samuraiQueueState(context);let raf=0;const engines=[],animations=new Set();
  try{
   await samuraiAbortable(preloadSamuraiFxAssets(),signal);if(signal.aborted)return;
   getOrCreateCombatStage().classList.add('is-active');
   await withCombatCanvas(local,step.category,async canvas=>{
    canvas.classList.add('samurai-fx-owner');canvas.style.setProperty('--samurai-speed',context.speed||1);canvas.style.animation='none';canvas.style.padding='0';canvas.style.display='block';
-   const cards=new Map();
+   const cards=new Map(),liftedNumbers=new Map();
+   const numberOverlay=document.createElement('div');numberOverlay.className='samurai-result-overlay';canvas.appendChild(numberOverlay);
+   const liftNumbers=card=>{if(!card||liftedNumbers.has(card))return;const layer=card.querySelector('.presentation-result-numbers');if(!layer)return;card._resultNumbersLayer=layer;numberOverlay.appendChild(layer);liftedNumbers.set(card,layer);};
+   const syncLiftedNumbers=()=>{const base=canvas.getBoundingClientRect();for(const [card,layer] of liftedNumbers){const portrait=card.querySelector('.presentation-result-portrait')?.getBoundingClientRect();if(!portrait)continue;Object.assign(layer.style,{left:(portrait.left-base.left)+'px',top:(portrait.top-base.top)+'px',width:portrait.width+'px',height:portrait.height+'px'});}};
    const makeCard=(result)=>{if(cards.has(result.targetId))return cards.get(result.targetId);const card=createResultCard({...result,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});cards.set(result.targetId,card);return card;};
    const monster=step.hpSnapshotBefore?.monster||step.results?.find(r=>r.targetId==='monster')?.targetBefore||step.hpSnapshot?.monster||{};
    const bossResult={targetId:'monster',targetBefore:monster};
@@ -95,7 +102,7 @@ async function runSamuraiChoreography(step,context,plans){
     const {plan,actorId}=plans[i],actor=samuraiActor(step,actorId);
     const player=makeCard({targetId:actorId,targetBefore:actor}),boss=i===0?makeCard(bossResult):createResultCard({...bossResult,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});
     const lane=document.createElement('div');lane.className='samurai-fx-owner';canvas.appendChild(lane);
-    const engine=createSamuraiPrototypeRenderer(lane,player,boss,plan,local);engines.push(engine);
+    const engine=createSamuraiPrototypeRenderer(lane,player,boss,plan,local);engines.push(engine);liftNumbers(player);liftNumbers(boss);
     if(i>0){const p=lane.querySelector('.samurai-player');p.style.left=(14.5+i*23)+'%';p.style.top='49%';p.style.width='14%';boss.style.visibility='hidden';engine.measure();}
     // Allocation and decode happen before the playhead starts.
    }
@@ -127,7 +134,7 @@ async function runSamuraiChoreography(step,context,plans){
    if(intro)local.onTiming?.('samurai_intro_start',{step,time:0});
    let audioCursor=0,eventCursor=0,eyeOpened=false;
    const audioEvents=plans.flatMap(({plan})=>plan.audio).sort((a,b)=>a.time-b.time);
-   const resize=()=>{for(const engine of engines)engine.measure?.();};window.addEventListener('resize',resize);
+   const resize=()=>{for(const engine of engines)engine.measure?.();syncLiftedNumbers();};window.addEventListener('resize',resize);syncLiftedNumbers();
    const stop=()=>{cancelAnimationFrame(raf);raf=0;};signal.addEventListener('abort',stop,{once:true});
    try{
     await new Promise((resolve,reject)=>{
@@ -153,7 +160,7 @@ async function runSamuraiChoreography(step,context,plans){
          track(presentCombatResult(e.result,cards.get(e.result.targetId),{...local,samuraiOriginalFx:true,suppressImpactAudio:e.plan.suppressImpactAudio}));
         }
        }
-       for(const [i,engine] of engines.entries())engine.render(samuraiVisualTime(elapsed,plans[i].plan));
+       for(const [i,engine] of engines.entries())engine.render(samuraiVisualTime(elapsed,plans[i].plan));syncLiftedNumbers();
        if(local.reducedMotion)for(const engine of engines)engine.reduceFlash?.();
        local.onSamuraiFrame?.({time:t,plans:plans.map(x=>x.plan),canvas});
        if(elapsed>=duration)finish();else raf=requestAnimationFrame(draw);

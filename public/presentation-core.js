@@ -4,6 +4,15 @@
 // ==========================================================================
 
 // --- 1. Web Audio API 音效管理器 (SFXManager) ---
+function bardOffKeyDetuneCurve(duration) {
+  const samples=Math.max(2,Math.ceil(duration/.025)+1);
+  return Float32Array.from({length:samples},(_,i)=>{
+    const t=i*duration/(samples-1);
+    const envelope=Math.min(1,Math.max(0,duration-t)/.6);
+    return 420*Math.sin(2*Math.PI*t/2.4)*envelope;
+  });
+}
+
 class SFXManager {
   constructor() {
     this.ctx = null;
@@ -44,7 +53,7 @@ class SFXManager {
     const entry = { buffer: null, failed: false, promise: null };
     entry.promise = (async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), profile.loadTimeoutMs ?? 5000);
       try {
         const response = await fetch(profile.src, { signal: controller.signal });
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -69,9 +78,9 @@ class SFXManager {
     if (!this.ctx) return Promise.resolve([]);
     return Promise.all(Object.values(SFX_ASSETS).map(profile => this.loadAsset(profile)));
   }
-  stopAll() {
+  stopAll({preserveTails=false}={}) {
     this.generation++;
-    for (const voice of [...this.activeVoices]) voice.stop();
+    for (const voice of [...this.activeVoices]) if(!preserveTails||!voice.preserveAcrossViews)voice.stop();
   }
   duck(key, amount = .4) {
     for (const voice of this.activeVoices) if (voice.key === key && voice.gain) {
@@ -101,8 +110,8 @@ class SFXManager {
       const level = profile.volume * (options.volume ?? 1);
       const start = this.ctx.currentTime;
       if(options.detune && source.detune) {
-        source.detune.setValueAtTime(0,start);
-        for(let t=.1,i=0;t<duration;t+=.18,i++)source.detune.linearRampToValueAtTime(i%2?35:-45,start+t);
+        // Wide, slow pitch bends make the missed notes audible without rapid vibrato.
+        source.detune.setValueCurveAtTime(bardOffKeyDetuneCurve(duration),start,duration);
       }
       gain.gain.setValueAtTime(level, start);
       gain.gain.setValueAtTime(level, start + Math.max(0, duration - .12));
@@ -118,7 +127,7 @@ class SFXManager {
         options.signal?.removeEventListener('abort', voice.stop);
         this.activeVoices.delete(voice); source.disconnect(); gain.disconnect();
       };
-      const voice = { key, gain, level, source, stop: () => {
+      const voice = { key, gain, level, source, preserveAcrossViews:!!options.preserveAcrossViews, stop: () => {
         try { source.stop(); } catch {} cleanup();
       } };
       source.onended = cleanup;

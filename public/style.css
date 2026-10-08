@@ -1,3 +1,83 @@
+/* Gladiator: production combat choreography and persistent Arena override. */
+.gladiator-action-owner { padding:0; animation:none; }
+.gladiator-frame { position:absolute; width:1440px; height:810px; left:0; top:0; transform-origin:0 0; isolation:isolate; color:#dfc79b; }
+.gladiator-frame .gladiator-position { position:absolute; width:190px; height:190px; margin:-95px 0 0 -95px; inset:auto; z-index:3; transform:none; animation:none; }
+.gladiator-frame .gladiator-position[hidden] { display:none; }
+.gladiator-frame .gladiator-card { width:190px; }
+.gladiator-frame .gladiator-motion { transform:none; transform-origin:50% 70%; animation:none; }
+.gladiator-frame .presentation-result-portrait { width:190px; height:190px; }
+.gladiator-frame .presentation-result-portrait img { filter:sepia(.2) contrast(1.1); }
+.gladiator-frame .presentation-result-name { position:absolute; top:-53px; width:100%; font-size:18px; font-weight:700; }
+.gladiator-frame .presentation-result-hp-track { position:absolute; top:-25px; width:100%; background:#302922; }
+.gladiator-frame .presentation-result-hp-fill { background:#a44433; }
+.gladiator-frame .presentation-result-hp-text { position:absolute; top:-17px; width:100%; color:#e8d7b5; font-size:14px; }
+.gladiator-frame .presentation-result-status { position:absolute; top:205px; width:260px; left:-35px; font-size:13px; }
+.gladiator-frame .presentation-result-number { inset:-80px -90px auto; color:#bf4a37; font-size:38px; }
+.gladiator-frame .presentation-result-number.is-status { font-size:18px; color:#e5b66e; margin-top:38px; }
+.gladiator-frame .presentation-result-number.is-status:nth-child(3) { margin-top:63px; }
+.gladiator-frame .presentation-result-number.is-status:nth-child(4) { margin-top:88px; }
+.gladiator-rage-ui { position:absolute; top:-88px; width:100%; text-align:center; font:700 16px monospace; letter-spacing:3px; color:#b96741; }
+.gladiator-action-title { position:absolute; transform:translateX(-50%); font-size:30px; font-weight:900; letter-spacing:6px; z-index:8; text-shadow:0 3px #170e0a; }
+.gladiator-slash { position:absolute; width:150px; height:10px; z-index:7; background:linear-gradient(90deg,transparent,#6a1719 12%,#c0814b 55%,#5b1317 92%,transparent); clip-path:polygon(0 65%,83% 0,100% 25%,17% 100%); pointer-events:none; }
+.gladiator-slash-heavy { width:290px; height:25px; }
+.gladiator-blood-line { position:absolute; width:90px; height:7px; background:#781f25; clip-path:polygon(0 25%,80% 0,100% 40%,72% 100%,0 75%); transform-origin:left; z-index:7; }
+.gladiator-fragment { position:absolute; width:7px; height:5px; z-index:7; clip-path:polygon(0 15%,72% 0,100% 75%,26% 100%); background:#9d7845; pointer-events:none; }
+.gladiator-fragment-blood { background:#762326; width:5px; height:9px; }
+.gladiator-fragment-stone { background:#706657; width:12px; height:9px; }
+.gladiator-fragment-bronze { background:#cf9a4f; width:8px; height:3px; }
+.gladiator-roar-streak,.gladiator-rage-collapse,.gladiator-triumph-streak { position:absolute; width:330px; height:95px; z-index:6; background:linear-gradient(90deg,transparent,#6e25218c,#b38a4c99,#6e25218c,transparent); clip-path:polygon(0 52%,19% 38%,10% 24%,33% 32%,47% 0,56% 31%,91% 20%,75% 42%,100% 55%,73% 70%,83% 94%,59% 81%,45% 100%,32% 72%,8% 88%,19% 66%); }
+.gladiator-triumph-streak { width:720px; height:40px; opacity:var(--gladiator-triumph-strength,.7); background:linear-gradient(90deg,#3b0d0c,#b68d4f,#dfbb74,#7f2823,transparent); }
+.gladiator-gladius { position:absolute; width:120px; height:120px; margin:-60px 0 0 -60px; z-index:7; }
+.gladiator-gladius svg { width:100%; height:100%; overflow:visible; }
+.gladiator-gladius-motion { transform-origin:0 0; }
+.gladiator-gladius-ghost { filter:sepia(1) saturate(.45); opacity:.16; z-index:6; }
+.gladiator-gladius-planted { clip-path:polygon(0 0,100% 0,100% 50%,0 50%); }
+.gladiator-ground-crack { position:absolute; width:100px; height:30px; margin-left:-50px; z-index:6; }
+.gladiator-ground-crack path { stroke:#382315; stroke-width:2; fill:none; }
+.gladiator-impact-flash { position:absolute; width:300px; height:210px; margin:-105px 0 0 -150px; background:#ffe8ce; clip-path:polygon(0 45%,34% 32%,48% 0,63% 34%,100% 57%,60% 71%,43% 100%,29% 66%); z-index:8; }
+.gladiator-charge-ghost { position:absolute; width:190px; height:190px; margin:-95px 0 0 -95px; filter:brightness(.22) sepia(1) saturate(4); z-index:2; clip-path:polygon(0 0,100% 0,100% 82%,73% 100%,0 100%); }
+.gladiator-frame .gladiator-final-damage .presentation-result-number.is-damage { font-size:64px; color:#d82c24; }
+.gladiator-triumph-ally { filter:drop-shadow(0 0 3px #ba8245); }
+.gladiator-frame .gladiator-triumph-ally .gladiator-card { transform:scale(.64); transform-origin:center; }
+.gladiator-fallen { opacity:.25; }
+.arena-stage-active { background:#100c09; }
+.arena-environment { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.arena-backdrop { position:absolute; inset:0; z-index:0; background:linear-gradient(180deg,#0b0a09,#1a1510 48%,#16120e); box-shadow:inset 0 0 160px 90px #000; }
+.arena-spotlight { position:absolute; left:300px; top:60px; width:840px; height:585px; background:linear-gradient(180deg,#a18a4928,#ae8a444a 75%,#82623215); clip-path:polygon(36% 0,64% 0,100% 100%,0 100%); }
+.arena-back-wall,.arena-foreground-wall { position:absolute; left:110px; right:110px; display:flex; align-items:flex-end; gap:3px; height:100px; background:#24201a; border-bottom:12px solid #514434; }
+.arena-back-wall { top:405px; z-index:1; }
+.arena-stone-block { display:block; flex:1; height:var(--arena-height); background:linear-gradient(145deg,#615a4c,#322f29 55%,#494137); border:2px solid #1c1a16; border-top:4px solid #766956; border-radius:0; clip-path:polygon(0 12%,17% 0,75% 6%,100% 22%,94% 100%,0 95%); }
+.arena-stone-block:nth-child(3n) { background:linear-gradient(30deg,#3b3730,#514b3e); border-top-color:#645f54; }
+.arena-ground { position:absolute; left:0; right:0; top:480px; height:330px; z-index:2; background:repeating-linear-gradient(168deg,transparent 0 7px,#32220e2e 8px 9px),repeating-linear-gradient(15deg,#81633b 0 3px,#93794f 4px 5px,#70522f 6px 9px); box-shadow:inset 0 -90px 100px #140f09; }
+.arena-ground::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 65px 8px at 27% 24%,#49231b 96%,transparent),radial-gradient(ellipse 90px 11px at 69% 55%,#51291c 96%,transparent),repeating-linear-gradient(100deg,transparent 0 143px,#d3ad6b29 145px 146px,transparent 149px 212px); }
+.arena-ground svg { width:100%; height:100%; fill:none; stroke:#38291b; stroke-width:3; opacity:.8; }
+.arena-sword-field { position:absolute; left:42px; right:42px; top:452px; height:255px; pointer-events:none; overflow:hidden; }
+.arena-sword-field-back { z-index:2; filter:brightness(.76) saturate(.72); }
+.arena-sword-field-front { z-index:4; top:465px; height:265px; filter:drop-shadow(4px 7px 4px #120c08aa); }
+.arena-buried-sword { position:absolute; left:var(--arena-sword-left); top:var(--arena-sword-top); width:15px; height:108px; transform:translate(-50%,-50%) rotate(var(--arena-sword-angle)) scale(var(--arena-sword-scale)); transform-origin:50% 88%; opacity:calc(.58 + var(--arena-sword-depth) * .2); }
+.arena-buried-sword::before { content:''; position:absolute; left:5px; top:24px; width:5px; height:68px; background:linear-gradient(90deg,#4c4a43,#b3ad98 45%,#4b4941); clip-path:polygon(50% 0,100% 10%,72% 100%,30% 100%,0 10%); box-shadow:inset 1px 0 #d3c6a0aa; }
+.arena-buried-sword::after { content:''; position:absolute; left:-9px; top:20px; width:32px; height:7px; background:linear-gradient(#c39955,#594026); clip-path:polygon(0 25%,42% 0,100% 25%,87% 100%,14% 100%); }
+.arena-buried-sword b { position:absolute; left:5px; top:0; width:6px; height:24px; background:repeating-linear-gradient(0deg,#281812 0 4px,#8e6438 5px 7px); transform:skew(-3deg); }
+.arena-buried-sword em { position:absolute; left:3px; top:-5px; width:10px; height:8px; border:2px solid #9b713d; border-radius:50%; box-sizing:border-box; }
+.arena-buried-sword span { position:absolute; left:-16px; top:88px; width:48px; height:8px; background:radial-gradient(ellipse,#2c1c12 0 45%,transparent 70%); transform:rotate(calc(var(--arena-sword-angle) * -1)); opacity:.75; }
+.arena-sword-field-front .arena-buried-sword:nth-child(3n) { filter:sepia(.8) hue-rotate(330deg) saturate(1.8); }
+.arena-sword-field-back .arena-buried-sword:nth-child(4n)::before { background:linear-gradient(90deg,#383633,#817967 55%,#302f2d); }
+.arena-entering .arena-sword-field { transform:translateY(55px); opacity:0; }
+.arena-combatants { position:absolute; inset:0; z-index:3; }
+.arena-foreground-wall { top:515px; height:90px; z-index:4; background:#3d3629; box-shadow:0 18px 18px #1e170d66; }
+.arena-foreground-wall .arena-stone-block { height:calc(var(--arena-height) - 8px); background:linear-gradient(150deg,#88785b,#39362d 60%,#27231b); }
+.arena-right-wall { position:absolute; right:-18px; bottom:0; width:200px; display:flex; height:160px; align-items:flex-end; gap:3px; }
+.arena-right-wall .arena-stone-block { height:120px; }
+.arena-wall-broken { visibility:hidden; }
+.arena-rule-feedback { position:absolute; transform:translateX(-50%); z-index:8; font:700 17px monospace; color:#b8a076; letter-spacing:5px; }
+.arena-entering .arena-back-wall,.arena-entering .arena-foreground-wall { transform:translateY(150px); }
+.arena-entering .arena-backdrop { opacity:0; }
+.arena-intermission { background:transparent; }
+.arena-intermission .arena-environment { opacity:.2; }
+.arena-intermission .arena-combatants { visibility:hidden; }
+.arena-intermission::before { display:none; }
+.arena-environment[data-reduced-motion="true"] .arena-spotlight { opacity:.65; }
+
 /* ==========================================================================
    地城深淵 (DUNGEON ABYSS)
    Design System: Modern Dungeon Arcade

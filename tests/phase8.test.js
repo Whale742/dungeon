@@ -103,6 +103,66 @@ export function fixture(t,roles=['warrior']) {
   t?.after(()=>room.clearTimer());
   return {room,resolve(r=.9){return random(r,()=>{room.resolveTurnActions();return wire.queue;});}};
 }
+
+test('Gladiator sacrifice publishes payment before Rage and equipment statuses',t=>{
+  const {room,resolve}=fixture(t,['gladiator']);const p=room.players.p0;
+  equip(p,'g_xiphos');equip(p,'g_cuirass');p.hp=45;p.action='g_sacrifice';room.currentMonster.attack=0;
+  const s=actionStep(resolve()),paid=s.results.find(r=>r.presentationBeat==='self_damage');
+  assert.equal(paid.finalDamage,20);assert.equal(paid.targetAfter.hp,25);assert.equal(paid.targetAfter.rage,0);assert.equal(paid.targetAfter.bloodStacks,0);
+  assert.equal(s.hpSnapshot.players[0].rage,1);assert.equal(s.gladiatorPresentation.rageGained,1);assert.equal(s.gladiatorPresentation.bloodGained,1);
+  assert.equal(s.gladiatorPresentation.bloodHealApplied,true);assert.equal(s.results.at(-1).presentationBeat,'rage_gain');
+  assert.equal(paid.hpSnapshot.players[0].rage,0);
+});
+test('Cuirass triggers below 30 HP, including high max HP; 30 HP does not trigger',t=>{
+  for(const [hp,triggered] of [[50,false],[49,true]]){
+    const {room,resolve}=fixture(t,['gladiator']);const p=room.players.p0;equip(p,'g_cuirass');p.hp=hp;p.action='g_sacrifice';room.currentMonster.attack=0;
+    assert.equal(actionStep(resolve()).gladiatorPresentation.bloodHealApplied,triggered);
+  }
+});
+test('Arena enter queue exposes both combatants HP scale and occurs only next round',t=>{
+  const {room,resolve}=fixture(t,['gladiator','warrior']);room.players.p0.action='g_arena';const declared=resolve();
+  assert(!declared.some(s=>s.type==='arena_enter'));let queue;room.publishCombatQueue=q=>queue=q;
+  room.battleRound=2;room.executeRoundStart();const enter=queue[0];assert.equal(enter.type,'arena_enter');
+  assert.deepEqual(enter.arenaPresentation.combatants.map(c=>c.maxHpAfterScale),[153,9000]);
+  assert.equal(enter.hpSnapshotBefore.arena,null);assert.equal(enter.hpSnapshot.arena.playerId,'p0');
+  assert.equal(queue[1].hpSnapshotBefore.monster.maxHp,9000);assert.equal(queue[1].hpSnapshotBefore.players[1].arenaBlocked,true);
+});
+for(const rage of [0,1,4,8])test('Arena exit consumes Rage '+rage+' once and authoritatively applies two-turn Triumph',t=>{
+  const {room}=fixture(t,['gladiator','warrior']),p=room.players.p0;p.rage=rage;p.bloodStacks=2;p.maxHp=153;p.hp=90;
+  room.currentMonster.maxHp=9000;room.currentMonster.hp=4500;room.arena={playerId:p.id,originalMaxHp:85,originalMonsterMaxHp:5000,until:1};
+  const q=[],exit=room.p8ExitArena(q);assert.equal(exit.arenaPresentation.consumedRage,rage);assert.equal(p.rage,0);assert.equal(p.bloodStacks,0);assert.equal(room.arena,null);
+  assert.equal(exit.arenaPresentation.rageConsumedSnapshot.players[0].rage,0);assert.equal(exit.arenaPresentation.rageConsumedSnapshot.players[0].maxHp,153);
+  assert.equal(exit.arenaPresentation.triumphApplied,true);assert.equal(exit.arenaPresentation.triumphBonus,200*rage/(rage+5.6));
+  assert.equal(exit.arenaPresentation.triumphDuration,2);assert.equal(room.currentMonster.hp,2500);assert.equal(room.currentMonster.maxHp,5000);
+  assert.equal(p.maxHp,85);assert.equal(p.hp,50);room.p8ExitArena(q);assert.equal(q.length,1);
+  for(const ally of Object.values(room.players)){assert.equal(ally.p8Effects.triumph.value,exit.arenaPresentation.triumphBonus);assert.equal(ally.p8Effects.triumph.until,3);}
+  room.battleRound=2;assert(room.p8Has(p,'triumph'));room.battleRound=3;assert(room.p8Has(p,'triumph'));room.battleRound=4;assert.equal(room.p8Has(p,'triumph'),null);
+});
+test('Triumph boosts authoritative damage and expires after two playable rounds',t=>{
+  const {room,resolve}=fixture(t,['warrior']);const p=room.players.p0;p.action='basic';room.p8Effect(p,'triumph','凱旋',2,{value:83.333333333333,until:3,duration:2});
+  room.battleRound=2;assert.equal(actionStep(resolve()).finalDamage,18);
+  room.battleRound=4;p.warriorStacks=0;assert.equal(actionStep(resolve()).finalDamage,10);
+});
+test('Suicide immediately queues forced Arena exit, preserves revive lock and never grants Triumph',t=>{
+  const {room,resolve}=fixture(t,['gladiator','bard']);const p=room.players.p0;
+  p.maxHp=153;p.hp=117;p.rage=3;p.action='g_arena';room.currentMonster.hp=9000;room.currentMonster.maxHp=9000;
+  room.arena={playerId:p.id,originalMaxHp:85,originalMonsterMaxHp:5000,until:1};
+  const q=resolve(),action=actionStep(q),exit=q[q.indexOf(action)+1];
+  assert.equal(action.results[0].presentationBeat,'self_zero');assert.equal(action.results[0].targetAfter.hp,0);assert.equal(action.results[1].finalDamage,147);
+  assert.equal(exit.type,'arena_exit');assert.equal(exit.arenaPresentation.reason,'gladiator_dead');assert.equal(exit.arenaPresentation.consumedRage,3);
+  assert.equal(exit.arenaPresentation.triumphApplied,false);assert.equal(p.rage,0);assert.equal(p.hp,0);assert.equal(p.noReviveFloor,8);
+  assert(!room.players.p1.p8Effects.triumph);assert.equal(room.players.p1.hp,70);assert.equal(room.arena,null);
+});
+test('Boss lethal damage forces Arena exit after its result, consumes gained Rage and grants no Triumph',t=>{
+  const {room,resolve}=fixture(t,['gladiator','warrior']);const p=room.players.p0;p.hp=5;p.rage=4;p.action='basic';
+  room.arena={playerId:p.id,originalMaxHp:85,until:1};const q=resolve(),boss=q.find(s=>s.type==='boss_action'),exit=q[q.indexOf(boss)+1];
+  assert.equal(exit.type,'arena_exit');assert.equal(exit.arenaPresentation.consumedRage,5);assert.equal(exit.arenaPresentation.triumphApplied,false);assert.equal(p.rage,0);
+});
+test('Round-start damage can force Arena end before selection',t=>{
+  const {room}=fixture(t,['gladiator','warrior']);const p=room.players.p0;p.hp=1;p.rage=2;p.poisonTurns=1;p.poisonDmg=100;
+  room.arena={playerId:p.id,originalMaxHp:85,until:1};let queue;room.publishCombatQueue=q=>queue=q;room.executeRoundStart();
+  assert.equal(queue.at(-1).type,'arena_exit');assert.equal(queue.at(-1).arenaPresentation.triumphApplied,false);assert.equal(room.arena,null);assert.equal(p.rage,0);
+});
 export function random(value,fn){const old=Math.random;Math.random=typeof value==='function'?value:()=>value;try{return fn();}finally{Math.random=old;}}
 function equip(p,id){return equipItemToPlayer(p,structuredClone(LOOT_TABLE.find(e=>e.id===id)));}
 const actionStep=q=>q.find(s=>s.type==='player_action');
@@ -191,11 +251,11 @@ test('gladiator damage rage once/round; sacrifice cost ignores shield and DR; xi
   const {room,resolve}=fixture(t,['gladiator']),p=room.players.p0;room.applyDamageToPlayer(p,1);room.applyDamageToPlayer(p,1);assert.equal(p.rage,1);
   room.p8GrantShield(p,100);room.p8Effect(p,'warrior_resolve','DR',3);equip(p,'g_xiphos');p.action='g_sacrifice';const s=actionStep(resolve());assert.equal(s.actorHpAfter,63);assert.equal(p.rage,2);assert.equal(p.bloodStacks,1);
 });
-test('arena starts NEXT round, isolates selection/damage, scales only self and restores exit ratio',t=>{
-  const {room,resolve}=fixture(t,['gladiator','warrior']),p=room.players.p0;p.action='g_arena';resolve();assert(!room.arena);room.battleRound=2;room.p8RoundStart();assert.equal(p.maxHp,153);assert.equal(room.currentMonster.maxHp,5000);
+test('arena starts NEXT round, isolates selection/damage, scales both sides and restores exit ratio',t=>{
+  const {room,resolve}=fixture(t,['gladiator','warrior']),p=room.players.p0;p.action='g_arena';resolve();assert(!room.arena);room.battleRound=2;room.p8RoundStart();assert.equal(p.maxHp,153);assert.equal(room.currentMonster.maxHp,9000);
   assert.equal(room.lockAction('p1','basic').success,false);room.startSkillSelection();assert.equal(room.players.p1.isLocked,true);
   assert.equal(room.p8Incoming(p,30,()=>1).damage,30);assert.equal(room.p8Incoming(room.players.p1,30,()=>1).damage,0);
-  p.hp=Math.floor(p.maxHp*.5);room.p8ExitArena();assert.equal(p.maxHp,85);assert(Math.abs(p.hp-42)<2);
+  p.hp=Math.floor(p.maxHp*.5);room.p8ExitArena();assert.equal(p.maxHp,85);assert(Math.abs(p.hp-42)<2);assert.equal(room.currentMonster.maxHp,5000);
 });
 test('arena suicide consumes all HP, cingulum rage multiplier, no same-floor revive, next floor legal',t=>{
   const {room,resolve}=fixture(t,['gladiator','bard']),p=room.players.p0;p.arenaActive=true;p.rage=2;p.hp=50;equip(p,'g_cingulum');room.arena={playerId:p.id,originalMaxHp:85,until:1};p.action='g_arena';

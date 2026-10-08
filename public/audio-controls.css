@@ -1,0 +1,14 @@
+.bgm-control{position:relative}
+.bgm-control button svg,#soundToggleIcon{width:22px;height:22px;flex-shrink:0}
+#soundToggleIcon{color:#fff}
+#bgmVolumePanel{position:absolute;right:0;top:calc(100% + 10px);width:220px;padding:16px;background:rgba(10,16,29,.95);border:1px solid #46516a;border-radius:12px;box-shadow:0 8px 28px #0008;z-index:100}
+#bgmVolumePanel[hidden]{display:none}
+#bgmVolumePanel label{display:flex;justify-content:space-between;font-size:14px;color:#e2e8f0;margin-bottom:12px}
+#bgmVolumeSlider{width:100%;accent-color:#fbbf24;cursor:pointer}
+#soundToggleIcon [hidden]{display:none}
+.floating-log-card[data-suppressed="true"]{display:none!important}
+.floating-log-card::before,.p8-lab-log::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(to top,rgba(0,0,0,.28),rgba(0,0,0,.12) 35%,transparent 80%);backdrop-filter:none;mask-image:none}
+.boss-encounter-resistances{position:absolute;bottom:5%;left:0;right:0;text-align:center;color:#cbd5e1;font-size:clamp(12px,2vw,16px);letter-spacing:.08em;text-shadow:0 2px 6px #000;opacity:0;transition:opacity .5s}
+.boss-encounter-impact-stage:has(.boss-encounter-name.is-entering) .boss-encounter-resistances{opacity:1}
+.boss-portrait-flight{position:fixed;z-index:10;overflow:hidden;pointer-events:none}
+.boss-portrait-flight img{width:100%;height:100%;object-fit:cover;display:block}

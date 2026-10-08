@@ -385,7 +385,7 @@ function triggerPortraitStatusEvent(portraitRoot, profileId, eventType) {
     item.classList.remove('is-off-key');
     void item.offsetWidth;
     item.classList.add('is-off-key');
-    setTimeout(() => item.classList.remove('is-off-key'), 400);
+    setTimeout(() => item.classList.remove('is-off-key'), 2400);
   }
 }
 

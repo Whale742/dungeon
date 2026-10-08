@@ -79,3 +79,8 @@
 .samurai-fx-owner .samurai-eye-art .samurai-eye-open{top:-100%}
 
 .presentation-result-number.is-samurai-parry{font-size:clamp(.8rem,1.6cqw,1.15rem)}
+
+/* Damage is lifted out of the portrait stacking context so it always clears the full-screen 斬 layer. */
+.samurai-fx-owner .samurai-result-overlay{position:absolute;inset:0;z-index:50;pointer-events:none}
+.samurai-fx-owner .samurai-result-overlay .presentation-result-numbers{display:block;position:absolute;inset:auto;z-index:1}
+.samurai-fx-owner .samurai-damage-layer{display:none}

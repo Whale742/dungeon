@@ -58,7 +58,7 @@ function resultFloat(card, text, theme) {
   number.hidden=false;
   number.className = 'presentation-result-number ' + theme;
   number.textContent = text;
-  if(!number.parentNode)card.querySelector('.presentation-result-numbers').appendChild(number);
+  if(!number.parentNode)(card._resultNumbersLayer||card.querySelector('.presentation-result-numbers')).appendChild(number);
 }
 function updateResultCard(card, target) {
   card.classList.toggle('is-assassin-hidden', !!target?.isHiddenThisRound && !target?.stealthBrokenThisRound && target?.hp > 0);
@@ -81,7 +81,7 @@ async function presentCombatResult(result, card, context = {}) {
   const resultOutcome = result.outcome?.type;
   const baseAudio = context.audioScope || createSfxPresentationScope(context);
   const audio = ['dream_heal','nightmare'].includes(resultOutcome) ? dreamweaverAudioScope(baseAudio) : baseAudio;
-  const playSound = (key, options) => audio.play(key, options);
+  const playSound = (key, options) => context.skipResultAudio ? null : audio.play(key, options);
   const wait = ms => waitForPresentation(context.fastResult?Math.min(ms,30):ms, context.signal, context.speed || 1);
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
@@ -132,7 +132,7 @@ async function presentCombatResult(result, card, context = {}) {
           direction: context.direction || 'left', variant: context.compact ? 'compact' : undefined, speed: context.speed || 1, reducedMotion: context.reducedMotion });
         if (fxType !== 'claw_slash' && fxType !== 'boss_claw') await wait(context.compact ? 90 : 130);
       }
-      if(!context.originalDreamweaverFx) {
+      if(!context.originalDreamweaverFx && !context.suppressReaction) {
         const hit = card.querySelector('.presentation-result-hit');
         if(context.prewarmed&&context.motion){
           const direction=context.direction==='right'?1:-1;
@@ -163,7 +163,7 @@ async function presentCombatResult(result, card, context = {}) {
     card.classList.remove('is-downed');
     card.classList.add(result.kind === 'revive' ? 'is-reviving' : 'is-healing');
     updateResultCard(card, target);
-    audio.playResult('healing_result', { volume: context.sourceRole === 'bard' ? .7 : 1 });
+    if(!context.skipResultAudio)audio.playResult('healing_result', { volume: context.sourceRole === 'bard' ? .7 : 1 });
     if (result.actualHeal > 0) resultFloat(card, '+' + result.actualHeal, 'is-heal');
     emit('heal_float');
     await wait(100);
@@ -224,7 +224,7 @@ async function presentCombatResult(result, card, context = {}) {
     resultFloat(card, '古樹庇護 · 休眠', 'is-nature');
     playSound('transform_treant');
     await wait(350);
-  } else if (target?.hp <= 0 && result.targetBefore?.hp > 0 && (result.kind === 'damage' || result.kind === 'intercept')) {
+  } else if (!context.skipDeathAnimation && target?.hp <= 0 && result.targetBefore?.hp > 0 && (result.kind === 'damage' || result.kind === 'intercept')) {
     await wait(200);
     card.classList.add('is-dying');
     emit(result.targetId === 'monster' ? 'boss_death_start' : 'death_start');
@@ -602,13 +602,13 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const audio = context.audioScope || createSfxPresentationScope(context);
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
+  if (typeof handlesGladiatorPresentation === 'function' && handlesGladiatorPresentation(step)) return playGladiatorPresentation(step,context);
   if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
   if (typeof hasSamuraiParry === "function" && hasSamuraiParry(step)) rememberSamuraiEnemyPhase(step, context);
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
   if(step.type==='player_action'&&step.sourceRole==='sage'&&['basic','sge_deduce','sge_induce'].includes(step.actionId))return playSageSkillPresentation(step,context);
-  if(step.sourceRole==='gladiator'&&step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,context);
   if(step.sourceRole==='stargazer'&&['basic','sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
   if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{
     const row=document.createElement('div');row.className='presentation-support-targets';canvas.appendChild(row);

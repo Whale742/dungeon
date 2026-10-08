@@ -1,17 +1,11 @@
-// One keyed renderer shared by production and Lab; history remains server owned.
+// Keep the latest three entries clear; older entries gradually fade and blur.
 function updateBattleLogFade(container) {
-  const lines=Array.from(container.children),bounds=container.getBoundingClientRect();
-  const third=lines.at(-3)||lines[0];
-  if(!third||!bounds.height)return;
-  const clearTop=Math.min(bounds.height,third.getBoundingClientRect().top-bounds.top);
-  const fadeTop=Math.min(bounds.height*.4,clearTop-24);
-  lines.forEach((line,i)=>{
-    const center=line.getBoundingClientRect().top-bounds.top+line.offsetHeight/2;
-    const progress=i>=lines.length-3?0:Math.max(0,Math.min(1,(clearTop-center)/(clearTop-fadeTop)));
-    const eased=i>=lines.length-3?0:.12+.88*progress*progress*(3-2*progress);
-    line.style.setProperty('--log-opacity',String(1-eased*.985));
-    line.style.setProperty('--log-blur',(eased*3).toFixed(2)+'px');
-  });
+ const lines=Array.from(container.children);
+ lines.forEach((line,i)=>{
+  const depth=Math.max(0,lines.length-i-3);
+  line.style.setProperty('--log-opacity',String(Math.max(.025,1-depth*.16)));
+  line.style.setProperty('--log-blur',Math.min(5,depth*.65).toFixed(2)+'px');
+ });
 }
 function renderRecentBattleLogs(container, history = []) {
   container.dataset.battleLogStream='true';

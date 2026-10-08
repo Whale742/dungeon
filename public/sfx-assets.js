@@ -36,11 +36,12 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['transform_treant', 'druid-transform-treant', .7, 'transform_treant', 0, 450],
   ['treant_action', 'druid-treant-action', .7, 'vine_strike', 0, 400],
   ['wolf_action', 'druid-wolf-action', .5, 'minion_attack', .05, 800],
-  ['logo_intro', 'logo-intro', .4, 'round_start', 0, 5800],
+  ['logo_intro', 'logo-intro', .4, 'round_start', 0, 5800, Infinity],
   ['chest_reveal', 'chest-reveal', .46, 'chest_open', .25, 1900],
   ['boss_warning', 'warning', .55, 'boss_warning', 0, 4700],
-  ['boss_entrance', 'boss', .27, 'boss_boom', .65, 3500],
-  ['victory', 'victory', .32, 'victory', 0, 3900]
+  ['boss_entrance', 'boss', .27, 'boss_boom', 0, 5000, Infinity],
+  ['walk', 'walk', .4, null, 0, 2000, 120],
+  ['victory', 'victory', .16, 'victory', 0, 3900]
 ].map(([key, file, volume, fallback, offset, identityBeatMs, maxDuration]) => [key, Object.freeze({
   src: '/sound/' + file + '.mp3', volume, fallback, offset, identityBeatMs,
   // A short fade preserves the tail without waiting for silence/file ended.

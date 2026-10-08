@@ -12,7 +12,7 @@ function routePresentationKey() {
 
 function setRouteChoicesHidden(hidden) {
   for (const element of [elements.routeStatusText, elements.routeOptionsGrid,
-    elements.routeVotersStatusList, elements.routeTimerBar]) {
+    elements.routeVotersStatusList, elements.routeTimerBar, document.getElementById('routeDiffPercent')?.closest('.buff-highlight')].filter(Boolean)) {
     if (hidden) element.classList.add('hidden');
     else element.classList.remove('hidden');
   }
@@ -69,7 +69,7 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
     elements.floorIntroTitle.textContent = '迷霧分歧點';
     document.body.classList.add('presentation-floor-active');
     overlay.classList.remove('exit', 'hidden');
-    playSound('banner');
+    playSound('walk',{signal,instance:'floor-walk-'+presentationId});
     await waitForPrologue(EXPLORATION_TIMING.floorEnter + EXPLORATION_TIMING.floorHold, signal);
     overlay.classList.add('exit');
     await waitForPrologue(EXPLORATION_TIMING.floorExit, signal);
@@ -91,6 +91,7 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
 
     elements.routeStatusText.classList.add('exploration-prompt-enter');
     elements.routeStatusText.classList.remove('hidden');
+    document.getElementById('routeDiffPercent')?.closest('.buff-highlight')?.classList.remove('hidden');
     await waitForPrologue(EXPLORATION_TIMING.promptEnter, signal);
     elements.routeOptionsGrid.classList.add('exploration-choices-enter');
     elements.routeOptionsGrid.classList.remove('hidden');

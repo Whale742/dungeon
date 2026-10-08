@@ -116,6 +116,12 @@ const PRESENTATION_CONFIG = Object.freeze({
     bossGap: 350,
     overlayExit: 300
   },
+  gladiator: {
+    pace: 1.12,
+    selfSlash: 180, selfBlood: 120, warRoar: 280,
+    arenaDarken: 300, arenaWalls: 350, arenaWalk: 300, arenaSettle: 200,
+    rageConsume: 240, triumphTransfer: 240, arenaExit: 500
+  },
   bossEncounter: {
     darkenDuration: 2000,
     warningRevealAt: 3000,

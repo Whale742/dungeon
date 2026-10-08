@@ -67,3 +67,20 @@ test('missing story cleans the opening without a false completion ACK', async ()
   assert.equal(f.emissions.length, 0);
   assert.equal(f.errors.length, 1);
 });
+
+test('real prologue preloads music and starts normal BGM only after completion',async()=>{
+ const f=fixture(),calls=[];
+ f.context.bgmManager={preload:()=>calls.push('preload'),resumeNormal:()=>calls.push('normal')};
+ const promise=vm.runInContext('renderProloguePresentation()',f.context);
+ assert.deepEqual(calls,['preload']);
+ await f.advance(4000);assert.deepEqual(calls,['preload']);
+ await f.advance(12000);await promise;assert.deepEqual(calls,['preload','normal']);
+ await vm.runInContext('renderProloguePresentation()',f.context);assert.deepEqual(calls,['preload','normal']);
+});
+test('cancelled prologue does not start exploration music',async()=>{
+ const f=fixture(),calls=[];
+ f.context.bgmManager={preload:()=>{},resumeNormal:()=>calls.push('normal')};
+ const promise=vm.runInContext('renderProloguePresentation()',f.context);
+ await f.advance(4000);vm.runInContext('prologueController.abort()',f.context);
+ await promise;assert.deepEqual(calls,[]);
+});

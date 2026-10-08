@@ -1,0 +1,57 @@
+/* Exploration and event content sits directly over the dungeon scenery. */
+body.is-exploring {
+ background-image: url('/icon/background.webp');
+}
+body.is-exploring .main-content,
+#viewRoute .exploration-content,
+#viewRoute .exploration-story,
+#viewRoute .route-item,
+#viewRoute .route-item:hover,
+#viewRoute .route-item.my-vote,
+#viewTransition .transition-card,
+#viewTransition .transition-story-box,
+#viewEvent .event-card,
+#viewEvent .event-details,
+.exploration-trap,
+.exploration-chest,
+.presentation-trap,
+.presentation-chest,
+.presentation-chest .presentation-reward-content {
+ background: transparent;
+ border: 0;
+ box-shadow: none;
+ backdrop-filter: none;
+ -webkit-backdrop-filter: none;
+}
+#viewRoute .route-item:hover:not(:disabled),
+#viewRoute .route-item.my-vote {
+ color: #fbbf24;
+}
+#viewRoute .route-item.my-vote .route-name {
+ text-decoration: underline;
+ text-underline-offset: .3em;
+}
+#viewRoute .exploration-story,
+#viewRoute .route-header,
+#viewRoute .route-prompt,
+#viewRoute .route-item,
+#viewTransition .transition-card,
+#viewEvent .event-card,
+.exploration-trap-story,
+.exploration-chest-story,
+.presentation-trap-stage,
+.presentation-chest .presentation-reward-content {
+ color: #f1f5f9;
+ text-shadow: 0 2px 4px #000, 0 0 12px #000;
+}
+/* A shared dim veil keeps the scenery visible without sacrificing readability. */
+body.is-exploring:not(.presentation-floor-active)::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.48);pointer-events:none;z-index:0}
+body.is-exploring .game-container{position:relative;z-index:1}
+#viewRoute .route-item{background:rgba(15,23,42,.92);border:1px solid #475569;box-shadow:0 4px 14px #0005}
+#viewRoute .route-item:hover:not(:disabled){background:rgba(30,41,59,.98);border-color:#d4a84b}
+#viewRoute .route-item.my-vote{background:rgba(55,43,20,.95);border-color:#fbbf24}
+.presentation-trap,.presentation-chest{background:rgba(0,0,0,.48)}
+.encounter-scene-snapshot{position:fixed;inset:0;z-index:100;pointer-events:none;background:#030712 url('/icon/background.webp') center/cover no-repeat;overflow:hidden}
+.boss-encounter-stage{background:transparent}
+.boss-encounter-impact-stage::before{opacity:0;transition:opacity 2s}
+.boss-encounter-stage.is-darkening .boss-encounter-impact-stage::before{opacity:.5}

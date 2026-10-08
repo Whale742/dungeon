@@ -20,8 +20,10 @@ try{
  assert.deepEqual(data.calls.map(x=>x.key),['samurai-skill','samurai-skill2-intro','assassin-pursuit','assassin-pursuit','assassin-pursuit','sword-slash-heavy']);
  assert(data.calls.find(x=>x.key==='samurai-skill').at<intro.at+50,'cast sound begins with intro');
  assert(data.calls.filter(x=>x.key.startsWith('sword-slash')||x.key==='assassin-pursuit').every(x=>x.duration>0),'slash files decoded and played');
- const cut=await page.evaluate(async()=>{const sounds=[];const original=sfxManager.play;sfxManager.play=(key,opts)=>{sounds.push(key);return original(key,opts);};await playExpandedCombatPresentation(structuredClone(SAMURAI_LAB_SCENES.samurai_cut.steps[0]),{speed:4});return sounds;});
- assert.deepEqual(cut,['samurai-skill','sword-slash-heavy']);
+ const cut=await page.evaluate(async()=>{const sounds=[];let layer=null;const original=sfxManager.play;sfxManager.play=(key,opts)=>{sounds.push(key);return original(key,opts);};await playExpandedCombatPresentation(structuredClone(SAMURAI_LAB_SCENES.samurai_cut.steps[0]),{speed:4,onSamuraiFrame:({time,canvas})=>{if(time<680)return;const number=canvas.querySelector('.presentation-result-number:not([hidden])'),resultOverlay=canvas.querySelector('.samurai-result-overlay'),zan=canvas.querySelector('.samurai-zan-overlay');if(number&&resultOverlay&&zan)layer={parent:resultOverlay.contains(number),resultZ:Number(getComputedStyle(resultOverlay).zIndex),zanZ:Number(getComputedStyle(zan).zIndex)};}});return {sounds,layer};});
+ assert.deepEqual(cut.sounds,['samurai-skill','sword-slash-heavy']);
+ assert(cut.layer?.parent,'damage number is hosted by the top-level Samurai result overlay');
+ assert(cut.layer.resultZ>cut.layer.zanZ,`damage result z-index ${cut.layer.resultZ} clears 斬 z-index ${cut.layer.zanZ}`);
  const parry=await page.evaluate(async()=>{
   const c=new AbortController(),beats=[],sizes=[];let special=false;
   const observer=new MutationObserver(()=>{special ||= !!document.querySelector('.samurai-fx-owner');for(const el of document.querySelectorAll('.is-samurai-parry'))sizes.push({text:el.textContent,size:parseFloat(getComputedStyle(el).fontSize),normal:parseFloat(getComputedStyle(el.parentElement).fontSize)});});observer.observe(document.body,{subtree:true,childList:true});
@@ -41,5 +43,5 @@ try{
  assert(parry.sizes.length&&parry.sizes.every(x=>x.text==='格擋'&&x.size<=18.4));
  assert.deepEqual(parry.counterSounds,['samurai-skill','assassin-pursuit']);
  assert.equal(parry.echoes,3);assert.equal(parry.remaining,0);assert.deepEqual(errors,[]);
- console.log(JSON.stringify({introEyeGapMs:gap,soundDuration:intro.duration,skillSoundCount:1,tsubameSounds:data.calls.map(x=>x.key),cutSounds:cut,parryFlashes:4,sharedBossPresentation:true,counterEchoes:parry.echoes,counterSounds:parry.counterSounds,errors},null,2));
+ console.log(JSON.stringify({introEyeGapMs:gap,soundDuration:intro.duration,skillSoundCount:1,tsubameSounds:data.calls.map(x=>x.key),cutSounds:cut.sounds,cutDamageLayer:cut.layer,parryFlashes:4,sharedBossPresentation:true,counterEchoes:parry.echoes,counterSounds:parry.counterSounds,errors},null,2));
 }finally{await browser.close();}

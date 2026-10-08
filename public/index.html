@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="combat-expansion.css">
   <link rel="stylesheet" href="portrait-status-fx.css">
   <link rel="stylesheet" href="battle-phase.css">
+  <link rel="stylesheet" href="exploration-immersive.css">
+  <link rel="stylesheet" href="audio-controls.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
@@ -181,8 +183,12 @@
         <button id="btnLeaveParty" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
           <svg class="svg-icon"><use href="#icon-close"></use></svg> 離開隊伍
         </button>
+        <div class="bgm-control">
+          <button id="bgmVolumeBtn" class="btn-icon" aria-expanded="false" aria-controls="bgmVolumePanel" title="調整背景音樂音量"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/></svg><span>BGM</span></button>
+          <div id="bgmVolumePanel" hidden><label for="bgmVolumeSlider">背景音樂 <output id="bgmVolumeValue">50%</output></label><input id="bgmVolumeSlider" type="range" min="0" max="100" step="1" value="50" aria-label="背景音樂音量"></div>
+        </div>
         <button id="soundToggleBtn" class="btn-sound-toggle" title="切換音效">
-          <img id="soundToggleImg" src="/sound/sound.webp" alt="音效" class="sound-toggle-img">
+          <svg id="soundToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path class="sound-on" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off" d="m15 9 6 6m0-6-6 6" style="display:none"/></svg>
         </button>
       </div>
     </header>
@@ -894,6 +900,7 @@
   <script src="presentation-config.js"></script>
   <script src="sfx-assets.js"></script>
   <script src="presentation-core.js"></script>
+  <script src="bgm.js"></script>
   <script src="battle-phase.js"></script>
   <script src="exploration.js"></script>
   <script src="trap.js"></script>

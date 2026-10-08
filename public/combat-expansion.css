@@ -60,7 +60,12 @@
 .presentation-summon-reveal { position: absolute; width: 170px; left: 110%; top: 0; display: flex; flex-direction: column; align-items: center; text-align: center; font-size: .8rem; animation: supportReveal 400ms ease-out both; }
 .presentation-summon-reveal img { width: 44px; height: 44px; object-fit: contain; border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(74, 222, 128, 0.4); }
 .is-cleansing .presentation-result-status { animation: supportExit 300ms both; }
-.is-off-key .presentation-support-actor { animation: supportUnstable 300ms steps(3) both; }
+.is-off-key .presentation-support-actor { animation: bardOffKeySway 2.4s ease-in-out infinite; }
+@keyframes bardOffKeySway {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-20px) rotate(-8deg); filter: hue-rotate(25deg); }
+  75% { transform: translateY(20px) rotate(8deg); filter: hue-rotate(-25deg); }
+}
 .combat-status { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; color: #cbd5e1; margin: 3px; }
 .combat-status-icon { width: 16px; height: 16px; flex: 0 0 auto; }
 .presentation-victory { position: fixed; inset: 0; background: rgba(2, 6, 14, .72); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5cqh 7cqw; color: #e2e8f0; }

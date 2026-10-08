@@ -43,6 +43,8 @@ function getOrCreateCombatStage() {
 async function enterCombatStage(context = {}) {
   if (typeof clearSamuraiPresentationState === "function") clearSamuraiPresentationState(context);
   const stage = getOrCreateCombatStage();
+  stage.classList.remove('arena-intermission');
+  if(typeof bindGladiatorArenaSignal==='function')bindGladiatorArenaSignal(context);
   const speed = context.speed || 1.0;
   const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
 
@@ -68,6 +70,14 @@ async function exitCombatStage(context = {}) {
   const stage = document.getElementById('presentationCombatStage');
   const speed = context.speed || 1.0;
   const timing = (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.combat : COMBAT_DEFAULT_TIMING);
+
+  if(typeof hasGladiatorArenaStage==='function'&&hasGladiatorArenaStage()&&!context.signal?.aborted){
+    if(context.mode!=='lab')stage?.classList.add('arena-intermission');
+    const app=document.getElementById('app');if(app)app.inert=false;
+    if(typeof presentationManager!=='undefined')presentationManager.setBlocking(false);
+    return;
+  }
+  if(typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
 
   if (stage) {
     stage.style.setProperty('--combat-overlay-exit', `${Math.round(timing.overlayExit / speed)}ms`);

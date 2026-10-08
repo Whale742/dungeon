@@ -32,6 +32,7 @@ async function playVictoryPresentation(victory, context = {}) {
   const canvas = document.createElement('div');
   canvas.className = 'presentation-victory';
   stage.appendChild(canvas);
+  stage.classList.remove('is-exiting');
   stage.classList.add('is-active');
   if (app) app.inert = true;
   presentationManager.setBlocking(true);
@@ -50,6 +51,10 @@ async function playVictoryPresentation(victory, context = {}) {
   };
   signal.addEventListener('abort', cleanup, { once: true });
   try {
+    // Music deceleration and loading run independently of victory presentation.
+    if(typeof bgmManager!=='undefined'){
+      void bgmManager.bossDefeated().then(()=>{if(!signal.aborted)return bgmManager.resumeNormal();}).catch(error=>console.warn('[Victory:BGM]',error));
+    }
     // Fatal action already completed death hold before the server enters victory.
     await wait(300);
     const title = document.createElement('div');
@@ -95,7 +100,8 @@ async function playVictoryPresentation(victory, context = {}) {
     await wait(500);
     reward.remove();
     ready = true;
-    if (app) app.inert = previousInert;
+    if (app) app.inert = false;
+    stage.classList.remove('is-exiting');stage.classList.add('is-active');
     const equipmentModal = document.getElementById('equipDropModal');
     if (equipmentModal) equipmentModal.style.zIndex = '1000';
     presentationManager.setBlocking(false);

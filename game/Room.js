@@ -1134,6 +1134,7 @@ export class Room {
   // 取得即時生命狀態快照 (供 Presentation Queue 精準步進渲染)
   getHpSnapshot() {
     return {
+      arena: this.arena ? {playerId:this.arena.playerId,until:this.arena.until} : null,
       monster: this.currentMonster ? {
         hp: Math.max(0, this.currentMonster.hp),
         maxHp: this.currentMonster.maxHp,
@@ -1187,7 +1188,8 @@ export class Room {
     const log = [];
     const visualEvents = [];
 
-    this.p8LogBuffer = log; this.p8RoundStart(); this.p8LogBuffer = null;
+    const arenaQueue=[];
+    this.p8LogBuffer = log; this.p8RoundStart(arenaQueue); this.p8LogBuffer = null;
 
     // Assassin reset -> decay -> hidden determination precedes every damage tick.
     for (const p of alivePlayers.filter(p => p.role === 'assassin')) {
@@ -1333,7 +1335,7 @@ export class Room {
     if (visualEvents.length || log.length) {
       log.forEach(l => this.addLog(l.text, l.type));
       const after = this.getHpSnapshot();
-      const display = structuredClone(roundBefore);
+      const display = structuredClone(arenaQueue.at(-1)?.hpSnapshot || roundBefore);
       const results = [];
       for (const ev of visualEvents) {
         const id = ev.targetId || ev.target || ev.sourceId;
@@ -1354,9 +1356,11 @@ export class Room {
           outcome: ev.outcome || { type: 'normal', protection: finalTarget?.druidForm === 'tree' },
           targetBefore, targetAfter: structuredClone(target), hpSnapshot: structuredClone(display) });
       }
-      this.publishCombatQueue([{ type: 'status_action', category: 'STATUS_TICK', skillName: 'ROUND ' + this.battleRound,
+      const roundQueue=[...arenaQueue,{ type: 'status_action', category: 'STATUS_TICK', skillName: 'ROUND ' + this.battleRound,
         monsterName: monster?.name, monsterAvatar: monster?.avatar, outcome: { type: 'normal' },
-        hpSnapshotBefore: roundBefore, hpSnapshot: after, results }], 'round_start');
+        hpSnapshotBefore: arenaQueue.at(-1)?.hpSnapshot || roundBefore, hpSnapshot: after, results }];
+      if(this.arena&&this.players[this.arena.playerId]?.hp<=0)this.p8ExitArena(roundQueue,'gladiator_dead');
+      this.publishCombatQueue(roundQueue,'round_start');
     } else this.startSkillSelection();
   }
 
@@ -1755,6 +1759,7 @@ export class Room {
     const visualEvents = [];
     const narratives = [];
     const presentationQueue = [];
+    const arenaRoundPlayerId=this.arena?.playerId;
     this.p8LogBuffer=log;
 
     let bardDmgMultiplier = 1.0;
@@ -1828,6 +1833,9 @@ export class Room {
         rawDmg += this.p8Has(actor,'galaxy')?.value || 0;
         if(actor?.action!=='basic')rawDmg += this.p8Has(actor,'overload')?.value || 0;
       }
+      const triumphActor=options.actor||phase8Actor;
+      const triumph=this.p8Has(triumphActor,'triumph');
+      if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
       if(this.p8Has(monster,'dissociate') || (this.p8Has(monster,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
       const dream=this.p8DreamDamage(monster,rawDmg);
       if(dream) {
@@ -1880,7 +1888,7 @@ export class Room {
 
     for (const p of sortedPlayers) {
       if (monster.hp <= 0) break;
-      if (this.arena && this.arena.playerId !== p.id) continue;
+      if (arenaRoundPlayerId && arenaRoundPlayerId !== p.id) continue;
       phase8Actor=p; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
       const beforeVisualCount = visualEvents.length;
       const beforeLogCount = log.length;
@@ -2686,6 +2694,14 @@ export class Room {
       presentationQueue.push({
         category: actionCategory, outcome: actionOutcome, results: actionResults,
         hpSnapshotBefore: actionBefore,
+        ...(p.role==='gladiator'?{gladiatorPresentation:{
+          arenaActive:actionBefore.arena?.playerId===p.id,
+          rageBefore:snapshotTarget(actionBefore,p.id)?.rage||0,rageAfter:p.rage||0,
+          rageGained:Math.max(0,(p.rage||0)-(snapshotTarget(actionBefore,p.id)?.rage||0)),
+          rageConsumed:Math.max(0,(snapshotTarget(actionBefore,p.id)?.rage||0)-(p.rage||0)),
+          bloodGained:Math.max(0,(p.bloodStacks||0)-(snapshotTarget(actionBefore,p.id)?.bloodStacks||0)),
+          bloodHealApplied:!!p8Action?.bloodHealApplied,actorDied:p.hp<=0
+        }}:{}),
         ...(p.role==='sage'?{sagePresentation:{
           sagePhase:p.sagePhase,operandBefore:snapshotTarget(actionBefore,p.id)?.sageOperand,
           operandAfter:p.sageOperand,xBefore:snapshotTarget(actionBefore,p.id)?.sageX,xAfter:p.sageX,
@@ -2729,6 +2745,8 @@ export class Room {
         actorMaxHp: p.maxHp,
         hpSnapshot: this.getHpSnapshot()
       });
+
+      if(this.arena?.playerId===p.id&&p.hp<=0){this.arenaRoundLock={...this.arena};this.p8ExitArena(presentationQueue,'gladiator_dead');}
 
       if(p.role==='dreamweaver')this.p8SplitDreamPresentation(presentationQueue,p);
       if(p.role==='sage')this.p8ResolveEquation(p,presentationQueue,log,applyResistanceDamage);
@@ -3011,7 +3029,7 @@ export class Room {
         return Math.max(1, finalDmg);
       };
 
-      const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && (!this.arena || this.arena.playerId===p.id));
+      const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && (!arenaRoundPlayerId || arenaRoundPlayerId===p.id));
       const playerRawScatter = {};
       livingPlayers.forEach(p => { playerRawScatter[p.id] = 0; scatterHits[p.id] = []; });
 
@@ -3024,10 +3042,10 @@ export class Room {
         remainingDmg -= stepDmg;
       }
 
-      const treantDruid = this.arena ? null : Object.values(this.players).find(p => p.hp > 0 && p.druidForm === 'treant');
+      const treantDruid = arenaRoundPlayerId ? null : Object.values(this.players).find(p => p.hp > 0 && p.druidForm === 'treant');
 
       for (const p of Object.values(this.players)) {
-        if (p.hp <= 0 || (this.arena && this.arena.playerId!==p.id)) continue;
+        if (p.hp <= 0 || (arenaRoundPlayerId && arenaRoundPlayerId!==p.id)) continue;
 
         const hitBefore = this.getHpSnapshot();
         const hitStart = monsterHits.length;
@@ -3267,6 +3285,7 @@ export class Room {
 
     } // 結束怪物存活時的反擊結算 (else 區塊)
 
+    if(this.arena&&this.players[this.arena.playerId]?.hp<=0)this.p8ExitArena(presentationQueue,'gladiator_dead');
     phase8Actor=null;this.p8EndRound(presentationQueue,log,applyResistanceDamage);
     for(const p of Object.values(this.players)){
       // 德魯伊變身持續時間處理

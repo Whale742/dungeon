@@ -7,7 +7,7 @@ const roll = list => list[Math.min(list.length-1,Math.floor(Math.random()*list.l
 export const isPrime = n => Number.isInteger(n) && n>=2 && !Array.from({length:Math.max(0,Math.floor(Math.sqrt(n))-1)},(_,i)=>i+2).some(d=>n%d===0);
 export const eta = x => .25+1.75*x/(x+80);
 export function p8State(p,room) {
-  const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:s.until-room.battleRound+1,value:s.value}));
+  const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
   if(p.hp>0) {
     if(p.soul)effects.push({id:'soul',icon:'buff',label:'武魂',stacks:p.soul});
     if(p.kyoutou)effects.push({id:'kyoutou',icon:'guard',label:'狂刀',turns:1});
@@ -22,6 +22,7 @@ export function p8State(p,room) {
   return {resourceSummary:resource, sageX:p.sageX, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
+    arenaActive:!!room.arena && room.arena.playerId===p.id,
     arenaBlocked:!!room.arena && room.arena.playerId!==p.id, noReviveThisFloor:p.noReviveFloor===room.floor,
     phase8Statuses:effects};
 }
@@ -78,11 +79,29 @@ export const phase8Methods = {
     if(this.currentMonster)this.currentMonster.p8Effects={};
     this.p8RefreshEquipment();
   },
-  p8ExitArena() {
+  p8ExitArena(queue,reason='round_end') {
     if(!this.arena)return;
-    const p=this.players[this.arena.playerId];
-    if(p) {const ratio=p.hp/p.maxHp; p.maxHp=this.arena.originalMaxHp;p.hp=ratio>0?Math.max(1,Math.round(p.maxHp*ratio)):0;p.bloodStacks=0;p.arenaActive=false;}
+    const arena=this.arena,p=this.players[arena.playerId],m=this.currentMonster;
+    const before=this.getHpSnapshot(),consumedRage=p?.rage||0;
+    const triumphApplied=!!p&&p.hp>0;
+    const triumphBonus=triumphApplied?200*consumedRage/(consumedRage+5.6):0;
+    if(p){p.rage=0;p.bloodStacks=0;p.arenaActive=false;}
+    const rageConsumedSnapshot=this.getHpSnapshot();
     this.arena=null;
+    if(triumphApplied)for(const ally of Object.values(this.players)) {
+      // Applied at round end: the next two rounds are the two playable turns.
+      this.p8Effect(ally,'triumph','凱旋',2,{value:triumphBonus,until:this.battleRound+2,duration:2});
+    }
+    const triumphSnapshot=this.getHpSnapshot();
+    if(p){const ratio=p.hp/p.maxHp;p.maxHp=arena.originalMaxHp;p.hp=ratio>0?Math.max(1,Math.round(p.maxHp*ratio)):0;}
+    if(m&&arena.originalMonsterMaxHp){const ratio=m.hp/m.maxHp;m.maxHp=arena.originalMonsterMaxHp;m.hp=ratio>0?Math.max(1,Math.round(m.maxHp*ratio)):0;}
+    const after=this.getHpSnapshot();
+    const step={type:'arena_exit',category:'ARENA_EXIT',sourceId:p?.id||arena.playerId,sourceRole:'gladiator',sourceName:p?.name,
+      skillName:'死亡角鬥場落幕',monsterName:m?.name,monsterAvatar:m?.avatar,
+      hpSnapshotBefore:before,hpSnapshot:after,results:[],
+      arenaPresentation:{phase:'exit',reason,playerId:arena.playerId,consumedRage,triumphApplied,triumphBonus,triumphDuration:triumphApplied?2:0,
+        actorSurvived:triumphApplied,rageConsumedSnapshot,triumphSnapshot,hpRestoredSnapshot:after}};
+    queue?.push(step);return step;
   },
   p8Expire(target) {
     if(!target)return;
@@ -97,15 +116,24 @@ export const phase8Methods = {
       delete target.p8Effects[id];
     }
   },
-  p8RoundStart() {
+  p8RoundStart(queue=[]) {
     this.p8RefreshEquipment();this.p8Expire(this.currentMonster);
-    if(this.arena && this.arena.until<this.battleRound) {this.p8ExitArena();this.p8Log('死亡角鬥場落幕，隊伍重返戰場。');}
+    if(this.arena && this.arena.until<this.battleRound) {this.p8ExitArena(queue);this.p8Log('死亡角鬥場落幕，隊伍重返戰場。');}
     if(this.arenaPending && this.arenaPending.round===this.battleRound) {
       const p=this.players[this.arenaPending.playerId];
       if(p?.hp>0) {
-        const originalMaxHp=p.maxHp,ratio=p.hp/p.maxHp;
+        const before=this.getHpSnapshot(),originalMaxHp=p.maxHp,ratio=p.hp/p.maxHp,m=this.currentMonster;
+        const originalMonsterMaxHp=m?.maxHp;
         p.maxHp=Math.max(1,Math.round(p.maxHp*.6*(this.memberIds.length+1)));p.hp=Math.max(1,Math.round(p.maxHp*ratio));
-        this.arena={playerId:p.id,originalMaxHp,until:this.battleRound};p.arenaActive=true;
+        if(m){const monsterRatio=m.hp/m.maxHp;m.maxHp=Math.max(1,Math.round(m.maxHp*.6*(this.memberIds.length+1)));m.hp=monsterRatio>0?Math.max(1,Math.round(m.maxHp*monsterRatio)):0;}
+        this.arena={playerId:p.id,originalMaxHp,originalMonsterMaxHp,until:this.battleRound};p.arenaActive=true;
+        delete p.p8Effects?.arena_challenge;
+        const after=this.getHpSnapshot();
+        queue.push({type:'arena_enter',category:'ARENA_ENTER',sourceId:p.id,sourceRole:p.role,sourceName:p.name,
+          skillName:'死亡角鬥場',monsterName:m?.name,monsterAvatar:m?.avatar,results:[],hpSnapshotBefore:before,hpSnapshot:after,
+          arenaPresentation:{phase:'enter',playerId:p.id,noMitigation:true,
+            combatants:[{targetId:p.id,hpBeforeArena:before.players.find(a=>a.id===p.id).hp,maxHpBeforeArena:originalMaxHp,hpAfterScale:p.hp,maxHpAfterScale:p.maxHp},
+              ...(m?[{targetId:'monster',hpBeforeArena:before.monster.hp,maxHpBeforeArena:originalMonsterMaxHp,hpAfterScale:m.hp,maxHpAfterScale:m.maxHp}]:[])]}});
         this.p8Log(`${p.name}踏入【死亡角鬥場】，其餘隊員本輪無法行動。`);
       }
       this.arenaPending=null;
@@ -162,7 +190,7 @@ export const phase8Methods = {
     }
   },
   p8Incoming(p,raw,mitigate,context={kind:'enemy_direct'}) {
-    if(this.arena&&this.arena.playerId!==p.id&&context.kind==='enemy_direct')return {damage:0,outcome:'arena_absent'};
+    if((this.arena||this.arenaRoundLock)&& (this.arena||this.arenaRoundLock).playerId!==p.id&&context.kind==='enemy_direct')return {damage:0,outcome:'arena_absent'};
     const dream=this.p8DreamDamage(p,raw);if(dream)return dream;
     let damage=raw,parry=false;
     if(p.role==='samurai'&&context.kind==='enemy_direct'&&raw>0) {
@@ -227,7 +255,7 @@ export const phase8Methods = {
     this.p8Results=[];this.p8Visuals=visuals;this.p8LogBuffer=log;
     const damage=(n,type='phys',extra={})=>this.p8DamageMonster(p,n,type,resistance,extra);
     const stat=this.getEffectiveBonusAtk(p),m=this.currentMonster;
-    let outcome={type:'normal'},category=null;
+    let outcome={type:'normal'},category=null,bloodHealApplied=false;
     const effect=(target,id,label,turns=1,extra={},resistanceChecked=false)=>{
       const before=this.getHpSnapshot();if (!this.p8Effect(target,id,label,turns,extra,resistanceChecked)) return false;
       const after=this.getHpSnapshot();this.p8Results.push({kind:'status',targetId:target===m?'monster':target.id,targetBefore:target===m?before.monster:before.players.find(x=>x.id===target.id),targetAfter:target===m?after.monster:after.players.find(x=>x.id===target.id),hpSnapshot:after});
@@ -291,20 +319,24 @@ export const phase8Methods = {
       const inArena=this.arena?.playerId===p.id;
       if(p.action==='basic')damage(Math.floor((10+stat)*bardMultiplier));
       if(p.action==='g_sacrifice') {
-        if(inArena){category='OFFENSIVE';damage(Math.floor((15+this.memberIds.length*10+(p.rage||0)*25+stat)*bardMultiplier));}
+        if(inArena){category='OFFENSIVE';damage(Math.floor((15+this.memberIds.length*10+(p.rage||0)*25+stat)*bardMultiplier));outcome={type:'arena_assault',label:'鮮血獻祭'};}
         else {
-          const before=this.getHpSnapshot();p.hp=Math.max(0,p.hp-20);p.rage=(p.rage||0)+1;
-          if(countEquip(p,'g_xiphos'))p.bloodStacks=(p.bloodStacks||0)+1;
-          if(p.hp<30&&countEquip(p,'g_cuirass'))effect(p,'blood_heal','死線喘息 +20%',2);
-          const after=this.getHpSnapshot();this.p8Results.push({kind:'damage',targetId:p.id,finalDamage:before.players.find(x=>x.id===p.id).hp-p.hp,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after});
+          const before=this.getHpSnapshot();p.hp=Math.max(0,p.hp-20);
+          const paid=this.getHpSnapshot(),selfDamage=before.players.find(x=>x.id===p.id).hp-p.hp;
+          this.p8Results.push({kind:'damage',targetId:p.id,finalDamage:selfDamage,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:paid.players.find(x=>x.id===p.id),hpSnapshot:paid,presentationBeat:'self_damage'});
+          p.rage=(p.rage||0)+1;
+          if(selfDamage>0&&countEquip(p,'g_xiphos'))p.bloodStacks=(p.bloodStacks||0)+1;
+          if(p.hp>0&&p.hp<30&&countEquip(p,'g_cuirass'))bloodHealApplied=effect(p,'blood_heal','死線喘息 +20%',2);
+          const after=this.getHpSnapshot();this.p8Results.push({kind:'status',targetId:p.id,targetBefore:paid.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after,presentationBeat:'rage_gain'});
           outcome={type:'sacrifice',label:'鮮血獻祭'};this.p8Log(`${p.name}支付 20 生命，怒氣 ${p.rage}，血祭 ${p.bloodStacks||0}。`);
         }
       }
       if(p.action==='g_arena') {
         if(inArena) {
-          category='OFFENSIVE';const cost=p.hp;damage(cost+(p.rage||0)*(countEquip(p,'g_cingulum')?15:10));
+          category='OFFENSIVE';const cost=p.hp;
           const before=this.getHpSnapshot();p.hp=0;p.noReviveFloor=this.floor;
-          const after=this.getHpSnapshot();this.p8Results.push({kind:'damage',targetId:p.id,finalDamage:cost,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after});outcome={type:'suicide',label:'同歸於盡'};this.p8Log(`${p.name}以全部 ${cost} 生命發動【同歸於盡】，本層不能甦生。`);
+          const after=this.getHpSnapshot();this.p8Results.push({kind:'damage',targetId:p.id,finalDamage:cost,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after,presentationBeat:'self_zero'});
+          damage(cost+(p.rage||0)*(countEquip(p,'g_cingulum')?15:10));outcome={type:'suicide',label:'同歸於盡'};this.p8Log(`${p.name}以全部 ${cost} 生命發動【同歸於盡】，本層不能甦生。`);
         } else {this.arenaPending={playerId:p.id,round:this.battleRound+1};outcome={type:'challenge',label:'死鬥宣告'};this.p8Log(`${p.name}發出死鬥宣告，下回合進入競技場。`);effect(p,'arena_challenge','死鬥宣告');}
       }
     } else if(p.role==='samurai') {
@@ -333,7 +365,7 @@ export const phase8Methods = {
     }
     if(!this.p8Results.length){const snap=this.getHpSnapshot(),target=outcome.type==='immune'?snap.monster:snap.players.find(x=>x.id===p.id);this.p8Results.push({kind:'status',targetId:outcome.type==='immune'?'monster':p.id,outcome,targetBefore:target,targetAfter:target,hpSnapshot:snap});}
     for(const r of this.p8Results){r.monsterName=m.name;r.monsterAvatar=m.avatar;}
-    this.p8Visuals=null;return {outcome,category};
+    this.p8Visuals=null;return {outcome,category,bloodHealApplied};
   },
   p8Cooldowns() {
     for(const id of this.p8ClockEvents||[])for(const p of alive(this))for(const key of Object.keys(p.cooldowns||{})) {
@@ -399,7 +431,8 @@ export const phase8Methods = {
       if(p.role==='sage'&&!p.sageEquationResolved)this.p8ResolveEquation(p,queue,log,resistance);
     }
     // The arena restores its original maximum using the exit ratio, including death.
-    if(this.arena){this.p8ExitArena();queue.push({type:'status_cleanup',hpSnapshot:this.getHpSnapshot(),narrative:'死亡角鬥場落幕。'});}
+    if(this.arena)this.p8ExitArena(queue);
+    this.arenaRoundLock=null;
     this.p8LogBuffer=null;
   }
 };

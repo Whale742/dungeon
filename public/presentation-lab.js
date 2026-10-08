@@ -458,9 +458,11 @@ function escapeHtml(str) {
 
 // --- 5. 畫面重設 (Reset & Cleanup Strategy - Zero Memory Leak) ---
 function resetLab() {
+  if(typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
   if(typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
   renderSageLabHud([{id:'mock-warrior',name:'亞瑟',role:'warrior',hp:120,maxHp:120},{id:'mock-mage',name:'梅林',role:'mage',hp:80,maxHp:80}]);
   sfxManager.stopAll();
+  if(typeof bgmManager!=='undefined')bgmManager.reset();
   if (labState.activeController) {
     labState.activeController.abort();
     labState.activeController = null;
@@ -743,6 +745,7 @@ async function playStatusLabScene(sceneName, context) {
 // --- 6. 播放場景核心 (Scene Runner calling Production Functions) ---
 async function playScene(sceneName) {
   resetLab();
+  document.body.classList.toggle('is-exploring',['exploration_narrative','route_choice','trap_event','chest_event'].includes(sceneName));
   labState.sceneStartTime = Date.now();
   logLab('START', `Playing scene: ${sceneName} (Speed: ${labState.speed}x, Variant: ${labState.variant})`);
 
@@ -807,6 +810,14 @@ async function playScene(sceneName) {
     if (sceneName.startsWith('status_')) {
       await playStatusLabScene(sceneName, context);
       return;
+    }
+    if(typeof GLADIATOR_LAB_SCENES!=='undefined'&&GLADIATOR_LAB_SCENES[sceneName]){
+      const scene=GLADIATOR_LAB_SCENES[sceneName];
+      renderSageLabHud(scene.steps[0].hpSnapshotBefore.players);
+      await enterCombatStage(context);
+      try{for(const step of scene.steps)await playExpandedCombatPresentation(structuredClone(step),context);}
+      finally{await exitCombatStage(context);}
+      logLab('COMPLETE',scene.label,'success');return;
     }
     if (typeof SAMURAI_LAB_SCENES !== 'undefined' && SAMURAI_LAB_SCENES[sceneName]) {
       const scene=SAMURAI_LAB_SCENES[sceneName];
@@ -911,6 +922,7 @@ async function playScene(sceneName) {
       }
 
       case 'exploration_narrative': {
+        void bgmManager.resumeNormal();
         elements.views.route.classList.remove('hidden');
         elements.routeAtmosphereText.replaceChildren();
         await typewriterEffect(elements.routeAtmosphereText, LAB_MOCK_DATA.narrativeSample, signal, null, labState.speed);
@@ -919,15 +931,16 @@ async function playScene(sceneName) {
       }
 
       case 'route_choice': {
+        void bgmManager.resumeNormal();
         elements.views.route.classList.remove('hidden');
         elements.routeAtmosphereText.innerHTML = '<p>前方石階在火把光芒照射下依稀可見，等待小隊決策路線。</p>';
         elements.routeOptionsGrid.classList.remove('hidden');
         elements.routeOptionsGrid.innerHTML = `
-          <button type="button" class="route-item my-vote" style="padding:14px 20px; border:1px solid #f59e0b; border-radius:6px; background:#1e293b; color:#fff;">
+          <button type="button" class="route-item my-vote" style="padding:14px 20px; color:#fff;">
             <span class="route-name" style="font-weight:700;">幽暗小徑 (1 票)</span>
             <div style="font-size:0.8rem; color:#94a3b8; margin-top:4px;">苔蘚覆蓋的平緩通道</div>
           </button>
-          <button type="button" class="route-item" style="padding:14px 20px; border:1px solid #475569; border-radius:6px; background:#1e293b; color:#fff;">
+          <button type="button" class="route-item" style="padding:14px 20px; color:#fff;">
             <span class="route-name" style="font-weight:700;">回音洞窟 (0 票)</span>
             <div style="font-size:0.8rem; color:#94a3b8; margin-top:4px;">隱約傳來金屬碰撞聲</div>
           </button>
@@ -940,7 +953,7 @@ async function playScene(sceneName) {
       case 'game_title': {
         elements.gameStartOverlay.classList.remove('hidden');
         elements.gameTitleContainer.classList.remove('hidden');
-        sfxManager.play('logo_intro', { signal });
+        sfxManager.play('logo_intro', { preserveAcrossViews:true });
         logLab('TITLE', 'Game Title displayed. Holding the measured logo identity...');
         await waitForPresentation(SFX_ASSETS.logo_intro.identityBeatMs, signal, labState.speed);
         elements.gameStartOverlay.classList.add('hidden');
@@ -949,6 +962,7 @@ async function playScene(sceneName) {
       }
 
       case 'prologue': {
+        void bgmManager.preload();
         elements.gameStartOverlay.classList.remove('hidden');
         elements.gameTitleContainer.classList.add('hidden');
         elements.prologuePresentationContainer.classList.remove('hidden');
@@ -959,6 +973,7 @@ async function playScene(sceneName) {
         ], signal, null, labState.speed);
         await waitForPresentation(1800, signal, labState.speed);
         elements.gameStartOverlay.classList.add('hidden');
+        if(!signal.aborted)void bgmManager.resumeNormal();
         logLab('COMPLETE', 'Prologue finished.', 'success');
         break;
       }
@@ -967,7 +982,7 @@ async function playScene(sceneName) {
         elements.stageCinematicBanner.classList.remove('hidden');
         elements.cinematicBannerTitle.textContent = '【第 1 層・深淵探索】';
         elements.cinematicBannerSub.textContent = 'FLOOR 1 · DEEP ABYSS';
-        sfxManager.play('banner');
+        sfxManager.play('walk',{signal});
         logLab('BANNER', 'Stage cinematic banner entered. Holding 2000ms...');
         await waitForPresentation(2000, signal, labState.speed);
         elements.stageCinematicBanner.classList.add('hidden');
@@ -1218,6 +1233,11 @@ function initLabController() {
       }
       for(const group of groups.values())if(group.children.length)sceneSelect.appendChild(group);
       if(events.children.length)sceneSelect.appendChild(events);
+    }
+    if(typeof GLADIATOR_LAB_SCENES!=='undefined'){
+      const group=document.createElement('optgroup');group.label='Gladiator · Production';
+      for(const [id,scene] of Object.entries(GLADIATOR_LAB_SCENES)){const option=document.createElement('option');option.value=id;option.textContent=scene.label;group.appendChild(option);}
+      sceneSelect.appendChild(group);
     }
     if (typeof SAMURAI_LAB_SCENES !== 'undefined') {
       const group=document.createElement('optgroup');group.label='Samurai · Prototype Migration';
