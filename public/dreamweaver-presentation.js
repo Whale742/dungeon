@@ -6,7 +6,7 @@ function dreamweaverAudioScope(audio) {
     playResult:(key,options)=>key?.startsWith('dreamwaver-') ? audio.playResult(key,{...options,noHold:true}) : Promise.resolve(null),hold:async()=>{}};
 }
 function dreamweaverButterflySound(targetId, type) {
-  if(type==='dream_heal')return 'dreamwaver-posi';
+  if(['mirror','dissociate','nightmare_weak','shallow','lone','dream_heal'].includes(type))return 'dreamwaver-posi';
   if(type==='nightmare')return 'dreamwaver-nage';
   return targetId === 'monster' ? 'dreamwaver-nage' : null;
 }

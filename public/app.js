@@ -1808,7 +1808,7 @@ function renderBattle(me, isLeader) {
   const magic = mirrored ? resistances.physical : resistances.magic;
   elements.monsterResTag.className = 'res-tag res-none';
   elements.monsterResTag.textContent = `物抗 ${physical}% · 魔抗 ${magic}% · 效果抗性 ${resistances.effect}%`;
-  elements.monsterResTag.title = '效果抗性：免疫負面狀態的機率。額外三抗於開戰時分別抽取 0～50%，樓層越深越容易抽到高值。';
+  elements.monsterResTag.title = '效果抗性：免疫負面狀態的機率。額外三抗於開戰時分別抽取 0～50%（每次以 5% 為單位），樓層越深越容易抽到高值。';
 
   // 怪物威脅度與必殺警告
   const isUltRound = (roomState.battleRound % 3 === 0);

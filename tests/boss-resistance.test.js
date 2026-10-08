@@ -183,3 +183,25 @@ test('planet stun is independently checked against effect resistance', t => {
   assert.equal(room.monsterStunnedThisRound, false);
   assert.equal(room.currentMonster.hp, 4975);
 });
+
+test('battle resistance rolls use only in-range multiples of five for every boss and floor',()=>{
+ for(const floor of [1,10,31,100,1000])for(const monster of ENCOUNTERS){
+  for(let i=0;i<=100;i++){
+   const result=createBossResistances(monster,floor,()=>i/100);
+   for(const type of ['physical','magic','effect']){
+    const bonus=result.bonusResistances[type],total=result.resistances[type],base=monster.baseResistances[type];
+    assert.equal(bonus%5,0);assert(bonus>=0&&bonus<=50);
+    assert.equal(total%5,0);assert(total>=base&&total<=base+50);
+   }
+  }
+ }
+});
+test('floor one samples all eleven resistance values evenly',()=>{
+ const counts=new Map();
+ for(let i=0;i<1100;i++){
+  const value=rollBonusResistance(1,()=>(i+.5)/1100);
+  counts.set(value,(counts.get(value)||0)+1);
+ }
+ assert.deepEqual([...counts.keys()],[0,5,10,15,20,25,30,35,40,45,50]);
+ assert([...counts.values()].every(n=>n===100));
+});

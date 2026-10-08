@@ -1,8 +1,8 @@
 // Percentages are stored as integers (20 means 20%). Each battle rolls once.
 export function rollBonusResistance(floor, random = Math.random) {
-  // Floor 1 is uniform; every 10 floors increases the bias toward high values.
+  // Roll 0, 5, ... 50. Floor 1 is uniform; deeper floors bias toward high values.
   const exponent = 1 / (1 + Math.max(0, floor - 1) / 10);
-  return Math.min(50, Math.floor(51 * random() ** exponent));
+  return 5 * Math.min(10, Math.floor(11 * random() ** exponent));
 }
 
 export function createBossResistances(monster, floor, random = Math.random) {

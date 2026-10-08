@@ -27,3 +27,10 @@ test('Dreamweaver audio never adds a blocking presentation hold',async()=>{
  let held=false,options;const audio=context.dreamweaverAudioScope({play:(key,value)=>{options=value;},playResult:()=>{},hold:()=>{held=true;}});
  audio.play('dreamwaver-dream');await audio.hold();assert.equal(options.noHold,true);assert.equal(held,false);
 });
+
+test('Requested confusion and forged dream branches use positive audio for all target types',()=>{
+ for(const type of ['mirror','dissociate','nightmare_weak','shallow','lone'])
+  for(const target of ['monster','hero'])assert.equal(context.dreamweaverButterflySound(target,type),'dreamwaver-posi');
+ for(const type of ['frenzy_backfire','deep','horde','nightmare'])
+  assert.equal(context.dreamweaverButterflySound('monster',type),'dreamwaver-nage');
+});
