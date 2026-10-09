@@ -74,3 +74,36 @@ test('restart discards old ACKs and requires a complete new opening', t => {
   room.handlePrologueComplete('member');
   assert.equal(room.state, 'PROLOGUE');
 });
+
+test('leader can skip prologue directly', t => {
+  const room = opening(t);
+  assert.equal(room.state, 'PROLOGUE');
+  const res = room.skipPrologue('leader');
+  assert.equal(res.success, true);
+  assert.equal(room.state, 'CHOOSING_ROUTE');
+  assert.equal(room.isNarrating, false);
+  assert.equal(room.pendingPresentationAcks.size, 0);
+  assert.equal(room.getClientState().timerRemaining, 15);
+});
+
+test('member cannot skip prologue', t => {
+  const room = opening(t);
+  assert.equal(room.state, 'PROLOGUE');
+  const res = room.skipPrologue('member');
+  assert.equal(res.success, false);
+  assert.equal(room.state, 'PROLOGUE');
+});
+
+test('leader can accelerate narrative and non-leader is rejected', t => {
+  const emitted = [];
+  const io = { to: () => ({ emit: (name, data) => emitted.push({ name, data }) }) };
+  const socket = id => ({ id, join() {} });
+  const room = new Room('TEST', socket('leader'), 'Leader', io);
+  room.addPlayer(socket('member'), 'Member');
+  emitted.length = 0;
+  assert.equal(room.accelerateNarrative('member').success, false);
+  assert.equal(emitted.length, 0);
+  assert.equal(room.accelerateNarrative('leader').success, true);
+  assert.equal(emitted.some(e => e.name === 'narrative:accelerated'), true);
+});
+

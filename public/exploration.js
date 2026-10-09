@@ -34,11 +34,25 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
   const previousChatInert = chat.inert;
   let completed = false;
   let cleanedUp = false;
+
+  const handleFloorClick = () => {
+    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
+    if (!isLeader) return;
+    if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
+      socket.emit('narrative:accelerate');
+    }
+    if (typeof accelerateNarrative === 'function') accelerateNarrative();
+  };
+  if (overlay) overlay.addEventListener('click', handleFloorClick);
+
   const cleanup = () => {
     if (cleanedUp) return;
     cleanedUp = true;
-    overlay.classList.add('hidden');
-    overlay.classList.remove('exit');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('exit');
+      overlay.removeEventListener('click', handleFloorClick);
+    }
     document.body.classList.remove('presentation-floor-active');
     view.classList.remove('exploration-enter');
     elements.routeOptionsGrid.classList.remove('exploration-choices-enter');
@@ -116,6 +130,40 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
 
 function renderRouteChoice(me) {
   const key = routePresentationKey();
+
+  if (!roomState.isNarrating) {
+    routeNarrativeDoneKey = key;
+    routeInteractionReadyKey = key;
+    revealDestinationView('route');
+    setRouteChoicesHidden(false);
+    presentationManager.setBlocking(false);
+    const app = document.getElementById('app');
+    if (app) app.inert = false;
+    const chat = elements.floatingChatContainer;
+    if (chat) chat.inert = false;
+    if (routePresentationController) {
+      routePresentationController.abort();
+      routePresentationController = null;
+    }
+    if (elements.floorIntroOverlay) {
+      elements.floorIntroOverlay.classList.add('hidden');
+      elements.floorIntroOverlay.classList.remove('exit');
+    }
+    document.body.classList.remove('presentation-floor-active');
+    if (elements.routeAtmosphereText && !elements.routeAtmosphereText.textContent.trim()) {
+      elements.routeAtmosphereText.replaceChildren();
+      (roomState.routeNarrative || []).forEach(pText => {
+        const p = document.createElement('p');
+        p.textContent = pText;
+        elements.routeAtmosphereText.appendChild(p);
+      });
+    }
+  } else if (routeNarrativeDoneKey !== key) {
+    routeNarrativeDoneKey = key;
+    routeInteractionReadyKey = null;
+    void playExplorationPresentation(roomState.routePresentationId, roomState.floor, roomState.routeNarrative || []);
+  }
+
   elements.routeFloorNum.textContent = roomState.floor;
   elements.routeMainTitle.textContent = '【第 ' + roomState.floor + ' 層・迷霧分歧點】';
   elements.routeDiffPercent.textContent = roomState.floorDifficultyPercent ?? 0;
@@ -166,10 +214,4 @@ function renderRouteChoice(me) {
     return '<span class="route-voter-pill ' + (voted ? 'voted' : 'thinking') + '">' +
       escapeHtml(p.name) + '：' + (voted ? '已投票' : '思考中') + '</span>';
   }).join('');
-
-  if (routeNarrativeDoneKey !== key) {
-    routeNarrativeDoneKey = key;
-    routeInteractionReadyKey = null;
-    void playExplorationPresentation(roomState.routePresentationId, roomState.floor, roomState.routeNarrative || []);
-  }
 }

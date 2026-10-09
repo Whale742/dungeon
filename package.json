@@ -4,7 +4,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -19,7 +20,7 @@
   "license": "ISC",
   "description": "Multiplayer Web Turn-Based Dungeon RPG",
   "dependencies": {
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

@@ -5669,3 +5669,51 @@ input[type="text"]::placeholder {
   }
   .presentation-game-title.exit { animation-name: presentationStoryExit; }
 }
+
+/* ==========================================================================
+   開場跳過與轉場加速提示 (Prologue Skip & Narrative Acceleration UI)
+   ========================================================================== */
+#viewTransition.is-leader,
+.presentation-curtain.is-leader {
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   故事文字敘述禁止選取 (Story Narrative Unselectable)
+   ========================================================================== */
+.presentation-prologue,
+.presentation-prologue *,
+.presentation-prologue-body,
+.presentation-prologue-body *,
+.exploration-story,
+.exploration-story *,
+.route-atmosphere-text,
+.route-atmosphere-text *,
+.transition-card,
+.transition-story-box,
+.transition-story-box *,
+.transition-story-title,
+.transition-story-text,
+.typewriter-title,
+.event-story-text,
+.event-story-text *,
+.exploration-trap-story,
+.exploration-trap-story *,
+.exploration-chest-story,
+.exploration-chest-story *,
+.boss-encounter-story,
+.boss-encounter-story *,
+.boss-encounter-story-section,
+.battle-narrative-card,
+.battle-narrative-text,
+.battle-narrative-text *,
+.presentation-victory-story,
+.presentation-victory-story *,
+.story-unselectable {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+

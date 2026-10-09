@@ -29,7 +29,7 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['mage_skill2', 'mage-skill-2', .5, 'mage_burst', .30, 1350],
   ['arrow_release', 'swoosh', .6, 'archer_twang', .05, 300],
   ['archer_rain', 'archer-skill2', .6, 'arrow_flight', 0, 2400, Infinity],
-  ['gladiator_triumph', 'Gladiator-back', .6, 'shield_block', 0, 1200, Infinity],
+  ['gladiator_triumph', 'Gladitor-back-2', .6, 'shield_block', 0, 1200, Infinity],
   ['assassin_pursuit', 'assassin-pursuit', .55, 'shadow_follow_up', 0, 350],
   ['bard_basic', 'bard-attack', .4, 'bard_tone', 0, 1600],
   ['bard_skill1', 'bard-skill1', .35, 'bard_tone', .10, 4400],

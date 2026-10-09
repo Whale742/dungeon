@@ -1009,17 +1009,34 @@ if (typeof window !== 'undefined') {
 
 // --- 2. 非同步時序與幀輔助 ---
 function waitForPresentation(ms, signal, speedScale = 1.0) {
-  const adjustedMs = Math.round(ms / (speedScale || 1.0));
+  const globalScale = (typeof window !== 'undefined' && window.narrativeSpeedScale) || 1.0;
+  const effectiveScale = globalScale > 1 ? globalScale : (speedScale || 1.0);
+  const adjustedMs = effectiveScale > 1 ? Math.max(1, Math.round(ms / effectiveScale)) : Math.round(ms / (speedScale || 1.0));
   return new Promise((resolve, reject) => {
+    let timer = null;
+    let finishHandler = null;
     const cancel = () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
+      if (finishHandler && typeof window !== 'undefined' && window._activePresentationResolvers) {
+        window._activePresentationResolvers.delete(finishHandler);
+      }
       if (signal) signal.removeEventListener('abort', cancel);
       reject(new DOMException('Presentation cancelled', 'AbortError'));
     };
-    const timer = setTimeout(() => {
+    const finish = () => {
+      if (timer) clearTimeout(timer);
+      if (finishHandler && typeof window !== 'undefined' && window._activePresentationResolvers) {
+        window._activePresentationResolvers.delete(finishHandler);
+      }
       if (signal) signal.removeEventListener('abort', cancel);
       resolve();
-    }, adjustedMs);
+    };
+    finishHandler = finish;
+    if (typeof window !== 'undefined') {
+      if (!window._activePresentationResolvers) window._activePresentationResolvers = new Set();
+      window._activePresentationResolvers.add(finishHandler);
+    }
+    timer = setTimeout(finish, adjustedMs);
     if (signal) {
       signal.addEventListener('abort', cancel, { once: true });
       if (signal.aborted) cancel();

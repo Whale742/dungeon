@@ -195,6 +195,9 @@ let currentPendingTarget = null;
 
 // 打字機與戰鬥敘述鎖定狀態
 let currentTypewriterTimer = null;
+let currentTypewriterContext = null;
+let isTransitionAccelerated = false;
+let activeNarrativeResolvers = new Set();
 let lastTypedTransitionKey = null;
 let isPlayingBattleNarrative = false;
 
@@ -1283,6 +1286,7 @@ function typeWriterEffect(element, text, speed = 45, onComplete = null) {
     clearInterval(currentTypewriterTimer);
     currentTypewriterTimer = null;
   }
+  currentTypewriterContext = null;
   if (!element) {
     if (onComplete) onComplete();
     return;
@@ -1290,20 +1294,51 @@ function typeWriterEffect(element, text, speed = 45, onComplete = null) {
   element.textContent = '';
   element.classList.add('typewriter-cursor');
   let i = 0;
-  currentTypewriterTimer = setInterval(() => {
+  let currentSpeed = isTransitionAccelerated ? Math.min(speed, 2) : speed;
+
+  const step = () => {
     if (i < text.length) {
       element.textContent += text.charAt(i);
       i++;
       if (i % 2 === 0) playTypewriterClick();
     } else {
-      clearInterval(currentTypewriterTimer);
-      currentTypewriterTimer = null;
+      if (currentTypewriterTimer) {
+        clearInterval(currentTypewriterTimer);
+        currentTypewriterTimer = null;
+      }
+      currentTypewriterContext = null;
       setTimeout(() => {
         element.classList.remove('typewriter-cursor');
         if (onComplete) onComplete();
-      }, 150);
+      }, isTransitionAccelerated ? 30 : 150);
     }
-  }, speed);
+  };
+
+  currentTypewriterTimer = setInterval(step, currentSpeed);
+
+  currentTypewriterContext = {
+    element,
+    text,
+    get i() { return i; },
+    accelerate: () => {
+      if (currentSpeed > 2) {
+        currentSpeed = 2;
+        if (currentTypewriterTimer) {
+          clearInterval(currentTypewriterTimer);
+          currentTypewriterTimer = setInterval(step, currentSpeed);
+        }
+      } else {
+        if (currentTypewriterTimer) {
+          clearInterval(currentTypewriterTimer);
+          currentTypewriterTimer = null;
+        }
+        element.textContent = text;
+        element.classList.remove('typewriter-cursor');
+        currentTypewriterContext = null;
+        if (onComplete) onComplete();
+      }
+    }
+  };
 }
 
 // 支援多段落連續打字機效果
@@ -1312,15 +1347,18 @@ function typeWriterParagraphs(container, paragraphs, speed = 20, onComplete = nu
     clearInterval(currentTypewriterTimer);
     currentTypewriterTimer = null;
   }
+  currentTypewriterContext = null;
   if (!container || !paragraphs || paragraphs.length === 0) {
     if (onComplete) onComplete();
     return;
   }
   container.innerHTML = '';
   let pIdx = 0;
+  let currentSpeed = isTransitionAccelerated ? Math.min(speed, 2) : speed;
 
   function typeNext() {
     if (pIdx >= paragraphs.length) {
+      currentTypewriterContext = null;
       if (onComplete) onComplete();
       return;
     }
@@ -1330,22 +1368,85 @@ function typeWriterParagraphs(container, paragraphs, speed = 20, onComplete = nu
 
     const fullText = paragraphs[pIdx];
     let charIdx = 0;
-    currentTypewriterTimer = setInterval(() => {
+
+    const step = () => {
       if (charIdx < fullText.length) {
         pEl.textContent += fullText.charAt(charIdx);
         charIdx++;
         if (charIdx % 2 === 0) playTypewriterClick();
       } else {
-        clearInterval(currentTypewriterTimer);
-        currentTypewriterTimer = null;
+        if (currentTypewriterTimer) {
+          clearInterval(currentTypewriterTimer);
+          currentTypewriterTimer = null;
+        }
         pEl.classList.remove('typewriter-cursor');
         pIdx++;
-        setTimeout(typeNext, 60);
+        setTimeout(typeNext, isTransitionAccelerated ? 10 : 60);
       }
-    }, speed);
+    };
+
+    currentTypewriterTimer = setInterval(step, currentSpeed);
+
+    currentTypewriterContext = {
+      element: pEl,
+      text: fullText,
+      accelerate: () => {
+        if (currentSpeed > 2) {
+          currentSpeed = 2;
+          if (currentTypewriterTimer) {
+            clearInterval(currentTypewriterTimer);
+            currentTypewriterTimer = setInterval(step, currentSpeed);
+          }
+        } else {
+          if (currentTypewriterTimer) {
+            clearInterval(currentTypewriterTimer);
+            currentTypewriterTimer = null;
+          }
+          pEl.textContent = fullText;
+          pEl.classList.remove('typewriter-cursor');
+          pIdx++;
+          while (pIdx < paragraphs.length) {
+            const nextP = document.createElement('p');
+            nextP.textContent = paragraphs[pIdx];
+            container.appendChild(nextP);
+            pIdx++;
+          }
+          currentTypewriterContext = null;
+          if (onComplete) onComplete();
+        }
+      }
+    };
   }
 
   typeNext();
+}
+
+function accelerateNarrative() {
+  isTransitionAccelerated = true;
+  if (typeof window !== 'undefined') {
+    window.narrativeSpeedScale = 20.0;
+  }
+
+  // 1. 加速單一元素 / 多段落打字機
+  if (currentTypewriterContext) {
+    currentTypewriterContext.accelerate();
+  }
+
+  // 2. 喚醒所有等待中的非同步計時器 (waitForPrologue / waitForPresentation)
+  if (typeof activeNarrativeResolvers !== 'undefined' && activeNarrativeResolvers.size > 0) {
+    const resolvers = Array.from(activeNarrativeResolvers);
+    activeNarrativeResolvers.clear();
+    resolvers.forEach(r => {
+      try { r(); } catch (_) {}
+    });
+  }
+  if (typeof window !== 'undefined' && window._activePresentationResolvers && window._activePresentationResolvers.size > 0) {
+    const presResolvers = Array.from(window._activePresentationResolvers);
+    window._activePresentationResolvers.clear();
+    presResolvers.forEach(r => {
+      try { r(); } catch (_) {}
+    });
+  }
 }
 
 let cinematicBannerTimeout = null;
@@ -1511,16 +1612,32 @@ const PROLOGUE_TIMING = Object.freeze({
 });
 
 function waitForPrologue(ms, signal) {
+  const scale = (typeof window !== 'undefined' && window.narrativeSpeedScale) || 1.0;
+  const adjustedMs = scale > 1 ? Math.max(1, Math.round(ms / scale)) : ms;
   return new Promise((resolve, reject) => {
+    let timer = null;
+    let finishHandler = null;
     const cancel = () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
+      if (finishHandler && typeof activeNarrativeResolvers !== 'undefined') {
+        activeNarrativeResolvers.delete(finishHandler);
+      }
       signal.removeEventListener('abort', cancel);
       reject(new DOMException('Presentation cancelled', 'AbortError'));
     };
-    const timer = setTimeout(() => {
+    const finish = () => {
+      if (timer) clearTimeout(timer);
+      if (finishHandler && typeof activeNarrativeResolvers !== 'undefined') {
+        activeNarrativeResolvers.delete(finishHandler);
+      }
       signal.removeEventListener('abort', cancel);
       resolve();
-    }, ms);
+    };
+    finishHandler = finish;
+    if (typeof activeNarrativeResolvers !== 'undefined') {
+      activeNarrativeResolvers.add(finishHandler);
+    }
+    timer = setTimeout(finish, adjustedMs);
     signal.addEventListener('abort', cancel, { once: true });
     if (signal.aborted) cancel();
   });
@@ -1582,6 +1699,22 @@ async function renderProloguePresentation() {
   const paragraphs = roomState?.currentPrologue?.paragraphs;
   let completed = false;
 
+  const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
+  if (isLeader && overlay) {
+    overlay.classList.add('is-leader');
+  }
+
+  const handlePrologueClick = (e) => {
+    const currentIsLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
+    if (!currentIsLeader) return;
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
+      socket.emit('prologue:skip');
+    }
+    controller.abort();
+  };
+  if (overlay) overlay.addEventListener('click', handlePrologueClick);
+
   presentationManager.setBlocking(true);
   gateDestinationView('prologue');
   gateDestinationView('route');
@@ -1598,7 +1731,11 @@ async function renderProloguePresentation() {
   const cleanup = () => {
     if (cleanedUp) return;
     cleanedUp = true;
-    if (overlay) overlay.classList.add('hidden');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('is-leader');
+      overlay.removeEventListener('click', handlePrologueClick);
+    }
     if (title) { title.classList.add('hidden'); title.classList.remove('exit'); }
     if (story) { story.classList.add('hidden'); story.classList.remove('exit'); }
     if (body) body.replaceChildren();
@@ -1676,6 +1813,7 @@ function renderTransition() {
   const key = `${trans.floor}_${trans.routeId}_${trans.outcomeType}`;
   if (lastTypedTransitionKey !== key) {
     lastTypedTransitionKey = key;
+    isTransitionAccelerated = false;
     playSound('walk',{instance:'route-walk-'+key,preserveAcrossViews:true});
     if (elements.transitionRouteTag) {
       elements.transitionRouteTag.innerHTML = `${getIconSvg('flag')} <span>前往路線：${escapeHtml(trans.routeName)}</span>`;
@@ -1684,12 +1822,21 @@ function renderTransition() {
       elements.transitionStoryTitle.textContent = trans.storyTitle || `【${trans.routeName}】`;
     }
 
+    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
+    const transitionView = elements.views?.transition || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('viewTransition') : null);
+    if (transitionView) {
+      transitionView.classList.toggle('is-leader', isLeader);
+    }
+
+    const titleSpeed = isTransitionAccelerated ? 2 : 60;
+    const storySpeed = isTransitionAccelerated ? 2 : 20;
+
     // 先以打字機風格呈現標題 (一個字一個字慢慢出現)
     if (elements.transitionTypewriterTitle) {
-      typeWriterEffect(elements.transitionTypewriterTitle, trans.title || `將進入第 ${trans.floor} 層`, 60, () => {
+      typeWriterEffect(elements.transitionTypewriterTitle, trans.title || `將進入第 ${trans.floor} 層`, titleSpeed, () => {
         // 接著以更快的打字機呈現故事
         if (elements.transitionStoryText) {
-          typeWriterEffect(elements.transitionStoryText, trans.storyText || '正在深入未知迷霧中...', 20);
+          typeWriterEffect(elements.transitionStoryText, trans.storyText || '正在深入未知迷霧中...', isTransitionAccelerated ? 2 : storySpeed);
         }
       });
     }
@@ -4410,3 +4557,35 @@ if(elements.battleLogCard)document.body.appendChild(elements.battleLogCard);
   const el = document.getElementById(id);
   if (el && el.parentElement !== document.body) document.body.appendChild(el);
 });
+
+// 綁定轉場畫面與路線畫面之隊長點擊加速
+const transitionViewEl = document.getElementById('viewTransition');
+if (transitionViewEl) {
+  transitionViewEl.addEventListener('click', () => {
+    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
+    if (!isLeader) return;
+    if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
+      socket.emit('narrative:accelerate');
+    }
+    accelerateNarrative();
+  });
+}
+
+const routeViewEl = document.getElementById('viewRoute');
+if (routeViewEl) {
+  routeViewEl.addEventListener('click', () => {
+    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
+    if (!isLeader || !roomState?.isNarrating) return;
+    if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
+      socket.emit('narrative:accelerate');
+    }
+    accelerateNarrative();
+  });
+}
+
+if (typeof socket !== 'undefined' && socket && typeof socket.on === 'function') {
+  socket.on('narrative:accelerated', () => {
+    accelerateNarrative();
+  });
+}
+

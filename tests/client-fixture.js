@@ -8,11 +8,16 @@ const ownerSource = appSource.slice(
   appSource.indexOf('// Phase 1: one owner'),
   appSource.indexOf('// 1.8 渲染')
 );
+const typewriterSource = appSource.slice(
+  appSource.indexOf('// 支援單一元素字串打字'),
+  appSource.indexOf('let cinematicBannerTimeout')
+);
 
 export function fixture() {
   let now = 0;
   let nextId = 0;
   const tasks = new Map();
+  const activeIntervals = new Set();
   const writes = [];
   const emissions = [];
   const errors = [];
@@ -45,6 +50,7 @@ export function fixture() {
       this.inert = false;
       this.disabled = false;
       this.listeners = new Map();
+      this.closest = () => this;
       const classes = new Set(['hidden']);
       this.classList = {
         add: (...names) => names.forEach(name => classes.add(name)),
@@ -87,9 +93,10 @@ export function fixture() {
   const body = new Element();
   const elements = Object.fromEntries([
     'gameStartOverlay', 'gameTitleContainer', 'prologuePresentationContainer',
-    'prologuePresBody', 'floatingChatContainer', 'stageCinematicBanner',
+    'prologuePresBody', 'prologueSkipHint', 'floatingChatContainer', 'stageCinematicBanner',
     'floorIntroOverlay', 'floorIntroNumber', 'floorIntroTitle', 'routeAtmosphereText',
     'routeStatusText', 'routeOptionsGrid', 'routeVotersStatusList', 'routeTimerBar',
+    'transitionTypewriterTitle', 'transitionRouteTag', 'transitionStoryTitle', 'transitionStoryText', 'transitionSpeedHint',
     'trapDiscoverySection', 'trapDiscoveryStory', 'trapPresentationOverlay', 'trapVictimsContainer',
     'chestDiscoverySection', 'chestDiscoveryStory', 'chestInteractionArea', 'btnOpenChest',
     'chestPresentationOverlay', 'presentationChestVisual', 'presentationRewardContent',
@@ -109,6 +116,23 @@ export function fixture() {
     sfxManager: { play(name) { sounds.push({ name, at: now }); } },
     setTimeout: schedule,
     clearTimeout: id => tasks.delete(id),
+    setInterval: (callback, delay) => {
+      const intervalId = ++nextId;
+      activeIntervals.add(intervalId);
+      const tick = () => {
+        if (!activeIntervals.has(intervalId)) return;
+        callback();
+        if (activeIntervals.has(intervalId)) {
+          tasks.set(intervalId, { callback: tick, at: now + delay });
+        }
+      };
+      tasks.set(intervalId, { callback: tick, at: now + delay });
+      return intervalId;
+    },
+    clearInterval: id => {
+      activeIntervals.delete(id);
+      tasks.delete(id);
+    },
     requestAnimationFrame: callback => schedule(callback, 16),
     cancelAnimationFrame: id => tasks.delete(id),
     document: {
@@ -144,9 +168,14 @@ export function fixture() {
     let chestPresentationController = null;
     let chestDisplay = null;
     let chestRewardCompletedId = null;
+    let activeNarrativeResolvers = new Set();
+    let isTransitionAccelerated = false;
+    let currentTypewriterTimer = null;
+    let currentTypewriterContext = null;
     function showCinematicBanner() {
       cinematicBannerTimeout = setTimeout(() => { cinematicBannerTimeout = null; }, 2200);
     }
+    ${typewriterSource}
     ${ownerSource}
     function waitForPresentation(...args) { return waitForPrologue(...args); }
   `, context);

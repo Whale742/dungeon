@@ -461,12 +461,30 @@ export class Room {
     return { success: true };
   }
 
+  skipPrologue(socketId) {
+    if (this.state !== 'PROLOGUE') return { success: false, message: '目前不是開場階段' };
+    if (socketId !== this.leaderId) return { success: false, message: '只有隊長能跳過開場' };
+    this.addLog(`⏩ **${this.players[socketId]?.name || '隊長'}** 跳過了開場故事！`, 'info');
+    this.clearTimer();
+    this.pendingPresentationAcks.clear();
+    this.startRouteSelection({ skipIntro: true });
+    return { success: true };
+  }
+
+  accelerateNarrative(socketId) {
+    if (socketId !== this.leaderId) return { success: false, message: '只有隊長能加速敘述' };
+    if (this.io && this.code) {
+      this.io.to(this.code).emit('narrative:accelerated');
+    }
+    return { success: true };
+  }
+
   finishPrologueIfReady() {
     if (this.state !== 'PROLOGUE' || this.pendingPresentationAcks.size > 0) return;
     if (Object.values(this.players).some(p => p.connected)) this.startRouteSelection();
   }
 
-  startRouteSelection() {
+  startRouteSelection(options = {}) {
     this.clearTimer();
     this.timerCallback = null;
     this.pausedRemainingSeconds = null;
@@ -489,16 +507,32 @@ export class Room {
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) { this.handleGameOver(); return; }
     this.state = 'CHOOSING_ROUTE';
-    this.isNarrating = true;
     this.currentEvent = null;
     this.currentTransition = null;
     this.routeVotes = {}; // 重置全體投票記錄
     this.currentRoutes = getRandomRoutes(4); // 每次從 6 個選項中隨機抽出 4 個
     this.routePresentationId += 1;
-    this.pendingPresentationAcks = new Set(
-      Object.values(this.players).filter(p => p.connected).map(p => p.id)
-    );
-    this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】正在探索前路迷霧...`, 'info');
+    if (options.skipIntro) {
+      this.isNarrating = false;
+      this.pendingPresentationAcks.clear();
+      this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！（15 秒倒數）`, 'info');
+      this.setTimer(15, () => {
+        if (this.state === 'CHOOSING_ROUTE') {
+          this.tallyRouteVotes();
+        }
+      }, true);
+      if (this.isPaused) {
+        clearTimeout(this.turnTimer);
+        this.turnTimer = null;
+        this.pausedRemainingSeconds = 15;
+      }
+    } else {
+      this.isNarrating = true;
+      this.pendingPresentationAcks = new Set(
+        Object.values(this.players).filter(p => p.connected).map(p => p.id)
+      );
+      this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】正在探索前路迷霧...`, 'info');
+    }
     this.broadcastState();
 
     // No fixed-duration fallback may consume an unfinished player's choice time.

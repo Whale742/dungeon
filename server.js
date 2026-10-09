@@ -174,6 +174,24 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
+  // 4.2 隊長點擊跳過開場演出
+  socket.on('prologue:skip', (callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.skipPrologue(socket.id);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 4.3 隊長加速敘述文字打字
+  socket.on('narrative:accelerate', (callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.accelerateNarrative(socket.id);
+    if (typeof callback === 'function') callback(res);
+  });
+
   // 5. 路線投票機制 (全員投票，15秒倒數)
   socket.on('route:vote', ({ routeId }, callback) => {
     const code = socketToRoom.get(socket.id);

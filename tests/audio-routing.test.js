@@ -40,7 +40,7 @@ test('Samurai skills share their dedicated sound and Tsubame intro uses the full
 test('arrow rain and surviving Arena exit use full dedicated MP3 files',()=>{
   assert.equal(context.resolve({sourceRole:'archer',actionId:'a_rain'}).key,'archer_rain');
   assert.equal(context.registry.archer_rain.src,'/sound/archer-skill2.mp3');
-  assert.equal(context.registry.gladiator_triumph.src,'/sound/Gladiator-back.mp3');
+  assert.equal(context.registry.gladiator_triumph.src,'/sound/Gladitor-back-2.mp3');
   for(const key of ['archer_rain','gladiator_triumph']){
     assert.equal(context.registry[key].offset,0);assert.equal(context.registry[key].maxDuration,Infinity);
   }
