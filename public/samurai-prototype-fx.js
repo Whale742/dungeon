@@ -37,7 +37,7 @@ node('sceneDimmer','scene-dimmer');node('focusAura','focus-aura');
 const canvas=node('vfx','vfx',world,'canvas'),ctx=canvas.getContext('2d',{alpha:true});
 const damageLayer=node('damageLayer','damage-layer');
 const eye=node('eyeCutin','eye-cutin'),art=node('eyeArt','eye-art',eye);
-function imageNode(id,cls,src,parent){const img=node(id,cls,parent,'img');img.src=src;img.alt='';img.draggable=false;return img;}
+function imageNode(id,cls,src,parent){const img=node(id,cls,parent,'img');const target=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(src):src;img.src=target;img.dataset.studioOriginal=src;img.dataset.studioResolved=target;img.alt='';img.draggable=false;return img;}
 imageNode('eyeClosed','eye-closed','/assets/samurai-eye.png',art);
 imageNode('eyeOpen','eye-open','/assets/samurai-eye.png',art);
 node('eyeFlare','eye-flare',art);node('eyeSweep','eye-sweep',art);

@@ -109,7 +109,7 @@ async function runSamuraiChoreography(step,context,plans){
    }
    const other=document.createElement('div');other.className='samurai-other-targets';canvas.appendChild(other);
    for(const result of step.results||[])if(!cards.has(result.targetId))other.appendChild(makeCard(result));
-   await samuraiAbortable(Promise.all([...canvas.querySelectorAll('img')].map(img=>img.decode())),signal);
+   await samuraiAbortable(Promise.all([...canvas.querySelectorAll('img')].map(img=>img.decode().catch(()=>{}))),signal);
    if(signal.aborted)return;
    local.onTiming?.('action_start',{step});
    const committed=new Set(),scheduled=[];

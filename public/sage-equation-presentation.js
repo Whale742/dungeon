@@ -30,8 +30,11 @@ async function playSageEquationPresentation(step,context) {
     const handBefore=el('div','sage-hand-motion'),handAfter=el('div','sage-hand-motion');
     handBefore.dataset.pose='before';handAfter.dataset.pose='after';
     position(handBefore,background.origin.x,background.origin.y);position(handAfter,background.origin.x,background.origin.y);
+    const resolveHand=f=>typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath('/assets/'+f):'assets/'+f;
     const hand1=el('img','sage-hand',null,handBefore),hand2=el('img','sage-hand',null,handAfter);
-    hand1.src='assets/sage-snap-1.png';hand2.src='assets/sage-snap-2.png';
+    const src1=resolveHand('sage-snap-1.png'),src2=resolveHand('sage-snap-2.png');
+    hand1.src=src1;hand1.dataset.studioOriginal='/assets/sage-snap-1.png';hand1.dataset.studioResolved=src1;
+    hand2.src=src2;hand2.dataset.studioOriginal='/assets/sage-snap-2.png';hand2.dataset.studioResolved=src2;
     const operand=el('div','sage-term','<small>運算元</small><span class="sage-number-motion">0</span>');position(operand,470,355);
     const eta=el('div','sage-term','<small>η(X)</small><span class="sage-number-motion">η</span>');position(eta,720,355);
     const variable=el('div','sage-term','<small>變量(X)</small><span class="sage-number-motion">0</span>');position(variable,970,355);
@@ -45,7 +48,7 @@ async function playSageEquationPresentation(step,context) {
     const tags=(o.properties||[]).map(p=>{const tag=el('span','',null,properties);tag.textContent=labels[p]||p;return tag;});
     const flags=el('div','sage-operand-flags');flags.textContent=(o.properties||[]).map(p=>labels[p]||p).join(' · ');flags.style.opacity='0';
     s.debug('equation / η',{x:720,y:405});s.debug('Operand',{x:470,y:405});s.debug('X',{x:970,y:405});
-    await Promise.all([hand1.decode(),hand2.decode()]);await presentationFrame(signal);await presentationFrame(signal);
+    await Promise.all([hand1.decode().catch(()=>{}),hand2.decode().catch(()=>{})]);await presentationFrame(signal);await presentationFrame(signal);
     for(const [image,pose,scale,angle] of [[hand1,beforePose,beforeScale,beforeAngle],[hand2,afterPose,handScale,0]]) {
       image.style.width=image.naturalWidth*scale+'px';image.style.height=image.naturalHeight*scale+'px';
       image.style.left=-pose.tip.x*scale+'px';image.style.top=-pose.tip.y*scale+'px';

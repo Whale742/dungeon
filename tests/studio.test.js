@@ -98,3 +98,20 @@ test('Protected Studio API bounds JSON size and request rate before processing w
   const response=await f.request('/api/studio/drafts',{method:'POST',body:{data:'x'.repeat(1100000)}});assert.equal(response.status,413);
   let last;for(let i=0;i<122;i++)last=await f.request('/api/studio/drafts');assert.equal(last.status,429);assert.equal(last.headers.get('retry-after'),'60');
 }finally{await f.close();}});
+test('Studio migration endpoints report status and support dry-run preview',async()=>{
+  const f=await fixture();
+  try{
+    const status=await(await f.request('/api/studio/migration/status')).json();
+    assert.equal(status.totalGameAssets,94);
+    assert.equal(status.localAssetsCount,94);
+    assert.equal(status.unmigratedCount,94);
+    assert.equal(status.missingFilesCount,0);
+    const assetDryRun=await(await f.request('/api/studio/migration/assets',{method:'POST',body:{dryRun:true,assetKeys:[catalog.game_assets[0].asset_key]}})).json();
+    assert.equal(assetDryRun.dryRun,true);
+    assert.equal(assetDryRun.total,1);
+    assert.equal(assetDryRun.results[0].status,'dry_run_ready');
+    const bindingDryRun=await(await f.request('/api/studio/migration/bindings',{method:'POST',body:{dryRun:true,bindingKeys:[catalog.asset_bindings[0].binding_key]}})).json();
+    assert.equal(bindingDryRun.dryRun,true);
+  }finally{await f.close();}
+});
+

@@ -1149,7 +1149,16 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
     const index = descriptor.minionIndex || 1;
     return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然僕從' };
   }
-  if (descriptor.entityType === 'monster') return { src: descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp', name: descriptor.name || '首領' };
+  if (descriptor.entityType === 'monster') {
+    const fallback = descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp';
+    const bossKey = descriptor.name ? 'boss.' + descriptor.name + '.avatar' : null;
+    let src = fallback;
+    if (typeof window !== 'undefined' && window.assetRegistry) {
+      if (bossKey && window.assetRegistry.binding(bossKey)) src = window.assetRegistry.resolve(bossKey, fallback);
+      else src = window.assetRegistry.resolvePath(fallback);
+    }
+    return { src, name: descriptor.name || '首領' };
+  }
   const override = options.allowCustom ? descriptor.customAvatar : null;
   if (override) {
     if (/^(data:image\/|https?:|\/)/.test(override)) return { src: override, name: descriptor.name || role };

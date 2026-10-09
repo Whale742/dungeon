@@ -7,6 +7,8 @@
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
     "seed:studio": "node scripts/seed-studio.mjs",
+    "migrate:studio-assets": "node scripts/migrate-studio-assets.mjs",
+    "migrate:studio-bindings": "node scripts/migrate-studio-bindings.mjs",
     "verify:studio-cloud": "node scripts/verify-studio-cloud.mjs",
     "verify:studio-browser": "node scripts/verify-studio-browser.mjs"
   },

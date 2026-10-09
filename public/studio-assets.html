@@ -1,1 +1,142 @@
-<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Asset Manager · Dungeon Abyss Studio</title><link rel="icon" href="/icon/icon.webp"><link rel="stylesheet" href="/studio/studio.css"></head><body class="studio-body"><nav id="studioNav" class="studio-nav" aria-label="Studio 導覽"></nav><main class="studio-page"><header class="studio-heading"><div><h1>Asset Manager</h1><div class="studio-muted">登記素材，更新用途綁定，讓新的演出安全上線。</div></div><button id="assetRegisterOpen" type="button" class="studio-primary">上傳／登記新素材</button></header><div id="studioNotice" class="studio-notice" role="status" aria-live="polite">讀取公開素材與正式綁定…</div><div id="assetCategories" class="studio-tabs"></div><div class="studio-toolbar"><label>搜尋 <input id="assetSearch" type="search" placeholder="名称、ID 或檔案路徑"></label><button id="assetLoadDrafts" type="button">載入素材與绑定草稿</button><button id="assetRefresh" type="button">重新讀取已發布</button></div><div class="studio-assets-layout"><section class="studio-panel"><div id="assetGrid" class="studio-asset-grid"></div></section><aside id="assetDetail" class="studio-panel studio-asset-info"><h2>選擇素材</h2></aside></div><dialog id="assetRegisterDialog"><h2>建立新版素材</h2><p class="studio-muted">每次上傳會產生新路徑。上傳後先登記素材，再選擇用途綁定。</p><form id="assetRegisterForm"><label class="studio-field"><span>來源</span><select name="source_type"><option value="storage">上傳至 Supabase Storage</option><option value="external">外部 HTTPS URL</option><option value="local">既有本地素材</option></select></label><label class="studio-field"><span>素材名稱</span><input name="display_name" required maxlength="200"></label><label class="studio-field"><span>類別</span><select name="category"><option value="roles">職業頭像</option><option value="bosses">BOSS 頭像</option><option value="sfx">SFX</option><option value="bgm">BGM</option><option value="effects">技能特效圖片</option><option value="backgrounds">背景圖片</option><option value="other">其他</option></select></label><label class="studio-field" id="assetFileField"><span>圖片或音訊（最多 50 MB）</span><input name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/flac"></label><label class="studio-field" id="assetUrlField" hidden><span>外部 HTTPS URL</span><input name="external_url" type="url" placeholder="https://"></label><label class="studio-field" id="assetLocalField" hidden><span>既有本地檔案</span><select name="local_path"></select></label><label class="studio-field"><span>公開清單可見</span><select name="is_public"><option value="false">尚未公開</option><option value="true">公開（發布綁定必須公開）</option></select></label><div class="studio-toolbar"><button type="button" id="assetRegisterCancel">取消</button><button type="submit" id="assetRegisterSubmit" class="studio-primary">上傳並登記</button></div><p id="assetUploadStatus" role="status"></p></form></dialog></main><script src="/studio/content-store.js"></script><script src="/studio/asset-registry.js"></script><script src="/studio/write-client.js"></script><script src="/studio/ui.js"></script><script src="/studio/import-export.js"></script><script src="/studio/assets.js"></script></body></html>
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Asset Manager · Dungeon Abyss Studio</title>
+  <link rel="icon" href="/icon/icon.webp">
+  <link rel="stylesheet" href="/studio/studio.css">
+</head>
+<body class="studio-body">
+  <nav id="studioNav" class="studio-nav" aria-label="Studio 導覽"></nav>
+  <main class="studio-page">
+    <header class="studio-heading">
+      <div>
+        <h1>Asset Manager</h1>
+        <div class="studio-muted">登記素材，更新用途綁定，管理雲端 Storage 遷移，讓新的演出安全上線。</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button id="assetMigrationOpen" type="button">雲端遷移管理</button>
+        <button id="assetRegisterOpen" type="button" class="studio-primary">上傳／登記新素材</button>
+      </div>
+    </header>
+
+    <div id="studioNotice" class="studio-notice" role="status" aria-live="polite">讀取公開素材與正式綁定…</div>
+
+    <div id="assetCategories" class="studio-tabs"></div>
+
+    <div class="studio-toolbar">
+      <label>搜尋 <input id="assetSearch" type="search" placeholder="名稱、ID 或路徑"></label>
+      <label>來源
+        <select id="assetSourceFilter">
+          <option value="all">全部來源</option>
+          <option value="local">本地 (Local)</option>
+          <option value="storage">雲端 (Storage)</option>
+          <option value="external">外部 (External)</option>
+        </select>
+      </label>
+      <button id="assetSelectAll" type="button">全選</button>
+      <button id="assetSelectNone" type="button">清除選取</button>
+      <button id="assetMigrateSelected" type="button" class="studio-primary" disabled>遷移勾選素材 (<span id="selectedCount">0</span>)</button>
+      <button id="assetLoadDrafts" type="button">載入草稿</button>
+      <button id="assetRefresh" type="button">重新讀取已發布</button>
+    </div>
+
+    <div class="studio-assets-layout">
+      <section class="studio-panel">
+        <div id="assetGrid" class="studio-asset-grid"></div>
+      </section>
+      <aside id="assetDetail" class="studio-panel studio-asset-info">
+        <h2>選擇素材</h2>
+      </aside>
+    </div>
+
+    <!-- 登記素材對話框 -->
+    <dialog id="assetRegisterDialog">
+      <h2>建立新版素材</h2>
+      <p class="studio-muted">每次上傳會產生新路徑。上傳後先登記素材，再選擇用途綁定。</p>
+      <form id="assetRegisterForm">
+        <label class="studio-field">
+          <span>來源</span>
+          <select name="source_type">
+            <option value="storage">上傳至 Supabase Storage</option>
+            <option value="external">外部 HTTPS URL</option>
+            <option value="local">既有本地素材</option>
+          </select>
+        </label>
+        <label class="studio-field">
+          <span>素材名稱</span>
+          <input name="display_name" required maxlength="200">
+        </label>
+        <label class="studio-field">
+          <span>類別</span>
+          <select name="category">
+            <option value="roles">職業頭像</option>
+            <option value="bosses">BOSS 頭像</option>
+            <option value="sfx">SFX</option>
+            <option value="bgm">BGM</option>
+            <option value="effects">技能特效圖片</option>
+            <option value="backgrounds">背景圖片</option>
+            <option value="other">其他</option>
+          </select>
+        </label>
+        <label class="studio-field" id="assetFileField">
+          <span>圖片或音訊（最多 50 MB）</span>
+          <input name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/flac">
+        </label>
+        <label class="studio-field" id="assetUrlField" hidden>
+          <span>外部 HTTPS URL</span>
+          <input name="external_url" type="url" placeholder="https://">
+        </label>
+        <label class="studio-field" id="assetLocalField" hidden>
+          <span>既有本地檔案</span>
+          <select name="local_path"></select>
+        </label>
+        <label class="studio-field">
+          <span>公開清單可見</span>
+          <select name="is_public">
+            <option value="false">尚未公開</option>
+            <option value="true">公開（發布綁定必須公開）</option>
+          </select>
+        </label>
+        <div class="studio-toolbar">
+          <button type="button" id="assetRegisterCancel">取消</button>
+          <button type="submit" id="assetRegisterSubmit" class="studio-primary">上傳並登記</button>
+        </div>
+        <p id="assetUploadStatus" role="status"></p>
+      </form>
+    </dialog>
+
+    <!-- 批次遷移管理面板對話框 -->
+    <dialog id="assetMigrationDialog">
+      <h2>素材雲端遷移與綁定切換</h2>
+      <p class="studio-muted">將本地素材安全遷移至 Supabase Storage，並原子切換用途綁定。保留本地檔案作為 Fallback。</p>
+      <div id="migrationStatsGrid" class="studio-migration-stats">
+        <div class="stat-card"><strong>本地素材總數</strong><span id="statLocalCount">-</span></div>
+        <div class="stat-card"><strong>已在 Storage</strong><span id="statStorageCount">-</span></div>
+        <div class="stat-card"><strong>尚未遷移</strong><span id="statUnmigratedCount">-</span></div>
+        <div class="stat-card"><strong>未遷移預估容量</strong><span id="statEstimatedSize">-</span></div>
+        <div class="stat-card"><strong>正式綁定指向 Storage</strong><span id="statBoundStorageCount">-</span></div>
+        <div class="stat-card"><strong>正式綁定指向 Local</strong><span id="statBoundLocalCount">-</span></div>
+      </div>
+      <div class="studio-toolbar">
+        <button type="button" id="migrationRefreshBtn">重新整理狀態</button>
+        <button type="button" id="migrationRunAssetsBtn" class="studio-primary">遷移全部本地素材至 Storage</button>
+        <button type="button" id="migrationRunBindingsBtn" class="studio-primary">切換正式用途綁定至 Storage</button>
+        <button type="button" id="migrationCloseBtn">關閉</button>
+      </div>
+      <div id="migrationProgressSection" hidden>
+        <div class="studio-progress-bar"><div id="migrationProgressBar" class="studio-progress-fill" style="width: 0%"></div></div>
+        <p id="migrationStatusText" class="studio-muted" role="status">準備中…</p>
+        <pre id="migrationLogBox" class="studio-migration-log"></pre>
+      </div>
+    </dialog>
+  </main>
+  <script src="/studio/content-store.js"></script>
+  <script src="/studio/asset-registry.js"></script>
+  <script src="/studio/write-client.js"></script>
+  <script src="/studio/ui.js"></script>
+  <script src="/studio/import-export.js"></script>
+  <script src="/studio/assets.js"></script>
+</body>
+</html>

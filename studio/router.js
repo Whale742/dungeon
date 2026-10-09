@@ -6,12 +6,13 @@ import { SupabaseRest, CloudError } from './supabase.js';
 import { catalog } from './catalog.js';
 import { refreshPublished } from './content.js';
 import { kinds, validateIdentity, validateDraft, validateAsset, validateUpload, requireValid, assetFields } from './validation.js';
+import { getMigrationStatus, migrateAssets, migrateBindings } from './migration.js';
 
 export function tokenMatches(supplied, expected) {
   const hash=v=>crypto.createHash('sha256').update(v||'').digest();
   return crypto.timingSafeEqual(hash(typeof supplied==='string'?supplied:''),hash(expected)) && !!expected && typeof supplied==='string' && supplied.length<=1024;
 }
-export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),onPublish=()=>refreshPublished(cloud),storageClient}={}) {
+export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),onPublish=()=>refreshPublished(cloud),storageClient,publicDir}={}) {
   const router=express.Router(), rates=new Map();
   router.get('/config',(_req,res)=>res.json({SUPABASE_URL:env.SUPABASE_URL||'',SUPABASE_PUBLISHABLE_KEY:env.SUPABASE_PUBLISHABLE_KEY||''}));
   router.get('/defaults',(_req,res)=>res.json(catalog));
@@ -97,11 +98,22 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
     const input=validateAsset({...Object.fromEntries(['asset_key',...assetFields].map(f=>[f,existing[0][f]])),...patch});
     res.json(await cloud.request('/rest/v1/game_assets?asset_key=eq.'+encodeURIComponent(req.params.assetKey),{method:'PATCH',body:{display_name:input.display_name,is_public:input.is_public},headers:{Prefer:'return=representation'}}));
   }));
+  router.get('/migration/status',route(async(_req,res)=>res.json(await getMigrationStatus({cloud,publicDir}))));
+  router.post('/migration/assets',route(async(req,res)=>{
+    const assetKeys=Array.isArray(req.body?.assetKeys)?req.body.assetKeys:null;
+    res.json(await migrateAssets({env,cloud,storageClient,publicDir,assetKeys,dryRun:!!req.body?.dryRun}));
+  }));
+  router.post('/migration/bindings',route(async(req,res)=>{
+    const bindingKeys=Array.isArray(req.body?.bindingKeys)?req.body.bindingKeys:null;
+    const result=await migrateBindings({env,cloud,bindingKeys,dryRun:!!req.body?.dryRun,verifyDownloads:req.body?.verifyDownloads!==false});
+    if(!req.body?.dryRun&&result.success&&result.switchCount>0)await onPublish();
+    res.json(result);
+  }));
   router.use((error,_req,res,_next)=>res.status(error.status||500).json({error:error.type==='entity.too.large'?'JSON 請求超過 1 MB':error instanceof SyntaxError?'JSON 格式錯誤':error.status?error.message:'Studio 操作失敗，請重試'}));
   return router;
 }
 export function mountStudio(app, publicDir, options) {
   app.get('/presentation-lab.html',(req,res)=>res.redirect(302,'/lab'+(req.url.includes('?')?req.url.slice(req.url.indexOf('?')):'')));
   for(const [route,file]of [['lab','presentation-lab.html'],['edit','studio-editor.html'],['asset','studio-assets.html']])app.get('/'+route,(_req,res)=>res.sendFile(file,{root:publicDir}));
-  app.use('/api/studio',createStudioRouter(options));
+  app.use('/api/studio',createStudioRouter({publicDir,...options}));
 }
