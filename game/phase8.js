@@ -20,7 +20,7 @@ export function sageEquationPreview(p,room) {
   const ruleMultiplier=1+(rule ? .10+(rule-1)*.05 : 0)*corrosion;
   const confusionChance=sageConfusionChance(x),lensBonus=(lens ? .10+(lens-1)*.05 : 0)*corrosion;
   return {eta:eta(x),confusionChance,decayAmount:sageDecay(x),options:Object.entries(sageGrowth).map(([id,growth])=>{
-    const op=operand+(id==='sge_induce'?(operand%2===0?21:20):id==='sge_deduce'?5:2);
+    const op=operand+(id==='sge_induce'?(operand%2===0?9:8):id==='sge_deduce'?5:2);
     const baseEquationDamage=Math.round(Math.abs(op*eta(x)));
     return {id,operand:op,properties:[op%2===0?'EVEN':'ODD',...(isPrime(op)?['PRIME']:[]),...(Number.isInteger(Math.sqrt(op))?['SQUARE']:[])],
       baseEquationDamage,damageAfterEquipment:Math.round(baseEquationDamage*ruleMultiplier),damageAfterConfusion:Math.round(baseEquationDamage*ruleMultiplier*.8),
@@ -415,7 +415,7 @@ export const phase8Methods = {
           p.sageInduction=true;p.sageSamplingEnded=false;
         }
       } else {
-        p.sageOperand+=p.action==='sge_induce'?(p.sageOperand%2===0?21:20):(p.action==='sge_deduce'?5:2);
+        p.sageOperand+=p.action==='sge_induce'?(p.sageOperand%2===0?9:8):(p.action==='sge_deduce'?5:2);
         p.sageSolvedThisRound=true;
       }
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;

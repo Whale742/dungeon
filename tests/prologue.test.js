@@ -112,7 +112,8 @@ test('leader can accelerate narrative and non-leader is rejected', t => {
   assert.equal(room.getNarrativeControl().accelerated, false);
   room.accelerateNarrative('leader', { key, accelerated:true });
   room.startRouteSelection();
+  assert.equal(room.getNarrativeControl().accelerated, true);
+  assert.equal(room.accelerateNarrative('leader', { key: room.getNarrativeControl().key, accelerated:false }).success, true);
   assert.equal(room.getNarrativeControl().accelerated, false);
-  assert.equal(room.accelerateNarrative('leader', { key, accelerated:true }).success, false);
 });
 

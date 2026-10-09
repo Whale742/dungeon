@@ -24,7 +24,7 @@ export function addPhase8LabFixtures(fixtures,scene,add) {
     finally {Math.random=old;room.clearTimer();}
     fixtures['sage_full_cycle_'+id]={role:'sage',label:'演算週期｜慣性取樣 → 求解 → 方程結算 → '+(id==='success'?'推演成功':'思緒紊亂'),steps:[...first,...second.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup')]};
   }
-  add('sage_induce_even_solve','動量回授・慣性取樣｜偶數 +21 求解','sage','sge_induce',.9,room=>{
+  add('sage_induce_even_solve','動量回授・慣性取樣｜偶數 +9 求解','sage','sge_induce',.9,room=>{
     Object.assign(room.players.hero,{sageOperand:16,sageX:120,sagePhase:'solve'});room.currentMonster.attack=0;
   });
   add('sage_confusion_self','方程結算｜思緒紊亂自傷','sage','sge_induce',.01,room=>{

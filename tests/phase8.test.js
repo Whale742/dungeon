@@ -708,7 +708,7 @@ test('Sage self confusion absorbs existing shield and never samples itself',t=>{
   const s=equation(room,p,{operand:15,r:.01});assert.equal(s.outcome.confusionHpDamage,0);assert.equal(s.outcome.confusionAbsorbed,10);assert.equal(p.hp,70);assert.equal(p.sageOperand,15);
 });
 
-for(const [before,after] of [[15,35],[16,37],[0,21],[99,119]])test('Sage induce solve adds correct oddness adjustment: '+before,t=>{
+for(const [before,after] of [[15,23],[16,25],[0,9],[99,107]])test('Sage induce solve adds correct oddness adjustment: '+before,t=>{
   const {room,resolve}=fixture(t,['sage']),p=room.players.p0;Object.assign(p,{action:'sge_induce',sagePhase:'solve',sageOperand:before,sageX:120});room.currentMonster.attack=0;
   const q=resolve(.99),body=q.find(s=>s.actionId==='sge_induce'),s=q[q.indexOf(body)+1];
   assert.equal(body.sagePresentation.operandBefore,before);assert.equal(body.sagePresentation.operandAfter,after);assert.equal(body.sagePresentation.operandDelta,after-before);

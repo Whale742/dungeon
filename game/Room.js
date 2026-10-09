@@ -87,6 +87,7 @@ export class Room {
     this.timerCallback = null;
     this.isPaused = false;
     this.pausedRemainingSeconds = null;
+    this.narrativeAccelerated = false;
     this.logs = [];
     this.chatMessages = [];
 
@@ -296,7 +297,8 @@ export class Room {
         if (this.isNarrating) {
           this.finishRoutePresentationIfReady();
         } else {
-          this.checkRouteVoteCompletion();
+          const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && p.connected);
+          if (livingPlayers.length > 0 && livingPlayers.every(p => Boolean(this.routeVotes[p.id]))) this.tallyRouteVotes();
         }
       }
 
@@ -468,6 +470,9 @@ export class Room {
     if (this.state !== 'PROLOGUE') return { success: false, message: '目前不是開場階段' };
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能跳過開場' };
     this.addLog(`⏩ **${this.players[socketId]?.name || '隊長'}** 跳過了開場故事！`, 'info');
+    if (this.io && this.code) {
+      this.io.to(this.code).emit('prologue:skipped', { leaderId: socketId });
+    }
     this.clearTimer();
     this.pendingPresentationAcks.clear();
     this.startRouteSelection();
@@ -478,17 +483,17 @@ export class Room {
     const key = JSON.stringify([this.code, this.state, this.floor, this.routePresentationId,
       this.currentTransition?.routeId, this.currentEvent?.presentationId, this.currentEvent?.opened,
       this.battleRound, this.battlePresentationId, this.currentVictory?.presentationId]);
-    return { key, accelerated: this.narrativeControl?.key === key && !!this.narrativeControl.accelerated };
+    return { key, accelerated: !!this.narrativeAccelerated };
   }
 
   accelerateNarrative(socketId, request = {}) {
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能加速敘述' };
     if (!request || typeof request !== 'object') return { success: false, message: '無效的播放設定' };
     const current = this.getNarrativeControl();
-    if (request.key !== current.key) return { success: false, message: '敘述階段已切換' };
     if (typeof request.accelerated !== 'boolean') return { success: false, message: '無效的播放設定' };
-    if (!['PROLOGUE','CHOOSING_ROUTE','TRANSITION','EVENT','IN_BATTLE','BATTLE_VICTORY'].includes(this.state)) return { success: false, message: '目前沒有劇情敘述' };
-    this.narrativeControl = { key: current.key, accelerated: request.accelerated };
+    if (!['PROLOGUE','CHOOSING_ROUTE','ROUTE','TRANSITION','EVENT','IN_BATTLE','BATTLE_VICTORY'].includes(this.state)) return { success: false, message: '目前沒有劇情敘述' };
+    this.narrativeAccelerated = request.accelerated;
+    this.narrativeControl = { key: current.key, accelerated: this.narrativeAccelerated };
     if (this.io && this.code) {
       this.io.to(this.code).emit('narrative:accelerated', this.narrativeControl);
     }

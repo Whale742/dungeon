@@ -6,12 +6,12 @@
 .boss-encounter-impact-stage { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
 .boss-encounter-impact-stage::before { display: none !important; }
 
-.boss-encounter-layout { position: relative; width: 100%; max-width: 1160px; min-height: calc(100vh - 24px); display: flex; flex-direction: column; gap: 12px; pointer-events: none; z-index: 3; }
+.boss-encounter-layout { position: relative; width: 100%; max-width: 1160px; min-height: calc(100vh - 24px); display: flex; flex-direction: column; gap: 12px; pointer-events: none; z-index: 3; margin: 0 auto !important; margin-left: auto !important; margin-right: auto !important; }
 .boss-encounter-layout .app-header { visibility: hidden; opacity: 0; pointer-events: none; }
 .boss-encounter-layout .main-content { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; }
 .boss-encounter-story-section { width: min(700px, 80vw); margin: clamp(50px, 12vh, 130px) auto; padding: 24px 0; background: transparent; display: flex; flex-direction: column; transition: opacity 350ms ease-out, transform 350ms ease-out; }
 .boss-encounter-story-section.is-exiting { opacity: 0; transform: translateY(-8px); pointer-events: none; }
-.boss-encounter-story { text-align: left; width: 100%; }
+.boss-encounter-story { text-align: left; width: 100%; color: #e2e8f0; font-size: clamp(1rem, 2.2vw, 1.25rem); line-height: 2; letter-spacing: .06em; white-space: pre-wrap; }
 .boss-encounter-story p { text-align: left; margin: 0 0 1.5em; }
 .boss-warning { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; }
 .boss-warning-strip { position: absolute; width: min(92%, 1200px); height: clamp(120px, 18vh, 175px); background: linear-gradient(100deg, #43131d, #801c30 55%, #45121e); border-block: 2px solid #b26666; clip-path: polygon(2% 0,100% 0,98% 100%,0 100%); opacity: 0; }

@@ -40,7 +40,7 @@ test('speed toggle changes only text; ongoing animation waits retain their full 
   vm.runInContext('currentTypewriterContext.cancel()', f.context);
 });
 
-test('phase and event changes reset acceleration, and stale multiplayer updates are ignored', () => {
+test('phase and event changes preserve shared acceleration across events', () => {
   const f = fixture(), listeners = new Map();
   f.context.socket.on = (name, fn) => listeners.set(name, fn);
   vm.runInContext('syncNarrativeControls(roomState); installNarrativeControls()', f.context);
@@ -50,12 +50,18 @@ test('phase and event changes reset acceleration, and stale multiplayer updates 
   assert.equal(vm.runInContext('narrativeTextSpeed()', f.context), 20);
   f.context.roomState = { state:'EVENT', floor:1, leaderId:'a', currentEvent:{ presentationId:1 } };
   vm.runInContext('syncNarrativeControls(roomState)', f.context);
-  assert.equal(vm.runInContext('narrativeTextSpeed()', f.context), 1);
-  listeners.get('narrative:accelerated')({ key:initialKey, accelerated:true });
-  assert.equal(vm.runInContext('narrativeTextSpeed()', f.context), 1);
-  vm.runInContext('accelerateNarrative(); roomState.currentEvent.presentationId++; syncNarrativeControls(roomState)', f.context);
-  assert.equal(vm.runInContext('narrativeTextSpeed()', f.context), 1);
+  assert.equal(vm.runInContext('narrativeTextSpeed()', f.context), 20);
   assert.equal(f.elements.btnSkipPrologue.classList.contains('hidden'), true);
+  // Non-leader member receives acceleration in event
+  f.context.roomState.leaderId = 'other_leader';
+  vm.runInContext('refreshNarrativeControls(roomState)', f.context);
+  assert.equal(f.elements.btnNarrativeSpeed.textContent, '隊長已開啟加速中...');
+  assert.equal(f.elements.btnNarrativeSpeed.disabled, true);
+  // Leader turns off acceleration
+  f.context.roomState.leaderId = 'a';
+  vm.runInContext('setNarrativeAcceleration(false)', f.context);
+  assert.equal(vm.runInContext('narrativeTextSpeed()', f.context), 1);
+  assert.equal(f.elements.btnNarrativeSpeed.textContent, '▶▶ 加速：關');
 });
 
 test('opening title and exit holds cannot be accelerated', async () => {

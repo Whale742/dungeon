@@ -674,6 +674,32 @@ socket.on('room:update', (state) => {
   syncChatMessages(state.chatMessages);
 });
 
+function showPrologueSkipNotice(message = '隊長已跳過開頭序章') {
+  let notice = document.getElementById('prologueSkipNotice');
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.id = 'prologueSkipNotice';
+    notice.className = 'prologue-skip-notice';
+    document.body.appendChild(notice);
+  }
+  notice.textContent = message;
+  notice.classList.remove('hidden');
+  notice.classList.remove('is-floating');
+  void notice.offsetWidth;
+  notice.classList.add('is-floating');
+  clearTimeout(notice._timer);
+  notice._timer = setTimeout(() => {
+    notice.classList.add('hidden');
+    notice.classList.remove('is-floating');
+  }, 3200);
+}
+if (typeof window !== 'undefined') window.showPrologueSkipNotice = showPrologueSkipNotice;
+
+socket.on('prologue:skipped', (data) => {
+  if (data?.leaderId && data.leaderId === myId) return;
+  showPrologueSkipNotice('隊長已跳過開頭序章');
+});
+
 // 取得玩家頭貼 HTML (變身形態 > 自訂頭貼 > 職業預設 > 預設頭像)
 function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   if (!player) return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;

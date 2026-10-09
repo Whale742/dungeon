@@ -98,7 +98,7 @@ export function fixture() {
   const body = new Element();
   const elements = Object.fromEntries([
     'gameStartOverlay', 'gameTitleContainer', 'prologuePresentationContainer',
-    'narrativeControls', 'btnSkipPrologue', 'btnNarrativeSpeed',
+    'narrativeControls', 'btnSkipPrologue', 'btnNarrativeSpeed', 'prologueSkipNotice',
     'prologuePresBody', 'prologueSkipHint', 'floatingChatContainer', 'stageCinematicBanner',
     'floorIntroOverlay', 'floorIntroNumber', 'floorIntroTitle', 'routeAtmosphereText',
     'routeStatusText', 'routeOptionsGrid', 'routeVotersStatusList', 'routeTimerBar',

@@ -5675,12 +5675,18 @@ input[type="text"]::placeholder {
    ========================================================================== */
 .narrative-controls {
   position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  right: max(16px, env(safe-area-inset-right));
+  top: 108px;
+  right: max(12px, calc(50vw - 580px));
   z-index: 30000;
   display: flex;
+  align-items: center;
   gap: 12px;
   pointer-events: auto;
+}
+body.presentation-opening .narrative-controls,
+.narrative-controls:has(#btnSkipPrologue:not(.hidden)) {
+  top: clamp(40px, 9vh, 85px);
+  right: max(16px, calc(50vw - min(350px, 40vw)));
 }
 .narrative-controls button {
   border: 3px solid #b9a178;
@@ -5696,9 +5702,103 @@ input[type="text"]::placeholder {
 .narrative-controls button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
 .narrative-controls button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #08080e; }
 .narrative-controls button:disabled { opacity: .5; cursor: default; }
-@media (max-width: 520px) {
-  .narrative-controls { top: 10px; right: 10px; gap: 8px; }
+#btnSkipPrologue {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font: 600 15px 'Noto Sans TC', sans-serif !important;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  cursor: pointer;
+  outline: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+#btnSkipPrologue:hover {
+  opacity: 0.82;
+  transform: translateX(2px);
+}
+#btnSkipPrologue:active {
+  transform: translateX(4px);
+  box-shadow: none !important;
+}
+#btnSkipPrologue:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7) !important;
+  outline-offset: 3px;
+}
+#btnNarrativeSpeed.is-non-leader-status {
+  border: 1px solid rgba(240, 199, 107, 0.5) !important;
+  background: rgba(25, 24, 34, 0.88) !important;
+  color: #f0c76b !important;
+  padding: 7px 14px !important;
+  font: 600 12px 'Noto Sans TC', sans-serif !important;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  cursor: default !important;
+  opacity: 1 !important;
+  pointer-events: none;
+}
+.prologue-skip-notice {
+  position: fixed;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  z-index: 40000;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid #e2b764;
+  color: #f8fafc;
+  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  font-size: clamp(14px, 1.8vw, 18px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 12px 28px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), 0 0 16px rgba(226, 183, 100, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+.prologue-skip-notice.is-floating {
+  animation: prologueSkipNoticeFloat 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes prologueSkipNoticeFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.96);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -8px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.98);
+  }
+}
+@media (max-width: 768px) {
+  .narrative-controls {
+    top: 108px;
+    right: max(8px, calc(50vw - 580px));
+    gap: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .narrative-controls {
+    top: 136px;
+    right: max(8px, calc(50vw - 580px));
+    gap: 8px;
+  }
+  body.presentation-opening .narrative-controls,
+  .narrative-controls:has(#btnSkipPrologue:not(.hidden)) {
+    top: clamp(24px, 6vh, 60px);
+    right: max(10px, 10vw);
+  }
   .narrative-controls button { padding: 7px 8px; font-size: 11px; }
+  #btnSkipPrologue { font-size: 13px !important; padding: 4px 8px; }
 }
 
 /* ==========================================================================

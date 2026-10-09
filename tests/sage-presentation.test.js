@@ -8,7 +8,7 @@ const skill=fs.readFileSync(new URL('../public/sage-skill-presentation.js',impor
 const equation=fs.readFileSync(new URL('../public/sage-equation-presentation.js',import.meta.url),'utf8');
 function element(){return {style:{},children:[],classList:{add(){}},remove(){},appendChild(n){this.children.push(n);},querySelector(){return element();}};}
 test('Sage induce solve presentation uses server delta and operands, preserving addition in reduced motion',async()=>{
-  for(const reduced of [false,true])for(const [operandBefore,operandAfter,operandDelta] of [[15,35,20],[16,37,21]]){
+  for(const reduced of [false,true])for(const [operandBefore,operandAfter,operandDelta] of [[15,23,8],[16,25,9]]){
     const context=vm.createContext({});vm.runInContext(skill,context);
     const nodes=[],anchor={node:element(),number:element()};
     const stage={root:{dataset:{}},reduced,signal:{aborted:false},el(tag,cls){const n=element();n.className=cls;nodes.push(n);return n;},position(){},animate(){},wait:async()=>{}};
@@ -42,7 +42,7 @@ test('Sage confusion branch ends at the authoritative target anchor, including s
 test('Sage role, skills and equipment full copy contain v3 rules with no stale mechanics',()=>{
   assert.equal(ROLE_DETAILS.sage.hp,70);
   const passive=CLASSES.sage.passive;for(const required of ['0.4','X60','20%','10 點真實伤害'.replace('伤','傷'),'最高 25%','持續 2 回合'])assert(passive.includes(required));
-  assert(CLASSES.sage.skills[0].desc.includes('固定 10 X'));assert(CLASSES.sage.skills[1].desc.includes('固定 14 X'));assert(CLASSES.sage.skills[2].desc.includes('奇數 +20，偶數 +21'));
+  assert(CLASSES.sage.skills[0].desc.includes('固定 10 X'));assert(CLASSES.sage.skills[1].desc.includes('固定 14 X'));assert(CLASSES.sage.skills[2].desc.includes('若運算元為奇數，運算元+8，反之，運算元+9'));
   const text=[passive,...CLASSES.sage.skills.map(s=>s.desc),...LOOT_TABLE.filter(e=>e.role==='sage').map(e=>e.desc)].join('\n');
   for(const stale of ['演算精通','0.25','運算元 ×2','下一輪初始擾動','先驗防壁','慣性緩衝','殘餘衝量','取代【思緒紊亂】'])assert(!text.includes(stale));
   assert(fs.existsSync(new URL('../public/assets/sage-error.png',import.meta.url)));

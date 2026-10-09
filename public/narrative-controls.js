@@ -11,19 +11,74 @@ function getNarrativeEventKey(state) {
   ]);
 }
 
+function isTypewriterEvent(state = typeof roomState !== 'undefined' ? roomState : null) {
+  if (!state) return false;
+  if (state.state === 'PROLOGUE') return false;
+  if (narrativeControls.writers.size > 0) return true;
+  if (['CHOOSING_ROUTE', 'ROUTE', 'TRANSITION', 'EVENT', 'BATTLE_VICTORY'].includes(state.state)) {
+    return true;
+  }
+  if (state.state === 'IN_BATTLE') {
+    if (typeof document !== 'undefined') {
+      if (document.body?.classList?.contains('battle-intro-active') || document.querySelector?.('.boss-encounter-stage')) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function refreshNarrativeControls(state = typeof roomState !== 'undefined' ? roomState : null) {
   const panel = document.getElementById('narrativeControls');
   const skip = document.getElementById('btnSkipPrologue');
   const speed = document.getElementById('btnNarrativeSpeed');
   if (!panel || !skip || !speed) return;
+
   const leader = !!state && state.leaderId === (typeof myId !== 'undefined' ? myId : null);
   const opening = state?.state === 'PROLOGUE';
-  const typing = [...narrativeControls.writers].some(writer => writer.key === narrativeControls.key);
-  panel.classList.toggle('hidden', !leader || (!opening && !typing));
-  skip.classList.toggle('hidden', !opening);
-  speed.disabled = !typing;
-  speed.setAttribute('aria-pressed', String(narrativeControls.accelerated));
-  speed.textContent = narrativeControls.accelerated ? '▶▶ 加速：開' : '▶▶ 加速：關';
+  const hasTypewriter = isTypewriterEvent(state);
+
+  if (opening) {
+    // 序章中只顯示跳過按鈕 (僅隊長可見)
+    panel.classList.toggle('hidden', !leader);
+    skip.classList.toggle('hidden', !leader);
+    skip.textContent = '跳過 >';
+    speed.classList.add('hidden');
+    return;
+  }
+
+  // 序章以外，隱藏跳過按鈕
+  skip.classList.add('hidden');
+
+  if (!hasTypewriter) {
+    // 沒有打字機特效的事件，隱藏加速按鈕與控制面版
+    panel.classList.add('hidden');
+    speed.classList.add('hidden');
+    return;
+  }
+
+  // 有打字機特效的事件
+  if (leader) {
+    panel.classList.remove('hidden');
+    speed.classList.remove('hidden');
+    speed.disabled = false;
+    speed.classList.remove('is-non-leader-status');
+    speed.setAttribute('aria-pressed', String(narrativeControls.accelerated));
+    speed.textContent = narrativeControls.accelerated ? '▶▶ 加速：開' : '▶▶ 加速：關';
+  } else {
+    // 非隊長玩家：在按鈕位置顯示「隊長已開啟加速中...」
+    if (narrativeControls.accelerated) {
+      panel.classList.remove('hidden');
+      speed.classList.remove('hidden');
+      speed.disabled = true;
+      speed.classList.add('is-non-leader-status');
+      speed.setAttribute('aria-pressed', 'true');
+      speed.textContent = '隊長已開啟加速中...';
+    } else {
+      panel.classList.add('hidden');
+      speed.classList.add('hidden');
+    }
+  }
 }
 
 function setNarrativeAcceleration(value) {
@@ -38,9 +93,11 @@ function syncNarrativeControls(state) {
   if (key !== narrativeControls.key) {
     if (typeof currentTypewriterContext !== 'undefined') currentTypewriterContext?.cancel?.();
     narrativeControls.key = key;
-    narrativeControls.accelerated = false;
+    // 各事件共享加速效果：不在此重置 narrativeControls.accelerated
   }
-  if (state?.narrativeControl) setNarrativeAcceleration(state.narrativeControl.accelerated);
+  if (state?.narrativeControl && typeof state.narrativeControl.accelerated === 'boolean') {
+    setNarrativeAcceleration(state.narrativeControl.accelerated);
+  }
   refreshNarrativeControls(state);
 }
 
@@ -63,17 +120,21 @@ function installNarrativeControls() {
   document.getElementById('btnNarrativeSpeed')?.addEventListener('click', () => {
     if (!roomState || roomState.leaderId !== myId) return;
     const key = narrativeControls.key;
-    socket.emit('narrative:accelerate', { key, accelerated: !narrativeControls.accelerated }, res => {
+    const target = !narrativeControls.accelerated;
+    socket.emit('narrative:accelerate', { key, accelerated: target }, res => {
       if (!res?.success) return;
-      if (res.key === narrativeControls.key) {
-        roomState.narrativeControl = { key:res.key, accelerated:res.accelerated };
-        setNarrativeAcceleration(res.accelerated);
+      if (roomState) {
+        if (!roomState.narrativeControl) roomState.narrativeControl = {};
+        roomState.narrativeControl.accelerated = res.accelerated;
       }
+      setNarrativeAcceleration(res.accelerated);
     });
   });
   socket.on('narrative:accelerated', data => {
-    if (data?.key !== narrativeControls.key) return;
-    if (roomState) roomState.narrativeControl = data;
-    setNarrativeAcceleration(data.accelerated);
+    if (roomState) {
+      if (!roomState.narrativeControl) roomState.narrativeControl = {};
+      roomState.narrativeControl.accelerated = data?.accelerated;
+    }
+    setNarrativeAcceleration(data?.accelerated);
   });
 }

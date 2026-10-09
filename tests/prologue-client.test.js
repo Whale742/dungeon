@@ -184,4 +184,33 @@ test('non-narrating route choice immediately reveals choices and unblocks client
   assert.equal(f.app.inert, false);
 });
 
+test('prologue shows only borderless skip button with text 跳過 > and hides speed button', () => {
+  const f = fixture();
+  f.context.roomState = { state: 'PROLOGUE', leaderId: 'a' };
+  f.context.myId = 'a';
+  vm.runInContext('refreshNarrativeControls(roomState)', f.context);
+  assert.equal(f.elements.btnSkipPrologue.classList.contains('hidden'), false);
+  assert.equal(f.elements.btnSkipPrologue.textContent, '跳過 >');
+  assert.equal(f.elements.btnNarrativeSpeed.classList.contains('hidden'), true);
 
+  const css = fs.readFileSync(new URL('../public/style.css', import.meta.url), 'utf8');
+  assert.match(css, /#btnSkipPrologue\s*\{[^}]*border:\s*none/);
+  assert.match(css, /#btnSkipPrologue\s*\{[^}]*color:\s*#ffffff/);
+});
+
+test('member displays floating notice when leader skips prologue', () => {
+  const f = fixture(), listeners = new Map();
+  f.context.socket.on = (name, fn) => listeners.set(name, fn);
+  f.context.myId = 'member';
+  f.context.showPrologueSkipNotice = (msg) => {
+    f.elements.prologueSkipNotice.textContent = msg;
+    f.elements.prologueSkipNotice.classList.remove('hidden');
+    f.elements.prologueSkipNotice.classList.add('is-floating');
+  };
+  vm.runInContext("socket.on('prologue:skipped', data => { if (data?.leaderId && data.leaderId === myId) return; showPrologueSkipNotice('隊長已跳過開頭序章'); });", f.context);
+
+  listeners.get('prologue:skipped')({ leaderId: 'leader' });
+  assert.equal(f.elements.prologueSkipNotice.textContent, '隊長已跳過開頭序章');
+  assert.equal(f.elements.prologueSkipNotice.classList.contains('hidden'), false);
+  assert.equal(f.elements.prologueSkipNotice.classList.contains('is-floating'), true);
+});
