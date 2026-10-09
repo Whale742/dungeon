@@ -234,7 +234,7 @@ body {
   background-image: 
     radial-gradient(circle at 50% 30%, rgba(18, 28, 48, 0.45) 0%, rgba(5, 8, 15, 0.92) 100%),
     linear-gradient(rgba(7, 10, 19, 0.65), rgba(7, 10, 19, 0.85)),
-    url('/icon/background.webp');
+    var(--studio-game-background, url('/icon/background.webp'));
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;

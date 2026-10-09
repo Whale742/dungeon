@@ -680,6 +680,11 @@ async function playPhase8Presentation(step, context = {}) {
   return playSkillCastPresentation(step,{...context,audioScope:audio,skipCastAudio:step.sourceRole==='samurai'},showResults);
 }
 async function playExpandedCombatPresentation(step, context = {}) {
+  if (window.StudioContent && step.sourceRole && step.actionId) {
+    const actor={...(step.hpSnapshotBefore?.players?.find(p=>p.id===step.sourceId)||{}),...(step.gladiatorPresentation?{arenaActive:step.gladiatorPresentation.arenaActive}:{}),...(step.druidForm?{druidForm:step.druidForm}:{})};
+    const view=window.StudioGame?.skillDisplay(step.sourceRole,{id:step.actionId,label:step.skillName},actor);
+    if(view)step={...step,skillName:view.label};
+  }
   await sfxManager.preload();
   if ((context.signal || context.controller?.signal)?.aborted) return;
   const audio = context.audioScope || createSfxPresentationScope(context);

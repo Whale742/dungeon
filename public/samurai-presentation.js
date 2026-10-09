@@ -3,8 +3,9 @@ const SAMURAI_FX_URLS=Object.freeze(['/assets/samurai-eye.png','/assets/samurai-
  '/assets/samurai-fx/zan-full.png','/assets/samurai-fx/zan-split.png','/assets/samurai-fx/swallow-title.png']);
 let samuraiFxAssets;
 function preloadSamuraiFxAssets(){
- return samuraiFxAssets ||= Promise.all(SAMURAI_FX_URLS.map(src=>{const image=new Image();image.src=src;return image.decode().then(()=>image);})).catch(error=>{samuraiFxAssets=null;throw error;});
+ return samuraiFxAssets ||= Promise.all(SAMURAI_FX_URLS.map(src=>{if(window.assetRegistry)return assetRegistry.preloadImage(src);const image=new Image();image.src=src;return image.decode().then(()=>image);})).catch(error=>{samuraiFxAssets=null;throw error;});
 }
+if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>{samuraiFxAssets=null;});
 const samuraiQueueStates=new WeakMap();let samuraiUnscopedState=new Map();
 function samuraiQueueState(context){const key=context.signal||context.controller?.signal;if(!key)return samuraiUnscopedState;let state=samuraiQueueStates.get(key);if(!state){state=new Map();samuraiQueueStates.set(key,state);}return state;}
 function clearSamuraiPresentationState(context={}){const key=context.signal||context.controller?.signal;if(key)samuraiQueueStates.delete(key);else samuraiUnscopedState.clear();}

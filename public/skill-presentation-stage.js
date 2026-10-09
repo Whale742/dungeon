@@ -3,9 +3,11 @@ const SKILL_STAGE = Object.freeze({ width:1440,height:810,actor:{x:260,y:430},ta
 let sageHandAssets;
 function preloadSageHands() {
   return sageHandAssets ||= Promise.all(['sage-snap-1.png','sage-snap-2.png'].map(file=>{
+    if(window.assetRegistry)return assetRegistry.preloadImage('/assets/'+file);
     const img=new Image();img.src='assets/'+file;return img.decode().then(()=>img);
   }));
 }
+if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>{sageHandAssets=null;});
 function skillButterflySvg() {
   return `<svg viewBox="0 0 136 128" aria-hidden="true"><g class="skill-wing left">
           <path fill="#41484a" d="M68 64 L68 78 l-5.3 2.91 l1.92 12.44 l-.42 3.94 l-.7 2.82 l-1.97 3.94 l-5.07 2.95 l-7.18.15 l-9.29-2.54 l-5.49-4.22 l-3.38-5.63 l.84-7.46 l9.57-12.25 l-8.02 2.95 l-10.28.29 l-8.44-9.16 L8.24 55.83 l-3.23-9.29 l2.67-2.82 h7.74 l16.62 2.68 l18.16 7.18 l13.09 7.46 Z"/>

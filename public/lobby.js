@@ -1,5 +1,5 @@
 // Presentation-only class characteristics; gameplay and canonical copy stay server-owned.
-const LOBBY_ROLE_PROFILES = Object.freeze({
+const LOBBY_ROLE_PROFILES = Object.freeze(Object.fromEntries(Object.entries({
   warrior:{enName:'Warrior',tags:['TANK','物理','防護'],radar:['B','S','A','A','C'],passiveSummary:'承受傷害並守護全隊，以護盾與反擊維持前線。'},
   mage:{enName:'Mage',tags:['DPS','魔法','汲取'],radar:['S','C','D','C','B'],passiveSummary:'以魔法爆發與生命汲取輸出，威力強大但需要承擔走火風險。'},
   archer:{enName:'Archer',tags:['DPS','物理','穿透'],radar:['A','B','C','C','B'],passiveSummary:'遠程物理輸出，單體射擊與箭雨壓制各有風險。'},
@@ -12,26 +12,28 @@ const LOBBY_ROLE_PROFILES = Object.freeze({
   dreamweaver:{enName:'Dreamweaver',tags:['SUPPORT','夢境','因果'],radar:['B','B','S','A','A'],passiveSummary:'編織夢境與扭曲因果，運用潛意識混淆、夢蝶迷思與偽造殘夢。'},
   samurai:{enName:'Samurai',tags:['DPS','物理','招架'],radar:['S','A','C','B','A'],passiveSummary:'積累武魂，以狂刀招架反擊，再施展秘劍 • 燕返。'},
   sage:{enName:'Sage',tags:['DPS','物理','演算'],radar:['A','C','B','C','S'],passiveSummary:'交替進行假設與求解，以運算元與變量推導方程結算。'}
-});
+}).map(([id,profile])=>[id,{...profile,radar:profile.radar.map(grade=>({S:5,A:4,B:3,C:2,D:1})[grade])}])));
 const LOBBY_ROLE_ORDER=['warrior','mage','archer','assassin','bard','alchemist','druid','gladiator','stargazer','dreamweaver','samurai','sage'];
 const LOBBY_RADAR_AXES=['輸出','生存','團隊','穩定性','難度'];
-const LOBBY_RADAR_VALUES={S:100,A:80,B:60,C:40,D:20};
+const LOBBY_RADAR_VALUES={S:5,A:4,B:3,C:2,D:1};
+function getLobbyProfile(role){const base=LOBBY_ROLE_PROFILES[role],p=window.StudioContent?.find('role_profiles',role);return p?{...base,enName:p.name_en,tags:p.tags,passiveSummary:p.passive_short,radar:['radar_output','radar_survival','radar_team','radar_stability','radar_difficulty'].map(f=>p[f])}:base;}
 const lobbyRoleUi={role:null,confirmedRole:null,tab:'passive',detailed:true,data:null,radarValues:null,radarFrame:0};
 
 function radarPoint(index, value, radius=76) {
   const angle=-Math.PI/2+index*Math.PI*2/5;
-  return [140+Math.cos(angle)*radius*value/100,116+Math.sin(angle)*radius*value/100];
+  return [140+Math.cos(angle)*radius*value/5,116+Math.sin(angle)*radius*value/5];
 }
 function renderRadarChart(role) {
-  const svg=document.getElementById('lobbyRoleRadar'),profile=LOBBY_ROLE_PROFILES[role];
+  const svg=document.getElementById('lobbyRoleRadar'),profile=getLobbyProfile(role);
   if(!svg||!profile)return;
+  if(window.RadarRenderer){window.RadarRenderer.render(svg,profile.radar,profile.enName);return;}
   if(!svg.children.length){
     svg.innerHTML='<circle class="radar-outer" cx="140" cy="116" r="76"/>'+[.2,.4,.6,.8].map(n=>`<circle class="radar-ring" cx="140" cy="116" r="${76*n}"/>`).join('')+
-      LOBBY_RADAR_AXES.map((axis,i)=>{const end=radarPoint(i,100),label=radarPoint(i,100,104);return `<line class="radar-axis" x1="140" y1="116" x2="${end[0]}" y2="${end[1]}"/><text class="radar-label" x="${label[0]}" y="${label[1]-5}" text-anchor="middle">${axis}</text><text class="radar-grade" data-radar-grade="${i}" x="${label[0]}" y="${label[1]+13}" text-anchor="middle"></text>`;}).join('')+'<polygon class="radar-shape"/><g class="radar-vertices">'+LOBBY_RADAR_AXES.map(()=>'<circle r="3"/>').join('')+'</g>';
+      LOBBY_RADAR_AXES.map((axis,i)=>{const end=radarPoint(i,5),label=radarPoint(i,5,104);return `<line class="radar-axis" x1="140" y1="116" x2="${end[0]}" y2="${end[1]}"/><text class="radar-label" x="${label[0]}" y="${label[1]-5}" text-anchor="middle">${axis}</text><text class="radar-grade" data-radar-grade="${i}" x="${label[0]}" y="${label[1]+13}" text-anchor="middle"></text>`;}).join('')+'<polygon class="radar-shape"/><g class="radar-vertices">'+LOBBY_RADAR_AXES.map(()=>'<circle r="3"/>').join('')+'</g>';
   }
-  const target=profile.radar.map(grade=>LOBBY_RADAR_VALUES[grade]);
+  const target=profile.radar;
   svg.setAttribute('aria-label',profile.enName+'：'+LOBBY_RADAR_AXES.map((axis,i)=>axis+' '+profile.radar[i]).join('，')+'。難度 S 為最難');
-  svg.querySelectorAll('[data-radar-grade]').forEach((n,i)=>n.textContent=profile.radar[i]);
+  svg.querySelectorAll('[data-radar-grade]').forEach((n,i)=>n.textContent=['','D','C','B','A','S'][profile.radar[i]]);
   const draw=values=>{
     lobbyRoleUi.radarValues=values;
     const points=values.map((value,i)=>radarPoint(i,value));
@@ -52,17 +54,19 @@ function updateRoleDescriptionPanel() {
   document.querySelectorAll('[data-role-tab]').forEach(button=>{const active=button.dataset.roleTab===lobbyRoleUi.tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
   document.getElementById('lobbySkillName').textContent=isPassive?'被動與特性':skill?.label||'普通攻擊';
   document.getElementById('lobbySkillMeta').textContent=isPassive?'核心機制':[(skill?.dmgType==='mag'?'魔法':skill?.dmgType==='phys'?'物理':'輔助'),skill?.cd!=null?'CD '+skill.cd+' 回合':''].filter(Boolean).join(' · ');
-  const copy=isPassive?(detailed?(detail?.passive||conf.passive||conf.desc):LOBBY_ROLE_PROFILES[role].passiveSummary):getSkillDescription(role,skill||{},detailed);
+  const copy=isPassive?(detailed?(detail?.passive||conf.passive||conf.desc):getLobbyProfile(role).passiveSummary):getSkillDescription(role,skill||{},detailed);
   document.getElementById('lobbySkillCopy').textContent=copy;
   document.getElementById('lobbyRoleDescription').classList.toggle('is-detailed',detailed);
 }
 function renderRoleDetailPanel() {
-  const {classes,players,myId}=lobbyRoleUi.data,role=lobbyRoleUi.role,conf=classes[role],profile=LOBBY_ROLE_PROFILES[role];
+  const {classes,players,myId}=lobbyRoleUi.data,role=lobbyRoleUi.role,conf=classes[role],profile=getLobbyProfile(role);
   const avatar=document.getElementById('lobbyRoleAvatar');avatar.src=conf.avatar;avatar.alt=conf.name;
   document.getElementById('lobbyRoleName').textContent=conf.name;
   document.getElementById('lobbyRoleEnglish').textContent=profile.enName.toUpperCase();
   document.getElementById('lobbyRoleHp').textContent='基礎生命  '+conf.maxHp+' HP';
   document.getElementById('lobbyRoleTags').innerHTML=profile.tags.map((tag,i)=>`<span class="${i===0?'is-primary':''}">${escapeHtml(tag)}</span>`).join('');
+  let intro=document.getElementById('lobbyRoleIntro');if(!intro){intro=document.createElement('p');intro.id='lobbyRoleIntro';intro.style.cssText='color:#94a3b8;font-size:12px;white-space:pre-wrap';document.getElementById('lobbyRoleTags').after(intro);}
+  const published=window.StudioContent?.find('role_profiles',role);intro.textContent=published?.short_intro||conf.desc;intro.title=published?.full_intro||conf.desc;
   const me=players.find(p=>p.id===myId),others=players.filter(p=>p.role===role&&p.id!==myId);
   document.getElementById('roleSelectionStatus').textContent=me?.role===role?'已選擇此職業':others.length?'隊友已選 · 可共同選擇':'點擊頭像選擇職業';
   renderRadarChart(role);updateRoleDescriptionPanel();
@@ -84,6 +88,8 @@ function renderRolePortraitStrip() {
   container.scrollLeft=scrollLeft;
 }
 function renderRoleLobby(data) {
+  if(window.StudioGame)data={...data,...window.StudioGame.project(data.classes,data.details)};
+  for(const role of new Set(data.players.map(p=>p.role).filter(Boolean)))if(typeof sfxManager!=='undefined')void sfxManager.preloadRole?.(role);
   lobbyRoleUi.data=data;
   const me=data.players.find(p=>p.id===data.myId);
   if(!data.classes[lobbyRoleUi.role]||me?.role!==lobbyRoleUi.confirmedRole){lobbyRoleUi.role=me?.role||lobbyRoleUi.role||'warrior';lobbyRoleUi.confirmedRole=me?.role;}

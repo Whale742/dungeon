@@ -1,4 +1,5 @@
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
+import { createRoomContent } from '../studio/content.js';
 import { phase8Methods, p8State, P8_ROLES } from './phase8.js';
 import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRate, isAssassinHidden, addAssassinCritical } from './assassin.js';
 // 遊戲房間管理核心 (Game Room Engine)
@@ -35,6 +36,7 @@ import {
 export class Room {
   constructor(code, leaderSocket, leaderName, io, leaderAvatar = null) {
     this.code = code;
+    this.studioContent = createRoomContent();
     this.io = io;
     this.leaderId = leaderSocket.id;
     this.memberIds = [leaderSocket.id];
@@ -444,8 +446,8 @@ export class Room {
       if(p.role==='sage'){p.sageX=30;p.sageDebt=0;delete p.sageDebtScheduledRound;}
     }
     this.state = 'PROLOGUE';
-    this.addLog(`📜 **${STORY_TEXTS.prologue.title}**`, 'info');
-    STORY_TEXTS.prologue.paragraphs.forEach(p => this.addLog(p, 'info'));
+    this.addLog(`📜 **${this.studioContent.storyTexts.prologue.title}**`, 'info');
+    this.studioContent.storyTexts.prologue.paragraphs.forEach(p => this.addLog(p, 'info'));
 
     // Reuse the presentation ACK barrier. Story time never shares a turn timer,
     // and the fastest client cannot advance a teammate's unfinished prologue.
@@ -777,13 +779,13 @@ export class Room {
       this.battlesInCurrentCycle = (this.battlesInCurrentCycle || 0) + 1;
     }
 
-    const routeData = ROUTE_STORIES[route.id] || ROUTE_STORIES['route_trail'];
+    const routeData = this.studioContent.routeStories[route.id] || this.studioContent.routeStories['route_trail'];
     let outcomeData = routeData[outcomeType] || routeData['battle'];
 
     if (isWeakenedBoss) {
       outcomeData = {
         title: (outcomeData.title || `【${route.name}・魔物遭遇】`).replace('⚔️', '🥀⚔️') + ' (削弱BOSS)',
-        story: `${outcomeData.story}（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）`
+        story: outcomeData.story + this.studioContent.text('event.bossWeakened','（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）')
       };
     }
 
@@ -797,7 +799,7 @@ export class Room {
       outcomeType: isWeakenedBoss ? 'battle_weakened' : outcomeType,
       isWeakenedBoss: isWeakenedBoss,
       storyTitle: `【路線結算・${route.name}】`,
-      storyText: `小隊踏入【${route.name}】，正向第 ${this.floor} 層深處探索前行……`
+      storyText: this.studioContent.text('event.routeTransition',`小隊踏入【${route.name}】，正向第 ${this.floor} 層深處探索前行……`,{route:route.name,floor:this.floor})
     };
 
     this.addLog(`🧭 小隊決定前進：【${route.name}】`, 'info');
@@ -1043,7 +1045,7 @@ export class Room {
     }
 
     const routeId = this.currentTransition?.routeId || 'route_trail';
-    const bossStory = getRouteBossStory(routeId, baseMonster.name);
+    const bossStory = this.studioContent.getRouteBossStory(routeId, baseMonster.name);
     const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
     const encounterStory = bossStory + weakenedSuffix;
 
@@ -2803,7 +2805,7 @@ export class Room {
         tags: usedSkill ? (usedSkill.tags || []) : [],
         targetId: p.targetPlayerId || (monster.hp > 0 || isLethal ? 'monster' : null),
         targetName: (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId].name : monster.name,
-        narrative: BATTLE_NARRATIVES.getPlayerSkillNarrative(p, p.action, {
+        narrative: this.studioContent.battleNarratives.getPlayerSkillNarrative(p, p.action, {
           isCrit: (p.action === 's_stab' && assassinDidCrit),
           flaskType: p.rolledFlaskType || (actionOutcome?.type === 'alchemy_poison' ? 'poison' : 'acid'),
           outcome: actionOutcome?.type
@@ -2864,7 +2866,7 @@ export class Room {
         name: p.name,
         role: p.role,
         actionId: p.action,
-        text: BATTLE_NARRATIVES.getPlayerSkillNarrative(p, p.action, { isCrit: (p.action === 's_stab' && assassinDidCrit) }),
+        text: this.studioContent.battleNarratives.getPlayerSkillNarrative(p, p.action, { isCrit: (p.action === 's_stab' && assassinDidCrit) }),
         detail: log[log.length - 1]?.text || ''
       });
 
@@ -2920,7 +2922,7 @@ export class Room {
         presentationQueue.push({
           type: 'kill',
           monsterName: monster.name,
-          narrative: `💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,
+          narrative: this.studioContent.text('event.victory',`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,{boss:monster.name}),
           visualEvents: [{ type: 'monster_killed' }],
           hpSnapshot: this.getHpSnapshot()
         });
@@ -2984,7 +2986,7 @@ export class Room {
       narratives.push({
         type: 'kill',
         name: monster.name,
-        text: `💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`
+        text: this.studioContent.text('event.victory',`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,{boss:monster.name})
       });
       // Phase 5.1: 怪物已死亡，嚴禁提前 return 或跳過 presentation_queue！
       // 致命一擊與擊殺演出必須由客戶端依序播放完畢並發送 ACK，再由 finishTurnPresentation() 統一過渡至勝利階段。
@@ -3017,7 +3019,7 @@ export class Room {
       if(this.p8Has(monster,'frenzy_backfire'))baseDamageCalc=Math.floor(baseDamageCalc*1.1);
       if(!this.arena && this.p8Has(monster,'sage_square')?.starts<=this.battleRound)baseDamageCalc=Math.floor(baseDamageCalc*.75);
 
-      const monsterTemplate = BATTLE_NARRATIVES.monsters[monster.originalName || monster.name] || {
+      const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
         normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
         ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
       };
@@ -3322,7 +3324,7 @@ export class Room {
 
     // 首領行動演出步驟加入 presentationQueue (直接接續，不插入 BOSS TURN 字幕)
     if (!this.monsterStunnedThisRound && monster.hp > 0) {
-      const monsterTemplate = BATTLE_NARRATIVES.monsters[monster.originalName || monster.name] || {
+      const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
         normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
         ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
       };
@@ -3418,7 +3420,7 @@ export class Room {
     this.p8LogBuffer=null;
     if (monster.hp <= 0 && !presentationQueue.some(step => step.type === 'kill')) {
       presentationQueue.push({type:'kill',monsterName:monster.name,
-        narrative:`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,
+        narrative:this.studioContent.text('event.victory',`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,{boss:monster.name}),
         visualEvents:[{type:'monster_killed'}],hpSnapshot:this.getHpSnapshot()});
     }
     this.publishCombatQueue(presentationQueue, 'resolution');
@@ -3787,7 +3789,7 @@ export class Room {
       } : null,
       currentEvent: this.currentEvent,
       currentTransition: this.currentTransition,
-      currentPrologue: (this.state === 'PROLOGUE') ? STORY_TEXTS.prologue : null,
+      currentPrologue: (this.state === 'PROLOGUE') ? this.studioContent.storyTexts.prologue : null,
       narrativeControl: this.getNarrativeControl(),
       isNarrating: this.isNarrating || false,
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
@@ -3799,7 +3801,7 @@ export class Room {
       currentVictory: this.currentVictory,
       victoryInteractionReady: this.victoryInteractionReady || false,
       gameBalance: GAME_BALANCE,
-      routeNarrative: STORY_TEXTS.routeChoice.paragraphs.slice(0, 2),
+      routeNarrative: this.studioContent.storyTexts.routeChoice.paragraphs.slice(0, 2),
       pendingDrop: this.pendingDrop || null,
       floorDifficultyPercent: getFloorDifficultyBonusPercent(this.floor),
       players: Object.values(this.players).map(p => ({

@@ -1,0 +1,9 @@
+body.lab-body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.lab-body .lab-container{flex:1;height:auto;min-height:0}
+.lab-body .lab-sidebar{flex:none;width:300px;height:100%;min-width:280px;z-index:1100}
+.lab-body .lab-sidebar-content{padding:12px}
+.lab-body .studio-lab-details .lab-card{border:0;margin:0;background:transparent}
+.lab-body .studio-lab-details .lab-card-title{display:none}
+.lab-body #studioNav{flex:none}
+.lab-body .lab-main{min-width:0;height:100%}
+@media(max-width:720px){body.lab-body{height:auto;min-height:100vh;overflow:auto}.lab-body .lab-container{display:flex;flex-direction:column}.lab-body .lab-sidebar{position:relative;transform:none;width:100%;max-height:400px}.lab-body .lab-main{min-height:750px}.lab-body .lab-sidebar-toggle-btn{display:none}}

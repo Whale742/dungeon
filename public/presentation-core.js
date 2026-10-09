@@ -48,6 +48,7 @@ class SFXManager {
     if (unlock && this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {});
   }
   loadAsset(profile) {
+    if(typeof window!=='undefined'&&window.assetRegistry)profile=window.assetRegistry.audioProfile(profile);
     if (this.assets.has(profile.src)) return this.assets.get(profile.src).promise;
     this.init(false);
     const entry = { buffer: null, failed: false, promise: null };
@@ -65,6 +66,10 @@ class SFXManager {
         return entry.buffer;
       } catch (error) {
         entry.failed = true;
+        if(profile.localSrc&&profile.localSrc!==profile.src){
+          window.assetRegistry?.markFailed(profile.src);
+          return this.loadAsset({...profile,src:profile.localSrc,localSrc:null,bindingKey:null});
+        }
         console.warn('[SFX] Asset unavailable; synth fallback:', profile.src, error.message);
         return null;
       } finally { clearTimeout(timeout); }
@@ -76,7 +81,15 @@ class SFXManager {
     if (typeof SFX_ASSETS === 'undefined') return Promise.resolve([]);
     this.init(false);
     if (!this.ctx) return Promise.resolve([]);
-    return Promise.all(Object.values(SFX_ASSETS).map(profile => this.loadAsset(profile)));
+    return Promise.all(['fight','logo_intro','chest_reveal','boss_warning','boss_entrance','walk','victory'].map(key=>SFX_ASSETS[key]).filter(Boolean).map(profile=>this.loadAsset(profile)));
+  }
+  preloadRole(role) {
+    if(typeof SFX_ASSETS==='undefined')return Promise.resolve([]);
+    const prefix=role==='dreamweaver'?'dream':role==='samurai'?'samurai':role==='sage'?'sage':role;
+    const keys=new Set(Object.values(typeof SFX_PRESENTATION_PROFILES!=='undefined'?SFX_PRESENTATION_PROFILES[role]||{}:{}).filter(Boolean));
+    for(const key of Object.keys(SFX_ASSETS))if(key.startsWith(prefix))keys.add(key);
+    if(role==='druid')for(const key of ['transform_wolf','transform_treant','treant_action','wolf_action','claw_slash'])keys.add(key);
+    return Promise.all([...keys].map(key=>SFX_ASSETS[key]).filter(Boolean).map(profile=>this.loadAsset(profile)));
   }
   stopAll({preserveTails=false}={}) {
     this.generation++;
@@ -96,7 +109,8 @@ class SFXManager {
     if (now - (this.lastPlayed.get(throttleKey) || 0) < this.minInterval) return Promise.resolve(null);
     this.lastPlayed.set(throttleKey, now);
     const key = typeof SFX_ALIASES !== 'undefined' ? SFX_ALIASES[type] || type : type;
-    const profile = typeof SFX_ASSETS !== 'undefined' ? SFX_ASSETS[key] : null;
+    let profile = typeof SFX_ASSETS !== 'undefined' ? SFX_ASSETS[key] : null;
+    if(profile&&typeof window!=='undefined'&&window.assetRegistry)profile=window.assetRegistry.audioProfile(profile);
     if (!profile || options.synthOnly) { this.playSynth(type, options); return Promise.resolve(null); }
     const generation = this.generation;
     return this.loadAsset(profile).then(buffer => {
@@ -1129,8 +1143,8 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
   if (typeof descriptor === 'string') descriptor = { role: descriptor };
   const role = descriptor.role || descriptor.sourceRole || 'warrior';
   const form = descriptor.druidForm;
-  if (role === 'druid' && form === 'werewolf') return { src: '/photo/狼人.webp', name: '狼人', transformed: true };
-  if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: '/photo/遠古樹精.webp', name: '遠古樹精', transformed: true };
+  if (role === 'druid' && form === 'werewolf') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.werewolf','/photo/狼人.webp'):'/photo/狼人.webp', name: '狼人', transformed: true };
+  if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.'+form,'/photo/遠古樹精.webp'):'/photo/遠古樹精.webp', name: '遠古樹精', transformed: true };
   if (descriptor.entityType === 'minion' || descriptor.type === 'wolf' || descriptor.type === 'treant') {
     const index = descriptor.minionIndex || 1;
     return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然僕從' };
@@ -1142,7 +1156,8 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
     return { emoji: override, name: descriptor.name || role };
   }
   const info = (typeof classesData !== 'undefined' && classesData[role]) || DEFAULT_ROLE_AVATARS[role] || DEFAULT_ROLE_AVATARS.warrior;
-  return { src: descriptor.avatarOverride || (options.allowCustom && descriptor.avatar) || info.avatar, name: descriptor.name || info.name };
+  const fallback=descriptor.avatarOverride || (options.allowCustom && descriptor.avatar) || info.avatar;
+  return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.'+role+'.avatar',fallback):fallback, name: descriptor.name || info.name };
 }
 function battlePortraitHtml(descriptor, className = 'combat-banner-portrait', options = {}) {
   const portrait = resolveBattlePortrait(descriptor, options);

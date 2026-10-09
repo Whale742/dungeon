@@ -28,8 +28,12 @@
   <!-- Developer Harness CSS (Strictly .lab-* only) -->
   <link rel="stylesheet" href="presentation-lab.css">
 <link rel="stylesheet" href="/audio-controls.css">
+<link rel="stylesheet" href="/studio/studio.css">
+<link rel="stylesheet" href="/studio/lab-layout.css">
 </head>
-<body class="lab-body">
+<body class="lab-body studio-body">
+  <nav id="studioNav" class="studio-nav" aria-label="Studio 導覽"></nav>
+  <div id="studioNotice" class="studio-preview-banner" role="status"></div>
 
   <!-- Global SVG Sprite Definitions (Reused from index.html) -->
   <svg style="display:none;" aria-hidden="true">
@@ -476,13 +480,6 @@
             <button type="button" id="btnTransformHuman" class="lab-btn lab-btn-secondary lab-btn-sm" style="flex:1; font-size:0.72rem;">人形 (Human)</button>
           </div>
         </div>
-      <section class="lab-copy-editor" id="skillCopyEditor" style="padding:16px">
-        <h3>技能敘述編輯（名稱固定）</h3>
-        <select id="copyRole"></select><select id="copySkill"></select>
-        <label style="display:block">簡略敘述<textarea id="copyShort" rows="3" style="width:100%"></textarea></label>
-        <label style="display:block">完整敘述<textarea id="copyFull" rows="9" style="width:100%"></textarea></label>
-        <button id="copySave" type="button">儲存到此瀏覽器</button><button id="copyReset" type="button">恢復原始敘述</button><button id="copyExport" type="button">匯出敘述 JSON</button><span id="copyNotice"></span>
-      </section>
       </div>
 
     </aside>
@@ -724,7 +721,12 @@
   </div>
 
   <!-- Scripts: Production Single Source of Truth + Lab Controller -->
+  <script src="/studio/content-store.js"></script>
+  <script src="/studio/asset-registry.js"></script>
+  <script src="/studio/write-client.js"></script>
+  <script src="/studio/ui.js"></script>
   <script src="skill-copy.js"></script>
+  <script src="/studio/game-bridge.js"></script>
   <script src="battle-log.js"></script>
   <script src="presentation-config.js"></script>
   <script src="sfx-assets.js"></script>
@@ -751,7 +753,7 @@
   <script src="portrait-status-fx.js"></script>
   <script src="lab-combat-scenes.js"></script>
   <script src="samurai-lab-scenes.js"></script>
-  <script src="skill-copy-editor.js"></script>
   <script src="presentation-lab.js"></script>
+  <script src="/studio/lab-controller.js"></script>
 </body>
 </html>

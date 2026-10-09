@@ -649,6 +649,10 @@ socket.on('init:constants', (data) => {
   renderRoleSelectionGrid();
   updateHeroRoleOptionUI();
 });
+socket.on('studio:content', data => { if(window.StudioContent)StudioContent.install(data,{pin:true}); });
+window.addEventListener('studio:content-ready',()=>{
+  if(Object.keys(classesData).length){renderRoleSelectionGrid();updateHeroRoleOptionUI();}
+});
 
 let pendingAuthoritativeState = null;
 
@@ -1410,7 +1414,7 @@ function showCinematicBanner({ title, subtitle, theme = 'gold', onFinish = null 
     cinematicBannerTimeout = null;
   }
 
-  if (elements.cinematicBannerTitle) elements.cinematicBannerTitle.textContent = title;
+  if (elements.cinematicBannerTitle) elements.cinematicBannerTitle.textContent = /^【第 \d+ 層・深淵探索】$/.test(title)&&window.StudioContent?StudioContent.template(StudioContent.find('story_copies','event.floor')?.body||title,{floor:roomState?.floor||1}):title;
   if (elements.cinematicBannerSub) elements.cinematicBannerSub.textContent = subtitle || '';
 
   // 設置主題樣式 (冒險金、玩家藍、首領紅、營地綠、事件金)
@@ -2172,7 +2176,7 @@ function renderMyActionBar(me) {
 
   const roleConfig = classesData[me.role];
   elements.myRoleEmoji.innerHTML = getPlayerAvatarHtml(me, 'my-role-avatar-img');
-  elements.myRoleName.textContent = roleConfig.name;
+  elements.myRoleName.textContent = window.StudioContent?.find('role_profiles',me.role)?.name_zh||roleConfig.name;
 
   // 狀態簡報（包含狼人/樹精/僕從狀態）
   let stanceHtml = '';
@@ -2281,7 +2285,7 @@ function renderMyActionBar(me) {
   elements.mySkillsRow.innerHTML = '';
 
   // 渲染自身所有技能
-  const activeSkills = (me.availableSkills && me.availableSkills.length > 0) ? me.availableSkills : roleConfig.skills;
+  const activeSkills = ((me.availableSkills && me.availableSkills.length > 0) ? me.availableSkills : roleConfig.skills).map(skill=>window.StudioGame?.skillDisplay(me.role,skill,me)||skill);
 
   activeSkills.forEach(skill => {
     let cd = me.cooldowns[skill.id] || 0;
@@ -2703,13 +2707,16 @@ if (elements.minionDetailModal) {
 // 角色詳細技能與數值介紹 Modal 邏輯
 // ==========================================
 function openRoleDetailModal(roleKey) {
-  const details = (roleDetailsData && roleDetailsData[roleKey]) || (DEFAULT_ROLE_DETAILS && DEFAULT_ROLE_DETAILS[roleKey]);
+  const baseDetails = (roleDetailsData && roleDetailsData[roleKey]) || (DEFAULT_ROLE_DETAILS && DEFAULT_ROLE_DETAILS[roleKey]);
+  const profile=window.StudioContent?.find('role_profiles',roleKey);
+  const details=baseDetails&&{...baseDetails,roleName:profile?.name_zh||baseDetails.roleName,enName:profile?.name_en||baseDetails.enName,type:profile?.position_label??baseDetails.type,passive:profile?.passive_full??baseDetails.passive};
   if (!details || !elements.roleDetailModal) return;
   const battlePlayers = roomState?.state === 'IN_BATTLE' ? roomState.players.filter(p => p.role === roleKey) : [];
   const battlePlayer = battlePlayers.find(p => p.id === myId) || battlePlayers[0];
   const modalSkills = (details.skills || []).map((s,index) => {
-    const skill = battlePlayer?.availableSkills?.[index] || classesData[roleKey]?.skills?.[index] || s;
-    if (!skill.contextualCopy) return { ...s, copySkill:skill };
+    const raw = battlePlayer?.availableSkills?.[index] || classesData[roleKey]?.skills?.[index] || s;
+    const skill=window.StudioGame?.skillDisplay(roleKey,raw,battlePlayer)||raw;
+    if (!skill.contextualCopy) return { ...s, name:skill.label||s.name,copySkill:skill };
     return { ...s, name:skill.label, cd:`CD ${skill.cd}`,
       dmgType:skill.dmgType === 'phys' ? '【物理】' : skill.dmgType === 'mag' ? '【魔法】' : '【輔助】', copySkill:skill };
   });
@@ -2881,7 +2888,7 @@ function renderLogs() {
 // 輔助格式化 Markdown 粗體
 function formatMarkdown(text) {
   if (!text) return '';
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  return escapeHtml(String(text)).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 }
 
 function escapeHtml(str) {

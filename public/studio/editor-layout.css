@@ -1,0 +1,6 @@
+@media(min-width:1101px){
+  #editorForm{max-height:calc(100vh - 430px);min-height:260px;overflow:auto;padding-right:10px;margin-top:16px}
+  #editorPreview{max-height:calc(100vh - 250px);overflow:auto;align-self:start;position:sticky;top:110px}
+  .studio-grid>aside:first-child{align-self:start}
+  #editorList{max-height:calc(100vh - 510px);min-height:200px}
+}

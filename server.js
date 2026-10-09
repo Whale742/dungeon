@@ -5,11 +5,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Room } from './game/Room.js';
 import { CLASSES, ROUTES, ROLE_DETAILS } from './game/constants.js';
+import { loadEnv } from './studio/env.js';
+import { mountStudio } from './studio/router.js';
+import { refreshPublished,createRoomContent,contentCache } from './studio/content.js';
+loadEnv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+if(process.env.RENDER)app.set('trust proxy',1);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -21,6 +26,10 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 
 // 提供靜態檔案 (前端 SPA 與照片目錄)
+mountStudio(app, path.join(__dirname, 'public'),{onPublish:async()=>syncLobbyContent(await refreshPublished())});
+// Published reads never prevent server startup or authoritative gameplay.
+void refreshPublished().then(syncLobbyContent);
+setInterval(() => { void refreshPublished().then(syncLobbyContent); }, 60000).unref();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/photo', express.static(path.join(__dirname, 'photo')));
 app.use('/BOSS', express.static(path.join(__dirname, 'public', 'BOSS')));
@@ -28,12 +37,18 @@ app.use('/boss', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/icon', express.static(path.join(__dirname, 'public', 'icon')));
 app.use('/sound', express.static(path.join(__dirname, 'public', 'sound')));
 
-app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(CLASSES).map(([id,c])=>[id,{...c,skills:c.skills.map(skill=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.find(s=>s.name===skill.label)?.desc??skill.desc}))}]))));
+app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(CLASSES).map(([id,c])=>[id,{...c,skills:c.skills.map((skill,index)=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.[index]?.desc??skill.desc}))}]))));
 
 // 遊戲房間登錄表 (code -> Room)
 const rooms = new Map();
 // 玩家 Socket 與房間對照表 (socketId -> code)
 const socketToRoom = new Map();
+function syncLobbyContent(ok) {
+  if(!ok)return;
+  for(const room of rooms.values())if(room.state==='LOBBY'&&room.studioContent.revision!==contentCache.loadedAt){
+    room.studioContent=createRoomContent();io.to(room.code).emit('studio:content',room.studioContent.snapshot);
+  }
+}
 
 // 產生隨機房間代碼 (5碼大寫英數字)
 function generateRoomCode() {
@@ -64,6 +79,7 @@ io.on('connection', (socket) => {
 
       const code = generateRoomCode();
       const room = new Room(code, socket, name, io, avatar);
+      socket.emit('studio:content', room.studioContent.snapshot);
       rooms.set(code, room);
       socketToRoom.set(socket.id, code);
 
@@ -92,6 +108,7 @@ io.on('connection', (socket) => {
 
       const result = room.addPlayer(socket, name, avatar);
       if (result.success) {
+        socket.emit('studio:content', room.studioContent.snapshot);
         socketToRoom.set(socket.id, roomCode);
         console.log(`[加入] 玩家 ${name} 加入房間 ${roomCode}`);
       }

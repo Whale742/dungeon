@@ -744,6 +744,7 @@ async function playStatusLabScene(sceneName, context) {
 
 // --- 6. 播放場景核心 (Scene Runner calling Production Functions) ---
 async function playScene(sceneName) {
+  if(window.StudioContent){await StudioContent.load();StudioContent.applyPreview();}
   resetLab();
   document.body.classList.toggle('is-exploring',['exploration_narrative','route_choice','trap_event','chest_event'].includes(sceneName));
   labState.sceneStartTime = Date.now();
@@ -778,6 +779,10 @@ async function playScene(sceneName) {
   };
 
   try {
+    const fixture=(typeof SAMURAI_LAB_SCENES!=='undefined'&&SAMURAI_LAB_SCENES[sceneName])||(typeof GLADIATOR_LAB_SCENES!=='undefined'&&GLADIATOR_LAB_SCENES[sceneName])||(typeof PHASE6_LAB_SCENES!=='undefined'&&PHASE6_LAB_SCENES[sceneName]);
+    const preloadRole=fixture?.role||fixture?.steps?.find(step=>step.sourceRole)?.sourceRole;
+    if(preloadRole)await sfxManager.preloadRole(preloadRole);
+    if(signal.aborted)return;
     if (sceneName.startsWith('chest_')) {
       elements.views.event.classList.remove('hidden');
       elements.views.event.classList.add('active');
@@ -967,7 +972,7 @@ async function playScene(sceneName) {
         elements.gameTitleContainer.classList.add('hidden');
         elements.prologuePresentationContainer.classList.remove('hidden');
         elements.prologuePresBody.replaceChildren();
-        await typewriterEffect(elements.prologuePresBody, [
+        await typewriterEffect(elements.prologuePresBody, window.StudioContent?.find('story_copies','story.prologue')?.paragraphs || [
           '遠古深淵在無盡的長夜中甦醒。',
           '唯有真正的冒險者，方能深入未知與絕望的地下殿堂。'
         ], signal, null, labState.speed);
@@ -980,7 +985,7 @@ async function playScene(sceneName) {
 
       case 'floor_intro': {
         elements.stageCinematicBanner.classList.remove('hidden');
-        elements.cinematicBannerTitle.textContent = '【第 1 層・深淵探索】';
+        elements.cinematicBannerTitle.textContent = window.StudioContent?StudioContent.template(StudioContent.find('story_copies','event.floor')?.body||'【第 1 層・深淵探索】',{floor:1}):'【第 1 層・深淵探索】';
         elements.cinematicBannerSub.textContent = 'FLOOR 1 · DEEP ABYSS';
         sfxManager.play('walk',{signal});
         logLab('BANNER', 'Stage cinematic banner entered. Holding 2000ms...');

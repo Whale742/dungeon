@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Content Editor · Dungeon Abyss Studio</title><link rel="icon" href="/icon/icon.webp"><link rel="stylesheet" href="/studio/studio.css"></head>
+<body class="studio-body"><link rel="stylesheet" href="/studio/editor-layout.css"><nav id="studioNav" class="studio-nav" aria-label="Studio 導覽"></nav><main class="studio-page">
+<header class="studio-heading"><div><h1>Content Editor</h1><div class="studio-muted">編輯世界的聲音與角色介紹。戰鬥數值由遊戲程式管理。</div></div><span id="editorSource" class="studio-muted">讀取內容中…</span></header>
+<div id="studioNotice" class="studio-notice" role="status" aria-live="polite">正在載入內建與已發布內容。</div>
+<div class="studio-toolbar" id="editorActions"></div>
+<div class="studio-grid"><aside class="studio-panel"><label class="studio-field"><span>內容分類</span><select id="editorCategory"><option value="role">職業資訊</option><option value="skill">職業技能</option><option value="passive">被動與特性</option><option value="story">故事文案</option><option value="route">路線事件</option><option value="boss">BOSS 敘事</option><option value="battle">戰鬥敘事</option><option value="other">其他展示文案</option></select></label><label class="studio-field"><span>職業（全部 12 職業）</span><select id="editorRole"></select></label><label class="studio-field"><span>搜尋</span><input id="editorSearch" type="search" placeholder="名稱或穩定 ID"></label><div id="editorList" class="studio-list"></div></aside>
+<section class="studio-panel"><h2 id="editorTitle">選擇內容</h2><div id="editorIdentity" class="studio-muted"></div><div id="editorForm"></div><div id="editorItemActions" class="studio-toolbar"></div><details class="studio-history"><summary>版本歷史與回復</summary><div id="editorHistory"></div></details></section>
+<aside id="editorPreview" class="studio-panel studio-preview" aria-label="即時預覽"></aside></div>
+<input id="editorImport" type="file" accept="application/json,.json" hidden>
+<dialog id="editorImportDialog"><h2>匯入前差異預覽</h2><p>確認後僅儲存雲端草稿，正式內容需另外發布。</p><pre id="editorDiff" class="studio-diff"></pre><div id="editorImportActions" class="studio-toolbar"></div></dialog>
+</main><script src="/studio/content-store.js"></script><script src="/studio/asset-registry.js"></script><script src="/studio/radar-renderer.js"></script><script src="/studio/write-client.js"></script><script src="/studio/ui.js"></script><script src="/studio/import-export.js"></script><script src="/studio/editor.js"></script></body></html>

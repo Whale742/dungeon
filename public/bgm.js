@@ -1,6 +1,6 @@
 const BGM_TRACKS=Object.freeze({
- normal:{src:'/sound/bgm-normal.mp3',volume:.22,loadTimeoutMs:30000},
- boss:{src:'/sound/bgm-boss.mp3',volume:.25,loadTimeoutMs:30000}
+ normal:{src:'/sound/bgm-normal.mp3',bindingKey:'bgm.normal',volume:.22,loadTimeoutMs:30000},
+ boss:{src:'/sound/bgm-boss.mp3',bindingKey:'bgm.boss',volume:.25,loadTimeoutMs:30000}
 });
 // Music uses the shared AudioContext/master mute, with its own looping voices.
 class BGMManager {
@@ -20,7 +20,7 @@ class BGMManager {
  }
  preload(){this.audio.init(false);if(!this.ctx)return Promise.resolve([]);return Promise.all(Object.values(BGM_TRACKS).map(profile=>this.audio.loadAsset(profile)));}
  async startTrack(name,fadeMs=0){
-  const epoch=this.epoch,profile=BGM_TRACKS[name];
+  const epoch=this.epoch,base=BGM_TRACKS[name],profile=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.audioProfile(base):base;
   this.audio.init();if(!this.ctx)return null;
   if(this.audio.assets?.get(profile.src)?.failed)this.audio.assets.delete(profile.src);
   const buffer=await this.audio.loadAsset(profile);

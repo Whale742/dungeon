@@ -50,7 +50,7 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['walk', 'walk', .4, null, 0, 2000, 120],
   ['victory', 'victory', .16, 'victory', 0, 3900]
 ].map(([key, file, volume, fallback, offset, identityBeatMs, maxDuration]) => [key, Object.freeze({
-  src: '/sound/' + file + '.mp3', volume, fallback, offset, identityBeatMs,
+  src: '/sound/' + file + '.mp3', bindingKey:'sfx.'+key, volume, fallback, offset, identityBeatMs,
   // A short fade preserves the tail without waiting for silence/file ended.
   maxDuration: maxDuration ?? (identityBeatMs + 200) / 1000
 })])));
