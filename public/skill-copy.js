@@ -6,6 +6,7 @@ function skillCopyOverrides(){try{return JSON.parse(localStorage.getItem('skillC
 function registerSkillCopies(classes,details){skillCopyDefaults=classes||{};if(details)skillCopyDetails=details;}
 function setSkillCopyDetailed(value){skillCopyDetailed=!!value;localStorage.setItem('skillCopyDetailed',String(skillCopyDetailed));}
 function getSkillDescription(role,skill,detailed=skillCopyDetailed){
+ if(skill.contextualCopy)return detailed?(skill.desc||''):(skill.shortDesc||skill.desc||'');
  const original=skillCopyDefaults[role]?.skills?.find(s=>s.id===skill.id)||skill;
  const override=skillCopyOverrides()[role+':'+skill.id];
  const full=skillCopyDetails[role]?.skills?.find(s=>s.name===skill.label)?.desc;

@@ -7,5 +7,5 @@ Room.prototype.startAdventure=function(socketId) {
   this.p8ResetBattle();this.executeRoundStart();return {success:true};
 };
 const resolve=Room.prototype.resolveTurnActions;
-Room.prototype.resolveTurnActions=function(){const old=Math.random;Math.random=()=>.1;try{return resolve.call(this);}finally{Math.random=old;}};
+Room.prototype.resolveTurnActions=function(){const old=Math.random;Math.random=()=>process.env.SAGE_V3_CONFUSION_TEST==='1'?.01:.1;try{return resolve.call(this);}finally{Math.random=old;}};
 process.env.PORT='3013';await import('../server.js');

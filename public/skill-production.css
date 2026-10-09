@@ -117,3 +117,14 @@
 .stargazer-prototype-stage[data-reduced-motion="true"] .celestial-display-icon{animation:none}
 .sage-hand-motion{position:absolute;z-index:3;pointer-events:none;will-change:transform,opacity}
 .sage-hand-motion .sage-hand{z-index:auto}
+.sage-confusion-cutin{position:absolute;left:36px;top:145px;width:290px;height:430px;object-fit:contain;object-position:center;opacity:0;z-index:9;pointer-events:none;transform-origin:50% 70%;filter:drop-shadow(-8px 6px 10px #54244745)}
+.sage-confusion-warning{position:absolute;left:480px;top:465px;width:480px;text-align:center;color:#d5af91;font:22px/1.5 sans-serif;letter-spacing:2px;z-index:9}
+.sage-confusion-branch{position:absolute;inset:0;z-index:8;pointer-events:none}
+.sage-confusion-branch svg{width:100%;height:100%;overflow:visible}
+.sage-confusion-branch path{fill:none;stroke:#b69a60;stroke-width:2;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(1px 0 2px #6a3052)}
+.sage-equation-confused .sage-beam{background:linear-gradient(90deg,#ac8c55,#dbc99c,transparent);filter:drop-shadow(0 1px 2px #723953);height:2px}
+.sage-x-breakdown{position:absolute;left:380px;right:280px;top:705px;z-index:10;display:flex;justify-content:center;flex-wrap:wrap;gap:8px 18px;font:16px/1.4 ui-monospace,monospace;color:#e5cf9f;text-align:center}
+.sage-x-breakdown strong,.sage-x-breakdown small{flex-basis:100%;font:14px/1.5 sans-serif;color:#b7a47a}
+.sage-properties{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 12px}
+.sage-properties span{flex:0 0 auto;font-size:16px}
+.skill-production-stage[data-reduced-motion=true] .sage-confusion-cutin{filter:none}

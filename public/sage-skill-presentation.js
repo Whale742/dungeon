@@ -33,16 +33,13 @@ function sageScan(s,anchor) {
 async function sageOperandFeedback(s,step,data,anchor) {
   const solve=data.sagePhase==='solve',id=step.actionId;
   if(id==='sge_induce'&&solve){
-    anchor.number.style.opacity='0';
-    const left=s.el('span','sage-momentum-copy'),right=s.el('span','sage-momentum-copy');
-    left.textContent=right.textContent=String(data.operandBefore);s.position(left,212,604);s.position(right,308,604);
-    const cue=s.el('span','sage-momentum-cue');cue.textContent='×2';s.position(cue,260,565);
-    if(!s.reduced){
-      s.animate(left,[{transform:'translate(-50%,-50%)'},{transform:'translate(calc(-50% + 48px),-50%)'}],260);
-      s.animate(right,[{transform:'translate(-50%,-50%)'},{transform:'translate(calc(-50% - 48px),-50%)'}],260);
-    }
+    const cue=s.el('span','sage-momentum-cue');
+    cue.textContent=`${data.operandBefore} + ${data.operandDelta} = ${data.operandAfter}`;s.position(cue,260,565);
+    s.root.dataset.operandOperation='add';
+    sageScan(s,anchor);
+    s.animate(cue,[{opacity:0,transform:'translate(-50%,calc(-50% - 8px))'},{opacity:1,transform:'translate(-50%,-50%)'}],260);
     await s.wait(260);if(s.signal.aborted)return;
-    left.remove();right.remove();cue.remove();anchor.number.textContent=String(data.operandAfter);anchor.number.style.opacity='1';
+    cue.remove();anchor.number.textContent=String(data.operandAfter);
     sageImpulse(s,260,604);await s.wait(200);return;
   }
   if(id==='sge_induce'){
@@ -126,19 +123,16 @@ async function playSageMomentumCapture(result,card,context={}) {
   }finally{context.signal?.removeEventListener('abort',stop);stop();}
 }
 async function playSageEquationOutcome(s,step,context,operand,variable) {
-  const o=step.outcome;if(!['SUCCESS','CONFUSION'].includes(o.resolution))return;
+  const o=step.outcome;
   if(o.xBefore==null||o.xAfter==null)return;
-  operand.style.opacity=variable.style.opacity='1';s.position(operand,560,650);s.position(variable,880,650);
-  operand.lastChild.style.transform=variable.lastChild.style.transform='';
-  operand.lastChild.textContent=String(o.operand);variable.lastChild.textContent=String(o.xBefore);
-  operand.classList.add('sage-skill-outcome-term');variable.classList.add('sage-skill-outcome-term');
-  const label=s.el('small','sage-skill-outcome-label',null,variable);label.textContent=o.resolution==='SUCCESS'?'推演成功':'思緒紊亂';
-  if(o.resolution==='SUCCESS'){
-    const line=s.el('div','sage-vector-line');s.position(line,620,675);line.style.width='205px';
-    s.animate(line,[{transform:'scaleX(0)',opacity:.8},{transform:'scaleX(1)',opacity:0}],300);
-    const cue=s.el('small','sage-skill-outcome-label',null,operand);cue.textContent='+'+o.variableContribution;
-  }else s.animate(variable,[{transform:'translateX(0)',filter:'blur(0)',color:'#b8a885'},{transform:'translateX(3px)',filter:'blur(1px)'},{transform:'translateX(-2px)'},{transform:'translateX(0)',filter:'blur(0)'}],280);
+  const panel=s.el('div','sage-x-breakdown');
+  const labels={SUCCESS:'推演成功',CONFUSION:'思緒紊亂',NOTHING:'無事發生'};
+  const title=s.el('strong','',null,panel);title.textContent=labels[o.resolution]||'';
+  for(const text of [`變量 X：${o.xBefore}`,`自然衰減：-${o.decayAmount}`,`固定成長：+${o.baseXGain}`,`推演額外：+${o.bonusXGain}`,`最終 X：${o.xAfter}`]){
+    const n=s.el('span','',null,panel);n.textContent=text;
+  }
+  if(o.debtScheduled){const debt=s.el('small','',null,panel);debt.textContent=`下次可行動支付 ${o.debtScheduled} X`;}
+  s.animate(panel,[{opacity:0},{opacity:1}],300);
   await s.wait(300);if(s.signal.aborted)return;
-  variable.querySelector('.sage-number-motion').textContent=String(o.xAfter);
   context.onTiming?.('sage_variable_outcome',{step});await s.wait(180);
 }

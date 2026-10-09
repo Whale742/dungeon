@@ -15,8 +15,8 @@ export function addPhase8LabFixtures(fixtures,scene,add) {
     const {wire}=scene('sage','sge_induce',.1,room=>{room.battleRound=3;room.players.hero.sageOperand=17;room.currentMonster.attack=12;});
     fixtures.sage_sampling_multi={role:'sage',label:'動量回授・慣性取樣｜多段攻擊／伺服器合計取樣',steps:wire.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup')};
   }
-  for(const [id,r] of [['success',.1],['confusion',.65]]) {
-    const {room,wire}=scene('sage','sge_induce',.9,room=>{Object.assign(room.players.hero,{sageOperand:17,sageX:24});room.currentMonster.attack=6;});
+  for(const [id,r] of [['success',.3],['confusion',.01]]) {
+    const {room,wire}=scene('sage','sge_induce',.9,room=>{Object.assign(room.players.hero,{sageOperand:17,sageX:130});room.currentMonster.attack=6;});
     const first=wire.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup');
     let second;room.io={to:()=>({emit(name,data){if(name==='battle:presentation_queue')second=data;}})};
     const old=Math.random;Math.random=()=>r;
@@ -24,6 +24,12 @@ export function addPhase8LabFixtures(fixtures,scene,add) {
     finally {Math.random=old;room.clearTimer();}
     fixtures['sage_full_cycle_'+id]={role:'sage',label:'演算週期｜慣性取樣 → 求解 → 方程結算 → '+(id==='success'?'推演成功':'思緒紊亂'),steps:[...first,...second.queue.filter(s=>s.sourceId==='hero'||s.type==='boss_action'||s.type==='status_cleanup')]};
   }
+  add('sage_induce_even_solve','動量回授・慣性取樣｜偶數 +21 求解','sage','sge_induce',.9,room=>{
+    Object.assign(room.players.hero,{sageOperand:16,sageX:120,sagePhase:'solve'});room.currentMonster.attack=0;
+  });
+  add('sage_confusion_self','方程結算｜思緒紊亂自傷','sage','sge_induce',.01,room=>{
+    room.players.ally.hp=0;Object.assign(room.players.hero,{sageOperand:15,sageX:130,sagePhase:'solve'});room.currentMonster.attack=0;
+  });
   for(const [r,id] of [[0,'mirror'],[.25,'dissociate'],[.5,'nightmare'],[.75,'frenzy']]) {
     let n=0;add('p8_dream_'+id,'夢境混亂・'+id,'dreamweaver','basic',()=>++n===1?0:r);
   }
@@ -45,12 +51,12 @@ export function addPhase8LabFixtures(fixtures,scene,add) {
     const {wire}=scene('samurai',action,r,configure);fixtures['p8_samurai_'+id]={role:'samurai',label:{parry:'狂刀・招架',counter:'狂刀・反擊',burst:'一刀兩斷・武魂爆發',tsubame:'秘劍 • 燕返'}[id],steps:wire.queue.filter(s=>s.category)};
   }
   for(const [id,action,configure,r] of [
-    ['reference_17_24','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:17,sageX:24});},.9],
+    ['reference_17_24','basic',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:15,sageX:24});},.9],
     ['hypothesis','basic',room=>{room.players.hero.sageOperand=8;},.9],
     ['solve','sge_induce',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:8,sageX:80});},.9],
-    ['even_square','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:16,sageX:80});},.9],
-    ['odd_prime','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:13,sageX:80});},.9],
-    ['success','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:10,sageX:20});},.1],
-    ['confusion','skip',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:10,sageX:20});},.65]])add('p8_sage_'+id,{reference_17_24:'方程結算・運算元 17／變量 24',hypothesis:'普通攻擊・假設',solve:'動量回授・慣性取樣・求解',even_square:'方程結算・偶數與平方數',odd_prime:'方程結算・奇數與質數',success:'方程結算・推演成功',confusion:'方程結算・思緒紊亂'}[id],'sage',action,r,configure);
+    ['even_square','basic',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:14,sageX:80});},.9],
+    ['odd_prime','basic',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:11,sageX:80});},.9],
+    ['success','basic',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:8,sageX:20});},.1],
+    ['confusion','basic',room=>{Object.assign(room.players.hero,{sagePhase:'solve',sageOperand:8,sageX:20});},.01]])add('p8_sage_'+id,{reference_17_24:'方程結算・運算元 17／變量 24',hypothesis:'普通攻擊・假設',solve:'動量回授・慣性取樣・求解',even_square:'方程結算・偶數與平方數',odd_prime:'方程結算・奇數與質數',success:'方程結算・推演成功',confusion:'方程結算・思緒紊亂'}[id],'sage',action,r,configure);
   for(const n of [1,3,5,6,30])fixtures['p8_logs_'+n]={label:'日誌・'+n+' 筆／完整可捲動日誌',logs:Array.from({length:n},(_,i)=>({id:'log-'+i,time:'12:00',type:'combat',text:'第 '+(i+1)+' 筆戰鬥紀錄：這是一筆包含完整內容的事件，最新訊息位於底部，完整文字保留供查看。'}))};
 }

@@ -151,38 +151,47 @@ const DEFAULT_ROLE_DETAILS = {
 
   },
   sage: {
-    roleName: '智者',
-    enName: 'Sage',
-    emoji: '📜',
-    avatar: '/photo/智者.webp',
-    hp: 80,
-    type: '長軸輸出 / 演算成長 / 戰術輔助',
-    passive: `智者於每趟冒險開始時擁有 30 點「變量 X」，跨戰鬥保留。每兩回合一演算週期（假設／求解）。
-求解攻擊後觸發【方程結算】：
-               1.75 × X
-η(X) = 0.25 + ──────────
-                X + 80
-
-                            A
-方程基礎傷害 = |運算元| × η(X) + ─── + 8
-                            2
-（A：擊敗 Boss 累積獲得之永久攻擊力加成）
-
-最終方程傷害 = ⌊ 方程基礎傷害 × B × M(X) × R ⌋
-（B：全隊增傷，M(X)：精通倍率 1.0~1.3，R：慣性計算尺加成）
-
-每次結算必定獲得基本變量成長：
-                      運算元
-BaseXGain = max( 5,  round( ────── ) )
-                        5
-
-數論特性：偶數 40% 穿透與護盾；奇數 100% 穿透與易傷 10%；質數 15 真傷與 CD 歸零；平方數 Boss 傷害 -25%。`,
-    skills: [
-      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '【假設階段】：運算元重置為本次造成傷害。\n【求解階段】：運算元 +2，方程結算基礎傷害=|Op|×η(X)+A/2+8，推演成功率 60%（額外 X += Op）。' },
-      { type: '1 技能', name: '向量定軌', dmgType: '【物理】', cd: '無 CD', desc: '【假設階段】：運算元累加本次造成傷害。\n【求解階段】：運算元 +5，方程結算基礎傷害=|Op|×η(X)+A/2+8，推演成功率 50%（額外 X += Op）。' },
-      { type: '2 技能', name: '動量回授', dmgType: '【物理/乘算】', cd: '無 CD', desc: '【假設階段】：啟動慣性取樣，魔物直接傷害（含其他來源護盾吸收的部分）計入運算元。\n【求解階段】：運算元 ×2，方程結算基礎傷害=|Op|×η(X)+A/2+8，推演成功率 40%（額外 X += Op/4）。' }
-    ]
-  }
+  "roleName": "智者",
+  "enName": "Sage",
+  "avatar": "/photo/智者.webp",
+  "hp": 70,
+  "type": "演算主 C / 長期成長 / 戰術爆發 / 低生存",
+  "passive": "智者於冒險開始時擁有 30 點「變量 X」。\n變量 X 無硬上限，在整趟冒險中持續累積，跨戰鬥、樓層、休息站、冷卻刷新及死亡復活保留。\n戰鬥中，以兩回合為一個【演算週期】，依序進行「假設」與「求解」。\n每輪開始時，隨機獲得 1～30 的基礎擾動常數，作為初始「運算元」。\n\n【假設】階段\n透過技能建立與改變本輪運算元。\n\n【求解】階段\n上一回合使用的技能暫時無法再次使用，其他技能會依照各自的演算方式改變運算元。\n求解攻擊結束後，立即觸發獨立的【方程結算】，依據運算元與變量 X 造成物理傷害。\n方程不享受全隊傷害增益、通關永久攻擊成長或通用易傷。\n每次完成方程結算，使用衰減前 X 計算傷害；再將超過 X60 的部分衰減 20%，無條件進位，最後獲得固定與成功額外 X 成長。\n\n【方程結算公式】\n解 = round(| 運算元 × η(變量) |)\nη(變量) = 0.4 + (1.75 × 變量) / (變量 + 80)\n慣性計算尺與思緒紊亂倍率合併後四捨五入，再依物理穿透與 Boss 抗性結算。\n\n依照求解技能，以一次亂數觸發以下三種互斥結果之一：\n【推演成功】依技能效果額外增加變量 X（額外獎勵四捨五入）。\n【思緒紊亂】本次方程主傷害降低 20%，隨機誤傷一名其他存活隊友，造成 10 點真實傷害；無其他存活隊友時改為自傷，可致死。\n誤傷不受增傷、護甲、抗性影響，可被原有護盾吸收，不觸發「受到攻擊時」類被動，也不計入慣性取樣。\n紊亂基礎機率 5%；X 超過 60 後，每超過完整 10 點額外增加 1%，最高 25%。紊亂優先判定，透鏡只將無事發生機率轉為成功。\n【無事發生】沒有額外效果，仍保留本輪基本變量成長。\n紊亂亦保留固定 X 成長，不會同時獲得成功額外 X。\n\n【偶數・彈性碰撞】\n方程獲得 40% 物理穿透；將 Boss 因本次方程主傷害實際失去生命的 40%（無條件捨去）轉為全隊護盾總量，平均分攤給所有存活成員，包含智者，持續 2 回合。\n餘數依固定伺服器玩家順序分配；每人新護盾上限為智者最大生命的 20%（無條件捨去）。不含質數真傷、溢出傷害與技能本體傷害。\n方程護盾不疊加，保留原有剩餘與新護盾中較高者並刷新至 2 回合；多位智者共用此規則，其他來源護盾不受影響。\n\n【奇數・非彈性形變】\n方程傷害無視 100% 物理抗性，使 Boss 下一回合受到的全體傷害提高 10%；智者獨立方程不受此通用易傷增傷。\n\n【質數・固有頻率共振】\n額外造成獨立的 15 點真實傷害，立即刷新智者全部技能冷卻。\n\n【完全平方數・穩定駐波】\n使 Boss 下一回合造成的直接傷害降低 25%。\n運算元可以同時符合多種數學性質，所有符合條件的效果同時觸發。",
+  "skills": [
+    {
+      "type": "普攻",
+      "name": "普通攻擊",
+      "cd": "CD 0",
+      "dmgType": "【物理】",
+      "desc": "對敵方造成 10 點基礎物理傷害。\n\n【假設階段】\n將本次攻擊實際造成的傷害作為新的運算元，取代原本數值。\n\n【求解階段】\n使運算元 +2。\n求解結束後固定獲得 10 點變量，並有 60% 機率【推演成功】，額外獲得 round(5 + 運算元 × 30%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 10 X。"
+    },
+    {
+      "type": "1 技能",
+      "name": "向量定軌・貫穿演算",
+      "cd": "CD 1",
+      "dmgType": "【物理】",
+      "desc": "對敵方造成 10 點物理傷害，附帶 50% 物理穿透。（CD1）\n\n【假設階段】\n將本次攻擊實際造成的傷害加入當前運算元。\n\n【求解階段】\n使運算元 +5。\n求解結束後固定獲得 14 點變量，並有 50% 機率【推演成功】，額外獲得 round(7 + 運算元 × 30%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 14 X。"
+    },
+    {
+      "type": "2 技能",
+      "name": "動量回授・慣性取樣",
+      "cd": "CD 1",
+      "dmgType": "【物理】",
+      "desc": "對敵方造成 10 點物理傷害。（CD1）\n\n【假設階段】\n施放時記錄當前運算元；直到本回合結束前，將 Boss 對智者主動造成的直接傷害加入運算元，包括生命損失與既有護盾實際吸收的部分。\n不記錄 DoT、流血、毒傷、友軍誤傷、自傷或完全免疫／閃避而未承受的傷害；不額外提供護盾。\n\n【求解階段】\n提前透支變量：下一次可行動的戰鬥回合開始時消耗 20 X，不影響本次方程倍率；透支跨戰鬥、樓層與休息站保留，死亡復活也不清除，X 不足時扣至 0，支付後不重複扣除。\n先判斷目前運算元奇偶：奇數 +20，偶數 +21，最終必為奇數。\n求解結束後固定獲得 4 點變量，並有 40% 機率【推演成功】，額外獲得 round(2 + 運算元 × 15%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 4 X。"
+    }
+  ],
+  "equipment": [
+    {
+      "name": "演算透鏡",
+      "desc": "使智者【推演成功】機率提高 10 個百分點；重複獲得的每件額外提高 5 個百分點。增加的成功率只減少【無事發生】，不佔用【思緒紊亂】機率；超出可用機率的部分忽略。裝備腐蝕依既有規則降低效果。"
+    },
+    {
+      "name": "慣性計算尺",
+      "desc": "使【方程結算】最終傷害提高 10%；重複獲得的每件額外提高 5%。方程專屬加成，不視為一般全隊傷害增益；腐蝕依既有規則降低效果。"
+    }
+  ],
+  "emoji": "📜"
+}
 };
 
 // 大廳成員卡片行內修改暱稱狀態
@@ -196,7 +205,6 @@ let currentPendingTarget = null;
 // 打字機與戰鬥敘述鎖定狀態
 let currentTypewriterTimer = null;
 let currentTypewriterContext = null;
-let isTransitionAccelerated = false;
 let activeNarrativeResolvers = new Set();
 let lastTypedTransitionKey = null;
 let isPlayingBattleNarrative = false;
@@ -787,6 +795,7 @@ function revealDestinationView(viewName) {
 // 渲染整體畫面
 function renderApp() {
   if (!roomState) return;
+  syncNarrativeControls(roomState);
 
   if (victoryPresentationController && (roomState.state !== 'BATTLE_VICTORY' ||
       roomState.currentVictory?.presentationId !== victoryPresentationController.presentationId)) {
@@ -1282,10 +1291,9 @@ function playTypewriterClick() {
 
 // 支援單一元素字串打字
 function typeWriterEffect(element, text, speed = 45, onComplete = null) {
-  if (currentTypewriterTimer) {
-    clearInterval(currentTypewriterTimer);
-    currentTypewriterTimer = null;
-  }
+  currentTypewriterContext?.cancel?.();
+  if (currentTypewriterTimer) clearInterval(currentTypewriterTimer);
+  currentTypewriterTimer = null;
   currentTypewriterContext = null;
   if (!element) {
     if (onComplete) onComplete();
@@ -1294,7 +1302,22 @@ function typeWriterEffect(element, text, speed = 45, onComplete = null) {
   element.textContent = '';
   element.classList.add('typewriter-cursor');
   let i = 0;
-  let currentSpeed = isTransitionAccelerated ? Math.min(speed, 2) : speed;
+  const finishTyping = beginNarrativeTyping();
+  const context = {
+    setSpeed: () => {
+      if (currentTypewriterTimer) clearInterval(currentTypewriterTimer);
+      currentTypewriterTimer = setInterval(step, Math.max(1, speed / narrativeTextSpeed()));
+    },
+    cancel: () => {
+      if (currentTypewriterContext === context) {
+        if (currentTypewriterTimer) clearInterval(currentTypewriterTimer);
+        currentTypewriterTimer = null;
+        currentTypewriterContext = null;
+      }
+      finishTyping();
+      element.classList.remove('typewriter-cursor');
+    }
+  };
 
   const step = () => {
     if (i < text.length) {
@@ -1306,55 +1329,29 @@ function typeWriterEffect(element, text, speed = 45, onComplete = null) {
         clearInterval(currentTypewriterTimer);
         currentTypewriterTimer = null;
       }
-      currentTypewriterContext = null;
+      finishTyping();
       setTimeout(() => {
-        element.classList.remove('typewriter-cursor');
-        if (onComplete) onComplete();
-      }, isTransitionAccelerated ? 30 : 150);
-    }
-  };
-
-  currentTypewriterTimer = setInterval(step, currentSpeed);
-
-  currentTypewriterContext = {
-    element,
-    text,
-    get i() { return i; },
-    accelerate: () => {
-      if (currentSpeed > 2) {
-        currentSpeed = 2;
-        if (currentTypewriterTimer) {
-          clearInterval(currentTypewriterTimer);
-          currentTypewriterTimer = setInterval(step, currentSpeed);
-        }
-      } else {
-        if (currentTypewriterTimer) {
-          clearInterval(currentTypewriterTimer);
-          currentTypewriterTimer = null;
-        }
-        element.textContent = text;
-        element.classList.remove('typewriter-cursor');
+        if (currentTypewriterContext !== context) return;
         currentTypewriterContext = null;
+        element.classList.remove('typewriter-cursor');
         if (onComplete) onComplete();
-      }
+      }, 150);
     }
   };
+
+  currentTypewriterContext = context;
+  context.setSpeed();
 }
 
 // 支援多段落連續打字機效果
 function typeWriterParagraphs(container, paragraphs, speed = 20, onComplete = null) {
-  if (currentTypewriterTimer) {
-    clearInterval(currentTypewriterTimer);
-    currentTypewriterTimer = null;
-  }
-  currentTypewriterContext = null;
+  currentTypewriterContext?.cancel?.();
   if (!container || !paragraphs || paragraphs.length === 0) {
     if (onComplete) onComplete();
     return;
   }
   container.innerHTML = '';
   let pIdx = 0;
-  let currentSpeed = isTransitionAccelerated ? Math.min(speed, 2) : speed;
 
   function typeNext() {
     if (pIdx >= paragraphs.length) {
@@ -1363,91 +1360,14 @@ function typeWriterParagraphs(container, paragraphs, speed = 20, onComplete = nu
       return;
     }
     const pEl = document.createElement('p');
-    pEl.classList.add('typewriter-cursor');
     container.appendChild(pEl);
-
-    const fullText = paragraphs[pIdx];
-    let charIdx = 0;
-
-    const step = () => {
-      if (charIdx < fullText.length) {
-        pEl.textContent += fullText.charAt(charIdx);
-        charIdx++;
-        if (charIdx % 2 === 0) playTypewriterClick();
-      } else {
-        if (currentTypewriterTimer) {
-          clearInterval(currentTypewriterTimer);
-          currentTypewriterTimer = null;
-        }
-        pEl.classList.remove('typewriter-cursor');
-        pIdx++;
-        setTimeout(typeNext, isTransitionAccelerated ? 10 : 60);
-      }
-    };
-
-    currentTypewriterTimer = setInterval(step, currentSpeed);
-
-    currentTypewriterContext = {
-      element: pEl,
-      text: fullText,
-      accelerate: () => {
-        if (currentSpeed > 2) {
-          currentSpeed = 2;
-          if (currentTypewriterTimer) {
-            clearInterval(currentTypewriterTimer);
-            currentTypewriterTimer = setInterval(step, currentSpeed);
-          }
-        } else {
-          if (currentTypewriterTimer) {
-            clearInterval(currentTypewriterTimer);
-            currentTypewriterTimer = null;
-          }
-          pEl.textContent = fullText;
-          pEl.classList.remove('typewriter-cursor');
-          pIdx++;
-          while (pIdx < paragraphs.length) {
-            const nextP = document.createElement('p');
-            nextP.textContent = paragraphs[pIdx];
-            container.appendChild(nextP);
-            pIdx++;
-          }
-          currentTypewriterContext = null;
-          if (onComplete) onComplete();
-        }
-      }
-    };
+    typeWriterEffect(pEl, paragraphs[pIdx], speed, () => { pIdx++; typeNext(); });
   }
 
   typeNext();
 }
 
-function accelerateNarrative() {
-  isTransitionAccelerated = true;
-  if (typeof window !== 'undefined') {
-    window.narrativeSpeedScale = 20.0;
-  }
-
-  // 1. 加速單一元素 / 多段落打字機
-  if (currentTypewriterContext) {
-    currentTypewriterContext.accelerate();
-  }
-
-  // 2. 喚醒所有等待中的非同步計時器 (waitForPrologue / waitForPresentation)
-  if (typeof activeNarrativeResolvers !== 'undefined' && activeNarrativeResolvers.size > 0) {
-    const resolvers = Array.from(activeNarrativeResolvers);
-    activeNarrativeResolvers.clear();
-    resolvers.forEach(r => {
-      try { r(); } catch (_) {}
-    });
-  }
-  if (typeof window !== 'undefined' && window._activePresentationResolvers && window._activePresentationResolvers.size > 0) {
-    const presResolvers = Array.from(window._activePresentationResolvers);
-    window._activePresentationResolvers.clear();
-    presResolvers.forEach(r => {
-      try { r(); } catch (_) {}
-    });
-  }
-}
+function accelerateNarrative(value = true) { setNarrativeAcceleration(value); }
 
 let cinematicBannerTimeout = null;
 
@@ -1594,7 +1514,7 @@ function checkStageTransition(state) {
   }
 }
 
-// Phase 1: one owner, one curtain, no click-to-complete or skip path.
+// Phase 1: one owner, one curtain; only the explicit prologue button skips.
 const PROLOGUE_TIMING = Object.freeze({
   titleEnter: 850,
   titleHold: 1400,
@@ -1612,8 +1532,6 @@ const PROLOGUE_TIMING = Object.freeze({
 });
 
 function waitForPrologue(ms, signal) {
-  const scale = (typeof window !== 'undefined' && window.narrativeSpeedScale) || 1.0;
-  const adjustedMs = scale > 1 ? Math.max(1, Math.round(ms / scale)) : ms;
   return new Promise((resolve, reject) => {
     let timer = null;
     let finishHandler = null;
@@ -1637,7 +1555,7 @@ function waitForPrologue(ms, signal) {
     if (typeof activeNarrativeResolvers !== 'undefined') {
       activeNarrativeResolvers.add(finishHandler);
     }
-    timer = setTimeout(finish, adjustedMs);
+    timer = setTimeout(finish, ms);
     signal.addEventListener('abort', cancel, { once: true });
     if (signal.aborted) cancel();
   });
@@ -1660,6 +1578,9 @@ function prologueFrame(signal) {
 }
 
 async function typePrologueParagraphs(container, paragraphs, signal, timing = PROLOGUE_TIMING) {
+  const finishTyping = beginNarrativeTyping(signal);
+  const textWait = ms => waitForPrologue(ms / narrativeTextSpeed(), signal);
+  try {
   // Never insert complete text, even in a hidden pre-render. Paint empty first.
   container.replaceChildren();
   await prologueFrame(signal);
@@ -1669,19 +1590,20 @@ async function typePrologueParagraphs(container, paragraphs, signal, timing = PR
     container.appendChild(paragraph);
     const characters = Array.from(paragraphs[index]);
     for (let charIndex = 0; charIndex < characters.length; charIndex++) {
-      await waitForPrologue(timing.character, signal);
+      await textWait(timing.character);
       const character = characters[charIndex];
       paragraph.appendChild(document.createTextNode(character));
       if (charIndex % 2 === 1 && !/\s/.test(character)) playTypewriterClick();
       const pause = /[，、,；;：:]/.test(character) ? timing.comma
         : /[。！？!?…]/.test(character) ? timing.sentence
         : character === '\n' ? timing.newline : 0;
-      if (pause) await waitForPrologue(pause, signal);
+      if (pause) await textWait(pause);
     }
     if (index < paragraphs.length - 1) {
-      await waitForPrologue(timing.paragraph, signal);
+      await textWait(timing.paragraph);
     }
   }
+  } finally { finishTyping(); }
 }
 
 async function renderProloguePresentation() {
@@ -1699,21 +1621,23 @@ async function renderProloguePresentation() {
   const paragraphs = roomState?.currentPrologue?.paragraphs;
   let completed = false;
 
-  const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
-  if (isLeader && overlay) {
-    overlay.classList.add('is-leader');
-  }
-
+  const skipButton = document.getElementById('btnSkipPrologue');
   const handlePrologueClick = (e) => {
     const currentIsLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
     if (!currentIsLeader) return;
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
-      socket.emit('prologue:skip');
+      if (skipButton) skipButton.disabled = true;
+      socket.emit('prologue:skip', res => {
+        if (skipButton) skipButton.disabled = false;
+        if (res?.success) {
+          prologueCompleted = true;
+          controller.abort();
+        }
+      });
     }
-    controller.abort();
   };
-  if (overlay) overlay.addEventListener('click', handlePrologueClick);
+  if (skipButton) skipButton.addEventListener('click', handlePrologueClick);
 
   presentationManager.setBlocking(true);
   gateDestinationView('prologue');
@@ -1733,9 +1657,8 @@ async function renderProloguePresentation() {
     cleanedUp = true;
     if (overlay) {
       overlay.classList.add('hidden');
-      overlay.classList.remove('is-leader');
-      overlay.removeEventListener('click', handlePrologueClick);
     }
+    if (skipButton) skipButton.removeEventListener('click', handlePrologueClick);
     if (title) { title.classList.add('hidden'); title.classList.remove('exit'); }
     if (story) { story.classList.add('hidden'); story.classList.remove('exit'); }
     if (body) body.replaceChildren();
@@ -1813,7 +1736,6 @@ function renderTransition() {
   const key = `${trans.floor}_${trans.routeId}_${trans.outcomeType}`;
   if (lastTypedTransitionKey !== key) {
     lastTypedTransitionKey = key;
-    isTransitionAccelerated = false;
     playSound('walk',{instance:'route-walk-'+key,preserveAcrossViews:true});
     if (elements.transitionRouteTag) {
       elements.transitionRouteTag.innerHTML = `${getIconSvg('flag')} <span>前往路線：${escapeHtml(trans.routeName)}</span>`;
@@ -1822,21 +1744,15 @@ function renderTransition() {
       elements.transitionStoryTitle.textContent = trans.storyTitle || `【${trans.routeName}】`;
     }
 
-    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
-    const transitionView = elements.views?.transition || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('viewTransition') : null);
-    if (transitionView) {
-      transitionView.classList.toggle('is-leader', isLeader);
-    }
-
-    const titleSpeed = isTransitionAccelerated ? 2 : 60;
-    const storySpeed = isTransitionAccelerated ? 2 : 20;
+    const titleSpeed = 60;
+    const storySpeed = 20;
 
     // 先以打字機風格呈現標題 (一個字一個字慢慢出現)
     if (elements.transitionTypewriterTitle) {
       typeWriterEffect(elements.transitionTypewriterTitle, trans.title || `將進入第 ${trans.floor} 層`, titleSpeed, () => {
         // 接著以更快的打字機呈現故事
         if (elements.transitionStoryText) {
-          typeWriterEffect(elements.transitionStoryText, trans.storyText || '正在深入未知迷霧中...', isTransitionAccelerated ? 2 : storySpeed);
+          typeWriterEffect(elements.transitionStoryText, trans.storyText || '正在深入未知迷霧中...', storySpeed);
         }
       });
     }
@@ -2204,64 +2120,20 @@ function renderSageEquationPreview(me) {
   const x = me.sageX ?? 30;
   const op = me.sageOperand || 0;
   const phase = me.sagePhase || 'hypothesis';
-  const etaVal = 0.25 + (1.75 * x) / (x + 80);
-  const mastery = 1 + 0.1 * Math.min(3, Math.floor(x / 100));
-  const A = me.victoryAtkBonus || 0;
-  const isPrimeNum = n => {
-    if (n < 2) return false;
-    for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
-    return true;
-  };
-
-  if (phase === 'solve') {
+  const preview = me.sageEquationPreview;
+  if (phase === 'solve' && preview) {
     sagePreview.className = 'sage-preview-panel';
-    const header = document.createElement('div');
-    header.className = 'sage-preview-header';
-    header.innerHTML = `<span>📐 即將結算的方程預覽</span><div class="sage-preview-vars"><span>X=${x}</span><span>M(X)=${mastery.toFixed(1)}</span><span>η(X)=${etaVal.toFixed(3)}</span><span>目前 Op=${op}</span></div>`;
-    
-    const table = document.createElement('table');
-    table.className = 'sage-preview-table';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>求解技能</th>
-          <th>運算元</th>
-          <th>數論特性</th>
-          <th>預估基礎傷害</th>
-          <th>狀態</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${[
-          { id: 'basic', name: '普通攻擊', predOp: op + 2 },
-          { id: 'sge_deduce', name: '向量定軌', predOp: op + 5 },
-          { id: 'sge_induce', name: '動量回授', predOp: op * 2 }
-        ].map(s => {
-          const blocked = me.sageBlockedAction === s.id;
-          const even = s.predOp % 2 === 0;
-          const prime = isPrimeNum(s.predOp);
-          const square = Number.isInteger(Math.sqrt(s.predOp));
-          const props = [even ? '偶數' : '奇數', prime ? '質數' : null, square ? '平方' : null].filter(Boolean).join(' · ');
-          const baseEst = Math.floor(Math.abs(s.predOp) * etaVal + 8 + A * 0.5);
-          const rawEst = Math.floor(baseEst * mastery);
-          return `
-            <tr style="${blocked ? 'opacity:0.4;' : ''}">
-              <td>${s.name}</td>
-              <td><b>${s.predOp}</b></td>
-              <td>${props}</td>
-              <td><b>${rawEst}</b> <span style="font-size:10px;color:#94a3b8;">(基${baseEst})</span></td>
-              <td>${blocked ? '<span style="color:#ef4444;">前輪使用已阻擋</span>' : '<span style="color:#22c55e;">可選</span>'}</td>
-            </tr>
-          `;
-        }).join('')}
-      </tbody>
-    `;
-
-    const note = document.createElement('div');
-    note.className = 'sage-preview-note';
-    note.textContent = '※ 預估傷害僅供參考，實際傷害仍受 Boss 抗性、暴擊與團隊增傷影響；但數論特性判定與運算元為確定結果。';
-
-    sagePreview.append(header, table, note);
+    const header = document.createElement('div');header.className = 'sage-preview-header';
+    header.innerHTML = '<span>📐 方程預覽（抗性前）</span><div class="sage-preview-vars"><span>X='+x+'</span><span>η(X)='+preview.eta.toFixed(3)+'</span><span>Op='+op+'</span></div>';
+    const table = document.createElement('table');table.className = 'sage-preview-table';
+    const names={basic:'普通攻擊',sge_deduce:'向量定軌',sge_induce:'動量回授'};
+    const labels={EVEN:'偶數',ODD:'奇數',PRIME:'質數',SQUARE:'平方'};
+    table.innerHTML='<thead><tr><th>求解技能</th><th>運算元</th><th>性質</th><th>正常／紊亂</th><th>狀態</th></tr></thead><tbody>'+preview.options.map(s=>
+      '<tr class="'+(s.blocked||s.cooldown?'sage-preview-blocked':'')+'"><td>'+names[s.id]+'</td><td><b>'+s.operand+'</b></td><td>'+s.properties.map(p=>labels[p]).join(' · ')+'</td><td><b>'+s.damageAfterEquipment+'／'+s.damageAfterConfusion+'</b></td><td>'+(s.blocked?'前輪已使用':s.cooldown?'冷卻 '+s.cooldown:'可選')+'</td></tr>'
+    ).join('')+'</tbody>';
+    const note = document.createElement('div');note.className = 'sage-preview-note';
+    note.textContent='η(X) = 0.4 + (1.75 × X) / (X + 80)。紊亂 '+(preview.confusionChance*100).toFixed(0)+'%；自然衰減 -'+preview.decayAmount+'；待付透支 '+(me.sageDebt||0)+' X。預覽由伺服器提供，實傷依 Boss 抗性／特殊狀態結算；方程不受團隊增傷與通關攻擊加成。';
+    sagePreview.append(header,table,note);
   } else {
     sagePreview.className = 'sage-hypothesis-notice';
     sagePreview.innerHTML = `<span>💡 <b>目前為假設階段</b>：請先決定運算元建立方式，下回合進入求解階段並結算方程。（當前變量 X = <b>${x}</b>）</span>`;
@@ -2387,8 +2259,8 @@ function renderMyActionBar(me) {
 
   activeSkills.forEach(skill => {
     let cd = me.cooldowns[skill.id] || 0;
-    let isCoolingDown = skill.phaseBlocked || cd > 0 || (skill.id==='sa_tsubame' && me.soul<4);
-    let cdBadgeText = skill.phaseBlocked?'求解：前輪技能不可重複':`CD: ${cd}`;
+    let isCoolingDown = skill.phaseBlocked || skill.hpBlocked || cd > 0 || (skill.id==='sa_tsubame' && me.soul<4);
+    let cdBadgeText = skill.hpBlocked?'生命須大於1':skill.phaseBlocked?'求解：前輪技能不可重複':`CD: ${cd}`;
 
     if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
       isCoolingDown = true;
@@ -2807,6 +2679,14 @@ if (elements.minionDetailModal) {
 function openRoleDetailModal(roleKey) {
   const details = (roleDetailsData && roleDetailsData[roleKey]) || (DEFAULT_ROLE_DETAILS && DEFAULT_ROLE_DETAILS[roleKey]);
   if (!details || !elements.roleDetailModal) return;
+  const battlePlayers = roomState?.state === 'IN_BATTLE' ? roomState.players.filter(p => p.role === roleKey) : [];
+  const battlePlayer = battlePlayers.find(p => p.id === myId) || battlePlayers[0];
+  const modalSkills = (details.skills || []).map((s,index) => {
+    const skill = battlePlayer?.availableSkills?.[index] || classesData[roleKey]?.skills?.[index] || s;
+    if (!skill.contextualCopy) return { ...s, copySkill:skill };
+    return { ...s, name:skill.label, cd:`CD ${skill.cd}`,
+      dmgType:skill.dmgType === 'phys' ? '【物理】' : skill.dmgType === 'mag' ? '【魔法】' : '【輔助】', copySkill:skill };
+  });
 
   if (elements.roleDetailTitle) {
     elements.roleDetailTitle.textContent = `${details.roleName} (${details.enName})`;
@@ -2844,7 +2724,7 @@ function openRoleDetailModal(roleKey) {
           <div class="role-detail-section-title">
             <span>${getIconSvg('sword')}</span> <span>職業技能詳細機制與數值</span>
           </div>
-          ${details.skills.map(s => {
+          ${modalSkills.map(s => {
             let tagClass = 'tag-phys';
             if (s.dmgType.includes('魔法')) tagClass = 'tag-mag';
             else if (s.dmgType.includes('治療') || s.dmgType.includes('回復')) tagClass = 'tag-heal';
@@ -2858,7 +2738,7 @@ function openRoleDetailModal(roleKey) {
                     <span class="role-detail-tag tag-cd">${escapeHtml(s.cd)}</span>
                   </div>
                 </div>
-                <div class="role-detail-skill-desc">${escapeHtml(getSkillDescription(roleKey,classesData[roleKey]?.skills?.[details.skills.indexOf(s)]||s))}</div>
+                <div class="role-detail-skill-desc">${escapeHtml(getSkillDescription(roleKey,s.copySkill))}</div>
               </div>
             `;
           }).join('')}
@@ -4558,34 +4438,4 @@ if(elements.battleLogCard)document.body.appendChild(elements.battleLogCard);
   if (el && el.parentElement !== document.body) document.body.appendChild(el);
 });
 
-// 綁定轉場畫面與路線畫面之隊長點擊加速
-const transitionViewEl = document.getElementById('viewTransition');
-if (transitionViewEl) {
-  transitionViewEl.addEventListener('click', () => {
-    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
-    if (!isLeader) return;
-    if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
-      socket.emit('narrative:accelerate');
-    }
-    accelerateNarrative();
-  });
-}
-
-const routeViewEl = document.getElementById('viewRoute');
-if (routeViewEl) {
-  routeViewEl.addEventListener('click', () => {
-    const isLeader = roomState?.leaderId ? roomState.leaderId === myId : true;
-    if (!isLeader || !roomState?.isNarrating) return;
-    if (typeof socket !== 'undefined' && socket && typeof socket.emit === 'function') {
-      socket.emit('narrative:accelerate');
-    }
-    accelerateNarrative();
-  });
-}
-
-if (typeof socket !== 'undefined' && socket && typeof socket.on === 'function') {
-  socket.on('narrative:accelerated', () => {
-    accelerateNarrative();
-  });
-}
-
+installNarrativeControls();

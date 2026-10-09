@@ -811,10 +811,28 @@ export function formatPlayerEquips(player) {
 export function getPlayerSkills(player) {
   if (!player || !player.role || !CLASSES[player.role]) return [];
   const baseSkills = CLASSES[player.role].skills.map(s => ({ ...s }));
-  if(player.role==='sage'&&player.sagePhase==='solve')for(const skill of baseSkills)skill.phaseBlocked=skill.id===player.sagePreviousAction;
-  if (player.role === 'gladiator' && player.arenaActive) {
-    Object.assign(baseSkills[1], {label:'鮮血獻祭',dmgType:'phys',category:'OFFENSIVE'});
-    Object.assign(baseSkills[2], {label:'同歸於盡',cd:0,dmgType:'phys',category:'OFFENSIVE'});
+  if (player.role === 'sage') for (const skill of baseSkills) {
+    const [common, stages] = skill.desc.split('【假設階段】');
+    const [hypothesis, solve] = stages.split('【求解階段】');
+    const solving = player.sagePhase === 'solve';
+    skill.desc = `${common.trim()}\n\n${solving ? '【求解階段】' : '【假設階段】'}\n${(solving ? solve : hypothesis).trim()}`;
+    skill.shortDesc = skill.desc;
+    skill.contextualCopy = true;
+    skill.phaseBlocked = solving && skill.id === player.sagePreviousAction;
+  }
+  if (player.role === 'gladiator') {
+    const sacrifice = baseSkills[1], arena = baseSkills[2];
+    if (player.arenaActive) {
+      Object.assign(sacrifice, { label:'血殺重擊', dmgType:'phys', category:'OFFENSIVE', tags:['物理'],
+        desc:'造成（15+玩家人數×10）+怒氣層數×25的物理傷害。生命小於等於1時不可施放。', cooldownKey:'arena_g_sacrifice' });
+      Object.assign(arena, { label:'同歸於盡', cd:0, dmgType:'phys', category:'OFFENSIVE', tags:['物理'],
+        desc:`消耗剩餘所有生命，造成等同於消耗生命+怒氣層數×${(player.equips||[]).some(e=>e.id==='g_cingulum')?15:10}的物理傷害；以此方式死亡，本層不可被吟遊詩人復活。`, cooldownKey:'arena_g_arena' });
+    } else {
+      sacrifice.desc = sacrifice.desc.split('\n【死亡角鬥場】中')[0];
+      arena.desc = arena.desc.split('\n場內技能')[0];
+    }
+    sacrifice.hpBlocked = player.hp <= 1;
+    for (const skill of [sacrifice, arena]) { skill.shortDesc = skill.desc; skill.contextualCopy = true; }
   }
   const equips = player.equips || [];
 

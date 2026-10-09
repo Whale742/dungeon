@@ -5673,9 +5673,32 @@ input[type="text"]::placeholder {
 /* ==========================================================================
    開場跳過與轉場加速提示 (Prologue Skip & Narrative Acceleration UI)
    ========================================================================== */
-#viewTransition.is-leader,
-.presentation-curtain.is-leader {
+.narrative-controls {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 30000;
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+.narrative-controls button {
+  border: 3px solid #b9a178;
+  border-radius: 0;
+  background: #191822;
+  color: #f6e5b8;
+  padding: 9px 12px;
+  font: 700 13px 'Silkscreen', 'Noto Sans TC', monospace;
+  box-shadow: 3px 3px 0 #08080e, inset 2px 2px 0 #504434;
   cursor: pointer;
+}
+.narrative-controls button[aria-pressed="true"] { background: #5b4025; border-color: #f0c76b; }
+.narrative-controls button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.narrative-controls button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #08080e; }
+.narrative-controls button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 520px) {
+  .narrative-controls { top: 10px; right: 10px; gap: 8px; }
+  .narrative-controls button { padding: 7px 8px; font-size: 11px; }
 }
 
 /* ==========================================================================

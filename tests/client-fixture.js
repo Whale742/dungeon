@@ -55,6 +55,11 @@ export function fixture() {
       this.classList = {
         add: (...names) => names.forEach(name => classes.add(name)),
         remove: (...names) => names.forEach(name => classes.delete(name)),
+        toggle: (name, force) => {
+          const enabled = force ?? !classes.has(name);
+          if (enabled) classes.add(name); else classes.delete(name);
+          return enabled;
+        },
         contains: name => classes.has(name)
       };
     }
@@ -93,6 +98,7 @@ export function fixture() {
   const body = new Element();
   const elements = Object.fromEntries([
     'gameStartOverlay', 'gameTitleContainer', 'prologuePresentationContainer',
+    'narrativeControls', 'btnSkipPrologue', 'btnNarrativeSpeed',
     'prologuePresBody', 'prologueSkipHint', 'floatingChatContainer', 'stageCinematicBanner',
     'floorIntroOverlay', 'floorIntroNumber', 'floorIntroTitle', 'routeAtmosphereText',
     'routeStatusText', 'routeOptionsGrid', 'routeVotersStatusList', 'routeTimerBar',
@@ -137,13 +143,13 @@ export function fixture() {
     cancelAnimationFrame: id => tasks.delete(id),
     document: {
       body,
-      getElementById: () => app,
+      getElementById: id => elements[id] || app,
       createElement: () => new Element(),
       createTextNode: textContent => ({ textContent })
     },
     elements,
     myId: 'a',
-    roomState: { state: 'PROLOGUE', currentPrologue: { paragraphs: ['甲，乙。', '丙丁！'] } },
+    roomState: { state: 'PROLOGUE', leaderId:'a', currentPrologue: { paragraphs: ['甲，乙。', '丙丁！'] } },
     presentationManager: manager,
     gateDestinationView() { elements.views.route.classList.add('view-gated-hidden'); },
     revealDestinationView() { elements.views.route.classList.remove('view-gated-hidden'); },
@@ -152,10 +158,17 @@ export function fixture() {
     renderPendingDropModal() {},
     getClassPortraitHtml: role => '<img class="portrait" alt="' + role + '">',
     getClassDisplayName: role => role,
-    socket: { emit: (name, data) => emissions.push({ name, data, at: now }) },
+    socket: {
+      emit: (name, data, callback) => {
+        emissions.push({ name, data, at: now });
+        (typeof data === 'function' ? data : callback)?.({ success:true, ...data });
+      },
+      on() {}
+    },
     console: { error: (...args) => errors.push(args) }
   });
   vm.runInContext(fs.readFileSync(new URL('../public/sfx-assets.js', import.meta.url), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(new URL('../public/narrative-controls.js', import.meta.url), 'utf8'), context);
   vm.runInContext(`
     let prologueCompleted = false;
     let isPrologueTyping = false;

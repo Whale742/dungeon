@@ -816,6 +816,10 @@
   <!-- ==========================================
        Layer 4: Presentation Root (P2-R1 Section 3 & 72)
        ========================================== -->
+  <div id="narrativeControls" class="narrative-controls hidden" aria-label="劇情播放控制">
+    <button id="btnNarrativeSpeed" type="button" aria-pressed="false" title="僅加速當次事件的打字機文字">▶▶ 加速：關</button>
+    <button id="btnSkipPrologue" type="button" class="hidden">跳過序章 ▶|</button>
+  </div>
   <div id="presentationRoot" class="presentation-root">
     <div id="floorIntroOverlay" class="presentation-floor hidden">
       <div class="presentation-floor-content">
@@ -900,6 +904,7 @@
   <script src="battle-log.js"></script>
   <script src="presentation-config.js"></script>
   <script src="sfx-assets.js"></script>
+  <script src="narrative-controls.js"></script>
   <script src="presentation-core.js"></script>
   <script src="bgm.js"></script>
   <script src="battle-phase.js"></script>

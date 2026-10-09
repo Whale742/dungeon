@@ -24,7 +24,8 @@ try {
     ['dw_butterfly','sg_observe','g_arena','sa_cut','basic'],
     ['skip','skip','g_sacrifice','skip','skip'],
     ['dw_false_dream','sg_clock','g_sacrifice','basic','sge_deduce'],
-    ['basic','basic','basic','sa_tsubame','sge_induce']
+    ['basic','basic','basic','sa_tsubame','basic'],
+    ['basic','basic','basic','basic','sge_induce']
   ]:[['w_shield','m_blast','a_shot','s_stab','b_buff','alc_fate','dru_summon_wolf'],['w_strike','m_drain','a_rain','s_smoke','b_heal','alc_flask','dru_transform'],Array(7).fill('basic')];
   const rounds=[];
   for(let round=1;round<=actions.length;round++) {
@@ -38,14 +39,18 @@ try {
    rounds.push({round,before});
   }
   await Promise.all(pages.map(p=>p.waitForFunction(round=>roomState?.battleRound===round&&!isProcessingPresentationQueue&&roomState.selectionState==='SELECTING',actions.length+1,{timeout:90000})));
-  const results=await Promise.all(pages.map(p=>p.evaluate(()=>({role:getMyPlayer().role,acks:window.qaAcks,queues:window.qaQueues.map(q=>({round:q.round,steps:q.queue.map(s=>({type:s.type,category:s.category,role:s.sourceRole,id:s.actionId,hits:s.results?.length}))})),round:roomState.battleRound,monsterHp:roomState.currentMonster.hp,players:roomState.players.map(p=>({role:p.role,hp:p.hp,maxHp:p.maxHp}))}))));
+  const results=await Promise.all(pages.map(p=>p.evaluate(()=>({role:getMyPlayer().role,acks:window.qaAcks,queues:window.qaQueues.map(q=>({round:q.round,steps:q.queue.map(s=>({type:s.type,category:s.category,role:s.sourceRole,id:s.actionId,hits:s.results?.length,...(s.actionId==='sge_equation'?{outcome:s.outcome}: {})}))})),round:roomState.battleRound,monsterHp:roomState.currentMonster.hp,players:roomState.players.map(p=>({role:p.role,hp:p.hp,maxHp:p.maxHp,...(p.role==='sage'?{sageX:p.sageX,sageDebt:p.sageDebt}: {})}))}))));
   assert(results.every(r=>r.monsterHp===results[0].monsterHp));assert(results.every(r=>JSON.stringify(r.players)===JSON.stringify(results[0].players)));assert(results.every(r=>r.acks.length>=actions.length));
   if(newer) {
     const all=results[0].queues.flatMap(q=>q.steps);assert(all.some(s=>s.id==='sa_tsubame'&&s.hits===4));assert(all.some(s=>s.id==='sge_equation'));
+    const equations=all.filter(s=>s.id==='sge_equation');assert.equal(equations.length,2);
+    for(const peer of results)assert.deepEqual(peer.queues.flatMap(q=>q.steps).filter(s=>s.id==='sge_equation'),equations);
+    if(process.env.SAGE_V3_CONFUSION_TEST==='1')assert(equations.every(s=>s.outcome.resolution==='CONFUSION'&&s.outcome.confusionTargetId&&s.outcome.confusionDamage===10));
+    assert.equal(equations.at(-1).outcome.debtScheduled,20);assert.equal(results[0].players.find(p=>p.role==='sage').sageDebt,0);
     assert(rounds[1].before.filter(p=>p.blocked).length===4);assert.equal(rounds[1].before[2].blocked,false);
   }
   report.groups.push({roles,rounds,results});for(const page of pages)await page.close();
  }
  assert.deepEqual(report.errors,[]);
-} finally {fs.mkdirSync('artifacts/phase8',{recursive:true});fs.writeFileSync('artifacts/phase8/multiplayer-report.json',JSON.stringify(report,null,2));await browser.close();}
-console.log('PASS five new roles / four rounds + seven existing roles / three rounds, queue ACKs and final state match');
+} finally {fs.mkdirSync('artifacts/phase8',{recursive:true});fs.writeFileSync('artifacts/phase8/'+(process.env.SAGE_V3_CONFUSION_TEST==='1'?'sage-v3-multiplayer-report.json':'multiplayer-report.json'),JSON.stringify(report,null,2));await browser.close();}
+console.log('PASS five new roles / five rounds + seven existing roles / three rounds, equation/confusion/debt, queue ACKs and final state match');

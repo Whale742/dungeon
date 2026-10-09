@@ -16,19 +16,20 @@ export const NEW_CLASSES = {
   gladiator: { name: '角鬥士', avatar: '/photo/Gladiator.webp', maxHp: 85,
     desc: '以鮮血積累怒氣，挑戰死亡角鬥場。', passive: '實際受傷獲得 1 怒氣，每回合最多一次。鮮血獻祭另獲 1 怒氣。競技場只允許自己與魔物行動，雙方忽略減傷；自己的最大與當前生命按 0.6 ×（隊伍人數 +1）等比例縮放，退出依剩餘生命比例恢復。',
     skills: [skill('basic', '普通攻擊', 0, 'phys', '10 物理傷害。'),
-      skill('g_sacrifice', '鮮血獻祭', 0, null, '支付 20 真實生命（無視護盾、減傷），怒氣 +1。競技場改為造成 15 + 人數 ×10 + 怒氣 ×25 物理傷害。', 'BUFF'),
+      skill('g_sacrifice', '鮮血獻祭', 0, null, '支付最大生命20%，最低保留1生命（無視護盾、減傷），怒氣 +1。生命≤1不可施放。競技場改為血殺重擊。', 'BUFF'),
       skill('g_arena', '死鬥宣告', 3, null, '本回合宣告，下回合進入競技場 1 回合。場內改為同歸於盡：消耗全部生命，造成消耗生命 + 怒氣 ×10 傷害並死亡；同層不能甦生，下層正常復活。', 'BUFF')] },
   samurai: { name: '武士', avatar: '/photo/武士.webp', maxHp: 80,
     desc: '以居合招架積累武魂，施展秘劍燕返。', passive: '武魂上限 8。每回合第一個敵方直接攻擊判定 40% 狂刀：失敗後不再判定；成功則本輪後續直接攻擊全部招架，每輪進入狂刀武魂 +1。每次主動攻擊（反擊、燕返除外）武魂 +1。敵方階段結束統一反擊 10 + 招架次數。',
     skills: [skill('basic', '普通攻擊', 0, 'phys', '10 物理傷害，武魂 +1。'),
       skill('sa_cut', '一刀兩斷', 1, 'phys', '15 物理；施放前武魂為 0 時，本輪招架率 70%；有魂則以 30% + 每魂 5%（最高 70%）機率倍傷。'),
       skill('sa_tsubame', '秘劍・燕返', 0, 'phys', '需要至少 4 武魂，消耗 4；四次各 10 物理傷害，忽略物理抗性。一次行動，四次命中。')] },
-  sage: { name: '智者', avatar: '/photo/智者.webp', maxHp: 80,
-    stateHint:'假設建立運算元；求解攻擊後觸發方程結算。',
-    desc: '將未知化作變量，將戰鬥化作方程。透過假設、求解與演算累積知識，逐步建立足以改寫戰局的最終解。', passive: '開戰 X=30 跨戰鬥保留，每兩回合一循環。A 輪假設、B 輪求解，B 輪末方程結算造成獨立物理傷害並享受全隊增傷與通關攻擊補正，固定獲保底變量 X。X 達 100/200/300 享演算精通 +10%/20%/30%。偶數 40% 穿透與 40% 護盾；奇數 100% 穿透與承傷 +10%；質數 15 真傷與 CD 歸零；平方數 Boss 傷害 -25%。',
-    skills: [skill('basic', '普通攻擊', 0, 'phys', '10 物理；假設時 Operand=實傷，求解時 +2。每輪固定保底獲得基本變量 X。方程後：60% 成功 X+=Operand，15% 思緒紊亂下一輪擾動降低 25%，25% 無事發生。'),
-      skill('sge_deduce', '向量定軌・貫穿演算', 1, 'phys', '10 物理，50% 穿透物抗。假設時 Operand+=實傷，求解 +5；每輪固定保底獲得基本變量 X。方程後：50% 成功 X+=Operand，25% 思緒紊亂下一輪擾動降低 25%，25% 無事發生。'),
-      skill('sge_induce', '動量回授・慣性取樣', 1, 'phys', '10 物理；假設時取樣魔物直接傷害；求解時 Operand×2；每輪固定保底獲得基本變量 X。方程後：40% 成功 X+=Operand/4，35% 思緒紊亂下一輪擾動降低 25%，25% 無事發生。')] }
+  sage: { name: '智者', avatar: '/photo/智者.webp', maxHp: 70,
+    stateHint:'假設建立運算元；求解攻擊後立即觸發方程結算。',
+    desc:'演算型主 C／長期資源成長／戰術型方程爆發／低生存能力。',passive:PHASE81_COPY.sage.passive,
+    skills:[skill('basic','普通攻擊',0,'phys',PHASE81_COPY.sage.skills[0][1]),
+      skill('sge_deduce','向量定軌・貫穿演算',1,'phys',PHASE81_COPY.sage.skills[1][1]),
+      skill('sge_induce','動量回授・慣性取樣',1,'phys',PHASE81_COPY.sage.skills[2][1])] }
+
 };
 const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, ...stats, unique });
 export const NEW_LOOT = [
@@ -47,8 +48,8 @@ export const NEW_LOOT = [
   item('sa_oboro','samurai','名刀・朧月','每件主動攻擊傷害 +10%，加算疊加。'),
   item('sa_haori','samurai','殘心羽織','生命 +20；狂刀額外獲 1 武魂；反擊固定 5。村雨會停用全部羽織效果。',{bonusHp:20},true),
   item('sa_murasame','samurai','妖刀・村雨','生命 -15；狂刀減傷 50% 取代完全招架；反擊 20 + 次數×2；主動傷害每缺少 1% 生命增加 0.25%。',{bonusHp:-15}),
-  item('sge_lens','sage','演算透鏡','提高智者【方程結算】後觸發【推演成功】的機率。第一件提高 10 個百分點，每件額外裝備再提高 5 個百分點。提升的成功率優先取代【無事發生】，若不足則取代【思緒紊亂】。不影響每輪固定獲得的基本變量 X。'),
-  item('sge_rule','sage','慣性計算尺','提高智者【方程結算】造成的最終傷害。第一件提高 10%，每件額外裝備再提高 5%。此效果與演算精通及全隊傷害增益共同作用。裝備效果受到腐蝕時，依照既有腐蝕規則降低。')
+  item('sge_lens','sage','演算透鏡','使智者【推演成功】機率提高 10 個百分點；重複獲得的每件額外提高 5 個百分點。增加的成功率只減少【無事發生】，不佔用【思緒紊亂】機率；超出可用機率的部分忽略。裝備腐蝕依既有規則降低效果。'),
+  item('sge_rule','sage','慣性計算尺','使【方程結算】最終傷害提高 10%；重複獲得的每件額外提高 5%。方程專屬加成，不視為一般全隊傷害增益；腐蝕依既有規則降低效果。')
 ];
 for(const [id,copy] of Object.entries(PHASE81_COPY)) {
  const c=NEW_CLASSES[id];c.passive=copy.passive;
@@ -56,7 +57,7 @@ for(const [id,copy] of Object.entries(PHASE81_COPY)) {
 }
 export const NEW_ROLE_DETAILS = Object.fromEntries(Object.entries(NEW_CLASSES).map(([id,c]) => [id, {
   roleName:c.name, enName:id[0].toUpperCase()+id.slice(1), avatar:c.avatar, hp:c.maxHp,
-  type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'sage' ? '長軸輸出 / 演算成長 / 戰術輔助' : '物理 / 戰術', passive:c.passive,
+  type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : '物理 / 戰術', passive:c.passive,
   skills:c.skills.map((s,i)=>({ type:i ? `${i} 技能`:'普攻', name:s.label, cd:`CD ${s.cd}`, dmgType:s.dmgType==='mag'?'【魔法】':s.dmgType==='phys'?'【物理】':'【輔助】', desc:s.desc })),
   equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc})).concat(id==='stargazer'?[{name:'克卜勒的深空天眼',desc:'同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。'}]:[])
 }]));

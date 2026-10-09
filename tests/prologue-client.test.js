@@ -86,13 +86,15 @@ test('cancelled prologue does not start exploration music',async()=>{
  await promise;assert.deepEqual(calls,[]);
 });
 
-test('leader clicking overlay skips prologue directly and emits prologue:skip', async () => {
+test('only explicit prologue button skips; clicking the curtain has no effect', async () => {
   const f = fixture();
   f.context.roomState.leaderId = 'a';
   const promise = vm.runInContext('renderProloguePresentation()', f.context);
   await f.advance(2000);
   assert.equal(f.elements.gameStartOverlay.classList.contains('hidden'), false);
   f.elements.gameStartOverlay.click();
+  assert.equal(f.emissions.length, 0);
+  f.elements.btnSkipPrologue.click();
   await promise;
   assert.deepEqual(f.emissions.map(e => e.name), ['prologue:skip']);
   assert.equal(f.elements.gameStartOverlay.classList.contains('hidden'), true);
@@ -100,12 +102,12 @@ test('leader clicking overlay skips prologue directly and emits prologue:skip', 
   assert.equal(f.manager.isBlocking, false);
 });
 
-test('non-leader clicking overlay cannot skip prologue', async () => {
+test('non-leader cannot skip prologue with the button', async () => {
   const f = fixture();
   f.context.roomState.leaderId = 'other_player';
   const promise = vm.runInContext('renderProloguePresentation()', f.context);
   await f.advance(2000);
-  f.elements.gameStartOverlay.click();
+  f.elements.btnSkipPrologue.click();
   assert.equal(f.emissions.length, 0);
   assert.equal(f.elements.gameStartOverlay.classList.contains('hidden'), false);
   await f.advance(14000);

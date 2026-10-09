@@ -174,7 +174,7 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 4.2 隊長點擊跳過開場演出
+  // 4.2 隊長透過按鈕跳過序章，第一層演出仍由路線階段播放
   socket.on('prologue:skip', (callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
@@ -184,11 +184,11 @@ io.on('connection', (socket) => {
   });
 
   // 4.3 隊長加速敘述文字打字
-  socket.on('narrative:accelerate', (callback) => {
+  socket.on('narrative:accelerate', (request, callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.accelerateNarrative(socket.id);
+    const res = room.accelerateNarrative(socket.id, request);
     if (typeof callback === 'function') callback(res);
   });
 

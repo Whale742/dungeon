@@ -133,6 +133,8 @@ async function withSkillPresentationStage(step,context,play) {
   const resolveResults=async(options={})=>{
     for(const result of step.results||[]) {
       if(signal?.aborted)return;
+      await options.beforeResult?.(result);
+      if(signal?.aborted)return;
       await presentCombatResult(result,cards.get(result.targetId),{...context,...options,signal,sourceRole:step.sourceRole,direction:'right',suppressFx:true,prewarmed:true,motion:animate});
     }
     if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);

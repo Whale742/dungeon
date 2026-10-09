@@ -1009,9 +1009,7 @@ if (typeof window !== 'undefined') {
 
 // --- 2. 非同步時序與幀輔助 ---
 function waitForPresentation(ms, signal, speedScale = 1.0) {
-  const globalScale = (typeof window !== 'undefined' && window.narrativeSpeedScale) || 1.0;
-  const effectiveScale = globalScale > 1 ? globalScale : (speedScale || 1.0);
-  const adjustedMs = effectiveScale > 1 ? Math.max(1, Math.round(ms / effectiveScale)) : Math.round(ms / (speedScale || 1.0));
+  const adjustedMs = Math.round(ms / (speedScale || 1.0));
   return new Promise((resolve, reject) => {
     let timer = null;
     let finishHandler = null;
@@ -1070,6 +1068,9 @@ if (typeof window !== 'undefined') {
 
 // --- 3. 打字機逐字印出核心 (Typewriter Engine) ---
 async function typewriterEffect(container, paragraphs, signal, timing = null, speedScale = 1.0) {
+  const finishTyping = typeof beginNarrativeTyping === 'function' ? beginNarrativeTyping(signal) : () => {};
+  const textWait = ms => waitForPresentation(ms, signal, speedScale * (typeof narrativeTextSpeed === 'function' ? narrativeTextSpeed() : 1));
+  try {
   const activeTiming = timing || (typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.narrative : {
     character: 40, comma: 140, sentence: 280, newline: 380, paragraph: 600
   });
@@ -1083,7 +1084,7 @@ async function typewriterEffect(container, paragraphs, signal, timing = null, sp
     container.appendChild(paragraph);
     const characters = Array.from(paragraphs[index]);
     for (let charIndex = 0; charIndex < characters.length; charIndex++) {
-      await waitForPresentation(activeTiming.character || 40, signal, speedScale);
+      await textWait(activeTiming.character || 40);
       const character = characters[charIndex];
       paragraph.appendChild(document.createTextNode(character));
       if (charIndex % 2 === 1 && !/\s/.test(character)) {
@@ -1092,12 +1093,13 @@ async function typewriterEffect(container, paragraphs, signal, timing = null, sp
       const pause = /[，、,；;：:]/.test(character) ? (activeTiming.comma || 140)
         : /[。！？!?…]/.test(character) ? (activeTiming.sentence || 280)
         : character === '\n' ? (activeTiming.newline || 380) : 0;
-      if (pause) await waitForPresentation(pause, signal, speedScale);
+      if (pause) await textWait(pause);
     }
     if (index < paragraphs.length - 1) {
-      await waitForPresentation(activeTiming.paragraph || 600, signal, speedScale);
+      await textWait(activeTiming.paragraph || 600);
     }
   }
+  } finally { finishTyping(); }
 }
 
 if (typeof window !== 'undefined') {

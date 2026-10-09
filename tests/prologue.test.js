@@ -81,9 +81,9 @@ test('leader can skip prologue directly', t => {
   const res = room.skipPrologue('leader');
   assert.equal(res.success, true);
   assert.equal(room.state, 'CHOOSING_ROUTE');
-  assert.equal(room.isNarrating, false);
-  assert.equal(room.pendingPresentationAcks.size, 0);
-  assert.equal(room.getClientState().timerRemaining, 15);
+  assert.equal(room.isNarrating, true);
+  assert.deepEqual([...room.pendingPresentationAcks], ['leader','member']);
+  assert.equal(room.getClientState().timerRemaining, null);
 });
 
 test('member cannot skip prologue', t => {
@@ -100,10 +100,19 @@ test('leader can accelerate narrative and non-leader is rejected', t => {
   const socket = id => ({ id, join() {} });
   const room = new Room('TEST', socket('leader'), 'Leader', io);
   room.addPlayer(socket('member'), 'Member');
+  room.state = 'PROLOGUE';
   emitted.length = 0;
   assert.equal(room.accelerateNarrative('member').success, false);
   assert.equal(emitted.length, 0);
-  assert.equal(room.accelerateNarrative('leader').success, true);
+  const key = room.getNarrativeControl().key;
+  assert.equal(room.accelerateNarrative('leader', { key, accelerated:true }).success, true);
   assert.equal(emitted.some(e => e.name === 'narrative:accelerated'), true);
+  assert.equal(room.getClientState().narrativeControl.accelerated, true);
+  assert.equal(room.accelerateNarrative('leader', { key, accelerated:false }).success, true);
+  assert.equal(room.getNarrativeControl().accelerated, false);
+  room.accelerateNarrative('leader', { key, accelerated:true });
+  room.startRouteSelection();
+  assert.equal(room.getNarrativeControl().accelerated, false);
+  assert.equal(room.accelerateNarrative('leader', { key, accelerated:true }).success, false);
 });
 

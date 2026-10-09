@@ -49,6 +49,8 @@ export function playerStatuses(player, room, balance) {
     if (room.frenzyTeamDrainNextTurn) add('frenzy', 'DMG +70% · 次回合代價', 'buff', 1);
     if (room.bardBuffActive) add('frenzy_buff', 'DMG ↑ / DR ↑', 'buff', 1);
     if (player.tempHp > 0) add('temp_hp', 'TEMP HP', 'shield', 1, { value: player.tempHp });
+    const sageShield=(player.p8Shields||[]).find(s=>s.kind==='sage'&&s.value>0&&s.until>=room.battleRound);
+    if(sageShield)add('sage_shield','彈性碰撞護盾','shield',sageShield.until-room.battleRound+1,{value:sageShield.value});
     if (player.corruption) add('corruption', '深淵腐化', 'corruption', 0, { locked: true, stacks: player.corruption });
   }
   statuses.push(...p8State(player, room).phase8Statuses);

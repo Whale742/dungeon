@@ -96,6 +96,9 @@ function resolveRouteBossStory(routeId, bossName) {
 }
 
 async function typeBossStoryParagraphs(container, paragraphs, signal, timing, onHalfway, speed = 1) {
+  const finishTyping = typeof beginNarrativeTyping === 'function' ? beginNarrativeTyping(signal) : () => {};
+  const textWait = ms => waitForPresentation(ms, signal, speed * (typeof narrativeTextSpeed === 'function' ? narrativeTextSpeed() : 1));
+  try {
   container.replaceChildren();
   const totalChars = paragraphs.reduce((sum, p) => sum + p.length, 0);
   const halfway = Math.max(1, Math.floor(totalChars / 2));
@@ -109,7 +112,7 @@ async function typeBossStoryParagraphs(container, paragraphs, signal, timing, on
     const characters = Array.from(paragraphs[index]);
     for (let charIndex = 0; charIndex < characters.length; charIndex++) {
       if (signal?.aborted) return;
-      await waitForPresentation((timing?.character || 40) / speed, signal);
+      await textWait(timing?.character || 40);
       const character = characters[charIndex];
       paragraph.appendChild(document.createTextNode(character));
       typedCount++;
@@ -123,18 +126,21 @@ async function typeBossStoryParagraphs(container, paragraphs, signal, timing, on
       const pause = /[，、,；;：:]/.test(character) ? (timing?.comma || 140)
         : /[。！？!?…]/.test(character) ? (timing?.sentence || 280)
         : character === '\n' ? (timing?.newline || 380) : 0;
-      if (pause) await waitForPresentation(pause / speed, signal);
+      if (pause) await textWait(pause);
     }
     if (index < paragraphs.length - 1) {
-      await waitForPresentation((timing?.paragraph || 600) / speed, signal);
+      await textWait(timing?.paragraph || 600);
     }
   }
   if (!halfwayTriggered && typeof onHalfway === 'function') {
     onHalfway();
   }
+  } finally { finishTyping(); }
 }
 
 async function playBossIntro(monster, context = {}) {
+  // Warning and entrance beats follow the audio clock, including in previews.
+  context = { ...context, speed: 1 };
   await sfxManager.preload();
   document.querySelector('.encounter-scene-snapshot')?.remove();
   if (context.signal?.aborted) return;
@@ -248,7 +254,7 @@ async function playBossIntro(monster, context = {}) {
     else sound('boss_entrance');
     sfxManager.duck('boss_warning', .4);
 
-    // Audio buildup: wait 1 second (1000ms / speed) before boss appearance!
+    // Audio buildup: wait one real second before boss appearance.
     await wait(1000);
 
     // 1 second into entrance audio: BOOM and Boss appears!

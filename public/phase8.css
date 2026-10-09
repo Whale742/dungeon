@@ -100,4 +100,6 @@ body.battle-intro-active .floating-log-card{display:none!important;}
 .sage-preview-table th{color:#b7a47a;font-weight:600;}
 .sage-preview-note{font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.3;}
 .sage-hypothesis-notice{background:rgba(22,28,42,0.85);border:1px dashed #7c6836;border-radius:6px;padding:6px 10px;margin:6px 0;color:#e3d2a9;font-size:12px;}
+.sage-preview-blocked{opacity:.4}
+@media(max-width:600px){.sage-preview-header{align-items:flex-start;flex-direction:column;gap:4px}.sage-preview-vars{gap:8px;flex-wrap:wrap}.sage-preview-table th,.sage-preview-table td{padding:4px 2px;font-size:10px}.sage-preview-panel{padding:8px}}
 

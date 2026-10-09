@@ -181,6 +181,7 @@ export class Room {
       bonusAtk: 0,
       victoryAtkBonus: 0,
       sageX: 30,
+      sageDebt: 0,
       equips: [], // 上限 3 件裝備陣列
       equipCounts: {},
       cooldowns: {},
@@ -375,7 +376,8 @@ export class Room {
     const initialCooldowns = {};
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
     player.cooldowns = initialCooldowns;
-    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,sageX:30,sageOperand:0,sagePhase:'hypothesis'});
+    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+    delete player.sagePreviousAction;delete player.sageLastAction;delete player.sageDebtScheduledRound;
     player.stealthStacks=roleKey==='assassin'?1:0;
     delete player.noReviveFloor;
     this.p8RefreshEquipment();
@@ -437,6 +439,7 @@ export class Room {
     this.battlesInCurrentCycle = 0;
     for (const p of Object.values(this.players)) {
       p.hasDealtFirstBattleCrit = false;
+      if(p.role==='sage'){p.sageX=30;p.sageDebt=0;delete p.sageDebtScheduledRound;}
     }
     this.state = 'PROLOGUE';
     this.addLog(`📜 **${STORY_TEXTS.prologue.title}**`, 'info');
@@ -467,16 +470,29 @@ export class Room {
     this.addLog(`⏩ **${this.players[socketId]?.name || '隊長'}** 跳過了開場故事！`, 'info');
     this.clearTimer();
     this.pendingPresentationAcks.clear();
-    this.startRouteSelection({ skipIntro: true });
+    this.startRouteSelection();
     return { success: true };
   }
 
-  accelerateNarrative(socketId) {
+  getNarrativeControl() {
+    const key = JSON.stringify([this.code, this.state, this.floor, this.routePresentationId,
+      this.currentTransition?.routeId, this.currentEvent?.presentationId, this.currentEvent?.opened,
+      this.battleRound, this.battlePresentationId, this.currentVictory?.presentationId]);
+    return { key, accelerated: this.narrativeControl?.key === key && !!this.narrativeControl.accelerated };
+  }
+
+  accelerateNarrative(socketId, request = {}) {
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能加速敘述' };
+    if (!request || typeof request !== 'object') return { success: false, message: '無效的播放設定' };
+    const current = this.getNarrativeControl();
+    if (request.key !== current.key) return { success: false, message: '敘述階段已切換' };
+    if (typeof request.accelerated !== 'boolean') return { success: false, message: '無效的播放設定' };
+    if (!['PROLOGUE','CHOOSING_ROUTE','TRANSITION','EVENT','IN_BATTLE','BATTLE_VICTORY'].includes(this.state)) return { success: false, message: '目前沒有劇情敘述' };
+    this.narrativeControl = { key: current.key, accelerated: request.accelerated };
     if (this.io && this.code) {
-      this.io.to(this.code).emit('narrative:accelerated');
+      this.io.to(this.code).emit('narrative:accelerated', this.narrativeControl);
     }
-    return { success: true };
+    return { success: true, ...this.narrativeControl };
   }
 
   finishPrologueIfReady() {
@@ -1136,7 +1152,7 @@ export class Room {
   applyDamageToPlayer(player, dmg, context = {}) {
     const hpBefore=player.hp;
     if (dmg <= 0) return { actualDmg: 0, hpDmg: 0, tempAbsorbed: 0 };
-    const protection=this.p8Has(player,'boundary');
+    const protection=context.kind==='sage_confusion'?null:this.p8Has(player,'boundary');
     if(protection?.barrier && dmg>=(player.hp+(player.tempHp||0))) {
       protection.barrier=false;
       this.p8Log(`${player.name}的星光屏障抵擋一次致命傷。`);
@@ -1158,7 +1174,7 @@ export class Room {
     if (remaining > 0) {
       player.hp = Math.max(0, player.hp - remaining);
     }
-    const boundary=this.p8Has(player,'boundary');
+    const boundary=context.kind==='sage_confusion'?null:this.p8Has(player,'boundary');
     if(player.hp<=0 && boundary) {player.hp=1;if(boundary.barrier)boundary.barrier=false;}
     const result={actualDmg:hpBefore-player.hp+tempAbsorbed,hpDmg:Math.max(0,hpBefore-player.hp),tempAbsorbed};
     this.p8ConsumeShield(player,tempAbsorbed);this.p8RecordDamage(player,result,context);
@@ -1429,6 +1445,8 @@ export class Room {
     this.isNarrating = false;
 
     for (const p of Object.values(this.players)) {
+      // After round-start damage/control, pay only on a turn this Sage can act.
+      this.p8PaySageDebt(p);
       if (p.hp <= 0) {
         p.action = null;
         p.isLocked = true;
@@ -1523,7 +1541,8 @@ export class Room {
         if ((actionId === 'a_reload' || actionId === 'a_frenzy_reload') && player.ammo && player.ammo.length >= 3) {
           return { success: false, message: '彈匣已滿（上限 3 枚），無法再裝填！' };
         }
-        if ((player.cooldowns[actionId] || 0) > 0) return { success: false, message: '該技能冷卻中' };
+        if (skill.hpBlocked) return { success: false, message: '生命小於等於1時不可施放一技能' };
+        if ((player.cooldowns[skill.cooldownKey || actionId] || 0) > 0) return { success: false, message: '該技能冷卻中' };
       }
     }
 
@@ -1814,6 +1833,7 @@ export class Room {
     const narratives = [];
     const presentationQueue = [];
     const arenaRoundPlayerId=this.arena?.playerId;
+    const roundSkillSets = new Map(Object.values(this.players).map(p => [p.id, getPlayerSkills(p)]));
     this.p8LogBuffer=log;
 
     let bardDmgMultiplier = 1.0;
@@ -1887,10 +1907,13 @@ export class Room {
         rawDmg += this.p8Has(actor,'galaxy')?.value || 0;
         if(actor?.action!=='basic')rawDmg += this.p8Has(actor,'overload')?.value || 0;
       }
-      const triumphActor=options.actor||phase8Actor;
-      const triumph=this.p8Has(triumphActor,'triumph');
-      if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
-      if(this.p8Has(monster,'dissociate') || (this.p8Has(monster,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
+      if(!options.equation) {
+        const triumphActor=options.actor||phase8Actor;
+        const triumph=this.p8Has(triumphActor,'triumph');
+        if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
+        if(this.p8Has(monster,'dissociate') || (this.p8Has(monster,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
+      }
+      if(options.equation&&rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
       const dream=this.p8DreamDamage(monster,rawDmg);
       if(dream) {
         this.p8BossOutcome=dream.outcome;
@@ -1900,7 +1923,7 @@ export class Room {
       if(this.arena || dmgType==='true' || options.penetration===1)return {dmg:Math.max(0,Math.floor(rawDmg)),isResisted:false,resistPercent:0};
       const mirrored = Boolean(this.p8Has(monster, 'mirror'));
       const type = dmgType === 'phys' ? (mirrored ? 'magic' : 'physical') : (mirrored ? 'physical' : 'magic');
-      const resistPercent = Math.max(0, getBossResistance(monster, type) - (bardBuffActive ? 5 : 0)) * (1 - (options.penetration || 0));
+      const resistPercent = Math.max(0, getBossResistance(monster, type) - (bardBuffActive && !options.equation ? 5 : 0)) * (1 - (options.penetration || 0));
       const finalDmg = Math.floor(rawDmg * (1 - resistPercent / 100));
       return { dmg: Math.max(1, finalDmg), isResisted: resistPercent > 0, resistPercent };
     };
@@ -2718,7 +2741,7 @@ export class Room {
 
       const stepVisuals = visualEvents.slice(beforeVisualCount);
       const stepLogs = log.slice(beforeLogCount);
-      const activeSkills = getPlayerSkills(p);
+      const activeSkills = roundSkillSets.get(p.id);
       const usedSkill = activeSkills.find(s => s.id === p.action);
       let hiddenEffectNote = null;
       if (p.action === 'alc_acid' || (p.action === 'alc_flask' && actionOutcome?.type === 'alchemy_acid')) {
@@ -2759,7 +2782,8 @@ export class Room {
         ...(p.role==='sage'?{sagePresentation:{
           sagePhase:p.sagePhase,operandBefore:snapshotTarget(actionBefore,p.id)?.sageOperand,
           operandAfter:p.sageOperand,xBefore:snapshotTarget(actionBefore,p.id)?.sageX,xAfter:p.sageX,
-          actualDamage:finalDamage,sampling:!!p.sageInduction
+          actualDamage:finalDamage,sampling:!!p.sageInduction,
+          operandDelta:p.sageOperand-(snapshotTarget(actionBefore,p.id)?.sageOperand||0)
         }}:{}),
         monsterName: monster.name, monsterAvatar: monster.avatar,
         type: 'player_action', hiddenBeforeAction, consumedStacks,
@@ -2913,12 +2937,13 @@ export class Room {
     // 4. 冷卻時間處理
     for (const p of Object.values(this.players)) {
       if (p.hp <= 0) continue;
-      const activeSkills = getPlayerSkills(p);
+      const activeSkills = roundSkillSets.get(p.id);
 
       for (const skill of activeSkills) {
         if (p.action === skill.id) continue;
-        if (p.cooldowns[skill.id] > 0) {
-          p.cooldowns[skill.id] -= 1;
+        const cooldownKey = skill.cooldownKey || skill.id;
+        if (p.cooldowns[cooldownKey] > 0) {
+          p.cooldowns[cooldownKey] -= 1;
         }
       }
 
@@ -2931,7 +2956,7 @@ export class Room {
             p.cooldowns['w_shield'] = usedSkill.cd + 1; // 盾牌龜裂 CD 額外延長 1 回合
             p.shieldCrackedThisTurn = false;
           } else {
-            p.cooldowns[usedSkill.id] = usedSkill.cd;
+            p.cooldowns[usedSkill.cooldownKey || usedSkill.id] = usedSkill.cd;
           }
         }
       }
@@ -3548,8 +3573,8 @@ export class Room {
       p.bonusAtk = 0; p.victoryAtkBonus = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       p.equips = [];
       p.equipCounts = {};
-      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,sageX:30,sageOperand:0,sagePhase:'hypothesis',sageMomentum:0});
-      delete p.sageConfusion; delete p.sagePriorShieldApplied; delete p.sagePreviousAction;
+      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+      delete p.sagePreviousAction;delete p.sageLastAction;delete p.sageDebtScheduledRound;
       delete p.noReviveFloor;
       p.cooldowns = {};
       if (p.role) {
@@ -3758,6 +3783,7 @@ export class Room {
       currentEvent: this.currentEvent,
       currentTransition: this.currentTransition,
       currentPrologue: (this.state === 'PROLOGUE') ? STORY_TEXTS.prologue : null,
+      narrativeControl: this.getNarrativeControl(),
       isNarrating: this.isNarrating || false,
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
       routeVotes: this.routeVotes || {},
@@ -3802,6 +3828,10 @@ export class Room {
         werewolfMaxHpDeducted: p.werewolfMaxHpDeducted || 0,
         cooldowns: {
           ...p.cooldowns,
+          ...(p.role === 'gladiator' && p.arenaActive ? {
+            g_sacrifice: p.cooldowns.arena_g_sacrifice || 0,
+            g_arena: p.cooldowns.arena_g_arena || 0
+          } : {}),
           dru_transform: (p.druidFormTurns || 0)
         },
         isStealthed: p.isStealthed,
