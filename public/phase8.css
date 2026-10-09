@@ -41,10 +41,7 @@ body:has(.teammate-card.arena-absent) #viewBattle{background:radial-gradient(ell
 .status-fx--dream svg,.status-fx--astronomy svg,.status-fx--soul svg,.status-fx--blood svg,.status-fx--equation svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.2;fill:none;}
 .p8-hit-fx {position:absolute;inset:15%;border:2px solid var(--p8-color);transform:rotate(-30deg);animation:p8Impact 320ms both;pointer-events:none;}
 @keyframes p8Impact {from{opacity:1;transform:scale(1.2) rotate(-30deg);}to{opacity:0;transform:scale(.8) rotate(10deg);}}
-.arrow-rain-wave {position:absolute;inset:0;pointer-events:none;overflow:hidden;}
-.arrow-rain-wave i {position:absolute;left:calc(10% + var(--arrow)*14%);top:-10%;width:2px;height:80px;background:linear-gradient(transparent,#b5d9ff);transform:rotate(22deg);animation:rainFall 480ms linear both;animation-delay:calc(var(--arrow)*40ms);}
-@keyframes rainFall{to{top:100%;opacity:0;}}
-@media(prefers-reduced-motion:reduce){.p8-glyph,.p8-hit-fx,.arrow-rain-wave i,.log-line.log-new{animation-duration:1ms!important;}}
+@media(prefers-reduced-motion:reduce){.p8-glyph,.p8-hit-fx,.log-line.log-new{animation-duration:1ms!important;}}
 /* Phase 8.1: restrained particles, no geometric background emblems. */
 body.battle-intro-active .floating-log-card{display:none!important;}
 .boss-encounter-stage{background:transparent;}

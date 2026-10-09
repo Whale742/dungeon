@@ -50,7 +50,6 @@ function gladiatorApply(owner,snapshot){
   if(!snapshot)return;for(const [id,card] of owner.cards)gladiatorUpdateCard(card,gladiatorTarget(snapshot,id));
   if(typeof applyHpSnapshot==='function')applyHpSnapshot(snapshot);
 }
-function arenaStoneBlocks(count){return Array.from({length:count},(_,i)=>`<i class="arena-stone-block" style="--arena-stone:${i};--arena-height:${45+(i*17%36)}px"></i>`).join('');}
 function arenaSwordField(count,front=false){
   return Array.from({length:count},(_,i)=>{
     const lane=i%2,left=(3+(i*37)%94),top=front?68+(i*19%24):9+(i*31%64);
@@ -64,13 +63,11 @@ function createGladiatorArena(step,context){
   const root=gladiatorNode(stage,'arena-environment'),owner=gladiatorLayout(root);
   owner.playerId=step.arenaPresentation?.playerId||step.hpSnapshotBefore?.arena?.playerId||step.sourceId;
   owner.backdrop=gladiatorNode(owner.frame,'arena-backdrop');owner.spotlight=gladiatorNode(owner.backdrop,'arena-spotlight');
-  owner.backWall=gladiatorNode(owner.frame,'arena-back-wall',arenaStoneBlocks(15));
+  owner.backWall=gladiatorNode(owner.frame,'arena-back-wall');
   owner.ground=gladiatorNode(owner.frame,'arena-ground','<svg viewBox="0 0 1440 250" preserveAspectRatio="none"><path d="M70 90l240 27 95-14m-140 13-40 26M770 60l-60 29 35 22-90 35M940 150l220-45 80 16M410 190l180-35 120 23"/></svg>');
   owner.swordBack=gladiatorNode(owner.frame,'arena-sword-field arena-sword-field-back',arenaSwordField(34));
   owner.combatants=gladiatorNode(owner.frame,'arena-combatants');
   owner.swordFront=gladiatorNode(owner.frame,'arena-sword-field arena-sword-field-front',arenaSwordField(16,true));
-  owner.foreWall=gladiatorNode(owner.frame,'arena-foreground-wall',arenaStoneBlocks(18));
-  owner.rightWall=gladiatorNode(owner.foreWall,'arena-right-wall',arenaStoneBlocks(4));
   const snapshot=step.hpSnapshotBefore||step.hpSnapshot;
   gladiatorCard(owner,owner.playerId,gladiatorTarget(snapshot,owner.playerId),step,482,435);
   gladiatorCard(owner,'monster',snapshot?.monster,step,958,435);
@@ -206,7 +203,7 @@ async function playGladiatorArenaEnter(step,s){
   animate(owner.backdrop,[{opacity:0},{opacity:1}],t.arenaDarken);
   animate(owner.ground,[{transform:'translateY(0)'},{transform:`translateY(${reduced?1:5}px)`,offset:.25},{transform:'translateY(0)',offset:.5},{transform:`translateY(${reduced?1:4}px)`,offset:.75},{transform:'translateY(0)'}],650);
   actor.style.opacity='0';boss.style.opacity='0';sound('rumble',.35);emit('arena_darken');await wait(t.arenaDarken);
-  for(const wall of [owner.backWall,owner.foreWall])animate(wall,[{transform:'translateY(150px)'},{transform:'translateY(-6px)',offset:.75},{transform:'translateY(0)'}],t.arenaWalls);
+  animate(owner.backWall,[{transform:'translateY(150px)'},{transform:'translateY(-6px)',offset:.75},{transform:'translateY(0)'}],t.arenaWalls);
   for(const field of [owner.swordBack,owner.swordFront])animate(field,[{transform:'translateY(55px)',opacity:0},{transform:'translateY(-5px)',opacity:1,offset:.78},{transform:'translateY(0)',opacity:1}],t.arenaWalls+90);
   animate(owner.spotlight,[{opacity:0},{opacity:.95}],80);sound('stone');emit('arena_walls_snap');burst(420,595,'stone',15);burst(980,595,'sand',16);await wait(t.arenaWalls);
   actor.style.opacity='1';boss.style.opacity='1';
@@ -252,14 +249,14 @@ async function playGladiatorMutualDestruction(step,s){
   emit('gladiator_pierce_impact');sound('chop');slash('monster',0,true);
   const flash=fx('gladiator-impact-flash',958,435);animate(flash,[{opacity:.9},{opacity:0}],60);
   animate(boss,[{transform:'translateX(0)'},{transform:`translateX(${reduced?12:45}px) scale(.9)`,offset:.25},{transform:'translateX(0)'}],280);await wait(30);
-  emit('gladiator_overshoot');sound('wall');owner.rightWall?.classList.add('arena-wall-broken');burst(1240,545,'stone',24);burst(1240,545,'sand',18);burst(1240,545,'bronze',7);
+  emit('gladiator_overshoot');sound('wall');burst(1240,545,'sand',18);burst(1240,545,'bronze',7);
   animate(position,[{transform:`translateX(${distance}px)`},{transform:'translate(1700px,250px)'}],350);animate(motion,[{transform:'rotate(35deg)'},{transform:'rotate(60deg)'}],350);
   for(const result of (step.results||[]).filter(r=>r.targetId!==id))await resolve(result);
   owner.cards.get('monster').classList.add('gladiator-final-damage');gladiatorApply(owner,step.hpSnapshot);await wait(350);sound('fall',.2);
   if(step.gladiatorPresentation?.actorDied===true){owner.departed.add(id);position.hidden=true;emit('gladiator_left_blank');}await wait(180);
 }
 async function playGladiatorArenaExit(step,s){
-  const {owner,wait,animate,emit,fx,burst,sound,reduced}=s,meta=step.arenaPresentation,t=PRESENTATION_CONFIG.gladiator;
+  const {owner,wait,animate,emit,fx,burst,sound,reduced,audioScope}=s,meta=step.arenaPresentation,t=PRESENTATION_CONFIG.gladiator;
   const card=owner.cards.get(owner.playerId),rage=card.querySelector('.gladiator-rage-ui');emit('arena_rage_consume');
   if(meta?.actorSurvived===false){owner.departed.add(owner.playerId);owner.positions.get(owner.playerId).hidden=true;}
   if(meta?.consumedRage>0&&!owner.departed.has(owner.playerId)){
@@ -267,7 +264,7 @@ async function playGladiatorArenaExit(step,s){
   }
   animate(rage,[{opacity:1},{opacity:.1,offset:.8},{opacity:1}],t.rageConsume);await wait(t.rageConsume);gladiatorApply(owner,meta?.rageConsumedSnapshot);emit('arena_rage_zero');
   if(meta?.triumphApplied===true){
-    emit('arena_triumph_transfer');sound('gong',.3);
+    emit('arena_triumph_transfer');audioScope.play('gladiator_triumph',{signal:null,preserveAcrossViews:true,noHold:true});
     const momentum=fx('gladiator-triumph-streak',482,435);momentum.style.setProperty('--gladiator-triumph-strength',String(Math.min(1,Math.max(.35,(meta.triumphBonus||0)/150))));
     animate(momentum,[{opacity:0,transform:'translate(-50%,-50%) scaleX(.15)'},{opacity:1,transform:'translate(-50%,-50%) scaleX(1)',offset:.35},{opacity:0,transform:`translate(${reduced?-60:-300}px,-50%) scaleX(1.4)`}],t.triumphTransfer);
     animate(card.querySelector('.gladiator-motion'),[{transform:'scale(1)'},{transform:'translateY(-4px) scale(1.04)',offset:.4},{transform:'scale(1)'}],t.triumphTransfer);
@@ -275,13 +272,13 @@ async function playGladiatorArenaExit(step,s){
       if(ally.id===owner.playerId||ally.hp<=0)continue;gladiatorCard(owner,ally.id,ally,step,260+(i%5)*210,660);
       const p=owner.positions.get(ally.id);p.classList.add('gladiator-triumph-ally');animate(p,[{opacity:0},{opacity:1,offset:.4},{opacity:1}],t.triumphTransfer);
       animate(owner.cards.get(ally.id).querySelector('.gladiator-motion'),[{transform:'scale(1)'},{transform:'scale(1.04)',offset:.45},{transform:'scale(1)'}],t.triumphTransfer);
-      resultFloat(owner.cards.get(ally.id),`【凱旋】 DMG +${Number(meta.triumphBonus).toFixed(1)}% · ${meta.triumphDuration} Turns`,'is-status');
+      resultFloat(owner.cards.get(ally.id),`【凱旋】 DMG +${Math.round(meta.triumphBonus)}% · ${meta.triumphDuration} Turns`,'is-status');
     }
-    resultFloat(card,`【凱旋】 DMG +${Number(meta.triumphBonus).toFixed(1)}% · ${meta.triumphDuration} Turns`,'is-status');burst(360,530,'sand',8);await wait(t.triumphTransfer);gladiatorApply(owner,meta.triumphSnapshot);
+    burst(360,530,'sand',8);await wait(t.triumphTransfer);gladiatorApply(owner,meta.triumphSnapshot);
   }
   gladiatorApply(owner,meta?.hpRestoredSnapshot||step.hpSnapshot);emit('arena_hp_restore');
   for(const [i,ally] of (step.hpSnapshot?.players||[]).entries()){if(ally.id!==owner.playerId&&ally.hp>0)gladiatorCard(owner,ally.id,ally,step,260+(i%5)*210,660);}
   emit('arena_team_return');animate(owner.spotlight,[{opacity:.95},{opacity:0}],100);
-  for(const wall of [owner.backWall,owner.foreWall])animate(wall,[{transform:'translateY(0)'},{transform:'translateY(160px)'}],300);
+  animate(owner.backWall,[{transform:'translateY(0)'},{transform:'translateY(160px)'}],300);
   animate(owner.root,[{opacity:1},{opacity:0}],t.arenaExit);sound('rumble',.2);await wait(t.arenaExit);emit('arena_environment_exit');
 }

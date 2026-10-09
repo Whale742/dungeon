@@ -161,6 +161,12 @@ for (const action of ['a_reload', 'a_frenzy_reload']) {
       });
   }
 }
+for (const ammo of [['pierce'], ['elemental', 'burst'], ['pierce', 'elemental', 'burst']]) {
+  add('crossbow_volley_' + ammo.length, '重弩齊射・' + ammo.length + ' 發', 'archer', 'basic', .9, r => {
+    equipItemToPlayer(r.players.hero, structuredClone(LOOT_TABLE.find(e => e.id === 'a_crossbow')));
+    r.players.hero.ammo = [...ammo];
+  });
+}
 add('p71_sword', '劍弧・寬幅 CSS fallback', 'warrior', 'basic');
 add('p71_assassin_x', '刺客・雙刀 X / Critical', 'assassin', 's_stab', .1);
 {

@@ -132,11 +132,12 @@ for(const rage of [0,1,4,8])test('Arena exit consumes Rage '+rage+' once and aut
   room.currentMonster.maxHp=9000;room.currentMonster.hp=4500;room.arena={playerId:p.id,originalMaxHp:85,originalMonsterMaxHp:5000,until:1};
   const q=[],exit=room.p8ExitArena(q);assert.equal(exit.arenaPresentation.consumedRage,rage);assert.equal(p.rage,0);assert.equal(p.bloodStacks,0);assert.equal(room.arena,null);
   assert.equal(exit.arenaPresentation.rageConsumedSnapshot.players[0].rage,0);assert.equal(exit.arenaPresentation.rageConsumedSnapshot.players[0].maxHp,153);
-  assert.equal(exit.arenaPresentation.triumphApplied,true);assert.equal(exit.arenaPresentation.triumphBonus,200*rage/(rage+5.6));
+  assert.equal(exit.arenaPresentation.triumphApplied,true);assert.equal(exit.arenaPresentation.triumphBonus,Math.round(200*rage/(rage+5.6)));
   assert.equal(exit.arenaPresentation.triumphDuration,2);assert.equal(room.currentMonster.hp,2500);assert.equal(room.currentMonster.maxHp,5000);
   assert.equal(p.maxHp,85);assert.equal(p.hp,50);room.p8ExitArena(q);assert.equal(q.length,1);
-  for(const ally of Object.values(room.players)){assert.equal(ally.p8Effects.triumph.value,exit.arenaPresentation.triumphBonus);assert.equal(ally.p8Effects.triumph.until,3);}
-  room.battleRound=2;assert(room.p8Has(p,'triumph'));room.battleRound=3;assert(room.p8Has(p,'triumph'));room.battleRound=4;assert.equal(room.p8Has(p,'triumph'),null);
+  assert.equal(room.p8Has(p,'triumph'),null);
+  const ally=room.players.p1;assert.equal(ally.p8Effects.triumph.value,exit.arenaPresentation.triumphBonus);assert.equal(ally.p8Effects.triumph.until,3);
+  room.battleRound=2;assert(room.p8Has(ally,'triumph'));room.battleRound=3;assert(room.p8Has(ally,'triumph'));room.battleRound=4;assert.equal(room.p8Has(ally,'triumph'),null);
 });
 test('Triumph boosts authoritative damage and expires after two playable rounds',t=>{
   const {room,resolve}=fixture(t,['warrior']);const p=room.players.p0;p.action='basic';room.p8Effect(p,'triumph','凱旋',2,{value:83.333333333333,until:3,duration:2});
@@ -246,6 +247,21 @@ for(const [r,id,value] of [[.1,'accelerate',2],[.75,'reset',0],[.85,'overload',4
 });
 test('boundary locks HP and enhanced barrier separately resists one lethal',t=>{
   const {room}=fixture(t,['warrior']),p=room.players.p0;room.p8Effect(p,'boundary','boundary',1,{barrier:true});assert.equal(room.applyDamageToPlayer(p,200).actualDmg,0);assert.equal(p.hp,120);room.applyDamageToPlayer(p,200);assert.equal(p.hp,1);
+});
+test('discovered boundary survives later rounds and repeated discovery cannot replenish its barrier',t=>{
+  const {room,resolve}=fixture(t,['stargazer']);const p=room.players.p0;
+  for(const id of ['sg_eyepiece','sg_tube','sg_mount'])equip(p,id);
+  p.action='sg_observe';room.currentMonster.attack=0;
+  resolve(.99);
+  const boundary=room.p8Has(p,'boundary');assert(boundary);assert.equal(boundary.until,Infinity);
+  assert.equal(boundary.barrier,true);
+  const hp=p.hp;room.applyDamageToPlayer(p,1000);assert.equal(boundary.barrier,false);assert.equal(p.hp,hp);
+  room.battleRound=50;room.p8RoundStart();assert.equal(room.p8Has(p,'boundary'),boundary);
+  p.hp=p.maxHp;p.action='sg_observe';resolve(.99);
+  assert.equal(room.p8Has(p,'boundary'),boundary);assert.equal(boundary.barrier,false);
+  room.applyDamageToPlayer(p,1000);assert.equal(p.hp,1);
+  const status=JSON.parse(JSON.stringify(room.getHpSnapshot())).players[0].statuses.filter(s=>s.id==='boundary');
+  assert.equal(status.length,1);assert.equal(status[0].turns,null);
 });
 test('gladiator damage rage once/round; sacrifice cost ignores shield and DR; xiphos stacks reset at exit',t=>{
   const {room,resolve}=fixture(t,['gladiator']),p=room.players.p0;room.applyDamageToPlayer(p,1);room.applyDamageToPlayer(p,1);assert.equal(p.rage,1);
@@ -498,31 +514,27 @@ test('13.4 Sage mathematical properties: EVEN penetration & shield, ODD penetrat
   assert(room.currentMonster.p8Effects.sage_square);
 });
 
-test('13.5 Sage survivability: Prior Barrier round 1, duration 2 rounds, and Inertia sampling shield', t => {
+test('Sage opening and Inertia sampling grant no shield, while sampling remains active', t => {
   const { room, resolve } = fixture(t, ['sage']);
   const p = room.players.p0;
   room.battleRound = 1;
-  p.sagePriorShieldApplied = false;
   room.p8RoundStart();
-  const prior = (p.p8Shields || []).find(s => s.kind === 'sage_prior');
-  assert(prior);
-  assert.equal(prior.value, 23);
-  assert.equal(prior.until, 2);
-
-  room.battleRound = 2;
-  room.p8RoundStart();
-  assert((p.p8Shields || []).some(s => s.kind === 'sage_prior'));
-
-  room.battleRound = 3;
-  room.p8RoundStart();
-  assert.equal((p.p8Shields || []).some(s => s.kind === 'sage_prior'), false);
+  assert.equal(p.tempHp || 0, 0);
+  assert.equal((p.p8Shields || []).length, 0);
+  assert.equal(room.p8Has(p,'sage_prior_shield'), null);
 
   p.sagePhase = 'hypothesis';
   p.action = 'sge_induce';
   p.sageOperand = 10;
   room.p8Action(p, dmg => ({ dmg }), 1.0, [], []);
-  const sampling = (p.p8Shields || []).find(s => s.kind === 'sage_sampling');
-  assert(sampling && sampling.value === 15);
+  assert.equal(p.tempHp || 0, 0);
+  assert.equal((p.p8Shields || []).length, 0);
+  assert.equal(room.p8Has(p,'sage_sampling_shield'), null);
+  assert.equal(p.sageInduction, true);
+  const hp=p.hp;
+  room.applyDamageToPlayer(p,10,{kind:'enemy_direct'});
+  assert.equal(p.hp,hp-10);
+  assert.equal(p.sageOperand,20);
 });
 
 test('13.6 Shared systems: Boss victory rewards all party members including dead, corrosion immunity for permanent atk', t => {

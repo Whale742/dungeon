@@ -34,12 +34,13 @@ const GLADIATOR_LAB_SCENES=(()=>{
       {outcome:{type:'suicide'},gladiatorPresentation:{arenaActive:true,rageBefore:3,rageAfter:3,actorDied:true},equipmentVariant:variant?'g_cingulum':null});
   }
   function exit(rage=4,bonus=83.3333333333,dead=false,beforeOverride){
+    bonus=Math.round(bonus);
     const before=beforeOverride||snapshot({hp:dead?0:92,maxHp:153,rage,arenaActive:true},{hp:1315,maxHp:2160},true,{...ally,arenaBlocked:true});
     const actor=gladiatorTarget(before,g.id),boss=before.monster;
     const consumed=snapshot({...actor,rage:0,bloodStacks:0},boss,true,{...ally,arenaBlocked:true});
     const status={id:'triumph',label:'凱旋',turns:2,value:bonus,icon:'buff'};
-    const triumph=snapshot({...actor,rage:0,bloodStacks:0,arenaActive:false,statuses:dead?[]:[status]},boss,false,{...ally,arenaBlocked:false,statuses:dead?[]:[status]});
-    const restored=snapshot({...actor,hp:dead?0:51,maxHp:85,rage:0,bloodStacks:0,arenaActive:false,statuses:dead?[]:[status]},
+    const triumph=snapshot({...actor,rage:0,bloodStacks:0,arenaActive:false,statuses:[]},boss,false,{...ally,arenaBlocked:false,statuses:dead?[]:[status]});
+    const restored=snapshot({...actor,hp:dead?0:51,maxHp:85,rage:0,bloodStacks:0,arenaActive:false,statuses:[]},
       {hp:dead?718:731,maxHp:1200},false,{...ally,arenaBlocked:false,statuses:dead?[]:[status]});
     return step('arena_exit','死亡角鬥場落幕',before,restored,[],{type:'arena_exit',category:'ARENA_EXIT',arenaPresentation:{phase:'exit',reason:dead?'gladiator_dead':'round_end',
       playerId:g.id,consumedRage:rage,triumphApplied:!dead,triumphBonus:dead?0:bonus,triumphDuration:dead?0:2,actorSurvived:!dead,

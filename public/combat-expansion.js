@@ -338,8 +338,9 @@ async function playTransformPresentation(step, context) {
   });
 }
 const AMMO_NAMES = Object.freeze({ pierce: '穿甲箭', elemental: '元素箭', burst: '爆裂箭' });
+const AMMO_IMAGES = Object.freeze({ pierce: '/assets/archer-special-1.webp', elemental: '/assets/archer-special-2.webp', burst: '/assets/archer-special-3.webp' });
 function ammoArrowHtml(ammo) {
-  return '<span class="presentation-ammo-arrow" data-ammo="' + escapeHtml(ammo) + '"><i class="presentation-ammo-shaft"></i><i class="presentation-ammo-tip"></i></span>';
+  return '<span class="presentation-ammo-arrow" data-ammo="' + escapeHtml(ammo) + '"><img src="' + escapeHtml(AMMO_IMAGES[ammo] || AMMO_IMAGES.pierce) + '" alt="' + escapeHtml(AMMO_NAMES[ammo] || '弩箭') + '"></span>';
 }
 async function playReloadResultPresentation(step, context) {
   const audio = context.audioScope || createSfxPresentationScope(context);
@@ -360,10 +361,12 @@ async function playReloadResultPresentation(step, context) {
       magazine.appendChild(slot); slots.push(slot);
     }
     canvas.appendChild(magazine);
+    await Promise.all([...magazine.querySelectorAll('img')].map(img => img.decode().catch(() => {})));
     playSound('reload_pull'); await wait(180);
     for (let i = result.ammoBefore.length; i < result.ammoAfter.length; i++) {
       const ammo = result.ammoAfter[i];
       slots[i].innerHTML = ammoArrowHtml(ammo) + '<small>' + AMMO_NAMES[ammo] + '</small>';
+      await slots[i].querySelector('img').decode().catch(() => {});
       slots[i].classList.add('is-loading'); playSound('reload_insert');
       context.onTiming?.('ammo_insert', { slot: i, ammo });
       await wait(step.actionId === 'a_frenzy_reload' ? 100 : 220);
@@ -377,6 +380,100 @@ async function playReloadResultPresentation(step, context) {
     context.onTiming?.('reload_complete', { ammo: result.ammoAfter });
     await wait(350);
     canvas.classList.add('is-exiting'); await wait(200);
+  });
+}
+// Archer choreography consumes each authoritative result once. Projectile
+// count comes from the magazine snapshot; grouped damage is never divided here.
+async function playArcherPresentation(step, context = {}) {
+  const rain = step.actionId === 'a_rain';
+  const ammo = rain ? [] : (step.ammoBefore || []).slice(0, 3);
+  const audio = context.audioScope || createSfxPresentationScope(context);
+  const wait = ms => waitForPresentation(ms, context.signal, context.speed || 1);
+  const emit = (beat, detail = {}) => context.onTiming?.(beat, { step, ...detail });
+  await withCombatCanvas(context, rain ? 'AOE_OFFENSIVE' : 'OFFENSIVE', async canvas => {
+    canvas.classList.add('archer-skill-stage', rain ? 'archer-rain-stage' : 'archer-volley-stage');
+    const reduced = !!context.reducedMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    canvas.dataset.reducedMotion = String(reduced);
+    const animations = new Set();
+    const animate = (node, keys, ms, options = {}) => {
+      const animation = node.animate(keys, { duration: ms / (context.speed || 1), fill: 'forwards', ...options });
+      animations.add(animation); animation.finished.catch(() => {}); return animation;
+    };
+    const node = (parent, cls, html = '') => {
+      const n = document.createElement('div'); n.className = cls; n.innerHTML = html; parent.appendChild(n); return n;
+    };
+    const cleanup = () => { for (const a of animations) a.cancel(); animations.clear(); };
+    context.signal?.addEventListener('abort', cleanup, { once: true });
+    try {
+      const title = node(canvas, 'archer-skill-title'); title.textContent = rain ? step.skillName : (step.outcome?.label || step.skillName);
+      const actor = node(canvas, 'archer-skill-actor', getClassPortraitHtml(combatActorDescriptor(step), 'presentation-support-image'));
+      const row = node(canvas, 'archer-skill-targets'), cards = new Map();
+      for (const result of step.results || []) {
+        if (cards.has(result.targetId)) continue;
+        const card = createResultCard({ ...result, monsterName: step.monsterName, monsterAvatar: step.monsterAvatar });
+        if (!rain && result.targetId === step.sourceId) card.classList.add('archer-recoil-target');
+        row.appendChild(card); cards.set(result.targetId, card);
+      }
+      await Promise.all([...canvas.querySelectorAll('img')].map(img => img.decode().catch(() => {})));
+      audio.play('fight'); await wait(450);
+      const boss = cards.get('monster');
+      const impact = (card, type = 'pierce') => {
+        const flash = node(card.querySelector('.presentation-result-portrait'), 'archer-arrow-impact');
+        flash.dataset.ammo = type;
+        animate(flash, [{ opacity: 0, transform: 'scale(.35)' }, { opacity: .9, transform: 'scale(1)', offset: .2 }, { opacity: 0, transform: 'scale(1.6)' }], 260);
+        return flash;
+      };
+      const rainWave = async (card, wave, stray = false) => {
+        const field = node(card.querySelector('.presentation-result-portrait'), 'archer-rain-field');
+        for (let i = 0; i < (reduced ? 3 : 9); i++) {
+          const arrow = node(field, 'archer-falling-arrow', '<i></i><b></b>');
+          arrow.style.left = (8 + (i * 31 + wave * 13) % 86) + '%';
+          const delay = reduced ? 0 : (i % 3) * 35;
+          animate(arrow, reduced ? [{ opacity: 0 }, { opacity: .75, offset: .4 }, { opacity: 0 }] :
+            [{ opacity: 0, transform: 'translate(-65px,-300px) rotate(-16deg)' },
+             { opacity: 1, offset: .15, transform: 'translate(-55px,-245px) rotate(-16deg)' },
+             { opacity: 1, offset: .8, transform: 'translate(0,0) rotate(-16deg)' },
+             { opacity: 0, transform: 'translate(12px,65px) rotate(-16deg)' }], 450, { delay: delay / (context.speed || 1) });
+        }
+        emit(stray ? 'rain_stray' : 'rain_wave', { wave, targetId: card.dataset.targetId });
+        await wait(360); const flash = impact(card); await wait(180); field.remove(); flash.remove();
+      };
+      if (rain) {
+        // Preserve the complete MP3 tail after visual cleanup and view changes.
+        audio.play('archer_rain', { signal: null, preserveAcrossViews: true, noHold: true });
+        emit('skill_audio'); canvas.classList.add('is-raining');
+        animate(actor, reduced ? [{ opacity: 1 }, { opacity: .65 }, { opacity: 1 }] :
+          [{ transform: 'translateY(0)' }, { transform: 'translateY(-12px) rotate(-5deg)', offset: .3 }, { transform: 'translateY(0)' }], 550);
+        if (boss) for (let wave = 0; wave < 5; wave++) await rainWave(boss, wave);
+        for (const result of step.results || []) {
+          const card = cards.get(result.targetId);
+          if (result.targetId !== 'monster' && result.kind === 'damage') { await wait(220); await rainWave(card, 5, true); }
+          await presentCombatResult(result, card, { ...context, audioScope: audio, sourceRole: 'archer', direction: 'right', suppressFx: true, skipResultAudio: true });
+        }
+      } else {
+        const magazine = node(canvas, 'archer-volley-magazine', ammo.map(ammoArrowHtml).join(''));
+        const count = node(canvas, 'archer-volley-count'); count.textContent = ammo.length + ' 發齊射';
+        for (const [i, type] of ammo.entries()) {
+          const arrow = node(canvas, 'archer-volley-arrow', '<i></i><b></b>'); arrow.dataset.ammo = type;
+          arrow.style.top = (42 + i * 3) + '%';
+          magazine.children[i].classList.add('is-fired');
+          audio.play('arrow_release', { instance: 'crossbow-shot-' + i, noHold: true });
+          emit('crossbow_shot', { index: i, ammo: type, count: ammo.length });
+          animate(arrow, reduced ? [{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }] :
+            [{ left: '24%', opacity: 0 }, { left: '34%', opacity: 1, offset: .15 }, { left: '72%', opacity: 1, offset: .85 }, { left: '77%', opacity: 0 }], 240);
+          animate(actor, [{ transform: 'translateX(0)' }, { transform: 'translateX(-7px)', offset: .25 }, { transform: 'translateX(0)' }], 180);
+          await wait(220);
+          const flash = boss && impact(boss, type);
+          audio.play(type === 'elemental' ? 'magic_impact' : type === 'burst' ? 'shield_break' : 'arrow_impact', { instance: 'crossbow-impact-' + i, noHold: true });
+          await wait(140); arrow.remove(); flash?.remove();
+        }
+        for (const result of step.results || []) await presentCombatResult(result, cards.get(result.targetId), {
+          ...context, audioScope: audio, sourceRole: 'archer', direction: 'right', suppressFx: true, skipResultAudio: true
+        });
+      }
+      if (step.hpSnapshot && typeof applyHpSnapshot === 'function') applyHpSnapshot(step.hpSnapshot);
+      await wait(450); canvas.classList.add('is-exiting'); await wait(250); emit('action_complete');
+    } finally { context.signal?.removeEventListener('abort', cleanup); cleanup(); }
   });
 }
 async function playMinionComboPresentation(step, context) {
@@ -486,12 +583,6 @@ async function playCategoryPresentation(step, context = {}) {
       canvas.appendChild(outcome);
       await wait(200);
     }
-    if(step.actionId==='a_rain') {
-      for(let wave=0;wave<5;wave++) {
-        const rain=document.createElement('div');rain.className='arrow-rain-wave';rain.innerHTML=Array.from({length:6},(_,i)=>'<i style="--arrow:'+i+'"></i>').join('');canvas.appendChild(rain);
-        playSound('arrow_release',{volume:.25,instance:'rain-'+wave,noHold:true});await wait(400);rain.remove();
-      }
-    }
     if (step.category === 'STEALTH') { canvas.classList.add('is-stealth-cast'); playSound('air_pass'); }
     if (step.category === 'DEFENSE' || step.category === 'SHIELD') canvas.classList.add('is-guard-cast');
     if (step.category === 'SUMMON') { canvas.classList.add('is-summon-cast'); playSound('druid_cast'); }
@@ -516,13 +607,6 @@ async function playCategoryPresentation(step, context = {}) {
         if (i) await wait(step.category === 'MINION_ATTACK' ? SUPPORT_TIMING.minionGap - SUPPORT_TIMING.impactDelay : SUPPORT_TIMING.ripple);
         const result = step.results[i];
         if (result.kind === 'cleanse') continue;
-        // Keep the delayed stray hit visibly inside the rain, after the main waves.
-        let tailRain;
-        if (step.actionId === 'a_rain' && result.targetId !== 'monster') {
-          tailRain=document.createElement('div');tailRain.className='arrow-rain-wave';
-          tailRain.innerHTML=Array.from({length:6},(_,j)=>'<i style="--arrow:'+j+'"></i>').join('');canvas.appendChild(tailRain);
-          playSound('arrow_release',{volume:.2,instance:'rain-stray-'+i,noHold:true});
-        }
         if (result.minion && compact) {
           canvas.querySelector('.presentation-compact-minion')?.remove();
           const minion = document.createElement('div');
@@ -532,7 +616,6 @@ async function playCategoryPresentation(step, context = {}) {
           const cue = minionSound(result.minion, 'attack', i); playSound(cue.key, cue);
         }
         await presentCombatResult(result, cards.get(result.targetId), { ...context, direction: 'right', sourceRole: step.sourceRole });
-        tailRain?.remove();
 
       }
     }
@@ -603,6 +686,7 @@ async function playExpandedCombatPresentation(step, context = {}) {
   const playSound = (key, options) => audio.play(key, options);
   context = { ...context, signal: context.signal || context.controller?.signal, audioScope: audio };
   if (typeof handlesGladiatorPresentation === 'function' && handlesGladiatorPresentation(step)) return playGladiatorPresentation(step,context);
+  if (step.type === 'player_action' && step.sourceRole === 'archer' && (step.actionId === 'a_rain' || (step.actionId === 'basic' && step.outcome?.type === 'volley'))) return playArcherPresentation(step, context);
   if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
   if (typeof hasSamuraiParry === "function" && hasSamuraiParry(step)) rememberSamuraiEnemyPhase(step, context);
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);

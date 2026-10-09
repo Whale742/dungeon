@@ -7,7 +7,7 @@ const roll = list => list[Math.min(list.length-1,Math.floor(Math.random()*list.l
 export const isPrime = n => Number.isInteger(n) && n>=2 && !Array.from({length:Math.max(0,Math.floor(Math.sqrt(n))-1)},(_,i)=>i+2).some(d=>n%d===0);
 export const eta = x => .25+1.75*x/(x+80);
 export function p8State(p,room) {
-  const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
+  const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:s.permanent?null:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
   if(p.hp>0) {
     if(p.soul)effects.push({id:'soul',icon:'buff',label:'武魂',stacks:p.soul});
     if(p.kyoutou)effects.push({id:'kyoutou',icon:'guard',label:'狂刀',turns:1});
@@ -83,7 +83,7 @@ export const phase8Methods = {
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
       p.rage=0;p.bloodStacks=0;p.soul=0;p.kyoutou=false;p.parryChecked=false;
       p.sageX=p.sageX??30;p.sageOperand=Math.floor(Math.random()*30)+1;p.sagePhase='hypothesis';p.sageCycleRound=0;p.sageMomentum=0;delete p.sagePreviousAction;p.sagePrimeResetPending=false;
-      delete p.sageConfusion;p.sagePriorShieldApplied=false;
+      delete p.sageConfusion;
       p.sageSamplingEnded=true;
     }
     if(this.currentMonster)this.currentMonster.p8Effects={};
@@ -94,11 +94,12 @@ export const phase8Methods = {
     const arena=this.arena,p=this.players[arena.playerId],m=this.currentMonster;
     const before=this.getHpSnapshot(),consumedRage=p?.rage||0;
     const triumphApplied=!!p&&p.hp>0;
-    const triumphBonus=triumphApplied?200*consumedRage/(consumedRage+5.6):0;
+    const triumphBonus=triumphApplied?Math.round(200*consumedRage/(consumedRage+5.6)):0;
     if(p){p.rage=0;p.bloodStacks=0;p.arenaActive=false;}
     const rageConsumedSnapshot=this.getHpSnapshot();
     this.arena=null;
     if(triumphApplied)for(const ally of Object.values(this.players)) {
+      if(ally.id===p.id)continue;
       // Applied at round end: the next two rounds are the two playable turns.
       this.p8Effect(ally,'triumph','凱旋',2,{value:triumphBonus,until:this.battleRound+2,duration:2});
     }
@@ -147,18 +148,6 @@ export const phase8Methods = {
         this.p8Log(`${p.name}踏入【死亡角鬥場】，其餘隊員本輪無法行動。`);
       }
       this.arenaPending=null;
-    }
-    if(this.battleRound===1) {
-      for(const p of Object.values(this.players)) {
-        if(p.role==='sage'&&p.hp>0&&!p.sagePriorShieldApplied) {
-          p.sagePriorShieldApplied=true;
-          const x=p.sageX??30;
-          const shieldVal=Math.floor(p.maxHp*.25+Math.min(x,300)*.10);
-          this.p8GrantShield(p,shieldVal,2,'sage_prior',p.id);
-          this.p8Effect(p,'sage_prior_shield','先驗防壁',2,{value:shieldVal,icon:'guard'});
-          this.p8Log(`${p.name}獲得【先驗防壁】護盾 ${shieldVal} 點，持續至第二回合結束。`);
-        }
-      }
     }
     for(const p of Object.values(this.players)) {
       this.p8Expire(p);p.parryChecked=false;p.kyoutou=false;p.parriedCount=0;p.parryChance=.4;p.rageRoundGain=false;p.warriorRoundDamage=0;p.sageInduction=false;p.sageEquationResolved=false;
@@ -332,7 +321,8 @@ export const phase8Methods = {
           }
         }
         if(id==='boundary') {
-          const ally=alive(this).sort((a,b)=>a.hp-b.hp)[0];if(ally){effect(ally,'boundary','邊界鎖定',1,{barrier:enhanced&&ally.hp===ally.maxHp});}
+          const ally=alive(this).sort((a,b)=>a.hp-b.hp)[0];
+          if(ally&&!this.p8Has(ally,'boundary'))effect(ally,'boundary','邊界鎖定',Infinity,{permanent:true,barrier:enhanced&&ally.hp===ally.maxHp});
         }
         this.p8Log(`${p.name}完成天體觀測：【${outcome.label}】${enhanced?'・克卜勒的深空天眼':''}${outcome.stunned?'，魔物本輪暈眩':''}。`);
       } else if(p.action==='sg_clock') {
@@ -386,10 +376,6 @@ export const phase8Methods = {
         else if(p.action==='sge_deduce')p.sageOperand+=actual;
         else {
           p.sageInduction=true;p.sageSamplingEnded=false;
-          const samplingShield=Math.max(15,Math.floor(p.maxHp*.10));
-          this.p8GrantShield(p,samplingShield,1,'sage_sampling',p.id);
-          this.p8Effect(p,'sage_sampling_shield','慣性緩衝',1,{value:samplingShield,icon:'guard'});
-          this.p8Log(`${p.name}獲得【慣性緩衝】護盾 ${samplingShield} 點，持續至本回合結束。`);
         }
       } else p.sageOperand=p.action==='sge_induce'?p.sageOperand*2:p.sageOperand+(p.action==='sge_deduce'?5:2);
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;
