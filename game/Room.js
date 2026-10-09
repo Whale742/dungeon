@@ -102,6 +102,13 @@ export class Room {
     player.bleedTurns = 0;
     player.poisonTurns = 0;
     player.poisonDmg = 0;
+    player.burnTurns = 0;
+    player.burnDmg = 0;
+    player.fractureTurns = 0;
+    player.fractureDmg = 0;
+    player.chillTurns = 0;
+    player.chillDmg = 0;
+    player.corrosionTurns = 0;
     player.cannotCrit = false;
     player.isSurrendered = false;
     player.stunnedNextTurn = false;
@@ -183,6 +190,9 @@ export class Room {
       isLocked: false,
       bonusAtk: 0,
       victoryAtkBonus: 0,
+      paladinGrace: null,
+      paladinGloryTrackedDamage: 0,
+      paladinGloryCastedRound: 0,
       sageX: 30,
       sageDebt: 0,
       equips: [], // 上限 3 件裝備陣列
@@ -197,6 +207,13 @@ export class Room {
       bleedTurns: 0,
       poisonTurns: 0,
       poisonDmg: 0,
+      burnTurns: 0,
+      burnDmg: 0,
+      fractureTurns: 0,
+      fractureDmg: 0,
+      chillTurns: 0,
+      chillDmg: 0,
+      corrosionTurns: 0,
       druidForm: null,
       druidFormTurns: 0,
       druidRegenBonus: 0,
@@ -380,7 +397,7 @@ export class Room {
     const initialCooldowns = {};
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
     player.cooldowns = initialCooldowns;
-    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
     delete player.sagePreviousAction;delete player.sageLastAction;delete player.sageDebtScheduledRound;
     player.stealthStacks=roleKey==='assassin'?1:0;
     delete player.noReviveFloor;
@@ -664,7 +681,8 @@ export class Room {
     const equips = player.equips || [];
     const equipAtk = equips.reduce((sum, e) => sum + (e.bonusAtk || 0), 0);
     const permanentAtk = (player.bonusAtk || 0) - equipAtk;
-    return permanentAtk + equips.reduce((sum, e) => sum + Math.floor((e.bonusAtk || 0) * (this.roundModifiers?.equipmentEffectMultiplier ?? 1)), 0);
+    const equipMult = (player.corrosionTurns > 0) ? 0.5 : (this.roundModifiers?.equipmentEffectMultiplier ?? 1);
+    return permanentAtk + equips.reduce((sum, e) => sum + Math.floor((e.bonusAtk || 0) * equipMult), 0);
   }
 
   resolveAssassinFollowUps(ally, queue, log, bardMultiplier, resistance) {
@@ -703,7 +721,7 @@ export class Room {
 
   getEffectiveBonusAtk(pl) {
     if (!pl) return 0;
-    const equipMult = this.roundModifiers?.equipmentEffectMultiplier ?? 1.0;
+    const equipMult = (pl.corrosionTurns > 0) ? 0.5 : (this.roundModifiers?.equipmentEffectMultiplier ?? 1.0);
     const resourceAtk=(pl.warriorStacks||0)+(pl.role==='gladiator'?(pl.bloodStacks||0)*2:0);
     if (equipMult >= 1.0) {
       return Math.max(0, (pl.bonusAtk || 0)+resourceAtk);
@@ -968,15 +986,19 @@ export class Room {
         continue;
       }
 
-      p.hp -= trapDmg;
+      let actualTrapDmg = trapDmg;
+      if (p.role === 'paladin' && ((p.tempHp > 0) || (p.p8Shields || []).some(s => s.value > 0)) && (p.equips || []).some(e => e.id === 'pal_banner')) {
+        actualTrapDmg = Math.floor(actualTrapDmg * 0.85);
+      }
+      p.hp -= actualTrapDmg;
       if (p.hp <= 0) {
         p.hp = 0;
         this.clearPlayerDebuffs(p);
-        trapLogs.push(`💥 **${p.name}** 受到 **${trapDmg}** 點陷阱重創，不幸身亡！💀`);
+        trapLogs.push(`💥 **${p.name}** 受到 **${actualTrapDmg}** 點陷阱重創，不幸身亡！💀`);
       } else {
-        trapLogs.push(`💢 **${p.name}** 受到 **${trapDmg}** 點陷阱傷害！（❤️ ${p.hp}/${p.maxHp}）`);
+        trapLogs.push(`💢 **${p.name}** 受到 **${actualTrapDmg}** 點陷阱傷害！（❤️ ${p.hp}/${p.maxHp}）`);
       }
-      hits.push({ targetId: p.id, role: p.role, dodged: false, damage: trapDmg, hpSnapshot: this.getHpSnapshot() });
+      hits.push({ targetId: p.id, role: p.role, dodged: false, damage: actualTrapDmg, hpSnapshot: this.getHpSnapshot() });
     }
 
     this.currentEvent = {
@@ -1019,11 +1041,72 @@ export class Room {
     return true;
   }
 
-  applyMonsterPoison(damage) {
-    if (!this.monsterAllowsEffect('劇毒')) return false;
-    this.currentMonster.poisonTurns = 2;
+  applyMonsterPoison(damage = 5, turns = 2) {
+    if (!this.monsterAllowsEffect('劇毒') && !this.monsterAllowsEffect('中毒')) return false;
+    this.currentMonster.poisonTurns = turns;
     this.currentMonster.poisonDmg = (this.currentMonster.poisonDmg || 0) + damage;
     return true;
+  }
+
+  applyMonsterBurn(damage = 7, turns = 1) {
+    if (!this.monsterAllowsEffect('燃燒')) return false;
+    this.currentMonster.burnTurns = turns;
+    this.currentMonster.burnDmg = (this.currentMonster.burnDmg || 0) + damage;
+    return true;
+  }
+
+  applyMonsterFracture(damage = 2, turns = 3) {
+    if (!this.monsterAllowsEffect('骨折')) return false;
+    this.currentMonster.fractureTurns = turns;
+    this.currentMonster.fractureDmg = (this.currentMonster.fractureDmg || 0) + damage;
+    return true;
+  }
+
+  applyMonsterChill(damage = 3, turns = 2) {
+    if (!this.monsterAllowsEffect('寒冷')) return false;
+    this.currentMonster.chillTurns = turns;
+    this.currentMonster.chillDmg = (this.currentMonster.chillDmg || 0) + damage;
+    return true;
+  }
+
+  applyMonsterCorrosion(turns = 1) {
+    if (!this.monsterAllowsEffect('腐蝕')) return false;
+    const m = this.currentMonster;
+    if (!m) return false;
+    if (!m.corrosionTurns || m.corrosionTurns <= 0) {
+      const maxHpDeduction = Math.max(1, Math.floor(m.maxHp * 0.05));
+      m.corrosionMaxHpDeducted = maxHpDeduction;
+      m.maxHp = Math.max(1, m.maxHp - maxHpDeduction);
+      m.hp = Math.min(m.hp, m.maxHp);
+    }
+    m.corrosionTurns = turns;
+    return true;
+  }
+
+  applyCorrosionToAlly(ally, turns = 1) {
+    if (!ally || ally.hp <= 0) return;
+    const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === ally.id);
+    const target = (paladinGrace && paladinGrace.id !== ally.id) ? paladinGrace : ally;
+    target.corrosionTurns = Math.max(target.corrosionTurns || 0, turns);
+  }
+
+  applyDotToAlly(ally, dotType) {
+    if (!ally || ally.hp <= 0) return;
+    const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === ally.id);
+    const target = (paladinGrace && paladinGrace.id !== ally.id) ? paladinGrace : ally;
+    if (dotType === 'poison') {
+      target.poisonTurns = 2;
+      target.poisonDmg = (target.poisonDmg || 0) + 5;
+    } else if (dotType === 'burn') {
+      target.burnTurns = 1;
+      target.burnDmg = (target.burnDmg || 0) + 7;
+    } else if (dotType === 'fracture') {
+      target.fractureTurns = 3;
+      target.fractureDmg = (target.fractureDmg || 0) + 2;
+    } else if (dotType === 'chill') {
+      target.chillTurns = 2;
+      target.chillDmg = (target.chillDmg || 0) + 3;
+    }
   }
 
   // 戰鬥事件
@@ -1064,7 +1147,15 @@ export class Room {
       ...createBossResistances(baseMonster, this.floor),
       ultName: baseMonster.ultName,
       poisonTurns: 0,
-      poisonDmg: 0
+      poisonDmg: 0,
+      burnTurns: 0,
+      burnDmg: 0,
+      fractureTurns: 0,
+      fractureDmg: 0,
+      chillTurns: 0,
+      chillDmg: 0,
+      corrosionTurns: 0,
+      corrosionMaxHpDeducted: 0
     };
 
     this.battleCount = (this.battleCount || 0) + 1;
@@ -1080,6 +1171,13 @@ export class Room {
       p.bleedTurns = 0;
       p.poisonTurns = 0;
       p.poisonDmg = 0;
+      p.burnTurns = 0;
+      p.burnDmg = 0;
+      p.fractureTurns = 0;
+      p.fractureDmg = 0;
+      p.chillTurns = 0;
+      p.chillDmg = 0;
+      p.corrosionTurns = 0;
       p.stunnedNextTurn = false;
       p.nextTurnStunFlag = false;
       p.cannotCrit = false;
@@ -1210,7 +1308,12 @@ export class Room {
         hp: Math.max(0, this.currentMonster.hp),
         maxHp: this.currentMonster.maxHp,
         name: this.currentMonster.name,
-        statuses: [ ...p8State(this.currentMonster,this).phase8Statuses, ...(this.currentMonster.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: this.currentMonster.poisonTurns, stacks: this.currentMonster.poisonDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
+        statuses: [ ...p8State(this.currentMonster,this).phase8Statuses,
+          ...(this.currentMonster.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: this.currentMonster.poisonTurns, stacks: this.currentMonster.poisonDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
+          ...(this.currentMonster.burnTurns ? [{ id: 'burn', label: 'BURN', icon: 'burn', turns: this.currentMonster.burnTurns, stacks: this.currentMonster.burnDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
+          ...(this.currentMonster.fractureTurns ? [{ id: 'fracture', label: 'FRACTURE', icon: 'fracture', turns: this.currentMonster.fractureTurns, stacks: this.currentMonster.fractureDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
+          ...(this.currentMonster.chillTurns ? [{ id: 'chill', label: 'CHILL', icon: 'chill', turns: this.currentMonster.chillTurns, stacks: this.currentMonster.chillDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
+          ...(this.currentMonster.corrosionTurns ? [{ id: 'corrosion', label: 'CORROSION', icon: 'corrosion', turns: this.currentMonster.corrosionTurns, isNegative:true,category:'DEBUFF' }] : []),
           ...(this.roundModifiers?.monsterAttackReduction ? [{ id: 'attack_down', label: 'ATK DOWN', icon: 'debuff', turns: 1, value: this.roundModifiers.monsterAttackReduction }] : []) ]
       } : null,
       players: Object.values(this.players).map(p => ({
@@ -1313,58 +1416,124 @@ export class Room {
       }
     }
 
-    // 3. 劇毒傷害結算 (回合初 DoT)
-    if (monster && monster.hp > 0 && monster.poisonTurns > 0) {
-      const pDmg = monster.poisonDmg || 5;
-      monster.hp = Math.max(0, monster.hp - pDmg);
-      monster.poisonTurns -= 1;
-      if (monster.poisonTurns === 0) {
-        monster.poisonDmg = 0;
+    // 2.5 腐蝕結算 (回合初倒數)
+    if (monster && monster.hp > 0 && monster.corrosionTurns > 0) {
+      monster.corrosionTurns -= 1;
+      if (monster.corrosionTurns === 0 && (monster.corrosionMaxHpDeducted || 0) > 0) {
+        monster.maxHp += monster.corrosionMaxHpDeducted;
+        monster.corrosionMaxHpDeducted = 0;
+        log.push({ text: `🧪 **${monster.name}** 的【腐蝕】效果結束，血量上限恢復！`, type: 'info' });
       }
-      visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
-      if (monster.hp <= 0) {
-        log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
-      } else {
-        log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
+    }
+    let anyPlayerCorrosionExpired = false;
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0 && p.corrosionTurns > 0) {
+        p.corrosionTurns -= 1;
+        if (p.corrosionTurns === 0) {
+          anyPlayerCorrosionExpired = true;
+          log.push({ text: `🧪 **${p.name}** 的【腐蝕】效果結束，裝備效果恢復正常！`, type: 'info' });
+        }
+      }
+    }
+    if (anyPlayerCorrosionExpired) {
+      this.p8RefreshEquipment();
+    }
+
+    // 3. 持續傷害 (DoT) 結算 (回合初 DoT: 中毒、燃燒、骨折、寒冷)
+    if (monster && monster.hp > 0) {
+      if (monster.poisonTurns > 0) {
+        const pDmg = monster.poisonDmg || 5;
+        monster.hp = Math.max(0, monster.hp - pDmg);
+        monster.poisonTurns -= 1;
+        if (monster.poisonTurns === 0) monster.poisonDmg = 0;
+        visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
+        if (monster.hp <= 0) {
+          log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
+        } else {
+          log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
+        }
+      }
+      if (monster.hp > 0 && monster.burnTurns > 0) {
+        const bDmg = monster.burnDmg || 7;
+        monster.hp = Math.max(0, monster.hp - bDmg);
+        monster.burnTurns -= 1;
+        if (monster.burnTurns === 0) monster.burnDmg = 0;
+        visualEvents.push({ type: 'burn_damage', target: 'monster', value: bDmg });
+        if (monster.hp <= 0) {
+          log.push({ text: `🔥 **${monster.name}** 烈火焚身受到 **${bDmg}** 點燃燒傷害倒下！💀`, type: 'damage' });
+        } else {
+          log.push({ text: `🔥 **${monster.name}** 烈火焚身受到 **${bDmg}** 點燃燒傷害！（剩餘燃燒: ${monster.burnTurns} 回合，每回合 ${bDmg} 點）`, type: 'damage' });
+        }
+      }
+      if (monster.hp > 0 && monster.fractureTurns > 0) {
+        const fDmg = monster.fractureDmg || 2;
+        monster.hp = Math.max(0, monster.hp - fDmg);
+        monster.fractureTurns -= 1;
+        if (monster.fractureTurns === 0) monster.fractureDmg = 0;
+        visualEvents.push({ type: 'fracture_damage', target: 'monster', value: fDmg });
+        if (monster.hp <= 0) {
+          log.push({ text: `🦴 **${monster.name}** 骨骼粉碎受到 **${fDmg}** 點骨折傷害倒下！💀`, type: 'damage' });
+        } else {
+          log.push({ text: `🦴 **${monster.name}** 骨骼劇痛受到 **${fDmg}** 點骨折傷害！（剩餘骨折: ${monster.fractureTurns} 回合，每回合 ${fDmg} 點）`, type: 'damage' });
+        }
+      }
+      if (monster.hp > 0 && monster.chillTurns > 0) {
+        const cDmg = monster.chillDmg || 3;
+        monster.hp = Math.max(0, monster.hp - cDmg);
+        monster.chillTurns -= 1;
+        if (monster.chillTurns === 0) monster.chillDmg = 0;
+        visualEvents.push({ type: 'chill_damage', target: 'monster', value: cDmg });
+        if (monster.hp <= 0) {
+          log.push({ text: `❄️ **${monster.name}** 凍氣攻心受到 **${cDmg}** 點寒冷傷害倒下！💀`, type: 'damage' });
+        } else {
+          log.push({ text: `❄️ **${monster.name}** 寒氣侵蝕受到 **${cDmg}** 點寒冷傷害！（剩餘寒冷: ${monster.chillTurns} 回合，每回合 ${cDmg} 點）`, type: 'damage' });
+        }
       }
     }
 
-    for (const p of Object.values(this.players)) {
-      if (p.hp > 0 && p.poisonTurns > 0) {
-        const pDmg = p.poisonDmg || 5;
-        p.poisonTurns -= 1;
-        if (p.poisonTurns === 0) {
-          p.poisonDmg = 0;
-        }
-        if (isAssassinHidden(p)) { visualEvents.push({ type: 'hidden_evade', targetId: p.id, label: '隱身・MISS', outcome: { type: 'dodge', stealth: true } }); log.push({ text: `**${p.name}** 的隱身阻止毒素傷害。`, type: 'buff' }); continue; }
-        const incoming=this.p8Incoming(p,pDmg,n=>n,{kind:'dot'});
-          const received=this.applyDamageToPlayer(p,incoming.damage,{kind:'dot'});this.p8NightmareHeal(p,incoming.ownerId);
-          visualEvents.push({ type: 'poison_damage', target: p.id, value: received.actualDmg });
-        if (p.hp <= 0) {
-          if (p.druidForm === 'treant') {
-            p.hp = 1;
-            p.druidForm = 'tree';
-            p.druidFormTurns = 1;
-            p.stunnedNextTurn = true;
-            p.action = 'skip';
-            p.isLocked = true;
-            log.push({ text: `🪵 **${p.name}** 劇毒致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
-            visualEvents.push({ type: 'transform_tree', sourceId: p.id });
-          } else {
-            p.hp = 0;
-            this.clearPlayerDebuffs(p);
-            if (p.druidForm === 'tree') {
-              // Treant grants shield; maximum HP remains unchanged.
-              p.druidForm = null;
-              p.druidFormTurns = 0;
-            }
-            log.push({ text: `🧪 **${p.name}** 劇毒發作受到 **${pDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
-          }
-        } else {
-          // Damage applied through the shared shield/HP owner.
-          log.push({ text: `🧪 **${p.name}** 劇毒灼燒受到 **${pDmg}** 點毒素傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘中毒: ${p.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
-        }
+    const tickPlayerDot = (p, dotName, dotIcon, turnsKey, dmgKey, defaultDmg) => {
+      if (p.hp <= 0 || !p[turnsKey] || p[turnsKey] <= 0) return;
+      const dotDmg = p[dmgKey] || defaultDmg;
+      p[turnsKey] -= 1;
+      if (p[turnsKey] === 0) p[dmgKey] = 0;
+      if (isAssassinHidden(p)) {
+        visualEvents.push({ type: 'hidden_evade', targetId: p.id, label: '隱身・MISS', outcome: { type: 'dodge', stealth: true } });
+        log.push({ text: `**${p.name}** 的隱身阻止${dotName}傷害。`, type: 'buff' });
+        return;
       }
+      const incoming = this.p8Incoming(p, dotDmg, n => n, { kind: 'dot' });
+      const received = this.applyDamageToPlayer(p, incoming.damage, { kind: 'dot' });
+      this.p8NightmareHeal(p, incoming.ownerId);
+      visualEvents.push({ type: `${turnsKey.replace('Turns', '')}_damage`, target: p.id, value: received.actualDmg });
+      if (p.hp <= 0) {
+        if (p.druidForm === 'treant') {
+          p.hp = 1;
+          p.druidForm = 'tree';
+          p.druidFormTurns = 1;
+          p.stunnedNextTurn = true;
+          p.action = 'skip';
+          p.isLocked = true;
+          log.push({ text: `🪵 **${p.name}** ${dotName}致命，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+          visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+        } else {
+          p.hp = 0;
+          this.clearPlayerDebuffs(p);
+          if (p.druidForm === 'tree') {
+            p.druidForm = null;
+            p.druidFormTurns = 0;
+          }
+          log.push({ text: `${dotIcon} **${p.name}** ${dotName}發作受到 **${dotDmg}** 點傷害，不幸身亡！💀`, type: 'damage' });
+        }
+      } else {
+        log.push({ text: `${dotIcon} **${p.name}** 受到 **${dotDmg}** 點${dotName}傷害！（❤️ ${p.hp}/${p.maxHp}，剩餘${dotName}: ${p[turnsKey]} 回合，每回合 ${dotDmg} 點）`, type: 'damage' });
+      }
+    };
+
+    for (const p of Object.values(this.players)) {
+      tickPlayerDot(p, '毒素', '🧪', 'poisonTurns', 'poisonDmg', 5);
+      tickPlayerDot(p, '燃燒', '🔥', 'burnTurns', 'burnDmg', 7);
+      tickPlayerDot(p, '骨折', '🦴', 'fractureTurns', 'fractureDmg', 2);
+      tickPlayerDot(p, '寒冷', '❄️', 'chillTurns', 'chillDmg', 3);
     }
 
     // 4. 回合初狂亂殺戮曲代價扣除 (全隊扣除 20% 最大生命)
@@ -1521,6 +1690,7 @@ export class Room {
     if (this.arena && this.arena.playerId !== player.id) return {success:false,message:'死亡競技場期間無法行動'};
     if(player.role==='sage'&&player.sagePhase==='solve'&&player.sagePreviousAction===actionId)return {success:false,message:'求解階段不可重複上一回合的技能'};
     if (actionId === 'sa_tsubame' && (player.soul||0)<4) return {success:false,message:'燕返需要 4 劍魂'};
+    if (actionId === 'pal_grace' && targetPlayerId && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp <= 0)) return { success: false, message: '請指定存活隊友' };
     if (actionId === 'dw_butterfly' && targetPlayerId !== 'monster' && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp<=0)) return {success:false,message:'請指定存活隊友或魔物'};
     if (actionId === 'b_revive' && this.players[targetPlayerId]?.noReviveFloor===this.floor) return {success:false,message:'同歸於盡者本層不能甦生'};
     if (player.stunnedNextTurn) return { success: false, message: '你處於脫力虛脫中，本回合無法行動' };
@@ -1861,10 +2031,13 @@ export class Room {
     // 嚴格保證僅限「本回合」，不得永久修改裝備屬性或跨回合疊加。
     for (const p of Object.values(this.players)) {
       if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'alc_flask') {
-        p.rolledFlaskType = Math.random() < 0.5 ? 'acid' : 'poison';
+        if (!p.rolledFlaskDot) {
+          const r = Math.random();
+          p.rolledFlaskDot = r < 0.25 ? 'poison' : r < 0.50 ? 'burn' : r < 0.75 ? 'fracture' : 'chill';
+        }
       }
     }
-    const acidFlaskCount = Object.values(this.players).filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && (p.action === 'alc_acid' || (p.action === 'alc_flask' && p.rolledFlaskType === 'acid'))).length;
+    const acidFlaskCount = Object.values(this.players).filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'alc_acid').length;
     this.roundModifiers.equipmentEffectMultiplier = acidFlaskCount > 0 ? 0.5 : 1.0;
     this.roundModifiers.acidFlaskCount = acidFlaskCount;
     this.p8RefreshEquipment();
@@ -1944,6 +2117,13 @@ export class Room {
         const targetBefore = structuredClone(this.getHpSnapshot().monster);
         const { dmg } = applyResistanceDamage(Math.floor(m.atk * bardDmgMultiplier), 'phys');
         monster.hp = Math.max(0, monster.hp - dmg);
+        if (dmg > 0) {
+          for (const pal of Object.values(this.players)) {
+            if (pal.role === 'paladin' && pal.paladinGloryCastedRound === this.battleRound) {
+              pal.paladinGloryTrackedDamage = (pal.paladinGloryTrackedDamage || 0) + dmg;
+            }
+          }
+        }
         const snapshot = this.getHpSnapshot();
         results.push({ kind: 'damage', targetId: 'monster', minion: structuredClone(m),
           targetBefore, targetAfter: snapshot.monster, damageType: 'physical',
@@ -1970,9 +2150,12 @@ export class Room {
         return playerKeys.indexOf(a.id) - playerKeys.indexOf(b.id);
       });
 
+    const baseBardDmgMultiplier = bardDmgMultiplier;
     for (const p of sortedPlayers) {
       if (monster.hp <= 0) break;
       if (arenaRoundPlayerId && arenaRoundPlayerId !== p.id) continue;
+      const gloryBuff = (p.p8Shields || []).some(s => s.kind === 'paladin_glory' && s.value > 0 && s.until >= this.battleRound) ? 1.20 : 1.0;
+      bardDmgMultiplier = baseBardDmgMultiplier * gloryBuff;
       phase8Actor=p; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
       const beforeVisualCount = visualEvents.length;
       const beforeLogCount = log.length;
@@ -2115,6 +2298,7 @@ export class Room {
           let baseAtk = 10;
           if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk = 35;
           if (p.role === 'druid' && p.druidForm === 'treant') baseAtk = Math.max(1, baseAtk - 5);
+          if (p.role === 'paladin') baseAtk = 5;
           const isGuaranteedCrit = (p.role === 'assassin' && this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit);
           const basicCrit = p.role === 'assassin' && (isGuaranteedCrit || Math.random() < assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier));
           if (p.role === 'assassin' && basicCrit) {
@@ -2128,6 +2312,31 @@ export class Room {
           log.push({ text: `🗡️ **${p.name}** 施展${typeNote}【普通攻擊】${basicCrit ? '（暴擊！）' : ''}，對怪物造成 **${dmg}** 點傷害！${resNote}`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType, value: dmg, isCrit: basicCrit, label: '普通攻擊' });
           if (p.role === 'assassin' && p.cannotCrit) p.cannotCrit = false;
+          if (p.role === 'paladin') {
+            const shieldGained = dmg * 2;
+            this.p8GrantShield(p, shieldGained, 1, 'paladin_basic');
+            log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，持續 1 回合）！`, type: 'buff' });
+          }
+          if (p.role === 'alchemist') {
+            const rollCorrosion = p.rollCorrosion !== undefined ? p.rollCorrosion : (Math.random() < 0.70);
+            if (rollCorrosion) {
+              const bossCorroded = this.applyMonsterCorrosion(1);
+              let teamCorroded = false;
+              const rollTeam = p.rollTeamCorrosion !== undefined ? p.rollTeamCorrosion : (Math.random() < 0.35);
+              if (rollTeam) {
+                teamCorroded = true;
+                for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
+                  this.applyCorrosionToAlly(ally, 1);
+                }
+                this.p8RefreshEquipment();
+              }
+              const bNote = bossCorroded ? '【腐蝕】成功侵蝕首領（血量上限與傷害降低 5%，持續 1 回合）！' : '首領免疫本次腐蝕！';
+              const tNote = teamCorroded ? '⚠️ 腐蝕濺射波及全隊！我方全體裝備效果減半 1 回合！' : '';
+              log.push({ text: `🧪 **${p.name}** 觸發了腐蝕效果！${bNote}${tNote}`, type: 'buff' });
+              actionOutcome = { type: 'alchemy_corrosion_trigger', label: '腐蝕觸發', secondary: teamCorroded ? '波及全隊' : '首領腐蝕' };
+              visualEvents.push({ type: 'corrosion_trigger', sourceId: p.id, teamCorrosion: teamCorroded });
+            }
+          }
           break;
         }
         case 'w_strike': {
@@ -2448,63 +2657,58 @@ export class Room {
 
         // 鍊金術士技能
         case 'alc_flask': {
-          const flaskType = p.rolledFlaskType || (Math.random() < 0.5 ? 'acid' : 'poison');
-          const isAcid = flaskType === 'acid';
-          actionOutcome = { type: isAcid ? 'alchemy_acid' : 'alchemy_poison', label: isAcid ? '腐蝕強酸' : '劇毒煙霧' };
-          const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
+          const raw = Math.floor((35 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
+          monster.hp -= dmg;
 
-          if (isAcid) {
-            const selfDmg = 0;
-            const raw = Math.floor((40 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
-            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
-            monster.hp -= dmg;
-            for(const ally of Object.values(this.players).filter(x=>x.hp>0)) {
-              const incoming=this.p8Incoming(ally,20,n=>this.p8MitigateFriendly(ally,n),{kind:'friendly'});
-              const res=this.applyDamageToPlayer(ally,incoming.damage,{kind:'friendly'});
-              this.p8NightmareHeal(ally,incoming.ownerId);
-              visualEvents.push({type:'self_damage',targetId:ally.id,value:res.hpDmg+res.tempAbsorbed});
-              log.push({text:ally.name+'受到強酸飛濺 '+(res.hpDmg+res.tempAbsorbed)+' 傷害。',type:'damage'});
-              if(ally.hp<=0)this.clearPlayerDebuffs(ally);
-            }
-            const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-            const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
-            log.push({ text: `⚗️ **${p.name}** 投擲【不穩定試劑瓶】觸發了【腐蝕強酸】！造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}⚠️ 強酸飛濺腐蝕全隊裝備，本回合全體裝備效果降低 50%！（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '不穩定試劑瓶(強酸)' });
-            if (selfDmg > 0) {
-              visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
-            }
-            if (p.hp <= 0) {
-              p.hp = 0;
-              this.clearPlayerDebuffs(p);
-              log.push({ text: `💥 **${p.name}** 因強酸自傷過重倒地陣亡！💀`, type: 'damage' });
-            }
-          } else {
-            const selfDmg = buretteCount > 0 ? 0 : 5;
-            const raw = Math.floor((30 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
-            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
-            monster.hp -= dmg;
-            p.hp = Math.max(0, p.hp - selfDmg);
-            const addedPoisonDmg = 5;
-            const bossPoisoned = this.applyMonsterPoison(addedPoisonDmg);
-            for (const pl of Object.values(this.players)) {
-              if (pl.hp > 0) {
-                pl.poisonTurns = 2; // 持續時間刷新回 2 回合
-                pl.poisonDmg = (pl.poisonDmg || 0) + addedPoisonDmg; // 毒傷疊加
-              }
-            }
-            const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-            const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
-            log.push({ text: `🧪 **${p.name}** 投擲【不穩定試劑瓶】引爆了【劇毒煙霧】！造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}濃烈毒霧覆蓋全場，**隊友陷入劇毒；${bossPoisoned ? `敵方毒傷疊加至每回合 ${monster.poisonDmg} 點，持續 2 回合` : '敵方免疫本次劇毒'}**！`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '不穩定試劑瓶(劇毒)' });
-            if (selfDmg > 0) {
-              visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
-            }
-            if (p.hp <= 0) {
-              p.hp = 0;
-              this.clearPlayerDebuffs(p);
-              log.push({ text: `💥 **${p.name}** 因毒霧自傷倒地陣亡！💀`, type: 'damage' });
+          const DOTS = ['poison', 'burn', 'fracture', 'chill'];
+          let chosenDot = p.rolledFlaskDot || p.rolledFlaskType;
+          if (!chosenDot || !DOTS.includes(chosenDot)) {
+            const r = Math.random();
+            if (r < 0.25) chosenDot = 'poison';
+            else if (r < 0.50) chosenDot = 'burn';
+            else if (r < 0.75) chosenDot = 'fracture';
+            else chosenDot = 'chill';
+          }
+
+          const DOT_CONFIGS = {
+            poison: { type: 'alchemy_poison', label: '劇毒煙霧', name: '中毒', icon: '🧪', turns: 2, dmg: 5, applyMonster: (d) => this.applyMonsterPoison(d, 2) },
+            burn: { type: 'alchemy_burn', label: '燃燒試劑', name: '燃燒', icon: '🔥', turns: 1, dmg: 7, applyMonster: (d) => this.applyMonsterBurn(d, 1) },
+            fracture: { type: 'alchemy_fracture', label: '骨折衝擊', name: '骨折', icon: '🦴', turns: 3, dmg: 2, applyMonster: (d) => this.applyMonsterFracture(d, 3) },
+            chill: { type: 'alchemy_chill', label: '極寒冰霜', name: '寒冷', icon: '❄️', turns: 2, dmg: 3, applyMonster: (d) => this.applyMonsterChill(d, 2) }
+          };
+          const dotCfg = DOT_CONFIGS[chosenDot] || DOT_CONFIGS.poison;
+          const bossApplied = dotCfg.applyMonster(dotCfg.dmg);
+
+          const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (Math.random() < 0.40);
+          if (rollTeam) {
+            for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
+              this.applyDotToAlly(ally, chosenDot);
             }
           }
+
+          actionOutcome = {
+            type: dotCfg.type,
+            label: dotCfg.label,
+            secondary: rollTeam ? '全隊同步波及' : undefined
+          };
+
+          const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
+          const bossNote = bossApplied ? `敵方陷入【${dotCfg.name}】（每回合 ${dotCfg.dmg} 點，持續 ${dotCfg.turns} 回合）` : `敵方免疫本次【${dotCfg.name}】`;
+          const teamNote = rollTeam ? `⚠️ 藥劑劇烈飛濺！我方全體同步陷入【${dotCfg.name}】！` : '';
+          log.push({
+            text: `${dotCfg.icon} **${p.name}** 投擲【不穩定試劑瓶】引發【${dotCfg.label}】！造成 **${dmg}** 點【魔法】傷害！${resNote}\n${bossNote}！${teamNote}`,
+            type: 'combat'
+          });
+          visualEvents.push({
+            type: 'player_attack',
+            sourceId: p.id,
+            target: 'monster',
+            dmgType: 'mag',
+            value: dmg,
+            isCrit: false,
+            label: `不穩定試劑瓶(${dotCfg.name})`
+          });
           break;
         }
 
@@ -2570,10 +2774,14 @@ export class Room {
         }
 
         case 'alc_fate': {
-          const hasAbnormalStatus = ((this.roundModifiers?.acidFlaskCount||0)>0 || (this.roundModifiers?.equipmentEffectMultiplier??1)<1 || p.alcAcidStack>0 || p.poisonTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
+          const hasAbnormalStatus = ((this.roundModifiers?.acidFlaskCount||0)>0 || (this.roundModifiers?.equipmentEffectMultiplier??1)<1 || p.alcAcidStack>0 || p.poisonTurns > 0 || p.burnTurns > 0 || p.fractureTurns > 0 || p.chillTurns > 0 || p.corrosionTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
 
           for (const ally of Object.values(this.players).filter(ally => ally.hp > 0)) {
             ally.bleedTurns = 0; ally.poisonTurns = 0; ally.poisonDmg = 0;
+            ally.burnTurns = 0; ally.burnDmg = 0;
+            ally.fractureTurns = 0; ally.fractureDmg = 0;
+            ally.chillTurns = 0; ally.chillDmg = 0;
+            ally.corrosionTurns = 0;
             ally.cannotCrit = false; ally.stunnedNextTurn = false; ally.nextTurnStunFlag = false;
             ally.warriorVulnerableTurns = 0; ally.warriorVulnerableNextTurn = false;
           }
@@ -2588,6 +2796,13 @@ export class Room {
               pl.bleedTurns = 0;
               pl.poisonTurns = 0;
               pl.poisonDmg = 0;
+              pl.burnTurns = 0;
+              pl.burnDmg = 0;
+              pl.fractureTurns = 0;
+              pl.fractureDmg = 0;
+              pl.chillTurns = 0;
+              pl.chillDmg = 0;
+              pl.corrosionTurns = 0;
               if (pl.hp > 0) this.applyHealWithOverheal(pl, 15);
             }
             log.push({ text: `🌿⚗️ **${p.name}** 身上無異常狀態，調配出【溫和調和試劑】！全員穩定回復 **15** 點生命值！`, type: 'heal' });
@@ -2598,6 +2813,13 @@ export class Room {
               pl.bleedTurns = 0;
               pl.poisonTurns = 0;
               pl.poisonDmg = 0;
+              pl.burnTurns = 0;
+              pl.burnDmg = 0;
+              pl.fractureTurns = 0;
+              pl.fractureDmg = 0;
+              pl.chillTurns = 0;
+              pl.chillDmg = 0;
+              pl.corrosionTurns = 0;
             }
             const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
             // 精密滴管使 2 技能失敗機率改變成 65%（大成功機率 35%），未裝備時為 50%
@@ -2744,6 +2966,34 @@ export class Room {
 
           break;
         }
+
+        case 'pal_glory': {
+          const selfShield = Math.floor(p.maxHp * 0.30);
+          this.p8GrantShield(p, selfShield, 1, 'paladin_glory_self');
+          p.paladinGloryCastedRound = this.battleRound;
+          p.paladinGloryTrackedDamage = 0;
+          this.p8Effect(p, 'paladin_glory_active', '榮耀讚歌・蓄力中', 1, { icon: 'buff' });
+          log.push({ text: `🛡️🎺 **${p.name}** 唱響【榮耀讚歌】！自身獲得生命上限 30% 護盾（**${selfShield}** 點，持續 1 回合）！下回合將全隊造成傷害的 70% 轉化為全體護盾！`, type: 'buff' });
+          visualEvents.push({ type: 'shield_cast', sourceId: p.id, label: '榮耀讚歌' });
+          break;
+        }
+
+        case 'pal_grace': {
+          const targetId = p.targetPlayerId && this.players[p.targetPlayerId] && this.players[p.targetPlayerId].hp > 0
+            ? p.targetPlayerId
+            : (Object.values(this.players).find(pl => pl.id !== p.id && pl.hp > 0)?.id || p.id);
+          const target = this.players[targetId] || p;
+          p.paladinGrace = {
+            targetId: target.id,
+            startRound: this.battleRound,
+            interceptedDamage: 0
+          };
+          this.p8Effect(target, 'paladin_grace_target', `恩典守護・${p.name}代受傷`, 2, { icon: 'guard', paladinId: p.id });
+          this.p8Effect(p, 'paladin_grace_source', `代受恩典・守護${target.name}`, 2, { icon: 'guard', targetId: target.id });
+          log.push({ text: `🛡️🕊️ **${p.name}** 對 **${target.name}** 施展【代受恩典】！接下來 2 回合，${target.name} 受到的所有傷害與負面狀態將由 ${p.name} 承受！`, type: 'buff' });
+          visualEvents.push({ type: 'shield_cast', sourceId: p.id, targetId: target.id, label: '代受恩典' });
+          break;
+        }
       }
 
       const stepVisuals = visualEvents.slice(beforeVisualCount);
@@ -2758,6 +3008,13 @@ export class Room {
       const attackVisual = stepVisuals.find(v => v.type === 'player_attack');
       const isLethal = monster.hp <= 0;
       const monsterHpDelta = Math.max(0, monsterHpBefore - monster.hp);
+      if (monsterHpDelta > 0) {
+        for (const pal of Object.values(this.players)) {
+          if (pal.role === 'paladin' && pal.paladinGloryCastedRound === this.battleRound) {
+            pal.paladinGloryTrackedDamage = (pal.paladinGloryTrackedDamage || 0) + monsterHpDelta;
+          }
+        }
+      }
       const finalDamage = attackVisual ? attackVisual.value : monsterHpDelta;
       const damageType = attackVisual?.dmgType === 'mag' ? 'magic' : 'physical';
       const isCrit = attackVisual?.isCrit || false;
@@ -2929,6 +3186,7 @@ export class Room {
         break; // 擊殺怪物跳出玩家行動
       }
     }
+    bardDmgMultiplier = baseBardDmgMultiplier;
 
     // 3. 處理脫力狀態
     for (const p of Object.values(this.players)) {
@@ -3018,6 +3276,7 @@ export class Room {
       let baseDamageCalc = monster.attack;
       if(this.p8Has(monster,'frenzy_backfire'))baseDamageCalc=Math.floor(baseDamageCalc*1.1);
       if(!this.arena && this.p8Has(monster,'sage_square')?.starts<=this.battleRound)baseDamageCalc=Math.floor(baseDamageCalc*.75);
+      if(monster.corrosionTurns > 0)baseDamageCalc=Math.floor(baseDamageCalc*0.95);
 
       const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
         normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
@@ -3112,6 +3371,10 @@ export class Room {
         if (player.druidForm === 'treant' || player.druidForm === 'tree') {
           finalDmg = Math.floor(finalDmg * (1 - GAME_BALANCE.treantDamageReduction));
         }
+        // 聖騎士【庇護之光軍旗】：自身持有任何護盾時受到的傷害降低 15%
+        if (player.role === 'paladin' && ((player.tempHp > 0) || (player.p8Shields || []).some(s => s.value > 0)) && (player.equips || []).some(e => e.id === 'pal_banner')) {
+          finalDmg = Math.floor(finalDmg * 0.85);
+        }
         return Math.max(1, finalDmg);
       };
 
@@ -3121,7 +3384,7 @@ export class Room {
 
       let remainingDmg = remainingScatter;
       while (remainingDmg > 0 && livingPlayers.length > 0) {
-        const randomTarget = livingPlayers[Math.floor(Math.random() * livingPlayers.length)];
+        const randomTarget = this.pickTargetWithTaunt(livingPlayers);
         const stepDmg = Math.min(remainingDmg, Math.floor(Math.random() * 4) + 2);
         playerRawScatter[randomTarget.id] += stepDmg;
         scatterHits[randomTarget.id].push(stepDmg);
@@ -3171,6 +3434,35 @@ export class Room {
           monsterHits.push({targetId:p.id,role:p.role,value:0,finalDamage:0,outcome:{type:'block',parry:true},targetBefore,targetAfter:snapshotTarget(this.getHpSnapshot(),p.id),hpSnapshot:this.getHpSnapshot()});continue;
         }
         if(this.arena && this.arena.playerId!==p.id)continue;
+
+        // 聖騎士【代受恩典】：守護隊友承受傷害與負面狀態
+        const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === p.id);
+        if (paladinGrace && paladinGrace.id !== p.id && totalTakenDmg > 0) {
+          let redirectedDmg = totalTakenDmg;
+          if (paladinGrace.role === 'paladin' && ((paladinGrace.tempHp > 0) || (paladinGrace.p8Shields || []).some(s => s.value > 0)) && (paladinGrace.equips || []).some(e => e.id === 'pal_banner')) {
+            redirectedDmg = Math.floor(redirectedDmg * 0.85);
+          }
+          const dmgRes = this.applyDamageToPlayer(paladinGrace, redirectedDmg, { kind: 'grace_redirect' });
+          paladinGrace.paladinGrace.interceptedDamage = (paladinGrace.paladinGrace.interceptedDamage || 0) + redirectedDmg;
+          if (redirectedDmg > 0 && monster.baseHp < 100) {
+            paladinGrace.bleedTurns = 2;
+          }
+          log.push({ text: `🛡️🕊️ **${paladinGrace.name}**【代受恩典】挺身而出，為 **${p.name}** 承受了 **${redirectedDmg}** 點傷害！（聖騎士 ❤️ ${paladinGrace.hp + (paladinGrace.tempHp || 0)}/${paladinGrace.maxHp}）`, type: 'buff' });
+          if (paladinGrace.hp <= 0) {
+            paladinGrace.hp = 0;
+            this.clearPlayerDebuffs(paladinGrace);
+            paladinGrace.paladinGrace = null;
+            log.push({ text: `💥 **${paladinGrace.name}** 因替隊友承受致命傷害而倒地陣亡！💀`, type: 'damage' });
+            monsterHits.push({ targetId: paladinGrace.id, sharedFrom: p.id, value: redirectedDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: true, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+          } else {
+            monsterHits.push({ targetId: paladinGrace.id, sharedFrom: p.id, value: redirectedDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+          }
+          monsterHits.push({ targetId: p.id, role: p.role, value: 0, finalDamage: 0, outcome: { type: 'block', grace: true }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
+          continue;
+        }
+        if (paladinGrace && paladinGrace.id === p.id && totalTakenDmg > 0) {
+          paladinGrace.paladinGrace.interceptedDamage = (paladinGrace.paladinGrace.interceptedDamage || 0) + totalTakenDmg;
+        }
 
         // 樹精替全體隊友主動吸收 50% 受到傷害
         if (treantDruid && treantDruid.id !== p.id && totalTakenDmg > 0 && treantDruid.hp > 0) {
@@ -3436,6 +3728,19 @@ export class Room {
     return Math.random() < Math.min(1, Math.max(0, baseRate + bonus));
   }
 
+  pickTargetWithTaunt(players) {
+    if (!players || players.length === 0) return null;
+    if (players.length === 1) return players[0];
+    const weights = players.map(p => p.role === 'paladin' ? 1.3 : 1.0);
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < players.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return players[i];
+    }
+    return players[players.length - 1];
+  }
+
   publishCombatQueue(queue, mode = 'resolution') {
     this.clearTimer();
     this.timerCallback = null;
@@ -3580,7 +3885,7 @@ export class Room {
       p.bonusAtk = 0; p.victoryAtkBonus = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       p.equips = [];
       p.equipCounts = {};
-      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
       delete p.sagePreviousAction;delete p.sageLastAction;delete p.sageDebtScheduledRound;
       delete p.noReviveFloor;
       p.cooldowns = {};
@@ -3785,7 +4090,15 @@ export class Room {
       currentMonster: this.currentMonster ? {
         ...this.currentMonster,
         poisonTurns: this.currentMonster.poisonTurns || 0,
-        poisonDmg: this.currentMonster.poisonDmg || 0
+        poisonDmg: this.currentMonster.poisonDmg || 0,
+        burnTurns: this.currentMonster.burnTurns || 0,
+        burnDmg: this.currentMonster.burnDmg || 0,
+        fractureTurns: this.currentMonster.fractureTurns || 0,
+        fractureDmg: this.currentMonster.fractureDmg || 0,
+        chillTurns: this.currentMonster.chillTurns || 0,
+        chillDmg: this.currentMonster.chillDmg || 0,
+        corrosionTurns: this.currentMonster.corrosionTurns || 0,
+        corrosionMaxHpDeducted: this.currentMonster.corrosionMaxHpDeducted || 0
       } : null,
       currentEvent: this.currentEvent,
       currentTransition: this.currentTransition,
@@ -3846,6 +4159,13 @@ export class Room {
         bleedTurns: p.bleedTurns,
         poisonTurns: p.poisonTurns || 0,
         poisonDmg: p.poisonDmg || 0,
+        burnTurns: p.burnTurns || 0,
+        burnDmg: p.burnDmg || 0,
+        fractureTurns: p.fractureTurns || 0,
+        fractureDmg: p.fractureDmg || 0,
+        chillTurns: p.chillTurns || 0,
+        chillDmg: p.chillDmg || 0,
+        corrosionTurns: p.corrosionTurns || 0,
         druidForm: p.druidForm || null,
         druidFormTurns: p.druidFormTurns || 0,
         isSurrendered: p.isSurrendered || false,

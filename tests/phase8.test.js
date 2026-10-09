@@ -171,8 +171,8 @@ function equation(room,p,{operand=50,x=30,action='basic',r=.99,bard=1,resistance
   Object.assign(p,{sagePhase:'solve',sageCycleRound:1,sageOperand:operand,sageX:x,sageLastAction:action,sageEquationResolved:false});
   const q=[];random(r,()=>room.p8ResolveEquation(p,q,[],resistance,bard));return q[0];
 }
-test('all twelve roles share selectable class/skills/detail owners and real portraits',async t=>{
-  const fs=await import('node:fs');assert.equal(Object.keys(CLASSES).length,12);
+test('all roles share selectable class/skills/detail owners and real portraits',async t=>{
+  const fs=await import('node:fs');assert.equal(Object.keys(CLASSES).length,13);
   for(const id of P8_ROLES){const {room}=fixture(t,[id]);const p=room.players.p0;assert.equal(p.maxHp,CLASSES[id].maxHp);assert.equal(getPlayerSkills(p).length,3);assert(fs.existsSync('public'+CLASSES[id].avatar));}
   assert.equal(getActionPriority('dw_butterfly'),4);assert.equal(getActionPriority('dw_false_dream'),7);
 });
@@ -195,7 +195,7 @@ test('mage drain reaches 50 and cooldowns are two; heals actual resisted damage'
   const s=actionStep(resolve(.999));assert.equal(s.finalDamage,15);assert.equal(s.results.find(r=>r.kind==='heal').actualHeal,3);assert.equal(p.cooldowns.m_drain,2);assert.equal(CLASSES.mage.skills[1].cd,2);
 });
 test('acid hits boss 40 and each living party member 20, through shield and DR, bypassing samurai parry',t=>{
-  const {room,resolve}=fixture(t,['alchemist','warrior','samurai']);room.players.p0.action='alc_flask';room.p8GrantShield(room.players.p1,25);room.players.p2.kyoutou=true;
+  const {room,resolve}=fixture(t,['alchemist','warrior','samurai']);room.players.p0.action='alc_acid';room.p8GrantShield(room.players.p1,25);room.players.p2.kyoutou=true;
   const s=actionStep(resolve(.1));assert.equal(s.finalDamage,40);assert.equal(s.hpSnapshot.players[0].hp,55);assert.equal(s.hpSnapshot.players[1].hp,120);assert.equal(s.hpSnapshot.players[1].tempHp,5);assert.equal(s.hpSnapshot.players[2].hp,60);
 });
 test('treant receives 85% shield without maxHP mutation or regen and lasts two boss phases',t=>{

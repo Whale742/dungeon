@@ -360,7 +360,7 @@ function getRoleIconName(roleKey) {
     assassin: 'sword',
     bard: 'sparkle',
     alchemist: 'poison',
-    druid: 'summon', dreamweaver:'magic', stargazer:'sparkle', gladiator:'shield', samurai:'sword', sage:'info'
+    druid: 'summon', dreamweaver:'magic', stargazer:'sparkle', gladiator:'shield', samurai:'sword', sage:'info', paladin:'shield'
   };
   return map[roleKey] || 'user';
 }
@@ -1980,7 +1980,19 @@ function renderBattle(me, isLeader) {
       buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;">${getIconSvg('status')} 削弱狀態 (傷害/血量 75%)</span>`;
     }
     if (monster.poisonTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-poison">${getIconSvg('poison')} 劇毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
+      buffHtml += `<span class="buff-badge tag-poison">${getIconSvg('poison')} 中毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
+    }
+    if (monster.burnTurns > 0) {
+      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;">🔥 燃燒 (${monster.burnTurns} 回合 / 每回合-${monster.burnDmg || 7})</span>`;
+    }
+    if (monster.fractureTurns > 0) {
+      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;">🦴 骨折 (${monster.fractureTurns} 回合 / 每回合-${monster.fractureDmg || 2})</span>`;
+    }
+    if (monster.chillTurns > 0) {
+      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;">❄️ 寒冷 (${monster.chillTurns} 回合 / 每回合-${monster.chillDmg || 3})</span>`;
+    }
+    if (monster.corrosionTurns > 0) {
+      buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;">🧪 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
   }
@@ -2544,6 +2556,14 @@ function handleSkillClick(actionId, me) {
   if (roomState?.selectionState === 'RESOLVING') return;
 
   if(actionId==='dw_butterfly') {openTargetModal('dream',[...(roomState.players||[]).filter(p=>p.hp>0),{id:'monster',name:roomState.currentMonster?.name||'魔物',hp:roomState.currentMonster?.hp||1,maxHp:roomState.currentMonster?.maxHp||1,role:null,customAvatar:roomState.currentMonster?.avatar}]);return;}
+  // 聖騎士代受恩典：若有多位活著隊友，彈出目標選擇
+  if (actionId === 'pal_grace') {
+    const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+    if (alivePlayers.length > 1) {
+      openTargetModal('grace', alivePlayers);
+      return;
+    }
+  }
   // 吟遊詩人治癒頌歌：若有多位活著隊友，彈出目標選擇
   if (me.role === 'bard' && actionId === 'b_heal') {
     const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
@@ -2559,13 +2579,16 @@ function handleSkillClick(actionId, me) {
   renderMyActionBar(me);
 }
 
-// 目標選擇 Modal (治癒額外目標 / 甦生之歌目標)
+// 目標選擇 Modal (治癒額外目標 / 甦生之歌目標 / 代受恩典目標)
 function openTargetModal(type, targetList) {
   elements.targetModal.classList.remove('hidden');
   elements.targetModalList.innerHTML = '';
 
   if(type==='dream'){elements.targetModalTitle.textContent='清醒夢・薛丁格之蝶・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
-  if (type === 'heal') {
+  if (type === 'grace') {
+    elements.targetModalTitle.innerHTML = `${getIconSvg('shield')} <span>【代受恩典】指定守護隊友</span>`;
+    elements.targetModalDesc.textContent = '在接下來的 2 回合，該隊友受到的傷害與負面狀態將由聖騎士承受：';
+  } else if (type === 'heal') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【治癒頌歌】專注目標</span>`;
     elements.targetModalDesc.textContent = '全隊將獲得群療，請指定一名隊友額外獲得專注回復：';
   } else if (type === 'revive') {
@@ -2586,8 +2609,8 @@ function openTargetModal(type, targetList) {
 
     btn.addEventListener('click', () => {
       elements.targetModal.classList.add('hidden');
-      playSound(type === 'heal' ? 'heal' : 'magic');
-      currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : 'b_revive';
+      playSound(type === 'heal' || type === 'grace' ? 'heal' : 'magic');
+      currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : type === 'grace' ? 'pal_grace' : 'b_revive';
       currentPendingTarget = p.id;
       const me = getMyPlayer();
       if (me) renderMyActionBar(me);

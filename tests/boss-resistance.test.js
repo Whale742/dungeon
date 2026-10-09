@@ -117,7 +117,7 @@ for (const action of ['alc_poison', 'alc_flask']) {
     const { room, step } = fixture(t, 'alchemist');
     room.currentMonster.resistances.effect = 100;
     room.players.p0.action = action;
-    random(.9, () => room.resolveTurnActions());
+    random(action === 'alc_flask' ? .1 : .9, () => room.resolveTurnActions());
     assert.equal(room.currentMonster.poisonTurns, 0);
     assert.equal(room.players.p0.poisonTurns, 2);
     assert.ok(step().finalDamage > 0);

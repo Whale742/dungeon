@@ -21,8 +21,8 @@ async function fixture(env={STUDIO_WRITE_TOKEN:'test-token',SUPABASE_URL:'https:
   const base='http://127.0.0.1:'+server.address().port;
   return {calls,cloud,data,base,close:()=>new Promise(resolve=>{server.closeAllConnections();server.close(resolve);}),request:(route,options={})=>fetch(base+route,{...options,headers:{'Content-Type':'application/json',...(options.token===false?{}:{'X-Studio-Write-Token':'test-token'}),...options.headers},body:options.body?JSON.stringify(options.body):undefined})};
 }
-test('Studio catalog covers all 12 roles, derived IDs, integer radar and real local media',()=>{
-  assert.equal(catalog.role_profiles.length,12);for(const row of catalog.role_profiles)for(const f of radarFields)assert(Number.isInteger(row[f])&&row[f]>=1&&row[f]<=5);
+test('Studio catalog covers all 13 roles, derived IDs, integer radar and real local media',()=>{
+  assert.equal(catalog.role_profiles.length,13);for(const row of catalog.role_profiles)for(const f of radarFields)assert(Number.isInteger(row[f])&&row[f]>=1&&row[f]<=5);
   for(const [role,c]of Object.entries(CLASSES))for(const s of c.skills)assert(catalog.skill_copies.some(row=>row.role_id===role&&row.skill_id===s.id));
   for(const [role,id]of [['warrior','w_cleave'],['bard','b_nocturne'],['bard','b_frenzy'],['bard','b_revive'],['archer','a_reload'],['sage','sge_equation'],['samurai','sa_counter']])assert(catalog.skill_copies.some(row=>row.role_id===role&&row.skill_id===id),role+':'+id);
   for(const asset of catalog.game_assets){assert.equal(asset.source_type,'local');assert(fs.existsSync(path.join(publicDir,asset.local_path)));assert.equal(asset.is_public,true);assert.equal(asset.storage_path,null);}
@@ -102,9 +102,9 @@ test('Studio migration endpoints report status and support dry-run preview',asyn
   const f=await fixture();
   try{
     const status=await(await f.request('/api/studio/migration/status')).json();
-    assert.equal(status.totalGameAssets,94);
-    assert.equal(status.localAssetsCount,94);
-    assert.equal(status.unmigratedCount,94);
+    assert.equal(status.totalGameAssets,catalog.game_assets.length);
+    assert.equal(status.localAssetsCount,catalog.game_assets.length);
+    assert.equal(status.unmigratedCount,catalog.game_assets.length);
     assert.equal(status.missingFilesCount,0);
     const assetDryRun=await(await f.request('/api/studio/migration/assets',{method:'POST',body:{dryRun:true,assetKeys:[catalog.game_assets[0].asset_key]}})).json();
     assert.equal(assetDryRun.dryRun,true);

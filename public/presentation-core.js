@@ -1129,6 +1129,7 @@ function getIconSvg(name, extraClass = '') {
 
 const DEFAULT_ROLE_AVATARS = {
   dreamweaver:{name:'織夢術士',avatar:'/photo/Dreamweaver.webp'},stargazer:{name:'觀星者',avatar:'/photo/Stargazer.webp'},gladiator:{name:'角鬥士',avatar:'/photo/Gladiator.webp'},samurai:{name:'武士',avatar:'/photo/武士.webp'},sage:{name:'智者',avatar:'/photo/智者.webp'},
+  paladin: { name: '聖騎士', avatar: '/photo/Paladin.webp', icon: 'shield' },
   warrior: { name: '戰士', avatar: '/photo/Warrior.webp', icon: 'shield' },
   mage: { name: '法師', avatar: '/photo/Mage.webp', icon: 'sparkle' },
   archer: { name: '弓箭手', avatar: '/photo/Archer.webp', icon: 'target' },

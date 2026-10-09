@@ -28,7 +28,12 @@ export const NEW_CLASSES = {
     desc:'演算型主 C／長期資源成長／戰術型方程爆發／低生存能力。',passive:PHASE81_COPY.sage.passive,
     skills:[skill('basic','普通攻擊',0,'phys',PHASE81_COPY.sage.skills[0][1]),
       skill('sge_deduce','向量定軌・貫穿演算',1,'phys',PHASE81_COPY.sage.skills[1][1]),
-      skill('sge_induce','動量回授・慣性取樣',1,'phys',PHASE81_COPY.sage.skills[2][1])] }
+      skill('sge_induce','動量回授・慣性取樣',1,'phys',PHASE81_COPY.sage.skills[2][1])] },
+  paladin: { name: '聖騎士', avatar: '/photo/Paladin.webp', maxHp: 90,
+    desc: '【生命 90】神聖壁壘。受到傷害機率提高 30%，以護盾化攻為守，代受隊友苦痛。', passive: '嘲諷：受到傷害機率提高 30%。',
+    skills: [skill('basic', '普通攻擊', 0, 'phys', '5 點物理傷害，並且獲得基於普攻造成傷害 2 倍的護盾。'),
+      skill('pal_glory', '榮耀讚歌', 2, null, '自身獲得基於血量 30% 的護盾。下回合全隊獲得本次所有隊友造成的 70% 傷害轉化而成的護盾，最高獲得護盾不超過聖騎士自身血量上限。持有此方式獲得的護盾時，全體造成的傷害提高 20%。有 40% 的機率，獲得的護盾減少 50%。', 'BUFF'),
+      skill('pal_grace', '代受恩典', 2, null, '指定一名我方，在接下來的 2 回合，該隊友受到的傷害及負面狀態，將由聖騎士承受。由此技能受到的傷害，將在技能持續時間結束後，聖騎士獲得傷害一半的護盾。有 50% 的機率聖騎士不獲得護盾。', 'BUFF')] }
 
 };
 const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, ...stats, unique });
@@ -49,15 +54,19 @@ export const NEW_LOOT = [
   item('sa_haori','samurai','殘心羽織','生命 +20；狂刀額外獲 1 武魂；反擊固定 5。村雨會停用全部羽織效果。',{bonusHp:20},true),
   item('sa_murasame','samurai','妖刀・村雨','生命 -15；狂刀減傷 50% 取代完全招架；反擊 20 + 次數×2；主動傷害每缺少 1% 生命增加 0.25%。',{bonusHp:-15}),
   item('sge_lens','sage','演算透鏡','使智者【推演成功】機率提高 10 個百分點；重複獲得的每件額外提高 5 個百分點。增加的成功率只減少【無事發生】，不佔用【思緒紊亂】機率；超出可用機率的部分忽略。裝備腐蝕依既有規則降低效果。'),
-  item('sge_rule','sage','慣性計算尺','使【方程結算】最終傷害提高 10%；重複獲得的每件額外提高 5%。方程專屬加成，不視為一般全隊傷害增益；腐蝕依既有規則降低效果。')
+  item('sge_rule','sage','慣性計算尺','使【方程結算】最終傷害提高 10%；重複獲得的每件額外提高 5%。方程專屬加成，不視為一般全隊傷害增益；腐蝕依既有規則降低效果。'),
+  item('pal_hammer','paladin','晨曦誓約重錘','物理傷害 +5，生命值 +10。',{bonusAtk:5,bonusHp:10}),
+  item('pal_cuirass','paladin','受難代贖者聖鎧','1 技能【榮耀讚歌】觸發「護盾減少 50%」的負面機率由 40% 降低至 15%。',{},true),
+  item('pal_banner','paladin','庇護之光軍旗','生命值 +20。被動：當聖騎士自身持有任何護盾時，受到的傷害額外降低 15%。',{bonusHp:20},true)
 ];
 for(const [id,copy] of Object.entries(PHASE81_COPY)) {
  const c=NEW_CLASSES[id];c.passive=copy.passive;
  c.skills.forEach((skill,i)=>{skill.shortDesc=copy.skills[i][1].split('\n')[0];skill.label=copy.skills[i][0];skill.desc=copy.skills[i][1];});
 }
+NEW_CLASSES.paladin.skills.forEach(s => { s.shortDesc = s.desc; });
 export const NEW_ROLE_DETAILS = Object.fromEntries(Object.entries(NEW_CLASSES).map(([id,c]) => [id, {
   roleName:c.name, enName:id[0].toUpperCase()+id.slice(1), avatar:c.avatar, hp:c.maxHp,
-  type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : '物理 / 戰術', passive:c.passive,
+  type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : id === 'paladin' ? '物理 / 坦鋒 / 守護' : '物理 / 戰術', passive:c.passive,
   skills:c.skills.map((s,i)=>({ type:i ? `${i} 技能`:'普攻', name:s.label, cd:`CD ${s.cd}`, dmgType:s.dmgType==='mag'?'【魔法】':s.dmgType==='phys'?'【物理】':'【輔助】', desc:s.desc })),
   equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc})).concat(id==='stargazer'?[{name:'克卜勒的深空天眼',desc:'同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。'}]:[])
 }]));

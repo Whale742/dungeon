@@ -95,14 +95,18 @@ export const phase8Methods = {
     }
   },
   p8RefreshEquipment() {
-    const corrosion=this.roundModifiers?.equipmentEffectMultiplier ?? 1;
-    const teamHp=Object.values(this.players).reduce((n,p)=>n+countEquip(p,'dw_loom')*Math.floor(20*corrosion),0);
-    for(const p of Object.values(this.players)) {
-      const corroded=(p.equips||[]).filter(e=>/^(dw_|sg_|g_|sa_|sge_)/.test(e.id)).reduce((n,e)=>n+(e.bonusHp||0)-Math.floor((e.bonusHp||0)*corrosion),0);
-      const disabled=countEquip(p,'sa_murasame')?countEquip(p,'sa_haori')*Math.floor(20*corrosion):0;
-      const delta=teamHp-(p.p8TeamHp||0)-disabled+(p.p8DisabledHp||0)-corroded+(p.p8CorrodedHp||0);
-      p.maxHp=Math.max(1,p.maxHp+delta); if(p.hp>0)p.hp=Math.max(1,Math.min(p.maxHp,p.hp+delta));
-      p.p8TeamHp=teamHp; p.p8DisabledHp=disabled;p.p8CorrodedHp=corroded;
+    const globalCorrosion = this.roundModifiers?.equipmentEffectMultiplier ?? 1;
+    const teamHp = Object.values(this.players).reduce((n, p) => {
+      const c = (p.corrosionTurns > 0) ? 0.5 : globalCorrosion;
+      return n + countEquip(p, 'dw_loom') * Math.floor(20 * c);
+    }, 0);
+    for (const p of Object.values(this.players)) {
+      const corrosion = (p.corrosionTurns > 0) ? 0.5 : globalCorrosion;
+      const corroded = (p.equips || []).filter(e => /^(dw_|sg_|g_|sa_|sge_|pal_)/.test(e.id)).reduce((n, e) => n + (e.bonusHp || 0) - Math.floor((e.bonusHp || 0) * corrosion), 0);
+      const disabled = countEquip(p, 'sa_murasame') ? countEquip(p, 'sa_haori') * Math.floor(20 * corrosion) : 0;
+      const delta = teamHp - (p.p8TeamHp || 0) - disabled + (p.p8DisabledHp || 0) - corroded + (p.p8CorrodedHp || 0);
+      p.maxHp = Math.max(1, p.maxHp + delta); if (p.hp > 0) p.hp = Math.max(1, Math.min(p.maxHp, p.hp + delta));
+      p.p8TeamHp = teamHp; p.p8DisabledHp = disabled; p.p8CorrodedHp = corroded;
     }
   },
   p8ResetBattle() {
@@ -110,6 +114,7 @@ export const phase8Methods = {
     for(const p of Object.values(this.players)) {
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
       p.rage=0;p.bloodStacks=0;p.soul=0;p.kyoutou=false;p.parryChecked=false;
+      p.paladinGrace=null;p.paladinGloryTrackedDamage=0;p.paladinGloryCastedRound=0;
       p.sageX=p.sageX??30;p.sageOperand=0;p.sagePhase='hypothesis';p.sageCycleRound=0;
       delete p.sageDebtScheduledRound; // Pending payment survives; next battle is eligible.
       delete p.sagePreviousAction;delete p.sageLastAction;p.sagePrimeResetPending=false;
@@ -186,6 +191,40 @@ export const phase8Methods = {
         return false;
       });
     }
+    for(const p of Object.values(this.players)) {
+      if(p.role==='paladin'&&p.hp>0) {
+        if(p.paladinGloryCastedRound && this.battleRound === p.paladinGloryCastedRound + 1) {
+          const tracked = p.paladinGloryTrackedDamage || 0;
+          let gloryShield = Math.floor(tracked * 0.70);
+          const penaltyRate = (p.equips || []).some(e => e.id === 'pal_cuirass') ? 0.15 : 0.40;
+          const hasPenalty = Math.random() < penaltyRate;
+          if (hasPenalty) gloryShield = Math.floor(gloryShield * 0.50);
+          gloryShield = Math.min(gloryShield, p.maxHp);
+          if (gloryShield > 0) {
+            for (const ally of Object.values(this.players).filter(pl => pl.hp > 0)) {
+              this.p8GrantShield(ally, gloryShield, 2, 'paladin_glory');
+            }
+          }
+          this.p8Log(`🛡️✨ **【榮耀讚歌】** 迴響！全隊獲得 **${gloryShield}** 點護盾（轉化本隊造成的 ${tracked} 點傷害${hasPenalty ? '，負面減半' : ''}，持續 2 回合）！持有護盾期間全體傷害提高 20%！`, 'buff');
+          p.paladinGloryCastedRound = 0;
+          p.paladinGloryTrackedDamage = 0;
+        }
+        if(p.paladinGrace && this.battleRound >= p.paladinGrace.startRound + 2) {
+          const intercepted = p.paladinGrace.interceptedDamage || 0;
+          const gainShield = Math.random() < 0.50;
+          if (gainShield && intercepted > 0) {
+            const shieldVal = Math.floor(intercepted * 0.50);
+            if (shieldVal > 0) {
+              this.p8GrantShield(p, shieldVal, 2, 'paladin_grace');
+              this.p8Log(`🛡️✨ **${p.name}**【代受恩典】持續時間結束，獲得承受傷害 50% 的護盾（**${shieldVal}** 點，持續 2 回合）！`, 'buff');
+            }
+          } else {
+            this.p8Log(`🛡️ **${p.name}**【代受恩典】持續時間結束，未能獲得護盾（50% 機率判定）。`, 'info');
+          }
+          p.paladinGrace = null;
+        }
+      }
+    }
     // Operands are local to a two-turn cycle; expired shields never feed them.
     for(const p of Object.values(this.players)) {
       if(p.role==='sage'&&p.hp>0) {
@@ -259,6 +298,7 @@ export const phase8Methods = {
     if(this.alcVulnerableTurns)n=Math.floor(n*1.2);
     if(p.isCrouchedThisRound)n=Math.floor(n*.8);
     if(['treant','tree'].includes(p.druidForm))n=Math.floor(n*.7);
+    if(p.role==='paladin'&&((p.tempHp>0)||(p.p8Shields||[]).some(s=>s.value>0))&&(p.equips||[]).some(e=>e.id==='pal_banner'))n=Math.floor(n*.85);
     return n;
   },
   p8DamageMonster(p,raw,type,resistance,extra={}) {

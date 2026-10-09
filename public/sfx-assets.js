@@ -73,6 +73,7 @@ const SFX_PRESENTATION_PROFILES = Object.freeze({
   samurai: {basic:'warrior_basic',sa_cut:'samurai-skill',sa_tsubame:'samurai-skill',sa_counter:'samurai-skill'},
   sage: {basic:'sage-attack',sge_deduce:'sage-attack',sge_induce:'sage-attack',sge_equation:null},
   warrior: { basic: 'warrior_basic', w_strike: 'warrior_skill1', w_shield_slam: 'warrior_skill1', w_cleave: 'warrior_skill1', w_shield: 'warrior_defense' },
+  paladin: { basic: 'warrior_basic', pal_glory: 'warrior_defense', pal_grace: 'warrior_defense' },
   mage: { basic: 'mage_basic', m_blast: 'mage_skill1', m_fireball: 'mage_skill1', m_drain: 'mage_skill2' },
   archer: { basic: 'arrow_release', a_shot: 'arrow_release', a_rain: 'archer_rain', a_reload: null, a_frenzy_reload: null },
   assassin: { basic: 'warrior_basic', s_stab: 'warrior_skill1', s_smoke: 'warrior_skill1' },
@@ -93,7 +94,7 @@ function resolveCombatSfxProfile(step) {
     impactKey: role === 'alchemist' ? 'bottle_impact' : null,
     suppressImpact: false,
     bottleSequence: role === 'alchemist' && key === 'alchemy_skill1',
-    impactVolume: ['warrior', 'assassin', 'mage'].includes(role) ? .28 : 1 };
+    impactVolume: ['warrior', 'assassin', 'mage', 'paladin'].includes(role) ? .28 : 1 };
 }
 
 function minionSound(minion, phase = 'attack', index = 0) {

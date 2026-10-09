@@ -70,10 +70,10 @@ export const CLASSES = {
     emoji: '🧪',
     avatar: '/photo/Alchemist.webp',
     maxHp: 75,
-    desc: '【生命 75】神秘調和者。精通強酸爆破、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
+    desc: '【生命 75】神秘調和者。\n被動【異常調和】：\n・腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半（持續 1 回合）。\n・中毒：每回合開始時造成 5 點傷害，持續 2 回合。\n・燃燒：每回合開始時造成 7 點傷害，持續 1 回合。\n・骨折：每回合開始時造成 2 點傷害，持續 3 回合。\n・寒冷：每回合開始時造成 3 點傷害，持續 2 回合。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體'], desc: '揮動燒瓶引發衝擊造成基礎魔法傷害。' },
-      { id: 'alc_flask', label: '1 技能: 不穩定試劑瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '隨機', '高風險'], desc: '投擲調和試劑：50% 機率擲出【腐蝕強酸瓶】重創目標並腐蝕裝備；50% 機率引爆【劇毒煙霧瓶】使敵我陷入劇毒。' },
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體', '腐蝕'], desc: '造成 10 點傷害，有 70% 機率造成腐蝕效果持續一回合，當觸發腐蝕效果時，有 35% 機率使我方全體也觸發腐蝕效果。' },
+      { id: 'alc_flask', label: '1 技能: 不穩定試劑瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '持續傷害', '隨機'], desc: '造成 35 點傷害，並對敵方造成 4 種持續傷害其中一種：中毒、燃燒、骨折、寒冷。有 40% 機率對我方全體同步造成此次效果。' },
       { id: 'alc_fate', label: '2 技能: 命運煉成試劑', cd: 2, tags: ['淨化', '治療', '全體', '高風險'], desc: '立即驅散全隊所有負面狀態。可能煉金大成功或煉金失敗。' }
     ]
   },
@@ -650,6 +650,7 @@ export const BATTLE_NARRATIVES = {
           if (player.druidForm === 'treant') return `🌳 樹精形態下的 **${name}** 揮動粗壯的古木藤蔓，沉重地甩向魔物！`;
           return `🍃 **${name}** 揮動自然法杖，召喚林地原始的狂風重擊魔物！`;
         }
+        if (role === 'paladin') return `🛡️✨ **${name}** 揮動聖光重錘砸向魔物，並引導神聖護盾庇護自身！`;
         return `🗡️ **${name}** 施展【普通攻擊】打擊魔物！`;
       }
       case 'w_strike':
@@ -683,9 +684,18 @@ export const BATTLE_NARRATIVES = {
         return `🕊️ **${name}** 唱響禁忌的甦生之曲，奇蹟的金光刺破死氣，將瀕死的隊友自深淵邊緣喚回人間！`;
       case 'alc_flask':
         if (extra?.flaskType === 'poison' || extra?.outcome === 'alchemy_poison') {
-          return `🧪 **${name}** 投擲【不穩定試劑瓶】引爆劇毒煙霧，致命的深紫色神經毒霧如浪潮般湧開，窒息般的劇毒迅速侵入敵我體內！`;
+          return `🧪 **${name}** 投擲【不穩定試劑瓶】引爆劇毒煙霧，致命的深紫色神經毒霧如浪潮般湧開，窒息般的劇毒迅速侵入體內！`;
         }
-        return `⚗️ **${name}** 投擲【不穩定試劑瓶】炸出高壓強酸，在魔物軀體上轟然炸裂，腐蝕性酸液瘋狂灼燒！`;
+        if (extra?.flaskType === 'burn' || extra?.outcome === 'alchemy_burn') {
+          return `🔥 **${name}** 投擲【不穩定試劑瓶】引燃烈焰試劑，熾熱的火浪轟然炸裂，高溫烈焰瘋狂焚燒！`;
+        }
+        if (extra?.flaskType === 'fracture' || extra?.outcome === 'alchemy_fracture') {
+          return `🦴 **${name}** 投擲【不穩定試劑瓶】引發骨折衝擊波，強烈的碎骨震盪直擊骨髓！`;
+        }
+        if (extra?.flaskType === 'chill' || extra?.outcome === 'alchemy_chill') {
+          return `❄️ **${name}** 投擲【不穩定試劑瓶】爆發極寒凍氣，冰藍色寒霜蔓延全場，刺骨極寒滲透臟腑！`;
+        }
+        return `⚗️ **${name}** 投擲【不穩定試劑瓶】，試劑劇烈反應炸開！`;
       case 'alc_acid':
         return `🧪 **${name}** 擲出冒著劇烈氣泡的高壓強酸燒瓶，在魔物軀體上轟然炸裂，腐蝕性酸液瘋狂灼燒！`;
       case 'alc_poison':
@@ -704,6 +714,10 @@ export const BATTLE_NARRATIVES = {
         return `🪕 **${name}** 撫弄琴弦奏響空靈幽邃的【催眠夜曲】，魔性催眠音律宛如夢魘低語，直穿靈魂深處！`;
       case 'b_frenzy':
         return `🪕 **${name}** 琴弦狂亂震顫，奏響浴血的【狂亂殺戮曲】！刺骨殺意激發了全員潛能，戰意癲狂飆升！`;
+      case 'pal_glory':
+        return `🛡️🎺 **${name}** 高唱【榮耀讚歌】，神聖光輝籠罩全身，並凝聚小隊鬥志轉化為庇護！`;
+      case 'pal_grace':
+        return `🛡️🕊️ **${name}** 詠唱【代受恩典】，以誓約承擔隊友的一切苦痛與負面厄運！`;
       default:
         return `⚔️ **${name}** 發動了行動！`;
     }
@@ -925,7 +939,7 @@ export function getActionPriority(actionId) {
   if (['dw_false_dream','sg_observe'].includes(actionId)) return 7;
   if (actionId === 'alc_fate') return 1; // 1. 淨化 (Cleanse)
   if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)
-  if (actionId === 'w_shield' || actionId === 'a_reload' || actionId === 'a_frenzy_reload') return 3; // 3. 防禦/護盾/免傷/架弩蹲伏 (Defense / Mitigation)
+  if (actionId === 'w_shield' || actionId === 'a_reload' || actionId === 'a_frenzy_reload' || actionId === 'pal_glory' || actionId === 'pal_grace') return 3; // 3. 防禦/護盾/免傷/架弩蹲伏 (Defense / Mitigation)
   if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)
   if (actionId === 'b_heal') return 5; // 5. 治療 (Heal)
   if (actionId === 'dru_transform' || actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') return 6; // 6. 變身/召喚 (Transform / Summon)
@@ -1123,28 +1137,28 @@ export const ROLE_DETAILS = {
     avatar: '/photo/Alchemist.webp',
     hp: 75,
     type: '魔法 / 調和煉成',
-    passive: '神秘調和者，精通強酸腐蝕、劇毒煙霧與命運試劑，全技能與普攻皆為魔法傷害。',
+    passive: '【異常調和】\n・腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半（持續 1 回合）。\n・中毒：每回合開始時造成 5 點傷害，持續 2 回合。\n・燃燒：每回合開始時造成 7 點傷害，持續 1 回合。\n・骨折：每回合開始時造成 2 點傷害，持續 3 回合。\n・寒冷：每回合開始時造成 3 點傷害，持續 2 回合。',
     skills: [
       {
         type: '普攻',
         name: '普通攻擊',
         dmgType: '【魔法】',
         cd: '無 CD',
-        desc: '揮動燒瓶引發衝擊造成基礎 10 點魔法傷害。'
+        desc: '造成 10 點傷害，有 70% 機率造成腐蝕效果持續一回合，當觸發腐蝕效果時，有 35% 機率使我方全體也觸發腐蝕效果。'
       },
       {
         type: '1 技能',
         name: '不穩定試劑瓶',
-        dmgType: '【魔法/隨機】',
+        dmgType: '【魔法/持續傷害】',
         cd: '無 CD',
-        desc: '投擲未完全調和的試劑瓶，50% 機率隨機施放【腐蝕強酸瓶】或【劇毒煙霧瓶】：\n・50% 腐蝕強酸瓶：造成 40 點魔法傷害，全體存活隊友各承受 20 點傷害（走現有護盾與減傷流程，不觸發閃避或招架），強酸濺射使本回合全體裝備效果減半。\n・50% 劇毒煙霧瓶：造成 30 點魔法傷害，自身受到 5 點自傷，敵我雙方陷入劇毒（每回合 5 點毒素傷害，持續 2 回合，毒傷可持續疊加）。\n※ 若裝備【精密滴管】可免疫毒煙瓶的 5 點自傷；強酸全隊飛濺仍生效。'
+        desc: '造成 35 點傷害，並對敵方造成 4 種持續傷害其中一種：中毒、燃燒、骨折、寒冷。有 40% 機率對我方全體同步造成此次效果。'
       },
       {
         type: '2 技能',
         name: '命運煉成試劑',
         dmgType: '【驅散/調和】',
         cd: '2 回合',
-        desc: '立即驅散全隊所有負面狀態（中毒/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。'
+        desc: '立即驅散全隊所有負面狀態（中毒/燃燒/骨折/寒冷/腐蝕/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。'
       }
     ]
   },

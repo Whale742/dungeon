@@ -9,7 +9,11 @@ const STATUS_PATHS = Object.freeze({
   exhausted: 'M5 3h14M5 21h14M7 3v4l10 10v4M17 3v4L7 17v4', sleep: 'M5 5h14L5 19h14',
   transform: 'M3 8 7 3l5 5 5-5 4 5-2 12H5ZM7 12l3 2m7-2-3 2',
   stealth: 'M3 12c5-8 13-8 18 0-5 8-13 8-18 0Zm0-9 18 18',
-  downed: 'M4 4l16 16M20 4 4 20', corruption: 'M12 2 3 8v9l9 5 9-5V8ZM8 9l8 8m0-8-8 8'
+  downed: 'M4 4l16 16M20 4 4 20', corruption: 'M12 2 3 8v9l9 5 9-5V8ZM8 9l8 8m0-8-8 8',
+  burn: 'M12 2c1 3 4 5 4 9a6 6 0 0 1-12 0c0-4 3-6 4-9 1 3 3 4 4 0Z',
+  fracture: 'M5 19 19 5M12 7l-2 5 4 2-2 5',
+  chill: 'M12 2v20M2 12h20M5 5l14 14M5 19 19 5',
+  corrosion: 'M9 2h6M10 2v7L4 20h16L14 9V2M8 15h8'
 });
 function combatStatusSvg(status) {
   const path = STATUS_PATHS[status.icon] || STATUS_PATHS.buff;

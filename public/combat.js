@@ -118,6 +118,14 @@ const COMBAT_PRESENTATION_PROFILES = Object.freeze({
     anticipationDelay: 220,
     impactDelay: 90
   },
+  paladin: {
+    attackSfx: 'warrior_xing',
+    impactSfx: 'physical_hit',
+    fxType: 'sword_slash',
+    impactType: 'flash-physical',
+    anticipationDelay: 220,
+    impactDelay: 90
+  },
   mage: {
     attackSfx: 'mage_burst',
     preSfx: 'magic_cast',
@@ -181,6 +189,8 @@ const COMBAT_PRESENTATION_PROFILES = Object.freeze({
 const COMBAT_SKILL_PROFILES = Object.freeze({
   w_strike: { fxType: 'sword_slash', attackSfx: 'warrior_xing' },
   w_shield_slam: { fxType: 'sword_slash', attackSfx: 'heavy_impact' },
+  pal_glory: { fxType: 'sword_slash', attackSfx: 'warrior_defense' },
+  pal_grace: { fxType: 'sword_slash', attackSfx: 'warrior_defense' },
   m_blast: { fxType: 'arcane_burst', attackSfx: 'mage_burst', preSfx: 'magic_cast' },
   m_fireball: { fxType: 'arcane_burst', attackSfx: 'mage_burst', preSfx: 'magic_cast' },
   a_shot: { fxType: 'arrow_projectile', attackSfx: 'archer_twang', flightSfx: 'arrow_flight', impactSfx: 'arrow_impact' },

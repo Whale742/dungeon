@@ -29,8 +29,8 @@ for (const [role, action, random, outcome, category] of [
   ['assassin', 's_stab', .1, 'critical', 'OFFENSIVE'],
   ['bard', 'b_heal', .1, 'off_key', 'HEAL'],
   ['bard', 'b_buff', .1, 'overload', 'BUFF'],
-  ['alchemist', 'alc_flask', .1, 'alchemy_acid', 'OFFENSIVE'],
-  ['alchemist', 'alc_flask', .9, 'alchemy_poison', 'OFFENSIVE'],
+  ['alchemist', 'alc_acid', .1, 'alchemy_acid', 'OFFENSIVE'],
+  ['alchemist', 'alc_flask', .1, 'alchemy_poison', 'OFFENSIVE'],
   ['alchemist', 'alc_fate', .1, 'alchemy_success', 'CLEANSE'],
   ['alchemist', 'alc_fate', .9, 'alchemy_failure', 'CLEANSE'],
   ['druid', 'dru_transform', .1, 'transform_wolf', 'TRANSFORM'],
@@ -252,13 +252,13 @@ test('skill timer and resolution wait for the slowest viewer and reject stale ro
   room.state = 'GAME_OVER'; // Cancel the guarded 300ms transition during test cleanup.
 });
 
-test('alchemist alc_flask: 50% acid (dmg 40, party 20, equip halved) vs 50% poison (dmg 30, self 5, poison 2 turns) with burette protection', t => {
-  // Test acid branch (random < 0.5)
+test('alchemist alc_acid and alc_flask mechanics: acid splash vs 4 DoT statuses with team sync', t => {
+  // Test alc_acid: 40 dmg, party splash 20, equip halved
   {
     const { room, queue } = fixture(t, ['alchemist', 'warrior']);
-    room.players.p0.action = 'alc_flask';
+    room.players.p0.action = 'alc_acid';
     resolve(room, 0.2);
-    const step = queue().queue.find(s => s.actionId === 'alc_flask');
+    const step = queue().queue.find(s => s.actionId === 'alc_acid');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_acid');
     assert.equal(step.finalDamage, 40);
@@ -266,30 +266,34 @@ test('alchemist alc_flask: 50% acid (dmg 40, party 20, equip halved) vs 50% pois
     assert.equal(step.hiddenEffectNote, '酸霧侵蝕裝備，全隊裝備效果降低 50%！');
     assert.match(step.narrative, /腐蝕強酸|高壓強酸/);
   }
-  // Test poison branch (random >= 0.5)
+  // Test alc_flask poison branch (random .1 -> poison, < 0.4 team sync)
   {
     const { room, queue } = fixture(t, ['alchemist', 'warrior']);
     room.players.p0.action = 'alc_flask';
-    resolve(room, 0.8);
+    resolve(room, 0.1);
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_poison');
-    assert.equal(step.finalDamage, 30);
-    assert.equal(step.actorHpAfter, 75 - 5);
+    assert.equal(step.finalDamage, 35);
     assert.equal(room.currentMonster.poisonTurns, 2);
     assert.equal(room.currentMonster.poisonDmg, 5);
     assert.equal(room.players.p0.poisonTurns, 2);
     assert.equal(room.players.p1.poisonTurns, 2);
-    assert.equal(step.hiddenEffectNote, null);
     assert.match(step.narrative, /劇毒煙霧/);
   }
-  // Test burette immunity to self damage
+  // Test alc_flask burn branch (deterministic rolledFlaskDot = burn, rollTeamDot = false)
   {
     const { room, queue } = fixture(t, ['alchemist', 'warrior']);
     room.players.p0.action = 'alc_flask';
-    room.players.p0.equips = [{ id: 'alc_burette', name: '精密滴管' }];
-    resolve(room, 0.2);
+    room.players.p0.rolledFlaskDot = 'burn';
+    room.players.p0.rollTeamDot = false;
+    resolve(room, 0.5);
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
-    assert.equal(step.actorHpAfter, 55); // fixed party splash is not removed by a burette
+    assert.ok(step);
+    assert.equal(step.outcome.type, 'alchemy_burn');
+    assert.equal(step.finalDamage, 35);
+    assert.equal(room.currentMonster.burnTurns, 1);
+    assert.equal(room.currentMonster.burnDmg, 7);
+    assert.equal(room.players.p0.burnTurns, 0);
   }
 });

@@ -22,6 +22,10 @@ export function playerStatuses(player, room, balance) {
   const add = (id, label, icon, turns = 0, extra = {}) => statuses.push({ id, label, icon, turns, ...extra });
   if (player.hp <= 0) add('downed', '倒下・本層無法行動', 'downed');
   if (player.poisonTurns) add('poison', 'POISON', 'poison', player.poisonTurns, { stacks: player.poisonDmg, isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.burnTurns) add('burn', 'BURN', 'burn', player.burnTurns, { stacks: player.burnDmg, isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.fractureTurns) add('fracture', 'FRACTURE', 'fracture', player.fractureTurns, { stacks: player.fractureDmg, isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.chillTurns) add('chill', 'CHILL', 'chill', player.chillTurns, { stacks: player.chillDmg, isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.corrosionTurns) add('corrosion', 'CORROSION', 'corrosion', player.corrosionTurns, { isNegative:true, category:'DEBUFF' });
   if (player.bleedTurns) add('bleed', 'BLEED', 'bleed', player.bleedTurns, {isNegative:true,category:'DEBUFF',isDot:true});
   if (player.cannotCrit) add('crit_lock', 'CRIT LOCK', 'lock', 1);
   if (player.archerNextDodgeBonus) add('dodge_bonus', 'DODGE ↑', 'dodge', 1, { value: '+' + player.archerNextDodgeBonus * 100 + '%' });
