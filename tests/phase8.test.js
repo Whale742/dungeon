@@ -141,8 +141,8 @@ for(const rage of [0,1,4,8])test('Arena exit consumes Rage '+rage+' once and aut
 });
 test('Triumph boosts authoritative damage and expires after two playable rounds',t=>{
   const {room,resolve}=fixture(t,['warrior']);const p=room.players.p0;p.action='basic';room.p8Effect(p,'triumph','凱旋',2,{value:83.333333333333,until:3,duration:2});
-  room.battleRound=2;assert.equal(actionStep(resolve()).finalDamage,18);
-  room.battleRound=4;p.warriorStacks=0;assert.equal(actionStep(resolve()).finalDamage,10);
+  room.battleRound=2;assert.equal(actionStep(resolve()).finalDamage,9);
+  room.battleRound=4;p.warriorStacks=0;assert.equal(actionStep(resolve()).finalDamage,5);
 });
 test('Suicide immediately queues forced Arena exit, preserves revive lock and never grants Triumph',t=>{
   const {room,resolve}=fixture(t,['gladiator','bard']);const p=room.players.p0;
@@ -220,8 +220,8 @@ test('dream outcomes on another class carry the authoritative portrait cue witho
     room.p8Effect(room.currentMonster,'dream_butterfly','夢蝶迷思',1,{ownerId:'p0'});room.players.p0.action='basic';
     const step=resolve(roll).find(s=>s.type==='player_action'&&s.sourceId==='p0');
     const results=step.results.filter(r=>r.targetId==='monster');assert.equal(results.length,1);assert.equal(results[0].outcome.type,type);
-    if(type==='dream_heal'){assert.equal(results[0].kind,'heal');assert.equal(results[0].actualHeal,10);assert.equal(step.hpSnapshot.monster.hp,4010);}
-    else {assert.equal(results[0].finalDamage,10);assert.equal(step.hpSnapshot.monster.hp,3990);}
+    if(type==='dream_heal'){assert.equal(results[0].kind,'heal');assert.equal(results[0].actualHeal,5);assert.equal(step.hpSnapshot.monster.hp,4005);}
+    else {assert.equal(results[0].finalDamage,5);assert.equal(step.hpSnapshot.monster.hp,3995);}
   }
 });
 for(const [r,id] of [[.01,'shallow'],[.26,'deep'],[.51,'lone'],[.76,'horde']])test('false history calculation override without floor mutation: '+id,t=>{
@@ -645,7 +645,7 @@ test('Sage equation ignores bard, victory/gear attack, triumph, galaxy, overload
 });
 
 test('Sage odd equation ignores vulnerability on later turns; other attacks retain it',t=>{
-  const {room,resolve}=fixture(t,['sage','warrior']),p=room.players.p0;room.currentMonster.attack=0;
+  const {room,resolve}=fixture(t,['sage','archer']),p=room.players.p0;room.currentMonster.attack=0;
   room.p8Effect(room.currentMonster,'sage_exposed','ODD',2,{starts:1});
   Object.assign(p,{sagePhase:'solve',sageOperand:23,sageX:30,action:'basic'});room.players.p1.action='basic';
   const q=resolve(.99),s=q.find(s=>s.actionId==='sge_equation');assert.equal(s.outcome.actualBossDamage,Math.round(25*eta(30)));

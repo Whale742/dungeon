@@ -78,11 +78,12 @@ test('Paladin passive taunt increases targeting chance by 30%', (t) => {
   assert.ok(paladinCount > warriorCount, 'Paladin should be targeted significantly more often than warrior');
 });
 
-test('Paladin basic attack deals 5 damage and grants 2x damage shield lasting 1 round', (t) => {
+test('Paladin basic attack deals 5 damage and grants 2x damage shield with no turn limit', (t) => {
   const { room, resolve } = fixture(t, ['paladin']);
   const pal = room.players.p0;
   pal.action = 'basic';
   room.currentMonster.hp = 1000;
+  room.currentMonster.attack = 0;
 
   const q = resolve();
 
@@ -96,15 +97,23 @@ test('Paladin basic attack deals 5 damage and grants 2x damage shield lasting 1 
   const basicShield = (pal.p8Shields || []).find(s => s.kind === 'paladin_basic');
   assert.ok(basicShield, 'paladin_basic shield should exist');
   assert.equal(basicShield.initial, 10, 'Initial shield should be 2x damage = 10');
-  assert.equal(basicShield.until, 1, 'Basic shield should last 1 round (until current round)');
+  assert.equal(basicShield.until, Infinity, 'Basic shield should have no round limit (Infinity)');
 
-  // Next round start -> shield expires
+  // Monster hits for 5 damage (min 5 effective attack), absorbing 5 shield -> 5 shield left
+  assert.equal(pal.tempHp, 5, 'Shield absorbed 5 damage, 5 remaining');
+
+  // Next round start -> shield does NOT expire
   room.battleRound = 2;
   room.p8RoundStart();
-  assert.equal(pal.tempHp, 0, 'Basic shield should expire in the next round');
+  assert.equal(pal.tempHp, 5, 'Basic shield should persist across rounds');
+
+  // Round 3 start -> shield still persists
+  room.battleRound = 3;
+  room.p8RoundStart();
+  assert.equal(pal.tempHp, 5, 'Basic shield should continue to persist');
 });
 
-test('Paladin Skill 1 Glory Carol: self 30% max HP shield (1 round), tracks ally damage, next round converts 70% to party shield (2 rounds)', (t) => {
+test('Paladin Skill 1 Glory Carol: self 50% max HP shield (2 rounds), deals 15 damage, tracks ally damage, next round converts 70% to party shield (2 rounds)', (t) => {
   const { room, resolve } = fixture(t, ['paladin', 'mage']);
   const pal = room.players.p0;
   const mage = room.players.p1;
@@ -112,20 +121,24 @@ test('Paladin Skill 1 Glory Carol: self 30% max HP shield (1 round), tracks ally
   pal.action = 'pal_glory';
   mage.action = 'basic'; // Mage deals 10 magic damage
   room.currentMonster.hp = 1000;
+  room.currentMonster.attack = 0;
 
   const q = resolve();
 
-  // Round 1: Paladin gains 30% maxHp shield (90 * 0.3 = 27)
+  // Paladin deals 15 physical damage and Mage deals 10 magic damage -> monster hp = 1000 - 15 - 10 = 975
+  assert.equal(room.currentMonster.hp, 975);
+
+  // Round 1: Paladin gains 50% maxHp shield (90 * 0.5 = 45) lasting 2 rounds
   const palStep = q.find(s => s.actionId === 'pal_glory');
-  assert.equal(palStep.hpSnapshot.players.find(p => p.id === pal.id).tempHp, 27);
+  assert.equal(palStep.hpSnapshot.players.find(p => p.id === pal.id).tempHp, 45);
 
   const selfShield = (pal.p8Shields || []).find(s => s.kind === 'paladin_glory_self');
   assert.ok(selfShield);
-  assert.equal(selfShield.initial, 27);
-  assert.equal(selfShield.until, 1); // 1 round duration
+  assert.equal(selfShield.initial, 45);
+  assert.equal(selfShield.until, 2); // 2 round duration
 
-  // Tracked damage: mage dealt 10 damage
-  assert.equal(pal.paladinGloryTrackedDamage, 10);
+  // Tracked damage: paladin dealt 15 + mage dealt 10 = 25 damage
+  assert.equal(pal.paladinGloryTrackedDamage, 25);
   assert.equal(pal.paladinGloryCastedRound, 1);
 
   // Round 2 start: conversion occurs
@@ -135,14 +148,14 @@ test('Paladin Skill 1 Glory Carol: self 30% max HP shield (1 round), tracks ally
     room.p8RoundStart();
   });
 
-  // Tracked damage = 10. 70% of 10 = 7 shield for all allies!
-  // Self 30% shield (until 1) has expired.
-  assert.equal(mage.tempHp, 7);
-  assert.equal(pal.tempHp, 7);
+  // Tracked damage = 25. 70% of 25 = 17 shield for all allies!
+  // Self 50% shield (until 2) absorbed 2 damage in round 1 (43 remaining) + 17 = 60!
+  assert.equal(mage.tempHp, 17);
+  assert.equal(pal.tempHp, 60);
 
   const palPartyShield = (pal.p8Shields || []).find(s => s.kind === 'paladin_glory');
   assert.ok(palPartyShield);
-  assert.equal(palPartyShield.value, 7);
+  assert.equal(palPartyShield.value, 17);
   assert.equal(palPartyShield.until, 3, 'Party shield should last 2 rounds (until round 3)');
 
   // While holding paladin_glory shield, team damage is boosted by 20%
@@ -154,22 +167,20 @@ test('Paladin Skill 1 Glory Carol: self 30% max HP shield (1 round), tracks ally
   const palStep2 = q2.find(s => s.actionId === 'basic' && s.sourceRole === 'paladin');
   assert.equal(palStep2.finalDamage, 6, 'Paladin basic attack should be boosted by 20%');
 
-  // Test shield duration:
-  // Given a 2-round paladin_glory shield granted in Round 2
-  mage.p8Shields = [];
-  mage.tempHp = 0;
-  room.p8GrantShield(mage, 50, 2, 'paladin_glory');
-  assert.equal(mage.tempHp, 50);
-
-  // Round 3: shield is still active (until round 3)
+  // Test self shield duration expires at round 3:
   room.battleRound = 3;
   room.p8RoundStart();
-  assert.equal(mage.tempHp, 50, 'Party shield should still be active in round 3');
+  // Self shield (until 2) expired at start of round 3!
+  // Paladin retains 17 party shield + 12 basic shield from round 2 attack = 29.
+  assert.equal(pal.tempHp, 29);
+  // Mage absorbed 5 damage in round 2, so 17 - 5 = 12 remaining
+  assert.equal(mage.tempHp, 12);
 
-  // Round 4: shield expires
+  // Round 4: Party shield expires
   room.battleRound = 4;
   room.p8RoundStart();
-  assert.equal(mage.tempHp, 0, 'Party shield should expire in round 4');
+  assert.equal(mage.tempHp, 0, 'Party shield should expire in round 4 for Mage');
+  assert.equal(pal.tempHp, 12, 'Paladin basic shield with no round limit should still persist in round 4');
 });
 
 test('Paladin Skill 1 Glory Carol: 40% penalty halves shield, reduced to 15% with Martyr Cuirass', (t) => {

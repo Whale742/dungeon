@@ -2299,9 +2299,9 @@ export class Room {
 
           const dmgType = (p.role === 'mage' || p.role === 'bard' || p.role === 'alchemist') ? 'mag' : 'phys';
           let baseAtk = 10;
+          if (p.role === 'warrior' || p.role === 'paladin') baseAtk = 5;
           if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk = 35;
           if (p.role === 'druid' && p.druidForm === 'treant') baseAtk = Math.max(1, baseAtk - 5);
-          if (p.role === 'paladin') baseAtk = 5;
           const isGuaranteedCrit = (p.role === 'assassin' && this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit);
           const basicCrit = p.role === 'assassin' && (isGuaranteedCrit || Math.random() < assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier));
           if (p.role === 'assassin' && basicCrit) {
@@ -2317,8 +2317,8 @@ export class Room {
           if (p.role === 'assassin' && p.cannotCrit) p.cannotCrit = false;
           if (p.role === 'paladin') {
             const shieldGained = dmg * 2;
-            this.p8GrantShield(p, shieldGained, 1, 'paladin_basic');
-            log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，持續 1 回合）！`, type: 'buff' });
+            this.p8GrantShield(p, shieldGained, Infinity, 'paladin_basic');
+            log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
           }
           if (p.role === 'alchemist') {
             const rollCorrosion = p.rollCorrosion !== undefined ? p.rollCorrosion : (Math.random() < 0.70);
@@ -2970,12 +2970,19 @@ export class Room {
         }
 
         case 'pal_glory': {
-          const selfShield = Math.floor(p.maxHp * 0.30);
-          this.p8GrantShield(p, selfShield, 1, 'paladin_glory_self');
+          const selfShield = Math.floor(p.maxHp * 0.50);
+          this.p8GrantShield(p, selfShield, 2, 'paladin_glory_self');
           p.paladinGloryCastedRound = this.battleRound;
           p.paladinGloryTrackedDamage = 0;
           this.p8Effect(p, 'paladin_glory_active', '榮耀讚歌・蓄力中', 1, { icon: 'buff' });
-          log.push({ text: `🛡️🎺 **${p.name}** 唱響【榮耀讚歌】！自身獲得生命上限 30% 護盾（**${selfShield}** 點，持續 1 回合）！下回合將全隊造成傷害的 70% 轉化為全體護盾！`, type: 'buff' });
+
+          const raw = Math.floor((15 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
+          monster.hp -= dmg;
+          const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
+
+          log.push({ text: `🛡️🎺 **${p.name}** 唱響【榮耀讚歌】！對敵方造成 **${dmg}** 點【物理】傷害${resNote}，自身獲得生命上限 50% 護盾（**${selfShield}** 點，持續 2 回合）！下回合將全隊造成傷害的 70% 轉化為全體護盾！`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: '榮耀讚歌' });
           visualEvents.push({ type: 'shield_cast', sourceId: p.id, label: '榮耀讚歌' });
           break;
         }
@@ -2991,8 +2998,8 @@ export class Room {
             interceptedDamage: 0
           };
           this.p8Effect(target, 'paladin_grace_target', `恩典守護・${p.name}代受傷`, 2, { icon: 'guard', paladinId: p.id });
-          this.p8Effect(p, 'paladin_grace_source', `代受恩典・守護${target.name}`, 2, { icon: 'guard', targetId: target.id });
-          log.push({ text: `🛡️🕊️ **${p.name}** 對 **${target.name}** 施展【代受恩典】！接下來 2 回合，${target.name} 受到的所有傷害與負面狀態將由 ${p.name} 承受！`, type: 'buff' });
+          this.p8Effect(p, 'paladin_grace_source', `代受恩典・守護${target.name}（減傷 15%）`, 2, { icon: 'guard', targetId: target.id });
+          log.push({ text: `🛡️🕊️ **${p.name}** 對 **${target.name}** 施展【代受恩典】！接下來 2 回合自身獲得 15% 減傷，${target.name} 受到的所有傷害與負面狀態將由 ${p.name} 承受！`, type: 'buff' });
           visualEvents.push({ type: 'shield_cast', sourceId: p.id, targetId: target.id, label: '代受恩典' });
           break;
         }
@@ -3373,6 +3380,10 @@ export class Room {
         if (player.druidForm === 'treant' || player.druidForm === 'tree') {
           finalDmg = Math.floor(finalDmg * (1 - GAME_BALANCE.treantDamageReduction));
         }
+        // 聖騎士【代受恩典】：二技能多獲得 15% 減傷
+        if (player.role === 'paladin' && player.paladinGrace) {
+          finalDmg = Math.floor(finalDmg * 0.85);
+        }
         // 聖騎士【庇護之光軍旗】：自身持有任何護盾時受到的傷害降低 15%
         if (player.role === 'paladin' && ((player.tempHp > 0) || (player.p8Shields || []).some(s => s.value > 0)) && (player.equips || []).some(e => e.id === 'pal_banner')) {
           finalDmg = Math.floor(finalDmg * 0.85);
@@ -3441,6 +3452,8 @@ export class Room {
         const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === p.id);
         if (paladinGrace && paladinGrace.id !== p.id && totalTakenDmg > 0) {
           let redirectedDmg = totalTakenDmg;
+          // 聖騎士【代受恩典】：二技能多獲得 15% 減傷
+          redirectedDmg = Math.floor(redirectedDmg * 0.85);
           if (paladinGrace.role === 'paladin' && ((paladinGrace.tempHp > 0) || (paladinGrace.p8Shields || []).some(s => s.value > 0)) && (paladinGrace.equips || []).some(e => e.id === 'pal_banner')) {
             redirectedDmg = Math.floor(redirectedDmg * 0.85);
           }

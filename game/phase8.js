@@ -84,8 +84,9 @@ export const phase8Methods = {
       p.tempHp=Math.max(0,(p.tempHp||0)-oldTotal);
     }
     if(!value)return;
+    const until = (turns === Infinity || turns == null) ? Infinity : this.battleRound+turns-1;
     p.tempHp=(p.tempHp||0)+value; p.p8Shields ||= [];
-    p.p8Shields.push({kind,value,initial:value,broken:false,until:this.battleRound+turns-1,ownerId});
+    p.p8Shields.push({kind,value,initial:value,broken:false,until,ownerId});
   },
   p8ConsumeShield(p,absorbed) {
     let remaining=absorbed;
@@ -298,6 +299,7 @@ export const phase8Methods = {
     if(this.alcVulnerableTurns)n=Math.floor(n*1.2);
     if(p.isCrouchedThisRound)n=Math.floor(n*.8);
     if(['treant','tree'].includes(p.druidForm))n=Math.floor(n*.7);
+    if(p.role==='paladin'&&p.paladinGrace)n=Math.floor(n*.85);
     if(p.role==='paladin'&&((p.tempHp>0)||(p.p8Shields||[]).some(s=>s.value>0))&&(p.equips||[]).some(e=>e.id==='pal_banner'))n=Math.floor(n*.85);
     return n;
   },

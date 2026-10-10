@@ -72,7 +72,7 @@ test('normal and weakened encounters roll fresh bonuses only at battle start', t
   assert.deepEqual(room.currentMonster.resistances, before);
 });
 
-for (const [role, expected] of [['warrior', 8], ['mage', 6]]) {
+for (const [role, expected] of [['warrior', 4], ['mage', 6]]) {
   test(`${role} uses the matching percentage for damage`, t => {
     const { room, step } = fixture(t, role);
     room.players.p0.action = 'basic';
@@ -86,7 +86,7 @@ test('mirror swaps numeric physical and magic resistance', t => {
   room.p8Effect(room.currentMonster, 'mirror', 'Mirror');
   room.players.p0.action = 'basic';
   random(.9, () => room.resolveTurnActions());
-  assert.equal(step().finalDamage, 6);
+  assert.equal(step().finalDamage, 3);
 });
 
 test('partial penetration and full penetration work with numeric resistances', t => {

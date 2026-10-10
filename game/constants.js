@@ -9,7 +9,7 @@ export const CLASSES = {
     maxHp: 120,
     desc: '【生命 120】前排坦鋒。具備強大的守護壁壘，全技能皆為物理傷害。',
     skills: [
-      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '對單一目標造成基礎物理打擊。' },
+      { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '對單一目標造成基礎 5 點物理打擊。' },
       { id: 'w_strike', label: '堅定斬擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '揮動巨劍造成物理傷害。有機率因揮砍失衡而造成微量傷害，並使下回合自身承受傷害提高。施放後自身減傷 60% 持續 3 回合，每輪末反擊本輪實受傷害。' },
       { id: 'w_shield', label: '壁壘守護', cd: 2, tags: ['護盾', '全體'], desc: '全隊獲得戰士最大生命 40% 的護盾；有機率盾牌龜裂延長冷卻。' }
     ]
@@ -984,7 +984,7 @@ export const ROLE_DETAILS = {
         name: '普通攻擊',
         dmgType: '【物理】',
         cd: '無 CD',
-        desc: '揮動武器進行基本物理打擊，對單一目標造成基礎 10 點傷害。'
+        desc: '揮動武器進行基本物理打擊，對單一目標造成基礎 5 點傷害。'
       },
       {
         type: '1 技能',
