@@ -53,7 +53,7 @@ test('Alchemist descriptions: skill descriptions do NOT explain status effects, 
   assert.ok(!basicDesc.includes('減少 5%'));
   assert.ok(!basicDesc.includes('減半'));
 
-  assert.ok(skill1Desc.includes('造成 35 點傷害'));
+  assert.ok(skill1Desc.includes('造成 15 點傷害'));
   assert.ok(skill1Desc.includes('中毒、燃燒、骨折、寒冷'));
   assert.ok(skill1Desc.includes('40% 機率對我方全體同步造成此次效果'));
   assert.ok(!skill1Desc.includes('每回合開始時'));
@@ -61,10 +61,10 @@ test('Alchemist descriptions: skill descriptions do NOT explain status effects, 
   // Passive descriptions in CLASSES and ROLE_DETAILS must contain all 5 status mechanics
   for (const passive of [CLASSES.alchemist.desc, ROLE_DETAILS.alchemist.passive]) {
     assert.ok(passive.includes('腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半'));
-    assert.ok(passive.includes('中毒：每回合開始時造成 5 點傷害，持續 2 回合'));
-    assert.ok(passive.includes('燃燒：每回合開始時造成 7 點傷害，持續 1 回合'));
-    assert.ok(passive.includes('骨折：每回合開始時造成 2 點傷害，持續 3 回合'));
-    assert.ok(passive.includes('寒冷：每回合開始時造成 3 點傷害，持續 2 回合'));
+    assert.ok(passive.includes('中毒：每回合開始時造成 8 點傷害，持續 2 回合'));
+    assert.ok(passive.includes('燃燒：每回合開始時造成 10 點傷害，持續 1 回合'));
+    assert.ok(passive.includes('骨折：每回合開始時造成 5 點傷害，持續 3 回合'));
+    assert.ok(passive.includes('寒冷：每回合開始時造成 6 點傷害，持續 2 回合'));
   }
 });
 
@@ -112,8 +112,8 @@ test('Alchemist basic attack: deals 10 damage, triggers corrosion (boss max HP &
   assert.equal(room.getEffectiveBonusAtk(war), 10 + (war.warriorStacks || 0));
 });
 
-test('Alchemist 1-skill: deals 35 damage, inflicts 4 DoTs on monster, and 40% syncs to team', t => {
-  // Test Poison: 5 dmg, 2 rounds
+test('Alchemist 1-skill: deals 15 damage, inflicts 4 DoTs on monster, and 40% syncs to team', t => {
+  // Test Poison: 8 dmg, 2 rounds
   {
     const { room } = fixture(t, ['alchemist', 'warrior']);
     const alc = room.players.p0;
@@ -122,26 +122,26 @@ test('Alchemist 1-skill: deals 35 damage, inflicts 4 DoTs on monster, and 40% sy
     alc.rollTeamDot = true; // Force 40% team sync
     resolveWith(room, 0.1);
 
-    assert.equal(room.currentMonster.hp, 1000 - 35);
+    assert.equal(room.currentMonster.hp, 1000 - 15);
     assert.equal(room.currentMonster.poisonTurns, 2);
-    assert.equal(room.currentMonster.poisonDmg, 5);
+    assert.equal(room.currentMonster.poisonDmg, 8);
     assert.equal(room.players.p0.poisonTurns, 2);
-    assert.equal(room.players.p0.poisonDmg, 5);
+    assert.equal(room.players.p0.poisonDmg, 8);
     assert.equal(room.players.p1.poisonTurns, 2);
-    assert.equal(room.players.p1.poisonDmg, 5);
+    assert.equal(room.players.p1.poisonDmg, 8);
 
-    // Round 2 start: ticks 5 damage on boss and players
+    // Round 2 start: ticks 8 damage on boss and players
     const bossHpBefore = room.currentMonster.hp;
     const p0HpBefore = room.players.p0.hp;
     room.battleRound = 2;
     room.executeRoundStart();
-    assert.equal(room.currentMonster.hp, bossHpBefore - 5);
+    assert.equal(room.currentMonster.hp, bossHpBefore - 8);
     assert.equal(room.currentMonster.poisonTurns, 1);
-    assert.equal(room.players.p0.hp, p0HpBefore - 5);
+    assert.equal(room.players.p0.hp, p0HpBefore - 8);
     assert.equal(room.players.p0.poisonTurns, 1);
   }
 
-  // Test Burn: 7 dmg, 1 round
+  // Test Burn: 10 dmg, 1 round
   {
     const { room } = fixture(t, ['alchemist', 'warrior']);
     const alc = room.players.p0;
@@ -151,22 +151,22 @@ test('Alchemist 1-skill: deals 35 damage, inflicts 4 DoTs on monster, and 40% sy
     resolveWith(room, 0.3);
 
     assert.equal(room.currentMonster.burnTurns, 1);
-    assert.equal(room.currentMonster.burnDmg, 7);
+    assert.equal(room.currentMonster.burnDmg, 10);
     assert.equal(room.players.p0.burnTurns, 1);
-    assert.equal(room.players.p0.burnDmg, 7);
+    assert.equal(room.players.p0.burnDmg, 10);
 
-    // Round 2 start: ticks 7 damage on boss and players, expires after 1 round
+    // Round 2 start: ticks 10 damage on boss and players, expires after 1 round
     const bossHpBefore = room.currentMonster.hp;
     const p0HpBefore = room.players.p0.hp;
     room.battleRound = 2;
     room.executeRoundStart();
-    assert.equal(room.currentMonster.hp, bossHpBefore - 7);
+    assert.equal(room.currentMonster.hp, bossHpBefore - 10);
     assert.equal(room.currentMonster.burnTurns, 0);
-    assert.equal(room.players.p0.hp, p0HpBefore - 7);
+    assert.equal(room.players.p0.hp, p0HpBefore - 10);
     assert.equal(room.players.p0.burnTurns, 0);
   }
 
-  // Test Fracture: 2 dmg, 3 rounds
+  // Test Fracture: 5 dmg, 3 rounds
   {
     const { room } = fixture(t, ['alchemist', 'warrior']);
     const alc = room.players.p0;
@@ -176,21 +176,21 @@ test('Alchemist 1-skill: deals 35 damage, inflicts 4 DoTs on monster, and 40% sy
     resolveWith(room, 0.6);
 
     assert.equal(room.currentMonster.fractureTurns, 3);
-    assert.equal(room.currentMonster.fractureDmg, 2);
+    assert.equal(room.currentMonster.fractureDmg, 5);
     assert.equal(room.players.p0.fractureTurns, 3);
 
-    // Round 2 start: ticks 2 damage, 2 rounds left
+    // Round 2 start: ticks 5 damage, 2 rounds left
     const bossHpBefore = room.currentMonster.hp;
     const p0HpBefore = room.players.p0.hp;
     room.battleRound = 2;
     room.executeRoundStart();
-    assert.equal(room.currentMonster.hp, bossHpBefore - 2);
+    assert.equal(room.currentMonster.hp, bossHpBefore - 5);
     assert.equal(room.currentMonster.fractureTurns, 2);
-    assert.equal(room.players.p0.hp, p0HpBefore - 2);
+    assert.equal(room.players.p0.hp, p0HpBefore - 5);
     assert.equal(room.players.p0.fractureTurns, 2);
   }
 
-  // Test Chill: 3 dmg, 2 rounds
+  // Test Chill: 6 dmg, 2 rounds
   {
     const { room } = fixture(t, ['alchemist', 'warrior']);
     const alc = room.players.p0;
@@ -200,17 +200,17 @@ test('Alchemist 1-skill: deals 35 damage, inflicts 4 DoTs on monster, and 40% sy
     resolveWith(room, 0.85);
 
     assert.equal(room.currentMonster.chillTurns, 2);
-    assert.equal(room.currentMonster.chillDmg, 3);
+    assert.equal(room.currentMonster.chillDmg, 6);
     assert.equal(room.players.p0.chillTurns, 2);
 
-    // Round 2 start: ticks 3 damage, 1 round left
+    // Round 2 start: ticks 6 damage, 1 round left
     const bossHpBefore = room.currentMonster.hp;
     const p0HpBefore = room.players.p0.hp;
     room.battleRound = 2;
     room.executeRoundStart();
-    assert.equal(room.currentMonster.hp, bossHpBefore - 3);
+    assert.equal(room.currentMonster.hp, bossHpBefore - 6);
     assert.equal(room.currentMonster.chillTurns, 1);
-    assert.equal(room.players.p0.hp, p0HpBefore - 3);
+    assert.equal(room.players.p0.hp, p0HpBefore - 6);
     assert.equal(room.players.p0.chillTurns, 1);
   }
 });
@@ -253,4 +253,103 @@ test('Alchemist alc_fate cleanses burn, fracture, chill, and corrosion', t => {
   assert.equal(alc.fractureTurns, 0);
   assert.equal(war.chillTurns, 0);
   assert.equal(war.corrosionTurns, 0);
+});
+
+test('Alchemist base HP is 70 in CLASSES and ROLE_DETAILS', t => {
+  const { room } = fixture(t, ['alchemist']);
+  assert.equal(CLASSES.alchemist.maxHp, 70);
+  assert.equal(ROLE_DETAILS.alchemist.hp, 70);
+  assert.equal(room.players.p0.maxHp, 70);
+  assert.equal(room.players.p0.hp, 70);
+});
+
+test('Alchemist 1-skill repeated casts stack DoT damage', t => {
+  const { room } = fixture(t, ['alchemist', 'warrior']);
+  const alc = room.players.p0;
+
+  // First cast: Poison (8 dmg, 2 turns)
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'poison';
+  alc.rollTeamDot = true;
+  resolveWith(room, 0.1);
+  assert.equal(room.currentMonster.poisonDmg, 8);
+  assert.equal(room.currentMonster.poisonTurns, 2);
+  assert.equal(room.players.p0.poisonDmg, 8);
+  assert.equal(room.players.p1.poisonDmg, 8);
+
+  // Second cast: Poison again -> stacks to 16 dmg
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'poison';
+  alc.rollTeamDot = true;
+  resolveWith(room, 0.1);
+  assert.equal(room.currentMonster.poisonDmg, 16);
+  assert.equal(room.currentMonster.poisonTurns, 2);
+  assert.equal(room.players.p0.poisonDmg, 16);
+  assert.equal(room.players.p1.poisonDmg, 16);
+});
+
+test('Alchemist precision burette (精密滴管) reduces team DoT damage by 50%', t => {
+  const { room } = fixture(t, ['alchemist', 'warrior']);
+  const alc = room.players.p0;
+  const war = room.players.p1;
+
+  // Equip precision burette
+  alc.equips = [{ id: 'alc_burette', name: '精密滴管' }];
+
+  // Cast Poison with team sync
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'poison';
+  alc.rollTeamDot = true;
+  resolveWith(room, 0.1);
+
+  // Monster receives full 8 damage
+  assert.equal(room.currentMonster.poisonDmg, 8);
+  // Team allies receive 50% reduced DoT: Math.floor(8 * 0.5) = 4
+  assert.equal(alc.poisonDmg, 4);
+  assert.equal(war.poisonDmg, 4);
+
+  // Test Burn with burette: 10 * 0.5 = 5
+  alc.burnDmg = 0; war.burnDmg = 0;
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'burn';
+  alc.rollTeamDot = true;
+  resolveWith(room, 0.3);
+  assert.equal(room.currentMonster.burnDmg, 10);
+  assert.equal(alc.burnDmg, 5);
+  assert.equal(war.burnDmg, 5);
+
+  // Test Fracture with burette: Math.floor(5 * 0.5) = 2
+  alc.fractureDmg = 0; war.fractureDmg = 0;
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'fracture';
+  alc.rollTeamDot = true;
+  resolveWith(room, 0.6);
+  assert.equal(alc.fractureDmg, 2);
+  assert.equal(war.fractureDmg, 2);
+
+  // Test Chill with burette: Math.floor(6 * 0.5) = 3
+  alc.chillDmg = 0; war.chillDmg = 0;
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'chill';
+  alc.rollTeamDot = true;
+  resolveWith(room, 0.85);
+  assert.equal(alc.chillDmg, 3);
+  assert.equal(war.chillDmg, 3);
+});
+
+test('Alchemist precision burette does NOT alter alc_fate failure chance (remains 50%)', t => {
+  const { room } = fixture(t, ['alchemist', 'warrior']);
+  const alc = room.players.p0;
+  alc.equips = [{ id: 'alc_burette', name: '精密滴管' }];
+
+  // Give an abnormal status to trigger gamble branch
+  alc.poisonTurns = 1;
+  alc.poisonDmg = 4;
+  alc.action = 'alc_fate';
+
+  // With roll 0.45: previously burette made successRate 0.35, so 0.45 would fail!
+  // Now successRate is 0.50, so 0.45 succeeds!
+  resolveWith(room, 0.45);
+  assert.equal(room.alcShieldTurns, 1);
+  assert.equal(room.alcVulnerableNextTurn, false);
 });

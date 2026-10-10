@@ -196,7 +196,7 @@ test('mage drain reaches 50 and cooldowns are two; heals actual resisted damage'
 });
 test('acid hits boss 40 and each living party member 20, through shield and DR, bypassing samurai parry',t=>{
   const {room,resolve}=fixture(t,['alchemist','warrior','samurai']);room.players.p0.action='alc_acid';room.p8GrantShield(room.players.p1,25);room.players.p2.kyoutou=true;
-  const s=actionStep(resolve(.1));assert.equal(s.finalDamage,40);assert.equal(s.hpSnapshot.players[0].hp,55);assert.equal(s.hpSnapshot.players[1].hp,120);assert.equal(s.hpSnapshot.players[1].tempHp,5);assert.equal(s.hpSnapshot.players[2].hp,60);
+  const s=actionStep(resolve(.1));assert.equal(s.finalDamage,40);assert.equal(s.hpSnapshot.players[0].hp,50);assert.equal(s.hpSnapshot.players[1].hp,120);assert.equal(s.hpSnapshot.players[1].tempHp,5);assert.equal(s.hpSnapshot.players[2].hp,60);
 });
 test('treant receives 85% shield without maxHP mutation or regen and lasts two boss phases',t=>{
   const {room,resolve}=fixture(t,['druid']);room.players.p0.action='dru_transform';const q=resolve(.9);const s=actionStep(q);

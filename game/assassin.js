@@ -15,15 +15,15 @@ export function getAssassinFollowUpCap(p) {
   return 2 + Math.min(2, Math.max(0, count - 1));
 }
 export function assassinCritRate(p, equipmentMultiplier = 1) {
-  return Math.min(1, .5 + ((p.equips || []).some(e => e.id === 's_blade') ? .3 * equipmentMultiplier : 0));
+  const rate = .6 + ((p.equips || []).some(e => e.id === 's_blade') ? .3 * equipmentMultiplier : 0);
+  return Math.min(1, Math.round(rate * 100) / 100);
 }
 export function isAssassinHidden(p) {
   return p.role === 'assassin' && p.hp > 0 && !p.downedForFloor && p.isHiddenThisRound && !p.stealthBrokenThisRound;
 }
 export function addAssassinCritical(p, count = 1) {
-  p.critTowardStealth = (p.critTowardStealth || 0) + count;
-  const gain = Math.floor(p.critTowardStealth / 2);
-  p.critTowardStealth %= 2;
+  p.critTowardStealth = 0;
+  const gain = count;
   p.stealthStacks = (p.stealthStacks || 0) + gain;
   return gain;
 }

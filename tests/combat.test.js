@@ -262,7 +262,7 @@ test('alchemist alc_acid and alc_flask mechanics: acid splash vs 4 DoT statuses 
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_acid');
     assert.equal(step.finalDamage, 40);
-    assert.equal(step.actorHpAfter, 75 - 20);
+    assert.equal(step.actorHpAfter, 70 - 20);
     assert.equal(step.hiddenEffectNote, '酸霧侵蝕裝備，全隊裝備效果降低 50%！');
     assert.match(step.narrative, /腐蝕強酸|高壓強酸/);
   }
@@ -274,11 +274,13 @@ test('alchemist alc_acid and alc_flask mechanics: acid splash vs 4 DoT statuses 
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_poison');
-    assert.equal(step.finalDamage, 35);
+    assert.equal(step.finalDamage, 15);
     assert.equal(room.currentMonster.poisonTurns, 2);
-    assert.equal(room.currentMonster.poisonDmg, 5);
+    assert.equal(room.currentMonster.poisonDmg, 8);
     assert.equal(room.players.p0.poisonTurns, 2);
+    assert.equal(room.players.p0.poisonDmg, 8);
     assert.equal(room.players.p1.poisonTurns, 2);
+    assert.equal(room.players.p1.poisonDmg, 8);
     assert.match(step.narrative, /劇毒煙霧/);
   }
   // Test alc_flask burn branch (deterministic rolledFlaskDot = burn, rollTeamDot = false)
@@ -291,9 +293,9 @@ test('alchemist alc_acid and alc_flask mechanics: acid splash vs 4 DoT statuses 
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_burn');
-    assert.equal(step.finalDamage, 35);
+    assert.equal(step.finalDamage, 15);
     assert.equal(room.currentMonster.burnTurns, 1);
-    assert.equal(room.currentMonster.burnDmg, 7);
+    assert.equal(room.currentMonster.burnDmg, 10);
     assert.equal(room.players.p0.burnTurns, 0);
   }
 });

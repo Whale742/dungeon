@@ -706,7 +706,7 @@ export class Room {
       p.followUpsThisRound = (p.followUpsThisRound || 0) + 1;
       const gainedStacks = critical && actual > 0 ? addAssassinCritical(p) : 0;
       log.push({ text: `**${p.name}** 自暗影中發動追擊${critical ? '・暴擊' : ''}，造成 **${actual}** 點傷害。`, type: 'combat' });
-      if (gainedStacks) log.push({ text: `**${p.name}** 累積兩次暴擊，獲得 1 層【匿蹤】。`, type: 'buff' });
+      if (gainedStacks) log.push({ text: `**${p.name}** 觸發暴擊，獲得 ${gainedStacks} 層【匿蹤】。`, type: 'buff' });
       const after = this.getHpSnapshot();
       queue.push({ type: 'follow_up_action', category: 'FOLLOW_UP', sourceId: p.id, sourceRole: 'assassin',
         triggerActionId: ally.action, triggerPlayerId: ally.id, skillName: '追擊', gainedStacks,
@@ -1041,28 +1041,28 @@ export class Room {
     return true;
   }
 
-  applyMonsterPoison(damage = 5, turns = 2) {
+  applyMonsterPoison(damage = 8, turns = 2) {
     if (!this.monsterAllowsEffect('劇毒') && !this.monsterAllowsEffect('中毒')) return false;
     this.currentMonster.poisonTurns = turns;
     this.currentMonster.poisonDmg = (this.currentMonster.poisonDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterBurn(damage = 7, turns = 1) {
+  applyMonsterBurn(damage = 10, turns = 1) {
     if (!this.monsterAllowsEffect('燃燒')) return false;
     this.currentMonster.burnTurns = turns;
     this.currentMonster.burnDmg = (this.currentMonster.burnDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterFracture(damage = 2, turns = 3) {
+  applyMonsterFracture(damage = 5, turns = 3) {
     if (!this.monsterAllowsEffect('骨折')) return false;
     this.currentMonster.fractureTurns = turns;
     this.currentMonster.fractureDmg = (this.currentMonster.fractureDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterChill(damage = 3, turns = 2) {
+  applyMonsterChill(damage = 6, turns = 2) {
     if (!this.monsterAllowsEffect('寒冷')) return false;
     this.currentMonster.chillTurns = turns;
     this.currentMonster.chillDmg = (this.currentMonster.chillDmg || 0) + damage;
@@ -1090,22 +1090,25 @@ export class Room {
     target.corrosionTurns = Math.max(target.corrosionTurns || 0, turns);
   }
 
-  applyDotToAlly(ally, dotType) {
+  applyDotToAlly(ally, dotType, sourcePlayer = null) {
     if (!ally || ally.hp <= 0) return;
     const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === ally.id);
     const target = (paladinGrace && paladinGrace.id !== ally.id) ? paladinGrace : ally;
+    const caster = sourcePlayer !== null ? sourcePlayer : Object.values(this.players).find(p => p.role === 'alchemist' && (p.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴管' || e.name === '精密滴定管'));
+    const hasBurette = !!(caster && (caster.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴管' || e.name === '精密滴定管'));
+    const multiplier = hasBurette ? 0.5 : 1.0;
     if (dotType === 'poison') {
       target.poisonTurns = 2;
-      target.poisonDmg = (target.poisonDmg || 0) + 5;
+      target.poisonDmg = (target.poisonDmg || 0) + Math.floor(8 * multiplier);
     } else if (dotType === 'burn') {
       target.burnTurns = 1;
-      target.burnDmg = (target.burnDmg || 0) + 7;
+      target.burnDmg = (target.burnDmg || 0) + Math.floor(10 * multiplier);
     } else if (dotType === 'fracture') {
       target.fractureTurns = 3;
-      target.fractureDmg = (target.fractureDmg || 0) + 2;
+      target.fractureDmg = (target.fractureDmg || 0) + Math.floor(5 * multiplier);
     } else if (dotType === 'chill') {
       target.chillTurns = 2;
-      target.chillDmg = (target.chillDmg || 0) + 3;
+      target.chillDmg = (target.chillDmg || 0) + Math.floor(6 * multiplier);
     }
   }
 
@@ -2657,7 +2660,7 @@ export class Room {
 
         // 鍊金術士技能
         case 'alc_flask': {
-          const raw = Math.floor((35 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((15 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
 
@@ -2672,10 +2675,10 @@ export class Room {
           }
 
           const DOT_CONFIGS = {
-            poison: { type: 'alchemy_poison', label: '劇毒煙霧', name: '中毒', icon: '🧪', turns: 2, dmg: 5, applyMonster: (d) => this.applyMonsterPoison(d, 2) },
-            burn: { type: 'alchemy_burn', label: '燃燒試劑', name: '燃燒', icon: '🔥', turns: 1, dmg: 7, applyMonster: (d) => this.applyMonsterBurn(d, 1) },
-            fracture: { type: 'alchemy_fracture', label: '骨折衝擊', name: '骨折', icon: '🦴', turns: 3, dmg: 2, applyMonster: (d) => this.applyMonsterFracture(d, 3) },
-            chill: { type: 'alchemy_chill', label: '極寒冰霜', name: '寒冷', icon: '❄️', turns: 2, dmg: 3, applyMonster: (d) => this.applyMonsterChill(d, 2) }
+            poison: { type: 'alchemy_poison', label: '劇毒煙霧', name: '中毒', icon: '🧪', turns: 2, dmg: 8, applyMonster: (d) => this.applyMonsterPoison(d, 2) },
+            burn: { type: 'alchemy_burn', label: '燃燒試劑', name: '燃燒', icon: '🔥', turns: 1, dmg: 10, applyMonster: (d) => this.applyMonsterBurn(d, 1) },
+            fracture: { type: 'alchemy_fracture', label: '骨折衝擊', name: '骨折', icon: '🦴', turns: 3, dmg: 5, applyMonster: (d) => this.applyMonsterFracture(d, 3) },
+            chill: { type: 'alchemy_chill', label: '極寒冰霜', name: '寒冷', icon: '❄️', turns: 2, dmg: 6, applyMonster: (d) => this.applyMonsterChill(d, 2) }
           };
           const dotCfg = DOT_CONFIGS[chosenDot] || DOT_CONFIGS.poison;
           const bossApplied = dotCfg.applyMonster(dotCfg.dmg);
@@ -2683,7 +2686,7 @@ export class Room {
           const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (Math.random() < 0.40);
           if (rollTeam) {
             for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
-              this.applyDotToAlly(ally, chosenDot);
+              this.applyDotToAlly(ally, chosenDot, p);
             }
           }
 
@@ -2695,7 +2698,9 @@ export class Room {
 
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
           const bossNote = bossApplied ? `敵方陷入【${dotCfg.name}】（每回合 ${dotCfg.dmg} 點，持續 ${dotCfg.turns} 回合）` : `敵方免疫本次【${dotCfg.name}】`;
-          const teamNote = rollTeam ? `⚠️ 藥劑劇烈飛濺！我方全體同步陷入【${dotCfg.name}】！` : '';
+          const hasBurette = (p.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴管' || e.name === '精密滴定管');
+          const buretteNote = hasBurette ? '（🧪精密滴管使 DoT 傷害降低 50%）' : '';
+          const teamNote = rollTeam ? `⚠️ 藥劑劇烈飛濺！我方全體同步陷入【${dotCfg.name}】${buretteNote}！` : '';
           log.push({
             text: `${dotCfg.icon} **${p.name}** 投擲【不穩定試劑瓶】引發【${dotCfg.label}】！造成 **${dmg}** 點【魔法】傷害！${resNote}\n${bossNote}！${teamNote}`,
             type: 'combat'
@@ -2821,10 +2826,7 @@ export class Room {
               pl.chillDmg = 0;
               pl.corrosionTurns = 0;
             }
-            const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
-            // 精密滴管使 2 技能失敗機率改變成 65%（大成功機率 35%），未裝備時為 50%
-            const successRate = buretteCount > 0 ? 0.35 : 0.50;
-            const isSuccess = Math.random() < successRate;
+            const isSuccess = Math.random() < 0.50;
             actionOutcome = { type: isSuccess ? 'alchemy_success' : 'alchemy_failure', label: isSuccess ? '煉成成功' : '煉成失敗' };
             if (isSuccess) {
               for (const pl of Object.values(this.players)) {
@@ -3022,7 +3024,7 @@ export class Room {
 
       if (p.role === 'assassin' && isCrit && finalDamage > 0) {
         const gained = addAssassinCritical(p);
-        if (gained) log.push({ text: `**${p.name}** 累積兩次暴擊，獲得 ${gained} 層【匿蹤】。`, type: 'buff' });
+        if (gained) log.push({ text: `**${p.name}** 觸發暴擊，獲得 ${gained} 層【匿蹤】。`, type: 'buff' });
       }
       monster.hp = Math.max(0, monster.hp);
       const actionAfter = this.getHpSnapshot();
