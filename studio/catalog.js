@@ -12,6 +12,7 @@ function localConfig(source, expression, globals = {}) {
   return vm.runInNewContext(source + '\n' + expression, globals, { timeout: 4000 });
 }
 const profiles = localConfig(read('lobby.js').split('const LOBBY_ROLE_ORDER')[0], 'LOBBY_ROLE_PROFILES');
+const recruitFields = localConfig(read('recruit-copy.js'), 'RecruitCopy.fields');
 const sfx = localConfig(read('sfx-assets.js'), '({assets:SFX_ASSETS, aliases:SFX_ALIASES, profiles:SFX_PRESENTATION_PROFILES})');
 const bgm = localConfig(read('bgm.js').split('// Music')[0], 'BGM_TRACKS');
 const fixture = localConfig(read('lab-combat-scenes.js'), 'PHASE6_LAB_SCENES');
@@ -62,6 +63,7 @@ export function buildCatalog() {
   for(const scene of Object.values(fixture))for(const step of scene.steps||[])if(step.sourceRole&&CLASSES[step.sourceRole]&&step.actionId&&step.actionId!=='skip')addSkill(step.sourceRole,{id:step.actionId,label:step.skillName||step.actionId,desc:step.narrative||step.detail||''});
   addSkill('bard',{id:'b_revive',label:'甦生之歌',desc:'對已倒下且可復活的隊友施放甦生之歌。可否施放與回復量仍由伺服器判定。'});
   const addStory = (key, category, title, body = '', paragraphs = []) => stories.push({story_key:key, category, title, body, paragraphs});
+  for (const field of recruitFields) addStory(field.key, 'recruit', field.label, field.body);
   for (const [key,s] of Object.entries(STORY_TEXTS)) addStory('story.'+key,key==='prologue'?'prologue':'route',typeof s.title === 'function' ? '【第 {floor} 層・迷霧分歧點】' : s.title,'',s.paragraphs);
   for (const [route, outcomes] of Object.entries(ROUTE_STORIES)) for (const [outcome, data] of Object.entries(outcomes)) addStory(storyKey('route',route,outcome),typeof data==='string'?'route':outcome==='battle'?'boss':outcome,typeof data==='string'?data:data.title || route,typeof data==='string'?data:data.story);
   for (const [route, bosses] of Object.entries(ROUTE_BOSS_STORIES)) for (const [boss,text] of Object.entries(bosses)) addStory(storyKey('boss',route,boss),'boss',boss,text);

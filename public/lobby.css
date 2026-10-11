@@ -14,6 +14,7 @@
   --wax-red: #8f1d1d;
   --gold-brass: #b8860b;
 }
+.game-container { position: relative; z-index: 1; }
 
 body:has(#viewLobby.active),
 body:has(#viewEntry.active) {
@@ -23,6 +24,8 @@ body:has(#viewEntry.active) {
 body:has(#viewLobby.active) .game-container,
 body:has(#viewEntry.active) .game-container {
   max-width: 1460px;
+  position: relative;
+  z-index: 1;
 }
 
 body:has(#viewLobby.active) .main-content,
@@ -31,21 +34,21 @@ body:has(#viewEntry.active) .main-content {
   border: 0;
   box-shadow: none;
   padding: 16px 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* 深色原木地城背景 */
 .dungeon-wood-bg {
   position: fixed;
   inset: 0;
-  background: 
-    radial-gradient(circle at 50% 30%, rgba(20, 36, 60, 0.45) 0%, rgba(10, 15, 26, 0.85) 60%, rgba(5, 7, 13, 0.98) 100%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.15) 0px, rgba(0, 0, 0, 0.15) 1px, transparent 1px, transparent 4px),
-    linear-gradient(135deg, #090e17 0%, #0d1522 50%, #060910 100%);
+  background: linear-gradient(rgba(5, 8, 15, .52), rgba(5, 8, 15, .65)),
+    var(--studio-game-background, url('/icon/background.webp')) center / cover no-repeat;
   z-index: 0;
   pointer-events: none;
 }
 .dungeon-wood-bg::before {
-  content: '';
+  content: none;
   position: absolute;
   inset: 0;
   background: 
@@ -67,6 +70,8 @@ body:has(#viewEntry.active) .main-content {
    ========================================================= */
 #viewLobby .team-card,
 #viewLobby .role-command-panel,
+body:has(#viewEntry.active) .app-header,
+body:has(#viewLobby.active) .app-header,
 .kraft-paper {
   background: 
     radial-gradient(circle at 50% 40%, rgba(255, 248, 235, 0.96) 0%, rgba(240, 221, 190, 0.96) 65%),
@@ -80,6 +85,22 @@ body:has(#viewEntry.active) .main-content {
     inset 0 0 45px rgba(112, 66, 20, 0.28);
   position: relative;
   isolation: isolate;
+}
+
+body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header {
+  color: var(--ink-primary);
+  font-family: 'Noto Serif TC', serif;
+}
+body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .title-group h1 {
+  color: #24170f;
+  text-shadow: 0 1px 0 #ffffff66;
+  font-family: 'Noto Serif TC', serif;
+}
+body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .en-sub { color: var(--wax-red); }
+body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .subtitle { color: #493527; }
+body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img {
+  border-color: #7d4d20;
+  box-shadow: 0 3px 0 #42210866;
 }
 
 /* 牛皮紙做舊四角裝飾五金與鉚釘 */
@@ -518,7 +539,7 @@ body:has(#viewEntry.active) .main-content {
   margin-left: 6px;
 }
 
-#viewLobby .member-status-icon {-size: 12.5px;
+#viewLobby .member-status-icon {font-size: 12.5px;
   font-weight: 700;
   font-family: 'Noto Serif TC', serif;
 }
@@ -737,9 +758,9 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .role-profile-tags .is-primary {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #93c5fd;
+  background: #fee2e2;
+  color: #8f1d1d;
+  border-color: #e9a3a3;
 }
 
 #viewLobby .role-intro-desc,
@@ -953,6 +974,8 @@ body:has(#viewEntry.active) .main-content {
   color: #111827;
   font-size: 14.5px;
   line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   font-family: 'Noto Serif TC', serif;
 }
 
@@ -1065,7 +1088,7 @@ body:has(#viewEntry.active) .main-content {
   border-color: #b45309;
 }
 
-#viewLobby .role-choice-occupant {-size: 11px;
+#viewLobby .role-choice-occupant {font-size: 11px;
   font-weight: 700;
   color: #fff8eb;
   background: rgba(133, 83, 37, 0.95);
@@ -1086,7 +1109,7 @@ body:has(#viewEntry.active) .main-content {
   transform: translateY(-2px);
 }
 
-#viewLobby .role-choice-check {-size: 11px;
+#viewLobby .role-choice-check {font-size: 11px;
   font-weight: 900;
   display: flex;
   align-items: center;
@@ -1175,9 +1198,12 @@ body:has(#viewEntry.active) .main-content {
 
 /* --- Screen 1: 招募令 (Recruit Card) --- */
 .recruit-card {
-  width: 100%;
-  max-width: 600px;
-  padding: 24px 28px;
+  width: min(100%, 520px);
+  aspect-ratio: 210 / 297;
+  padding: clamp(24px, 4vw, 40px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .recruit-header {
@@ -1187,6 +1213,8 @@ body:has(#viewEntry.active) .main-content {
   border-bottom: 2px solid rgba(130, 84, 36, 0.4);
   padding-bottom: 14px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .recruit-header-left {
@@ -1232,15 +1260,19 @@ body:has(#viewEntry.active) .main-content {
 
 .recruit-header-right {
   text-align: right;
+  margin-left: auto;
+  white-space: nowrap;
   font-family: 'Noto Serif TC', serif;
   font-size: 14px;
   color: #000000;
 }
 
 .recruit-code {
+  display: block;
+  overflow-wrap: anywhere;
   font-family: 'VT323', monospace;
   color: #991b1b;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -1672,7 +1704,8 @@ input#inputPlayerName {
   margin: 0;
 }
 
-.modal-title.center-title {-size: 19px;
+.modal-title.center-title {font-size: 19px;
+  justify-content: center;
   width: 100%;
 }
 
@@ -1821,7 +1854,7 @@ input#profileNewNameInput {
   font-family: 'Noto Serif TC', serif;
 }
 
-.direct-connect-input {
+#directConnectModal .direct-connect-input {
   width: 100%;
   background: #fffdf7;
   border: 2px solid #825424;
@@ -1839,7 +1872,178 @@ input#profileNewNameInput {
   box-sizing: border-box;
 }
 
-.direct-connect-input:focus { border-color: #000000; }
+#directConnectModal .direct-connect-input:focus { border-color: #8f1d1d; box-shadow: 0 0 0 3px #8f1d1d22; }
+
+/* Parchment surfaces own their text colors, including inherited dark-theme tokens. */
+.kraft-paper {
+  --color-text-primary: #24170f;
+  --color-text-secondary: #493527;
+  --color-text-muted: #65503d;
+  --color-guild-ink: #24170f;
+  --color-guild-ink-secondary: #493527;
+  --color-guild-ink-muted: #65503d;
+}
+.kraft-paper .modal-title,
+.kraft-paper .modal-label { color: #24170f; }
+.kraft-paper .parchment-btn:not(.parchment-btn-crimson) { color: #24170f; }
+#viewLobby .role-panel-heading .lobby-exit-btn,
+#viewLobby .role-panel-heading .lobby-exit-btn span,
+.kraft-paper .parchment-btn-crimson { color: #fff4ea; }
+#viewLobby .lobby-exit-btn { text-align: center; justify-content: center; }
+#viewLobby .lobby-exit-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+  margin-right: 0;
+  color: inherit;
+}
+#directConnectModal .direct-connect-input::placeholder { color: #806550; opacity: 1; }
+.modal-overlay .modal-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.kraft-paper .modal-actions .parchment-btn,
+.server-list-btn-row .parchment-btn {
+  padding: 12px 16px;
+  min-height: 46px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.kraft-paper .entry-avatar-preview { background: #ebd6b3; border-color: #7d4d20; color: #493527; }
+.kraft-paper .entry-avatar-badge { background: #8f1d1d; border-color: #4a0c0c; }
+
+body:has(#viewEntry.active) .bgm-control,
+body:has(#viewEntry.active) #soundToggleBtn,
+body:has(#viewLobby.active) .bgm-control,
+body:has(#viewLobby.active) #soundToggleBtn { display: none; }
+body:has(#viewLobby.active) .room-code-display {
+  background: linear-gradient(#f7eed7, #ebd6b3);
+  border: 2px solid #7d4d20;
+  border-radius: 8px;
+  box-shadow: 0 3px 6px #190c0466;
+  color: #24170f;
+}
+body:has(#viewLobby.active) .room-code-label { color: #493527; }
+body:has(#viewLobby.active) .room-code-clickable { color: #8f1d1d; text-shadow: none; }
+body:has(#viewLobby.active) .room-code-clickable:hover { color: #691111; background: #fee2e2; }
+body:has(#viewLobby.active) .room-copy-toast { color: #493527; }
+
+/* Fill the remaining viewport; content scrolls inside stable panel boundaries. */
+body:has(#viewLobby.active) { padding: 12px 12px 16px; }
+body:has(#viewLobby.active) .game-container { height: calc(100dvh - 28px); min-height: 0; }
+body:has(#viewLobby.active) .app-header { flex-shrink: 0; }
+body:has(#viewLobby.active) .main-content { padding: 0; min-height: 0; backdrop-filter: none; }
+#viewLobby.active { flex: 1; min-height: 0; }
+#viewLobby .lobby-layout { height: 100%; min-height: 0; }
+#viewLobby .team-card,
+#viewLobby .role-command-panel { height: 100%; min-height: 0; overflow: hidden; }
+#viewLobby .team-card .card-header,
+#viewLobby .lobby-footer,
+#viewLobby .role-panel-heading,
+#viewLobby .role-portrait-deck { flex-shrink: 0; }
+#viewLobby .member-list { max-height: none; }
+#viewLobby .role-panel-heading { gap: 12px; }
+#viewLobby .role-heading-actions { justify-content: flex-end; flex-wrap: wrap; }
+#viewLobby .role-panel-main {
+  display: grid;
+  grid-template-rows: 210px auto minmax(96px, 1fr);
+  overflow-y: auto;
+}
+#viewLobby .role-overview { min-height: 0; overflow-y: auto; }
+#viewLobby .role-tab-toolbar { margin-top: 0; }
+#viewLobby .role-description {
+  min-height: 0;
+  margin-top: 0;
+  overflow-y: auto;
+  justify-content: flex-start;
+}
+#viewLobby .role-description-heading { flex-shrink: 0; }
+#viewLobby .role-portrait-strip { padding: 4px 2px 8px; }
+#viewLobby .role-portrait-choice,
+#viewLobby .role-portrait-choice.is-selected {
+  width: 100px;
+  min-width: 100px;
+  height: 100px;
+  padding: 0;
+  border: 4px solid #9b7245;
+  border-radius: 0;
+  display: block;
+}
+#viewLobby .role-portrait-choice img { width: 100%; height: 100%; object-fit: cover; }
+#viewLobby .role-portrait-choice.is-previewed { border-color: #8f5824; }
+#viewLobby .role-portrait-choice.is-selected { border-color: #8f1d1d; }
+#viewLobby .role-choice-check,
+#viewLobby .role-choice-occupant {
+  position: absolute;
+  right: 0;
+  top: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 0;
+}
+#viewLobby .role-choice-check { width: 24px; height: 24px; color: #fff4ea; background: #8f1d1d; }
+#viewLobby .role-choice-occupant {
+  max-width: 100%;
+  max-height: 55%;
+  overflow-y: auto;
+  padding: 3px 5px;
+  overflow-wrap: anywhere;
+}
+#viewLobby .is-selected .role-choice-occupant { top: 24px; }
+#viewLobby .role-portrait-choice:focus-visible { outline: 3px solid #8f1d1d; outline-offset: 2px; }
+
+@media (max-width: 900px) {
+  #viewLobby .lobby-layout { grid-template-rows: 160px minmax(0, 1fr); gap: 12px; }
+  #viewLobby.archive-mode .lobby-layout { grid-template-rows: minmax(0, 1fr); }
+  #viewLobby .team-card { padding: 12px; }
+  #viewLobby .team-card .card-header { padding-bottom: 4px; }
+  #viewLobby .team-card .card-tip { display: none; }
+  #viewLobby .member-list { display: flex; flex-direction: row; overflow-x: auto; margin: 4px 0; }
+  #viewLobby .member-item { min-width: 220px; padding: 4px 8px; }
+  #viewLobby .lobby-footer { padding-top: 4px; }
+  #viewLobby .lobby-footer .btn { padding: 4px 8px; font-size: 13px; }
+  #viewLobby .start-tip { margin-top: 2px; }
+  #viewLobby .role-command-panel { padding: 12px; }
+  #viewLobby .role-panel-main { grid-template-rows: 130px auto minmax(96px, 1fr); gap: 8px; }
+  #viewLobby .role-overview { grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; }
+  #viewLobby .role-radar svg { height: 115px; }
+  #viewLobby .role-radar figcaption { display: none; }
+  #viewLobby .role-hero-portrait { width: 72px; height: 90px; flex-basis: 72px; }
+  #viewLobby .role-heading-group small { display: none; }
+  #viewLobby .role-panel-heading span { font-size: 15px; }
+  #viewLobby .role-tab-toolbar { flex-wrap: wrap; gap: 6px; }
+  #viewLobby .role-skill-tabs button { padding: 4px 8px; font-size: 12px; }
+}
+@media (max-width: 560px) {
+  #viewLobby .role-portrait-choice,
+  #viewLobby .role-portrait-choice.is-selected { width: 70px; min-width: 70px; height: 70px; }
+  body:has(#viewEntry.active) .app-header,
+  body:has(#viewLobby.active) .app-header { padding: 10px 12px; gap: 10px; }
+  body:has(#viewEntry.active) .logo,
+  body:has(#viewLobby.active) .logo { gap: 8px; min-width: 0; }
+  body:has(#viewEntry.active) .logo .icon,
+  body:has(#viewLobby.active) .logo .icon { width: 32px; height: 32px; flex: 0 0 32px; }
+  body:has(#viewEntry.active) .logo-img,
+  body:has(#viewLobby.active) .logo-img { width: 32px; height: 32px; }
+  body:has(#viewEntry.active) .title-group h1,
+  body:has(#viewLobby.active) .title-group h1 { font-size: 18px; white-space: nowrap; }
+  body:has(#viewEntry.active) .title-group .en-sub,
+  body:has(#viewEntry.active) .title-group .subtitle,
+  body:has(#viewLobby.active) .title-group .en-sub,
+  body:has(#viewLobby.active) .title-group .subtitle { display: none; }
+  body:has(#viewLobby.active) .room-code-display { padding: 6px 8px; gap: 4px; white-space: nowrap; }
+  body:has(#viewLobby.active) .room-code-clickable { font-size: 16px; letter-spacing: 2px; }
+  #viewLobby .team-card .card-header { margin-bottom: 4px; }
+  #viewLobby .lobby-footer .start-tip { display: none; }
+  #viewLobby .member-item { min-height: 54px; }
+  .recruit-header { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+  .recruit-header-right { width: 100%; text-align: right; }
+  .recruit-main-title { font-size: 24px; }
+  #viewLobby .role-panel-heading { align-items: flex-start; }
+  #viewLobby .role-heading-actions { gap: 6px; }
+  #viewLobby .role-overview { grid-template-columns: minmax(0, 1fr); }
+  #viewLobby .role-radar { display: none; }
+  #viewLobby .role-identity { gap: 10px; }
+}
 
 .modal-actions {
   display: flex;
@@ -1864,7 +2068,7 @@ input#profileNewNameInput {
   opacity: 1;
 }
 
-.toast-content {-size: 14px;
+.toast-content {font-size: 14px;
   font-weight: 700;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
   display: flex;

@@ -1,5 +1,6 @@
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { createRoomContent } from '../studio/content.js';
+import { normalizeAvatar } from './avatar.js';
 import { phase8Methods, p8State, P8_ROLES } from './phase8.js';
 import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRate, isAssassinHidden, addAssassinCritical } from './assassin.js';
 // 遊戲房間管理核心 (Game Room Engine)
@@ -169,15 +170,7 @@ export class Room {
       this.memberIds.push(socket.id);
     }
 
-    let cleanAvatar = null;
-    if (typeof avatar === 'string') {
-      const trimmed = avatar.trim();
-      if (trimmed.startsWith('data:image/')) {
-        cleanAvatar = trimmed;
-      } else if (!trimmed.startsWith('/photo/')) {
-        cleanAvatar = trimmed.slice(0, 8);
-      }
-    }
+    const cleanAvatar = normalizeAvatar(avatar, this.studioContent.snapshot);
 
     this.players[socket.id] = {
       id: socket.id,
@@ -357,20 +350,10 @@ export class Room {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
 
-    let cleanAvatar = null;
-    if (typeof avatar === 'string') {
-      const trimmed = avatar.trim();
-      if (trimmed.startsWith('data:image/')) {
-        // 限制 base64 大小不超過 300KB
-        if (trimmed.length > 350000) {
-          return { success: false, message: '圖片檔案過大，請選擇較小的圖片！' };
-        }
-        cleanAvatar = trimmed;
-      } else if (!trimmed.startsWith('/photo/')) {
-        // emoji 或自訂文字
-        cleanAvatar = trimmed.slice(0, 8);
-      }
+    if (typeof avatar === 'string' && avatar.trim().startsWith('data:image/') && avatar.trim().length > 350000) {
+      return { success: false, message: '圖片檔案過大，請選擇較小的圖片！' };
     }
+    const cleanAvatar = normalizeAvatar(avatar, this.studioContent.snapshot);
 
     player.customAvatar = cleanAvatar;
     this.addLog(`🖼️ **${player.name}** 更新了個人頭貼！`, 'info');

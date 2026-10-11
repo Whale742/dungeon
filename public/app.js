@@ -701,8 +701,10 @@ if (myName) {
 // 監聽 Socket 連線
 socket.on('connect', () => {
   myId = socket.id;
+  window.RecruitCopy?.setPlayerId(myId);
   console.log('連線至伺服器，ID:', myId);
 });
+socket.on('disconnect', () => window.RecruitCopy?.setPlayerId(null));
 
 socket.on('init:constants', (data) => {
   classesData = data.classes || {};
@@ -717,6 +719,8 @@ socket.on('init:constants', (data) => {
 socket.on('studio:content', data => { if(window.StudioContent)StudioContent.install(data,{pin:true}); });
 window.addEventListener('studio:content-ready',()=>{
   if(Object.keys(classesData).length){renderRoleSelectionGrid();updateHeroRoleOptionUI();}
+  initHeroAvatarGrid();
+  updateEntryAvatarPreview();
 });
 
 let pendingAuthoritativeState = null;
@@ -948,12 +952,7 @@ function renderApp() {
   if (elements.roomCodeText) elements.roomCodeText.textContent = roomState.code;
 
   if (me) {
-    // 清除舊版錯誤存入的 /photo/* 本地暫存
-    let savedAvatar = localStorage.getItem('dungeon_custom_avatar');
-    if (savedAvatar && savedAvatar.startsWith('/photo/')) {
-      localStorage.removeItem('dungeon_custom_avatar');
-      savedAvatar = null;
-    }
+    const savedAvatar = localStorage.getItem('dungeon_custom_avatar');
 
     // 自動同步本機儲存之自訂頭貼 (若非職業預設)
     if (savedAvatar && !me.customAvatar) {
@@ -1322,8 +1321,9 @@ function renderLobby(me, isLeader) {
 // 渲染選職卡片
 function renderRoleSelectionGrid() {
   if (!classesData || Object.keys(classesData).length === 0) return;
-  renderRoleLobby({classes:classesData,details:roleDetailsData||DEFAULT_ROLE_DETAILS,players:roomState?.players||[],myId,onSelect:roleKey=>{
+  renderRoleLobby({classes:classesData,details:roleDetailsData||DEFAULT_ROLE_DETAILS,players:isClassArchiveMode?[]:roomState?.players||[],myId,onSelect:roleKey=>{
     playSound('click');
+    if(isClassArchiveMode||!roomState)return;
     socket.emit('player:select_role',{roleKey},res=>{
       if(!res.success){alert(res.message);lobbyRoleUi.role=roomState?.players?.find(p=>p.id===myId)?.role||'warrior';renderRoleSelectionGrid();}
     });
@@ -3020,9 +3020,7 @@ function openClassArchiveFromMenu() {
   if (btnArchiveBack) btnArchiveBack.classList.remove('hidden');
 
   switchView('lobby');
-  if (typeof updateRoleDescriptionPanel === 'function') {
-    updateRoleDescriptionPanel(selectedRoleKey || 'warrior');
-  }
+  renderRoleSelectionGrid();
 }
 
 function closeClassArchiveToMenu() {
@@ -3437,6 +3435,8 @@ function exitRoomToLobbyMenu() {
   sfx?.stopAll();
   roomState = null;
   currentRoomCode = null;
+  lobbyRoleUi.confirmedRole = null;
+  renderRoleSelectionGrid();
   currentActiveStage = 'NONE';
   if (typeof presentationManager !== 'undefined' && typeof presentationManager.clear === 'function') {
     presentationManager.clear();
@@ -4525,7 +4525,14 @@ function getMyPlayer() {
 }
 
 function updateEntryAvatarPreview() {
-  const savedAvatar = localStorage.getItem('dungeon_custom_avatar');
+  let savedAvatar = localStorage.getItem('dungeon_custom_avatar');
+  // Older choices stored local paths, including two nonexistent English filenames.
+  const canonicalPath = savedAvatar === '/photo/Sage.webp' ? '/photo/智者.webp' : savedAvatar === '/photo/Samurai.webp' ? '/photo/武士.webp' : savedAvatar;
+  const hero = HERO_CLASS_PORTRAITS.find(h => h.photo === canonicalPath);
+  if (hero) {
+    savedAvatar = window.assetRegistry?.resolve('role.'+hero.key+'.avatar',hero.photo)||hero.photo;
+    localStorage.setItem('dungeon_custom_avatar',savedAvatar);
+  }
   const previewEls = [elements.entryAvatarPreview, document.getElementById('profileAvatarPreview')].filter(Boolean);
   if (previewEls.length === 0) return;
   previewEls.forEach(el => {
@@ -4548,7 +4555,7 @@ function updateModalPreview(avatar) {
   if (!elements.modalAvatarPreview || !elements.modalAvatarTypeLabel) return;
 
   if (avatar) {
-    if (avatar.startsWith('data:image/') || avatar.startsWith('http')) {
+    if (avatar.startsWith('data:image/') || avatar.startsWith('http') || avatar.startsWith('/')) {
       elements.modalAvatarPreview.innerHTML = `<img src="${avatar}" alt="preview">`;
       elements.modalAvatarTypeLabel.textContent = '已選擇：自訂照片';
     } else {
@@ -4611,8 +4618,8 @@ const HERO_CLASS_PORTRAITS = [
   { key: 'gladiator', name: '角鬥士', photo: '/photo/Gladiator.webp' },
   { key: 'stargazer', name: '觀星者', photo: '/photo/Stargazer.webp' },
   { key: 'dreamweaver', name: '織夢術士', photo: '/photo/Dreamweaver.webp' },
-  { key: 'samurai', name: '武士', photo: '/photo/Samurai.webp' },
-  { key: 'sage', name: '智者', photo: '/photo/Sage.webp' }
+  { key: 'samurai', name: '武士', photo: '/photo/武士.webp' },
+  { key: 'sage', name: '智者', photo: '/photo/智者.webp' }
 ];
 
 function openAvatarChoiceModal() {
@@ -4697,13 +4704,17 @@ window.toggleHeroAvatarList = toggleHeroAvatarList;
 
 function initHeroAvatarGrid() {
   const grid = document.getElementById('heroAvatarOptionsGrid');
-  if (!grid || grid.children.length > 0) return;
+  if (!grid) return;
   grid.innerHTML = HERO_CLASS_PORTRAITS.map(h => `
-    <div class="hero-avatar-choice-item" onclick="selectClassAvatar('${h.photo}', '${h.name}')" title="選用【${h.name}】官方頭貼">
-      <img src="${h.photo}" alt="${h.name}">
+    <button type="button" class="hero-avatar-choice-item" data-role="${h.key}" title="選用【${h.name}】官方頭貼">
+      <img src="${escapeHtml(window.assetRegistry?.resolve('role.'+h.key+'.avatar',h.photo)||h.photo)}" alt="${h.name}">
       <span>${h.name}</span>
-    </div>
+    </button>
   `).join('');
+  grid.querySelectorAll('[data-role]').forEach(button => button.addEventListener('click', () => {
+    const hero = HERO_CLASS_PORTRAITS.find(h => h.key === button.dataset.role);
+    selectClassAvatar(window.assetRegistry?.resolve('role.'+hero.key+'.avatar',hero.photo)||hero.photo,hero.name);
+  }));
 }
 
 function selectClassAvatar(photoUrl, roleName) {

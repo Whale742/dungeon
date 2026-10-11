@@ -33,6 +33,32 @@ test('Every generated draft validates, schema IDs and battle fields cannot chang
   const role=item('role',catalog.role_profiles[0]);assert.throws(()=>validateDraft({...role,data:{...role.data,maxHp:999}}));assert.throws(()=>validateDraft({...role,key:'invented'}));assert.throws(()=>validateDraft({...role,data:{...role.data,radar_output:2.5}}));
   const skill=item('skill',catalog.skill_copies[0]);assert.throws(()=>validateDraft({...skill,role_id:'fake'}));assert.throws(()=>validateDraft({...skill,data:{...skill.data,full_copy:'{unknown}'}}));
 });
+
+test('Recruit copy supports all visible text and tooltips through the existing story draft/publish API',async()=>{
+  const fields=catalog.story_copies.filter(row=>row.category==='recruit');
+  assert.equal(fields.length,11);
+  const f=await fixture();try{
+    const items=fields.map(row=>item('story',{...row,body:'新版 '+row.body}));
+    assert.equal((await f.request('/api/studio/drafts',{method:'POST',body:{items}})).status,200);
+    assert.equal((await f.request('/api/studio/publish',{method:'POST',body:{items:fields.map(row=>({kind:'story',key:row.story_key}))}})).status,200);
+    assert.equal(f.calls.filter(c=>c.route==='/rest/v1/rpc/studio_publish_batch').length,1);
+  }finally{await f.close();}
+});
+
+test('Recruit renderer applies published text and attributes without replacing input values or icons',()=>{
+  const nodes=new Map();
+  const context=vm.createContext({document:{addEventListener(){},querySelector:selector=>nodes.get(selector)},addEventListener(){},StudioContent:{find:(_,key)=>key==='entry.recruit.title'?{body:'<script>純文字</script>'}:key==='entry.recruit.namePlaceholder'?{body:'新的提示'}:undefined}});
+  vm.runInContext(fs.readFileSync(new URL('../public/recruit-copy.js',import.meta.url),'utf8'),context);
+  for(const field of context.RecruitCopy.fields)nodes.set('#screenRecruit '+field.selector,{value:'已輸入的名字',attrs:{},setAttribute(k,v){this.attrs[k]=v;}});
+  context.RecruitCopy.render();
+  const code={textContent:''};nodes.set('#screenRecruit .recruit-code',code);
+  context.RecruitCopy.setPlayerId('backend-player-id');assert.equal(code.textContent,'backend-player-id');
+  context.RecruitCopy.setPlayerId(null);assert.equal(code.textContent,'連線中…');
+  assert.equal(nodes.get('#screenRecruit .recruit-main-title').textContent,'<script>純文字</script>');
+  assert.equal(nodes.get('#screenRecruit #inputPlayerName').attrs.placeholder,'新的提示');
+  assert.equal(nodes.get('#screenRecruit #inputPlayerName').value,'已輸入的名字');
+  assert.equal(nodes.get('#screenRecruit #btnSubmitRecruit span').textContent,'簽署誓約 • 進入冒險大廳');
+});
 test('Routes require no login, redirect runs before static, config reveals only public credentials',async()=>{const f=await fixture();try{
   for(const route of ['/lab','/edit','/asset']){const r=await f.request(route,{token:false});assert.equal(r.status,200);const body=await r.text();assert(!body.includes('supabase.auth'));}
   const r=await f.request('/presentation-lab.html?scene=samurai_cut',{token:false,redirect:'manual'});assert.equal(r.status,302);assert.equal(r.headers.get('location'),'/lab?scene=samurai_cut');

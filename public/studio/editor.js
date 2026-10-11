@@ -16,11 +16,13 @@
   function select(value){selected=value;const row=record(value),fields=specs[value.kind].fields;
     byId('editorTitle').textContent=row.name_zh||row.display_name||row.title||value.key;byId('editorIdentity').textContent=[value.kind,value.role_id,value.key,'識別碼不可變'].filter(Boolean).join(' · ');
     const labels={name_zh:'中文名稱',name_en:'英文名稱',short_intro:'簡介',full_intro:'完整介紹',position_label:'定位',tags:'標籤（逗號分隔）',passive_short:'被動簡介',passive_full:'被動完整說明',display_name:'技能顯示名稱',short_copy:'技能簡略文案',full_copy:'技能完整文案',category:'分類',title:'標題',body:'敘事內容',paragraphs:'段落（每行一段）'};
-    const nodes=fields.map(field=>{
+    const recruit=value.kind==='story'&&value.key.startsWith('entry.recruit.');
+    const nodes=(recruit?['body']:fields).map(field=>{
       if(field.startsWith('radar_')){const index=RadarRenderer.fields.indexOf(field),output=el('output',{text:row[field]+' / '+RadarRenderer.grade(row[field])}),slider=el('input',{type:'range',min:1,max:5,step:1,value:row[field],oninput:event=>{const v=Number(event.target.value);output.textContent=v+' / '+RadarRenderer.grade(v);dirtyChange(field,v);}});return el('label',{class:'studio-field'},[el('span',{text:RadarRenderer.axes[index]+(field==='radar_difficulty'?'（5 = S，最難操作）':'')}),slider,output]);}
-      const array=['tags','paragraphs'].includes(field);return formField(labels[field]||field,array?row[field].join(field==='tags'?', ':'\n'):row[field],v=>dirtyChange(field,array?v.split(field==='tags'?/[,，]/:/\n/).map(s=>s.trim()).filter(Boolean):v),{type:field.includes('copy')||field.includes('intro')||field.includes('passive')||['body','paragraphs'].includes(field)?'textarea':'text'});
+      const array=['tags','paragraphs'].includes(field);return formField(recruit?'顯示文案':labels[field]||field,array?row[field].join(field==='tags'?', ':'\n'):row[field],v=>dirtyChange(field,array?v.split(field==='tags'?/[,，]/:/\n/).map(s=>s.trim()).filter(Boolean):v),{type:field.includes('copy')||field.includes('intro')||field.includes('passive')||['body','paragraphs'].includes(field)?'textarea':'text'});
     });
     byId('editorForm').replaceChildren(...nodes);
+    if(recruit)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此文案顯示在遊戲首頁的招募令。支援草稿、發布、批次發布、匯入匯出與版本回復。'}));
     const meta=value.kind==='skill'?StudioContent.state.defaults.skillMeta[value.role_id+':'+value.key]:null;
     if(meta?.contextual)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此項有即時狀態文案。階段／場內版本各有獨立文案 ID；實際 actionId 保持 '+meta.actionId+'。可使用 {rageMultiplier} 佔位符。'}));
     byId('editorItemActions').replaceChildren(button('儲存草稿',()=>save([selected]),{class:'studio-primary'}),button('發布此項',()=>publish([selected])),button('恢復原始文案',()=>{const base=StudioContent.state.defaults[specs[value.kind].table].find(r=>r[specs[value.kind].id]===value.key&&(value.kind!=='skill'||r.role_id===value.role_id));records.set(itemId(value),structuredClone(base));dirty.add(itemId(value));select(value);status();notice('已恢復內建文案；儲存後才會成為雲端草稿。');}),button('在 Lab 預覽',()=>labPreview(value)),button('載入版本歷史',()=>history(value)));

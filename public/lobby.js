@@ -74,6 +74,20 @@ function renderRoleDetailPanel() {
 }
 function renderRolePortraitStrip() {
   const {classes,players,myId,onSelect}=lobbyRoleUi.data,container=document.getElementById('roleSelectionGrid');
+  if(!container.dataset.wheelBound){
+    container.dataset.wheelBound='true';
+    container.addEventListener('wheel',event=>{
+      // Leave trackpad horizontal gestures and browser pinch/zoom to native handling.
+      if(event.ctrlKey||event.defaultPrevented||Math.abs(event.deltaX)>=Math.abs(event.deltaY))return;
+      const maxScroll=container.scrollWidth-container.clientWidth;
+      if(maxScroll<=0)return;
+      const unit=event.deltaMode===1?(parseFloat(getComputedStyle(container).lineHeight)||16):event.deltaMode===2?container.clientWidth:1;
+      const next=Math.max(0,Math.min(maxScroll,container.scrollLeft+event.deltaY*unit));
+      if(next===container.scrollLeft)return;
+      event.preventDefault();
+      container.scrollLeft=next;
+    },{passive:false});
+  }
   const scrollLeft=container.scrollLeft;container.replaceChildren();
   for(const role of LOBBY_ROLE_ORDER){
     const conf=classes[role];if(!conf)continue;
@@ -82,7 +96,7 @@ function renderRolePortraitStrip() {
     button.className='role-portrait-choice'+(selected?' is-selected':'')+(others.length?' is-occupied':'')+(lobbyRoleUi.role===role?' is-previewed':'');
     button.setAttribute('aria-pressed',String(selected));button.setAttribute('aria-label',conf.name+(selected?'，已選擇':'')+(others.length?'，'+others.map(p=>p.name).join('、')+'已選擇，可共同選擇':''));
     button.title=button.getAttribute('aria-label');
-    button.innerHTML=`<img src="${escapeHtml(conf.avatar)}" alt=""><span class="role-choice-name">${escapeHtml(conf.name)}</span>`+(others.length?`<span class="role-choice-occupant">${escapeHtml(others.map(p=>Array.from(p.name).slice(0,2).join('')).slice(0,2).join(' / '))}${others.length>2?' +'+(others.length-2):''}</span>`:'')+(selected?'<span class="role-choice-check" aria-hidden="true">✓</span>':'');
+    button.innerHTML=`<img src="${escapeHtml(conf.avatar)}" alt="">`+(others.length?`<span class="role-choice-occupant">${escapeHtml(others.map(p=>p.name).join(' / '))}</span>`:'')+(selected?'<span class="role-choice-check" aria-hidden="true">✓</span>':'');
     button.addEventListener('click',()=>{lobbyRoleUi.role=role;renderRoleDetailPanel();container.querySelectorAll('[data-role]').forEach(n=>n.classList.toggle('is-previewed',n.dataset.role===role));onSelect(role);});
     container.appendChild(button);
   }

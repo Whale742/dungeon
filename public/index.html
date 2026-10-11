@@ -147,6 +147,9 @@
         <line x1="18" y1="6" x2="6" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <line x1="6" y1="6" x2="18" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
+      <symbol id="icon-leave" viewBox="0 0 24 24">
+        <path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
       <symbol id="icon-chevron-right" viewBox="0 0 24 24">
         <polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
@@ -225,7 +228,7 @@
                 </div>
               </div>
               <div class="recruit-header-right">
-                <div>懸賞代號：<strong class="recruit-code">ABY-100</strong></div>
+                <div><span data-recruit-code-label>懸賞代號：</span><strong class="recruit-code">連線中…</strong></div>
                 <div class="recruit-badge-text">王立公會最高檄文</div>
               </div>
             </div>
@@ -243,7 +246,7 @@
             <!-- 冒險者取名與頭貼輸入框 -->
             <div class="recruit-form">
               <label for="inputPlayerName" class="recruit-label">
-                <svg class="svg-icon"><use href="#icon-log"></use></svg> 請以羽毛筆簽署尊名 / 冒險者代號：
+                <svg class="svg-icon"><use href="#icon-log"></use></svg> <span data-recruit-name-label>請以羽毛筆簽署尊名 / 冒險者代號：</span>
               </label>
               
               <div class="recruit-input-row" style="background: #ffffff !important; background-color: #ffffff !important;">
@@ -297,7 +300,7 @@
             <!-- 3. 職業圖鑑 -->
             <button id="btnOpenClassArchive" type="button" class="parchment-btn lobby-menu-btn">
               <svg class="svg-icon text-warning"><use href="#icon-log"></use></svg>
-              <span>職業檔案圖鑑 (13職)</span>
+              <span>職業一覽</span>
             </button>
 
             <!-- 4. 個人檔案 與 退出 並排呈現 -->
@@ -395,14 +398,14 @@
             <div class="role-panel-heading">
               <div class="role-heading-group">
                 <span class="parchment-wax-mark"></span>
-                <span>英雄檔案 <small>HERO ARCHIVE</small></span>
+                <span>職業一覽 <small>CLASS OVERVIEW</small></span>
               </div>
               <div class="role-heading-actions">
+                <span id="roleSelectionStatus">點擊頭像選擇職業</span>
                 <button type="button" id="btnLobbyExitRoom" onclick="exitRoomToLobbyMenu()" class="parchment-btn parchment-btn-crimson lobby-exit-btn" title="退出房間回到大廳">
-                  <svg class="svg-icon" style="width: 14px; height: 14px; margin-right: 4px;"><use href="#icon-leave"></use></svg>
+                  <svg class="svg-icon" aria-hidden="true"><use href="#icon-leave"></use></svg>
                   <span>退出房間</span>
                 </button>
-                <span id="roleSelectionStatus">點擊下方頭像檢閱與切換出戰職業</span>
                 <button type="button" id="btnArchiveBackToMenu" class="parchment-btn hidden" style="padding: 4px 12px; font-size: 13.5px; margin-left: 8px;">返回選單</button>
               </div>
             </div>
@@ -417,7 +420,7 @@
               <div class="role-tab-toolbar"><div class="role-skill-tabs" role="tablist" aria-label="技能資訊"><button type="button" role="tab" data-role-tab="passive" aria-selected="true" aria-controls="lobbyRoleDescription" class="parchment-btn parchment-btn-crimson">被動與特性</button><button type="button" role="tab" data-role-tab="0" aria-selected="false" aria-controls="lobbyRoleDescription" class="parchment-btn">普通攻擊</button><button type="button" role="tab" data-role-tab="1" aria-selected="false" aria-controls="lobbyRoleDescription" class="parchment-btn">一技能</button><button type="button" role="tab" data-role-tab="2" aria-selected="false" aria-controls="lobbyRoleDescription" class="parchment-btn">二技能</button></div><label class="role-copy-toggle"><span>詳細</span><input id="lobbyRoleDetailed" type="checkbox" role="switch" aria-label="切換詳細技能描述"><span class="role-switch-track"></span><span>精簡</span></label></div>
               <article id="lobbyRoleDescription" class="role-description kraft-sub-panel" role="tabpanel" aria-live="polite"><div class="role-description-heading"><h3 id="lobbySkillName"></h3><div id="lobbySkillMeta"></div></div><p id="lobbySkillCopy"></p></article>
             </div>
-            <div class="role-portrait-deck"><div class="role-deck-caption"><span>選擇出征職業 (共 13 職)</span><small>SELECT YOUR HERO</small></div><div id="roleSelectionGrid" class="role-portrait-strip" aria-label="十三職業選擇"></div></div>
+            <div class="role-portrait-deck"><div class="role-deck-caption"><span>選擇出征職業</span><small>SELECT YOUR HERO</small></div><div id="roleSelectionGrid" class="role-portrait-strip" aria-label="職業選擇"></div></div>
           </section>
         </div>
       </section>
@@ -1171,6 +1174,7 @@
   <script src="narrative-controls.js"></script>
   <script src="presentation-core.js"></script>
   <script src="bgm.js"></script>
+  <script src="recruit-copy.js"></script>
   <script src="battle-phase.js"></script>
   <script src="exploration.js"></script>
   <script src="trap.js"></script>
