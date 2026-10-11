@@ -266,24 +266,12 @@ let eventDoneKey = null;
 
 // 強制關閉全部彈窗（演出階段嚴格防阻擋）
 function forceCloseAllModals() {
-  document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.modal-overlay').forEach(el => ModalMotion.hide(el));
   document.querySelectorAll('.chat-popup-card').forEach(el => el.classList.add('hidden'));
   const avatarModal = document.getElementById('avatarCustomModal');
-  if (avatarModal) avatarModal.classList.add('hidden');
-  const equipModal = document.getElementById('equipDropModal');
-  if (equipModal) equipModal.classList.add('hidden');
-  const minionModal = document.getElementById('minionDetailModal');
-  if (minionModal) minionModal.classList.add('hidden');
-  const roleModal = document.getElementById('roleDetailModal');
-  if (roleModal) roleModal.classList.add('hidden');
+  if (avatarModal) ModalMotion.hide(avatarModal);
   const chatPopup = document.getElementById('chatPopupCard');
   if (chatPopup) chatPopup.classList.add('hidden');
-  const endBattleModal = document.getElementById('endBattleModal');
-  if (endBattleModal) endBattleModal.classList.add('hidden');
-  const targetModal = document.getElementById('targetModal');
-  if (targetModal) targetModal.classList.add('hidden');
-  const transferLeaderModal = document.getElementById('transferLeaderModal');
-  if (transferLeaderModal) transferLeaderModal.classList.add('hidden');
 }
 if (typeof window !== 'undefined') window.forceCloseAllModals = forceCloseAllModals;
 
@@ -1075,18 +1063,18 @@ function renderPendingDropModal(me) {
 
   const dropInfo = roomState?.pendingDrop;
   if (roomState?.state === 'BATTLE_VICTORY' && !roomState.victoryInteractionReady) {
-    elements.equipDropModal.classList.add('hidden'); return;
+    ModalMotion.hide(elements.equipDropModal); return;
   }
     // Phase 4: Gate equip modal until chest presentation and reward reveal have settled
   if (roomState?.state === 'EVENT' && roomState.currentEvent?.type === 'treasure') {
     if (chestRewardCompletedId !== roomState.currentEvent.presentationId) {
-      elements.equipDropModal.classList.add('hidden');
+      ModalMotion.hide(elements.equipDropModal);
       return;
     }
   }
 
   if (!dropInfo || !me || dropInfo.ownerId !== myId) {
-    elements.equipDropModal.classList.add('hidden');
+    ModalMotion.hide(elements.equipDropModal);
     selectedReplaceIndex = -1;
     return;
   }
@@ -1167,7 +1155,7 @@ function renderPendingDropModal(me) {
     submitEquipmentChoice({action:'discard'});
   };
 
-  elements.equipDropModal.classList.remove('hidden');
+  ModalMotion.show(elements.equipDropModal);
 }
 
 function submitEquipmentChoice(choice){
@@ -1177,7 +1165,7 @@ function submitEquipmentChoice(choice){
   if(!result?.success){alert(result?.message||'裝備選擇失敗，請重新選擇');renderPendingDropModal(getMyPlayer());return;}
   selectedReplaceIndex=-1;
   // The authoritative room update clears pendingDrop and unlocks victory.
-  if(!roomState?.pendingDrop)elements.equipDropModal.classList.add('hidden');
+  if(!roomState?.pendingDrop)ModalMotion.hide(elements.equipDropModal);
   refreshVictoryControls();
  });
 }
@@ -2603,7 +2591,7 @@ function handleSkillClick(actionId, me) {
 
 // 目標選擇 Modal (治癒額外目標 / 甦生之歌目標 / 代受恩典目標)
 function openTargetModal(type, targetList) {
-  elements.targetModal.classList.remove('hidden');
+  ModalMotion.show(elements.targetModal);
   elements.targetModalList.innerHTML = '';
 
   if(type==='dream'){elements.targetModalTitle.textContent='清醒夢・薛丁格之蝶・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
@@ -2630,7 +2618,7 @@ function openTargetModal(type, targetList) {
     `;
 
     btn.addEventListener('click', () => {
-      elements.targetModal.classList.add('hidden');
+      ModalMotion.hide(elements.targetModal);
       playSound(type === 'heal' || type === 'grace' ? 'heal' : 'magic');
       currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : type === 'grace' ? 'pal_grace' : 'b_revive';
       currentPendingTarget = p.id;
@@ -2665,7 +2653,7 @@ if (elements.btnUnlockAction) {
 }
 
 elements.btnCancelTarget.addEventListener('click', () => {
-  elements.targetModal.classList.add('hidden');
+  ModalMotion.hide(elements.targetModal);
 });
 
 // ==========================================
@@ -2724,13 +2712,13 @@ function showMinionDetailModal(player) {
     }).join('');
   }
 
-  elements.minionDetailModal.classList.remove('hidden');
+  ModalMotion.show(elements.minionDetailModal);
 }
 
 function hideMinionDetailModal() {
   activeViewingMinionOwnerId = null;
   if (elements.minionDetailModal) {
-    elements.minionDetailModal.classList.add('hidden');
+    ModalMotion.hide(elements.minionDetailModal);
   }
 }
 
@@ -2864,12 +2852,12 @@ function openRoleDetailModal(roleKey) {
     });
   }
 
-  elements.roleDetailModal.classList.remove('hidden');
+  ModalMotion.show(elements.roleDetailModal);
 }
 
 function hideRoleDetailModal() {
   if (elements.roleDetailModal) {
-    elements.roleDetailModal.classList.add('hidden');
+    ModalMotion.hide(elements.roleDetailModal);
   }
 }
 
@@ -3125,7 +3113,7 @@ function openDirectConnectModal() {
   playSound('click');
   const modal = document.getElementById('directConnectModal');
   if (modal) {
-    modal.classList.remove('hidden');
+    ModalMotion.show(modal);
     if (elements.inputRoomCode) {
       elements.inputRoomCode.value = '';
       elements.inputRoomCode.focus();
@@ -3135,7 +3123,7 @@ function openDirectConnectModal() {
 
 function closeDirectConnectModal() {
   const modal = document.getElementById('directConnectModal');
-  if (modal) modal.classList.add('hidden');
+  if (modal) ModalMotion.hide(modal);
 }
 
 function openProfileModal() {
@@ -3155,7 +3143,7 @@ function openProfileModal() {
   }
   updateEntryAvatarPreview();
   if (modal) {
-    modal.classList.remove('hidden');
+    ModalMotion.show(modal);
     modal.style.display = 'flex';
   }
 }
@@ -3164,7 +3152,7 @@ window.openProfileModal = openProfileModal;
 function closeProfileModal() {
   const modal = document.getElementById('profileModal');
   if (modal) {
-    modal.classList.add('hidden');
+    ModalMotion.hide(modal);
     modal.style.display = 'none';
   }
 }
@@ -3357,17 +3345,17 @@ function openTransferLeaderModal(targetPlayer) {
   if (!targetPlayer) return;
   pendingTransferTarget = targetPlayer;
   if (elements.transferLeaderModalDesc) {
-    elements.transferLeaderModalDesc.textContent = `確定要將位子移交給【${targetPlayer.name}】嗎？`;
+    elements.transferLeaderModalDesc.textContent = `確定要將房主位子移交給 ${targetPlayer.name} 嗎？`;
   }
   if (elements.transferLeaderModal) {
-    elements.transferLeaderModal.classList.remove('hidden');
+    ModalMotion.show(elements.transferLeaderModal);
   }
 }
 
 function closeTransferLeaderModal() {
   pendingTransferTarget = null;
   if (elements.transferLeaderModal) {
-    elements.transferLeaderModal.classList.add('hidden');
+    ModalMotion.hide(elements.transferLeaderModal);
   }
 }
 
@@ -4468,19 +4456,19 @@ if (elements.btnResumeGameBanner) {
 if (elements.btnEndBattle) {
   elements.btnEndBattle.addEventListener('click', () => {
     playSound('click');
-    elements.endBattleModal.classList.remove('hidden');
+    ModalMotion.show(elements.endBattleModal);
   });
 }
 
 if (elements.btnCancelEndBattle) {
   elements.btnCancelEndBattle.addEventListener('click', () => {
-    elements.endBattleModal.classList.add('hidden');
+    ModalMotion.hide(elements.endBattleModal);
   });
 }
 
 if (elements.btnConfirmRetreat) {
   elements.btnConfirmRetreat.addEventListener('click', () => {
-    elements.endBattleModal.classList.add('hidden');
+    ModalMotion.hide(elements.endBattleModal);
     playSound('click');
     socket.emit('game:end_battle', {}, (res) => {
       if (!res.success) alert(res.message);
@@ -4603,7 +4591,7 @@ function openAvatarChoiceModal() {
   playSound('click');
   const modal = document.getElementById('avatarChoiceModal');
   if (modal) {
-    modal.classList.remove('hidden');
+    ModalMotion.show(modal);
     modal.style.display = 'flex';
   }
   initHeroAvatarGrid();
@@ -4613,7 +4601,7 @@ window.openAvatarChoiceModal = openAvatarChoiceModal;
 function closeAvatarChoiceModal() {
   const modal = document.getElementById('avatarChoiceModal');
   if (modal) {
-    modal.classList.add('hidden');
+    ModalMotion.hide(modal);
     modal.style.display = 'none';
   }
 }
@@ -4708,7 +4696,7 @@ function openAvatarModal() {
 function closeAvatarModal() {
   closeAvatarChoiceModal();
   if (elements.avatarModalOverlay) {
-    elements.avatarModalOverlay.classList.add('hidden');
+    ModalMotion.hide(elements.avatarModalOverlay);
   }
 }
 window.openAvatarModal = openAvatarModal;

@@ -915,7 +915,7 @@ async function playScene(sceneName) {
 
       case 'chest_decision': {
         // Showcase equipment decision modal
-        elements.equipDropModal.classList.remove('hidden');
+        ModalMotion.show(elements.equipDropModal);
         logLab('DECISION', 'Equipment decision modal displayed with 【穿上】 and 【捨棄】 controls.');
         break;
       }
@@ -1464,12 +1464,12 @@ function initLabController() {
   // Modal Buttons in Preview
   document.getElementById('btnEquipItem')?.addEventListener('click', () => {
     sfxManager.play('click');
-    elements.equipDropModal.classList.add('hidden');
+    ModalMotion.hide(elements.equipDropModal);
     logLab('DECISION', 'Player clicked 【穿上裝備】.');
   });
   document.getElementById('btnDiscardItem')?.addEventListener('click', () => {
     sfxManager.play('click');
-    elements.equipDropModal.classList.add('hidden');
+    ModalMotion.hide(elements.equipDropModal);
     logLab('DECISION', 'Player clicked 【捨棄裝備】.');
   });
 

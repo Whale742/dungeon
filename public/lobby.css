@@ -1189,7 +1189,6 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 130px);
-  padding: 16px 0;
 }
 
 .entry-sub-screen {

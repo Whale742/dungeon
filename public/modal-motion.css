@@ -1,0 +1,28 @@
+.modal-overlay {
+  --modal-motion-duration: 300ms;
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  transition: all var(--modal-motion-duration) cubic-bezier(.4, 0, .2, 1);
+  animation: none;
+}
+
+.modal-overlay .modal-card {
+  scale: 0;
+  transform-origin: center;
+  transition: scale var(--modal-motion-duration) cubic-bezier(.33, 1.53, .69, .99);
+  animation: none !important;
+}
+
+.modal-overlay.is-open {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-overlay.is-open .modal-card { scale: 1; }
+.modal-overlay.is-closing { pointer-events: none; }
+.modal-overlay.is-closing .modal-card {
+  transition-timing-function: cubic-bezier(.31, .01, .66, -.59);
+}
+
+#transferLeaderModal .modal-title { justify-content: center; }
+#transferLeaderModalDesc { color: #111827; }

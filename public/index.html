@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="battle-phase.css">
   <link rel="stylesheet" href="exploration-immersive.css">
   <link rel="stylesheet" href="audio-controls.css">
+  <link rel="stylesheet" href="modal-motion.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&family=VT323&display=swap" rel="stylesheet">
@@ -870,17 +871,18 @@
       </div>
     </div>
 
-    <!-- 轉移位子確認 Modal -->
+    <!-- 轉移房主位子確認 Modal -->
     <div id="transferLeaderModal" class="modal-overlay hidden">
-      <div class="modal-card" style="max-width: 360px; text-align: center;">
-        <div style="font-size: 2.2rem; margin-bottom: 8px;">👑</div>
-        <h3 id="transferLeaderModalTitle" style="margin-bottom: 8px;">轉移位子</h3>
-        <p id="transferLeaderModalDesc" style="color: var(--color-text-secondary); font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">
-          確定要將位子轉移給此成員嗎？
+      <div class="kraft-paper kraft-paper-rivets modal-card text-center" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3 id="transferLeaderModalTitle" class="modal-title"><svg class="svg-icon"><use href="#icon-flag"></use></svg>轉移房主位子</h3>
+        </div>
+        <p id="transferLeaderModalDesc" class="modal-subtitle">
+          確定要將房主位子移交給此成員嗎？
         </p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
-          <button type="button" class="btn btn-secondary btn-small" id="btnCancelTransferLeader">取消</button>
-          <button type="button" class="btn btn-primary btn-small" id="btnConfirmTransferLeader">確認轉移</button>
+        <div class="modal-actions">
+          <button type="button" class="parchment-btn flex-1" id="btnCancelTransferLeader">取消</button>
+          <button type="button" class="parchment-btn parchment-btn-crimson flex-1" id="btnConfirmTransferLeader">確認轉移</button>
         </div>
       </div>
     </div>
@@ -1186,6 +1188,7 @@
   <script src="victory.js"></script>
   <script src="portrait-status-fx.js"></script>
   <script src="lobby.js"></script>
+  <script src="modal-motion.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

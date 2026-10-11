@@ -41,13 +41,15 @@ try {
   await page.locator('#heroAvatarOptionsGrid [data-role=samurai]').click();
   assert((await page.evaluate(()=>localStorage.getItem('dungeon_custom_avatar'))).includes('/storage/v1/object/public/game-assets/'));
   report.checks.push('All 12 cloud portraits load, Paladin remains local, Sage/Samurai save cloud URLs');
-  await page.evaluate(()=>{closeProfileModal();document.getElementById('directConnectModal').classList.remove('hidden');});
+  await page.evaluate(()=>{closeProfileModal();openDirectConnectModal();});
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#directConnectModal .modal-card')).scale==='1');
   const inputStyle=await page.locator('#inputRoomCode').evaluate(n=>({background:getComputedStyle(n).backgroundColor,color:getComputedStyle(n).color}));
   assert.equal(inputStyle.background,'rgb(255, 253, 247)');
   assert((await page.locator('#btnJoinRoom').boundingBox()).height>=46);
   assert((await page.locator('#avatarChoiceModal .modal-actions button').evaluate(n=>parseFloat(getComputedStyle(n).paddingTop)))>=12);
   await page.screenshot({path:folder+'/direct-connect.png'});
-  await page.evaluate(()=>document.getElementById('directConnectModal').classList.add('hidden'));
+  await page.evaluate(()=>closeDirectConnectModal());
+  await page.waitForFunction(()=>document.getElementById('directConnectModal').classList.contains('hidden'));
   await page.locator('#inputPlayerName').fill('介面測試');
   await page.locator('#btnSubmitRecruit').click();
   await page.evaluate(()=>openClassArchiveFromMenu());
