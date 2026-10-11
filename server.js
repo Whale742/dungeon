@@ -122,6 +122,32 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 2.2 獲取房間列表 (供大廳隊伍名冊顯示)
+  socket.on('room:list', (callback) => {
+    try {
+      const list = [];
+      for (const [c, r] of rooms.entries()) {
+        if (r.state === 'LOBBY') {
+          const leader = Object.values(r.players || {}).find(p => p.id === r.leaderId);
+          list.push({
+            id: 'srv_' + c,
+            code: c,
+            name: `${leader?.name || '冒險者'} 的討伐隊伍`,
+            subtitleLine1: '>> 王立公會認證懸賞 • 自由職業入駐',
+            subtitleLine2: '1~10 人皆可出發，等待隊友入駐！',
+            players: Object.keys(r.players || {}).length || 1,
+            maxPlayers: 10,
+            pingBars: 5,
+            iconColor: '#b45309'
+          });
+        }
+      }
+      if (typeof callback === 'function') callback({ success: true, rooms: list });
+    } catch (err) {
+      if (typeof callback === 'function') callback({ success: false, rooms: [] });
+    }
+  });
+
   // 2.5 玩家修改暱稱
   socket.on('player:rename', ({ newName }, callback) => {
     const code = socketToRoom.get(socket.id);
@@ -389,9 +415,9 @@ io.on('connection', (socket) => {
     const code = socketToRoom.get(socket.id);
     if (code && rooms.has(code)) {
       const room = rooms.get(code);
-      room.removePlayer(socket.id);
       socket.leave(code);
       socketToRoom.delete(socket.id);
+      room.removePlayer(socket.id);
       if (room.memberIds.length === 0) {
         room.clearTimer();
         rooms.delete(code);

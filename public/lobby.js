@@ -66,7 +66,7 @@ function renderRoleDetailPanel() {
   document.getElementById('lobbyRoleEnglish').textContent=profile.enName.toUpperCase();
   document.getElementById('lobbyRoleHp').textContent='基礎生命  '+conf.maxHp+' HP';
   document.getElementById('lobbyRoleTags').innerHTML=profile.tags.map((tag,i)=>`<span class="${i===0?'is-primary':''}">${escapeHtml(tag)}</span>`).join('');
-  let intro=document.getElementById('lobbyRoleIntro');if(!intro){intro=document.createElement('p');intro.id='lobbyRoleIntro';intro.style.cssText='color:#94a3b8;font-size:12px;white-space:pre-wrap';document.getElementById('lobbyRoleTags').after(intro);}
+  let intro=document.getElementById('lobbyRoleIntro');if(!intro){intro=document.createElement('p');intro.id='lobbyRoleIntro';intro.className='role-intro-desc';document.getElementById('lobbyRoleTags').after(intro);}
   const published=window.StudioContent?.find('role_profiles',role);intro.textContent=published?.short_intro||conf.desc;intro.title=published?.full_intro||conf.desc;
   const me=players.find(p=>p.id===myId),others=players.filter(p=>p.role===role&&p.id!==myId);
   document.getElementById('roleSelectionStatus').textContent=me?.role===role?'已選擇此職業':others.length?'隊友已選 · 可共同選擇':'點擊頭像選擇職業';

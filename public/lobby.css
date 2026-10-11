@@ -1,118 +1,1998 @@
-/* Lobby frames are independent of the combat and exploration layouts. */
-body:has(#viewLobby.active) .game-container{max-width:1560px}
-body:has(#viewLobby.active) .main-content{background:none;border:0;box-shadow:none;padding:16px 0}
-#viewLobby .lobby-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:24px;align-items:stretch;container-type:inline-size}
-#viewLobby .team-card{display:flex;flex-direction:column;margin:0;background:linear-gradient(160deg,#111c29ee,#0a111bee);border:1px solid #364451;border-radius:4px;box-shadow:none;padding:18px 14px;min-width:0}
-#viewLobby .team-card .card-header{padding:0 0 16px;border-bottom:1px solid #364451;align-items:flex-start}
-#viewLobby .team-card h3{font-size:16px;line-height:1.6;color:#d7e1e8}
-#viewLobby .team-card .card-tip{font-size:11px;line-height:1.6;color:#8395a4;margin-top:8px}
-#viewLobby .member-list{flex:1;min-height:0;max-height:none;overflow-y:auto;margin:16px 0;gap:8px}
-#viewLobby .member-item{display:block;flex-shrink:0;padding:12px 10px;border:1px solid #283b4b;border-radius:2px;background:#111d29;box-shadow:none}
-#viewLobby .member-item.is-me{border-color:#719188;background:#15282b}
-#viewLobby .member-avatar-wrapper{width:38px;height:38px;flex-shrink:0}
-#viewLobby .member-role-avatar{width:38px;height:38px}
-#viewLobby .member-info-col{min-width:0;gap:10px;width:100%}
-#viewLobby .member-name-group{min-width:0;flex:1}
-#viewLobby .member-name-row{min-width:0;gap:4px}
-#viewLobby .member-name{min-width:0;gap:4px;flex:1;flex-wrap:wrap}
-#viewLobby .member-name-text{font-size:13px;min-width:0;flex-basis:100%;width:100%;order:-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#viewLobby .me-tag,#viewLobby .crown-tag,#viewLobby .btn-icon-rename{flex-shrink:0}
-#viewLobby .member-inline-rename-form{min-width:0;max-width:100%}
-#viewLobby .inline-rename-input{min-width:0;width:100%;flex:1}
-#viewLobby .btn-micro-action{flex-shrink:0;padding:2px}
-#viewLobby .member-role-tag{font-size:11px;color:#99b5bc}
-#viewLobby .member-status-col{margin:7px 0 0 48px;font-size:10px}
-#viewLobby .member-status-icon{width:auto;height:auto;gap:4px;padding:4px;border-radius:2px}
-#viewLobby .member-status-icon svg{width:12px;height:12px;flex-shrink:0}
-#viewLobby .member-ready-label{font-size:10px;white-space:nowrap}
-#viewLobby .crown-tag{display:inline-flex;align-items:center;gap:2px;font-size:9px}
-#viewLobby .crown-tag svg{width:12px;height:12px}
-#viewLobby .lobby-footer{margin-top:auto;border-top:1px solid #364451;padding-top:14px}
-#viewLobby .lobby-footer .btn{font-size:13px;padding:12px 6px;border-radius:2px}
-#viewLobby .start-tip,#viewLobby .pulse-waiting{font-size:11px}
-.role-command-panel{--role-bright:#c9cf85;--role-cyan:#7db8b3;position:relative;aspect-ratio:16/9;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:36px minmax(0,1fr) 18%;background:#0c1421;border:3px solid #627479;box-shadow:inset 0 0 0 3px #182b38,0 6px 0 #05090e;isolation:isolate}
-.role-command-panel:before,.role-command-panel:after{content:'';position:absolute;width:15px;height:15px;border:4px solid var(--role-bright);z-index:5;pointer-events:none}
-.role-command-panel:before{left:-4px;top:-4px;border-right:0;border-bottom:0;box-shadow:4px 4px 0 #0c1421}
-.role-command-panel:after{right:-4px;bottom:-4px;border-left:0;border-top:0;box-shadow:-4px -4px 0 #0c1421}
-.role-panel-heading{display:flex;justify-content:space-between;align-items:center;padding:0 22px;background:#192731;border-bottom:2px solid #52696d;font-size:11px;letter-spacing:1px;color:#bac7c9}
-.role-panel-heading small{margin-left:8px;font-size:9px;color:#859ca3}
-#roleSelectionStatus{color:#c9cf85;font-size:10px;letter-spacing:0}
-.role-panel-main{display:flex;flex-direction:column;gap:14px;min-height:0;padding:18px 24px 16px}
-.role-overview{display:grid;grid-template-columns:minmax(0,1fr) clamp(160px,16vw,225px);gap:16px;height:clamp(160px,16vw,220px);flex-shrink:0;min-width:0}
-.role-identity{display:flex;align-items:center;gap:22px;min-width:0}
-.role-hero-portrait{position:relative;flex:0 0 clamp(105px,11vw,156px);aspect-ratio:1;background:radial-gradient(ellipse,#34434b,#101d2a 75%);border:2px solid #657b7d;box-shadow:4px 4px 0 #060d14;padding:4px}
-.role-hero-portrait:after{content:'';position:absolute;inset:6px;border:1px solid #a0a96e44;pointer-events:none}
-.role-hero-portrait img{width:100%;height:100%;object-fit:contain;display:block}
-.role-identity-copy{min-width:0}
-.role-eyebrow{color:#81999f;font-size:9px;letter-spacing:1.2px}
-.role-identity h2{margin:8px 0 5px;font-size:clamp(24px,2.4vw,36px);line-height:1.2;color:#eef0da;letter-spacing:3px}
-.role-english{font-size:11px;letter-spacing:3px;color:#99adb4;margin-bottom:14px}
-.role-profile-tags{display:flex;flex-wrap:wrap;gap:5px}
-.role-profile-tags span{font-size:10px;line-height:1.6;padding:2px 7px;border:1px solid #3d5760;border-radius:2px;color:#b1c4ca;background:#182632}
-.role-profile-tags .is-primary{color:#e1e6b8;border-color:#8a9560;background:#354138;font-weight:700}
-.role-hp-meta{font-size:11px;color:#90aaa8;margin-top:12px;font-family:var(--font-stats);letter-spacing:.5px}
-.role-radar{margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
-.role-radar svg{width:100%;min-height:0;flex:1;overflow:visible}
-.role-radar figcaption{font-size:9px;color:#8398a3;white-space:nowrap}
-.radar-outer{stroke:#80989a;stroke-width:1.5;fill:#14253066}
-.radar-ring{stroke:#334e59;stroke-width:.7;fill:none}
-.radar-axis{stroke:#536973;stroke-width:.8}
-.radar-shape{fill:#9cd2bc38;stroke:#b7d7a0;stroke-width:2;stroke-linejoin:round}
-.radar-vertices{fill:#e2e6ad}
-.radar-label{fill:#aebfc5;font-size:14px}
-.radar-grade{fill:#dce6b3;font-size:15px;font-weight:bold;font-family:var(--font-stats)}
-.role-tab-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-shrink:0}
-.role-skill-tabs{display:flex;gap:6px;min-width:0}
-.role-skill-tabs button{font:inherit;font-size:12px;white-space:nowrap;color:#9fbbc2;background:#172732;border:2px solid #3f5963;padding:9px 12px;box-shadow:0 3px 0 #060d14;cursor:pointer}
-.role-skill-tabs button[aria-selected=true]{background:#384735;color:#edf1ce;border-color:#aab679}
-.role-skill-tabs button:hover{color:#fff;border-color:#9eb5b5}
-.role-copy-toggle{display:flex;align-items:center;gap:5px;font-size:10px;color:#b6c7c7;cursor:pointer;white-space:nowrap;position:relative}
-.role-copy-toggle input{position:absolute;width:1px;height:1px;opacity:0}
-.role-switch-track{width:30px;height:17px;background:#1c2a36;border:1px solid #587079;position:relative}
-.role-switch-track:before{content:'';position:absolute;left:3px;top:3px;width:9px;height:9px;background:#809796;transform:translateX(13px);transition:transform 150ms}
-.role-copy-toggle input:checked+.role-switch-track{background:#35452d;border-color:#abb879}
-.role-copy-toggle input:checked+.role-switch-track:before{transform:translateX(0);background:#dce5ac}
-.role-copy-toggle input:focus-visible+.role-switch-track{outline:2px solid #e2e6ad;outline-offset:3px}
-.role-description{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;background:#111f2c;border:1px solid #3a515c;border-left:3px solid #7fa8a0;scrollbar-width:thin;scrollbar-color:#587078 #14212a}
-.role-description-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px}
-.role-description h3{font-size:15px;line-height:1.5;color:#e0e5c7;margin:0;letter-spacing:1px}
-#lobbySkillMeta{font-size:10px;color:#88a6b0;white-space:nowrap}
-.role-description p{margin:0;white-space:pre-wrap;color:#c1cfd6;line-height:1.8;font-size:13px}
-.role-description:not(.is-detailed) p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.role-portrait-deck{border-top:3px solid #53696a;padding:9px 18px 10px;background:#14212a;display:flex;flex-direction:column;min-height:0;min-width:0;gap:7px}
-.role-deck-caption{display:flex;justify-content:space-between;color:#a9bdbe;font-size:10px;letter-spacing:2px}
-.role-deck-caption small{font-size:8px;color:#778f99}
-.role-portrait-strip{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;min-height:0;flex:1;scrollbar-width:thin;scrollbar-color:#627870 #14212a;padding:0 0 4px}
-.role-portrait-choice{position:relative;min-width:0;flex:1 0 53px;max-width:90px;display:flex;align-items:center;justify-content:center;border:2px solid #3c535e;background:#0c1622;padding:2px;cursor:pointer;transition:background 150ms,border-color 150ms;overflow:hidden}
-.role-portrait-choice img{height:100%;width:100%;object-fit:contain;opacity:.8;transition:opacity 150ms}
-.role-choice-name{position:absolute;bottom:1px;left:0;right:0;font-size:9px;color:#d8e4df;text-align:center;background:#07111de0;line-height:1.6}
-.role-portrait-choice:hover{border-color:#98bdbb;background:#243839}.role-portrait-choice:hover img{opacity:1}
-.role-portrait-choice.is-occupied{border-color:#ae8557;background:repeating-linear-gradient(135deg,#2c2925 0 5px,#171e28 5px 10px)}
-.role-portrait-choice.is-previewed{border-color:#80a7a6}
-.role-portrait-choice.is-selected{border-color:#d2de8e;background:#344437;box-shadow:inset 0 0 0 1px #d2de8e}
-.role-portrait-choice.is-selected img{opacity:1}
-.role-choice-occupant{position:absolute;top:0;left:0;right:0;font-size:9px;background:#5b422bed;color:#ffddb3;line-height:1.5;text-align:center}
-.role-choice-check{position:absolute;right:1px;top:0;color:#e6eeb7;background:#344437;font-size:12px;padding:0 2px}
-.role-portrait-choice:focus-visible,.role-skill-tabs button:focus-visible{outline:2px solid #e4eaa3;outline-offset:-5px}
-@media(min-width:1201px){#viewLobby .team-card{height:calc((100cqw - 294px)*9/16);overflow:hidden}}
-@media(min-width:981px) and (max-width:1200px){#viewLobby .team-card{height:calc((100cqw - 246px)*10/16);overflow:hidden}}
-@media(max-width:1200px){#viewLobby .lobby-layout{grid-template-columns:230px minmax(0,1fr);gap:16px}.role-panel-main{padding:12px 16px;gap:10px}.role-identity{gap:12px}.role-skill-tabs button{padding:7px 9px;font-size:11px}.role-tab-toolbar{gap:6px}.role-command-panel{aspect-ratio:16/10}.role-portrait-choice{flex-basis:49px}.role-portrait-deck{padding:7px 12px}.role-description{padding:10px 12px}.role-description h3{font-size:13px}}
-@media(max-width:980px){#viewLobby .lobby-layout{grid-template-columns:1fr}.role-command-panel{aspect-ratio:16/10}#viewLobby .team-card{max-height:none}#viewLobby .member-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-height:230px}#viewLobby .team-card .card-tip{display:none}#viewLobby .lobby-footer{max-width:360px;width:100%;margin-left:auto}.role-overview{height:clamp(160px,25vw,225px)}}
-@media(max-width:600px){body:has(#viewLobby.active) .main-content{padding:8px 0}#viewLobby .lobby-layout{gap:16px}.role-command-panel{aspect-ratio:auto;height:680px;grid-template-rows:36px minmax(0,1fr) 100px}.role-panel-heading{padding:0 12px;font-size:10px}.role-panel-heading small{display:none}.role-panel-main{padding:14px 12px;gap:14px}.role-overview{height:210px;grid-template-columns:minmax(0,1fr) 135px;gap:6px}.role-identity{flex-direction:column;align-items:flex-start;justify-content:center;gap:8px}.role-hero-portrait{flex:0 0 auto;width:80px}.role-identity h2{font-size:22px;letter-spacing:1px;margin:0 0 3px}.role-eyebrow{display:none}.role-english{font-size:9px;letter-spacing:1px;margin-bottom:6px}.role-profile-tags span{font-size:9px;padding:1px 4px}.role-hp-meta{font-size:10px;margin-top:6px}.role-radar figcaption{font-size:8px;white-space:normal;text-align:center}.role-tab-toolbar{flex-wrap:wrap;gap:12px}.role-skill-tabs{width:100%;gap:4px}.role-skill-tabs button{flex:1;font-size:10px;padding:9px 3px}.role-copy-toggle{margin-left:auto}.role-description-heading{flex-direction:column;gap:3px}.role-description h3{font-size:14px}.role-description p{font-size:12px}.role-portrait-choice{flex:0 0 53px}.role-portrait-deck{padding:8px 10px}}
-@media(prefers-reduced-motion:reduce){.role-switch-track:before,.role-portrait-choice,.role-portrait-choice img{transition:none}}
-@media(max-width:600px){
-  body:has(#viewLobby.active) .app-header{flex-wrap:wrap;gap:10px;padding:12px}
-  body:has(#viewLobby.active) .app-header .logo{width:100%;min-width:0}
-  body:has(#viewLobby.active) .app-header .title-group{min-width:0}
-  body:has(#viewLobby.active) .app-header h1{font-size:21px}
-  body:has(#viewLobby.active) .app-header .header-status{width:100%;justify-content:flex-end;flex-wrap:wrap}
-  .role-command-panel{height:860px}
-  .role-overview{height:320px;grid-template-columns:minmax(0,1fr);grid-template-rows:105px minmax(0,1fr);gap:8px}
-  .role-identity{flex-direction:row;align-items:center;justify-content:flex-start;gap:16px}
-  .role-hero-portrait{width:94px}
-  .role-identity h2{font-size:25px}
-  .role-profile-tags span{font-size:10px}
-  .role-radar{width:230px;justify-self:center}
-  .role-radar figcaption{font-size:10px}
-  .radar-label{font-size:14px}.radar-grade{font-size:15px}
+/* =========================================================
+   1. UNIFIED KRAFT PARCHMENT (牛皮紙 / 羊皮紙) DESIGN TOKENS
+   Adapted from temp/code_artifact.html for Dungeon Abyss Lobby
+   ========================================================= */
+:root {
+  --parchment-light: #f7eed7;
+  --parchment-mid: #ebd6b3;
+  --parchment-dark: #d8ba8b;
+  --parchment-edge: #966b3b;
+  --ink-primary: #000000;
+  --ink-secondary: #111827;
+  --ink-muted: #1f2937;
+  --leather-bg: #2d180a;
+  --wax-red: #8f1d1d;
+  --gold-brass: #b8860b;
 }
+
+body:has(#viewLobby.active),
+body:has(#viewEntry.active) {
+  font-family: 'Noto Serif TC', 'Noto Sans TC', serif;
+}
+
+body:has(#viewLobby.active) .game-container,
+body:has(#viewEntry.active) .game-container {
+  max-width: 1460px;
+}
+
+body:has(#viewLobby.active) .main-content,
+body:has(#viewEntry.active) .main-content {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 16px 0;
+}
+
+/* 深色原木地城背景 */
+.dungeon-wood-bg {
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 50% 30%, rgba(20, 36, 60, 0.45) 0%, rgba(10, 15, 26, 0.85) 60%, rgba(5, 7, 13, 0.98) 100%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.15) 0px, rgba(0, 0, 0, 0.15) 1px, transparent 1px, transparent 4px),
+    linear-gradient(135deg, #090e17 0%, #0d1522 50%, #060910 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+.dungeon-wood-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 15% 50%, rgba(15, 23, 42, 0.8) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 50%, rgba(15, 23, 42, 0.8) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+#viewLobby .lobby-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  container-type: inline-size;
+}
+
+/* =========================================================
+   2. 核心牛皮紙 / 羊皮紙容器樣式 (.kraft-paper)
+   ========================================================= */
+#viewLobby .team-card,
+#viewLobby .role-command-panel,
+.kraft-paper {
+  background: 
+    radial-gradient(circle at 50% 40%, rgba(255, 248, 235, 0.96) 0%, rgba(240, 221, 190, 0.96) 65%),
+    linear-gradient(135deg, #dfc296 0%, #ebd3ad 45%, #cca56d 100%);
+  color: var(--ink-primary);
+  border: 3px solid #7d4d20;
+  border-radius: 14px;
+  box-shadow: 
+    0 20px 50px -10px rgba(0, 0, 0, 0.85),
+    0 0 0 1px #422108,
+    inset 0 0 45px rgba(112, 66, 20, 0.28);
+  position: relative;
+  isolation: isolate;
+}
+
+/* 牛皮紙做舊四角裝飾五金與鉚釘 */
+#viewLobby .team-card::before,
+#viewLobby .team-card::after,
+#viewLobby .role-command-panel::before,
+#viewLobby .role-command-panel::after,
+.kraft-paper-rivets::before,
+.kraft-paper-rivets::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ecd09b 20%, #7c4c1a 90%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  z-index: 5;
+  pointer-events: none;
+}
+
+#viewLobby .team-card::before,
+#viewLobby .role-command-panel::before,
+.kraft-paper-rivets::before {
+  top: 8px;
+  left: 8px;
+  border: none;
+}
+
+#viewLobby .team-card::after,
+#viewLobby .role-command-panel::after,
+.kraft-paper-rivets::after {
+  top: 8px;
+  right: 8px;
+  border: none;
+}
+
+/* 內嵌深色墨水紙板 */
+.kraft-sub-panel {
+  background: rgba(230, 206, 168, 0.7);
+  border: 1.5px solid #a37845;
+  border-radius: 10px;
+  box-shadow: inset 0 2px 5px rgba(60, 30, 10, 0.15);
+}
+
+/* =========================================================
+   3. 統一牛皮紙冒險風格按鈕體系 (.parchment-btn)
+   ========================================================= */
+.parchment-btn,
+#viewLobby .btn,
+#viewLobby .role-skill-tabs button {
+  position: relative;
+  background: linear-gradient(180deg, #ecd6b2 0%, #d8ba88 50%, #c49e65 100%);
+  border: 2px solid #6b3e14;
+  border-top-color: #8f5824;
+  border-left-color: #8f5824;
+  border-bottom-color: #442306;
+  border-right-color: #442306;
+  border-radius: 8px;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 4px 6px -1px rgba(25, 12, 4, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.parchment-btn:hover:not(:disabled),
+#viewLobby .btn:hover:not(:disabled),
+#viewLobby .role-skill-tabs button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f7e6ca 0%, #e5cb9c 50%, #d4b079 100%);
+  border-color: #552d0b;
+  transform: translateY(-1.5px);
+  box-shadow: 
+    0 6px 12px -2px rgba(25, 12, 4, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #000000;
+}
+
+.parchment-btn:active:not(:disabled),
+#viewLobby .btn:active:not(:disabled),
+#viewLobby .role-skill-tabs button:active:not(:disabled) {
+  transform: translateY(1px);
+  background: linear-gradient(180deg, #caa36b 0%, #dfbf8d 100%);
+  border-top-color: #442306;
+  border-left-color: #442306;
+  border-bottom-color: #8f5824;
+  border-right-color: #8f5824;
+  box-shadow: inset 0 2px 4px rgba(40, 20, 5, 0.4);
+}
+
+.parchment-btn:disabled,
+#viewLobby .btn:disabled,
+#viewLobby .role-skill-tabs button:disabled {
+  background: #bfa580 !important;
+  color: #4b5563 !important;
+  border-color: #7d6447 !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+  transform: none !important;
+}
+
+/* 紅色火漆印章重點按鈕變體 */
+.parchment-btn-crimson,
+#viewLobby #btnStartGame,
+#viewLobby #btnToggleReady,
+#viewLobby .btn-danger,
+#viewLobby .role-skill-tabs button[aria-selected="true"] {
+  background: linear-gradient(180deg, #a82424 0%, #871919 50%, #691111 100%);
+  border: 2px solid #4a0c0c;
+  border-top-color: #c93a3a;
+  border-left-color: #c93a3a;
+  border-bottom-color: #380808;
+  border-right-color: #380808;
+  color: #fff4ea;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  box-shadow: 
+    0 4px 10px rgba(70, 10, 10, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.parchment-btn-crimson:hover:not(:disabled),
+#viewLobby #btnStartGame:hover:not(:disabled),
+#viewLobby #btnToggleReady:hover:not(:disabled),
+#viewLobby .btn-danger:hover:not(:disabled),
+#viewLobby .role-skill-tabs button[aria-selected="true"]:hover:not(:disabled) {
+  background: linear-gradient(180deg, #bf2d2d 0%, #991c1c 50%, #751414 100%);
+  border-color: #3f0909;
+  color: #ffffff;
+  box-shadow: 
+    0 6px 14px rgba(90, 15, 15, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: translateY(-1.5px);
+}
+
+.parchment-btn-crimson:active:not(:disabled),
+#viewLobby #btnStartGame:active:not(:disabled),
+#viewLobby #btnToggleReady:active:not(:disabled),
+#viewLobby .btn-danger:active:not(:disabled),
+#viewLobby .role-skill-tabs button[aria-selected="true"]:active:not(:disabled) {
+  background: linear-gradient(180deg, #6b1212 0%, #8f1d1d 100%);
+  transform: translateY(1px);
+}
+
+/* =========================================================
+   4. 冒險小隊名單側欄 (.team-card)
+   ========================================================= */
+#viewLobby .team-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin: 0;
+  padding: 16px 14px;
+  min-width: 0;
+  min-height: 540px;
+}
+
+#viewLobby .team-card .card-header {
+  padding: 0 0 10px;
+  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
+  margin-bottom: 10px;
+}
+
+#viewLobby .header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+#viewLobby .team-card h3 {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 17px;
+  font-weight: 900;
+  color: #000000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+#viewLobby .team-card h3 svg {
+  color: #871919;
+  width: 16px;
+  height: 16px;
+}
+
+#viewLobby #lobbyMemberCount {
+  color: #871919;
+  font-weight: 900;
+}
+
+#viewLobby .lobby-exit-btn {
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  gap: 5px;
+  white-space: nowrap;
+  border-radius: 6px;
+}
+
+#viewLobby.archive-mode #btnLobbyExitRoom {
+  display: none !important;
+}
+
+#viewLobby .team-card .card-tip {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #111827;
+  margin-top: 6px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+/* 成員名單捲軸區塊 */
+#viewLobby .member-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 8px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #855325 #d3b487;
+}
+
+#viewLobby .member-list::-webkit-scrollbar {
+  width: 6px;
+}
+#viewLobby .member-list::-webkit-scrollbar-track {
+  background: #d3b487;
+  border-radius: 3px;
+}
+#viewLobby .member-list::-webkit-scrollbar-thumb {
+  background: #855325;
+  border-radius: 3px;
+}
+
+/* 成員卡片 (kraft-sub-panel 風格) */
+#viewLobby .member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px;
+  background: rgba(230, 206, 168, 0.7);
+  border: 1.5px solid #a37845;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 5px rgba(60, 30, 10, 0.15);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+#viewLobby .member-item:hover {
+  background: rgba(245, 230, 205, 0.85);
+  border-color: #7d4d20;
+}
+
+#viewLobby .member-item.is-me {
+  border: 2px solid #8f1d1d;
+  background: rgba(253, 245, 226, 0.92);
+  box-shadow: 
+    0 0 0 1px rgba(143, 29, 29, 0.3),
+    inset 0 2px 5px rgba(60, 30, 10, 0.15);
+}
+
+#viewLobby .member-item.can-transfer-leader {
+  cursor: pointer;
+}
+
+#viewLobby .member-info-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* 頭像外框 (做舊牛皮/原木鑲邊) */
+#viewLobby .member-avatar-wrapper {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  background: #3b1f0e;
+  border: 1.5px solid #783e18;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+#viewLobby .member-role-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+  display: block;
+}
+
+#viewLobby .member-avatar-role-badge {
+  display: none !important;
+}
+
+#viewLobby .member-name-group {
+  min-width: 0;
+  flex: 1;
+}
+
+#viewLobby .member-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#viewLobby .member-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+#viewLobby .member-name-text {
+  font-size: 15px;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#viewLobby .me-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8f1d1d;
+  font-family: 'Noto Serif TC', serif;
+}
+
+#viewLobby .crown-tag {
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#viewLobby .crown-tag svg {
+  width: 13px;
+  height: 13px;
+}
+
+#viewLobby .btn-icon-rename {
+  background: transparent;
+  border: none;
+  color: #000000;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+#viewLobby .btn-icon-rename:hover {
+  color: #8f1d1d;
+}
+
+#viewLobby .member-inline-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#viewLobby .inline-rename-input {
+  background: #fffdf7;
+  border: 1.5px solid #825424;
+  color: #000000;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  font-family: 'Noto Serif TC', serif;
+  outline: none;
+}
+
+#viewLobby .member-sub-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+#viewLobby .member-role-tag {
+  font-size: 12px;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #000000;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.3;
+}
+
+#viewLobby .member-role-tag .role-unselected {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+#viewLobby .member-tag-badge {
+  font-size: 12px;
+  font-weight: 700;
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1.3;
+}
+
+/* 狀態欄標籤 */
+#viewLobby .member-status-col {
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+#viewLobby .member-status-icon {-size: 12.5px;
+  font-weight: 700;
+  font-family: 'Noto Serif TC', serif;
+}
+
+#viewLobby .member-status-icon.ready {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+#viewLobby .member-status-icon.waiting {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+#viewLobby .member-status-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* 隊伍底部控制項 */
+#viewLobby .lobby-footer {
+  margin-top: auto;
+  border-top: 2px solid rgba(150, 107, 59, 0.4);
+  padding-top: 12px;
+}
+
+#viewLobby .lobby-footer .full-width {
+  width: 100%;
+}
+
+#viewLobby .start-tip {
+  color: #991b1b;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 6px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+#viewLobby .pulse-waiting {
+  color: #000000;
+  font-weight: 700;
+  font-size: 13.5px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+/* =========================================================
+   5. 英雄檔案 HERO ARCHIVE 主板 (.role-command-panel)
+   ========================================================= */
+#viewLobby .role-command-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 20px;
+  min-width: 0;
+}
+
+/* 頂部副標題列 */
+#viewLobby .role-panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0 10px;
+  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
+  margin-bottom: 12px;
+  background: transparent;
+}
+
+#viewLobby .role-heading-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#viewLobby .parchment-wax-mark {
+  width: 4px;
+  height: 16px;
+  background: #8f1d1d;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+#viewLobby .role-panel-heading span {
+  font-size: 18px;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+  display: flex;
+  align-items: center;
+}
+
+#viewLobby .role-panel-heading small {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1.5px;
+}
+
+#viewLobby #roleSelectionStatus {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Noto Serif TC', serif;
+}
+
+/* 主面板內容 */
+#viewLobby .role-panel-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+
+#viewLobby .role-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 18px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* 肖像與詳細資料 */
+#viewLobby .role-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+}
+
+#viewLobby .role-hero-portrait {
+  width: 105px;
+  height: 120px;
+  flex: 0 0 105px;
+  border-radius: 8px;
+  background: #3b1f0e;
+  border: 2px solid #7a481e;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 10px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 4px;
+}
+
+#viewLobby .role-hero-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+#viewLobby .role-identity-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+#viewLobby .role-eyebrow {
+  color: #000000;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: 'VT323', monospace, 'Cinzel', serif;
+  letter-spacing: 1.5px;
+  display: block;
+}
+
+#viewLobby .role-identity h2 {
+  margin: 3px 0 1px;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+  letter-spacing: 1px;
+}
+
+#viewLobby .role-english {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #111827;
+  font-family: 'Cinzel', serif;
+  margin-bottom: 6px;
+}
+
+#viewLobby .role-profile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 6px 0;
+}
+
+#viewLobby .role-profile-tags span {
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  border: 1px solid #d3b487;
+  background: #fef3c7;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+}
+
+#viewLobby .role-profile-tags .is-primary {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+#viewLobby .role-intro-desc,
+#viewLobby #lobbyRoleIntro {
+  font-size: 14.5px;
+  color: #111827;
+  line-height: 1.5;
+  font-family: 'Noto Serif TC', serif;
+  margin: 4px 0 6px;
+}
+
+#viewLobby .role-hp-meta {
+  font-size: 14px;
+  font-weight: 700;
+  color: #000000;
+  font-family: 'VT323', monospace, 'Cinzel', serif;
+  letter-spacing: 0.5px;
+}
+
+/* 五角雷達圖 (保留原有數值計算，套用羊皮紙赤墨風格) */
+#viewLobby .role-radar {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+#viewLobby .role-radar svg {
+  width: 100%;
+  max-width: 220px;
+  height: 175px;
+  overflow: visible;
+}
+
+#viewLobby .role-radar figcaption {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  font-family: 'Noto Serif TC', serif;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+#viewLobby .radar-outer {
+  stroke: #a17548;
+  stroke-width: 1.2;
+  fill: rgba(230, 206, 168, 0.2);
+  stroke-dasharray: 2, 2;
+}
+
+#viewLobby .radar-ring {
+  stroke: #a17548;
+  stroke-width: 0.8;
+  fill: none;
+  stroke-dasharray: 2, 2;
+}
+
+#viewLobby .radar-axis {
+  stroke: #916436;
+  stroke-width: 1.2;
+}
+
+#viewLobby .radar-shape {
+  fill: rgba(143, 29, 29, 0.28);
+  stroke: #8f1d1d;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+#viewLobby .radar-vertices {
+  fill: #8f1d1d;
+}
+
+#viewLobby .radar-label {
+  fill: #000000;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Noto Serif TC', serif;
+}
+
+#viewLobby .radar-grade {
+  fill: #8f1d1d;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: 'Cinzel', serif;
+}
+
+/* 技能切換頁籤欄 */
+#viewLobby .role-tab-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 2px solid rgba(150, 107, 59, 0.4);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+#viewLobby .role-skill-tabs {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+#viewLobby .role-skill-tabs button {
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+#viewLobby .role-copy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: 'Noto Serif TC', serif;
+}
+
+#viewLobby .role-copy-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+#viewLobby .role-switch-track {
+  width: 28px;
+  height: 16px;
+  background: #ebd6b3;
+  border: 1.5px solid #8f5824;
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+#viewLobby .role-switch-track::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #825835;
+  transform: translateX(11px);
+  transition: transform 150ms;
+}
+
+#viewLobby .role-copy-toggle input:checked + .role-switch-track {
+  background: #f7eed7;
+  border-color: #8f1d1d;
+}
+
+#viewLobby .role-copy-toggle input:checked + .role-switch-track::before {
+  transform: translateX(0);
+  background: #8f1d1d;
+}
+
+/* 技能詳細說明框 (kraft-sub-panel) */
+#viewLobby .role-description {
+  background: rgba(230, 206, 168, 0.7);
+  border: 1.5px solid #a37845;
+  border-radius: 10px;
+  box-shadow: inset 0 2px 5px rgba(60, 30, 10, 0.15);
+  padding: 11px 14px;
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  scrollbar-width: thin;
+  scrollbar-color: #855325 #d3b487;
+  margin-top: 4px;
+}
+
+#viewLobby .role-description-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+#viewLobby .role-description h3,
+#viewLobby #lobbySkillName {
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 900;
+  color: #8f1d1d;
+  font-family: 'Noto Serif TC', serif;
+  margin: 0;
+}
+
+#viewLobby #lobbySkillMeta {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  font-family: 'VT323', monospace, 'Cinzel', serif;
+}
+
+#viewLobby .role-description p,
+#viewLobby #lobbySkillCopy {
+  margin: 0;
+  color: #111827;
+  font-size: 14.5px;
+  line-height: 1.6;
+  font-family: 'Noto Serif TC', serif;
+}
+
+/* =========================================================
+   6. 底部全 13 個職業牛皮紙選擇列 (SELECT YOUR HERO)
+   ========================================================= */
+#viewLobby .role-portrait-deck {
+  border-top: 2px solid rgba(150, 107, 59, 0.4);
+  padding-top: 8px;
+  margin-top: 8px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#viewLobby .role-deck-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #000000;
+}
+
+#viewLobby .role-deck-caption small {
+  font-family: 'Cinzel', serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 1.5px;
+}
+
+#viewLobby .role-portrait-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 3px 2px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #855325 #d3b487;
+}
+
+#viewLobby .role-portrait-strip::-webkit-scrollbar {
+  height: 6px;
+}
+#viewLobby .role-portrait-strip::-webkit-scrollbar-track {
+  background: #d3b487;
+  border-radius: 3px;
+}
+#viewLobby .role-portrait-strip::-webkit-scrollbar-thumb {
+  background: #855325;
+  border-radius: 3px;
+}
+
+/* 職業底欄小方卡 (牛皮紙版 .kraft-class-card) */
+#viewLobby .role-portrait-choice {
+  width: 58px;
+  min-width: 58px;
+  height: 72px;
+  background: rgba(235, 214, 180, 0.9);
+  border: 1.5px solid #9b7245;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(60, 30, 10, 0.15);
+  padding: 3px 2px 17px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#viewLobby .role-portrait-choice img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  transition: transform 0.15s ease;
+  display: block;
+}
+
+#viewLobby .role-choice-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 12px;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+  text-align: center;
+  background: rgba(245, 230, 205, 0.95);
+  border-top: 1px solid #c4a275;
+  padding: 1px 0;
+  line-height: 1.3;
+}
+
+#viewLobby .role-portrait-choice:hover {
+  background: #fff6e4;
+  border-color: #6a3e15;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(60, 30, 10, 0.25);
+}
+
+#viewLobby .role-portrait-choice.is-occupied {
+  border-color: #b45309;
+}
+
+#viewLobby .role-choice-occupant {-size: 11px;
+  font-weight: 700;
+  color: #fff8eb;
+  background: rgba(133, 83, 37, 0.95);
+  text-align: center;
+  padding: 1px 0;
+  line-height: 1.2;
+  border-bottom: 1px solid #6b3e14;
+}
+
+#viewLobby .role-portrait-choice.is-previewed {
+  border-color: #8f5824;
+}
+
+#viewLobby .role-portrait-choice.is-selected {
+  border: 2px solid #8f1d1d;
+  background: #fff0d6;
+  box-shadow: 0 0 8px rgba(143, 29, 29, 0.45);
+  transform: translateY(-2px);
+}
+
+#viewLobby .role-choice-check {-size: 11px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  padding: 0;
+}
+
+/* =========================================================
+   7. 響應式佈局支援
+   ========================================================= */
+@media (max-width: 1100px) {
+  #viewLobby .lobby-layout {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 900px) {
+  #viewLobby .lobby-layout {
+    grid-template-columns: 1fr;
+  }
+  #viewLobby .team-card {
+    min-height: auto;
+  }
+  #viewLobby .member-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    max-height: 220px;
+  }
+  #viewLobby .role-overview {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  #viewLobby .role-radar svg {
+    max-width: 180px;
+    height: 150px;
+  }
+}
+
+/* =========================================================
+   8. 公會告示板登入與大廳選單體系 (Entry Flow & Sub-screens)
+   Adapted from temp/code_artifact.html
+   ========================================================= */
+.fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.99); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.text-crimson { color: #8f1d1d !important; }
+.text-gold { color: #d97706 !important; }
+.text-ink { color: #000000 !important; }
+.text-success { color: #15803d !important; }
+.text-primary { color: #1d4ed8 !important; }
+.text-warning { color: #9a3412 !important; }
+.flex-1 { flex: 1 1 0% !important; }
+
+#viewEntry {
+  display: none;
+  width: 100%;
+}
+
+#viewEntry.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 130px);
+  padding: 16px 0;
+}
+
+.entry-sub-screen {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.entry-sub-screen.hidden {
+  display: none !important;
+}
+
+/* --- Screen 1: 招募令 (Recruit Card) --- */
+.recruit-card {
+  width: 100%;
+  max-width: 600px;
+  padding: 24px 28px;
+}
+
+.recruit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid rgba(130, 84, 36, 0.4);
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.recruit-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guild-seal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #991b1b, #7f1d1d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fef3c7;
+  border: 2px solid rgba(217, 119, 6, 0.7);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.guild-seal-icon .svg-seal {
+  width: 24px;
+  height: 24px;
+}
+
+.recruit-sub-title {
+  font-size: 13px;
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #000000;
+}
+
+.recruit-main-title {
+  font-size: 28px;
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  color: #000000;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.recruit-header-right {
+  text-align: right;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  color: #000000;
+}
+
+.recruit-code {
+  font-family: 'VT323', monospace;
+  color: #991b1b;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.recruit-badge-text {
+  font-size: 13px;
+  color: #000000;
+}
+
+.recruit-body {
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 15px;
+  color: #111827;
+  line-height: 1.6;
+}
+
+.recruit-body-highlight {
+  font-weight: 700;
+  font-size: 15.5px;
+  color: #000000;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 0;
+}
+
+.recruit-body-desc {
+  font-size: 14.5px;
+  color: #111827;
+  padding: 0 4px;
+  margin: 0;
+}
+
+.hero-roster-tray {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.hero-roster-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hero-avatars-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hero-intro-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  border: 2px solid #825424;
+  object-fit: cover;
+  background: #3b1f0e;
+}
+
+.recruit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recruit-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.recruit-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 2px solid #825424;
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.recruit-input-row:focus-within {
+  border-color: #991b1b;
+}
+
+.recruit-input-row input,
+.recruit-input-row input[type="text"],
+.recruit-name-input,
+#inputPlayerName,
+input#inputPlayerName {
+  flex: 1;
+  min-width: 0;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-size: 16px;
+  font-weight: 900;
+  color: #000000 !important;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.recruit-btn-random {
+  padding: 5px 14px;
+  font-size: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.recruit-btn-submit {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  letter-spacing: 1px;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* --- Screen 2: 大廳選單 (Lobby Menu Card) --- */
+.lobby-menu-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+}
+
+.lobby-menu-status {
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(156, 111, 61, 0.4);
+}
+
+.lobby-menu-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+  border-radius: 20px;
+  font-size: 15px;
+  color: #000000;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
+  animation: pulseDot 1.5s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.menu-player-name {
+  color: #871919;
+  font-weight: 800;
+}
+
+.lobby-menu-subtitle {
+  font-size: 14px;
+  color: #111827;
+  margin-top: 4px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.lobby-menu-btn {
+  width: 100%;
+  padding: 15px 20px;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  gap: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lobby-menu-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.lobby-menu-subbtn {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 14px;
+  gap: 6px;
+}
+
+/* --- Screen 3: 伺服器名冊 (Server List Card) --- */
+.server-list-card {
+  width: 100%;
+  max-width: 860px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+  max-height: 640px;
+  margin: 0 auto;
+}
+
+.server-list-header {
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
+}
+
+.server-list-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+  letter-spacing: 2px;
+  margin: 0;
+}
+
+.server-list-subtitle {
+  font-size: 14px;
+  color: #111827;
+  margin: 4px 0 0 0;
+}
+
+.server-slots-scroll {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+  min-height: 260px;
+  max-height: 380px;
+}
+
+.kraft-server-slot {
+  background: rgba(250, 241, 224, 0.88);
+  border: 2px solid #9c7348;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.15s ease;
+}
+
+.kraft-server-slot:hover {
+  background: #fff8eb;
+  border-color: #6b3f18;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(60, 30, 10, 0.25);
+}
+
+.kraft-server-slot.selected {
+  background: #fdf5e2;
+  border: 2.5px solid #851c1c;
+  box-shadow: 0 0 0 2px rgba(133, 28, 28, 0.3), 0 4px 10px rgba(60, 30, 10, 0.3);
+}
+
+.server-slot-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.server-slot-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: #3b1f0e;
+  border: 2px solid #7a481e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  color: #d97706;
+  font-size: 20px;
+}
+
+.server-slot-info {
+  text-align: left;
+  line-height: 1.3;
+  overflow: hidden;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.server-slot-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #000000;
+}
+
+.server-slot-code-badge {
+  font-size: 13px;
+  color: #8f1d1d;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: 'VT323', monospace;
+  font-weight: 700;
+}
+
+.server-slot-motd1 {
+  font-size: 14px;
+  color: #1e40af;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.server-slot-motd2 {
+  font-size: 13px;
+  color: #111827;
+}
+
+.server-slot-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  font-family: 'VT323', monospace;
+}
+
+.server-slot-count {
+  font-size: 16px;
+  font-weight: 900;
+  color: #000000;
+}
+
+.server-ping-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+
+.server-ping-bar {
+  width: 3px;
+  background: #15803d;
+  border-radius: 1px;
+}
+
+.server-list-footer {
+  padding-top: 8px;
+  border-top: 1px solid rgba(150, 107, 59, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.server-list-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* =========================================================
+   9. 通用牛皮紙彈窗與 Toast 系統
+   ========================================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.85);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 900;
+  color: #000000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif TC', serif;
+  margin: 0;
+}
+
+.modal-title.center-title {-size: 19px;
+  width: 100%;
+}
+
+.modal-subtitle {
+  font-size: 14.5px;
+  color: #111827;
+  margin: 4px 0 14px 0;
+  text-align: center;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: #000000;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover { color: #8f1d1d; }
+
+.profile-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  background: rgba(230, 206, 168, 0.4);
+  border: 1.5px solid #a37845;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.profile-avatar-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-avatar-tip-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.profile-avatar-tip-sub {
+  font-size: 13px;
+  color: #111827;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.profile-quick-btn {
+  padding: 5px 12px;
+  font-size: 13.5px;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.profile-quick-emojis {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px dashed #b8860b;
+}
+
+.quick-emoji-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000;
+  display: block;
+  margin-bottom: 4px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.quick-emoji-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-emoji-btn {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fffdf7;
+  border: 1.5px solid #a37845;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-emoji-btn:hover {
+  background: #fef08a;
+  border-color: #991b1b;
+  transform: scale(1.15);
+}
+
+.modal-label {
+  display: block;
+  color: #000000;
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-size: 14.5px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.modal-input,
+#profileNewNameInput,
+input#profileNewNameInput {
+  width: 100%;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 2px solid #825424 !important;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #000000 !important;
+  font-weight: 900;
+  outline: none;
+  font-size: 15px;
+  font-family: 'Noto Serif TC', serif;
+  box-sizing: border-box;
+}
+
+.modal-input:focus {
+  border-color: #991b1b;
+}
+
+.profile-stats-panel {
+  padding: 12px;
+  font-size: 14px;
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.direct-connect-input {
+  width: 100%;
+  background: #fffdf7;
+  border: 2px solid #825424;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  font-family: 'VT323', monospace;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #8f1d1d;
+  text-transform: uppercase;
+  outline: none;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.direct-connect-input:focus { border-color: #000000; }
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* --- Toast Badge --- */
+.toast-badge {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  z-index: 3000;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-badge.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.toast-content {-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+/* =========================================================
+   10. 獨立圖鑑模式 (Standalone Class Archive)
+   ========================================================= */
+#viewLobby.archive-mode .lobby-layout {
+  grid-template-columns: 1fr;
+}
+
+.role-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* =========================================================
+   11. 頭像選擇彈窗樣式 (.avatar-choice-card)
+   ========================================================= */
+.avatar-choice-card {
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.avatar-choice-card:hover {
+  background: rgba(245, 230, 205, 0.95);
+  border-color: #8f1d1d;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 10px rgba(60, 30, 10, 0.2);
+}
+
+.avatar-choice-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-choice-icon-wrap.upload-icon-bg {
+  background: linear-gradient(135deg, #a82424, #691111);
+  color: #fff4ea;
+  border: 1px solid #c93a3a;
+}
+
+.avatar-choice-icon-wrap.hero-icon-bg {
+  background: linear-gradient(135deg, #b8860b, #784318);
+  color: #fff4ea;
+  border: 1px solid #d97706;
+}
+
+.avatar-choice-info {
+  flex: 1;
+  text-align: left;
+}
+
+.avatar-choice-title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #000000;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.avatar-choice-desc {
+  font-size: 13px;
+  color: #111827;
+  margin-top: 2px;
+  font-family: 'Noto Serif TC', serif;
+}
+
+.avatar-choice-arrow {
+  font-size: 18px;
+  color: #8f1d1d;
+  font-weight: 900;
+}
+
+.avatar-choice-chevron {
+  font-size: 16px;
+  color: #000000;
+  font-weight: 900;
+  transition: transform 0.2s ease;
+}
+
+.hero-avatar-choice-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  background: rgba(240, 221, 190, 0.7);
+  border: 1.5px solid #a37845;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hero-avatar-choice-item:hover {
+  background: #fff8eb;
+  border-color: #8f1d1d;
+  transform: scale(1.05);
+}
+
+.hero-avatar-choice-item img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #7a481e;
+}
+
+.hero-avatar-choice-item span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #000000;
+  white-space: nowrap;
+}
+
+

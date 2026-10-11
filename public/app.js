@@ -433,13 +433,41 @@ const elements = {
     end: document.getElementById('viewEnd')
   },
 
-  // Entry
+  // Entry & Modals
   inputPlayerName: document.getElementById('inputPlayerName'),
   btnCreateRoom: document.getElementById('btnCreateRoom'),
   inputRoomCode: document.getElementById('inputRoomCode'),
   btnJoinRoom: document.getElementById('btnJoinRoom'),
   btnEntryAvatar: document.getElementById('btnEntryAvatar'),
   entryAvatarPreview: document.getElementById('entryAvatarPreview'),
+  screenRecruit: document.getElementById('screenRecruit'),
+  screenLobbyMenu: document.getElementById('screenLobbyMenu'),
+  screenServerList: document.getElementById('screenServerList'),
+  btnRandomName: document.getElementById('btnRandomName'),
+  btnSubmitRecruit: document.getElementById('btnSubmitRecruit'),
+  menuPlayerName: document.getElementById('menuPlayerName'),
+  btnOpenServerList: document.getElementById('btnOpenServerList'),
+  btnOpenClassArchive: document.getElementById('btnOpenClassArchive'),
+  btnOpenProfileModal: document.getElementById('btnOpenProfileModal'),
+  btnExitToRecruit: document.getElementById('btnExitToRecruit'),
+  serverSlotsContainer: document.getElementById('serverSlotsContainer'),
+  btnJoinServer: document.getElementById('btnJoinServer'),
+  btnDirectConnectModalOpen: document.getElementById('btnDirectConnectModalOpen'),
+  btnRefreshServerList: document.getElementById('btnRefreshServerList'),
+  btnBackToLobbyMenu: document.getElementById('btnBackToLobbyMenu'),
+  btnArchiveBackToMenu: document.getElementById('btnArchiveBackToMenu'),
+  directConnectModal: document.getElementById('directConnectModal'),
+  btnCloseDirectConnectModal: document.getElementById('btnCloseDirectConnectModal'),
+  profileModal: document.getElementById('profileModal'),
+  btnProfileAvatar: document.getElementById('btnProfileAvatar'),
+  profileAvatarPreview: document.getElementById('profileAvatarPreview'),
+  profileNewNameInput: document.getElementById('profileNewNameInput'),
+  profileCurrentClassText: document.getElementById('profileCurrentClassText'),
+  btnCloseProfileModal: document.getElementById('btnCloseProfileModal'),
+  btnCancelProfileModal: document.getElementById('btnCancelProfileModal'),
+  btnSaveProfileModal: document.getElementById('btnSaveProfileModal'),
+  toastBadge: document.getElementById('toastBadge'),
+  toastMessage: document.getElementById('toastMessage'),
 
   // Lobby
   lobbyMemberCount: document.getElementById('lobbyMemberCount'),
@@ -694,6 +722,14 @@ window.addEventListener('studio:content-ready',()=>{
 let pendingAuthoritativeState = null;
 
 socket.on('room:update', (state) => {
+  const amIInRoom = Boolean(myId && state.players && state.players.some(p => p.id === myId));
+  if (!amIInRoom) {
+    roomState = null;
+    currentRoomCode = null;
+    switchView('entry');
+    goToEntryScreen('screenLobbyMenu');
+    return;
+  }
   if(state.state!=='IN_BATTLE'&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
   if (battlePhaseController && (state.state !== 'IN_BATTLE' || battlePhaseController.battleKey !== battleSceneKey(state))) {
     battlePhaseController.abort();
@@ -836,13 +872,17 @@ function switchView(viewName) {
     }
   });
 
-  // 發起組隊登入頁面 (entry) 隱藏懸浮聊天按鈕，進入選角色 (lobby) 及後續頁面時顯示
-  if (elements.floatingChatContainer) {
-    if (viewName === 'entry') {
+  // 發起組隊登入頁面 (entry) 隱藏懸浮聊天按鈕與頂部房號/離開小隊，進入選角色 (lobby) 及後續頁面時顯示
+  if (viewName === 'entry') {
+    if (elements.roomBadge) elements.roomBadge.classList.add('hidden');
+    if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
+    if (elements.floatingChatContainer) {
       elements.floatingChatContainer.classList.add('hidden');
       dismissChatBubble();
       toggleChat(false);
-    } else {
+    }
+  } else {
+    if (elements.floatingChatContainer) {
       elements.floatingChatContainer.classList.remove('hidden');
     }
   }
@@ -951,6 +991,15 @@ function renderApp() {
   // 根據房間階段切換視圖
   switch (roomState.state) {
     case 'LOBBY':
+      if (isClassArchiveMode) {
+        isClassArchiveMode = false;
+        const teamCard = document.querySelector('.team-card');
+        if (teamCard) teamCard.classList.remove('hidden');
+        const viewLobby = document.getElementById('viewLobby');
+        if (viewLobby) viewLobby.classList.remove('archive-mode');
+        const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
+        if (btnArchiveBack) btnArchiveBack.classList.add('hidden');
+      }
       switchView('lobby');
       presentationManager.clear();
       prologueCompleted = false;
@@ -1137,18 +1186,18 @@ function renderMemberStatusBadge(p, isThisLeader) {
   if (isReady) {
     return `
       <span class="member-status-icon ready" title="已就緒" aria-label="已就緒">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
-        </svg><span class="member-ready-label">已就緒</span>
+        </svg>
       </span>
     `;
   }
   return `
     <span class="member-status-icon waiting" title="尚未就緒" aria-label="尚未就緒">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="13"></line>
         <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-      </svg><span class="member-ready-label">${p.role ? '未準備' : '未選職'}</span>
+      </svg>
     </span>
   `;
 }
@@ -1171,31 +1220,22 @@ function renderLobby(me, isLeader) {
     if (isThisMe) {
       div.innerHTML = `
         <div class="member-info-col">
-          <div class="member-avatar-wrapper clickable-avatar" id="btnMemberMyAvatar" title="點擊更換個人頭貼">
+          <div class="member-avatar-wrapper">
             ${getPlayerAvatarHtml(p, 'member-role-avatar')}
-            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${getIconSvg(getRoleIconName(p.role))}</span>` : ''}
           </div>
           <div class="member-name-group">
-            ${isEditingMyName ? `
-              <div class="member-inline-rename-form">
-                <input type="text" class="inline-rename-input" id="inputInlineRename" value="${escapeHtml(editingNameValue !== '' ? editingNameValue : p.name)}" maxlength="12" placeholder="輸入暱稱...">
-                <button type="button" class="btn-micro-action btn-save-name" id="btnSaveInlineRename" title="確認修改">${getIconSvg('check')}</button>
-                <button type="button" class="btn-micro-action btn-cancel-name" id="btnCancelInlineRename" title="取消">${getIconSvg('close')}</button>
-              </div>
-            ` : `
-              <div class="member-name-row">
-                <span class="member-name">
-                  ${isThisLeader ? `<span class="crown-tag" title="房主">${getIconSvg('flag')}<small>房主</small></span>` : ''}
-                  <span class="member-name-text" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-                  <span class="me-tag">(你)</span>
-                </span>
-                <button type="button" class="btn-icon-rename" id="btnTriggerInlineRename" title="修改暱稱">${getIconSvg('ready')}</button>
-              </div>
-            `}
-            <div class="member-sub-actions">
-              <span class="member-role-tag">
-                ${roleInfo ? escapeHtml(roleInfo.name) : '<span class="role-unselected">未選職</span>'}
+            <div class="member-name-row">
+              <span class="member-name">
+                ${isThisLeader ? `<span class="crown-tag" title="房主">${getIconSvg('flag')}<small>房主</small></span>` : ''}
+                <span class="member-name-text" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+                <span class="me-tag">(你)</span>
               </span>
+            </div>
+            <div class="member-sub-actions">
+              ${roleInfo ? `
+                <span class="member-role-tag">${escapeHtml(roleInfo.name)}</span>
+                ${(typeof LOBBY_ROLE_PROFILES !== 'undefined' && LOBBY_ROLE_PROFILES[p.role]?.tags || []).slice(0, 2).map(tag => `<span class="member-tag-badge">${escapeHtml(tag)}</span>`).join('')}
+              ` : ''}
             </div>
           </div>
         </div>
@@ -1203,79 +1243,23 @@ function renderLobby(me, isLeader) {
           ${renderMemberStatusBadge(p, isThisLeader)}
         </div>
       `;
-
-      // 綁定 (你) 的頭貼點擊換頭貼事件
-      const avatarWrap = div.querySelector('#btnMemberMyAvatar');
-      if (avatarWrap) {
-        avatarWrap.addEventListener('click', openAvatarModal);
-      }
-
-      const btnTriggerRename = div.querySelector('#btnTriggerInlineRename');
-      if (btnTriggerRename) {
-        btnTriggerRename.addEventListener('click', () => {
-          isEditingMyName = true;
-          editingNameValue = p.name;
-          renderLobby(me, isLeader);
-        });
-      }
-
-      if (isEditingMyName) {
-        const renameInput = div.querySelector('#inputInlineRename');
-        const btnSave = div.querySelector('#btnSaveInlineRename');
-        const btnCancel = div.querySelector('#btnCancelInlineRename');
-
-        if (renameInput) {
-          renameInput.addEventListener('input', (e) => {
-            editingNameValue = e.target.value;
-          });
-          renameInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              submitInlineRename(renameInput.value);
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              isEditingMyName = false;
-              editingNameValue = '';
-              renderLobby(me, isLeader);
-            }
-          });
-          setTimeout(() => {
-            if (renameInput && document.activeElement !== renameInput) {
-              renameInput.focus();
-              renameInput.select();
-            }
-          }, 30);
-        }
-
-        if (btnSave) {
-          btnSave.addEventListener('click', () => {
-            if (renameInput) submitInlineRename(renameInput.value);
-          });
-        }
-
-        if (btnCancel) {
-          btnCancel.addEventListener('click', () => {
-            isEditingMyName = false;
-            editingNameValue = '';
-            renderLobby(me, isLeader);
-          });
-        }
-      }
     } else {
       div.innerHTML = `
         <div class="member-info-col">
           <div class="member-avatar-wrapper">
             ${getPlayerAvatarHtml(p, 'member-role-avatar')}
-            ${roleInfo ? `<span class="member-avatar-role-badge" title="${roleInfo.name}">${getIconSvg(getRoleIconName(p.role))}</span>` : ''}
           </div>
           <div class="member-name-group">
             <span class="member-name">
               ${isThisLeader ? `<span class="crown-tag" title="房主">${getIconSvg('flag')}<small>房主</small></span>` : ''}
               <span class="member-name-text" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
             </span>
-            <span class="member-role-tag">
-              ${roleInfo ? escapeHtml(roleInfo.name) : '<span class="role-unselected">未選職</span>'}
-            </span>
+            <div class="member-sub-actions">
+              ${roleInfo ? `
+                <span class="member-role-tag">${escapeHtml(roleInfo.name)}</span>
+                ${(typeof LOBBY_ROLE_PROFILES !== 'undefined' && LOBBY_ROLE_PROFILES[p.role]?.tags || []).slice(0, 2).map(tag => `<span class="member-tag-badge">${escapeHtml(tag)}</span>`).join('')}
+              ` : ''}
+            </div>
           </div>
         </div>
         <div class="member-status-col">
@@ -2961,47 +2945,374 @@ function escapeHtml(str) {
 }
 
 // ==========================================
-// 按鈕事件綁定
+// 公會告示板與大廳導航系統 (Parchment Entry Flow)
 // ==========================================
+let currentEntryScreen = 'screenRecruit';
+let currentSelectedServerId = null;
+let serverPartyList = [];
+let isClassArchiveMode = false;
 
-// 建立房間
-elements.btnCreateRoom.addEventListener('click', () => {
-  const name = elements.inputPlayerName.value.trim() || '勇者無名';
+const RANDOM_TITLES = [
+  '破曉之刃', '影蝕術士', '蒼藍守望', '炎獄審判', '風行斥候',
+  '星輝賢者', '荒野巨熊', '晨曦聖徒', '雷霆誓約', '深淵行者',
+  '幽影獵手', '赤焰狂戰', '鐵壁衛士', '符文詠唱者'
+];
+
+function showToast(message) {
+  const badge = document.getElementById('toastBadge') || elements.toastBadge;
+  const msgEl = document.getElementById('toastMessage') || elements.toastMessage;
+  if (!badge || !msgEl) return;
+  msgEl.textContent = message;
+  badge.classList.add('show');
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => {
+    badge.classList.remove('show');
+  }, 2500);
+}
+
+function randomizeName() {
+  const pick = RANDOM_TITLES[Math.floor(Math.random() * RANDOM_TITLES.length)];
+  if (elements.inputPlayerName) {
+    elements.inputPlayerName.value = pick;
+  }
+  playSound('click');
+}
+
+function goToEntryScreen(screenId) {
+  playSound('click');
+  const screens = ['screenRecruit', 'screenLobbyMenu', 'screenServerList'];
+  screens.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (id === screenId) {
+        el.classList.remove('hidden');
+        el.classList.add('fade-in');
+      } else {
+        el.classList.add('hidden');
+        el.classList.remove('fade-in');
+      }
+    }
+  });
+  currentEntryScreen = screenId;
+}
+
+function submitRecruitPledge() {
+  const input = elements.inputPlayerName ? elements.inputPlayerName.value.trim() : '';
+  const name = input || myName || '勇者無名';
+  myName = name;
+  localStorage.setItem('dungeon_player_name', name);
+  if (elements.inputPlayerName) elements.inputPlayerName.value = name;
+  const menuNameEl = document.getElementById('menuPlayerName');
+  if (menuNameEl) menuNameEl.textContent = name;
+  playSound('click');
+  showToast(`誓約已簽署！歡迎進入公會大廳，${name}！`);
+  goToEntryScreen('screenLobbyMenu');
+}
+
+function openClassArchiveFromMenu() {
+  isClassArchiveMode = true;
+  playSound('click');
+  const teamCard = document.querySelector('.team-card');
+  if (teamCard) teamCard.classList.add('hidden');
+  const viewLobby = document.getElementById('viewLobby');
+  if (viewLobby) viewLobby.classList.add('archive-mode');
+  const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
+  if (btnArchiveBack) btnArchiveBack.classList.remove('hidden');
+
+  switchView('lobby');
+  if (typeof updateRoleDescriptionPanel === 'function') {
+    updateRoleDescriptionPanel(selectedRoleKey || 'warrior');
+  }
+}
+
+function closeClassArchiveToMenu() {
+  isClassArchiveMode = false;
+  playSound('click');
+  const teamCard = document.querySelector('.team-card');
+  if (teamCard) teamCard.classList.remove('hidden');
+  const viewLobby = document.getElementById('viewLobby');
+  if (viewLobby) viewLobby.classList.remove('archive-mode');
+  const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
+  if (btnArchiveBack) btnArchiveBack.classList.add('hidden');
+
+  switchView('entry');
+  goToEntryScreen('screenLobbyMenu');
+}
+
+function renderServerSlots() {
+  const container = document.getElementById('serverSlotsContainer');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!serverPartyList || serverPartyList.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: #000000; font-family: 'Noto Serif TC', serif;">
+        <div style="font-size: 32px; margin-bottom: 8px;">📜</div>
+        <div style="font-size: 16px; font-weight: 700;">目前尚無公開的深淵討伐隊伍</div>
+        <div style="font-size: 14px; margin-top: 6px; color: #111827;">您可以點擊「創建討伐房間」發起新隊伍，或使用代碼直接連線！</div>
+      </div>
+    `;
+    const joinBtn = document.getElementById('btnJoinServer');
+    if (joinBtn) joinBtn.disabled = true;
+    return;
+  }
+
+  serverPartyList.forEach(srv => {
+    const isSelected = srv.id === currentSelectedServerId || srv.code === currentSelectedServerId;
+    const slot = document.createElement('div');
+    slot.className = `kraft-server-slot ${isSelected ? 'selected' : ''}`;
+    slot.onclick = () => selectServerSlot(srv.id || srv.code);
+    slot.ondblclick = () => {
+      selectServerSlot(srv.id || srv.code);
+      confirmJoinSelectedServer();
+    };
+
+    let pingBarsHtml = '';
+    const bars = srv.pingBars || 5;
+    for (let b = 1; b <= 5; b++) {
+      const activeColor = b <= bars ? '#15803d' : '#cbd5e1';
+      pingBarsHtml += `<div class="server-ping-bar" style="height: ${b * 3}px; background: ${activeColor};"></div>`;
+    }
+
+    slot.innerHTML = `
+      <div class="server-slot-left">
+        <div class="server-slot-icon" style="color: ${srv.iconColor || '#d97706'};">
+          <svg class="svg-icon" style="width: 24px; height: 24px;"><use href="#icon-sword"></use></svg>
+        </div>
+        <div class="server-slot-info">
+          <div class="server-slot-name-row">
+            <span>${srv.name || '冒險者隊伍'}</span>
+            <span class="server-slot-code-badge">#${srv.code}</span>
+          </div>
+          <div class="server-slot-motd1">${srv.subtitleLine1 || '>> 王立公會認證懸賞'}</div>
+          <div class="server-slot-motd2">${srv.subtitleLine2 || '1~10 人皆可出發，等待隊友入駐！'}</div>
+        </div>
+      </div>
+      <div class="server-slot-meta">
+        <span class="server-slot-count">${srv.players || 1}/${srv.maxPlayers || 10}</span>
+        <div class="server-ping-bars" title="公會連線延遲: 良好">
+          ${pingBarsHtml}
+        </div>
+      </div>
+    `;
+    container.appendChild(slot);
+  });
+
+  const joinBtn = document.getElementById('btnJoinServer');
+  if (joinBtn) joinBtn.disabled = !currentSelectedServerId;
+}
+
+function selectServerSlot(srvId) {
+  playSound('click');
+  currentSelectedServerId = srvId;
+  renderServerSlots();
+}
+
+function refreshServerList() {
+  playSound('click');
+  socket.emit('room:list', (res) => {
+    if (res && res.success) {
+      serverPartyList = res.rooms || [];
+    }
+    renderServerSlots();
+    showToast('公會討伐名冊已刷新！');
+  });
+}
+
+function confirmJoinSelectedServer() {
+  if (!currentSelectedServerId) return;
+  const target = serverPartyList.find(s => s.id === currentSelectedServerId || s.code === currentSelectedServerId);
+  if (!target) return;
+
+  const name = myName || (elements.inputPlayerName ? elements.inputPlayerName.value.trim() : '') || '勇者無名';
   myName = name;
   localStorage.setItem('dungeon_player_name', name);
   const savedAvatar = localStorage.getItem('dungeon_custom_avatar') || null;
   initAudio();
   playSound('click');
 
-  socket.emit('room:create', { name, avatar: savedAvatar }, (res) => {
+  socket.emit('room:join', { name, code: target.code, avatar: savedAvatar }, (res) => {
     if (res.success) {
-      currentRoomCode = res.roomCode;
+      showToast(`已成功加入隊伍【${target.name}】！`);
     } else {
       alert(res.message);
     }
   });
-});
+}
 
-// 加入房間
-elements.btnJoinRoom.addEventListener('click', () => {
-  const name = elements.inputPlayerName.value.trim() || '勇者無名';
-  const code = elements.inputRoomCode.value.trim().toUpperCase();
-  if (!code) {
-    alert('請輸入 5 碼房間代碼！');
+function openDirectConnectModal() {
+  playSound('click');
+  const modal = document.getElementById('directConnectModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (elements.inputRoomCode) {
+      elements.inputRoomCode.value = '';
+      elements.inputRoomCode.focus();
+    }
+  }
+}
+
+function closeDirectConnectModal() {
+  const modal = document.getElementById('directConnectModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function openProfileModal() {
+  if (roomState && roomState.state === 'LOBBY') {
+    showToast('出發準備中不可再更改個人檔案！');
     return;
   }
-  myName = name;
-  localStorage.setItem('dungeon_player_name', name);
-  const savedAvatar = localStorage.getItem('dungeon_custom_avatar') || null;
-  initAudio();
   playSound('click');
+  const modal = document.getElementById('profileModal');
+  const input = document.getElementById('profileNewNameInput');
+  const currentClassText = document.getElementById('profileCurrentClassText');
+  if (input) input.value = myName || '';
+  if (currentClassText) {
+    const me = (typeof getMyPlayer === 'function') ? getMyPlayer() : null;
+    const myRole = me?.role;
+    const roleName = myRole && classesData[myRole]?.name ? classesData[myRole].name : '戰士';
+    currentClassText.textContent = roleName;
+  }
+  updateEntryAvatarPreview();
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+}
+window.openProfileModal = openProfileModal;
 
-  socket.emit('room:join', { name, code, avatar: savedAvatar }, (res) => {
-    if (!res.success) {
-      alert(res.message);
-    }
+function closeProfileModal() {
+  const modal = document.getElementById('profileModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+window.closeProfileModal = closeProfileModal;
+
+function quickSelectProfileEmoji(emoji) {
+  playSound('click');
+  saveCustomAvatar(emoji);
+  updateEntryAvatarPreview();
+  showToast(`已選用頭貼圖示【${emoji}】！`);
+}
+window.quickSelectProfileEmoji = quickSelectProfileEmoji;
+
+function saveProfileModal() {
+  const input = document.getElementById('profileNewNameInput');
+  const newName = input ? input.value.trim() : '';
+  if (newName) {
+    myName = newName;
+    localStorage.setItem('dungeon_player_name', newName);
+    if (elements.inputPlayerName) elements.inputPlayerName.value = newName;
+    const menuNameEl = document.getElementById('menuPlayerName');
+    if (menuNameEl) menuNameEl.textContent = newName;
+    playSound('click');
+    showToast(`冒險者尊名已變更為【${newName}】！`);
+  }
+  closeProfileModal();
+}
+window.saveProfileModal = saveProfileModal;
+
+// ==========================================
+// 按鈕事件綁定
+// ==========================================
+
+// 建立房間
+if (elements.btnCreateRoom) {
+  elements.btnCreateRoom.addEventListener('click', () => {
+    const name = (elements.inputPlayerName ? elements.inputPlayerName.value.trim() : '') || myName || '勇者無名';
+    myName = name;
+    localStorage.setItem('dungeon_player_name', name);
+    const savedAvatar = localStorage.getItem('dungeon_custom_avatar') || null;
+    initAudio();
+    playSound('click');
+
+    socket.emit('room:create', { name, avatar: savedAvatar }, (res) => {
+      if (res.success) {
+        currentRoomCode = res.roomCode;
+        showToast(`已為您建立房間【${res.roomCode}】！`);
+      } else {
+        alert(res.message);
+      }
+    });
   });
-});
+}
+
+// 加入房間
+if (elements.btnJoinRoom) {
+  elements.btnJoinRoom.addEventListener('click', () => {
+    const name = (elements.inputPlayerName ? elements.inputPlayerName.value.trim() : '') || myName || '勇者無名';
+    const code = elements.inputRoomCode ? elements.inputRoomCode.value.trim().toUpperCase() : '';
+    if (!code) {
+      alert('請輸入 5 碼房間代碼！');
+      return;
+    }
+    closeDirectConnectModal();
+    myName = name;
+    localStorage.setItem('dungeon_player_name', name);
+    const savedAvatar = localStorage.getItem('dungeon_custom_avatar') || null;
+    initAudio();
+    playSound('click');
+
+    socket.emit('room:join', { name, code, avatar: savedAvatar }, (res) => {
+      if (res.success) {
+        showToast(`已成功加入房間【${code}】！`);
+      } else {
+        alert(res.message);
+      }
+    });
+  });
+}
+
+// 招募令與選單事件綁定
+if (elements.btnRandomName) elements.btnRandomName.addEventListener('click', randomizeName);
+if (elements.btnSubmitRecruit) elements.btnSubmitRecruit.addEventListener('click', submitRecruitPledge);
+if (elements.inputPlayerName) {
+  elements.inputPlayerName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitRecruitPledge();
+  });
+}
+
+if (elements.btnOpenServerList) {
+  elements.btnOpenServerList.addEventListener('click', () => {
+    goToEntryScreen('screenServerList');
+    refreshServerList();
+  });
+}
+if (elements.btnOpenClassArchive) elements.btnOpenClassArchive.addEventListener('click', openClassArchiveFromMenu);
+if (elements.btnOpenProfileModal) elements.btnOpenProfileModal.addEventListener('click', openProfileModal);
+if (elements.btnExitToRecruit) {
+  elements.btnExitToRecruit.addEventListener('click', () => {
+    goToEntryScreen('screenRecruit');
+  });
+}
+
+if (elements.btnJoinServer) elements.btnJoinServer.addEventListener('click', confirmJoinSelectedServer);
+if (elements.btnDirectConnectModalOpen) elements.btnDirectConnectModalOpen.addEventListener('click', openDirectConnectModal);
+if (elements.btnRefreshServerList) elements.btnRefreshServerList.addEventListener('click', refreshServerList);
+if (elements.btnBackToLobbyMenu) {
+  elements.btnBackToLobbyMenu.addEventListener('click', () => {
+    goToEntryScreen('screenLobbyMenu');
+  });
+}
+if (elements.btnArchiveBackToMenu) elements.btnArchiveBackToMenu.addEventListener('click', closeClassArchiveToMenu);
+
+if (elements.btnCloseDirectConnectModal) elements.btnCloseDirectConnectModal.addEventListener('click', closeDirectConnectModal);
+if (elements.directConnectModal) {
+  elements.directConnectModal.addEventListener('click', (e) => {
+    if (e.target === elements.directConnectModal) closeDirectConnectModal();
+  });
+}
+
+if (elements.btnCloseProfileModal) elements.btnCloseProfileModal.addEventListener('click', closeProfileModal);
+if (elements.btnCancelProfileModal) elements.btnCancelProfileModal.addEventListener('click', closeProfileModal);
+if (elements.btnSaveProfileModal) elements.btnSaveProfileModal.addEventListener('click', saveProfileModal);
+if (elements.profileModal) {
+  elements.profileModal.addEventListener('click', (e) => {
+    if (e.target === elements.profileModal) closeProfileModal();
+  });
+}
 
 // 點擊房間代碼直接複製
 function copyRoomCode() {
@@ -3120,26 +3431,38 @@ if (elements.btnToggleReady) {
   });
 }
 
-// 離開隊伍
+// 離開隊伍 / 退出房間回到大廳選單
+function exitRoomToLobbyMenu() {
+  playSound('click');
+  sfx?.stopAll();
+  roomState = null;
+  currentRoomCode = null;
+  currentActiveStage = 'NONE';
+  if (typeof presentationManager !== 'undefined' && typeof presentationManager.clear === 'function') {
+    presentationManager.clear();
+  }
+  if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
+  if (elements.roomBadge) elements.roomBadge.classList.add('hidden');
+  switchView('entry');
+  goToEntryScreen('screenLobbyMenu');
+  const menuPlayerName = document.getElementById('menuPlayerName');
+  if (menuPlayerName && myName) menuPlayerName.textContent = myName;
+  showToast('已離開討伐房間，返回大廳選單');
+  try {
+    socket.emit('leave_party');
+  } catch (e) {
+    console.warn(e);
+  }
+}
+window.exitRoomToLobbyMenu = exitRoomToLobbyMenu;
+
 if (elements.btnLeaveParty) {
-  elements.btnLeaveParty.addEventListener('click', () => {
-    const isLeader = roomState?.leaderId === myId;
-    const msg = isLeader
-      ? '確定要離開小隊嗎？\n（離開後職位將由第一順位成員繼承）'
-      : '確定要離開小隊嗎？';
-    if (!confirm(msg)) return;
-    playSound('click');
-    socket.emit('leave_party', () => {
-      sfx?.stopAll();
-      roomState = null;
-      currentRoomCode = null;
-      currentActiveStage = 'NONE';
-      presentationManager.reset();
-      switchView('entry');
-      if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
-      renderApp();
-    });
-  });
+  elements.btnLeaveParty.addEventListener('click', exitRoomToLobbyMenu);
+}
+
+const btnLobbyExitRoom = document.getElementById('btnLobbyExitRoom');
+if (btnLobbyExitRoom) {
+  btnLobbyExitRoom.addEventListener('click', exitRoomToLobbyMenu);
 }
 
 // 休息站選擇：繼續
@@ -4202,17 +4525,20 @@ function getMyPlayer() {
 }
 
 function updateEntryAvatarPreview() {
-  if (!elements.entryAvatarPreview) return;
   const savedAvatar = localStorage.getItem('dungeon_custom_avatar');
-  if (savedAvatar) {
-    if (savedAvatar.startsWith('data:image/') || savedAvatar.startsWith('http') || savedAvatar.startsWith('/')) {
-      elements.entryAvatarPreview.innerHTML = `<img src="${savedAvatar}" alt="avatar">`;
+  const previewEls = [elements.entryAvatarPreview, document.getElementById('profileAvatarPreview')].filter(Boolean);
+  if (previewEls.length === 0) return;
+  previewEls.forEach(el => {
+    if (savedAvatar) {
+      if (savedAvatar.startsWith('data:image/') || savedAvatar.startsWith('http') || savedAvatar.startsWith('/')) {
+        el.innerHTML = `<img src="${savedAvatar}" alt="avatar">`;
+      } else {
+        el.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:26px;">${escapeHtml(savedAvatar)}</span>`;
+      }
     } else {
-      elements.entryAvatarPreview.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:26px;">${escapeHtml(savedAvatar)}</span>`;
+      el.innerHTML = getIconSvg('user');
     }
-  } else {
-    elements.entryAvatarPreview.innerHTML = getIconSvg('user');
-  }
+  });
 }
 
 function updateModalPreview(avatar) {
@@ -4273,36 +4599,139 @@ function updateHeroRoleOptionUI() {
   }
 }
 
+const HERO_CLASS_PORTRAITS = [
+  { key: 'warrior', name: '戰士', photo: '/photo/Warrior.webp' },
+  { key: 'mage', name: '法師', photo: '/photo/Mage.webp' },
+  { key: 'archer', name: '弓手', photo: '/photo/Archer.webp' },
+  { key: 'assassin', name: '刺客', photo: '/photo/Assassin.webp' },
+  { key: 'bard', name: '吟遊詩人', photo: '/photo/Bard.webp' },
+  { key: 'alchemist', name: '鍊金術士', photo: '/photo/Alchemist.webp' },
+  { key: 'druid', name: '德魯伊', photo: '/photo/Druid.webp' },
+  { key: 'paladin', name: '聖騎士', photo: '/photo/Paladin.webp' },
+  { key: 'gladiator', name: '角鬥士', photo: '/photo/Gladiator.webp' },
+  { key: 'stargazer', name: '觀星者', photo: '/photo/Stargazer.webp' },
+  { key: 'dreamweaver', name: '織夢術士', photo: '/photo/Dreamweaver.webp' },
+  { key: 'samurai', name: '武士', photo: '/photo/Samurai.webp' },
+  { key: 'sage', name: '智者', photo: '/photo/Sage.webp' }
+];
+
+function openAvatarChoiceModal() {
+  if (roomState && roomState.state === 'LOBBY') {
+    showToast('出發準備中不可再更改頭像！');
+    return;
+  }
+  playSound('click');
+  const modal = document.getElementById('avatarChoiceModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+  initHeroAvatarGrid();
+}
+window.openAvatarChoiceModal = openAvatarChoiceModal;
+
+function closeAvatarChoiceModal() {
+  const modal = document.getElementById('avatarChoiceModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+window.closeAvatarChoiceModal = closeAvatarChoiceModal;
+
+function triggerProfilePhotoUpload() {
+  playSound('click');
+  const fileInput = document.getElementById('profileDirectFileInput');
+  if (fileInput) fileInput.click();
+}
+window.triggerProfilePhotoUpload = triggerProfilePhotoUpload;
+
+function handleProfileDirectFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('請上傳圖片檔案 (JPG、PNG、WebP、GIF 等)！');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      const minDim = Math.min(img.width, img.height);
+      const sx = (img.width - minDim) / 2;
+      const sy = (img.height - minDim) / 2;
+      ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, 128, 128);
+      const dataUrl = canvas.toDataURL('image/webp', 0.85);
+
+      saveCustomAvatar(dataUrl);
+      updateEntryAvatarPreview();
+      closeAvatarChoiceModal();
+      showToast('已成功上傳專屬照片頭貼！');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+window.handleProfileDirectFile = handleProfileDirectFile;
+
+function toggleHeroAvatarList() {
+  playSound('click');
+  const gridContainer = document.getElementById('heroAvatarGridContainer');
+  const chevron = document.getElementById('heroChoiceChevron');
+  if (!gridContainer) return;
+  const isHidden = gridContainer.classList.contains('hidden');
+  if (isHidden) {
+    gridContainer.classList.remove('hidden');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+    initHeroAvatarGrid();
+  } else {
+    gridContainer.classList.add('hidden');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+}
+window.toggleHeroAvatarList = toggleHeroAvatarList;
+
+function initHeroAvatarGrid() {
+  const grid = document.getElementById('heroAvatarOptionsGrid');
+  if (!grid || grid.children.length > 0) return;
+  grid.innerHTML = HERO_CLASS_PORTRAITS.map(h => `
+    <div class="hero-avatar-choice-item" onclick="selectClassAvatar('${h.photo}', '${h.name}')" title="選用【${h.name}】官方頭貼">
+      <img src="${h.photo}" alt="${h.name}">
+      <span>${h.name}</span>
+    </div>
+  `).join('');
+}
+
+function selectClassAvatar(photoUrl, roleName) {
+  playSound('click');
+  if (photoUrl) {
+    saveCustomAvatar(photoUrl);
+    showToast(`已選用【${roleName}】官方立繪頭像！`);
+  } else {
+    saveCustomAvatar(null);
+    showToast('已設定為跟隨出戰職業官方頭貼！');
+  }
+  updateEntryAvatarPreview();
+  closeAvatarChoiceModal();
+}
+window.selectClassAvatar = selectClassAvatar;
+
 function openAvatarModal() {
-  const me = getMyPlayer();
-  let saved = me ? me.customAvatar : (localStorage.getItem('dungeon_custom_avatar') || null);
-  if (saved && saved.startsWith('/photo/')) {
-    localStorage.removeItem('dungeon_custom_avatar');
-    saved = null;
-  }
-  pendingAvatar = saved;
-  updateModalPreview(pendingAvatar);
-  updateHeroRoleOptionUI();
-
-  if (elements.avatarModalOverlay) {
-    elements.avatarModalOverlay.classList.remove('hidden');
-  }
-
-  // 標記已選的 Emoji (如果是單一 emoji)
-  document.querySelectorAll('.emoji-option-btn').forEach(btn => {
-    if (pendingAvatar && btn.textContent === pendingAvatar) {
-      btn.classList.add('selected');
-    } else {
-      btn.classList.remove('selected');
-    }
-  });
+  openAvatarChoiceModal();
 }
 
 function closeAvatarModal() {
+  closeAvatarChoiceModal();
   if (elements.avatarModalOverlay) {
     elements.avatarModalOverlay.classList.add('hidden');
   }
 }
+window.openAvatarModal = openAvatarModal;
+window.closeAvatarModal = closeAvatarModal;
 
 function switchAvatarTab(tab) {
   const tabs = {
@@ -4434,8 +4863,10 @@ function initAvatarModal() {
     });
   }
 
-  // 開啟 Modal (登入頁面頭貼按鈕)
+  // 開啟 Modal (登入頁面與個人檔案之頭貼按鈕)
   if (elements.btnEntryAvatar) elements.btnEntryAvatar.addEventListener('click', openAvatarModal);
+  const btnProfileAvatar = document.getElementById('btnProfileAvatar');
+  if (btnProfileAvatar) btnProfileAvatar.addEventListener('click', openAvatarModal);
 
   // 關閉 Modal
   if (elements.btnCloseAvatarModal) elements.btnCloseAvatarModal.addEventListener('click', closeAvatarModal);
