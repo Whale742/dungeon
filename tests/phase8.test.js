@@ -97,7 +97,13 @@ export function fixture(t,roles=['warrior']) {
   let wire;const socket=id=>({id,join(){}});
   const room=new Room('P8',socket('p0'),'Hero',{to:()=>({emit(event,data){if(event==='battle:presentation_queue')wire=data;}})});
   roles.slice(1).forEach((_,i)=>room.addPlayer(socket('p'+(i+1)),'Ally '+i));
-  roles.forEach((role,i)=>{room.selectRole('p'+i,role);room.players['p'+i].action='skip';});
+  roles.forEach((role,i)=>{
+    const player=room.players['p'+i],previous=roles.indexOf(role);
+    // Duplicate combatants test effect stacking independently of lobby exclusivity.
+    if(previous<i)Object.assign(player,structuredClone(room.players['p'+previous]),{id:player.id,name:player.name});
+    else assert.equal(room.selectRole(player.id,role).success,true);
+    player.action='skip';
+  });
   room.state='IN_BATTLE';room.selectionState='SELECTING';room.floor=8;room.battleRound=1;
   room.currentMonster={name:'Boss',avatar:'/BOSS/Ancient Guardian Golem.webp',hp:5000,maxHp:5000,attack:20,baseHp:100,resistance:null};
   t?.after(()=>room.clearTimer());

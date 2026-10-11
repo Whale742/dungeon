@@ -7,7 +7,14 @@ function setup(t, count=2) {
  const events=[]; const socket=id=>({id,join(){}});
  const room=new Room('SHADOW',socket('a'),'刺客',{to:()=>({emit:(name,data)=>events.push({name,data})})});
  room.selectRole('a','assassin');
- for(let i=0;i<count;i++){room.addPlayer(socket('p'+i),'同伴'+i);room.selectRole('p'+i,'warrior');room.players['p'+i].action='basic';}
+ for(let i=0;i<count;i++){
+  const id='p'+i,name='同伴'+i;
+  room.addPlayer(socket(id),name);
+  if(i===0)room.selectRole(id,'warrior');
+  // Combat fixtures use identical allies to isolate follow-up counts from lobby selection rules.
+  else Object.assign(room.players[id],structuredClone(room.players.p0),{id,name});
+  room.players[id].action='basic';
+ }
  room.state='IN_BATTLE';room.currentMonster={name:'守衛',avatar:'/BOSS/Ancient Guardian Golem.webp',hp:2000,maxHp:2000,attack:4,resistance:null,baseHp:80};
  room.players.a.action='skip';t.after(()=>room.clearTimer());
  return {room,p:room.players.a,queue:()=>events.findLast(e=>e.name==='battle:presentation_queue')?.data.queue};

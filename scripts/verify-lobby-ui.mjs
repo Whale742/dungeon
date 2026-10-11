@@ -78,7 +78,7 @@ try {
   assert.equal(await page.locator('.app-header h1').evaluate(n=>getComputedStyle(n).color),'rgb(36, 23, 15)');
   assert.equal(await page.locator('.role-choice-check').evaluate(n=>getComputedStyle(n).position),'absolute');
   await page.evaluate(()=>{
-    lobbyRoleUi.data.players.push({id:'qa-teammate',name:'一起出征的隊友',role:'sage'});
+    lobbyRoleUi.data.players.push({id:'qa-teammate',name:'一起出征的隊友',role:'warrior'});
     renderRolePortraitStrip();
   });
   assert.equal(await page.locator('.role-choice-occupant').evaluate(n=>getComputedStyle(n).position),'absolute');

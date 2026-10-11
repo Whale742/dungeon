@@ -466,8 +466,6 @@ const elements = {
   btnCloseProfileModal: document.getElementById('btnCloseProfileModal'),
   btnCancelProfileModal: document.getElementById('btnCancelProfileModal'),
   btnSaveProfileModal: document.getElementById('btnSaveProfileModal'),
-  toastBadge: document.getElementById('toastBadge'),
-  toastMessage: document.getElementById('toastMessage'),
 
   // Lobby
   lobbyMemberCount: document.getElementById('lobbyMemberCount'),
@@ -718,7 +716,12 @@ socket.on('init:constants', (data) => {
 });
 socket.on('studio:content', data => { if(window.StudioContent)StudioContent.install(data,{pin:true}); });
 window.addEventListener('studio:content-ready',()=>{
-  if(Object.keys(classesData).length){renderRoleSelectionGrid();updateHeroRoleOptionUI();}
+  if(Object.keys(classesData).length){
+    const me=roomState?.state==='LOBBY'&&!isClassArchiveMode?getMyPlayer():null;
+    if(me)renderLobby(me,roomState.leaderId===myId);
+    else renderRoleSelectionGrid();
+    updateHeroRoleOptionUI();
+  }
   initHeroAvatarGrid();
   updateEntryAvatarPreview();
 });
@@ -1232,8 +1235,7 @@ function renderLobby(me, isLeader) {
             </div>
             <div class="member-sub-actions">
               ${roleInfo ? `
-                <span class="member-role-tag">${escapeHtml(roleInfo.name)}</span>
-                ${(typeof LOBBY_ROLE_PROFILES !== 'undefined' && LOBBY_ROLE_PROFILES[p.role]?.tags || []).slice(0, 2).map(tag => `<span class="member-tag-badge">${escapeHtml(tag)}</span>`).join('')}
+                ${renderLobbyRoleTags(p.role,'member-tag-badge')}
               ` : ''}
             </div>
           </div>
@@ -1255,8 +1257,7 @@ function renderLobby(me, isLeader) {
             </span>
             <div class="member-sub-actions">
               ${roleInfo ? `
-                <span class="member-role-tag">${escapeHtml(roleInfo.name)}</span>
-                ${(typeof LOBBY_ROLE_PROFILES !== 'undefined' && LOBBY_ROLE_PROFILES[p.role]?.tags || []).slice(0, 2).map(tag => `<span class="member-tag-badge">${escapeHtml(tag)}</span>`).join('')}
+                ${renderLobbyRoleTags(p.role,'member-tag-badge')}
               ` : ''}
             </div>
           </div>
@@ -2958,18 +2959,6 @@ const RANDOM_TITLES = [
   '幽影獵手', '赤焰狂戰', '鐵壁衛士', '符文詠唱者'
 ];
 
-function showToast(message) {
-  const badge = document.getElementById('toastBadge') || elements.toastBadge;
-  const msgEl = document.getElementById('toastMessage') || elements.toastMessage;
-  if (!badge || !msgEl) return;
-  msgEl.textContent = message;
-  badge.classList.add('show');
-  clearTimeout(badge._timer);
-  badge._timer = setTimeout(() => {
-    badge.classList.remove('show');
-  }, 2500);
-}
-
 function randomizeName() {
   const pick = RANDOM_TITLES[Math.floor(Math.random() * RANDOM_TITLES.length)];
   if (elements.inputPlayerName) {
@@ -3005,7 +2994,6 @@ function submitRecruitPledge() {
   const menuNameEl = document.getElementById('menuPlayerName');
   if (menuNameEl) menuNameEl.textContent = name;
   playSound('click');
-  showToast(`誓約已簽署！歡迎進入公會大廳，${name}！`);
   goToEntryScreen('screenLobbyMenu');
 }
 
@@ -3113,7 +3101,6 @@ function refreshServerList() {
       serverPartyList = res.rooms || [];
     }
     renderServerSlots();
-    showToast('公會討伐名冊已刷新！');
   });
 }
 
@@ -3130,11 +3117,7 @@ function confirmJoinSelectedServer() {
   playSound('click');
 
   socket.emit('room:join', { name, code: target.code, avatar: savedAvatar }, (res) => {
-    if (res.success) {
-      showToast(`已成功加入隊伍【${target.name}】！`);
-    } else {
-      alert(res.message);
-    }
+    if (!res.success) alert(res.message);
   });
 }
 
@@ -3157,7 +3140,6 @@ function closeDirectConnectModal() {
 
 function openProfileModal() {
   if (roomState && roomState.state === 'LOBBY') {
-    showToast('出發準備中不可再更改個人檔案！');
     return;
   }
   playSound('click');
@@ -3192,7 +3174,6 @@ function quickSelectProfileEmoji(emoji) {
   playSound('click');
   saveCustomAvatar(emoji);
   updateEntryAvatarPreview();
-  showToast(`已選用頭貼圖示【${emoji}】！`);
 }
 window.quickSelectProfileEmoji = quickSelectProfileEmoji;
 
@@ -3206,7 +3187,6 @@ function saveProfileModal() {
     const menuNameEl = document.getElementById('menuPlayerName');
     if (menuNameEl) menuNameEl.textContent = newName;
     playSound('click');
-    showToast(`冒險者尊名已變更為【${newName}】！`);
   }
   closeProfileModal();
 }
@@ -3229,7 +3209,6 @@ if (elements.btnCreateRoom) {
     socket.emit('room:create', { name, avatar: savedAvatar }, (res) => {
       if (res.success) {
         currentRoomCode = res.roomCode;
-        showToast(`已為您建立房間【${res.roomCode}】！`);
       } else {
         alert(res.message);
       }
@@ -3254,11 +3233,7 @@ if (elements.btnJoinRoom) {
     playSound('click');
 
     socket.emit('room:join', { name, code, avatar: savedAvatar }, (res) => {
-      if (res.success) {
-        showToast(`已成功加入房間【${code}】！`);
-      } else {
-        alert(res.message);
-      }
+      if (!res.success) alert(res.message);
     });
   });
 }
@@ -3447,7 +3422,6 @@ function exitRoomToLobbyMenu() {
   goToEntryScreen('screenLobbyMenu');
   const menuPlayerName = document.getElementById('menuPlayerName');
   if (menuPlayerName && myName) menuPlayerName.textContent = myName;
-  showToast('已離開討伐房間，返回大廳選單');
   try {
     socket.emit('leave_party');
   } catch (e) {
@@ -4624,7 +4598,6 @@ const HERO_CLASS_PORTRAITS = [
 
 function openAvatarChoiceModal() {
   if (roomState && roomState.state === 'LOBBY') {
-    showToast('出發準備中不可再更改頭像！');
     return;
   }
   playSound('click');
@@ -4677,7 +4650,6 @@ function handleProfileDirectFile(event) {
       saveCustomAvatar(dataUrl);
       updateEntryAvatarPreview();
       closeAvatarChoiceModal();
-      showToast('已成功上傳專屬照片頭貼！');
     };
     img.src = e.target.result;
   };
@@ -4721,10 +4693,8 @@ function selectClassAvatar(photoUrl, roleName) {
   playSound('click');
   if (photoUrl) {
     saveCustomAvatar(photoUrl);
-    showToast(`已選用【${roleName}】官方立繪頭像！`);
   } else {
     saveCustomAvatar(null);
-    showToast('已設定為跟隨出戰職業官方頭貼！');
   }
   updateEntryAvatarPreview();
   closeAvatarChoiceModal();

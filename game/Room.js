@@ -366,6 +366,9 @@ export class Room {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
     if (!CLASSES[roleKey]) return { success: false, message: '無效的職業' };
+    if (Object.values(this.players).some(p => p.id !== socketId && p.role === roleKey)) {
+      return { success: false, message: '此職業已由隊友選擇，請選擇其他職業！' };
+    }
 
     player.role = roleKey;
     player.equips = [];

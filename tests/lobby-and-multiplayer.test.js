@@ -157,3 +157,24 @@ test('Multiplayer: disconnecting or leaving party removes player and transfers l
   assert.equal(room.leaderId, null);
   assert.deepEqual(room.memberIds, []);
 });
+
+test('Lobby: roles are exclusive; rejected selections preserve state and changing/leaving frees a role', t => {
+  const events=[],room=new Room('UNIQUE',createMockSocket('leader'),'Leader',createMockIo(events));
+  t.after(()=>room.clearTimer());
+  room.addPlayer(createMockSocket('member'),'Member');
+  assert.equal(room.selectRole('leader','warrior').success,true);
+  assert.equal(room.selectRole('member','mage').success,true);
+  room.toggleReady('member');
+  const before=structuredClone(room.players.member),eventCount=events.length;
+  assert.equal(room.selectRole('member','warrior').success,false);
+  assert.deepEqual(room.players.member,before);
+  assert.equal(events.length,eventCount);
+  assert.equal(room.selectRole('leader','warrior').success,true);
+  assert.equal(room.selectRole('member','archer').success,true);
+  assert.equal(room.selectRole('leader','mage').success,true);
+  room.addPlayer(createMockSocket('third'),'Third');
+  assert.equal(room.selectRole('third','archer').success,false);
+  room.removePlayer('member');
+  assert.equal(room.selectRole('third','archer').success,true);
+  assert.equal(new Set(Object.values(room.players).map(p=>p.role)).size,2);
+});

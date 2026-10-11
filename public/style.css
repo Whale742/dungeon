@@ -147,7 +147,7 @@
   --border-weight-thick: 3px;
 
   /* Typography */
-  --font-display: "Cinzel", "Syne", serif;
+  --font-display: "Cinzel", "Syne", "Noto Serif TC", serif;
   --font-body: "Noto Sans TC", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-stats: "Silkscreen", "Chakra Petch", Consolas, monospace;
 
@@ -250,6 +250,11 @@ body {
   padding: 12px;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Shared Chinese heading fallback; individual English and pixel styles retain precedence. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
 }
 
 /* --------------------------------------------------------------------------

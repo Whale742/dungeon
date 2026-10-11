@@ -18,6 +18,9 @@ const LOBBY_ROLE_ORDER=['warrior','mage','archer','assassin','bard','alchemist',
 const LOBBY_RADAR_AXES=['輸出','生存','團隊','穩定性','難度'];
 const LOBBY_RADAR_VALUES={S:5,A:4,B:3,C:2,D:1};
 function getLobbyProfile(role){const base=LOBBY_ROLE_PROFILES[role],p=window.StudioContent?.find('role_profiles',role);return p?{...base,enName:p.name_en,tags:p.tags,passiveSummary:p.passive_short,radar:['radar_output','radar_survival','radar_team','radar_stability','radar_difficulty'].map(f=>p[f])}:base;}
+function renderLobbyRoleTags(role,className='') {
+  return (getLobbyProfile(role)?.tags||[]).map((tag,index)=>`<span class="${className}${index===0?' is-primary':''}">${escapeHtml(tag)}</span>`).join('');
+}
 const lobbyRoleUi={role:null,confirmedRole:null,tab:'passive',detailed:true,data:null,radarValues:null,radarFrame:0};
 
 function radarPoint(index, value, radius=76) {
@@ -65,11 +68,11 @@ function renderRoleDetailPanel() {
   document.getElementById('lobbyRoleName').textContent=conf.name;
   document.getElementById('lobbyRoleEnglish').textContent=profile.enName.toUpperCase();
   document.getElementById('lobbyRoleHp').textContent='基礎生命  '+conf.maxHp+' HP';
-  document.getElementById('lobbyRoleTags').innerHTML=profile.tags.map((tag,i)=>`<span class="${i===0?'is-primary':''}">${escapeHtml(tag)}</span>`).join('');
+  document.getElementById('lobbyRoleTags').innerHTML=renderLobbyRoleTags(role);
   let intro=document.getElementById('lobbyRoleIntro');if(!intro){intro=document.createElement('p');intro.id='lobbyRoleIntro';intro.className='role-intro-desc';document.getElementById('lobbyRoleTags').after(intro);}
   const published=window.StudioContent?.find('role_profiles',role);intro.textContent=published?.short_intro||conf.desc;intro.title=published?.full_intro||conf.desc;
   const me=players.find(p=>p.id===myId),others=players.filter(p=>p.role===role&&p.id!==myId);
-  document.getElementById('roleSelectionStatus').textContent=me?.role===role?'已選擇此職業':others.length?'隊友已選 · 可共同選擇':'點擊頭像選擇職業';
+  document.getElementById('roleSelectionStatus').textContent=me?.role===role?'已選擇此職業':others.length?'隊友已選 · 請選擇其他職業':'點擊頭像選擇職業';
   renderRadarChart(role);updateRoleDescriptionPanel();
 }
 function renderRolePortraitStrip() {
@@ -94,7 +97,8 @@ function renderRolePortraitStrip() {
     const others=players.filter(p=>p.role===role&&p.id!==myId),selected=players.some(p=>p.id===myId&&p.role===role);
     const button=document.createElement('button');button.type='button';button.dataset.role=role;
     button.className='role-portrait-choice'+(selected?' is-selected':'')+(others.length?' is-occupied':'')+(lobbyRoleUi.role===role?' is-previewed':'');
-    button.setAttribute('aria-pressed',String(selected));button.setAttribute('aria-label',conf.name+(selected?'，已選擇':'')+(others.length?'，'+others.map(p=>p.name).join('、')+'已選擇，可共同選擇':''));
+    button.disabled=others.length>0;
+    button.setAttribute('aria-pressed',String(selected));button.setAttribute('aria-label',conf.name+(selected?'，已選擇':'')+(others.length?'，'+others.map(p=>p.name).join('、')+'已選擇，無法重複選擇':''));
     button.title=button.getAttribute('aria-label');
     button.innerHTML=`<img src="${escapeHtml(conf.avatar)}" alt="">`+(others.length?`<span class="role-choice-occupant">${escapeHtml(others.map(p=>p.name).join(' / '))}</span>`:'')+(selected?'<span class="role-choice-check" aria-hidden="true">✓</span>':'');
     button.addEventListener('click',()=>{lobbyRoleUi.role=role;renderRoleDetailPanel();container.querySelectorAll('[data-role]').forEach(n=>n.classList.toggle('is-previewed',n.dataset.role===role));onSelect(role);});
