@@ -1299,9 +1299,10 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 .recruit-body-highlight {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 15.5px;
   color: #000000;
+  white-space: pre-line;
   padding: 12px;
   border-radius: 8px;
   margin: 0;
