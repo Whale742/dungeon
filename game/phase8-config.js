@@ -33,7 +33,13 @@ export const NEW_CLASSES = {
     desc: '【生命 90】神聖壁壘。受到傷害機率提高 30%，以護盾化攻為守，代受隊友苦痛。', passive: '嘲諷：受到傷害機率提高 30%。',
     skills: [skill('basic', '普通攻擊', 0, 'phys', '5 點物理傷害，並且獲得基於普攻造成傷害 2 倍的護盾（無回合限制）。'),
       skill('pal_glory', '榮耀讚歌', 2, 'phys', '自身獲得基於生命上限 50% 的護盾（持續 2 回合），並造成一次 15 點物理傷害。下回合全隊獲得本次所有隊友造成的 70% 傷害轉化而成的護盾，最高獲得護盾不超過聖騎士自身血量上限。持有此方式獲得的護盾時，全體造成的傷害提高 20%。有 40% 的機率，獲得的護盾減少 50%。', 'BUFF'),
-      skill('pal_grace', '代受恩典', 2, null, '指定一名我方，在接下來的 2 回合自身獲得 15% 減傷，該隊友受到的傷害及負面狀態將由聖騎士承受。由此技能受到的傷害，將在技能持續時間結束後，聖騎士獲得傷害一半的護盾。有 50% 的機率聖騎士不獲得護盾。', 'BUFF')] }
+      skill('pal_grace', '代受恩典', 2, null, '指定一名我方，在接下來的 2 回合自身獲得 15% 減傷，該隊友受到的傷害及負面狀態將由聖騎士承受。由此技能受到的傷害，將在技能持續時間結束後，聖騎士獲得傷害一半的護盾。有 50% 的機率聖騎士不獲得護盾。', 'BUFF')] },
+  onmyoji: { name: '陰陽師', avatar: '/photo/Onmyōji.webp', maxHp: 70,
+    desc: '【生命 70】符咒咒術師。精通五鬼攝魂咒術，施加多種無回合限制的負面符咒，每回合開始時有70%機率掉落，未掉落則再次觸發效果（上限10張），並能以百符引爆造成連鎖巨量傷害。',
+    passive: '【符道真解】：擲出的符咒依附於目標身上無回合限制（最多存在 10 張），每回合開始時有 70% 機率符咒掉落（每張獨立計算），沒掉落就再次觸發每一個效果；可藉由【急急如律令・百符引爆】一次性引爆所有符咒造成連鎖巨量傷害並清除符咒。',
+    skills: [skill('basic', '引符術', 0, 'mag', '對目標造成 10 點魔法傷害。'),
+      skill('onm_talisman', '五鬼攝魂符', 1, 'mag', '向敵方擲出一道符咒，隨機施加以下 5 種負面效果之一（受核心被動機制影響，每回合開始時有 70% 機率符咒掉落，每張獨立計算，沒掉落就再次觸發每一個效果；敵方身上最多存在 10 張符咒）：\n【障目符】: 目標攻擊命中率大幅下降，攻擊時有更高機率判定為 Miss（失誤）。再次觸發自殘反噬檢定。\n【封勁符】: 目標有機率在當前回合完全不造成任何傷害。再次進行當回合傷害無效化檢定。\n【蝕體符】: 目標進入易傷狀態，受到的所有攻擊傷害提升10%。再次結算易傷判定。\n【惑心符】: 目標陷入心智混亂，出手時對自己造成傷害。再次觸發自殘反噬檢定。\n【抽髓符】: 扣除目標最大生命值 2% 的血量（百分比削血）。再次扣除目標最大生命值 2% 血量。', 'DEBUFF'),
+      skill('onm_detonate', '急急如律令・百符引爆', 2, 'mag', '引爆目標身上所有未掉落的符咒。若目標身上沒有符咒（0 張），不造成任何傷害。若目標身上有符咒，啟動基礎傷害 10 點，每張符咒額外增加 3 點傷害。單次引爆上限為 10 張符咒（滿 10 張時造成 40 點傷害）。引爆結算：技能結算後，目標身上所有符咒全數脫落並銷毀。', 'OFFENSIVE')] }
 
 };
 const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, ...stats, unique });
@@ -64,9 +70,10 @@ for(const [id,copy] of Object.entries(PHASE81_COPY)) {
  c.skills.forEach((skill,i)=>{skill.shortDesc=copy.skills[i][1].split('\n')[0];skill.label=copy.skills[i][0];skill.desc=copy.skills[i][1];});
 }
 NEW_CLASSES.paladin.skills.forEach(s => { s.shortDesc = s.desc; });
+NEW_CLASSES.onmyoji.skills.forEach(s => { s.shortDesc = s.desc.split('\n')[0]; });
 export const NEW_ROLE_DETAILS = Object.fromEntries(Object.entries(NEW_CLASSES).map(([id,c]) => [id, {
-  roleName:c.name, enName:id[0].toUpperCase()+id.slice(1), avatar:c.avatar, hp:c.maxHp,
-  type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : id === 'paladin' ? '物理 / 坦鋒 / 守護' : '物理 / 戰術', passive:c.passive,
+  roleName:c.name, enName:id==='onmyoji'?'Onmyōji':id[0].toUpperCase()+id.slice(1), avatar:c.avatar, hp:c.maxHp,
+  type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'onmyoji' ? '魔法 / 咒術 / 削弱' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : id === 'paladin' ? '物理 / 坦鋒 / 守護' : '物理 / 戰術', passive:c.passive,
   skills:c.skills.map((s,i)=>({ type:i ? `${i} 技能`:'普攻', name:s.label, cd:`CD ${s.cd}`, dmgType:s.dmgType==='mag'?'【魔法】':s.dmgType==='phys'?'【物理】':'【輔助】', desc:s.desc })),
   equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc})).concat(id==='stargazer'?[{name:'克卜勒的深空天眼',desc:'同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。'}]:[])
 }]));

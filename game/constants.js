@@ -651,6 +651,7 @@ export const BATTLE_NARRATIVES = {
           return `🍃 **${name}** 揮動自然法杖，召喚林地原始的狂風重擊魔物！`;
         }
         if (role === 'paladin') return `🛡️✨ **${name}** 揮動聖光重錘砸向魔物，並引導神聖護盾庇護自身！`;
+        if (role === 'onmyoji') return `📜 **${name}** 念動真言施展【引符術】，靈符如電飛射，對魔物造成魔法打擊！`;
         return `🗡️ **${name}** 施展【普通攻擊】打擊魔物！`;
       }
       case 'w_strike':
@@ -718,6 +719,10 @@ export const BATTLE_NARRATIVES = {
         return `🛡️🎺 **${name}** 高唱【榮耀讚歌】，神聖光輝籠罩全身，並凝聚小隊鬥志轉化為庇護！`;
       case 'pal_grace':
         return `🛡️🕊️ **${name}** 詠唱【代受恩典】，以誓約承擔隊友的一切苦痛與負面厄運！`;
+      case 'onm_talisman':
+        return `📜 **${name}** 手捏靈訣擲出【五鬼攝魂符】，陰陽符咒化作幽光直貼魔物命門！`;
+      case 'onm_detonate':
+        return `📜💥 **${name}** 踏罡步斗高喝【急急如律令・百符引爆】，引爆魔物身上的所有符咒！`;
       default:
         return `⚔️ **${name}** 發動了行動！`;
     }
@@ -943,7 +948,7 @@ export function getActionPriority(actionId) {
   if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)
   if (actionId === 'b_heal') return 5; // 5. 治療 (Heal)
   if (actionId === 'dru_transform' || actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') return 6; // 6. 變身/召喚 (Transform / Summon)
-  if (actionId === 'a_rain') return 7; // 7. 敵方減益 (Enemy Debuff - 削弱敵方攻擊力)
+  if (actionId === 'a_rain' || actionId === 'onm_talisman') return 7; // 7. 敵方減益 (Enemy Debuff - 削弱敵方攻擊力 / 施加符咒)
   // 8. 攻擊技能 (Offensive Skills)
   // 【重要規範】:
   // - 法師【生命汲取】(m_drain): 依實際造成的魔法傷害計算回血，本質為攻擊技能，歸於 Priority 8。

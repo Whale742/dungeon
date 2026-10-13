@@ -385,7 +385,7 @@ function getRoleIconName(roleKey) {
     assassin: 'sword',
     bard: 'sparkle',
     alchemist: 'poison',
-    druid: 'summon', dreamweaver:'magic', stargazer:'sparkle', gladiator:'shield', samurai:'sword', sage:'info', paladin:'shield'
+    druid: 'summon', dreamweaver:'magic', stargazer:'sparkle', gladiator:'shield', samurai:'sword', sage:'info', paladin:'shield', onmyoji:'sparkle'
   };
   return map[roleKey] || 'user';
 }
@@ -4581,7 +4581,8 @@ const HERO_CLASS_PORTRAITS = [
   { key: 'stargazer', name: '觀星者', photo: '/photo/Stargazer.webp' },
   { key: 'dreamweaver', name: '織夢術士', photo: '/photo/Dreamweaver.webp' },
   { key: 'samurai', name: '武士', photo: '/photo/武士.webp' },
-  { key: 'sage', name: '智者', photo: '/photo/智者.webp' }
+  { key: 'sage', name: '智者', photo: '/photo/智者.webp' },
+  { key: 'onmyoji', name: '陰陽師', photo: '/photo/Onmyōji.webp' }
 ];
 
 function openAvatarChoiceModal() {

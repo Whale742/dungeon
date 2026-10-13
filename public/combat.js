@@ -110,6 +110,7 @@ const COMBAT_PRESENTATION_PROFILES = Object.freeze({
   gladiator:{fxType:'sword_slash',attackSfx:'warrior_skill1',impactSfx:'physical_hit'},
   samurai:{fxType:'sword_slash',attackSfx:'warrior_basic',impactSfx:'physical_hit'},
   sage:{fxType:'sword_slash',attackSfx:'mage_basic',impactSfx:'physical_hit'},
+  onmyoji:{fxType:'arcane_burst',attackSfx:'mage_basic',impactSfx:'magic_impact'},
   warrior: {
     attackSfx: 'warrior_xing',
     impactSfx: 'physical_hit',
