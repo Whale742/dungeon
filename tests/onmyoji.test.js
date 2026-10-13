@@ -152,23 +152,20 @@ test('五鬼攝魂符: 沒掉落就再次觸發每一個效果 (抽髓、惑心�
   const { room } = fixture(t, ['onmyoji']);
   room.currentMonster.hp = 1000;
   room.currentMonster.maxHp = 1000;
+  room.currentMonster.attack = 20;
   room.currentMonster.talismans = ['drain', 'confuse', 'blind', 'seal', 'corrode'];
 
   // All 5 talismans do NOT drop (roll 0.85 >= 0.70)
   room.currentMonster.talismanDropRng = () => 0.85;
-  // Confuse backlash triggers (roll 0.20 < 0.50 -> deals 10)
-  room.currentMonster.talismanConfuseRng = () => 0.20;
-  // Blind backlash triggers (roll 0.20 < 0.50 -> deals 5)
-  room.currentMonster.talismanBlindRng = () => 0.20;
-  // Seal nullification triggers (roll 0.10 < 0.35 -> sealedThisRound = true)
-  room.currentMonster.talismanSealRng = () => 0.10;
+  // Confuse backlash ratio = 50% of 20 = 10
+  room.currentMonster.talismanConfuseRatio = 0.50;
 
   room.executeRoundStart();
 
-  // Drain dealt 20 (2% of 1000), Confuse dealt 10, Blind dealt 5
-  // Total damage = 20 + 10 + 5 = 35
-  assert.equal(room.currentMonster.hp, 965, 'Monster HP: 1000 - 20 (drain) - 10 (confuse) - 5 (blind) = 965');
-  assert.equal(room.currentMonster.sealedThisRound, true, 'Seal nullification check should have succeeded');
+  // Drain dealt 20 (2% of 1000), Confuse dealt 10 (50% of 20 attack)
+  // Total damage = 20 + 10 = 30
+  assert.equal(room.currentMonster.hp, 970, 'Monster HP: 1000 - 20 (drain) - 10 (confuse) = 970');
+  assert.equal(room.currentMonster.sealedThisRound, true, 'Seal nullification should be set to true with 100% probability');
   assert.equal(room.currentMonster.talismans.length, 5, 'All 5 undropped talismans should remain');
 });
 
@@ -192,45 +189,48 @@ test('五鬼攝魂符: 蝕體符 grants 10% vulnerable damage boost stacking per
   assert.equal(room.currentMonster.hp, 977, '10 base * 1.20 = 12 damage dealt (989 - 12 = 977)');
 });
 
-test('五鬼攝魂符: 封勁符 nullifies monster damage for the turn', (t) => {
+test('五鬼攝魂符: 封勁符 has 100% chance to completely nullify monster damage for the turn', (t) => {
   const { room, resolve } = fixture(t, ['onmyoji']);
   const onm = room.players.p0;
   room.currentMonster.hp = 1000;
-  room.currentMonster.attack = 20;
+  room.currentMonster.attack = 50;
   room.currentMonster.talismans = ['seal'];
 
   onm.action = 'basic';
-  resolve(0.10);
-  // Player should receive 0 damage
-  assert.equal(onm.hp, onm.maxHp, 'Player should take 0 damage when seal triggers');
+  resolve();
+  // Player should receive 0 damage (100% nullified)
+  assert.equal(onm.hp, onm.maxHp, 'Player should take 0 damage when seal is present (100% nullification)');
 });
 
-test('五鬼攝魂符: 惑心符 causes monster self-damage on attack', (t) => {
+test('五鬼攝魂符: 惑心符 causes monster to inflict 50%~100% of attack damage on itself', (t) => {
   const { room, resolve } = fixture(t, ['onmyoji']);
   const onm = room.players.p0;
   room.currentMonster.hp = 1000;
-  room.currentMonster.attack = 0;
+  room.currentMonster.attack = 30;
   room.currentMonster.talismans = ['confuse'];
+  room.currentMonster.talismanConfuseRatio = 0.80; // 80% of 30 = 24 backlash
 
-  onm.action = 'basic'; // deals 10 damage
-  resolve(0.10);
-  // Monster takes 10 (basic) + 10 (confuse backlash) = 20 damage!
-  assert.equal(room.currentMonster.hp, 980, 'Monster should take 10 basic + 10 confuse backlash = 20 total');
+  onm.action = 'basic'; // deals 10 magic damage
+  resolve();
+  // Monster takes 10 (basic) + 24 (80% of 30 attack) = 34 damage!
+  assert.equal(room.currentMonster.hp, 966, 'Monster should take 10 basic + 24 confuse backlash = 34 total (1000 - 34 = 966)');
 });
 
-test('五鬼攝魂符: 障目符 causes monster attack Miss and backlash check', (t) => {
+test('五鬼攝魂符: 障目符 causes attack to have 60%~100% of not hurting our side (Miss)', (t) => {
   const { room, resolve } = fixture(t, ['onmyoji']);
   const onm = room.players.p0;
   room.currentMonster.hp = 1000;
   room.currentMonster.attack = 20;
   room.currentMonster.talismans = ['blind'];
+  room.currentMonster.talismanBlindAvoidRate = 0.80;
+  room.currentMonster.talismanBlindMiss = true;
 
   onm.action = 'basic'; // deals 10
-  resolve(0.10);
+  resolve();
   // Attack missed: player takes 0 damage
   assert.equal(onm.hp, onm.maxHp, 'Player takes 0 damage on blind miss');
-  // Monster took 10 basic + 5 blind backlash = 15 total
-  assert.equal(room.currentMonster.hp, 985, 'Monster takes 10 basic + 5 blind backlash = 15');
+  // Monster took only 10 basic damage (blind has no backlash now)
+  assert.equal(room.currentMonster.hp, 990, 'Monster takes 10 basic damage and no backlash');
 });
 
 test('Skill 2 (急急如律令・百符引爆): 0 talismans deals 0 damage', (t) => {

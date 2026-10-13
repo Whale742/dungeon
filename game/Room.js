@@ -1533,41 +1533,22 @@ export class Room {
               log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 2%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'damage' });
             }
           } else if (talisman === 'confuse') {
-            const backlashRoll = typeof monster.talismanConfuseRng === 'function' ? monster.talismanConfuseRng() : Math.random();
-            if (backlashRoll < 0.50) {
-              const confuseDmg = 10;
-              monster.hp = Math.max(0, monster.hp - confuseDmg);
-              visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: confuseDmg, label: '惑心反噬' });
-              if (monster.hp <= 0) {
-                log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發自殘反噬檢定！魔物心智混亂反噬自身受到 ${confuseDmg} 點傷害倒下！💀`, type: 'warning' });
-              } else {
-                log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發自殘反噬檢定！魔物心智混亂反噬自身受到 ${confuseDmg} 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-              }
+            const confuseRatio = typeof monster.talismanConfuseRatio === 'number'
+              ? monster.talismanConfuseRatio
+              : (0.50 + Math.random() * 0.50);
+            const confuseDmg = Math.max(1, Math.round((monster.attack || 20) * confuseRatio));
+            monster.hp = Math.max(0, monster.hp - confuseDmg);
+            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: confuseDmg, label: '惑心反噬' });
+            if (monster.hp <= 0) {
+              log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身倒下！💀`, type: 'warning' });
             } else {
-              log.push({ text: `📜🌀 **【惑心符】** 未掉落再次觸發！魔物心智受惑混亂，干擾持續！`, type: 'buff' });
+              log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
             }
           } else if (talisman === 'blind') {
-            const backlashRoll = typeof monster.talismanBlindRng === 'function' ? monster.talismanBlindRng() : Math.random();
-            if (backlashRoll < 0.50) {
-              const blindDmg = 5;
-              monster.hp = Math.max(0, monster.hp - blindDmg);
-              visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: blindDmg, label: '障目反噬' });
-              if (monster.hp <= 0) {
-                log.push({ text: `📜👁️💥 **【障目符】** 未掉落再次觸發自殘反噬檢定！魔物視界受障失衡反噬自身受到 ${blindDmg} 點傷害倒下！💀`, type: 'warning' });
-              } else {
-                log.push({ text: `📜👁️💥 **【障目符】** 未掉落再次觸發自殘反噬檢定！魔物視界受障失衡反噬自身受到 ${blindDmg} 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-              }
-            } else {
-              log.push({ text: `📜👁️ **【障目符】** 未掉落再次觸發！魔物視界持續受障，攻擊命中率大幅下降！`, type: 'buff' });
-            }
+            log.push({ text: `📜👁️ **【障目符】** 未掉落再次觸發！魔物視界持續受障，攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！`, type: 'buff' });
           } else if (talisman === 'seal') {
-            const sealRoll = typeof monster.talismanSealRng === 'function' ? monster.talismanSealRng() : Math.random();
-            if (sealRoll < 0.35) {
-              monster.sealedThisRound = true;
-              log.push({ text: `📜🔒 **【封勁符】** 未掉落再次進行當回合傷害無效化檢定：檢定成功！封鎖魔物氣勁，當前回合魔物將完全無法造成傷害！`, type: 'buff' });
-            } else {
-              log.push({ text: `📜🔒 **【封勁符】** 未掉落再次進行當回合傷害無效化檢定：咒印封鎖持續施壓！`, type: 'buff' });
-            }
+            monster.sealedThisRound = true;
+            log.push({ text: `📜🔒 **【封勁符】** 未掉落再次觸發！封鎖魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
           } else if (talisman === 'corrode') {
             log.push({ text: `📜🩸 **【蝕體符】** 未掉落再次結算易傷判定！魔物肉體受蝕，受到的所有攻擊傷害提升 10%！`, type: 'buff' });
           }
@@ -3101,20 +3082,20 @@ export class Room {
           const count = monster.talismans.length;
 
           if (talisman === 'blind') {
-            actionOutcome = { type: 'talisman_blind', label: '障目符', secondary: '命中下降' };
-            log.push({ text: `📜👁️ **${p.name}** 擲出【五鬼攝魂符・障目符】！目標攻擊命中率大幅下降，攻擊時有更高機率判定為 Miss，並觸發自殘反噬檢定！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            actionOutcome = { type: 'talisman_blind', label: '障目符', secondary: '命中大幅下降' };
+            log.push({ text: `📜👁️ **${p.name}** 擲出【五鬼攝魂符・障目符】！目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '障目符' });
           } else if (talisman === 'seal') {
-            actionOutcome = { type: 'talisman_seal', label: '封勁符', secondary: '封勁無效化' };
-            log.push({ text: `📜🔒 **${p.name}** 擲出【五鬼攝魂符・封勁符】！目標有機率在當前回合完全不造成任何傷害，並進行傷害無效化檢定！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            actionOutcome = { type: 'talisman_seal', label: '封勁符', secondary: '100%封勁' };
+            log.push({ text: `📜🔒 **${p.name}** 擲出【五鬼攝魂符・封勁符】！目標有 100% 機率在當前回合完全不造成任何傷害！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '封勁符' });
           } else if (talisman === 'corrode') {
             actionOutcome = { type: 'talisman_corrode', label: '蝕體符', secondary: '易傷 +10%' };
             log.push({ text: `📜🩸 **${p.name}** 擲出【五鬼攝魂符・蝕體符】！目標進入易傷狀態，受到的所有攻擊傷害提升 10%！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '蝕體符' });
           } else if (talisman === 'confuse') {
-            actionOutcome = { type: 'talisman_confuse', label: '惑心符', secondary: '惑心自傷' };
-            log.push({ text: `📜🌀 **${p.name}** 擲出【五鬼攝魂符・惑心符】！目標陷入心智混亂，出手時對自己造成傷害，並觸發自殘反噬檢定！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            actionOutcome = { type: 'talisman_confuse', label: '惑心符', secondary: '惑心反噬' };
+            log.push({ text: `📜🌀 **${p.name}** 擲出【五鬼攝魂符・惑心符】！目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '惑心符' });
           } else if (talisman === 'drain') {
             actionOutcome = { type: 'talisman_drain', label: '抽髓符', secondary: '削血 2%' };
@@ -3123,7 +3104,7 @@ export class Room {
             const totalDrain = singleDrain * drainCount;
             monster.hp = Math.max(0, monster.hp - totalDrain);
             const drainNote = drainCount > 1 ? `（觸發 ${drainCount} 重削血，共扣除 ${totalDrain} 點）` : `（扣除 ${totalDrain} 點）`;
-            log.push({ text: `📜💀 **${p.name}** 擲出【五鬼攝魂符・抽髓符】！抽取目標生命精髓，扣除目標最大生命值 2% 血量${drainNote}！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜💀 **${p.name}** 擲出【五鬼攝魂符・抽髓符】！扣除目標最大生命值 2% 的血量${drainNote}！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
           }
           break;
@@ -3435,35 +3416,33 @@ export class Room {
       if(!this.arena && this.p8Has(monster,'sage_square')?.starts<=this.battleRound)baseDamageCalc=Math.floor(baseDamageCalc*.75);
       if(monster.corrosionTurns > 0)baseDamageCalc=Math.floor(baseDamageCalc*0.95);
 
-      // 惑心符：目標陷入心智混亂，出手時對自己造成傷害。再次觸發自殘反噬檢定。
+      // 惑心符：目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身。
       const confuseCount = (monster.talismans || []).filter(t => t === 'confuse').length;
       if (confuseCount > 0) {
-        let backlashDmg = 0;
+        let totalBacklashDmg = 0;
+        let totalRatioPercent = 0;
+        const attackDmg = Math.max(1, baseDamageCalc);
         for (let i = 0; i < confuseCount; i++) {
-          if (Math.random() < 0.50) {
-            backlashDmg += 10;
-          }
+          const ratio = typeof monster.talismanConfuseRatio === 'number'
+            ? monster.talismanConfuseRatio
+            : (0.50 + Math.random() * 0.50);
+          const dmg = Math.max(1, Math.round(attackDmg * ratio));
+          totalBacklashDmg += dmg;
+          totalRatioPercent += Math.round(ratio * 100);
         }
-        if (backlashDmg > 0) {
-          monster.hp = Math.max(0, monster.hp - backlashDmg);
-          log.push({ text: `📜🌀 **【惑心符】** 心智錯亂！魔物出手反擊時陷入混亂，反噬自身受到 **${backlashDmg}** 點自殘傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-          visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: backlashDmg, label: '惑心反噬' });
+        if (totalBacklashDmg > 0) {
+          monster.hp = Math.max(0, monster.hp - totalBacklashDmg);
+          const ratioText = confuseCount > 1 ? `（${confuseCount} 重惑心，共 ${totalRatioPercent}%）` : `（${totalRatioPercent}%）`;
+          log.push({ text: `📜🌀 **【惑心符】** 心智混亂！魔物出手時將造成的傷害${ratioText}作用在自身，反噬受到 **${totalBacklashDmg}** 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
+          visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
         }
       }
 
-      // 封勁符：目標有機率在當前回合完全不造成任何傷害。再次進行當回合傷害無效化檢定。
+      // 封勁符：目標有 100% 機率在當前回合完全不造成任何傷害。
       const sealCount = (monster.talismans || []).filter(t => t === 'seal').length;
-      let sealTriggered = Boolean(monster.sealedThisRound);
-      if (!sealTriggered && sealCount > 0) {
-        for (let i = 0; i < sealCount; i++) {
-          if (Math.random() < 0.35) {
-            sealTriggered = true;
-            break;
-          }
-        }
-      }
+      let sealTriggered = Boolean(monster.sealedThisRound) || sealCount > 0;
       if (sealTriggered && !monster.sealedThisRound) {
-        log.push({ text: `📜🔒 **【封勁符】** 咒印爆發！封鎖了魔物全部氣勁，魔物當前回合完全無法造成任何傷害！`, type: 'buff' });
+        log.push({ text: `📜🔒 **【封勁符】** 咒印爆發！封鎖了魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
       }
 
       const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
@@ -3611,26 +3590,25 @@ export class Room {
           continue;
         }
 
-        // 障目符：目標攻擊命中率大幅下降，攻擊時有更高機率判定為 Miss（失誤）。再次觸發自殘反噬檢定。
+        // 障目符：目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。
         const blindCount = (monster.talismans || []).filter(t => t === 'blind').length;
-        let blindMiss = false;
         if (blindCount > 0) {
-          for (let i = 0; i < blindCount; i++) {
-            if (Math.random() < 0.30) {
-              blindMiss = true;
-              break;
-            }
+          const avoidRate = typeof monster.talismanBlindAvoidRate === 'number'
+            ? monster.talismanBlindAvoidRate
+            : (0.60 + Math.random() * 0.40);
+          const isFullMiss = typeof monster.talismanBlindMiss === 'boolean'
+            ? monster.talismanBlindMiss
+            : (Math.random() < avoidRate);
+
+          if (isFullMiss) {
+            log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊判定有 ${Math.round(avoidRate * 100)}% 不對我方造成傷害，攻擊判定為 Miss（失誤），未能命中 **${p.name}**！`, type: 'buff' });
+            monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge', label: 'MISS' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
+            continue;
+          } else {
+            // 若未直接判定完全失誤，此次攻擊依然有 60%~100% 的傷害不對我方造成傷害
+            playerRawScatter[p.id] = Math.round((playerRawScatter[p.id] || 0) * (1 - avoidRate));
+            log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊有 ${Math.round(avoidRate * 100)}% 的傷害未對 **${p.name}** 生效！`, type: 'buff' });
           }
-        }
-        if (blindMiss) {
-          log.push({ text: `📜👁️ **【障目符】** 遮蔽視界！魔物反擊判定為 Miss（失誤），未能命中 **${p.name}**！`, type: 'buff' });
-          if (Math.random() < 0.50) {
-            monster.hp = Math.max(0, monster.hp - 5);
-            log.push({ text: `📜👁️💥 **【障目符】** 觸發自殘反噬檢定！魔物揮空失衡對自身造成 5 點反噬傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: 5, label: '障目反噬' });
-          }
-          monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge', label: 'MISS' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
-          continue;
         }
 
         const totalRawAssigned = aoeDmgRaw + (playerRawScatter[p.id] || 0);
