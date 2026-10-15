@@ -1136,7 +1136,8 @@ const DEFAULT_ROLE_AVATARS = {
   assassin: { name: '刺客', avatar: '/photo/Assassin.webp', icon: 'sword' },
   bard: { name: '吟遊詩人', avatar: '/photo/Bard.webp', icon: 'volume-on' },
   alchemist: { name: '鍊金術士', avatar: '/photo/Alchemist.webp', icon: 'flask' },
-  druid: { name: '德魯伊', avatar: '/photo/Druid.webp', icon: 'paw' }
+  druid: { name: '德魯伊', avatar: '/photo/Druid.webp', icon: 'paw' },
+  onmyoji: { name: '陰陽師', avatar: '/photo/Onmyōji.webp', icon: 'sparkle' }
 };
 
 // One resolver for HUD, cast, attacks, results and Lab. Explicit form always wins.
