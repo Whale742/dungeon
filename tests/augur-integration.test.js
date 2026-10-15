@@ -184,7 +184,7 @@ test('Augur observation and reselection are real round-start events',()=>{
 test('Augur lab is reproducible real settlement data, covering failure, caps, equipment and death',()=>{
   const scenes=buildAugurLabScenes();assert(Object.keys(scenes).length>=25);
   for(const scene of Object.values(scenes)) {assert(scene.steps.length>0,scene.label);assert(scene.expected);for(const step of scene.steps){assert(step.hpSnapshotBefore);assert(step.hpSnapshot);}}
-  const source=fs.readFileSync(new URL('../public/augur-lab-scenes.js',import.meta.url),'utf8');assert.equal(source,augurLabSource());
+  const source=fs.readFileSync(new URL('../public/augur-lab-scenes.js',import.meta.url),'utf8');assert.equal(source.replace(/\r\n/g,'\n'),augurLabSource());
   const context=vm.createContext({});vm.runInContext(source+';globalThis.scenes=AUGUR_LAB_SCENES;',context);
   assert.deepEqual(JSON.parse(JSON.stringify(context.scenes)),JSON.parse(JSON.stringify(scenes)));
 });
