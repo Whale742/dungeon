@@ -12,9 +12,10 @@ const LOBBY_ROLE_PROFILES = Object.freeze(Object.fromEntries(Object.entries({
   stargazer:{enName:'Stargazer',tags:['SUPPORT','魔法','天象'],radar:['A','B','A','B','A'],passiveSummary:'觀測天象揭曉隨機結果，操控全隊技能冷卻與戰鬥節奏。'},
   dreamweaver:{enName:'Dreamweaver',tags:['SUPPORT','夢境','因果'],radar:['B','B','S','A','A'],passiveSummary:'編織夢境與扭曲因果，運用潛意識混淆、夢蝶迷思與偽造殘夢。'},
   samurai:{enName:'Samurai',tags:['DPS','物理','招架'],radar:['S','A','C','B','A'],passiveSummary:'積累武魂，以狂刀招架反擊，再施展秘劍 • 燕返。'},
-  sage:{enName:'Sage',tags:['DPS','物理','演算'],radar:['A','C','B','C','S'],passiveSummary:'交替進行假設與求解，以運算元與變量推導方程結算。'}
+  sage:{enName:'Sage',tags:['DPS','物理','演算'],radar:['A','C','B','C','S'],passiveSummary:'交替進行假設與求解，以運算元與變量推導方程結算。'},
+  augur:{enName:'Augur',tags:['SUPPORT','魔法','預言','命債'],radar:['C','C','S','A','B'],passiveSummary:'鎖定一名隊友為【觀測目標】使其基礎數值提高 20%，並以【正位／逆位】干涉正負面機率；卜者造成直接魔傷時降低敵方效果抗性。'}
 }).map(([id,profile])=>[id,{...profile,radar:profile.radar.map(grade=>({S:5,A:4,B:3,C:2,D:1})[grade])}])));
-const LOBBY_ROLE_ORDER=['warrior','mage','archer','assassin','bard','alchemist','druid','paladin','gladiator','stargazer','dreamweaver','samurai','sage'];
+const LOBBY_ROLE_ORDER=['warrior','mage','archer','assassin','bard','alchemist','druid','paladin','gladiator','stargazer','dreamweaver','samurai','sage','augur'];
 const LOBBY_RADAR_AXES=['輸出','生存','團隊','穩定性','難度'];
 const LOBBY_RADAR_VALUES={S:5,A:4,B:3,C:2,D:1};
 function getLobbyProfile(role){const base=LOBBY_ROLE_PROFILES[role],p=window.StudioContent?.find('role_profiles',role);return p?{...base,enName:p.name_en,tags:p.tags,passiveSummary:p.passive_short,radar:['radar_output','radar_survival','radar_team','radar_stability','radar_difficulty'].map(f=>p[f])}:base;}

@@ -1,6 +1,6 @@
 // Phase 8 hooks in Room's existing action, damage, shield and lifecycle owners.
 import { getFloorDifficultyMultiplier } from './constants.js';
-export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage'];
+export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage','augur'];
 export const countEquip = (p,id) => (p.equips || []).filter(e=>e.id===id).length;
 const alive = room => Object.values(room.players).filter(p=>p.hp>0);
 const roll = list => list[Math.min(list.length-1,Math.floor(Math.random()*list.length))];
@@ -39,17 +39,28 @@ export function p8State(p,room) {
       effects.push({id:'sage_equation',icon:'buff',label:p.sagePhase==='solve'?'求解':'假設',value:p.sageOperand??0});
       if(p.sageDebt)effects.push({id:'sage_debt',icon:'debuff',label:'變量透支・下次可行動支付',value:p.sageDebt});
     }
+    if(p.role==='augur') {
+      const cardLabels = { empty: '空象', upright: '正位', reversed: '逆位' };
+      effects.push({id:'augur_card',icon:'buff',label:cardLabels[p.augurCardState] || '空象'});
+    }
   }
   const x = p.sageX ?? 30;
+  const augurTotalDebt = (p.augurFateDebts || []).reduce((n, d) => n + d.amount, 0);
+  const augurTarget = room.players[p.observedTargetId];
+  const augurTargetName = augurTarget ? (augurTarget.id === p.id ? '自身' : augurTarget.name) : '尚未建立觀測';
   const resource=p.role==='sage'?`變量(X) ${x}${p.sageDebt?` · 待付透支 ${p.sageDebt}`:''} · 運算元 ${p.sageOperand ?? 0} · ${p.sagePhase==='solve'?'求解':'假設'}`:
     p.role==='samurai'?`武魂 ${p.soul||0}/8${p.kyoutou?' · 狂刀':''}`:
     p.role==='gladiator'?`怒氣 ${p.rage||0} · 血祭 ${p.bloodStacks||0}${room.arena?.playerId===p.id?' · 死亡角鬥場':''}`:
+    p.role==='augur'?`命債 ${augurTotalDebt}/60 · ${ {empty:'空象',upright:'正位',reversed:'逆位'}[p.augurCardState]||'空象' } · 觀測【${augurTargetName}】${p.augurBindingBoostRound === room.battleRound ? ' · 繫結加成' : ''}`:
     p.role==='warrior'?`受傷攻擊 +${p.warriorStacks||0}/15`:'';
   return {resourceSummary:resource, sageX:x, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
     sageDebt:p.sageDebt||0,sageConfusionChance:sageConfusionChance(x),
     ...(p.role==='sage'?{sageEquationPreview:sageEquationPreview(p,room)}:{}),
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
+    augurDebt: augurTotalDebt, augurDebts: p.augurFateDebts || [],
+    augurCardState: p.augurCardState || 'empty', augurObservedTargetId: p.observedTargetId || null,
+    augurBindingBoost: p.augurBindingBoostRound === room.battleRound,
     arenaActive:!!room.arena && room.arena.playerId===p.id,
     arenaBlocked:!!room.arena && room.arena.playerId!==p.id, noReviveThisFloor:p.noReviveFloor===room.floor,
     phase8Statuses:effects};
@@ -95,6 +106,173 @@ export const phase8Methods = {
       if(used&&shield.value===0)shield.broken=true;
     }
   },
+  getAugurTotalDebt(p) {
+    return (p?.augurFateDebts || []).reduce((n, d) => n + d.amount, 0);
+  },
+  addAugurDebt(augur, amount) {
+    amount = Math.round(amount);
+    if (amount <= 0) return 0;
+    const current = this.getAugurTotalDebt(augur);
+    const actual = Math.max(0, Math.min(amount, 60 - current));
+    if (actual <= 0) return 0;
+    const hasForbiddenTome = (augur.equips || []).some(e => e.id === 'aug_forbidden_tome');
+    const duration = hasForbiddenTome ? 1 : 2;
+    augur.augurFateDebts ||= [];
+    augur.augurFateDebts.push({ amount: actual, createdRound: this.battleRound, dueRound: this.battleRound + duration });
+    if (hasForbiddenTome && this.currentMonster && this.currentMonster.hp > 0) {
+      const trueDmg = Math.round(actual * 0.5);
+      if (trueDmg > 0) {
+        this.currentMonster.hp = Math.max(0, this.currentMonster.hp - trueDmg);
+        this.p8Log(`📖💥 **${augur.name}**【禁忌厄運聖契】共鳴！新增命債轉化為 **${trueDmg}** 點真傷直擊 Boss！`, 'damage');
+      }
+    }
+    return actual;
+  },
+  repayAugurDebt(augur, amount, source = 'skill') {
+    amount = Math.round(amount);
+    if (amount <= 0 || !augur?.augurFateDebts || augur.augurFateDebts.length === 0) return 0;
+    augur.augurFateDebts.sort((a, b) => a.dueRound - b.dueRound);
+    let remaining = amount;
+    let paid = 0;
+    while (remaining > 0 && augur.augurFateDebts.length > 0) {
+      const front = augur.augurFateDebts[0];
+      const deduct = Math.min(remaining, front.amount);
+      front.amount -= deduct;
+      remaining -= deduct;
+      paid += deduct;
+      if (front.amount <= 0) augur.augurFateDebts.shift();
+    }
+    if (paid > 0 && source === 'skill') {
+      const hasForbiddenTome = (augur.equips || []).some(e => e.id === 'aug_forbidden_tome');
+      if (hasForbiddenTome && this.currentMonster && this.currentMonster.hp > 0) {
+        const trueDmg = Math.round(paid * 0.5);
+        if (trueDmg > 0) {
+          this.currentMonster.hp = Math.max(0, this.currentMonster.hp - trueDmg);
+          this.p8Log(`📖💥 **${augur.name}**【禁忌厄運聖契】共鳴！清償命債轉化為 **${trueDmg}** 點真傷直擊 Boss！`, 'damage');
+        }
+      }
+    }
+    return paid;
+  },
+  deductAugurDebtPassive(player, healAmount) {
+    if (!player || player.role !== 'augur' || !player.augurFateDebts || player.augurFateDebts.length === 0 || healAmount <= 0) {
+      return { remainingHeal: healAmount, debtPaid: 0 };
+    }
+    player.augurFateDebts.sort((a, b) => a.dueRound - b.dueRound);
+    let remainingHeal = healAmount;
+    let debtPaid = 0;
+    while (remainingHeal > 0 && player.augurFateDebts.length > 0) {
+      const front = player.augurFateDebts[0];
+      const deduct = Math.min(remainingHeal, front.amount);
+      front.amount -= deduct;
+      remainingHeal -= deduct;
+      debtPaid += deduct;
+      if (front.amount <= 0) player.augurFateDebts.shift();
+    }
+    if (debtPaid > 0) {
+      this.p8Log(`🔮 **${player.name}** 接受治療，優先抵銷了 **${debtPaid}** 點【命債】！剩餘命債：**${this.getAugurTotalDebt(player)}** 點。`, 'heal');
+    }
+    return { remainingHeal, debtPaid };
+  },
+  selectDefaultObservedTarget(augur) {
+    const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0 && pl.id !== augur.id);
+    if (!livingAllies.length) return augur.id;
+    const tier1Roles = ['mage', 'sage', 'assassin', 'samurai', 'archer', 'alchemist'];
+    const tier2Roles = ['bard', 'warrior', 'paladin'];
+    const tier3Roles = ['gladiator', 'druid', 'stargazer', 'dreamweaver'];
+    const t1 = livingAllies.filter(pl => tier1Roles.includes(pl.role));
+    if (t1.length) return t1[Math.floor(Math.random() * t1.length)].id;
+    const t2 = livingAllies.filter(pl => tier2Roles.includes(pl.role));
+    if (t2.length) return t2[Math.floor(Math.random() * t2.length)].id;
+    const t3 = livingAllies.filter(pl => tier3Roles.includes(pl.role));
+    if (t3.length) return t3[Math.floor(Math.random() * t3.length)].id;
+    return livingAllies[Math.floor(Math.random() * livingAllies.length)].id;
+  },
+  getFateBlessing(player) {
+    if (!player) return 0;
+    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id);
+    if (!augurs.length) return 0;
+    let maxB = 0;
+    for (const augur of augurs) {
+      let b = (augur.augurBindingBoostRound === this.battleRound) ? 0.25 : 0.20;
+      const n = countEquip(augur, 'aug_amethyst');
+      b += 0.05 * n;
+      if (b > maxB) maxB = b;
+    }
+    return maxB;
+  },
+  applyFateBlessing(player, originalBaseValue) {
+    const b = this.getFateBlessing(player);
+    if (b <= 0) return originalBaseValue;
+    return Math.round(originalBaseValue * (1 + b));
+  },
+  checkAlchemistFateInterference(player) {
+    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
+    if (!augurs.length) {
+      return { isSuccess: Math.random() < 0.50, intercepted: false };
+    }
+    const augur = augurs[0];
+    const P_neg = 50;
+    const M_red = (augur.augurBindingBoostRound === this.battleRound) ? 25 : 20;
+    const D = Math.min(P_neg, M_red);
+    const R = Math.random() * 100;
+    if (R < 50) {
+      return { isSuccess: true, intercepted: false };
+    } else if (R < 50 + D) {
+      augur.augurIntervenedThisRound = true;
+      augur.augurCardState = 'reversed';
+      let debt = Math.min(20, D);
+      if (countEquip(augur, 'aug_gilded_box')) debt = Math.max(5, debt - 5);
+      this.addAugurDebt(augur, debt);
+      this.p8Log(`🃏🌑 **${augur.name}** 水晶球感應厄運，諭示牌轉為【逆位】！成功為 **${player.name}** 攔截【命運煉成試劑・煉金失敗】的負面失誤，封存厄運轉化為 **${debt}** 點【命債】！`, 'buff');
+      return { isSuccess: true, intercepted: true, debt };
+    } else {
+      return { isSuccess: false, intercepted: false };
+    }
+  },
+  checkNegativeFateInterference(player, baseNegChance, skillName) {
+    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
+    if (!augurs.length) {
+      return { occurred: Math.random() < baseNegChance / 100, intercepted: false };
+    }
+    const augur = augurs[0];
+    const P_neg = baseNegChance;
+    const M_red = (augur.augurBindingBoostRound === this.battleRound) ? 25 : 20;
+    const D = Math.min(P_neg, M_red);
+    const R = Math.random() * 100;
+    if (R < P_neg - D) {
+      return { occurred: true, intercepted: false };
+    } else if (R < P_neg) {
+      augur.augurIntervenedThisRound = true;
+      augur.augurCardState = 'reversed';
+      let debt = Math.min(20, D);
+      if (countEquip(augur, 'aug_gilded_box')) debt = Math.max(5, debt - 5);
+      this.addAugurDebt(augur, debt);
+      this.p8Log(`🃏🌑 **${augur.name}** 水晶球感應厄運，諭示牌轉為【逆位】！成功為 **${player.name}** 攔截【${skillName}】的負面失誤，封存厄運轉化為 **${debt}** 點【命債】！`, 'buff');
+      return { occurred: false, intercepted: true, debt };
+    } else {
+      return { occurred: false, intercepted: false };
+    }
+  },
+  checkPositiveFateInterference(player, basePosChance, skillName) {
+    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
+    if (!augurs.length) {
+      return { success: Math.random() < basePosChance / 100, boosted: false };
+    }
+    const augur = augurs[0];
+    let M_pos = (augur.augurBindingBoostRound === this.battleRound) ? 20 : 15;
+    if (countEquip(augur, 'aug_gilded_box')) M_pos += 5;
+    const finalChance = Math.min(100, basePosChance + M_pos);
+    const R = Math.random() * 100;
+    const success = R < finalChance;
+    if (success) {
+      augur.augurIntervenedThisRound = true;
+      augur.augurCardState = 'upright';
+      this.p8Log(`🃏🌟 **${augur.name}** 水晶球光芒凝聚，諭示牌轉為【正位】！順應命運使 **${player.name}** 的【${skillName}】正面機率提升至 **${finalChance}%** 並成功觸發！`, 'buff');
+      return { success: true, boosted: true };
+    }
+    return { success: false, boosted: true };
+  },
   p8RefreshEquipment() {
     const globalCorrosion = this.roundModifiers?.equipmentEffectMultiplier ?? 1;
     const teamHp = Object.values(this.players).reduce((n, p) => {
@@ -103,7 +281,7 @@ export const phase8Methods = {
     }, 0);
     for (const p of Object.values(this.players)) {
       const corrosion = (p.corrosionTurns > 0) ? 0.5 : globalCorrosion;
-      const corroded = (p.equips || []).filter(e => /^(dw_|sg_|g_|sa_|sge_|pal_)/.test(e.id)).reduce((n, e) => n + (e.bonusHp || 0) - Math.floor((e.bonusHp || 0) * corrosion), 0);
+      const corroded = (p.equips || []).filter(e => /^(dw_|sg_|g_|sa_|sge_|pal_|aug_)/.test(e.id)).reduce((n, e) => n + (e.bonusHp || 0) - Math.floor((e.bonusHp || 0) * corrosion), 0);
       const disabled = countEquip(p, 'sa_murasame') ? countEquip(p, 'sa_haori') * Math.floor(20 * corrosion) : 0;
       const delta = teamHp - (p.p8TeamHp || 0) - disabled + (p.p8DisabledHp || 0) - corroded + (p.p8CorrodedHp || 0);
       p.maxHp = Math.max(1, p.maxHp + delta); if (p.hp > 0) p.hp = Math.max(1, Math.min(p.maxHp, p.hp + delta));
@@ -120,6 +298,13 @@ export const phase8Methods = {
       delete p.sageDebtScheduledRound; // Pending payment survives; next battle is eligible.
       delete p.sagePreviousAction;delete p.sageLastAction;p.sagePrimeResetPending=false;
       p.sageInduction=false;p.sageSamplingEnded=true;p.sageEquationResolved=false;p.sageSolvedThisRound=false;
+      if (p.role === 'augur') {
+        p.augurFateDebts = [];
+        p.augurCardState = 'empty';
+        p.augurIntervenedThisRound = false;
+        delete p.augurBindingBoostRound;
+        p.observedTargetId = this.selectDefaultObservedTarget(p);
+      }
     }
     if(this.currentMonster)this.currentMonster.p8Effects={};
     this.p8RefreshEquipment();
@@ -198,7 +383,29 @@ export const phase8Methods = {
           const tracked = p.paladinGloryTrackedDamage || 0;
           let gloryShield = Math.floor(tracked * 0.70);
           const penaltyRate = (p.equips || []).some(e => e.id === 'pal_cuirass') ? 0.15 : 0.40;
-          const hasPenalty = Math.random() < penaltyRate;
+          const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+          const augur = augurs[0];
+          const r = Math.random();
+          let hasPenalty = false;
+          if (!augur) {
+            hasPenalty = r < penaltyRate;
+          } else {
+            const M_red = (augur.augurBindingBoostRound === this.battleRound) ? 0.25 : 0.20;
+            const D = Math.min(penaltyRate, M_red);
+            if (r < penaltyRate - D) {
+              hasPenalty = true;
+            } else if (r < penaltyRate) {
+              hasPenalty = false;
+              augur.augurIntervenedThisRound = true;
+              augur.augurCardState = 'reversed';
+              let debt = Math.min(20, Math.round(D * 100));
+              if (countEquip(augur, 'aug_gilded_box')) debt = Math.max(5, debt - 5);
+              this.addAugurDebt(augur, debt);
+              this.p8Log(`🃏🌑 **${augur.name}** 水晶球感應厄運，諭示牌轉為【逆位】！成功為 **${p.name}** 攔截【榮耀讚歌・殘缺祝福】，封存厄運轉化為 **${debt}** 點【命債】！`, 'buff');
+            } else {
+              hasPenalty = false;
+            }
+          }
           if (hasPenalty) gloryShield = Math.floor(gloryShield * 0.50);
           gloryShield = Math.min(gloryShield, p.maxHp);
           if (gloryShield > 0) {
@@ -212,7 +419,29 @@ export const phase8Methods = {
         }
         if(p.paladinGrace && this.battleRound >= p.paladinGrace.startRound + 2) {
           const intercepted = p.paladinGrace.interceptedDamage || 0;
-          const gainShield = Math.random() < 0.50;
+          const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+          const augur = augurs[0];
+          const r = Math.random();
+          let gainShield = false;
+          if (!augur) {
+            gainShield = r < 0.50;
+          } else {
+            const M_red = (augur.augurBindingBoostRound === this.battleRound) ? 0.25 : 0.20;
+            const threshold = 0.50 + M_red;
+            if (r < 0.50) {
+              gainShield = true;
+            } else if (r < threshold) {
+              gainShield = true;
+              augur.augurIntervenedThisRound = true;
+              augur.augurCardState = 'reversed';
+              let debt = Math.min(20, Math.round(M_red * 100));
+              if (countEquip(augur, 'aug_gilded_box')) debt = Math.max(5, debt - 5);
+              this.addAugurDebt(augur, debt);
+              this.p8Log(`🃏🌑 **${augur.name}** 水晶球感應厄運，諭示牌轉為【逆位】！成功為 **${p.name}** 攔截【代受恩典・不獲護盾】，封存厄運轉化為 **${debt}** 點【命債】！`, 'buff');
+            } else {
+              gainShield = false;
+            }
+          }
           if (gainShield && intercepted > 0) {
             const shieldVal = Math.floor(intercepted * 0.50);
             if (shieldVal > 0) {
@@ -223,6 +452,16 @@ export const phase8Methods = {
             this.p8Log(`🛡️ **${p.name}**【代受恩典】持續時間結束，未能獲得護盾（50% 機率判定）。`, 'info');
           }
           p.paladinGrace = null;
+        }
+      }
+      if(p.role==='augur'&&p.hp>0) {
+        p.augurIntervenedThisRound = false;
+        p.augurCardState = 'empty';
+        const target = this.players[p.observedTargetId];
+        if (!target || target.hp <= 0) {
+          p.observedTargetId = this.selectDefaultObservedTarget(p);
+          const newTarget = this.players[p.observedTargetId];
+          this.p8Log(`🔮 **${p.name}** 水晶球感應重聚，選定 **${newTarget ? newTarget.name : '自身'}** 作為【觀測目標】！`, 'buff');
         }
       }
     }
@@ -359,7 +598,8 @@ export const phase8Methods = {
       if(p.action==='basic') {
         damage(Math.floor((10+stat)*bardMultiplier),'mag');
         const rate=countEquip(p,'dw_spindle')?.75:.5;
-        if(m.hp>0 && Math.random()<rate && this.monsterAllowsEffect('夢境混亂')) {
+        const dwCheck = this.checkPositiveFateInterference(p, Math.round(rate * 100), '潛意識混淆');
+        if(m.hp>0 && dwCheck.success && this.monsterAllowsEffect('夢境混亂')) {
           const id=roll(['mirror','dissociate','nightmare_weak','frenzy_backfire']);
           const names={mirror:'鏡像夢境',dissociate:'解離痛楚',nightmare_weak:'萎靡夢魘',frenzy_backfire:'狂亂夢遊'};
           if(id==='nightmare_weak'&&!this.p8Has(m,id)) {
@@ -389,7 +629,12 @@ export const phase8Methods = {
         const enhanced=['sg_eyepiece','sg_tube','sg_mount'].every(id=>countEquip(p,id));const r=Math.random();
         const id=enhanced?['planet','galaxy','blackhole','boundary'][Math.min(3,Math.floor(r*4))]:r<.6?'star':r<.7?'planet':r<.8?'galaxy':r<.9?'blackhole':'boundary';
         outcome={type:id,label:{star:'發現星座',planet:'發現星球',galaxy:'發現星系',blackhole:'發現黑洞',boundary:'發現宇宙邊界'}[id],enhanced};
-        if(id==='star'||id==='planet') {damage(Math.floor(((id==='star'?15:enhanced?35:25)+stat)*bardMultiplier),'mag');if(id==='planet'&&Math.random()<(enhanced?.3:.1)&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
+        if(id==='star'||id==='planet') {
+          damage(Math.floor(((id==='star'?15:enhanced?35:25)+stat)*bardMultiplier),'mag');
+          const stunBase = enhanced ? 30 : 10;
+          const stunCheck = this.checkPositiveFateInterference(p, stunBase, '天體觀測・行星暈眩');
+          if(id==='planet'&&stunCheck.success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}
+        }
         if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:5});
         if(id==='blackhole') {
           damage(enhanced?10:5,'true');
@@ -441,7 +686,8 @@ export const phase8Methods = {
         if(soul<4){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
         else {p.soul-=4;for(let i=0;i<4&&m.hp>0;i++)damage(Math.floor((10+stat)*bardMultiplier*mult),'phys',{penetration:1});outcome={type:'tsubame',label:'秘劍・燕返'};}
       } else {
-        const burst=p.action==='sa_cut'&&soul>0&&Math.random()<Math.min(.7,.3+.05*soul);
+        const burstChance = Math.round(Math.min(0.7, 0.3 + 0.05 * soul) * 100);
+        const burst = p.action === 'sa_cut' && soul > 0 && this.checkPositiveFateInterference(p, burstChance, '一刀兩斷・武魂爆發').success;
         if(p.action==='sa_cut'&&soul===0)p.parryChance=.7;
         damage(Math.floor(((p.action==='sa_cut'?15:10)+stat)*bardMultiplier*mult*(burst?2:1)),'phys',{critical:burst});
         p.soul=Math.min(8,soul+1);outcome={type:burst?'soul_burst':'normal',label:burst?'武魂爆發':undefined};
@@ -462,6 +708,64 @@ export const phase8Methods = {
       }
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;
       p.sageLastAction=p.action;this.p8Log(`${p.name}【${p.sagePhase==='solve'?'求解':'假設'}】X=${p.sageX}，Operand=${p.sageOperand}。`);
+    } else if(p.role==='augur') {
+      if(p.action==='basic') {
+        let baseDmg = 10;
+        if(p.observedTargetId === p.id) baseDmg = this.applyFateBlessing(p, baseDmg);
+        const actual = damage(Math.floor((baseDmg+stat)*bardMultiplier), 'mag');
+        if(actual > 0 && m.hp >= 0) {
+          this.p8Effect(m, 'star_break', '星芒破障・效抗 -15%', 2, { value: 15 }, true);
+          this.p8Log(`🔮 **${p.name}** 觸發被動【星芒破障】，使 Boss 效果抗性降低 15%（持續 2 回合）！`, 'buff');
+        }
+        const n = countEquip(p, 'aug_amethyst');
+        const repayAmount = 8 + (n > 0 ? 4 + (n - 1) * 2 : 0);
+        const paid = this.repayAugurDebt(p, repayAmount, 'skill');
+        if(paid > 0) {
+          this.p8Log(`🔮 **${p.name}** 施放【水晶折光】，清償自身最早到期的 **${paid}** 點【命債】！`, 'heal');
+        }
+        outcome = { type: 'normal', label: '水晶折光', debtPaid: paid, damage: actual };
+      } else if(p.action==='aug_bind') {
+        const targetId = p.targetPlayerId;
+        const target = this.players[targetId];
+        if (target && target.hp > 0 && target.id !== p.id) {
+          p.observedTargetId = target.id;
+        } else {
+          p.observedTargetId = this.selectDefaultObservedTarget(p);
+        }
+        p.augurCardState = 'empty';
+        p.augurIntervenedThisRound = false;
+        p.augurBindingBoostRound = this.battleRound;
+        const newTarget = this.players[p.observedTargetId] || p;
+        this.p8Log(`🤲🔮 **${p.name}** 施放【命運繫結】，將觀測目標切換為 **${newTarget.name}**，本回合享有強化加護（數值 +25%，干涉加成提升）！`, 'buff');
+        category = 'BUFF';
+        outcome = { type: 'bind', label: '命運繫結', targetId: p.observedTargetId, targetName: newTarget.name };
+      } else if(p.action==='aug_reckon') {
+        let baseDmg = 15;
+        if(p.observedTargetId === p.id) baseDmg = this.applyFateBlessing(p, baseDmg);
+        const actual = damage(Math.floor((baseDmg+stat)*bardMultiplier), 'mag');
+        if(actual > 0 && m.hp >= 0) {
+          this.p8Effect(m, 'star_break', '星芒破障・效抗 -15%', 2, { value: 15 }, true);
+        }
+        const hasForbiddenTome = (p.equips || []).some(e => e.id === 'aug_forbidden_tome');
+        const omenBonus = hasForbiddenTome ? 18 : 10;
+        this.p8Effect(m, 'reversed_omen', `凶兆逆位・易傷 +${omenBonus}%`, 2, { value: omenBonus }, true);
+        this.p8Log(`🃏⚖️ **${p.name}** 烙印【凶兆逆位】，使 Boss 受到我方全體傷害提高 **${omenBonus}%**（持續 2 回合）！`, 'debuff');
+        const paid = this.repayAugurDebt(p, 25, 'skill');
+        if(paid > 0) {
+          this.p8Log(`⚖️ **${p.name}** 命債清償，清償了 **${paid}** 點【命債】！`, 'heal');
+        }
+        let bonusHealAugur = 0, bonusHealTarget = 0;
+        if(paid >= 15) {
+          bonusHealAugur = this.applyHealWithOverheal(p, 10, { directHp: true });
+          const obs = this.players[p.observedTargetId];
+          if(obs && obs.hp > 0 && obs.id !== p.id) {
+            bonusHealTarget = this.applyHealWithOverheal(obs, 10);
+          }
+          this.p8Log(`✨ **${p.name}** 清償滿 15 點命債，額外為自身與觀測目標各回復 10 點生命！`, 'heal');
+        }
+        category = 'DEBUFF';
+        outcome = { type: 'reckon', label: '命運清算・凶兆逆位', debtPaid: paid, bonusHealAugur, bonusHealTarget, omenBonus, damage: actual };
+      }
     }
     if(!this.p8Results.length){const snap=this.getHpSnapshot(),target=outcome.type==='immune'?snap.monster:snap.players.find(x=>x.id===p.id);this.p8Results.push({kind:'status',targetId:outcome.type==='immune'?'monster':p.id,outcome,targetBefore:target,targetAfter:target,hpSnapshot:snap});}
     for(const r of this.p8Results){r.monsterName=m.name;r.monsterAvatar=m.avatar;}
@@ -493,8 +797,40 @@ export const phase8Methods = {
           const confusionChance=sageConfusionChance(x);
           const lensBonus=(lens?0.10+(lens-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
           const successChance=Math.min(growth.success+lensBonus,1-confusionChance);
-          const r=Math.random();
-          const resolution=r<confusionChance?'CONFUSION':r<confusionChance+successChance?'SUCCESS':'NOTHING';
+          const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+          const augur = augurs[0];
+          const r = Math.random();
+          let resolution;
+          if (!augur) {
+            resolution = r < confusionChance ? 'CONFUSION' : r < confusionChance + successChance ? 'SUCCESS' : 'NOTHING';
+          } else {
+            const P_neg = confusionChance;
+            const M_red = (augur.augurBindingBoostRound === this.battleRound) ? 0.25 : 0.20;
+            const D = Math.min(P_neg, M_red);
+            if (r < P_neg - D) {
+              resolution = 'CONFUSION';
+            } else if (r < P_neg) {
+              augur.augurIntervenedThisRound = true;
+              augur.augurCardState = 'reversed';
+              let debt = Math.min(20, Math.round(D * 100));
+              if (countEquip(augur, 'aug_gilded_box')) debt = Math.max(5, debt - 5);
+              this.addAugurDebt(augur, debt);
+              this.p8Log(`🃏🌑 **${augur.name}** 水晶球感應厄運，諭示牌轉為【逆位】！成功為 **${p.name}** 攔截【方程結算・思緒紊亂】的負面失誤，封存厄運轉化為 **${debt}** 點【命債】！`, 'buff');
+              resolution = 'NOTHING';
+            } else {
+              let M_pos = (augur.augurBindingBoostRound === this.battleRound) ? 0.20 : 0.15;
+              if (countEquip(augur, 'aug_gilded_box')) M_pos += 0.05;
+              const boostedSuccessChance = Math.min(1 - confusionChance, successChance + M_pos);
+              if (r < confusionChance + boostedSuccessChance) {
+                augur.augurIntervenedThisRound = true;
+                augur.augurCardState = 'upright';
+                this.p8Log(`🃏🌟 **${augur.name}** 水晶球光芒凝聚，諭示牌轉為【正位】！順應命運使 **${p.name}** 的【推演演算・成功】正面機率提升並成功觸發！`, 'buff');
+                resolution = 'SUCCESS';
+              } else {
+                resolution = 'NOTHING';
+              }
+            }
+          }
           const baseEquationDamage=Math.round(Math.abs(operand*etaVal));
           const damageAfterEquipment=Math.round(baseEquationDamage*R);
           // Round the combined modifiers once, never the intermediate ruler value.
@@ -572,6 +908,30 @@ export const phase8Methods = {
         event(p,'狂刀反擊','sa_counter',()=>this.p8DamageMonster(p,n,'phys',resistance));this.p8Log(`${p.name}統一反擊 ${n}（招架 ${p.parriedCount} 次）。`);
       }
       if(p.role==='sage'&&!p.sageEquationResolved&&(p.sagePhase==='hypothesis'||p.sageSolvedThisRound))this.p8ResolveEquation(p,queue,log,resistance,bardMultiplier);
+      if(p.role==='augur' && p.augurFateDebts && p.augurFateDebts.length > 0) {
+        const expired = p.augurFateDebts.filter(d => d.dueRound <= this.battleRound);
+        p.augurFateDebts = p.augurFateDebts.filter(d => d.dueRound > this.battleRound);
+        const expiredDebt = expired.reduce((n, d) => n + d.amount, 0);
+        if (expiredDebt > 0) {
+          const before = this.getHpSnapshot();
+          p.hp = Math.max(0, p.hp - expiredDebt);
+          const after = this.getHpSnapshot();
+          this.p8Log(`💀💥 **${p.name}** 的 ${expiredDebt} 點【命債】到期清算反噬！無視護盾直接扣除 **${expiredDebt}** 點生命！（❤️ ${p.hp}/${p.maxHp}）`, 'damage');
+          queue.push({
+            type: 'player_action', category: 'DEBT_EXPIRY', sourceId: p.id, sourceName: p.name, sourceRole: 'augur',
+            actionId: 'aug_expiry', skillName: '命債到期反噬', monsterName: m?.name, monsterAvatar: m?.avatar,
+            targetId: p.id, targetName: p.name, hpSnapshotBefore: before, hpSnapshot: after,
+            results: [{ kind: 'damage', targetId: p.id, damageType: 'true', finalDamage: expiredDebt, hpDmg: expiredDebt,
+              targetBefore: before.players.find(x => x.id === p.id), targetAfter: after.players.find(x => x.id === p.id),
+              hpSnapshot: after }],
+            finalDamage: expiredDebt, damageType: 'true', outcome: { type: 'expiry', debtExpired: expiredDebt }, detail: '命債到期反噬'
+          });
+          if (p.hp <= 0) {
+            this.clearPlayerDebuffs(p);
+            this.p8Log(`💀 **${p.name}** 因命運因果反噬過重倒地隕落！`, 'damage');
+          }
+        }
+      }
     }
     // The arena restores its original maximum using the exit ratio, including death.
     if(this.arena)this.p8ExitArena(queue);

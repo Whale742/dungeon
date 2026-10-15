@@ -1,0 +1,970 @@
+/* Augur presentation styles, scoped to .augur-stage and .augur-fx-owner */
+:root {
+  --augur-ink: #070b13;
+  --augur-panel: #10131c;
+  --augur-gold: #d6bb83;
+  --augur-gold2: #8b7245;
+  --augur-ivory: #f4e9d2;
+  --augur-muted: #9c9ba8;
+  --augur-line: #d6bb8329;
+  --augur-red: #b73e60;
+  --augur-violet: #b6a3ed;
+  --augur-cyan: #b9e4ec;
+  --augur-radius: 8px;
+}
+
+.augur-stage, .augur-fx-owner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  color: var(--augur-ivory);
+  background: radial-gradient(ellipse at 42% 58%, #30315255 0, transparent 35%),
+              radial-gradient(ellipse at 82% 42%, #2b182633, transparent 30%),
+              linear-gradient(180deg, #080d16, #0b101b 67%, #10101a);
+}
+
+.augur-stage .architecture, .augur-fx-owner .architecture {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  opacity: .52;
+}
+
+.augur-stage:before, .augur-fx-owner:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 48%, transparent 15%, #03050b90 100%);
+  box-shadow: inset 0 0 90px #0007;
+}
+
+.augur-stage:after, .augur-fx-owner:after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid #bda27415;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.augur-stage .grain, .augur-fx-owner .grain {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: .075;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.5' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.augur-stage .battle-head, .augur-fx-owner .battle-head {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  top: 4.5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 15;
+}
+
+.augur-stage .battle-meta, .augur-fx-owner .battle-meta {
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: #a19da8;
+}
+
+.augur-stage .battle-meta strong, .augur-fx-owner .battle-meta strong {
+  font-size: 17px;
+  color: var(--augur-gold);
+  font-weight: 400;
+  display: block;
+  margin-top: 7px;
+}
+
+.augur-stage .battle-meta .dot, .augur-fx-owner .battle-meta .dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 6px 2px 0;
+  background: var(--augur-gold);
+  box-shadow: 0 0 8px #e3c891;
+}
+
+.augur-stage .party, .augur-fx-owner .party {
+  display: flex;
+  margin-right: 18%;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.augur-stage .ally, .augur-fx-owner .ally {
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 52px;
+  position: relative;
+  text-align: center;
+  color: #b7b4bd;
+}
+
+.augur-stage .ally-portrait, .augur-fx-owner .ally-portrait {
+  aspect-ratio: 1;
+  width: 100%;
+  border: 1px solid #786a5855;
+  padding: 3px;
+  background: #111520;
+  position: relative;
+  transition: border-color .3s, box-shadow .3s;
+}
+
+.augur-stage .ally img, .augur-fx-owner .ally img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(.62);
+}
+
+.augur-stage .ally .ally-name, .augur-fx-owner .ally .ally-name {
+  font-size: 11px;
+  display: block;
+  margin-top: 5px;
+  letter-spacing: .15em;
+}
+
+.augur-stage .ally .ally-hp, .augur-fx-owner .ally .ally-hp {
+  font-family: Georgia, serif;
+  font-size: 9px;
+  color: #807c8b;
+}
+
+.augur-stage .ally.observed .ally-portrait, .augur-fx-owner .ally.observed .ally-portrait {
+  border-color: var(--augur-gold);
+  box-shadow: 0 0 18px #b69b511c;
+}
+
+.augur-stage .ally.observed:after, .augur-fx-owner .ally.observed:after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 3px);
+  top: -8px;
+  width: 6px;
+  height: 6px;
+  background: var(--augur-gold);
+  transform: rotate(45deg);
+}
+
+.augur-stage .ally.selected .ally-name, .augur-fx-owner .ally.selected .ally-name {
+  color: var(--augur-gold);
+}
+
+.augur-stage .ally.dead img, .augur-fx-owner .ally.dead img {
+  filter: grayscale(1);
+  opacity: .25;
+}
+
+.augur-stage .ally.dead .ally-name, .augur-fx-owner .ally.dead .ally-name {
+  text-decoration: line-through;
+}
+
+.augur-stage .party-label, .augur-fx-owner .party-label {
+  font-size: 9px;
+  color: #777786;
+  letter-spacing: .2em;
+  writing-mode: vertical-rl;
+  align-self: center;
+  margin-right: -5px;
+}
+
+/* Actors */
+.augur-stage .actor, .augur-fx-owner .actor {
+  position: absolute;
+  z-index: 10;
+  text-align: center;
+}
+
+.augur-stage .augur, .augur-fx-owner .augur {
+  left: 5.5%;
+  top: 29%;
+  width: 24%;
+}
+
+.augur-stage .boss, .augur-fx-owner .boss {
+  right: 5%;
+  top: 29%;
+  width: 23%;
+}
+
+.augur-stage .portrait-frame, .augur-fx-owner .portrait-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #ad946350;
+  padding: 6px;
+  background: linear-gradient(135deg, #c5a76421, transparent 28%, transparent 73%, #c5a76425);
+  clip-path: polygon(8% 0, 92% 0, 100% 8%, 100% 92%, 92% 100%, 8% 100%, 0 92%, 0 8%);
+}
+
+.augur-stage .portrait-frame:before, .augur-fx-owner .portrait-frame:before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid #d8c08a25;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.augur-stage .portrait-anchor, .augur-fx-owner .portrait-anchor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #11131b;
+}
+
+.augur-stage .portrait-anchor img, .augur-fx-owner .portrait-anchor img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: saturate(.75) contrast(1.03);
+}
+
+.augur-stage .augur .portrait-anchor img, .augur-fx-owner .augur .portrait-anchor img {
+  object-position: 50% 43%;
+  transform: scale(1.08);
+}
+
+.augur-stage .portrait-anchor:after, .augur-fx-owner .portrait-anchor:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 60%, #070a12aa);
+  box-shadow: inset 0 0 20px #0005;
+}
+
+.augur-stage .boss .portrait-frame, .augur-fx-owner .boss .portrait-frame {
+  border-color: #8f586250;
+  background: linear-gradient(125deg, #91514c22, transparent, #6e424033);
+}
+
+.augur-stage .actor-title, .augur-fx-owner .actor-title {
+  font-size: clamp(12px, 1.6cqw, 22px);
+  font-weight: 400;
+  letter-spacing: .22em;
+  margin: 14px 0 8px;
+}
+
+.augur-stage .actor-title small, .augur-fx-owner .actor-title small {
+  font-size: .47em;
+  letter-spacing: .2em;
+  color: #8a8294;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.augur-stage .actor-health, .augur-fx-owner .actor-health {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #c6c0bd;
+  letter-spacing: .07em;
+  margin: 0 2px 5px;
+}
+
+.augur-stage .hp-track, .augur-fx-owner .hp-track {
+  height: 3px;
+  background: #282432;
+  width: 100%;
+}
+
+.augur-stage .hp-track span, .augur-fx-owner .hp-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #6e777b, #c4c9b2);
+  transition: width .2s;
+}
+
+.augur-stage .boss .hp-track span, .augur-fx-owner .boss .hp-track span {
+  background: linear-gradient(90deg, #653344, #b1676e);
+}
+
+.augur-stage .actor.dead .portrait-frame, .augur-fx-owner .actor.dead .portrait-frame {
+  filter: grayscale(1);
+  opacity: .35;
+}
+
+.augur-stage .death-label, .augur-fx-owner .death-label {
+  display: none;
+  position: absolute;
+  top: 35%;
+  left: 0;
+  right: 0;
+  font-size: 20px;
+  letter-spacing: .4em;
+  color: #b9a3b9;
+  z-index: 90;
+}
+
+.augur-stage .dead .death-label, .augur-fx-owner .dead .death-label {
+  display: block;
+}
+
+.augur-stage .status-badges, .augur-fx-owner .status-badges {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  min-height: 20px;
+}
+
+.augur-stage .badge, .augur-fx-owner .badge {
+  padding: 4px 6px;
+  font-size: 10px;
+  color: #b6a2ca;
+  background: #161320b3;
+  border: 1px solid #9c7dc633;
+  border-radius: 2px;
+}
+
+.augur-stage .badge.omen, .augur-fx-owner .badge.omen {
+  color: #e0a1a5;
+  border-color: #b15c5c44;
+}
+
+.augur-stage .blessing-note, .augur-fx-owner .blessing-note {
+  margin-top: 9px;
+  font-size: 10px;
+  letter-spacing: .06em;
+  color: var(--augur-gold);
+}
+
+/* Crystal Ball and Astrolabe Rig */
+.augur-stage .orb-anchor, .augur-fx-owner .orb-anchor {
+  position: absolute;
+  left: 45%;
+  top: 49%;
+  width: 18.5%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+}
+
+.augur-stage .orb-rig, .augur-fx-owner .orb-rig {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+  --debt: 0;
+  --facet: 0;
+  --contract: 0;
+}
+
+.augur-stage .orb-aura, .augur-fx-owner .orb-aura {
+  position: absolute;
+  inset: -35%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #9d85d733 0, #7f68ad18 35%, transparent 65%);
+  opacity: .6;
+}
+
+.augur-stage .orb-shadow, .augur-fx-owner .orb-shadow {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  height: 15%;
+  bottom: -24%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #b0a2e82e, transparent 65%);
+  filter: blur(9px);
+}
+
+.augur-stage .sphere, .augur-fx-owner .sphere {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid #fff6;
+  box-shadow: inset -12px -14px 28px #060622cc,
+              inset 5px 6px 18px #e6e8ff66,
+              0 0 23px #ccb5ff33;
+  background: #252540;
+  isolation: isolate;
+}
+
+.augur-stage .sphere .nebula, .augur-fx-owner .sphere .nebula {
+  position: absolute;
+  inset: -35%;
+  background: conic-gradient(from 20deg, #91d8ed88, #c6b3e2aa, #d9a7cba0, #f9e8ad99, #8abccbbc, #8790eeaa, #a8deca99, #ecc9d999, #91d8ed88);
+  filter: blur(13px);
+  mix-blend-mode: screen;
+  opacity: .67;
+  animation: nebula-turn 27s linear infinite;
+}
+
+.augur-stage .sphere .clouds, .augur-fx-owner .sphere .clouds {
+  position: absolute;
+  inset: -10%;
+  background: radial-gradient(ellipse at 34% 28%, #fff9, transparent 13%),
+              radial-gradient(ellipse at 73% 61%, #ca9ce866, transparent 25%),
+              radial-gradient(ellipse at 26% 70%, #edc9ba66, transparent 21%);
+  animation: nebula-turn 19s linear infinite reverse;
+}
+
+.augur-stage .sphere .orb-target, .augur-fx-owner .sphere .orb-target {
+  position: absolute;
+  inset: 15% 12%;
+  border-radius: 48%;
+  width: 76%;
+  height: 73%;
+  object-fit: cover;
+  object-position: 50% 40%;
+  opacity: 0;
+  filter: blur(0);
+  transform: scale(1.05);
+  mix-blend-mode: luminosity;
+  mask-image: radial-gradient(ellipse, #000c 28%, #0009 52%, transparent 74%);
+  -webkit-mask-image: radial-gradient(ellipse, #000c 28%, #0009 52%, transparent 74%);
+}
+
+.augur-stage .sphere .chromatic, .augur-fx-owner .sphere .chromatic {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 23% 19%, #fff7, transparent 26%),
+              linear-gradient(126deg, transparent 24%, #facd8580 26%, transparent 27%, transparent 60%, #8eafff44 62%, transparent 64%);
+  mix-blend-mode: screen;
+  box-shadow: inset 0 0 14px #d8f6ff66;
+}
+
+.augur-stage .sphere .glass, .augur-fx-owner .sphere .glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 36% 13%, #fff9 0%, #fff2 14%, transparent 28%),
+              radial-gradient(ellipse at 77% 77%, transparent 30%, #fff2 44%, transparent 47%);
+  box-shadow: inset -7px -8px 14px #081431aa, inset 4px 3px 4px #fff5;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.augur-stage .glass:after, .augur-fx-owner .glass:after {
+  content: "";
+  position: absolute;
+  left: 13%;
+  top: 9%;
+  width: 43%;
+  height: 24%;
+  border-top: 2px solid #fff9;
+  transform: rotate(-28deg);
+  border-radius: 50%;
+  filter: blur(.5px);
+}
+
+.augur-stage .debt-haze, .augur-fx-owner .debt-haze {
+  transition: opacity .3s;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 40% 80%, #770f31 0%, #5c1035 25%, transparent 65%);
+  opacity: calc(var(--debt) * .72);
+  transform: scaleY(calc(.5 + var(--debt) * .5));
+  transform-origin: bottom;
+}
+
+.augur-stage .debt-seals, .augur-fx-owner .debt-seals {
+  transition: opacity .3s;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: calc(var(--debt) * .85);
+  z-index: 4;
+}
+
+.augur-stage .debt-seals path, .augur-fx-owner .debt-seals path {
+  fill: none;
+  stroke: #d35372;
+  stroke-width: .6;
+}
+
+.augur-stage .debt-seals .seal-mid, .augur-stage .debt-seals .seal-high,
+.augur-fx-owner .debt-seals .seal-mid, .augur-fx-owner .debt-seals .seal-high {
+  transition: opacity .3s;
+}
+
+.augur-stage .orb-rig[data-debt-tier="1"] .seal-mid,
+.augur-stage .orb-rig[data-debt-tier="1"] .seal-high,
+.augur-stage .orb-rig[data-debt-tier="2"] .seal-high,
+.augur-fx-owner .orb-rig[data-debt-tier="1"] .seal-mid,
+.augur-fx-owner .orb-rig[data-debt-tier="1"] .seal-high,
+.augur-fx-owner .orb-rig[data-debt-tier="2"] .seal-high {
+  opacity: 0;
+}
+
+.augur-stage .debt-seals .chains, .augur-fx-owner .debt-seals .chains {
+  stroke: #cfab67;
+  stroke-dasharray: 2.5 2;
+  stroke-width: .8;
+  opacity: .7;
+}
+
+.augur-stage .orb-facets, .augur-fx-owner .orb-facets {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: var(--facet);
+  z-index: 7;
+  fill: #b49df614;
+  stroke: #e0c2ff88;
+  stroke-width: .45;
+}
+
+.augur-stage .orb-core, .augur-fx-owner .orb-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5%;
+  height: 5%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  box-shadow: 0 0 12px 5px #d4c3fb55;
+  opacity: .5;
+  z-index: 8;
+}
+
+.augur-stage .astrolabe, .augur-fx-owner .astrolabe {
+  position: absolute;
+  inset: -16%;
+  width: 132%;
+  height: 132%;
+  opacity: .6;
+  z-index: -1;
+  animation: nebula-turn 55s linear infinite;
+}
+
+.augur-stage .equator, .augur-fx-owner .equator {
+  position: absolute;
+  z-index: 5;
+  left: -18%;
+  top: 30%;
+  width: 136%;
+  height: 42%;
+  border: 1px solid #ddc08560;
+  border-radius: 50%;
+  transform: rotate(-20deg);
+  box-shadow: 0 1px 4px #dac38622;
+  pointer-events: none;
+}
+
+.augur-stage .equator.second, .augur-fx-owner .equator.second {
+  transform: rotate(39deg);
+  opacity: .55;
+}
+
+.augur-stage .contract-seal, .augur-fx-owner .contract-seal {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  opacity: var(--contract);
+  stroke: #af3e60;
+  fill: none;
+  stroke-width: .55;
+  animation: nebula-turn 35s linear infinite reverse;
+  pointer-events: none;
+}
+
+.augur-stage .orb-dust, .augur-fx-owner .orb-dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  opacity: .7;
+  animation: nebula-turn 40s linear infinite;
+}
+
+.augur-stage .orb-veil, .augur-fx-owner .orb-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: radial-gradient(ellipse, #21192a 40%, #14111e 80%);
+  opacity: 0;
+}
+
+.augur-stage .seal-release, .augur-fx-owner .seal-release {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: #efd69b;
+  stroke-width: .8;
+  stroke-dasharray: 180;
+  opacity: 0;
+  z-index: 6;
+}
+
+.augur-stage .orb-caption, .augur-fx-owner .orb-caption {
+  position: absolute;
+  top: calc(100% + 38px);
+  left: -60%;
+  width: 220%;
+  text-align: center;
+  pointer-events: none;
+}
+
+.augur-stage .orb-caption strong, .augur-fx-owner .orb-caption strong {
+  display: block;
+  font-weight: 400;
+  letter-spacing: .25em;
+  font-size: 13px;
+  color: #e2d1ae;
+}
+
+.augur-stage .orb-caption span, .augur-fx-owner .orb-caption span {
+  font-size: 10px;
+  color: #8a8298;
+  letter-spacing: .08em;
+  display: block;
+  margin-top: 7px;
+}
+
+.augur-stage .debt-ledger, .augur-fx-owner .debt-ledger {
+  position: absolute;
+  left: 5.5%;
+  bottom: 6%;
+  width: 24%;
+  z-index: 15;
+  text-align: left;
+}
+
+.augur-stage .debt-label, .augur-fx-owner .debt-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: #ba9aa3;
+}
+
+.augur-stage .debt-label b, .augur-fx-owner .debt-label b {
+  font-family: Georgia;
+  font-weight: 400;
+  color: #e6c1cb;
+}
+
+.augur-stage .debt-ticks, .augur-fx-owner .debt-ticks {
+  height: 5px;
+  margin-top: 8px;
+  background: repeating-linear-gradient(90deg, #492c3955 0, #492c3955 calc(100% / 12 - 3px), transparent calc(100% / 12 - 3px), transparent calc(100% / 12));
+}
+
+.augur-stage .debt-ticks span, .augur-fx-owner .debt-ticks span {
+  height: 100%;
+  display: block;
+  background: repeating-linear-gradient(90deg, #a85b74 0, #a85b74 calc(100% / 12 - 3px), transparent calc(100% / 12 - 3px), transparent calc(100% / 12));
+  transition: width .2s;
+}
+
+.augur-stage .ledger-items, .augur-fx-owner .ledger-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: 35px;
+  overflow: auto;
+  font-size: 9px;
+  color: #968591;
+}
+
+.augur-stage .ledger-items span, .augur-fx-owner .ledger-items span {
+  padding: 3px 5px;
+  border: 1px solid #985b6d2d;
+}
+
+.augur-stage .ledger-items .due, .augur-fx-owner .ledger-items .due {
+  color: #f1a2b0;
+  border-color: #ca617755;
+}
+
+/* 3D Tarot Cards */
+.augur-stage .card, .augur-fx-owner .card {
+  position: absolute;
+  width: 66px;
+  height: 102px;
+  perspective: 800px;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.augur-stage .card-inner, .augur-fx-owner .card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateY(0deg);
+  will-change: transform;
+}
+
+.augur-stage .card-face, .augur-fx-owner .card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 1px solid #c6a56e;
+  box-shadow: 1px 1px 0 #6b4d36, 2px 2px 0 #312435, 0 4px 9px #0008;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #101c31;
+}
+
+.augur-stage .card-face svg, .augur-fx-owner .card-face svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.augur-stage .card-front, .augur-fx-owner .card-front {
+  transform: rotateY(180deg);
+  background: #eadcb5;
+  color: #8f7042;
+}
+
+.augur-stage .card[data-state=reverse] .card-front, .augur-fx-owner .card[data-state=reverse] .card-front {
+  background: #321322;
+  color: #cb8294;
+  border-color: #bd7e6f;
+}
+
+.augur-stage .card[data-state=omen] .card-front, .augur-fx-owner .card[data-state=omen] .card-front {
+  background: #210b12;
+  color: #e79481;
+  border-color: #c6a36d;
+}
+
+.augur-stage .card.gilded .card-face, .augur-fx-owner .card.gilded .card-face {
+  border: 2px solid #e7c57f;
+  box-shadow: 0 0 0 2px #c6a05838, 0 0 15px #c6a05822;
+}
+
+.augur-stage .orbit-card, .augur-fx-owner .orbit-card {
+  width: 25%;
+  height: 38%;
+  z-index: 2;
+}
+
+.augur-stage .contract-card, .augur-fx-owner .contract-card {
+  width: 30%;
+  height: 45%;
+  left: 74%;
+  top: 20%;
+  transform: translate(-50%, -50%) rotate(17deg);
+  z-index: -1;
+  opacity: 0;
+}
+
+.augur-stage .orbit-layer, .augur-fx-owner .orbit-layer {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  pointer-events: none;
+}
+
+.augur-stage .effect-layer, .augur-fx-owner .effect-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+}
+
+.augur-stage .effect-cards, .augur-fx-owner .effect-cards {
+  position: absolute;
+  inset: 0;
+  z-index: 54;
+  pointer-events: none;
+}
+
+.augur-stage canvas.fx, .augur-fx-owner canvas.fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.augur-stage .whiteout, .augur-fx-owner .whiteout {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.augur-stage .shade, .augur-fx-owner .shade {
+  position: absolute;
+  inset: 0;
+  background: #02040b;
+  opacity: 0;
+  z-index: 18;
+  pointer-events: none;
+}
+
+/* Hands with augur1.png and augur2.png */
+.augur-stage .hand, .augur-fx-owner .hand {
+  position: absolute;
+  width: 25%;
+  height: auto;
+  opacity: 0;
+  filter: drop-shadow(0 6px 10px #010107);
+  transform-origin: 100% 60%;
+  z-index: 49;
+  pointer-events: none;
+  display: block;
+  object-fit: contain;
+}
+
+.augur-stage .hand.right, .augur-fx-owner .hand.right {
+  transform-origin: 50% 60%;
+}
+
+.augur-stage .observing-hand, .augur-fx-owner .observing-hand {
+  will-change: transform, opacity;
+}
+
+.augur-stage .cupping-hand, .augur-fx-owner .cupping-hand {
+  will-change: transform, opacity;
+}
+
+.augur-stage .cutin, .augur-fx-owner .cutin {
+  position: absolute;
+  left: 0;
+  top: 18%;
+  width: 35%;
+  height: 22%;
+  z-index: 19;
+  overflow: hidden;
+  opacity: 0;
+  clip-path: polygon(0 8%, 100% 0, 91% 86%, 0 100%);
+  border-block: 1px solid #c1a46b44;
+  pointer-events: none;
+}
+
+.augur-stage .cutin img, .augur-fx-owner .cutin img {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  top: -145%;
+  filter: saturate(.6);
+  transform: scale(1.8);
+}
+
+.augur-stage .caption, .augur-fx-owner .caption {
+  position: absolute;
+  left: 30%;
+  right: 28%;
+  bottom: 10%;
+  text-align: center;
+  z-index: 70;
+  pointer-events: none;
+  opacity: 0;
+  text-shadow: 0 2px 12px #000, 0 0 22px #000;
+}
+
+.augur-stage .caption .caption-kicker, .augur-fx-owner .caption .caption-kicker {
+  font-size: 9px;
+  letter-spacing: .35em;
+  color: var(--augur-gold);
+}
+
+.augur-stage .caption h2, .augur-fx-owner .caption h2 {
+  font-size: clamp(15px, 2cqw, 28px);
+  font-weight: 400;
+  letter-spacing: .17em;
+  margin: 8px 0;
+}
+
+.augur-stage .caption p, .augur-fx-owner .caption p {
+  margin: 0;
+  color: #c2b4cc;
+  font-size: clamp(9px, 1cqw, 14px);
+  line-height: 1.6;
+}
+
+.augur-stage .caption.negative h2, .augur-fx-owner .caption.negative h2 {
+  color: #e1a0b1;
+}
+
+.augur-stage .float-layer, .augur-fx-owner .float-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 75;
+  pointer-events: none;
+}
+
+.augur-stage .float-number, .augur-fx-owner .float-number {
+  position: absolute;
+  white-space: nowrap;
+  font-family: Georgia, "PMingLiU", serif;
+  font-size: 30px;
+  text-shadow: 0 0 12px #000, 0 2px 3px #000;
+  font-weight: 400;
+  letter-spacing: .04em;
+}
+
+.augur-stage .float-number.magic, .augur-fx-owner .float-number.magic { color: #e0e4ff; }
+.augur-stage .float-number.true, .augur-fx-owner .float-number.true { color: #ff819f; font-size: 24px; }
+.augur-stage .float-number.heal, .augur-fx-owner .float-number.heal { color: #e8d7a2; font-size: 23px; }
+.augur-stage .float-number.debt, .augur-fx-owner .float-number.debt { color: #d0a2e3; font-size: 18px; }
+.augur-stage .float-number.damage, .augur-fx-owner .float-number.damage { color: #f894a0; }
+.augur-stage .float-number.note, .augur-fx-owner .float-number.note { font-size: 12px; color: #f1dab0; }
+
+.augur-stage .float-number small, .augur-fx-owner .float-number small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.augur-stage .omen-mark, .augur-fx-owner .omen-mark {
+  position: absolute;
+  width: 24px;
+  height: 37px;
+  right: 8%;
+  top: -13%;
+  opacity: 0;
+  transform: rotate(180deg);
+  z-index: 12;
+  color: #dc8e9b;
+}
+
+.augur-stage .omen-mark svg, .augur-fx-owner .omen-mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes nebula-turn {
+  to { transform: rotate(360deg); }
+}
+
+.reduced .orb-dust, .reduced .nebula, .reduced .clouds, .reduced .astrolabe, .reduced .contract-seal {
+  animation: none;
+}
+
+.paused .orb-dust, .paused .nebula, .paused .clouds, .paused .astrolabe, .paused .contract-seal {
+  animation-play-state: paused;
+}

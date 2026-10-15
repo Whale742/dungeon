@@ -178,7 +178,7 @@ function equation(room,p,{operand=50,x=30,action='basic',r=.99,bard=1,resistance
   const q=[];random(r,()=>room.p8ResolveEquation(p,q,[],resistance,bard));return q[0];
 }
 test('all roles share selectable class/skills/detail owners and real portraits',async t=>{
-  const fs=await import('node:fs');assert.equal(Object.keys(CLASSES).length,13);
+  const fs=await import('node:fs');assert.equal(Object.keys(CLASSES).length,14);
   for(const id of P8_ROLES){const {room}=fixture(t,[id]);const p=room.players.p0;assert.equal(p.maxHp,CLASSES[id].maxHp);assert.equal(getPlayerSkills(p).length,3);assert(fs.existsSync('public'+CLASSES[id].avatar));}
   assert.equal(getActionPriority('dw_butterfly'),4);assert.equal(getActionPriority('dw_false_dream'),7);
 });

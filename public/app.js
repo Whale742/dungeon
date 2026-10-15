@@ -2566,6 +2566,20 @@ function handleSkillClick(actionId, me) {
   if (roomState?.selectionState === 'RESOLVING') return;
 
   if(actionId==='dw_butterfly') {openTargetModal('dream',[...(roomState.players||[]).filter(p=>p.hp>0),{id:'monster',name:roomState.currentMonster?.name||'魔物',hp:roomState.currentMonster?.hp||1,maxHp:roomState.currentMonster?.maxHp||1,role:null,customAvatar:roomState.currentMonster?.avatar}]);return;}
+  // 卜者命運繫結：指定存活隊友
+  if (actionId === 'aug_bind') {
+    const aliveAllies = (roomState?.players || []).filter(p => p.hp > 0 && p.id !== me.id);
+    if (aliveAllies.length > 0) {
+      openTargetModal('aug_bind', aliveAllies);
+      return;
+    } else {
+      currentPendingAction = 'aug_bind';
+      currentPendingTarget = me.id;
+      playSound('magic');
+      renderMyActionBar(me);
+      return;
+    }
+  }
   // 聖騎士代受恩典：若有多位活著隊友，彈出目標選擇
   if (actionId === 'pal_grace') {
     const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
@@ -2589,13 +2603,16 @@ function handleSkillClick(actionId, me) {
   renderMyActionBar(me);
 }
 
-// 目標選擇 Modal (治癒額外目標 / 甦生之歌目標 / 代受恩典目標)
+// 目標選擇 Modal (治癒額外目標 / 甦生之歌目標 / 代受恩典目標 / 命運繫結目標)
 function openTargetModal(type, targetList) {
   ModalMotion.show(elements.targetModal);
   elements.targetModalList.innerHTML = '';
 
   if(type==='dream'){elements.targetModalTitle.textContent='清醒夢・薛丁格之蝶・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
-  if (type === 'grace') {
+  if (type === 'aug_bind') {
+    elements.targetModalTitle.innerHTML = `${getIconSvg('star') || '🔮'} <span>【命運繫結】指定觀測目標</span>`;
+    elements.targetModalDesc.textContent = '重新指定一名存活隊友作為【觀測目標】，享有命運加護與機率干涉：';
+  } else if (type === 'grace') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('shield')} <span>【代受恩典】指定守護隊友</span>`;
     elements.targetModalDesc.textContent = '在接下來的 2 回合，該隊友受到的傷害與負面狀態將由聖騎士承受：';
   } else if (type === 'heal') {
@@ -2620,7 +2637,7 @@ function openTargetModal(type, targetList) {
     btn.addEventListener('click', () => {
       ModalMotion.hide(elements.targetModal);
       playSound(type === 'heal' || type === 'grace' ? 'heal' : 'magic');
-      currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : type === 'grace' ? 'pal_grace' : 'b_revive';
+      currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : type === 'grace' ? 'pal_grace' : type === 'aug_bind' ? 'aug_bind' : 'b_revive';
       currentPendingTarget = p.id;
       const me = getMyPlayer();
       if (me) renderMyActionBar(me);
