@@ -3,7 +3,7 @@
   async function init(){
     await StudioContent.load({defaults:true});StudioContent.applyPreview();
     const params=new URLSearchParams(location.search),select=document.getElementById('labSceneSelect');
-    const all={...SAMURAI_LAB_SCENES,...GLADIATOR_LAB_SCENES,...PHASE6_LAB_SCENES};
+    const all={...SAMURAI_LAB_SCENES,...GLADIATOR_LAB_SCENES,...PHASE6_LAB_SCENES,...(typeof AUGUR_LAB_SCENES==='undefined'?{}:AUGUR_LAB_SCENES)};
     let scene=params.get('scene');const role=params.get('role'),skill=params.get('skill');
     if(!scene&&role)scene=Object.entries(all).find(([,s])=>(s.role===role||s.steps?.some(x=>x.sourceRole===role))&&(!skill||s.steps?.some(x=>x.actionId===skill)))?.[0];
     if(params.get('binding')){const b=params.get('binding');scene=b.startsWith('bgm.')||b.startsWith('boss.')?'p73_encounter':null;

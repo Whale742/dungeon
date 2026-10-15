@@ -283,7 +283,7 @@ test('Augur: Skill 1 (命運繫結) retargets and grants round boost', t => {
 
   assert.equal(aug.observedTargetId, war.id, 'Observed target switched to warrior');
   assert.equal(aug.augurCardState, 'empty', 'Card state restored to empty');
-  assert.equal(aug.augurIntervenedThisRound, false, 'Intervention flag reset');
+  assert.equal(aug.augurIntervenedThisRound, true, 'Binding must not replenish the once-per-round intervention');
   assert.equal(aug.augurBindingBoostRound, 1, 'Binding boost active for round 1');
 });
 

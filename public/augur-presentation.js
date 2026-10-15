@@ -45,6 +45,10 @@ class AugurPresentationEngine {
     this.audio = options.audioScope || { play: () => Promise.resolve() };
     this.animations = new Set();
     this.raf = null;
+    this.timers=new Set();
+    this.frameTasks=new Set();
+    this.disposed=false;
+    this.step=options.step || {};
 
     this.container = document.createElement('div');
     this.container.className = 'augur-presentation-container' + (this.reduced ? ' reduced' : '');
@@ -56,16 +60,24 @@ class AugurPresentationEngine {
     this.orbAnchor = this.container.querySelector('#augurOrbAnchor');
     this.orbRig = this.container.querySelector('#augurOrbRig');
     this.sphere = this.container.querySelector('#augurSphere');
+    this.buildCombatants();
 
     this.measure();
     this.orbitCards = Array.from(this.container.querySelectorAll('.orbit-card'));
     this.orbitCards.forEach((c, i) => fillAugurCard(c, i === 0 ? 'empty' : 'empty'));
     this.startOrbitAnimation();
+    this.onAbort=()=>this.dispose();
+    this.signal?.addEventListener('abort',this.onAbort,{once:true});
+    if(typeof ResizeObserver!=='undefined') {
+      this.resizeObserver=new ResizeObserver(()=>{if(!this.disposed)this.measure();});
+      this.resizeObserver.observe(this.stage);
+    }
   }
 
   buildMarkup() {
     this.container.innerHTML = `
       <div class="shade" id="augurShade"></div>
+      <div class="under-orb-layer" id="augurUnderOrbLayer"></div>
       <div class="orb-anchor" id="augurOrbAnchor">
         <div class="orb-rig" id="augurOrbRig">
           <div class="orb-shadow"></div>
@@ -123,6 +135,12 @@ class AugurPresentationEngine {
       <canvas class="augur-fx" id="augurFxCanvas" aria-hidden="true"></canvas>
       <div class="effect-cards" id="augurEffectCards"></div>
       <div class="float-layer" id="augurFloatLayer" aria-hidden="true"></div>
+      <div class="debt-ledger" aria-label="命債帳本">
+        <div class="debt-label"><span>命 債</span><b id="augurDebtTotal">0 / 60</b></div>
+        <div class="debt-ticks"><span id="augurDebtBar"></span></div>
+        <div class="ledger-items" id="augurDebtItems"></div>
+        <div class="equipment-label" id="augurEquipmentLabel"></div>
+      </div>
       <div class="caption" id="augurCaption">
         <div class="caption-kicker" id="augurCaptionKicker">THE AUGURY</div>
         <h2 id="augurCaptionTitle"></h2>
@@ -130,6 +148,101 @@ class AugurPresentationEngine {
       </div>
       <div class="whiteout" id="augurWhiteout" aria-hidden="true"></div>
     `;
+  }
+
+  buildCombatants() {
+    const make=(side)=>{
+      const node=document.createElement('div');
+      node.className=`augur-combatant ${side}`;
+      node.innerHTML='<div class="augur-portrait-frame"><img class="augur-portrait" alt=""><div class="augur-portrait-glow"></div></div><strong class="augur-combatant-name"></strong><div class="augur-health"><span></span><div><i></i></div></div><div class="augur-statuses"></div>';
+      this.container.appendChild(node);
+      return node;
+    };
+    this.actorNode=make('augur'); this.bossNode=make('boss');
+    const omen=document.createElement('div');omen.className='card omen-mark';
+    fillAugurCard(omen,'omen');omen.querySelector('.card-inner').style.transform='rotateY(180deg) rotateZ(180deg)';
+    this.bossNode.querySelector('.augur-portrait-frame').appendChild(omen);this.omenMark=omen;
+    fillAugurCard(this.container.querySelector('#augurContractCard'),'omen');
+  }
+
+  syncSnapshot(snapshot, {resourcesOnly=false}={}) {
+    if(!snapshot)return;
+    const actor=snapshot.players?.find(p=>p.id===this.step.sourceId) || {};
+    const monster=snapshot.monster || {};
+    const fill=(node,entity,descriptor)=>{
+      if(!resourcesOnly) {
+        const portrait=augurPortrait(descriptor);
+        const image=node.querySelector('.augur-portrait');
+        if(image.getAttribute('src')!==portrait.src)image.src=portrait.src;
+        image.alt=entity.name || portrait.name || '';
+        const hp=Math.max(0,entity.hp ?? 0),max=Math.max(1,entity.maxHp || 1);
+        node.querySelector('.augur-health span').textContent=`${hp} / ${max}${entity.tempHp?` ＋${entity.tempHp} 護盾`:''}`;
+        node.querySelector('.augur-health i').style.width=`${Math.min(100,hp/max*100)}%`;
+        node.classList.toggle('is-dead',hp===0);
+      }
+      node.querySelector('.augur-combatant-name').textContent=entity.name || descriptor.name || '';
+      const statuses=node.querySelector('.augur-statuses');statuses.replaceChildren();
+      for(const status of [...(entity.statuses || []),...(entity.phase8Statuses || [])].filter((s,i,all)=>all.findIndex(a=>a.id===s.id)===i).slice(0,5)) {
+        const tag=document.createElement('span');tag.textContent=`${status.label}${status.turns?` · ${status.turns}T`:''}${status.stacks?` ${status.stacks}`:''}`;statuses.appendChild(tag);
+      }
+    };
+    fill(this.actorNode,actor,{...actor,role:'augur',name:actor.name || this.step.sourceName});
+    fill(this.bossNode,monster,{...monster,entityType:'monster',avatar:this.step.monsterAvatar || monster.avatar,name:this.step.monsterName || monster.name});
+    const debts=actor.augurFateDebts || [];
+    const total=debts.reduce((n,d)=>n+d.amount,0);
+    const equipment=actor.augurEquipment || augurEquipment(actor.equips || []);
+    this.orbRig.style.setProperty('--debt',Math.min(1,total/60));
+    this.orbRig.style.setProperty('--facet',equipment.amethyst?'.8':'0');
+    this.orbRig.style.setProperty('--contract',equipment.forbidden?'1':'0');
+    this.container.querySelector('#augurContractCard').style.opacity=equipment.forbidden?'.8':'0';
+    this.orbitCards?.forEach(card=>card.classList.toggle('gilded',!!equipment.gilded));
+    this.container.querySelector('#augurDebtTotal').textContent=`${total} / 60`;
+    this.container.querySelector('#augurDebtBar').style.width=`${total/60*100}%`;
+    const ledger=this.container.querySelector('#augurDebtItems');ledger.replaceChildren();
+    for(const debt of debts) {const tag=document.createElement('span');tag.textContent=`R${debt.dueRound} 到期 · ${debt.amount}`;ledger.appendChild(tag);}
+    if(!debts.length)ledger.textContent='尚無未清償命債';
+    this.container.querySelector('#augurEquipmentLabel').textContent=[equipment.amethyst?`無瑕紫晶球 ×${equipment.amethyst}`:'',equipment.gilded?'鎏金諭示牌盒':'',equipment.forbidden?'禁忌厄運聖契':''].filter(Boolean).join(' · ');
+    this.container.querySelector('#augurCardStateLabel').textContent={empty:'空 象',upright:'正 位',reversed:'逆 位'}[actor.augurCardState] || '空 象';
+    this.container.dataset.cardState=actor.augurCardState || 'empty';
+    this.omenMark.style.opacity=monster.reversedOmenRemaining>0?'1':'0';
+    this.setObservedTarget(actor.observedTargetId,snapshot);
+  }
+
+  setObservedTarget(id,snapshot) {
+    const target=snapshot?.players?.find(p=>p.id===id);
+    const image=this.container.querySelector('#augurOrbTarget');
+    if(!target) {image.style.opacity='0';return;}
+    const portrait=augurPortrait(target);
+    if(image.getAttribute('src')!==portrait.src)image.src=portrait.src;
+    image.alt=`觀測目標：${target.name || portrait.name}`;
+    image.style.opacity='.82';
+    const bonus=target.fateBlessing>0?` · 基礎 +${Math.round(target.fateBlessing*100)}%`:'';
+    this.container.querySelector('#augurOrbObservedLabel').textContent=`${target.name || portrait.name}${bonus}`;
+  }
+
+  later(callback,ms) {
+    const timer=setTimeout(()=>{this.timers.delete(timer);if(!this.disposed)callback();},ms/this.speed);
+    this.timers.add(timer);return timer;
+  }
+
+  animateNode(node,frames,duration) {
+    const animation=node.animate(frames,{duration:duration/this.speed,fill:'forwards'});
+    this.animations.add(animation);
+    animation.finished.then(()=>this.animations.delete(animation),()=>this.animations.delete(animation));
+    return animation;
+  }
+
+  runFrames(duration,render) {
+    return new Promise(resolve=>{
+      const start=performance.now(),task={raf:0,finish:()=>{cancelAnimationFrame(task.raf);this.frameTasks.delete(task);resolve();}};
+      const tick=now=>{
+        if(this.disposed || this.signal?.aborted)return task.finish();
+        const elapsed=(now-start)*this.speed,u=Math.min(1,elapsed/duration);
+        render(u,elapsed/1000);
+        if(u===1)task.finish();else task.raf=requestAnimationFrame(tick);
+      };
+      this.frameTasks.add(task);task.raf=requestAnimationFrame(tick);
+    });
   }
 
   measure() {
@@ -149,19 +262,14 @@ class AugurPresentationEngine {
         w: orbRect.width,
         h: orbRect.height
       },
-      boss: {
-        x: r.width * 0.82,
-        y: r.height * 0.45,
-        w: 160,
-        h: 160
-      },
-      augur: {
-        x: r.width * 0.18,
-        y: r.height * 0.45,
-        w: 160,
-        h: 160
-      }
+      boss:this.portraitBounds(this.bossNode,r),
+      augur:this.portraitBounds(this.actorNode,r)
     };
+  }
+
+  portraitBounds(node,stageRect) {
+    const box=node.querySelector('.augur-portrait-frame').getBoundingClientRect();
+    return {x:box.left-stageRect.left+box.width/2,y:box.top-stageRect.top+box.height/2,w:box.width,h:box.height};
   }
 
   coord(target) {
@@ -172,7 +280,7 @@ class AugurPresentationEngine {
   startOrbitAnimation() {
     let clock = 0;
     const animateOrbit = () => {
-      if (this.signal?.aborted) return;
+      if (this.disposed || this.signal?.aborted) return;
       if (!this.reduced) {
         clock += 0.016 * this.speed;
         this.orbitCards.forEach((c, i) => {
@@ -199,7 +307,7 @@ class AugurPresentationEngine {
     el.querySelector('#augurCaptionKicker').textContent = kicker;
     el.classList.toggle('negative', negative);
     el.style.opacity = '1';
-    setTimeout(() => { if (el) el.style.opacity = '0'; }, duration / (this.speed || 1));
+    this.later(() => { el.style.opacity = '0'; }, duration);
   }
 
   number(anchor, value, type = 'magic', label = '') {
@@ -215,144 +323,54 @@ class AugurPresentationEngine {
     node.style.opacity = '1';
     node.style.transform = 'translate(-50%, -50%)';
 
-    const anim = node.animate([
+    const anim = this.animateNode(node,[
       { transform: 'translate(-50%, -50%) scale(0.9)', opacity: 0 },
       { transform: 'translate(-50%, -80%) scale(1.1)', opacity: 1, offset: 0.3 },
       { transform: 'translate(-50%, -120%) scale(1)', opacity: 0 }
-    ], { duration: 900 / (this.speed || 1), fill: 'forwards' });
+    ],900);
     anim.finished.then(() => node.remove(), () => node.remove());
   }
 
   // Skill 1 & Battle Intro Sweep Hand using augur1.png
   // The index finger hovers ~10px above the top of the crystal ball
   async sweepHand(duration = 1000) {
-    const layer = this.container.querySelector('#augurEffectLayer');
-    const hand = document.createElement('div');
-    hand.className = 'observing-hand';
-    const img = document.createElement('img');
-    img.src = 'assets/augur1.png';
-    hand.appendChild(img);
-    layer.appendChild(hand);
-
-    const o = this.bounds.orb;
-    const r = o.w * 0.5;
-    // Scale hand down slightly
-    const handWidth = o.w * 1.35;
-    const handHeight = handWidth * (836 / 1454); // exact aspect ratio
-    hand.style.width = handWidth + 'px';
-
-    // Fingertip is at 89.7% of image width and 100% of image height
-    // Top is placed so the fingertip hovers ~10px above orb top (o.y - r - 10)
-    const hoverTop = (o.y - r - 10) - handHeight;
-    hand.style.top = hoverTop + 'px';
-
-    const start = performance.now();
-    return new Promise(resolve => {
-      const step = now => {
-        if (this.signal?.aborted) { hand.remove(); return resolve(); }
-        const elapsed = (now - start) * (this.speed || 1);
-        const u = Math.min(1, elapsed / duration);
-
-        // Smooth sweep across orb: fingertip hovers from o.x - 25 to o.x + 25
-        const sweepX = (u - 0.5) * 50;
-        const left = (o.x + sweepX) - (handWidth * 0.897);
-        hand.style.left = left + 'px';
-
-        // Gentle breathe in Y
-        const breatheY = Math.sin(u * Math.PI) * 4;
-        hand.style.top = (hoverTop + breatheY) + 'px';
-
-        // Fade envelope
-        const alpha = Math.min(u / 0.18, (1 - u) / 0.18, 1);
-        hand.style.opacity = String(alpha);
-
-        if (u < 1) {
-          requestAnimationFrame(step);
-        } else {
-          hand.remove();
-          resolve();
-        }
-      };
-      requestAnimationFrame(step);
-    });
+    const hand=document.createElement('div');hand.className='observing-hand';
+    const img=document.createElement('img');img.src=augurAsset('/assets/augur1.png');img.alt='';hand.appendChild(img);
+    this.container.querySelector('#augurEffectLayer').appendChild(hand);
+    const o=this.bounds.orb,width=o.w*1.35,height=width*836/1454;
+    hand.style.width=width+'px';
+    // augur1.png includes a long sleeve below the fingertip. Anchor the index
+    // finger itself (near 1% x, 37% y), rather than the image's bottom edge.
+    const top=o.y-o.w/2-10-height*.37;
+    try {await this.runFrames(this.reduced?450:duration,u=>{
+      hand.style.left=(o.x+(u-.5)*(this.reduced?0:50)-width*.01)+'px';
+      hand.style.top=(top+Math.sin(u*Math.PI)*4)+'px';
+      hand.style.opacity=String(Math.min(u/.18,(1-u)/.18,1));
+    });} finally {hand.remove();}
   }
 
-  // Skill 2 Cupping Hands using ONLY ONE augur2.png beneath crystal ball
-  // Hand emerges from the bottom, crystal ball slowly floats upward before radiance/whiteout
   async reckonHands(duration = 2600) {
-    const layer = this.container.querySelector('#augurEffectLayer');
-    const hand = document.createElement('div');
-    hand.className = 'cupping-hand';
-    const img = document.createElement('img');
-    img.src = 'assets/augur2.png';
-    hand.appendChild(img);
-    layer.appendChild(hand);
-
-    const o = this.bounds.orb;
-    // Slightly enlarged (1.8x orb width)
-    const handWidth = o.w * 1.85;
-    const handHeight = handWidth * (692 / 894);
-    hand.style.width = handWidth + 'px';
-    hand.style.left = (o.x - handWidth / 2) + 'px';
-
-    // Emerging from bottom
-    const bottomRestY = o.y - handHeight * 0.15;
-    const startY = this.bounds.h + 50;
-
-    const start = performance.now();
-    const whiteout = this.container.querySelector('#augurWhiteout');
-
-    return new Promise(resolve => {
-      const step = now => {
-        if (this.signal?.aborted) {
-          hand.remove();
-          if (whiteout) whiteout.style.opacity = '0';
-          if (this.orbAnchor) this.orbAnchor.style.transform = 'translate(-50%, -50%)';
-          return resolve();
-        }
-        const elapsed = (now - start) * (this.speed || 1);
-        const t = elapsed / 1000;
-        const u = Math.min(1, elapsed / duration);
-
-        // Phase 1: Hand rises up from bottom (0 -> 0.3)
-        const riseProgress = Math.min(1, u / 0.3);
-        const curY = startY + (bottomRestY - startY) * (1 - Math.pow(1 - riseProgress, 3));
-        hand.style.top = curY + 'px';
-        hand.style.opacity = String(Math.min(1, u / 0.15) * Math.min(1, (1 - u) / 0.15));
-
-        // When hand appears, crystal ball slowly floats upward (-35px) BEFORE radiance/whiteout
-        const floatProgress = Math.min(1, Math.max(0, (u - 0.15) / 0.35));
-        const floatY = -35 * Math.sin(floatProgress * Math.PI * 0.5);
-        if (this.orbAnchor) {
-          this.orbAnchor.style.transform = `translate(-50%, calc(-50% + ${floatY}px))`;
-        }
-
-        // Phase 2: Radiance & chromatic dispersion grows (0.4 -> 0.85)
-        const charge = Math.min(1, Math.max(0, (t - 0.5) / 1.3));
-        const release = 1 - Math.min(1, Math.max(0, (t - 1.9) / 0.6));
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        if (charge > 0) {
-          this.crystalRadiance(charge * release, t, release, floatY);
-        }
-
-        // Phase 3: Whiteout wash triggers (1.4 -> 2.1)
-        const wash = Math.min(1, Math.max(0, (t - 1.4) / 0.45)) * (1 - Math.min(1, Math.max(0, (t - 2.05) / 0.5)));
-        if (whiteout) {
-          whiteout.style.opacity = String(wash * (this.reduced ? 0.62 : 1));
-        }
-
-        if (u < 1) {
-          requestAnimationFrame(step);
-        } else {
-          hand.remove();
-          if (whiteout) whiteout.style.opacity = '0';
-          if (this.orbAnchor) this.orbAnchor.style.transform = 'translate(-50%, -50%)';
-          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-          resolve();
-        }
-      };
-      requestAnimationFrame(step);
-    });
+    const hand=document.createElement('div');hand.className='cupping-hand';
+    const img=document.createElement('img');img.src=augurAsset('/assets/augur2.png');img.alt='';hand.appendChild(img);
+    this.container.querySelector('#augurUnderOrbLayer').appendChild(hand);
+    const o=this.bounds.orb,width=o.w*1.85,height=width*692/894;
+    hand.style.width=width+'px';hand.style.left=(o.x-width/2)+'px';
+    const rest=o.y-height*.15,start=this.bounds.h+50,whiteout=this.container.querySelector('#augurWhiteout');
+    try {await this.runFrames(duration,(u,t)=>{
+      const rise=Math.min(1,u/.3),float=Math.min(1,Math.max(0,(u-.15)/.35));
+      const floatY=-35*Math.sin(float*Math.PI*.5);
+      hand.style.top=(start+(rest-start)*(1-Math.pow(1-rise,3)))+'px';
+      hand.style.opacity=String(Math.min(1,u/.15)*Math.min(1,(1-u)/.15));
+      this.orbAnchor.style.transform=`translate(-50%,calc(-50% + ${floatY}px))`;
+      const charge=Math.min(1,Math.max(0,(t-.65)/1.15)),release=1-Math.min(1,Math.max(0,(t-1.9)/.6));
+      this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+      if(charge>0)this.crystalRadiance(charge*release,t,release,floatY);
+      const wash=Math.min(1,Math.max(0,(t-1.4)/.45))*(1-Math.min(1,Math.max(0,(t-2.05)/.5)));
+      whiteout.style.opacity=String(wash*(this.reduced?.42:1));
+    });} finally {
+      hand.remove();whiteout.style.opacity='0';this.orbAnchor.style.transform='translate(-50%,-50%)';
+      this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    }
   }
 
   // Radiance with 7 spectral chromatic rays expanding from crystal ball
@@ -411,68 +429,21 @@ class AugurPresentationEngine {
   }
 
   // Prismatic Refraction Beam for Basic Attack (水晶折光)
-  playBeamAnimation(duration = 650) {
-    const a = this.bounds.orb;
-    const b = this.bounds.boss;
-    const start = performance.now();
-
-    return new Promise(resolve => {
-      const step = now => {
-        if (this.signal?.aborted) {
-          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-          return resolve();
-        }
-        const elapsed = (now - start) * (this.speed || 1);
-        const u = Math.min(1, elapsed / duration);
-        const en = Math.min(u / 0.12, (1 - u) / 0.12, 1);
-
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Draw spectral rainbow beam
-        const colors = ['#ff9aa9', '#ffd399', '#f8efb5', '#b0e3c4', '#9fdced', '#a9b2ff', '#d4a9eb'];
-        const prism = { x: a.x + (b.x - a.x) * 0.22, y: a.y + (b.y - a.y) * 0.22 };
-        const merge = { x: a.x + (b.x - a.x) * 0.68, y: a.y + (b.y - a.y) * 0.68 };
-
-        this.ctx.save();
-        this.ctx.globalAlpha = en;
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeStyle = AUGUR_COLORS.white;
-        this.ctx.beginPath();
-        this.ctx.moveTo(a.x, a.y);
-        this.ctx.lineTo(prism.x, prism.y);
-        this.ctx.stroke();
-
-        const spread = 24;
-        colors.forEach((col, i) => {
-          this.ctx.lineWidth = 1.2;
-          this.ctx.strokeStyle = col;
-          this.ctx.beginPath();
-          this.ctx.moveTo(prism.x, prism.y);
-          this.ctx.quadraticCurveTo(
-            (prism.x + merge.x) / 2,
-            (prism.y + merge.y) / 2 + (i - 3) * spread / 3,
-            merge.x,
-            merge.y
-          );
-          this.ctx.stroke();
-        });
-
-        this.ctx.lineWidth = 4;
-        this.ctx.strokeStyle = AUGUR_COLORS.white;
-        this.ctx.beginPath();
-        this.ctx.moveTo(merge.x, merge.y);
-        this.ctx.lineTo(b.x, b.y);
-        this.ctx.stroke();
-        this.ctx.restore();
-
-        if (u < 1) requestAnimationFrame(step);
-        else {
-          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-          resolve();
-        }
-      };
-      requestAnimationFrame(step);
-    });
+  async playBeamAnimation(duration=650,tome=false) {
+    const a=this.bounds.orb,b=this.bounds.boss;
+    try {await this.runFrames(this.reduced?250:duration,u=>{
+      const en=Math.min(u/.12,(1-u)/.12,1),prism={x:a.x+(b.x-a.x)*.22,y:a.y+(b.y-a.y)*.22},merge={x:a.x+(b.x-a.x)*.68,y:a.y+(b.y-a.y)*.68};
+      this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);this.ctx.save();this.ctx.globalAlpha=en;
+      this.ctx.strokeStyle=tome?'#f7a0b5':AUGUR_COLORS.white;this.ctx.lineWidth=3;
+      this.ctx.beginPath();this.ctx.moveTo(a.x,a.y);this.ctx.lineTo(prism.x,prism.y);this.ctx.stroke();
+      const colors=tome?['#742751','#b14a79','#ed91ab']:['#ff9aa9','#ffd399','#f8efb5','#b0e3c4','#9fdced','#a9b2ff','#d4a9eb'];
+      colors.forEach((color,i)=>{
+        this.ctx.lineWidth=1.5;this.ctx.strokeStyle=color;this.ctx.beginPath();this.ctx.moveTo(prism.x,prism.y);
+        this.ctx.quadraticCurveTo((prism.x+merge.x)/2,(prism.y+merge.y)/2+(i-(colors.length-1)/2)*8,merge.x,merge.y);this.ctx.stroke();
+      });
+      this.ctx.lineWidth=4;this.ctx.strokeStyle=tome?'#ffd7e2':AUGUR_COLORS.white;
+      this.ctx.beginPath();this.ctx.moveTo(merge.x,merge.y);this.ctx.lineTo(b.x,b.y);this.ctx.stroke();this.ctx.restore();
+    });} finally {this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);}
   }
 
   // Starbreaker Resistance Debuff Effect
@@ -486,7 +457,7 @@ class AugurPresentationEngine {
     this.ctx.arc(p.x, p.y, r * power, 0, Math.PI * 2);
     this.ctx.stroke();
     this.ctx.restore();
-    setTimeout(() => this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height), 200);
+    this.later(() => this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height), 200);
   }
 
   // Debt Repay Flash (命債清償)
@@ -497,48 +468,32 @@ class AugurPresentationEngine {
     if (release) {
       release.style.opacity = '1';
       release.style.strokeDashoffset = '0';
-      setTimeout(() => {
-        if (release) release.style.opacity = '0';
-      }, 500);
+      this.later(() => { release.style.opacity = '0'; }, 500);
     }
   }
 
   // 3D Tarot Card Flip (Upright or Reversed Intercept)
-  flipTarotCard(targetAnchor, isReversed = false, duration = 1200) {
-    const layer = this.container.querySelector('#augurEffectCards');
-    const card = document.createElement('div');
-    card.className = 'card';
-    fillAugurCard(card, isReversed ? 'reverse' : 'upright');
-    layer.appendChild(card);
-
-    const o = this.bounds.orb;
-    const dest = this.coord(targetAnchor);
-    const start = performance.now();
-
-    return new Promise(resolve => {
-      const step = now => {
-        if (this.signal?.aborted) { card.remove(); return resolve(); }
-        const elapsed = (now - start) * (this.speed || 1);
-        const u = Math.min(1, elapsed / duration);
-
-        const x = o.x + (dest.x - o.x) * u;
-        const y = o.y + (dest.y - o.y) * u - Math.sin(u * Math.PI) * 45;
-        card.style.left = x + 'px';
-        card.style.top = y + 'px';
-        card.style.opacity = String(Math.min(u / 0.15, (1 - u) / 0.15, 1));
-
-        const rotY = Math.min(180, u * 2 * 180);
-        const rotZ = isReversed ? Math.min(180, Math.max(0, (u - 0.4) * 2.5 * 180)) : 0;
-        card.querySelector('.card-inner').style.transform = `rotateY(${rotY}deg) rotateZ(${rotZ}deg)`;
-
-        if (u < 1) requestAnimationFrame(step);
-        else { card.remove(); resolve(); }
-      };
-      requestAnimationFrame(step);
-    });
+  async flipTarotCard(targetAnchor,isReversed=false,duration=1000,state) {
+    const card=document.createElement('div');card.className='card augur-flying-card';
+    fillAugurCard(card,state || (isReversed?'reverse':'upright'),this.container.querySelector('.orbit-card')?.classList.contains('gilded'));
+    this.container.querySelector('#augurEffectCards').appendChild(card);
+    const o=this.bounds.orb,dest=this.coord(targetAnchor);
+    try {await this.runFrames(this.reduced?450:duration,u=>{
+      const fly=this.reduced?0:Math.max(0,(u-.35)/.65);
+      card.style.left=(o.x+(dest.x-o.x)*fly)+'px';card.style.top=(o.y+(dest.y-o.y)*fly-Math.sin(u*Math.PI)*45)+'px';
+      card.style.opacity=String(Math.min(u/.15,(1-u)/.12,1));
+      card.querySelector('.card-inner').style.transform=`rotateY(${Math.min(180,u*3*180)}deg) rotateZ(${isReversed?Math.min(180,Math.max(0,(u-.3)*2.5*180)):0}deg)`;
+    });} finally {card.remove();}
   }
 
   dispose() {
+    if(this.disposed)return;
+    this.disposed=true;
+    this.signal?.removeEventListener('abort',this.onAbort);
+    this.resizeObserver?.disconnect();
+    for(const timer of this.timers)clearTimeout(timer);
+    this.timers.clear();
+    for(const task of [...this.frameTasks])task.finish();
     if (this.raf) cancelAnimationFrame(this.raf);
     for (const a of this.animations) a.cancel();
     this.animations.clear();
@@ -546,122 +501,116 @@ class AugurPresentationEngine {
   }
 }
 
-// Preload Augur assets into browser cache
-let augurPreloadPromise = null;
+// All portraits use the same resolver as the rest of combat, including forms and Storage bindings.
+function augurAsset(path) {return typeof window!=='undefined' && window.assetRegistry?window.assetRegistry.resolvePath(path):path;}
+function augurPortrait(descriptor={}) {
+  if(typeof resolveBattlePortrait==='function')return resolveBattlePortrait(descriptor);
+  if(descriptor.entityType==='monster')return {src:augurAsset(descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp'),name:descriptor.name || '首領'};
+  const names={sage:'智者',samurai:'武士'};
+  const role=descriptor.role || 'augur';
+  return {src:augurAsset(`/photo/${names[role] || role.charAt(0).toUpperCase()+role.slice(1)}.webp`),name:descriptor.name || role};
+}
+function augurEquipment(equips) {
+  return {amethyst:equips.filter(e=>e.id==='aug_amethyst').length,gilded:equips.some(e=>e.id==='aug_gilded_box'),forbidden:equips.some(e=>e.id==='aug_forbidden_tome')};
+}
+function buildAugurPresentationPlan(step) {
+  const before=step.hpSnapshotBefore || {players:[],monster:null},after=step.hpSnapshot || before;
+  const action=step.actionId || step.skillId || (step.category==='DEBT_EXPIRY'?'aug_expiry':'');
+  return {action,before,after,
+    results:step.results || [],
+    observedId:['aug_bind','aug_observe'].includes(action)?step.outcome?.targetId || step.targetId:before.players?.find(p=>p.id===step.sourceId)?.observedTargetId,
+    repaid:Math.max(0,step.outcome?.repaid ?? 0),
+    hits:(step.results || []).filter(r=>r.kind==='damage'),heals:(step.results || []).filter(r=>r.kind==='heal'),
+    outcome:step.outcome || {},skillName:step.skillName};
+}
+let augurPreloadPromise=null;
 function preloadAugurAssets() {
-  if (!augurPreloadPromise) {
-    const urls = ['assets/augur1.png', 'assets/augur2.png', 'photo/Augur.webp'];
-    augurPreloadPromise = Promise.all(urls.map(src => new Promise(resolve => {
-      const img = new Image();
-      img.onload = img.onerror = resolve;
-      img.src = src;
-    })));
-  }
-  return augurPreloadPromise;
+  return augurPreloadPromise ||= Promise.all(['/assets/augur1.png','/assets/augur2.png','/photo/Augur.webp'].map(path=>{
+    if(typeof window!=='undefined' && window.assetRegistry)return window.assetRegistry.preloadImage(path).catch(()=>null);
+    return new Promise(resolve=>{const img=new Image();img.onload=img.onerror=resolve;img.src=path;});
+  }));
 }
+if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>{augurPreloadPromise=null;});
 
-// Production Combat Presentation Hook
-async function playAugurPresentation(step, context = {}) {
+async function playAugurPresentation(step,context={}) {
   await preloadAugurAssets();
-  const parentSignal = context.signal || context.controller?.signal;
-  if (parentSignal?.aborted) return;
-
-  const stage = (typeof getOrCreateCombatStage === 'function') ? getOrCreateCombatStage() : document.querySelector('.combat-stage') || document.body;
-  const engine = new AugurPresentationEngine(stage, {
-    signal: parentSignal,
-    speed: context.speed || 1,
-    reduced: context.reducedMotion,
-    audioScope: context.audioScope || (typeof createSfxPresentationScope === 'function' ? createSfxPresentationScope(context) : null)
-  });
-
+  const signal=context.signal || context.controller?.signal;if(signal?.aborted)return;
+  const stage=typeof getOrCreateCombatStage==='function'?getOrCreateCombatStage():document.querySelector('.combat-stage') || document.body;
+  const plan=buildAugurPresentationPlan(step);
+  const engine=new AugurPresentationEngine(stage,{step,signal,speed:context.speed || 1,reduced:context.reducedMotion,
+    audioScope:context.audioScope || (typeof createSfxPresentationScope==='function'?createSfxPresentationScope(context):null)});
+  const wait=ms=>waitForPresentation(ms,signal,context.speed || 1);
+  const beat=(name,data={})=>context.onTiming?.(name,{step,...data});
+  const apply=snapshot=>{if(signal?.aborted || engine.disposed)return;engine.syncSnapshot(snapshot,{resourcesOnly:!!context.augurReaction});if(!context.augurReaction && typeof applyHpSnapshot==='function')applyHpSnapshot(snapshot);};
+  const renderHit=async result=>{
+    if(signal?.aborted)return;
+    const amount=result.finalDamage ?? 0,anchor=result.targetId==='monster'?'boss':result.targetId===step.sourceId?'augur':'orb';
+    const tome=result.outcome?.type==='augur_tome';
+    if(tome){engine.audio.play('magic_impact',{noHold:true});await engine.playBeamAnimation(420,true);}
+    if(amount>0) {
+      engine.number(anchor,`−${amount}`,result.damageType==='true'?'true':anchor==='boss'?'magic':'damage',tome?'聖契真實傷害':result.damageType==='true'?'無視護盾':'魔法');
+      engine.animateNode(anchor==='boss'?engine.bossNode:engine.actorNode,[{filter:'brightness(1)'},{filter:'brightness(1.8)',offset:.25},{filter:'brightness(1)'}],300);
+    } else if(result.kind==='damage')engine.number(anchor,'0','note','未造成傷害');
+    beat('impact',{result});if(result.hpSnapshot)apply(result.hpSnapshot);await wait(tome?250:140);
+  };
+  const renderResult=async result=>{
+    if(signal?.aborted || engine.disposed)return;
+    if(result.kind==='damage')return renderHit(result);
+    if(result.kind==='heal') {
+      const amount=result.actualHeal ?? result.finalHeal ?? 0;
+      if(amount>0)engine.number(result.targetId==='monster'?'boss':result.targetId===step.sourceId?'augur':'orb',`+${amount}`,'heal','生命回復');
+      beat('heal',{result});
+    }
+    if(result.hpSnapshot)apply(result.hpSnapshot);
+  };
   try {
-    const actionId = step.actionId || step.skillId;
-    const actorSnapshot = step.hpSnapshotBefore?.players?.find(p => p.id === step.sourceId) || {};
-    const observedId = actorSnapshot.observedTargetId;
-
-    // Reveal observed target avatar in crystal ball
-    const orbTarget = engine.container.querySelector('#augurOrbTarget');
-    const orbLabel = engine.container.querySelector('#augurOrbObservedLabel');
-    if (observedId && orbTarget) {
-      const targetPlayer = step.hpSnapshotBefore?.players?.find(p => p.id === observedId);
-      if (targetPlayer?.role) {
-        orbTarget.src = `photo/${targetPlayer.role.charAt(0).toUpperCase() + targetPlayer.role.slice(1)}.webp`;
-        orbTarget.style.opacity = '.74';
+    engine.syncSnapshot(plan.before);beat('augur_action_start');
+    if(plan.outcome.type==='invalid') {
+      engine.showCaption(step.skillName || '命運繫結','觀測目標已失效','FATE UNBOUND',true);await wait(700);
+    } else if(plan.action==='basic') {
+      engine.showCaption('水晶折光',`水晶折射 · 實際清償 ${plan.repaid} 命債`,'PRISMATIC REFRACTION');
+      engine.audio.play('magic_impact',{noHold:true});await engine.playBeamAnimation();
+      for(const result of plan.results)await renderResult(result);
+      if(plan.after.monster?.augurResistanceBreak>0)engine.resistance();
+    } else if(plan.action==='aug_bind' || plan.action==='aug_observe') {
+      const target=plan.after.players?.find(p=>p.id===plan.observedId);
+      engine.showCaption(step.skillName || '命運觀測',`${target?.name || '自身'} · ${plan.action==='aug_bind'?'本回合加護與干涉強化':'命運加護生效'}`,'THE OBSERVATION');
+      engine.audio.play('air_pass',{noHold:true});
+      await Promise.all([engine.sweepHand(),(async()=>{await wait(350);if(!signal?.aborted)engine.setObservedTarget(plan.observedId,plan.after);})()]);
+      beat('augur_observed',{targetId:plan.observedId});
+    } else if(plan.action==='aug_reckon') {
+      engine.showCaption('命運清算・凶兆逆位',`捧起命運 · 實際清償 ${plan.repaid} 命債`,'THE RECKONING',false,2900);
+      engine.audio.play('support_cast',{noHold:true});await engine.reckonHands(2600);
+      const main=plan.hits.find(r=>r.outcome?.type!=='augur_tome');if(main)await renderHit(main);
+      if(plan.after.monster?.augurResistanceBreak>0)engine.resistance();
+      if(plan.after.monster?.reversedOmenRemaining>0) {
+        await engine.flipTarotCard('boss',true,850,'omen');engine.omenMark.style.opacity='1';beat('augur_omen',{bonus:plan.after.monster.reversedOmenBonus});
       }
-      if (orbLabel && targetPlayer?.name) {
-        orbLabel.textContent = `${targetPlayer.name} · 命運映像`;
-      }
-    }
-
-    if (actionId === 'basic') {
-      engine.showCaption('水晶折光', `七彩折射貫穿 · 10 魔法傷害 · 清償 8 命債`, 'PRISMATIC REFRACTION');
-      engine.audio.play('magic_impact', { noHold: true });
-      await engine.playBeamAnimation(650);
-      if (parentSignal?.aborted) return;
-
-      engine.resistance(1);
-      engine.number('boss', `−${step.finalDamage || 10}`, 'magic', '魔法');
-      engine.repayFX(8);
-      engine.number('orb', '−8', 'debt', '命債清償');
-
-      await waitForPresentation(350, parentSignal, context.speed || 1);
-    } else if (actionId === 'aug_bind') {
-      engine.showCaption('命運繫結', '切換觀測目標 · 本回合加護與干涉大幅強化', 'FATE REBOUND');
-      engine.audio.play('air_pass', { noHold: true });
-      await engine.sweepHand(850);
-      if (parentSignal?.aborted) return;
-
-      const targetId = step.targetPlayerId || step.outcome?.targetId;
-      if (targetId && orbTarget) {
-        const targetPlayer = step.hpSnapshotBefore?.players?.find(p => p.id === targetId);
-        if (targetPlayer?.role) {
-          orbTarget.src = `photo/${targetPlayer.role.charAt(0).toUpperCase() + targetPlayer.role.slice(1)}.webp`;
-          orbTarget.style.opacity = '.74';
-          if (orbLabel) orbLabel.textContent = `${targetPlayer.name} · 命運映像`;
-        }
-      }
-      await waitForPresentation(350, parentSignal, context.speed || 1);
-    } else if (actionId === 'aug_reckon') {
-      engine.showCaption('命運清算・凶兆逆位', '雙手捧起命運 · 白光透出七彩 · 烙印凶兆', 'THE RECKONING');
-      engine.audio.play('holy_cast', { noHold: true });
-      await engine.reckonHands(2500);
-      if (parentSignal?.aborted) return;
-
-      engine.audio.play('magic_impact', { noHold: true });
-      engine.resistance(1);
-      engine.number('boss', `−${step.finalDamage || 15}`, 'magic', '魔法');
-      engine.repayFX(25);
-      engine.number('orb', '−25', 'debt', '命債清償');
-
-      // Heals if cleared >= 15
-      const heals = step.results?.filter(r => r.kind === 'heal') || [];
-      for (const h of heals) {
-        engine.number(h.targetId === step.sourceId ? 'augur' : 'orb', `+${h.finalHeal || 10}`, 'heal', '生命回復');
-      }
-
-      await waitForPresentation(400, parentSignal, context.speed || 1);
-    } else if (step.category === 'DEBT_EXPIRY') {
-      engine.showCaption('命債清算', `命債到期反噬 · 無視護盾扣除生命`, 'THE PRICE OF FATE', true);
-      engine.audio.play('shadow_strike', { noHold: true });
-      const dmg = step.results?.[0]?.finalDamage || 20;
-      engine.number('augur', `−${dmg}`, 'damage', '命債清算 · 真實');
-      await waitForPresentation(600, parentSignal, context.speed || 1);
-    } else {
-      engine.showCaption(step.skillName || '命運干涉', '', 'THE AUGURY');
-      await waitForPresentation(500, parentSignal, context.speed || 1);
-    }
-
-    if (step.hpSnapshot && typeof applyHpSnapshot === 'function') {
-      applyHpSnapshot(step.hpSnapshot);
-    }
-  } finally {
-    engine.dispose();
-  }
+      for(const result of plan.results.filter(r=>r!==main))await renderResult(result);
+    } else if(plan.action==='aug_reverse' || plan.action==='aug_upright') {
+      const reverse=plan.action==='aug_reverse',o=plan.outcome;
+      engine.showCaption(step.skillName,`${o.skillName || ''} · ${o.baseChance}% → ${o.finalChance}%${reverse?` · 封存 ${o.debt} 命債`:o.success?' · 效果觸發':' · 本次效果未觸發'}`,reverse?'DEFY FATE':'FOLLOW FATE',reverse,1700);
+      engine.audio.play('air_pass',{noHold:true});await engine.flipTarotCard('orb',reverse);
+      engine.syncSnapshot(plan.after,{resourcesOnly:true});
+      if(reverse && o.debt>0)engine.number('orb',`+${o.debt}`,'debt','封存厄運');
+      beat('augur_intervention',{cardState:reverse?'reversed':'upright',outcome:o});
+    } else if(plan.action==='aug_tome') {
+      const o=plan.outcome;
+      engine.showCaption('禁忌厄運聖契',`${Math.abs(o.changedDebt || 0)} 命債變動 → ${o.damage ?? 0} 真實傷害`,'FORBIDDEN COVENANT',true);
+      await engine.playBeamAnimation(480,true);
+      if(context.augurReaction)beat('augur_tome',{damage:o.damage});
+      else for(const hit of plan.hits)await renderHit({...hit,outcome:{type:'normal'}});
+    } else if(plan.action==='aug_debt_heal') {
+      engine.showCaption('治療抵銷命債',`治療量優先清償 ${plan.repaid} 命債`,'DEBT REPAID');
+    } else if(plan.action==='aug_expiry') {
+      engine.showCaption('命債到期清算',`${plan.outcome.expired ?? plan.hits[0]?.finalDamage ?? 0} 命債到期 · 無視護盾與減傷`,'THE PRICE OF FATE',true);
+      engine.audio.play('shadow_strike',{noHold:true});
+      engine.animateNode(engine.sphere,[{filter:'brightness(1)'},{filter:'brightness(2) saturate(.2)',offset:.3},{filter:'brightness(.7)'}],450);
+      for(const hit of plan.hits)await renderHit(hit);
+    } else {engine.showCaption(step.skillName || '命運干涉','','THE AUGURY');}
+    if(signal?.aborted)return;
+    if(plan.repaid>0) {engine.repayFX(plan.repaid);engine.number('orb',`−${plan.repaid}`,'debt','命債清償');beat('augur_debt_repaid',{amount:plan.repaid});}
+    apply(plan.after);beat('hp_update');await wait(650);beat('action_complete');
+  } finally {engine.dispose();}
 }
-
-// Global exports
-if (typeof window !== 'undefined') {
-  window.AugurPresentationEngine = AugurPresentationEngine;
-  window.playAugurPresentation = playAugurPresentation;
-  window.preloadAugurAssets = preloadAugurAssets;
-}
+if(typeof window!=='undefined')Object.assign(window,{AugurPresentationEngine,playAugurPresentation,preloadAugurAssets,buildAugurPresentationPlan});

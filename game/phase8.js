@@ -30,6 +30,12 @@ export function sageEquationPreview(p,room) {
 }
 export function p8State(p,room) {
   const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:s.permanent?null:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
+  if (p === room.currentMonster) {
+    if (p.augurResistanceBreak > 0) effects.push({id:'augur_resistance_break',icon:'debuff',label:'星芒破障',turns:p.augurResistanceBreak,value:'效果抗性 −15pp',isNegative:true,category:'DEBUFF'});
+    if (p.reversedOmenRemaining > 0) effects.push({id:'reversed_omen',icon:'debuff',label:'凶兆逆位',turns:p.reversedOmenRemaining,value:`受傷 +${p.reversedOmenBonus || 10}%`,isNegative:true,category:'DEBUFF'});
+  }
+  const fateBlessing = p.id ? room.getFateBlessing?.(p) || 0 : 0;
+  if (p.hp > 0 && fateBlessing > 0) effects.push({id:'fate_blessing',icon:'buff',label:'命運加護',value:`基礎數值 +${Math.round(fateBlessing * 100)}%`});
   if(p.hp>0) {
     if(p.soul)effects.push({id:'soul',icon:'buff',label:'武魂',stacks:p.soul});
     if(p.kyoutou)effects.push({id:'kyoutou',icon:'guard',label:'狂刀',turns:1});
@@ -58,7 +64,13 @@ export function p8State(p,room) {
     p.role==='gladiator'?`怒氣 ${p.rage||0} · 血祭 ${p.bloodStacks||0}${room.arena?.playerId===p.id?' · 死亡角鬥場':''}`:
     p.role==='augur'?`命債 ${(p.augurFateDebts || []).reduce((sum, d) => sum + d.amount, 0)}/60 · 牌象: ${p.augurCardState === 'reversed' ? '逆位' : p.augurCardState === 'upright' ? '正位' : '空象'} · 觀測: ${room.players[p.observedTargetId]?.name || '自身'}`:
     p.role==='warrior'?`受傷攻擊 +${p.warriorStacks||0}/15`:'';
-  return {resourceSummary:resource, sageX:x, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
+  return {resourceSummary:resource, fateBlessing, sageX:x, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
+    ...(p.role === 'augur' ? {
+      observedTargetId:p.observedTargetId || null, augurCardState:p.augurCardState || 'empty',
+      augurIntervenedThisRound:!!p.augurIntervenedThisRound, augurBindingBoostRound:p.augurBindingBoostRound || 0,
+      augurFateDebts:structuredClone(p.augurFateDebts || []),
+      augurEquipment:{amethyst:countEquip(p,'aug_amethyst'),gilded:countEquip(p,'aug_gilded_box') > 0,forbidden:countEquip(p,'aug_forbidden_tome') > 0}
+    } : {}),
     sageDebt:p.sageDebt||0,sageConfusionChance:sageConfusionChance(x),
     ...(p.role==='sage'?{sageEquationPreview:sageEquationPreview(p,room)}:{}),
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
@@ -126,6 +138,37 @@ export const phase8Methods = {
   getAugurTotalDebt(augur) {
     return (augur?.augurFateDebts || []).reduce((sum, d) => sum + d.amount, 0);
   },
+  augmentOmenDamage(amount) {
+    const bonus = this.currentMonster?.reversedOmenRemaining > 0 ? this.currentMonster.reversedOmenBonus || 10 : 0;
+    return Math.max(0, Math.floor(amount * (1 + bonus / 100)));
+  },
+  clearAugurBattleDebts() {
+    for (const p of Object.values(this.players)) if (p.role === 'augur') p.augurFateDebts = [];
+  },
+  recordAugurReaction(augur, actionId, targetId, before, outcome = {}, results = []) {
+    const names = {aug_reverse:'逆位・違逆命運',aug_upright:'正位・順應命運',aug_tome:'禁忌厄運聖契',aug_debt_heal:'治療抵銷命債'};
+    const reaction = {type:'player_action',category:'INTERVENTION',sourceId:augur.id,sourceName:augur.name,sourceRole:'augur',
+      actionId,skillName:names[actionId],targetId,outcome,results,monsterName:this.currentMonster?.name,monsterAvatar:this.currentMonster?.avatar,
+      hpSnapshotBefore:before,hpSnapshot:this.getHpSnapshot()};
+    (this.augurReactions ||= []).push(reaction);
+    return reaction;
+  },
+  augurTomeStrike(augur, changedDebt) {
+    const monster = this.currentMonster;
+    if (!changedDebt || !countEquip(augur,'aug_forbidden_tome') || !monster || monster.hp <= 0) return 0;
+    const before = this.getHpSnapshot();
+    const raw = Math.round(Math.abs(changedDebt) * .5);
+    const actual = Math.min(monster.hp, this.augmentOmenDamage(raw));
+    monster.hp = Math.max(0, monster.hp - actual);
+    const after = this.getHpSnapshot();
+    const result = {kind:'damage',targetId:'monster',sourceId:augur.id,sourceRole:'augur',damageType:'true',finalDamage:actual,hpDamage:actual,
+      outcome:{type:'augur_tome'},targetBefore:before.monster,targetAfter:after.monster,hpSnapshot:after};
+    this.p8Results?.push(result);
+    this.augurVisuals?.push({type:'augur_tome',sourceId:augur.id,targetId:'monster',value:actual,dmgType:'true'});
+    this.recordAugurReaction(augur,'aug_tome','monster',before,{type:'tome',changedDebt,damage:actual},[result]);
+    this.p8Log(`📖💥 **${augur.name}** 的【禁忌厄運聖契】將 ${Math.abs(changedDebt)} 點命債變動化為 **${actual}** 點無視抗性的真實傷害！`,'damage');
+    return actual;
+  },
   addAugurDebt(augur, amount) {
     if (amount <= 0) return 0;
     augur.augurFateDebts = augur.augurFateDebts || [];
@@ -139,13 +182,7 @@ export const phase8Methods = {
       createdRound: this.battleRound,
       dueRound
     });
-    if (hasForbidden && this.currentMonster && this.currentMonster.hp > 0) {
-      const trueDmg = Math.round(actualAdd * 0.5);
-      if (trueDmg > 0) {
-        this.currentMonster.hp = Math.max(0, this.currentMonster.hp - trueDmg);
-        this.p8Log(`📖💥 **${augur.name}** 的【禁忌厄運聖契】釋放因果反噬，對【${this.currentMonster.name}】造成 **${trueDmg}** 點無視抗性的真實傷害！`, 'damage');
-      }
-    }
+    this.augurTomeStrike(augur, actualAdd);
     return actualAdd;
   },
   repayAugurDebt(augur, maxAmount, source = 'skill') {
@@ -160,17 +197,12 @@ export const phase8Methods = {
       actualRepaid += take;
       if (front.amount <= 0) augur.augurFateDebts.shift();
     }
-    if (actualRepaid > 0 && source === 'skill' && countEquip(augur, 'aug_forbidden_tome') > 0 && this.currentMonster && this.currentMonster.hp > 0) {
-      const trueDmg = Math.round(actualRepaid * 0.5);
-      if (trueDmg > 0) {
-        this.currentMonster.hp = Math.max(0, this.currentMonster.hp - trueDmg);
-        this.p8Log(`📖💥 **${augur.name}** 的【禁忌厄運聖契】在清償命債時激發能量，對【${this.currentMonster.name}】造成 **${trueDmg}** 點無視抗性的真實傷害！`, 'damage');
-      }
-    }
+    if (source === 'skill') this.augurTomeStrike(augur, -actualRepaid);
     return actualRepaid;
   },
   deductAugurDebtPassive(augur, healAmount) {
     if (healAmount <= 0 || !augur.augurFateDebts || !augur.augurFateDebts.length) return 0;
+    const before=this.getHpSnapshot();
     let needed = healAmount;
     let actualDeducted = 0;
     while (needed > 0 && augur.augurFateDebts.length > 0) {
@@ -181,6 +213,7 @@ export const phase8Methods = {
       actualDeducted += take;
       if (front.amount <= 0) augur.augurFateDebts.shift();
     }
+    if(actualDeducted>0)this.recordAugurReaction(augur,'aug_debt_heal',augur.id,before,{type:'debt_heal',repaid:actualDeducted});
     return actualDeducted;
   },
   selectDefaultObservedTarget(augur) {
@@ -227,34 +260,41 @@ export const phase8Methods = {
     if (roll < P_low) {
       return { failed: true, intercepted: false, roll };
     } else if (roll < baseChance) {
+      const before = this.getHpSnapshot();
+      const reactionIndex = this.augurReactions?.length || 0;
       augur.augurIntervenedThisRound = true;
       augur.augurCardState = 'reversed';
       let debt = Math.min(20, D);
       if (countEquip(augur, 'aug_gilded_box')) debt = Math.max(5, debt - 5);
-      this.addAugurDebt(augur, debt);
+      debt = this.addAugurDebt(augur, debt);
+      const reaction = this.recordAugurReaction(augur,'aug_reverse',player.id,before,
+        {type:'reverse',skillName,baseChance,finalChance:P_low,roll,reduction:D,debt});
+      // Present the intercept before its equipment discharge, within the owning action.
+      this.augurReactions.pop(); this.augurReactions.splice(reactionIndex,0,reaction);
       this.p8Log(`🃏🌑 **${augur.name}** 水晶球感應厄運，諭示牌轉為【逆位】！成功為 **${player.name}** 攔截【${skillName}】的負面失誤，封存厄運轉化為 **${debt}** 點【命債】！`, 'buff');
       return { failed: false, intercepted: true, roll, debt };
     } else {
       return { failed: false, intercepted: false, roll };
     }
   },
-  intervenePositive(player, skillName, baseChance) {
+  intervenePositive(player, skillName, baseChance, rolledPercent) {
     const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
     if (!augurs.length) {
-      return { success: Math.random() < (baseChance / 100), boosted: false, finalChance: baseChance };
+      return { success: (rolledPercent ?? Math.random() * 100) < baseChance, boosted: false, finalChance: baseChance };
     }
     const augur = augurs[0];
     let M_pos = (augur.augurBindingBoostRound === this.battleRound) ? 20 : 15;
     if (countEquip(augur, 'aug_gilded_box')) M_pos += 5;
     const finalChance = Math.min(100, baseChance + M_pos);
-    const roll = Math.random() * 100;
-    if (roll < finalChance) {
-      augur.augurIntervenedThisRound = true;
-      augur.augurCardState = 'upright';
-      this.p8Log(`🃏🌟 **${augur.name}** 水晶球光芒凝聚，諭示牌轉為【正位】！順應命運使 **${player.name}** 的【${skillName}】正面機率提升至 **${finalChance}%** 並成功觸發！`, 'buff');
-      return { success: true, boosted: true, roll, finalChance };
-    }
-    return { success: false, boosted: true, roll, finalChance };
+    const before = this.getHpSnapshot();
+    const roll = rolledPercent ?? Math.random() * 100;
+    const success = roll < finalChance;
+    // Spending the intervention boosts the chance; it does not guarantee the outcome.
+    augur.augurIntervenedThisRound = true;
+    augur.augurCardState = 'upright';
+    this.recordAugurReaction(augur,'aug_upright',player.id,before,{type:'upright',skillName,baseChance,finalChance,roll,success});
+    this.p8Log(`🃏🌟 **${augur.name}** 諭示牌轉為【正位】，使 **${player.name}** 的【${skillName}】機率由 ${baseChance}% 提升至 **${finalChance}%**（${success?'成功觸發':'本次未觸發'}）！`,'buff');
+    return { success, boosted:true, roll, finalChance };
   },
   p8ResetBattle() {
     this.p8ExitArena(); this.arenaPending=null;
@@ -272,6 +312,7 @@ export const phase8Methods = {
         p.augurIntervenedThisRound = false;
         delete p.augurBindingBoostRound;
         p.observedTargetId = this.selectDefaultObservedTarget(p);
+        p.augurObservationPending = true;
       }
     }
     if(this.currentMonster)this.currentMonster.p8Effects={};
@@ -340,11 +381,20 @@ export const phase8Methods = {
     for(const p of Object.values(this.players)) {
       this.p8Expire(p);p.parryChecked=false;p.kyoutou=false;p.parriedCount=0;p.parryChance=.4;p.rageRoundGain=false;p.warriorRoundDamage=0;p.sageInduction=false;p.sageEquationResolved=false;p.sageSolvedThisRound=false;
       if(p.role==='augur'&&p.hp>0) {
+        const before = this.getHpSnapshot();
         p.augurIntervenedThisRound = false;
         p.augurCardState = 'empty';
         const target = this.players[p.observedTargetId];
-        if (!target || target.hp <= 0) {
+        const reselected = !target || target.hp <= 0;
+        if (reselected) {
           p.observedTargetId = this.selectDefaultObservedTarget(p);
+        }
+        if (p.augurObservationPending || reselected) {
+          queue.push({type:'player_action',category:'BUFF',sourceId:p.id,sourceName:p.name,sourceRole:'augur',actionId:'aug_observe',
+            skillName:reselected && this.battleRound > 1?'命運觀測・重新鎖定':'命運觀測',targetId:p.observedTargetId,
+            monsterName:this.currentMonster?.name,monsterAvatar:this.currentMonster?.avatar,
+            hpSnapshotBefore:before,hpSnapshot:this.getHpSnapshot(),results:[],outcome:{type:'observe',targetId:p.observedTargetId}});
+          p.augurObservationPending = false;
         }
       }
       p.p8Shields=(p.p8Shields||[]).filter(s=>{
@@ -512,6 +562,7 @@ export const phase8Methods = {
     this.p8Results=[];this.p8Visuals=visuals;this.p8LogBuffer=log;
     const damage=(n,type='phys',extra={})=>this.p8DamageMonster(p,n,type,resistance,extra);
     const stat=this.getEffectiveBonusAtk(p),m=this.currentMonster;
+    const augurBefore=p.role==='augur'?this.getHpSnapshot():null;
     let outcome={type:'normal'},category=null,bloodHealApplied=false;
     const effect=(target,id,label,turns=1,extra={},resistanceChecked=false)=>{
       const before=this.getHpSnapshot();if (!this.p8Effect(target,id,label,turns,extra,resistanceChecked)) return false;
@@ -523,7 +574,7 @@ export const phase8Methods = {
       if(p.action==='basic') {
         damage(Math.floor((this.applyFateBlessing(p, 10)+stat)*bardMultiplier),'mag');
         const rate=countEquip(p,'dw_spindle')?.75:.5;
-        if(m.hp>0 && Math.random()<rate && this.monsterAllowsEffect('夢境混亂')) {
+        if(m.hp>0 && this.intervenePositive(p,'恍惚編織・潛意識混淆',rate*100).success && this.monsterAllowsEffect('夢境混亂')) {
           const id=roll(['mirror','dissociate','nightmare_weak','frenzy_backfire']);
           const names={mirror:'鏡像夢境',dissociate:'解離痛楚',nightmare_weak:'萎靡夢魘',frenzy_backfire:'狂亂夢遊'};
           if(id==='nightmare_weak'&&!this.p8Has(m,id)) {
@@ -553,7 +604,7 @@ export const phase8Methods = {
         const enhanced=['sg_eyepiece','sg_tube','sg_mount'].every(id=>countEquip(p,id));const r=Math.random();
         const id=enhanced?['planet','galaxy','blackhole','boundary'][Math.min(3,Math.floor(r*4))]:r<.6?'star':r<.7?'planet':r<.8?'galaxy':r<.9?'blackhole':'boundary';
         outcome={type:id,label:{star:'發現星座',planet:'發現星球',galaxy:'發現星系',blackhole:'發現黑洞',boundary:'發現宇宙邊界'}[id],enhanced};
-        if(id==='star'||id==='planet') {damage(Math.floor(((id==='star'?this.applyFateBlessing(p, 15):this.applyFateBlessing(p, enhanced?35:25))+stat)*bardMultiplier),'mag');if(id==='planet'&&Math.random()<(enhanced?.3:.1)&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
+        if(id==='star'||id==='planet') {damage(Math.floor(((id==='star'?this.applyFateBlessing(p, 15):this.applyFateBlessing(p, enhanced?35:25))+stat)*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
         if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:5});
         if(id==='blackhole') {
           damage(enhanced?10:5,'true');
@@ -633,7 +684,7 @@ export const phase8Methods = {
       if(p.action==='basic') {
         const raw = this.applyFateBlessing(p, 10);
         damage(Math.floor((raw+stat)*bardMultiplier), 'mag');
-        if (m.hp > 0) m.augurResistanceBreak = 2;
+        if (this.p8Results.at(-1)?.kind==='damage' && this.p8Results.at(-1).damageType==='magic' && this.p8Results.at(-1).finalDamage>0) m.augurResistanceBreak = 2;
         let clearAmt = 8;
         const amethyst = countEquip(p, 'aug_amethyst');
         if (amethyst > 0) clearAmt += 4 + (amethyst - 1) * 2;
@@ -641,10 +692,16 @@ export const phase8Methods = {
         outcome = { type: 'prismatic', label: '水晶折光', repaid, damage: raw };
         this.p8Log(`🔮 **${p.name}** 施展【水晶折光】貫穿魔物，削弱其效果抗性 15%（2 回合），並撫平清償自身 **${repaid}** 點【命債】！`, 'combat');
       } else if(p.action==='aug_bind') {
-        const target = this.players[p.targetPlayerId] || p;
+        const others=alive(this).filter(ally=>ally.id!==p.id);
+        const target=others.length?others.find(ally=>ally.id===p.targetPlayerId):p;
+        // Revalidate at execution: the selected ally may have died after locking.
+        if (!target) {
+          this.p8Log(`**${p.name}** 的【命運繫結】目標已失效，未切換觀測目標。`,'warning');
+          this.p8Visuals=null;
+          return {outcome:{type:'invalid',label:'觀測目標已失效'},category:'BUFF',bloodHealApplied};
+        }
         p.observedTargetId = target.id;
         p.augurCardState = 'empty';
-        p.augurIntervenedThisRound = false;
         p.augurBindingBoostRound = this.battleRound;
         category = 'BUFF';
         outcome = { type: 'bind', label: '命運繫結', targetId: target.id, targetName: target.name };
@@ -653,7 +710,7 @@ export const phase8Methods = {
         const raw = this.applyFateBlessing(p, 15);
         damage(Math.floor((raw+stat)*bardMultiplier), 'mag');
         if (m.hp > 0) {
-          m.augurResistanceBreak = 2;
+          if (this.p8Results.at(-1)?.kind==='damage' && this.p8Results.at(-1).damageType==='magic' && this.p8Results.at(-1).finalDamage>0) m.augurResistanceBreak = 2;
           m.reversedOmenRemaining = 2;
           m.reversedOmenBonus = countEquip(p, 'aug_forbidden_tome') ? 18 : 10;
         }
@@ -662,10 +719,17 @@ export const phase8Methods = {
         let bonusHeal = false;
         if (repaid >= 15) {
           bonusHeal = true;
-          this.applyHealWithOverheal(p, 10, { directHp: true });
+          const heal=(ally)=>{
+            const before=this.getHpSnapshot();
+            const actualHeal=this.applyHealWithOverheal(ally,this.applyFateBlessing(p,10),{directHp:true});
+            const after=this.getHpSnapshot();
+            this.p8Results.push({kind:'heal',targetId:ally.id,actualHeal,outcome:{type:'normal'},
+              targetBefore:before.players.find(a=>a.id===ally.id),targetAfter:after.players.find(a=>a.id===ally.id),hpSnapshot:after});
+          };
+          heal(p);
           const target = this.players[p.observedTargetId];
           if (target && target.hp > 0 && target.id !== p.id) {
-            this.applyHealWithOverheal(target, 10, { directHp: true });
+            heal(target);
           }
         }
         outcome = { type: 'reckon', label: '命運清算・凶兆逆位', repaid, bonusHeal, damage: raw };
@@ -674,6 +738,13 @@ export const phase8Methods = {
     }
     if(!this.p8Results.length){const snap=this.getHpSnapshot(),target=outcome.type==='immune'?snap.monster:snap.players.find(x=>x.id===p.id);this.p8Results.push({kind:'status',targetId:outcome.type==='immune'?'monster':p.id,outcome,targetBefore:target,targetAfter:target,hpSnapshot:snap});}
     for(const r of this.p8Results){r.monsterName=m.name;r.monsterAvatar=m.avatar;}
+    // Resource/debuff changes follow the impact and remain authoritative in the queue.
+    if (p.role==='augur') {
+      const snapshot=this.getHpSnapshot();
+      this.p8Results.push({kind:'status',targetId:p.action==='aug_bind'?p.observedTargetId:'monster',
+        targetBefore:p.action==='aug_bind'?augurBefore.players.find(a=>a.id===p.observedTargetId):augurBefore.monster,
+        targetAfter:p.action==='aug_bind'?snapshot.players.find(a=>a.id===p.observedTargetId):snapshot.monster,hpSnapshot:snapshot});
+    }
     this.p8Visuals=null;return {outcome,category,bloodHealApplied};
   },
   p8Cooldowns() {
@@ -686,9 +757,12 @@ export const phase8Methods = {
   p8ResolveEquation(p,queue,log,resistance,bardMultiplier=1.0) {
     if(p.sageEquationResolved)return;
     const m=this.currentMonster;this.p8LogBuffer=log;
+    const augurReactionIndex=this.augurReactions?.length || 0;
+    let equationBefore, fateResults=[];
     const event=(p,name,id,resolve,outcome={type:'normal'})=>{
-      const before=this.getHpSnapshot();this.p8Results=[];this.p8Visuals=[];resolve();const after=this.getHpSnapshot();
+      const before=equationBefore || this.getHpSnapshot();this.p8Results=[...fateResults];this.p8Visuals=[];resolve();const after=this.getHpSnapshot();
       queue.push({type:'player_action',category:'OFFENSIVE',sourceId:p.id,sourceName:p.name,sourceRole:p.role,actionId:id,skillName:name,monsterName:m.name,monsterAvatar:m.avatar,
+        augurReactions:(this.augurReactions || []).slice(augurReactionIndex),
         targetId:'monster',targetName:m.name,hpSnapshotBefore:before,hpSnapshot:after,results:this.p8Results,finalDamage:this.p8Results.filter(r=>r.targetId==='monster'&&r.kind==='damage').reduce((n,r)=>n+r.finalDamage,0),damageType:'physical',outcome,detail:name});
       this.p8Results=null;this.p8Visuals=null;
     };
@@ -702,6 +776,7 @@ export const phase8Methods = {
           const confusionChance=sageConfusionChance(x);
           const lensBonus=(lens?0.10+(lens-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
           const successChance=Math.min(growth.success+lensBonus,1-confusionChance);
+          equationBefore=this.getHpSnapshot(); this.p8Results=[];
           const augurs=Object.values(this.players).filter(pl=>pl.hp>0&&pl.role==='augur'&&pl.observedTargetId===p.id&&!pl.augurIntervenedThisRound);
           let resolution;
           if(!augurs.length) {
@@ -719,6 +794,7 @@ export const phase8Methods = {
               resolution=pos.success?'SUCCESS':'NOTHING';
             }
           }
+          fateResults=this.p8Results;
           const baseEquationDamage=Math.round(Math.abs(operand*etaVal));
           const damageAfterEquipment=Math.round(baseEquationDamage*R);
           // Round the combined modifiers once, never the intermediate ruler value.
@@ -787,18 +863,23 @@ export const phase8Methods = {
         targetId:'monster',targetName:m.name,hpSnapshotBefore:before,hpSnapshot:after,results:this.p8Results,finalDamage:this.p8Results.filter(r=>r.targetId==='monster'&&r.kind==='damage').reduce((n,r)=>n+r.finalDamage,0),damageType:'physical',outcome,detail:name});
       this.p8Results=null;this.p8Visuals=null;
     };
+    if (m?.hp<=0) this.clearAugurBattleDebts();
     for(const p of Object.values(this.players)) {
-      if(p.role==='augur' && p.augurFateDebts && p.augurFateDebts.length > 0) {
+      if(m?.hp>0 && p.role==='augur' && p.augurFateDebts && p.augurFateDebts.length > 0) {
+        const before=this.getHpSnapshot();
         const expired = p.augurFateDebts.filter(d => d.dueRound <= this.battleRound);
         p.augurFateDebts = p.augurFateDebts.filter(d => d.dueRound > this.battleRound);
         const totalExpired = expired.reduce((sum, d) => sum + d.amount, 0);
+        if(p.hp<=0)continue;
         if (totalExpired > 0) {
           const hpBefore = p.hp;
           p.hp = Math.max(0, p.hp - totalExpired);
           this.p8Log(`⚡⚖️ **${p.name}** 的 ${totalExpired} 點【命債】已到期進行因果清算！無視護盾直接扣除 **${totalExpired}** 點生命！${p.hp <= 0 ? '【卜者隕落】！' : ''}`, 'damage');
           queue.push({
-            type: 'player_action', category: 'DEBT_EXPIRY', sourceId: p.id, sourceName: p.name, sourceRole: 'augur',
-            skillName: '命債到期清算', targetId: p.id, results: [{ kind: 'damage', finalDamage: totalExpired, hpDamage: totalExpired, targetId: p.id, hpBefore, hpAfter: p.hp }]
+            type: 'player_action', category: 'DEBT_EXPIRY', sourceId: p.id, sourceName: p.name, sourceRole: 'augur',actionId:'aug_expiry',
+            monsterName:m.name,monsterAvatar:m.avatar,hpSnapshotBefore:before,hpSnapshot:this.getHpSnapshot(),
+            skillName: '命債到期清算', targetId: p.id,outcome:{type:'expiry',expired:totalExpired}, results: [{ kind: 'damage', damageType:'true',finalDamage: Math.min(hpBefore,totalExpired), hpDamage: Math.min(hpBefore,totalExpired), targetId: p.id, hpBefore, hpAfter: p.hp,
+              targetBefore:before.players.find(a=>a.id===p.id),targetAfter:this.getHpSnapshot().players.find(a=>a.id===p.id),hpSnapshot:this.getHpSnapshot(),isDead:p.hp<=0 }]
           });
         }
       }

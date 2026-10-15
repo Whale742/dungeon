@@ -86,7 +86,7 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       ammoAfter: [...(player.ammo || [])], loaded: (player.ammo || []).slice((old.ammo || []).length),
       statuses: player.statuses, outcome: step.outcome }, player);
   }
-  const attacks = visuals.filter(e => e.type === 'player_attack');
+  const attacks = visuals.filter(e => e.type === 'player_attack' || e.type === 'augur_tome');
   if (step.category === 'TRANSFORM' || step.category === 'SUMMON') {
     const player = after.players.find(p => p.id === step.sourceId);
     const old = snapshotTarget(before, step.sourceId);
@@ -98,7 +98,9 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
     if(event.outcome?.type==='dream_heal'&&event.value===0)continue;
     const next = { ...display.monster, hp: Math.max(0, display.monster.hp - event.value) };
     append({ kind: 'damage', targetId: 'monster', finalDamage: event.value,
-      outcome: event.outcome || step.outcome, damageType: event.outcome?.type==='nightmare'?'true':event.dmgType === 'mag' ? 'magic' : 'physical' }, next);
+      sourceId:event.sourceId,sourceRole:event.type==='augur_tome'?'augur':undefined,
+      outcome: event.type==='augur_tome'?{type:'augur_tome'}:event.outcome || step.outcome,
+      damageType:event.type==='augur_tome'||event.outcome?.type==='nightmare'?'true':event.dmgType === 'mag' ? 'magic' : 'physical' }, next);
   }
   // Certain equipment adds a separate actual boss damage result.
   if (display.monster && after.monster && display.monster.hp > Math.max(0, after.monster.hp)) {
@@ -106,6 +108,7 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       outcome: { type: 'normal' }, damageType: 'magic' }, { ...after.monster, hp: Math.max(0, after.monster.hp) });
   }
   for (const heal of heals) append({ kind: 'heal', targetId: heal.targetId, actualHeal: heal.actualHeal,
+    absorbedDebt:heal.absorbedDebt || 0,
     outcome: heal.outcome || { type: 'normal' } }, heal.targetAfter);
   if (step.category === 'BUFF') {
     for (const player of after.players.filter(p => p.hp > 0)) {
@@ -135,4 +138,28 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       { ...after.monster, hp: Math.max(0, after.monster.hp) });
   }
   return results;
+}
+
+// Equipment reactions belong to the triggering action. Present its main hit
+// before the separate tome hit, retaining actual amounts and monotonic HP.
+export function sequenceAugurDamageResults(step) {
+  if (!step.hpSnapshotBefore || !step.results?.some(r=>r.outcome?.type==='augur_tome')) return step;
+  const regular=step.results.filter(r=>r.outcome?.type!=='augur_tome');
+  const tome=step.results.filter(r=>r.outcome?.type==='augur_tome');
+  let monsterHp=step.hpSnapshotBefore.monster?.hp || 0;
+  step.results=[...regular,...tome].map(result=>{
+    const next={...result};
+    if(result.targetId==='monster') {
+      next.targetBefore={...(result.targetBefore || step.hpSnapshotBefore.monster),hp:monsterHp};
+      if(result.kind==='damage')monsterHp=Math.max(0,monsterHp-(result.finalDamage || 0));
+      else if(result.kind==='heal')monsterHp+=result.actualHeal || 0;
+      next.targetAfter={...(result.targetAfter || next.targetBefore),hp:monsterHp};
+    }
+    if(result.hpSnapshot) {
+      next.hpSnapshot=structuredClone(result.hpSnapshot);
+      if(next.hpSnapshot.monster)next.hpSnapshot.monster.hp=monsterHp;
+    }
+    return next;
+  });
+  return step;
 }

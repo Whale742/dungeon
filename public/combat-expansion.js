@@ -684,6 +684,21 @@ async function playPhase8Presentation(step, context = {}) {
   return playSkillCastPresentation(step,{...context,audioScope:audio,skipCastAudio:step.sourceRole==='samurai'},showResults);
 }
 async function playExpandedCombatPresentation(step, context = {}) {
+  const signal=context.signal || context.controller?.signal;
+  const reactions=step.sourceRole==='augur'?[]:step.augurReactions || [];
+  if(typeof playAugurPresentation==='function')for(const reaction of reactions.filter(r=>r.actionId!=='aug_tome')) {
+    if(signal?.aborted)return;
+    await playAugurPresentation(reaction,{...context,augurReaction:true});
+  }
+  if(signal?.aborted)return;
+  await playExpandedCombatPresentationCore(step,context);
+  if(typeof playAugurPresentation==='function')for(const reaction of reactions.filter(r=>r.actionId==='aug_tome')) {
+    if(signal?.aborted)return;
+    // Its explicit damage result has already updated HP; this is the equipment discharge.
+    await playAugurPresentation({...reaction,hpSnapshotBefore:step.hpSnapshot || reaction.hpSnapshot},{...context,augurReaction:true});
+  }
+}
+async function playExpandedCombatPresentationCore(step, context = {}) {
   if (window.StudioContent && step.sourceRole && step.actionId) {
     const actor={...(step.hpSnapshotBefore?.players?.find(p=>p.id===step.sourceId)||{}),...(step.gladiatorPresentation?{arenaActive:step.gladiatorPresentation.arenaActive}:{}),...(step.druidForm?{druidForm:step.druidForm}:{})};
     const view=window.StudioGame?.skillDisplay(step.sourceRole,{id:step.actionId,label:step.skillName},actor);

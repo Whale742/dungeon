@@ -56,8 +56,7 @@ async function main() {
   for (const f of filesToUpload) {
     const fullPath = path.resolve('public', f.localPath);
     if (!fs.existsSync(fullPath)) {
-      console.error(`File missing: ${fullPath}`);
-      continue;
+      throw new Error(`File missing: ${fullPath}`);
     }
     const buffer = fs.readFileSync(fullPath);
     const hash = crypto.createHash('sha256').update(buffer).digest('hex');
@@ -75,7 +74,7 @@ async function main() {
       });
 
     if (uploadErr) {
-      console.error(`Failed to upload ${f.localPath}:`, uploadErr);
+      throw new Error(`Failed to upload ${f.localPath}: ${uploadErr.message}`);
     } else {
       console.log(`Successfully uploaded ${f.localPath}`);
     }

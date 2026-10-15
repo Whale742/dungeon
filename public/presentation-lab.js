@@ -833,6 +833,7 @@ async function playScene(sceneName) {
     }
     if (typeof AUGUR_LAB_SCENES !== 'undefined' && AUGUR_LAB_SCENES[sceneName]) {
       const scene = AUGUR_LAB_SCENES[sceneName];
+      logLab('EXPECT',scene.expected || scene.label,'info');
       await enterCombatStage(context);
       try { for (const step of scene.steps) await playExpandedCombatPresentation(structuredClone(step), context); }
       finally { await exitCombatStage(context); }
