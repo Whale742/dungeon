@@ -1,8 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { loadEnv } from './env.js';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseRest } from '../studio/supabase.js';
+
+loadEnv();
 
 const env = process.env;
 const cloud = new SupabaseRest(env);

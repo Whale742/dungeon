@@ -655,10 +655,6 @@ export const BATTLE_NARRATIVES = {
         if (role === 'onmyoji') return `📜 **${name}** 念動真言施展【引符術】，靈符如電飛射，對魔物造成魔法打擊！`;
         return `🗡️ **${name}** 施展【普通攻擊】打擊魔物！`;
       }
-      case 'aug_bind':
-        return `🤲🔮 **${name}** 雙手輕覆水晶球後緩緩敞開，球內迷霧散去並浮現戰友的身影，星軌金環隨之共鳴，賜予深邃的命運加護！`;
-      case 'aug_reckon':
-        return `🃏⚖️ **${name}** 將水晶球內封存的因果業障全數抽出，化作一張巨型【凶兆逆位】牌轟然鎮壓於魔物頭頂，撕裂其防線！`;
       case 'w_strike':
         return `🛡️ **${name}** 戰意沸騰，怒吼著將全身力道灌注於劍刃，巨劍泛起冷冽寒光，力劈華山般斬下【堅定斬擊】！`;
       case 'w_shield':
@@ -724,6 +720,10 @@ export const BATTLE_NARRATIVES = {
         return `🛡️🎺 **${name}** 高唱【榮耀讚歌】，神聖光輝籠罩全身，並凝聚小隊鬥志轉化為庇護！`;
       case 'pal_grace':
         return `🛡️🕊️ **${name}** 詠唱【代受恩典】，以誓約承擔隊友的一切苦痛與負面厄運！`;
+      case 'aug_bind':
+        return `🤲🔮 **${name}** 雙手輕覆水晶球後緩緩敞開，球內迷霧散去並浮現戰友的身影，星軌金環隨之共鳴，賜予深邃的命運加護！`;
+      case 'aug_reckon':
+        return `🃏⚖️ **${name}** 將水晶球內封存的因果業障全數抽出，化作一張巨型【凶兆逆位】牌轟然鎮壓於魔物頭頂，撕裂其防線！`;
       case 'onm_talisman':
         return `📜 **${name}** 手捏靈訣擲出【五鬼攝魂符】，陰陽符咒化作幽光直貼魔物命門！`;
       case 'onm_detonate':
@@ -946,8 +946,8 @@ export function getPlayerSkills(player) {
 // 玩家行動優先權判定 (1: 淨化, 2: 復活, 3: 防禦/護盾/裝填蹲伏, 4: 增益, 5: 治療, 6: 變身/召喚, 7: 敵方減益, 8: 攻擊技能)
 export function getActionPriority(actionId) {
   if (['dw_butterfly','sg_clock','g_sacrifice','g_arena'].includes(actionId)) return 4;
-  if (['dw_false_dream','sg_observe','aug_reckon'].includes(actionId)) return 7;
-  if (actionId === 'alc_fate' || actionId === 'aug_bind') return 1; // 1. 淨化 / 命運繫結 (Cleanse / Augur Bind)
+  if (['dw_false_dream','sg_observe'].includes(actionId)) return 7;
+  if (actionId === 'alc_fate' || actionId === 'aug_bind') return 1; // 1. 淨化 / 命運繫結 (Cleanse / Fate Binding)
   if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)
   if (actionId === 'w_shield' || actionId === 'a_reload' || actionId === 'a_frenzy_reload' || actionId === 'pal_glory' || actionId === 'pal_grace') return 3; // 3. 防禦/護盾/免傷/架弩蹲伏 (Defense / Mitigation)
   if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)

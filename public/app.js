@@ -2566,7 +2566,7 @@ function handleSkillClick(actionId, me) {
   if (roomState?.selectionState === 'RESOLVING') return;
 
   if(actionId==='dw_butterfly') {openTargetModal('dream',[...(roomState.players||[]).filter(p=>p.hp>0),{id:'monster',name:roomState.currentMonster?.name||'魔物',hp:roomState.currentMonster?.hp||1,maxHp:roomState.currentMonster?.maxHp||1,role:null,customAvatar:roomState.currentMonster?.avatar}]);return;}
-  // 卜者命運繫結：指定存活隊友
+  // 卜者命運繫結：若有其他存活隊友，彈出目標選擇；若無則自動指定自身
   if (actionId === 'aug_bind') {
     const aliveAllies = (roomState?.players || []).filter(p => p.hp > 0 && p.id !== me.id);
     if (aliveAllies.length > 0) {
@@ -2610,8 +2610,8 @@ function openTargetModal(type, targetList) {
 
   if(type==='dream'){elements.targetModalTitle.textContent='清醒夢・薛丁格之蝶・指定目標';elements.targetModalDesc.textContent='請選擇存活隊友或魔物：';}
   if (type === 'aug_bind') {
-    elements.targetModalTitle.innerHTML = `${getIconSvg('star') || '🔮'} <span>【命運繫結】指定觀測目標</span>`;
-    elements.targetModalDesc.textContent = '重新指定一名存活隊友作為【觀測目標】，享有命運加護與機率干涉：';
+    elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【命運繫結】重新指定觀測目標</span>`;
+    elements.targetModalDesc.textContent = '請選擇一名隊友作為命運觀測目標（當回合加護強化）：';
   } else if (type === 'grace') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('shield')} <span>【代受恩典】指定守護隊友</span>`;
     elements.targetModalDesc.textContent = '在接下來的 2 回合，該隊友受到的傷害與負面狀態將由聖騎士承受：';

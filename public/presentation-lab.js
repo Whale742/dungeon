@@ -1257,7 +1257,7 @@ function initLabController() {
       sceneSelect.appendChild(group);
     }
     if (typeof AUGUR_LAB_SCENES !== 'undefined') {
-      const group=document.createElement('optgroup');group.label='Augur · 命運之間';
+      const group=document.createElement('optgroup');group.label='Augur · Fate Study';
       for(const [id,scene] of Object.entries(AUGUR_LAB_SCENES)){const option=document.createElement('option');option.value=id;option.textContent=scene.label;group.appendChild(option);}
       sceneSelect.appendChild(group);
     }

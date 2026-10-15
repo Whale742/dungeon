@@ -698,12 +698,12 @@ async function playExpandedCombatPresentation(step, context = {}) {
   if (step.type === 'player_action' && step.sourceRole === 'archer' && (step.actionId === 'a_rain' || (step.actionId === 'basic' && step.outcome?.type === 'volley'))) return playArcherPresentation(step, context);
   if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
   if (typeof hasSamuraiParry === "function" && hasSamuraiParry(step)) rememberSamuraiEnemyPhase(step, context);
+  if (step.sourceRole === 'augur' && typeof playAugurPresentation === 'function') return playAugurPresentation(step, context);
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);
   if(step.type==='player_action'&&step.sourceRole==='sage'&&['basic','sge_deduce','sge_induce'].includes(step.actionId))return playSageSkillPresentation(step,context);
   if(step.sourceRole==='stargazer'&&['basic','sg_clock','sg_observe'].includes(step.actionId))return playStargazerPresentation(step,context);
-  if(step.sourceRole==='augur')return playAugurPresentation(step,context);
   if(step.type==='player_action'&&step.results?.some(r=>['dream_heal','nightmare'].includes(r.outcome?.type)))return playSkillCastPresentation(step,context,async canvas=>{
     const row=document.createElement('div');row.className='presentation-support-targets';canvas.appendChild(row);
     const cards=new Map();

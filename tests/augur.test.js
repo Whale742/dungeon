@@ -1,297 +1,382 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { CLASSES, getActionPriority } from '../game/constants.js';
 import { Room } from '../game/Room.js';
-import { CLASSES } from '../game/constants.js';
-import { NEW_CLASSES, NEW_LOOT, NEW_ROLE_DETAILS } from '../game/phase8-config.js';
-import fs from 'node:fs';
-import { P8_ROLES, countEquip } from '../game/phase8.js';
 
-function createRoomWithPlayers(playerDefs) {
-  const events = [];
-  const io = { to: () => ({ emit: (name, data) => events.push({ name, data }) }) };
-  const socket = id => ({ id, join() {} });
-  const room = new Room('test-room', socket('p0'), 'Player0', io);
-  room.state = 'IN_BATTLE';
-  room.floor = 1;
-  room.battleRound = 1;
+function createRoomWithPlayers(playerConfigs) {
+  const socket = id => ({ id, join() {}, emit() {} });
+  const mockIo = { to: () => ({ emit() {} }), emit() {} };
+  const room = new Room('test-room', socket('p0'), 'Hero', mockIo);
   room.currentMonster = {
-    id: 'boss',
+    id: 'monster',
     name: '深淵執印者',
     hp: 1000,
     maxHp: 1000,
-    dmg: 20,
-    def: 0,
-    speed: 5,
-    effectResist: 0,
-    poisonTurns: 0, poisonDmg: 0,
-    burnTurns: 0, burnDmg: 0,
-    bleedTurns: 0,
-    fractureTurns: 0, fractureDmg: 0,
-    chillTurns: 0, chillDmg: 0,
-    corrosionTurns: 0
+    baseMaxHp: 1000,
+    statuses: [],
+    defense: 0,
+    effectResistance: 40
   };
-  playerDefs.forEach((def, index) => {
-    const id = `p${index}`;
+  room.players = {};
+  playerConfigs.forEach((cfg, idx) => {
+    const id = `p${idx}`;
     const p = {
       id,
-      name: def.name || `Player${index}`,
-      role: def.role,
-      hp: def.hp !== undefined ? def.hp : (CLASSES[def.role]?.maxHp || 70),
-      maxHp: def.maxHp || (CLASSES[def.role]?.maxHp || 70),
-      action: null,
-      equips: def.equips || [],
-      cooldowns: {},
-      p8Effects: {}
+      name: cfg.name || `Player_${cfg.role}`,
+      role: cfg.role,
+      hp: cfg.hp ?? 70,
+      maxHp: cfg.maxHp ?? 70,
+      tempHp: cfg.tempHp ?? 0,
+      statuses: [],
+      equips: cfg.equips ? [...cfg.equips] : [],
+      ammo: [],
+      skills: CLASSES[cfg.role]?.skills || [],
+      isLocked: true,
+      action: cfg.action || 'basic',
+      targetPlayerId: cfg.targetPlayerId || null,
+      augurFateDebts: cfg.augurFateDebts ? [...cfg.augurFateDebts] : [],
+      augurCardState: cfg.augurCardState || 'empty',
+      augurIntervenedThisRound: cfg.augurIntervenedThisRound || false,
+      augurBindingBoostRound: cfg.augurBindingBoostRound || 0,
+      observedTargetId: cfg.observedTargetId || null,
+      cooldowns: {}
     };
     room.players[id] = p;
   });
-  room.p8ResetBattle();
+  room.battleRound = 1;
   return room;
 }
 
-test('Augur Class and Role Details Configuration', t => {
-  assert.ok(CLASSES.augur, 'Augur should exist in CLASSES');
-  assert.equal(CLASSES.augur.maxHp, 70);
-  assert.equal(CLASSES.augur.skills[0].label, '水晶折光');
-  assert.equal(CLASSES.augur.skills[1].label, '命運繫結');
-  assert.equal(CLASSES.augur.skills[2].label, '命運清算・凶兆逆位');
-  assert.ok(CLASSES.augur.passive.includes('命運加護'));
+test('Augur: class metadata and action priorities', t => {
+  const augur = CLASSES.augur;
+  assert.ok(augur, 'Augur class must be defined in CLASSES');
+  assert.equal(augur.maxHp, 70, 'Augur base maxHp must be 70');
+  assert.equal(augur.skills.length, 3, 'Augur must have 3 skills (basic, aug_bind, aug_reckon)');
 
-  assert.ok(NEW_ROLE_DETAILS.augur, 'Augur should exist in NEW_ROLE_DETAILS');
-  assert.equal(NEW_ROLE_DETAILS.augur.hp, 70);
-  assert.equal(NEW_ROLE_DETAILS.augur.roleName, '卜者');
-  assert.equal(NEW_ROLE_DETAILS.augur.skills.length, 3);
-
-  const lobbySource = fs.readFileSync(new URL('../public/lobby.js', import.meta.url), 'utf8');
-  assert.ok(lobbySource.includes("'augur'"), 'Augur should exist in LOBBY_ROLE_ORDER');
-  assert.ok(lobbySource.includes("radar:['C','C','S','A','B']"), 'Augur radar should be C, C, S, A, B');
-
-  assert.ok(NEW_LOOT.find(x => x.id === 'aug_amethyst'), 'aug_amethyst loot should exist');
-  assert.ok(NEW_LOOT.find(x => x.id === 'aug_gilded_box'), 'aug_gilded_box loot should exist');
-  assert.ok(NEW_LOOT.find(x => x.id === 'aug_forbidden_tome'), 'aug_forbidden_tome loot should exist');
+  // Priorities: aug_bind = 1, aug_reckon = 7, basic = 8
+  assert.equal(getActionPriority('aug_bind'), 1, 'aug_bind priority must be 1');
+  assert.equal(getActionPriority('aug_reckon'), 7, 'aug_reckon priority must be 7');
+  assert.equal(getActionPriority('basic'), 8, 'basic priority must be 8');
 });
 
-test('Augur 3-tier target selection priority on battle reset', t => {
-  // Scenario 1: multiple living allies, picks lowest HP percentage
+test('Augur: starting observation target selection priority', t => {
+  // Scenario 1: Pool with Tier 1 (Mage) and Tier 2 (Warrior) -> Should pick Tier 1
   {
     const room = createRoomWithPlayers([
-      { role: 'augur', hp: 70, maxHp: 70 },
-      { role: 'warrior', hp: 80, maxHp: 100 }, // 80%
-      { role: 'mage', hp: 30, maxHp: 60 }      // 50% -> lowest!
+      { role: 'augur', hp: 70 },
+      { role: 'warrior', hp: 100 },
+      { role: 'mage', hp: 60 }
     ]);
-    const augur = room.players.p0;
-    const target = room.selectDefaultObservedTarget(augur);
-    assert.equal(target, 'p2', 'Should select p2 (mage) with lowest HP%');
+    const aug = room.players.p0;
+    room.p8RoundStart();
+    assert.equal(aug.observedTargetId, 'p2', 'Should prioritize Tier 1 (mage) over Tier 2 (warrior)');
   }
 
-  // Scenario 2: all allies dead, fall back to self
+  // Scenario 2: Pool with Tier 2 (Warrior) and Tier 3 (Druid) -> Should pick Tier 2
   {
     const room = createRoomWithPlayers([
-      { role: 'augur', hp: 70, maxHp: 70 },
-      { role: 'warrior', hp: 0, maxHp: 100 },
-      { role: 'mage', hp: 0, maxHp: 60 }
+      { role: 'augur', hp: 70 },
+      { role: 'druid', hp: 90 },
+      { role: 'warrior', hp: 100 }
     ]);
-    const augur = room.players.p0;
-    const target = room.selectDefaultObservedTarget(augur);
-    assert.equal(target, augur.id, 'Should select self when all allies are dead');
+    const aug = room.players.p0;
+    room.p8RoundStart();
+    assert.equal(aug.observedTargetId, 'p2', 'Should prioritize Tier 2 (warrior) over Tier 3 (druid)');
+  }
+
+  // Scenario 3: All allies dead -> Fallback to self
+  {
+    const room = createRoomWithPlayers([
+      { role: 'augur', hp: 70 },
+      { role: 'warrior', hp: 0 }
+    ]);
+    const aug = room.players.p0;
+    room.p8RoundStart();
+    assert.equal(aug.observedTargetId, 'p0', 'Should observe self when no other alive allies');
+  }
+
+  // Scenario 4: Target dies -> System re-selects on next round start
+  {
+    const room = createRoomWithPlayers([
+      { role: 'augur', hp: 70 },
+      { role: 'mage', hp: 0 },
+      { role: 'assassin', hp: 80 }
+    ]);
+    const aug = room.players.p0;
+    aug.observedTargetId = 'p1'; // mage is dead
+    room.p8RoundStart();
+    assert.equal(aug.observedTargetId, 'p2', 'Should re-select alive assassin when previous target is dead');
   }
 });
 
-test('Augur Fate Blessing calculation and equipment modifiers', t => {
+test('Augur: Fate Blessing whitelist & blacklist calculations', t => {
   const room = createRoomWithPlayers([
-    { role: 'augur', hp: 70, maxHp: 70 },
-    { role: 'warrior', hp: 50, maxHp: 100 }
+    { role: 'augur', hp: 70 },
+    { role: 'warrior', hp: 100 }
   ]);
-  const augur = room.players.p0;
+  const aug = room.players.p0;
   const war = room.players.p1;
-  augur.observedTargetId = war.id;
+  aug.observedTargetId = war.id;
   room.battleRound = 1;
 
-  // Baseline: 20% blessing
-  assert.equal(room.getFateBlessing(war), 0.20);
-  assert.equal(room.applyFateBlessing(war, 100), 120);
+  // Baseline: +20%
+  assert.equal(room.applyFateBlessing(war, 10), 12, '10 * 1.20 = 12');
+  assert.equal(room.applyFateBlessing(war, 25), 30, '25 * 1.20 = 30');
+  assert.equal(room.applyFateBlessing(war, 45), 54, '45 * 1.20 = 54');
 
-  // When aug_bind cast this round: 25% blessing
-  augur.augurBindingBoostRound = 1;
-  assert.equal(room.getFateBlessing(war), 0.25);
-  assert.equal(room.applyFateBlessing(war, 100), 125);
+  // When aug_bind was used this round: +25%
+  aug.augurBindingBoostRound = 1;
+  assert.equal(room.applyFateBlessing(war, 10), 13, 'round(10 * 1.25) = 13');
+  assert.equal(room.applyFateBlessing(war, 20), 25, '20 * 1.25 = 25');
 
-  // With 1 amethyst orb (+5%): 30% blessing on bind
-  augur.equips = [{ id: 'aug_amethyst', name: '無瑕紫晶球' }];
-  assert.equal(room.getFateBlessing(war), 0.30);
-  assert.equal(room.applyFateBlessing(war, 100), 130);
+  // With Amethyst Orb (+5% per piece)
+  aug.equips = [{ id: 'aug_amethyst', name: '無瑕紫晶球' }];
+  assert.equal(room.applyFateBlessing(war, 10), 13, 'round(10 * 1.30) = 13');
+  assert.equal(room.applyFateBlessing(war, 20), 26, '20 * 1.30 = 26');
 
-  // Target not observed receives 0% blessing
-  assert.equal(room.getFateBlessing(augur), 0);
-  assert.equal(room.applyFateBlessing(augur, 100), 100);
+  // Unobserved player gets 0% bonus
+  assert.equal(room.applyFateBlessing(aug, 10), 10, 'Unobserved player receives original value');
 });
 
-test('Augur Negative Fate Interference (逆位) interception and debt creation', t => {
+test('Augur: Negative Fate Interference (逆位) and debt generation', t => {
   const room = createRoomWithPlayers([
-    { role: 'augur', hp: 70, maxHp: 70 },
-    { role: 'warrior', hp: 100, maxHp: 100 }
+    { role: 'augur', hp: 70 },
+    { role: 'warrior', hp: 100 }
   ]);
-  const augur = room.players.p0;
+  const aug = room.players.p0;
   const war = room.players.p1;
-  augur.observedTargetId = war.id;
+  aug.observedTargetId = war.id;
   room.battleRound = 1;
 
-  // Warrior w_strike has baseNegChance = 20%
-  // Augur reduction D = min(20, 20) = 20
-  // P_neg - D = 0. Range [0, 20) is intercepted!
   const oldRandom = Math.random;
   try {
-    // Test interception: R = 10 (0.10) falls in [0, 20)
+    // Warrior strike has 20% negative chance (0 to 0.20)
+    // Augur lowers by min(20, 20) = 20 percentage points -> new negative range is [0, 0)
+    // If roll is 0.10, falls in intercepted range [0, 0.20)
     Math.random = () => 0.10;
-    const res = room.checkNegativeFateInterference(war, 20, '堅定斬擊・揮砍失衡');
-    assert.equal(res.occurred, false, 'Negative effect should be intercepted');
-    assert.equal(res.intercepted, true);
-    assert.equal(res.debt, 20);
-    assert.equal(augur.augurIntervenedThisRound, true);
-    assert.equal(augur.augurCardState, 'reversed');
-    assert.equal(room.getAugurTotalDebt(augur), 20);
+    const res = room.interveneNegative(war, '揮砍失衡', 20);
+    assert.equal(res.failed, false, 'Negative effect must be intercepted');
+    assert.equal(aug.augurCardState, 'reversed', 'Card state must turn to reversed');
+    assert.equal(aug.augurIntervenedThisRound, true, 'Intervention flag must be set');
+    assert.equal(room.getAugurTotalDebt(aug), 20, 'Debt should be 20');
+
+    // Second intervention in same round must be blocked
+    const second = room.interveneNegative(war, '盾牌龜裂', 25);
+    assert.equal(second.failed, true, 'Only one intervention per round allowed');
+
+    // Next round resets card state to empty and clears flag
+    room.battleRound = 2;
+    room.p8RoundStart();
+    assert.equal(aug.augurCardState, 'empty', 'Card state resets to empty at round start');
+    assert.equal(aug.augurIntervenedThisRound, false, 'Intervention flag cleared');
   } finally {
     Math.random = oldRandom;
   }
 });
 
-test('Augur Gilded Box (鎏金諭示牌盒) reduces debt generated by 5 (min 5)', t => {
+test('Augur: Positive Fate Interference (正位)', t => {
   const room = createRoomWithPlayers([
-    { role: 'augur', hp: 70, maxHp: 70, equips: [{ id: 'aug_gilded_box', name: '鎏金諭示牌盒' }] },
-    { role: 'warrior', hp: 100, maxHp: 100 }
+    { role: 'augur', hp: 70 },
+    { role: 'assassin', hp: 80 }
   ]);
-  const augur = room.players.p0;
-  const war = room.players.p1;
-  augur.observedTargetId = war.id;
-  room.battleRound = 1;
-
-  const oldRandom = Math.random;
-  try {
-    // Intercept with gilded box: debt 20 -> 15
-    Math.random = () => 0.10;
-    const res = room.checkNegativeFateInterference(war, 20, '堅定斬擊・揮砍失衡');
-    assert.equal(res.intercepted, true);
-    assert.equal(res.debt, 15, 'Gilded box should reduce debt from 20 to 15');
-    assert.equal(room.getAugurTotalDebt(augur), 15);
-  } finally {
-    Math.random = oldRandom;
-  }
-});
-
-test('Augur Positive Fate Interference (正位) boost calculation', t => {
-  const room = createRoomWithPlayers([
-    { role: 'augur', hp: 70, maxHp: 70 },
-    { role: 'assassin', hp: 80, maxHp: 80 }
-  ]);
-  const augur = room.players.p0;
+  const aug = room.players.p0;
   const sin = room.players.p1;
-  augur.observedTargetId = sin.id;
+  aug.observedTargetId = sin.id;
   room.battleRound = 1;
 
   const oldRandom = Math.random;
   try {
-    // Base 30% + Augur 15% = 45%
-    // If Math.random() is 0.40 (40%), originally fails (40 > 30), but with Augur succeeds (40 < 45)!
+    // Base 30% positive chance. With Augur +15% -> 45%
+    // If roll is 0.40, originally fails (0.40 >= 0.30), but with Augur succeeds (0.40 < 0.45)!
     Math.random = () => 0.40;
-    const res = room.checkPositiveFateInterference(sin, 30, '暗影刺殺・暴擊');
-    assert.equal(res.success, true);
-    assert.equal(res.boosted, true);
-    assert.equal(augur.augurIntervenedThisRound, true);
-    assert.equal(augur.augurCardState, 'upright');
+    const res = room.intervenePositive(sin, '暗影刺殺暴擊', 30);
+    assert.equal(res.success, true, 'Positive effect boosted by Augur');
+    assert.equal(aug.augurCardState, 'upright', 'Card state must turn to upright');
+    assert.equal(aug.augurIntervenedThisRound, true, 'Intervention flag set');
   } finally {
     Math.random = oldRandom;
   }
 });
 
-test('Augur Debt FIFO Repayment and Forbidden Tome true damage conversion', t => {
+test('Augur: FIFO debt repayment and healing priority', t => {
   const room = createRoomWithPlayers([
-    { role: 'augur', hp: 70, maxHp: 70, equips: [{ id: 'aug_forbidden_tome', name: '禁忌厄運聖契' }] },
-    { role: 'warrior', hp: 100, maxHp: 100 }
+    { role: 'augur', hp: 50, maxHp: 70 }
   ]);
-  const augur = room.players.p0;
+  const aug = room.players.p0;
   room.battleRound = 1;
 
-  // Add debts: debt 1 (15) due round 2, debt 2 (20) due round 3
-  room.addAugurDebt(augur, 15);
-  room.addAugurDebt(augur, 20);
-  assert.equal(room.getAugurTotalDebt(augur), 35);
+  // Add debts: debt 1 = 15, debt 2 = 20
+  room.addAugurDebt(aug, 15);
+  room.addAugurDebt(aug, 20);
+  assert.equal(room.getAugurTotalDebt(aug), 35);
 
-  const bossHpBefore = room.currentMonster.hp;
-  // Repay 20 debt via skill
-  const repaid = room.repayAugurDebt(augur, 20);
+  // Skill repay: 20 points
+  const repaid = room.repayAugurDebt(aug, 20, 'skill');
   assert.equal(repaid, 20);
-  assert.equal(room.getAugurTotalDebt(augur), 15);
-  // Forbidden tome converts 50% of repaid debt (10) to true damage
-  assert.equal(room.currentMonster.hp, bossHpBefore - 10, 'Forbidden tome should deal 50% true damage on skill repayment');
+  assert.equal(room.getAugurTotalDebt(aug), 15);
+  assert.equal(aug.augurFateDebts[0].amount, 15, 'Debt 1 (15) was fully cleared, remaining is Debt 2 reduced from 20 to 15');
 
-  // Passive healing does NOT trigger forbidden tome true damage
-  const bossHpAfterSkill = room.currentMonster.hp;
-  const healAbsorbed = room.deductAugurDebtPassive(augur, 10);
-  assert.equal(healAbsorbed.debtPaid, 10);
-  assert.equal(room.getAugurTotalDebt(augur), 5);
-  assert.equal(room.currentMonster.hp, bossHpAfterSkill, 'Passive heal repayment must NOT deal forbidden tome true damage');
+  // Healing receives 25 points: 15 offsets debt 1:1, remaining 10 heals body HP
+  const hpBefore = aug.hp;
+  room.applyHealWithOverheal(aug, 25);
+  assert.equal(room.getAugurTotalDebt(aug), 0, 'Debt should be completely paid off');
+  assert.equal(aug.hp, hpBefore + 10, 'Body HP receives remaining 10 heal');
 });
 
-test('Augur Debt Expiry causes true damage ignoring shield at round end', t => {
+test('Augur: Debt expiry deals true damage ignoring shield at round end', t => {
   const room = createRoomWithPlayers([
     { role: 'augur', hp: 70, maxHp: 70 }
   ]);
-  const augur = room.players.p0;
-  room.battleRound = 1;
+  const aug = room.players.p0;
 
-  // Add debt due at round 2
-  augur.augurFateDebts.push({
-    amount: 25,
+  // Add debt created at round 1, due at round 3
+  aug.augurFateDebts.push({
+    amount: 30,
     createdRound: 1,
-    dueRound: 2 // due at end of round 2
+    dueRound: 3
   });
 
-  // Grant a 50-point shield
-  room.p8GrantShield(augur, 50, 2, 'test_shield');
-  assert.equal(augur.tempHp, 50);
+  // Grant a 50 HP shield
+  aug.tempHp = 50;
 
-  // Advance to round 2 and trigger end of round checks
-  room.battleRound = 2;
-  room.p8EndRound([], [], n => n);
+  // Advance to end of round 3
+  room.battleRound = 3;
+  const queue = [];
+  room.p8EndRound(queue, [], n => n);
 
-  // Debt expired! Deals 25 direct true damage to HP, ignoring shield!
-  assert.equal(augur.hp, 70 - 25);
-  assert.equal(room.getAugurTotalDebt(augur), 0);
-  assert.equal(augur.tempHp, 50, 'Shield must remain untouched by debt expiry true damage');
+  // Expired debt deals 30 damage ignoring shield!
+  assert.equal(aug.hp, 40, 'HP reduced from 70 to 40');
+  assert.equal(aug.tempHp, 50, 'Shield remains untouched at 50');
+  assert.equal(room.getAugurTotalDebt(aug), 0, 'Expired debt cleared');
 });
 
-test('Augur basic skill applies star_break debuff on boss', t => {
+test('Augur: Basic attack (水晶折光) deals 10 damage, breaks resistance and repays 8 debt', t => {
   const room = createRoomWithPlayers([
-    { role: 'augur', hp: 70, maxHp: 70 }
+    { role: 'augur', hp: 70, action: 'basic' }
   ]);
-  const augur = room.players.p0;
-  augur.action = 'basic';
-  room.currentMonster.hp = 1000;
+  const aug = room.players.p0;
+  room.addAugurDebt(aug, 20);
+  room.currentMonster.hp = 500;
 
-  room.resolveTurnActions();
-  assert.ok(room.p8Has(room.currentMonster, 'star_break'), 'Boss should have star_break effect');
-  assert.equal(room.p8Has(room.currentMonster, 'star_break').value, 15);
+  room.p8Action(aug, dmg => ({ dmg }), 1.0, [], []);
+
+  // 10 magic damage dealt
+  assert.equal(room.currentMonster.hp, 490);
+  // Boss effect resistance break set for 2 rounds
+  assert.equal(room.currentMonster.augurResistanceBreak, 2);
+  // Repaid 8 debt
+  assert.equal(room.getAugurTotalDebt(aug), 12);
 });
 
-test('Augur aug_reckon skill applies reversed_omen debuff and heals when repaid >= 15', t => {
+test('Augur: Skill 1 (命運繫結) retargets and grants round boost', t => {
   const room = createRoomWithPlayers([
-    { role: 'augur', hp: 40, maxHp: 70 },
-    { role: 'warrior', hp: 50, maxHp: 100 }
+    { role: 'augur', hp: 70, action: 'aug_bind', targetPlayerId: 'p1' },
+    { role: 'warrior', hp: 100 }
   ]);
-  const augur = room.players.p0;
+  const aug = room.players.p0;
   const war = room.players.p1;
-  augur.observedTargetId = war.id;
-  augur.action = 'aug_reckon';
-  room.currentMonster.hp = 1000;
+  aug.observedTargetId = aug.id; // initially self
+  aug.augurCardState = 'reversed';
+  aug.augurIntervenedThisRound = true;
 
-  // Seed 25 debt so aug_reckon can repay 25 (>= 15)
-  room.addAugurDebt(augur, 25);
+  room.p8Action(aug, dmg => ({ dmg }), 1.0, [], []);
 
-  room.resolveTurnActions();
-  assert.ok(room.p8Has(room.currentMonster, 'reversed_omen'), 'Boss should have reversed_omen effect');
-  assert.equal(room.p8Has(room.currentMonster, 'reversed_omen').value, 10);
-  assert.equal(room.getAugurTotalDebt(augur), 0);
-  // Repaid 25 >= 15 -> triggers heal 10 on augur and observed target
-  assert.equal(augur.hp, 50); // 40 + 10
-  assert.equal(war.hp, 60);   // 50 + 10
+  assert.equal(aug.observedTargetId, war.id, 'Observed target switched to warrior');
+  assert.equal(aug.augurCardState, 'empty', 'Card state restored to empty');
+  assert.equal(aug.augurIntervenedThisRound, false, 'Intervention flag reset');
+  assert.equal(aug.augurBindingBoostRound, 1, 'Binding boost active for round 1');
+});
+
+test('Augur: Skill 2 (命運清算・凶兆逆位) deals 15 damage, sets omen, repays debt and conditional heals', t => {
+  const room = createRoomWithPlayers([
+    { role: 'augur', hp: 40, action: 'aug_reckon' },
+    { role: 'warrior', hp: 50 }
+  ]);
+  const aug = room.players.p0;
+  const war = room.players.p1;
+  aug.observedTargetId = war.id;
+  room.addAugurDebt(aug, 25);
+  room.currentMonster.hp = 500;
+
+  room.p8Action(aug, dmg => ({ dmg }), 1.0, [], []);
+
+  // 15 damage
+  assert.equal(room.currentMonster.hp, 485);
+  // Boss debuffs
+  assert.equal(room.currentMonster.augurResistanceBreak, 2);
+  assert.equal(room.currentMonster.reversedOmenRemaining, 2);
+  assert.equal(room.currentMonster.reversedOmenBonus, 10);
+  // Cleared 25 debt (>= 15) -> Extra 10 heal for Augur and observed target
+  assert.equal(room.getAugurTotalDebt(aug), 0);
+  assert.equal(aug.hp, 50, 'Augur healed +10 from 40 to 50');
+  assert.equal(war.hp, 60, 'Warrior healed +10 from 50 to 60');
+});
+
+test('Augur: Exclusive Equipment effects', t => {
+  // 1. Amethyst Orb: increases blessing and basic repay
+  {
+    const room = createRoomWithPlayers([
+      { role: 'augur', hp: 70, equips: [{ id: 'aug_amethyst', name: '無瑕紫晶球' }, { id: 'aug_amethyst', name: '無瑕紫晶球' }] },
+      { role: 'warrior', hp: 100 }
+    ]);
+    const aug = room.players.p0;
+    const war = room.players.p1;
+    aug.observedTargetId = war.id;
+    // 2 amethysts: +10% blessing (total 30%)
+    assert.equal(room.applyFateBlessing(war, 100), 130);
+
+    // Basic clears 8 + 4 + 2 = 14 debt
+    room.addAugurDebt(aug, 20);
+    aug.action = 'basic';
+    room.p8Action(aug, dmg => ({ dmg }), 1.0, [], []);
+    assert.equal(room.getAugurTotalDebt(aug), 6, '20 - 14 = 6 remaining debt');
+  }
+
+  // 2. Gilded Card Box: max HP +15, debt reduction by 5 (min 5), upright +5%
+  {
+    const room = createRoomWithPlayers([
+      { role: 'augur', hp: 70, equips: [{ id: 'aug_gilded_box', name: '鎏金諭示牌盒' }] },
+      { role: 'warrior', hp: 100 }
+    ]);
+    const aug = room.players.p0;
+    const war = room.players.p1;
+    aug.observedTargetId = war.id;
+
+    // Negative intercept of 20% produces 20 - 5 = 15 debt
+    const oldRandom = Math.random;
+    try {
+      Math.random = () => 0.05;
+      room.interveneNegative(war, '揮砍失衡', 20);
+      assert.equal(room.getAugurTotalDebt(aug), 15, 'Gilded box reduces debt from 20 to 15');
+    } finally {
+      Math.random = oldRandom;
+    }
+  }
+
+  // 3. Forbidden Tome: 2-round expiry, 50% true damage conversion, 18% reversed omen
+  {
+    const room = createRoomWithPlayers([
+      { role: 'augur', hp: 70, equips: [{ id: 'aug_forbidden_tome', name: '禁忌厄運聖契' }] },
+      { role: 'warrior', hp: 100 }
+    ]);
+    const aug = room.players.p0;
+    const war = room.players.p1;
+    aug.observedTargetId = war.id;
+
+    // Debt expires in round 1 + 2 - 1 = round 2
+    room.battleRound = 1;
+    room.addAugurDebt(aug, 20);
+    assert.equal(aug.augurFateDebts[0].dueRound, 2, 'Forbidden tome sets due round to round 2');
+
+    // Skill repayment converts 50% rounded to true damage on Boss
+    const bossHpBefore = room.currentMonster.hp;
+    room.repayAugurDebt(aug, 15, 'skill');
+    // 15 * 0.5 rounded = 8 true damage
+    assert.equal(room.currentMonster.hp, bossHpBefore - 8);
+
+    // Skill 2 omen bonus is 18% instead of 10%
+    aug.action = 'aug_reckon';
+    room.p8Action(aug, dmg => ({ dmg }), 1.0, [], []);
+    assert.equal(room.currentMonster.reversedOmenBonus, 18, 'Forbidden tome boosts reversed omen to 18%');
+  }
 });

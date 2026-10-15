@@ -20,5 +20,9 @@ export function getBossResistance(monster, type) {
   // Compatibility for older saved monsters and development fixtures.
   const legacy = (type === 'physical' && monster?.resistance === 'phys') ||
     (type === 'magic' && monster?.resistance === 'mag') ? 70 : 0;
-  return Math.max(0, Math.min(100, monster?.resistances?.[type] ?? legacy));
+  let res = Math.max(0, Math.min(100, monster?.resistances?.[type] ?? legacy));
+  if (type === 'effect' && monster?.augurResistanceBreak > 0) {
+    res = Math.max(0, res - 15);
+  }
+  return res;
 }

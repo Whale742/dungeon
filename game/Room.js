@@ -680,13 +680,11 @@ export class Room {
       if (Math.random() >= ASSASSIN_BALANCE.followUpChance) continue;
       const before = this.getHpSnapshot();
       const isGuaranteedCrit = (this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit);
-      const critRate = Math.round(ASSASSIN_BALANCE.followUpCritChance * 100);
-      const critical = isGuaranteedCrit || this.checkPositiveFateInterference(p, critRate, '匿蹤追擊・暴擊').success;
+      const critical = isGuaranteedCrit || (Math.random() < ASSASSIN_BALANCE.followUpCritChance);
       if (critical) {
         p.hasDealtFirstBattleCrit = true;
       }
-      const baseDmg = this.applyFateBlessing(p, ASSASSIN_BALANCE.followUpBaseDamage);
-      const raw = Math.floor((baseDmg + this.getAssassinBonusAtk(p)) *
+      const raw = Math.floor((ASSASSIN_BALANCE.followUpBaseDamage + this.getAssassinBonusAtk(p)) *
         (critical ? ASSASSIN_BALANCE.criticalMultiplier : 1) * bardMultiplier);
       const { dmg } = resistance(raw, 'phys');
       const actual = Math.min(this.currentMonster.hp, dmg);
@@ -1021,10 +1019,7 @@ export class Room {
 
   monsterAllowsEffect(label) {
     if (!this.currentMonster || this.currentMonster.hp <= 0) return false;
-    let resistance = getBossResistance(this.currentMonster, 'effect');
-    if (this.currentMonster.p8Effects?.star_break) {
-      resistance = Math.max(0, resistance - (this.currentMonster.p8Effects.star_break.value || 15));
-    }
+    const resistance = getBossResistance(this.currentMonster, 'effect');
     if (resistance > 0 && Math.random() < resistance / 100) {
       this.p8Log(`🛡️ **${this.currentMonster.name}** 以 ${resistance}% 效果抗性免疫【${label}】！`, 'combat');
       return false;
@@ -1210,10 +1205,20 @@ export class Room {
   applyHealWithOverheal(player, healAmount, options = {}) {
     if (player.hp <= 0 || healAmount <= 0) return 0;
     if(this.p8Has(player,'blood_heal'))healAmount=Math.floor(healAmount*1.2);
-    if (!options.directHp && player.role === 'augur') {
-      const { remainingHeal, debtPaid } = this.deductAugurDebtPassive(player, healAmount);
-      healAmount = remainingHeal;
-      if (healAmount <= 0) return 0;
+    if (!options.directHp && player.role === 'augur' && player.augurFateDebts && player.augurFateDebts.length > 0) {
+      const absorbed = this.deductAugurDebtPassive(player, healAmount);
+      healAmount -= absorbed;
+      if (healAmount <= 0) {
+        if (this.actionHeals) {
+          this.actionHeals.push({
+            targetId: player.id,
+            actualHeal: 0,
+            targetAfter: snapshotTarget(this.getHpSnapshot(), player.id),
+            absorbedDebt: absorbed
+          });
+        }
+        return 0;
+      }
     }
     const normalMax = player.maxHp;
     const oldEffective = player.hp + (player.tempHp || 0);
@@ -1240,10 +1245,20 @@ export class Room {
   applyHealCapped(player, healAmount, options = {}) {
     if (player.hp <= 0 || healAmount <= 0) return 0;
     if(this.p8Has(player,'blood_heal'))healAmount=Math.floor(healAmount*1.2);
-    if (!options.directHp && player.role === 'augur') {
-      const { remainingHeal, debtPaid } = this.deductAugurDebtPassive(player, healAmount);
-      healAmount = remainingHeal;
-      if (healAmount <= 0) return 0;
+    if (!options.directHp && player.role === 'augur' && player.augurFateDebts && player.augurFateDebts.length > 0) {
+      const absorbed = this.deductAugurDebtPassive(player, healAmount);
+      healAmount -= absorbed;
+      if (healAmount <= 0) {
+        if (this.actionHeals) {
+          this.actionHeals.push({
+            targetId: player.id,
+            actualHeal: 0,
+            targetAfter: snapshotTarget(this.getHpSnapshot(), player.id),
+            absorbedDebt: absorbed
+          });
+        }
+        return 0;
+      }
     }
     const oldHp = player.hp;
     player.hp = Math.min(player.maxHp, player.hp + healAmount);
@@ -1772,16 +1787,6 @@ export class Room {
     if (actionId === 'sa_tsubame' && (player.soul||0)<4) return {success:false,message:'燕返需要 4 劍魂'};
     if (actionId === 'pal_grace' && targetPlayerId && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp <= 0)) return { success: false, message: '請指定存活隊友' };
     if (actionId === 'dw_butterfly' && targetPlayerId !== 'monster' && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp<=0)) return {success:false,message:'請指定存活隊友或魔物'};
-    if (actionId === 'aug_bind') {
-      const aliveAllies = Object.values(this.players).filter(p => p.hp > 0 && p.id !== player.id);
-      if (aliveAllies.length > 0) {
-        if (!targetPlayerId || !this.players[targetPlayerId] || this.players[targetPlayerId].hp <= 0 || targetPlayerId === player.id) {
-          return { success: false, message: '命運繫結必須指定自身以外的存活隊友' };
-        }
-      } else {
-        targetPlayerId = player.id;
-      }
-    }
     if (actionId === 'b_revive' && this.players[targetPlayerId]?.noReviveFloor===this.floor) return {success:false,message:'同歸於盡者本層不能甦生'};
     if (player.stunnedNextTurn) return { success: false, message: '你處於脫力虛脫中，本回合無法行動' };
     if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
@@ -2162,7 +2167,7 @@ export class Room {
           bardBuffActive = resistanceReduced || bardBuffActive;
 
 
-          bardOutcomes.set(p.id, this.checkNegativeFateInterference(p, 25, '狂熱協奏・節奏過激').occurred);
+          bardOutcomes.set(p.id, this.interveneNegative(p, '狂熱協奏・節奏過激', 25).failed);
 
         }
       }
@@ -2182,10 +2187,12 @@ export class Room {
         const triumph=this.p8Has(triumphActor,'triumph');
         if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
         if(this.p8Has(monster,'dissociate') || (this.p8Has(monster,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
-        const omen = this.p8Has(monster, 'reversed_omen');
-        if(omen) rawDmg = Math.floor(rawDmg * (1 + (omen.value || 10) / 100));
         const corrodeStacks = (monster.talismans || []).filter(t => t === 'corrode').length;
         if(corrodeStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * corrodeStacks));
+        if (monster.reversedOmenRemaining > 0) {
+          const omenBonus = monster.reversedOmenBonus || 10;
+          rawDmg = Math.floor(rawDmg * (1 + omenBonus / 100));
+        }
       }
       if(options.equation&&rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
       const dream=this.p8DreamDamage(monster,rawDmg);
@@ -2306,7 +2313,7 @@ export class Room {
       const p8Action=this.p8Action(p,applyResistanceDamage,bardDmgMultiplier,visualEvents,log);
       if(p8Action) actionOutcome=p8Action.outcome;
       if(!p8Action) switch (p.action) {
-          case 'basic': {
+        case 'basic': {
           const hasCrossbow = (p.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
           if (p.role === 'archer' && hasCrossbow && p.ammo && p.ammo.length > 0) {
             const count = p.ammo.length;
@@ -2388,15 +2395,18 @@ export class Room {
             break;
           }
 
-          const dmgType = (p.role === 'mage' || p.role === 'bard' || p.role === 'alchemist' || p.role === 'onmyoji') ? 'mag' : 'phys';
+          const dmgType = (p.role === 'mage' || p.role === 'bard' || p.role === 'alchemist' || p.role === 'onmyoji' || p.role === 'augur') ? 'mag' : 'phys';
           let baseAtk = 10;
           if (p.role === 'warrior' || p.role === 'paladin') baseAtk = 5;
           if (p.role === 'druid' && p.druidForm === 'werewolf') baseAtk = 35;
           if (p.role === 'druid' && p.druidForm === 'treant') baseAtk = Math.max(1, baseAtk - 5);
           baseAtk = this.applyFateBlessing(p, baseAtk);
           const isGuaranteedCrit = (p.role === 'assassin' && this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit);
-          const baseCritChance = Math.round(assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier) * 100);
-          const basicCrit = p.role === 'assassin' && (isGuaranteedCrit || this.checkPositiveFateInterference(p, baseCritChance, '普通攻擊・暴擊').success);
+          let basicCrit = isGuaranteedCrit;
+          if (!basicCrit && p.role === 'assassin') {
+            const baseRate = Math.round(assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier) * 100);
+            basicCrit = this.intervenePositive(p, '普通攻擊・暴擊', baseRate).success;
+          }
           if (p.role === 'assassin' && basicCrit) {
             p.hasDealtFirstBattleCrit = true;
           }
@@ -2409,16 +2419,16 @@ export class Room {
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType, value: dmg, isCrit: basicCrit, label: '普通攻擊' });
           if (p.role === 'assassin' && p.cannotCrit) p.cannotCrit = false;
           if (p.role === 'paladin') {
-            const shieldGained = this.applyFateBlessing(p, dmg * 2);
+            const shieldGained = dmg * 2;
             this.p8GrantShield(p, shieldGained, Infinity, 'paladin_basic');
             log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
           }
           if (p.role === 'alchemist') {
-            const rollCorrosion = p.rollCorrosion !== undefined ? p.rollCorrosion : this.checkPositiveFateInterference(p, 70, '強酸腐蝕瓶・腐蝕敵方').success;
+            const rollCorrosion = p.rollCorrosion !== undefined ? p.rollCorrosion : (Math.random() < 0.70);
             if (rollCorrosion) {
               const bossCorroded = this.applyMonsterCorrosion(1);
               let teamCorroded = false;
-              const rollTeam = p.rollTeamCorrosion !== undefined ? p.rollTeamCorrosion : this.checkNegativeFateInterference(p, 35, '強酸腐蝕瓶・全體腐蝕').occurred;
+              const rollTeam = p.rollTeamCorrosion !== undefined ? p.rollTeamCorrosion : (Math.random() < 0.35);
               if (rollTeam) {
                 teamCorroded = true;
                 for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
@@ -2439,10 +2449,10 @@ export class Room {
           this.p8Effect(p,'warrior_resolve','堅定・減傷 60%',3,{icon:'guard'});
           const hasGreatsword = (p.equips || []).some(e => e.id === 'w_greatsword' || e.name === '雙手劍');
           const normalBase = this.applyFateBlessing(p, hasGreatsword ? 25 : 18);
-          const isUnbalanced = this.checkNegativeFateInterference(p, 20, '堅定斬擊・揮砍失衡').occurred;
+          const isUnbalanced = this.interveneNegative(p, '堅定斬擊・揮砍失衡', 20).failed;
           if (isUnbalanced) actionOutcome = { type: 'imbalance', label: '失衡', secondary: '下回合易傷' };
           if (isUnbalanced) {
-            const raw = Math.floor((5 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+            const raw = Math.floor((this.applyFateBlessing(p, 5) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
             monster.hp -= dmg;
             p.warriorVulnerableNextTurn = true;
@@ -2461,8 +2471,8 @@ export class Room {
         }
         case 'w_shield': {
           const baseShield = this.applyFateBlessing(p, p.maxHp * .4);
-          for(const ally of Object.values(this.players).filter(x=>x.hp>0))this.p8GrantShield(ally, baseShield, 1, 'warrior');
-          const isCracked = this.checkNegativeFateInterference(p, 25, '壁壘守護・盾牌龜裂').occurred;
+          for(const ally of Object.values(this.players).filter(x=>x.hp>0))this.p8GrantShield(ally,baseShield,1,'warrior');
+          const isCracked = this.interveneNegative(p, '壁壘守護・盾牌龜裂', 25).failed;
           p.shieldCrackedThisTurn = isCracked;
           if (isCracked) actionOutcome = { type: 'shield_crack', label: '盾牌龜裂', secondary: '冷卻延長' };
           if (isCracked) {
@@ -2474,8 +2484,7 @@ export class Room {
           break;
         }
         case 'w_cleave': {
-          const baseCleave = this.applyFateBlessing(p, 40);
-          const raw = Math.floor((baseCleave + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 40) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
@@ -2484,10 +2493,10 @@ export class Room {
           break;
         }
         case 'm_blast': {
-          const isBackfire = this.checkNegativeFateInterference(p, 25, '奧術爆破・法力走火').occurred;
+          const isBackfire = this.interveneNegative(p, '奧術爆破・法力走火', 25).failed;
           if (isBackfire) actionOutcome = { type: 'misfire', label: '法力走火' };
           if (isBackfire) {
-            const raw = Math.floor((10 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+            const raw = Math.floor((this.applyFateBlessing(p, 10) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
             monster.hp -= dmg;
             p.hp = Math.max(0, p.hp - 10);
@@ -2501,8 +2510,7 @@ export class Room {
               log.push({ text: `💀 **${p.name}** 因奧術法力走火反噬過重倒地陣亡！`, type: 'damage' });
             }
           } else {
-            const baseDmg = this.applyFateBlessing(p, 45);
-            const raw = Math.floor((baseDmg + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+            const raw = Math.floor((this.applyFateBlessing(p, 45) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
             monster.hp -= dmg;
             const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
@@ -2526,11 +2534,11 @@ export class Room {
         }
         case 'm_drain': {
           const rawBase = Math.floor(Math.random() * 50) + 1; // 1~40 極端浮動
-          const blessedBase = this.applyFateBlessing(p, rawBase);
-          const raw = Math.floor((blessedBase + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, rawBase) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
-          const healAmt = this.applyFateBlessing(p, Math.max(0, Math.round(Math.min(monsterHpBefore, dmg) * 0.2)));
+          const baseHealAmt = Math.max(0, Math.round(Math.min(monsterHpBefore, dmg) * 0.2));
+          const healAmt = this.applyFateBlessing(p, baseHealAmt);
           this.applyHealCapped(p, healAmt);
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
           log.push({ text: `🩸 **${p.name}** 施展【生命汲取】(浮動擲骰: ${rawBase})，造成 **${dmg}** 點【魔法】傷害${resNote}，並吸取其 20%（恢復了 **${healAmt}** 點生命）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
@@ -2552,15 +2560,14 @@ export class Room {
           break;
         }
         case 'a_shot': {
-          const isMiss = this.checkNegativeFateInterference(p, 20, '精準狙擊・箭矢脫靶').occurred;
+          const isMiss = this.interveneNegative(p, '精準狙擊・脫靶', 20).failed;
           if (isMiss) {
             p.archerNextDodgeBonus = GAME_BALANCE.archerMissNextDodgeBonus;
             actionOutcome = { type: 'miss', label: 'MISS', secondary: '下一次閃避率提高' };
             log.push({ text: `🏹💨 **${p.name}** 屏息狙擊受到亂流影響，【箭矢脫靶 MISS】！下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。`, type: 'warning' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: 0, isCrit: false, label: '精準狙擊(脫靶)' });
           } else {
-            const baseDmg = this.applyFateBlessing(p, 35);
-            const raw = Math.floor((baseDmg + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+            const raw = Math.floor((this.applyFateBlessing(p, 35) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
             monster.hp -= dmg;
             const resNote = isResisted ? ` (🛡️️抗性減免${resistPercent}%)` : '';
@@ -2573,12 +2580,11 @@ export class Room {
           const attackReduced = this.monsterAllowsEffect('攻擊降低');
           if (attackReduced) monsterAttackReduction += 10;
           this.roundModifiers.monsterAttackReduction = monsterAttackReduction;
-          const baseDmg = this.applyFateBlessing(p, 20);
-          const raw = Math.floor((baseDmg + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 20) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const isTurbulence = this.checkNegativeFateInterference(p, 20, '箭雨壓制・誤傷隊友').occurred;
+          const isTurbulence = this.interveneNegative(p, '箭雨壓制・誤傷隊友', 20).failed;
           if (isTurbulence) actionOutcome = { type: 'friendly_fire', label: '氣流干擾' };
           if (isTurbulence) {
             const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0);
@@ -2645,14 +2651,15 @@ export class Room {
         }
         case 's_stab': {
           const isGuaranteedCrit = (this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit);
-          const baseCritChance = Math.round(assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier) * 100);
-          const critCheck = this.checkPositiveFateInterference(p, baseCritChance, '暗影刺殺・暴擊');
-          const isCrit = isGuaranteedCrit || critCheck.success;
+          let isCrit = isGuaranteedCrit;
+          if (!isCrit) {
+            const baseCritRate = Math.round(assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier) * 100);
+            isCrit = this.intervenePositive(p, '暗影刺殺・暴擊', baseCritRate).success;
+          }
           if (isCrit) {
             p.hasDealtFirstBattleCrit = true;
           }
-          const baseDmg = this.applyFateBlessing(p, ASSASSIN_BALANCE.skill1BaseDamage);
-          const raw = Math.floor((baseDmg + getEffectiveBonusAtk(p)) * (isCrit ? 2 : 1) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, ASSASSIN_BALANCE.skill1BaseDamage) + getEffectiveBonusAtk(p)) * (isCrit ? 2 : 1) * bardDmgMultiplier);
           const { dmg } = applyResistanceDamage(raw, 'phys'); monster.hp -= dmg;
           p.assassinSkill1Crit = isCrit; assassinDidCrit = isCrit;
           actionOutcome = { type: isCrit ? 'critical' : 'normal', label: isCrit ? 'CRITICAL' : '', secondary: isCrit ? '冷卻重置' : '' };
@@ -2662,7 +2669,7 @@ export class Room {
         }
         case 's_smoke': {
           consumedStacks = p.stealthStacks || 0; p.stealthStacks = 0;
-          const base = this.applyFateBlessing(p, ASSASSIN_BALANCE.skill2BaseDamage * (1 + consumedStacks * ASSASSIN_BALANCE.skill2StackMultiplier));
+          const base = this.applyFateBlessing(p, ASSASSIN_BALANCE.skill2BaseDamage) * (1 + consumedStacks * ASSASSIN_BALANCE.skill2StackMultiplier);
           // null eligibility deliberately rolls no crit until specification is confirmed.
           const { dmg } = applyResistanceDamage(Math.floor((base + getEffectiveBonusAtk(p)) * bardDmgMultiplier), 'phys');
           monster.hp -= dmg;
@@ -2673,11 +2680,11 @@ export class Room {
         case 'b_heal': {
           const harpCount = (p.equips || []).filter(e => e.id === 'b_harp' || e.name === '精靈木豎琴').length;
           const harpMult = 1 + 0.10 * harpCount;
-          const isOffKey = this.checkNegativeFateInterference(p, 20, '治癒頌歌・走音').occurred;
+          const isOffKey = this.interveneNegative(p, '治癒頌歌・走音', 20).failed;
           if (isOffKey) actionOutcome = { type: 'off_key', label: '走音' };
 
           if (isOffKey) {
-            const groupHeal = Math.round(5 * harpMult);
+            const groupHeal = Math.round(this.applyFateBlessing(p, 5) * harpMult);
             for (const ally of Object.values(this.players)) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, groupHeal);
             }
@@ -2704,12 +2711,11 @@ export class Room {
           break;
         }
         case 'b_nocturne': {
-          const raw = Math.floor((15 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 15) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const stunCheck = this.checkPositiveFateInterference(p, 30, '催眠夜曲・催眠');
-          const isStun = stunCheck.success && this.monsterAllowsEffect('催眠');
+          const isStun = this.intervenePositive(p, '催眠夜曲・深度催眠', 30).success && this.monsterAllowsEffect('催眠');
           if (isStun) {
             actionOutcome = { type: 'sleep', label: '催眠成功' };
             this.monsterStunnedThisRound = true;
@@ -2721,7 +2727,7 @@ export class Room {
           break;
         }
         case 'b_frenzy': {
-          const raw = Math.floor((20 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 20) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
@@ -2763,7 +2769,7 @@ export class Room {
 
         // 鍊金術士技能
         case 'alc_flask': {
-          const raw = Math.floor((15 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 15) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
 
@@ -2786,7 +2792,7 @@ export class Room {
           const dotCfg = DOT_CONFIGS[chosenDot] || DOT_CONFIGS.poison;
           const bossApplied = dotCfg.applyMonster(dotCfg.dmg);
 
-          const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : this.checkNegativeFateInterference(p, 40, '不穩定試劑瓶・波及隊友').occurred;
+          const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (this.interveneNegative(p, '不穩定試劑瓶・全體同染', 40).failed);
           if (rollTeam) {
             for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
               this.applyDotToAlly(ally, chosenDot, p);
@@ -2824,7 +2830,7 @@ export class Room {
           actionOutcome = { type: 'alchemy_acid', label: '腐蝕強酸' };
           const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
           const selfDmg = 0;
-          const raw = Math.floor((40 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 40) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           for(const ally of Object.values(this.players).filter(x=>x.hp>0)) {
@@ -2854,7 +2860,7 @@ export class Room {
           actionOutcome = { type: 'alchemy_poison', label: '劇毒煙霧' };
           const buretteCount = (p.equips || []).filter(e => e.id === 'alc_burette' || e.name === '精密滴定管' || e.name === '精密滴管').length;
           const selfDmg = buretteCount > 0 ? 0 : 5;
-          const raw = Math.floor((30 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 30) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           p.hp = Math.max(0, p.hp - selfDmg);
@@ -2899,7 +2905,6 @@ export class Room {
           this.p8RefreshEquipment();
           this.actionCleansedSnapshot = this.getHpSnapshot();
           if (!hasAbnormalStatus) {
-            const heal15 = this.applyFateBlessing(p, 15);
             // 身上無異常狀態：2技能效果變成回復 15 點血（全員回復 15 點生命值，不觸發命運反噬）
             for (const pl of Object.values(this.players)) {
               pl.bleedTurns = 0;
@@ -2912,10 +2917,10 @@ export class Room {
               pl.chillTurns = 0;
               pl.chillDmg = 0;
               pl.corrosionTurns = 0;
-              if (pl.hp > 0) this.applyHealWithOverheal(pl, heal15);
+              if (pl.hp > 0) this.applyHealWithOverheal(pl, this.applyFateBlessing(p, 15));
             }
-            log.push({ text: `🌿⚗️ **${p.name}** 身上無異常狀態，調配出【溫和調和試劑】！全員穩定回復 **${heal15}** 點生命值！`, type: 'heal' });
-            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: heal15, singleTargetId: null, singleValue: 0 });
+            log.push({ text: `🌿⚗️ **${p.name}** 身上無異常狀態，調配出【溫和調和試劑】！全員穩定回復 **15** 點生命值！`, type: 'heal' });
+            visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 15, singleTargetId: null, singleValue: 0 });
           } else {
             // 身上有異常狀態：驅散全體負面效果 + 命運煉成賭博
             for (const pl of Object.values(this.players)) {
@@ -2930,25 +2935,24 @@ export class Room {
               pl.chillDmg = 0;
               pl.corrosionTurns = 0;
             }
-            const isSuccess = this.checkAlchemistFateInterference(p).isSuccess;
+            const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+            const isSuccess = !augurs.length ? (Math.random() < 0.50) : !this.interveneNegative(p, '命運煉成試劑・煉金失敗', 50).failed;
             actionOutcome = { type: isSuccess ? 'alchemy_success' : 'alchemy_failure', label: isSuccess ? '煉成成功' : '煉成失敗' };
             if (isSuccess) {
-              const heal40 = this.applyFateBlessing(p, 40);
               for (const pl of Object.values(this.players)) {
-                if (pl.hp > 0) this.applyHealWithOverheal(pl, heal40);
+                if (pl.hp > 0) this.applyHealWithOverheal(pl, this.applyFateBlessing(p, 40));
               }
               this.alcShieldTurns = 2;
-              log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **${heal40}** HP，並獲得持續 **2** 回合的 **70% 減傷護盾**！🛡️`, type: 'buff' });
-              visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: heal40, singleTargetId: null, singleValue: 0 });
+              log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **40** HP，並獲得持續 **2** 回合的 **70% 減傷護盾**！🛡️`, type: 'buff' });
+              visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 40, singleTargetId: null, singleValue: 0 });
               visualEvents.push({ type: 'alc_shield', turns: 2 });
             } else {
-              const heal10 = this.applyFateBlessing(p, 10);
               for (const pl of Object.values(this.players)) {
-                if (pl.hp > 0) this.applyHealWithOverheal(pl, heal10);
+                if (pl.hp > 0) this.applyHealWithOverheal(pl, this.applyFateBlessing(p, 10));
               }
               this.alcVulnerableNextTurn = true;
-              log.push({ text: `💥⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金失敗】**！雖然淨化了負面效果並全體回復 **${heal10}** 點生命，但試劑反噬爆炸，**下回合全隊受傷增加 20%**！⚠️`, type: 'warning' });
-              visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: heal10, singleTargetId: null, singleValue: 0 });
+              log.push({ text: `💥⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金失敗】**！雖然淨化了負面效果並全體回復 **10** 點生命，但試劑反噬爆炸，**下回合全隊受傷增加 20%**！⚠️`, type: 'warning' });
+              visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: 10, singleTargetId: null, singleValue: 0 });
             }
           }
           break;
@@ -2985,14 +2989,12 @@ export class Room {
               }
             } else {
               // Calculate once, then resolve after the transform result has its own snapshot.
-              const baseAtk = this.applyFateBlessing(p, 35);
-              const raw = Math.floor((baseAtk + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+              const raw = Math.floor((this.applyFateBlessing(p, 35) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
               pendingWerewolfAttack = applyResistanceDamage(raw, 'phys');
             }
           } else {
             p.druidForm = 'treant';
-            const baseShield = this.applyFateBlessing(p, p.maxHp * .85);
-            this.p8GrantShield(p, baseShield, 2, 'treant');
+            this.p8GrantShield(p, this.applyFateBlessing(p, p.maxHp * .85), 2, 'treant');
             log.push({ text: `🌳 **${p.name}** 紮根於地發動【形態轉變】—— 化身為 **【樹精】**（護盾為自身最大生命85%，減傷30%，變身期間替全體隊友主動吸收50%受到傷害，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
             visualEvents.push({ type: 'transform_treant', sourceId: p.id });
           }
@@ -3078,13 +3080,13 @@ export class Room {
         }
 
         case 'pal_glory': {
-          const selfShield = Math.floor(this.applyFateBlessing(p, p.maxHp * 0.50));
+          const selfShield = this.applyFateBlessing(p, Math.floor(p.maxHp * 0.50));
           this.p8GrantShield(p, selfShield, 2, 'paladin_glory_self');
           p.paladinGloryCastedRound = this.battleRound;
           p.paladinGloryTrackedDamage = 0;
           this.p8Effect(p, 'paladin_glory_active', '榮耀讚歌・蓄力中', 1, { icon: 'buff' });
 
-          const raw = Math.floor((15 + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
+          const raw = Math.floor((this.applyFateBlessing(p, 15) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🛡️抗性減免${resistPercent}%)` : '';
