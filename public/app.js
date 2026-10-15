@@ -4335,9 +4335,9 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   };
   controller.signal.addEventListener('abort', cleanup, { once: true });
   try {
-    // Round-start queues can arrive before room:update; show the pre-tick snapshot
-    // while the same round banner runs, then resume the existing combat queue.
-    if (queue[0]?.category === 'STATUS_TICK' || queue[0]?.type === 'arena_enter') {
+    // Round-start queues (including Augur observation) can precede room:update.
+    // Enter the battle and finish its round banner before playing these effects.
+    if (queue[0]?.category === 'STATUS_TICK' || queue[0]?.type === 'arena_enter' || queue[0]?.actionId === 'aug_observe') {
       const state = await waitForBattleRoundState(round, controller.signal);
       const snapshot = queue[0].hpSnapshotBefore;
       roomState = { ...state,

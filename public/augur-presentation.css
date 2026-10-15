@@ -132,7 +132,7 @@
   mix-blend-mode: luminosity;
   mask-image: radial-gradient(ellipse, #000c 28%, #0009 52%, transparent 74%);
   -webkit-mask-image: radial-gradient(ellipse, #000c 28%, #0009 52%, transparent 74%);
-  transition: opacity 0.4s, filter 0.4s;
+  will-change: opacity, filter, transform;
 }
 
 .augur-presentation-container .sphere .chromatic {

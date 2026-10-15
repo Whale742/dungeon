@@ -47,3 +47,68 @@ test('leaving during the state wait releases the socket listener', async () => {
   const promise = f.context.waitForBattleRoundState(1,controller.signal);
   controller.abort(); await assert.rejects(promise,{name:'AbortError'}); assert.equal(f.listeners.size, 0);
 });
+
+function observationQueueFixture(state) {
+  const f=fixture(),events=[],errors=[];
+  let finishOpening;
+  const opening=new Promise(resolve=>{finishOpening=()=>{events.push('round_complete');resolve();};});
+  const node={replaceChildren(){},classList:{remove(){}},inert:false};
+  Object.assign(f.context,{
+    AbortController,roomState:state,isPlayingBattleNarrative:false,
+    presentationManager:{setBlocking(){}},document:{getElementById:()=>node},
+    mergePresentationSnapshot:(state,snapshot)=>({...state,players:snapshot.players}),
+    renderApp(){events.push('render');},
+    ensureBattlePhase(round){
+      assert.equal(f.context.roomState.state,'IN_BATTLE');
+      assert.equal(f.context.roomState.battleRound,round);
+      events.push('round_start');return opening;
+    },
+    async enterCombatStage(){events.push('combat_enter');},
+    async playPresentationStep(step){events.push(step.actionId);},
+    async exitCombatStage(){events.push('combat_exit');},
+    console:{error:(...args)=>errors.push(args)}
+  });
+  f.context.socket.emit=(event)=>events.push(event);
+  vm.runInContext(source.slice(source.indexOf('let isProcessingPresentationQueue = false;'),
+    source.indexOf("socket.on('battle:presentation_queue'")),f.context);
+  const snapshot={players:[],monster:{name:'Boss',hp:100}};
+  const queue=[{type:'player_action',category:'BUFF',actionId:'aug_observe',hpSnapshotBefore:snapshot,hpSnapshot:snapshot}];
+  return {...f,events,errors,finishOpening,queue,flush:async()=>{for(let i=0;i<12;i++)await Promise.resolve();}};
+}
+
+for(const initialState of ['TRANSITION','IN_BATTLE'])test(`Augur observation waits for the Round 1 banner from ${initialState}`,async()=>{
+  const state={code:'AUGUR',state:'IN_BATTLE',battleRound:1,currentMonster:{name:'Boss'},players:[]};
+  const f=observationQueueFixture({...state,state:initialState});
+  const playback=f.context.runPresentationQueue(f.queue,1,false,1);
+  await f.flush();
+  if(initialState==='TRANSITION') {
+    assert.deepEqual(f.events,[]);
+    f.update({...state,state:'TRANSITION'});await f.flush();assert.deepEqual(f.events,[]);
+    f.update(state);await f.flush();
+  }
+  assert.deepEqual(f.events,['render','round_start']);
+  f.finishOpening();await playback;
+  assert.deepEqual(f.events,['render','round_start','round_complete','combat_enter','aug_observe','combat_exit','render','battle:presentation_complete']);
+  await f.context.runPresentationQueue(f.queue,1,false,1);
+  assert.equal(f.events.filter(event=>event==='aug_observe').length,1);
+  assert.deepEqual(f.errors,[]);
+});
+
+test('Augur reselection waits for its own round banner',async()=>{
+  const state={code:'AUGUR',state:'IN_BATTLE',battleRound:1,currentMonster:{name:'Boss'},players:[]};
+  const f=observationQueueFixture(state);
+  const playback=f.context.runPresentationQueue(f.queue,2,false,2);await f.flush();
+  assert.deepEqual(f.events,[]);
+  f.update({...state,battleRound:2});await f.flush();
+  assert.deepEqual(f.events,['render','round_start']);
+  f.finishOpening();await playback;
+  assert(f.events.indexOf('round_complete')<f.events.indexOf('aug_observe'));
+  assert.deepEqual(f.errors,[]);
+});
+
+test('cancelling a pending observation never plays or acknowledges it',async()=>{
+  const f=observationQueueFixture({code:'AUGUR',state:'TRANSITION'});
+  const playback=f.context.runPresentationQueue(f.queue,1,false,1);await f.flush();
+  vm.runInContext('combatQueueController.abort()',f.context);await playback;
+  assert.deepEqual(f.events,[]);assert.equal(f.listeners.size,0);assert.deepEqual(f.errors,[]);
+});

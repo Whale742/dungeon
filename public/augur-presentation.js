@@ -165,7 +165,7 @@ class AugurPresentationEngine {
     fillAugurCard(this.container.querySelector('#augurContractCard'),'omen');
   }
 
-  syncSnapshot(snapshot, {resourcesOnly=false}={}) {
+  syncSnapshot(snapshot, {resourcesOnly=false,showObservedTarget=true}={}) {
     if(!snapshot)return;
     const actor=snapshot.players?.find(p=>p.id===this.step.sourceId) || {};
     const monster=snapshot.monster || {};
@@ -205,19 +205,55 @@ class AugurPresentationEngine {
     this.container.querySelector('#augurCardStateLabel').textContent={empty:'空 象',upright:'正 位',reversed:'逆 位'}[actor.augurCardState] || '空 象';
     this.container.dataset.cardState=actor.augurCardState || 'empty';
     this.omenMark.style.opacity=monster.reversedOmenRemaining>0?'1':'0';
-    this.setObservedTarget(actor.observedTargetId,snapshot);
+    this.setObservedTarget(showObservedTarget?actor.observedTargetId:null,snapshot);
   }
 
   setObservedTarget(id,snapshot) {
     const target=snapshot?.players?.find(p=>p.id===id);
     const image=this.container.querySelector('#augurOrbTarget');
-    if(!target) {image.style.opacity='0';return;}
+    this.observedTargetId=target?.id || null;
+    if(!target) {
+      image.style.opacity='0';
+      this.container.querySelector('#augurOrbObservedLabel').textContent='等待命運的回聲';
+      return;
+    }
     const portrait=augurPortrait(target);
     if(image.getAttribute('src')!==portrait.src)image.src=portrait.src;
     image.alt=`觀測目標：${target.name || portrait.name}`;
     image.style.opacity='.82';
     const bonus=target.fateBlessing>0?` · 基礎 +${Math.round(target.fateBlessing*100)}%`:'';
     this.container.querySelector('#augurOrbObservedLabel').textContent=`${target.name || portrait.name}${bonus}`;
+  }
+
+  async transitionObservedTarget(id,snapshot) {
+    if(this.disposed || this.signal?.aborted)return;
+    if(this.observedTargetId===id) {this.setObservedTarget(id,snapshot);return;}
+    const image=this.container.querySelector('#augurOrbTarget');
+    const hasPrevious=!!this.observedTargetId;
+    const dissolve=hasPrevious?(this.reduced?120:360):0;
+    const pause=hasPrevious?70:0,gather=this.reduced?220:570;
+    let switched=false;
+    const render=(visibility)=>{
+      image.style.opacity=String(.82*visibility);
+      image.style.filter=`blur(${this.reduced?0:(1-visibility)*16}px)`;
+      image.style.transform=`scale(${1.05+(this.reduced?0:(1-visibility)*.23)})`;
+    };
+    // Change the portrait only while invisible; keep the previous target until
+    // its image has dissolved, then gather the new image from the same mist.
+    await this.runFrames(dissolve+pause+gather,(_u,seconds)=>{
+      const elapsed=seconds*1000;
+      if(elapsed<dissolve) {render(1-elapsed/dissolve);return;}
+      if(!switched) {
+        render(0);
+        this.setObservedTarget(id,snapshot);
+        switched=true;
+      }
+      const progress=Math.min(1,Math.max(0,(elapsed-dissolve-pause)/gather));
+      render(progress*progress*(3-2*progress));
+    });
+    if(this.disposed || this.signal?.aborted)return;
+    image.style.filter='';image.style.transform='';
+    this.setObservedTarget(id,snapshot);
   }
 
   later(callback,ms) {
@@ -516,9 +552,12 @@ function augurEquipment(equips) {
 function buildAugurPresentationPlan(step) {
   const before=step.hpSnapshotBefore || {players:[],monster:null},after=step.hpSnapshot || before;
   const action=step.actionId || step.skillId || (step.category==='DEBT_EXPIRY'?'aug_expiry':'');
+  const previousObservedId=before.players?.find(p=>p.id===step.sourceId)?.observedTargetId;
+  const observedId=['aug_bind','aug_observe'].includes(action)?step.outcome?.targetId || step.targetId:previousObservedId;
   return {action,before,after,
     results:step.results || [],
-    observedId:['aug_bind','aug_observe'].includes(action)?step.outcome?.targetId || step.targetId:before.players?.find(p=>p.id===step.sourceId)?.observedTargetId,
+    observedId,
+    initialObservation:action==='aug_observe' && (!previousObservedId || previousObservedId===observedId),
     repaid:Math.max(0,step.outcome?.repaid ?? 0),
     hits:(step.results || []).filter(r=>r.kind==='damage'),heals:(step.results || []).filter(r=>r.kind==='heal'),
     outcome:step.outcome || {},skillName:step.skillName};
@@ -564,7 +603,7 @@ async function playAugurPresentation(step,context={}) {
     if(result.hpSnapshot)apply(result.hpSnapshot);
   };
   try {
-    engine.syncSnapshot(plan.before);beat('augur_action_start');
+    engine.syncSnapshot(plan.before,{showObservedTarget:!plan.initialObservation});beat('augur_action_start');
     if(plan.outcome.type==='invalid') {
       engine.showCaption(step.skillName || '命運繫結','觀測目標已失效','FATE UNBOUND',true);await wait(700);
     } else if(plan.action==='basic') {
@@ -574,9 +613,9 @@ async function playAugurPresentation(step,context={}) {
       if(plan.after.monster?.augurResistanceBreak>0)engine.resistance();
     } else if(plan.action==='aug_bind' || plan.action==='aug_observe') {
       const target=plan.after.players?.find(p=>p.id===plan.observedId);
-      engine.showCaption(step.skillName || '命運觀測',`${target?.name || '自身'} · ${plan.action==='aug_bind'?'本回合加護與干涉強化':'命運加護生效'}`,'THE OBSERVATION');
+      engine.showCaption(step.skillName || '命運觀測',`${target?.name || '自身'} · ${plan.action==='aug_bind'?'本回合加護與干涉強化':'命運加護生效'}`,'THE OBSERVATION',false,1700);
       engine.audio.play('air_pass',{noHold:true});
-      await Promise.all([engine.sweepHand(),(async()=>{await wait(350);if(!signal?.aborted)engine.setObservedTarget(plan.observedId,plan.after);})()]);
+      await Promise.all([engine.sweepHand(1200),(async()=>{await wait(200);await engine.transitionObservedTarget(plan.observedId,plan.after);})()]);
       beat('augur_observed',{targetId:plan.observedId});
     } else if(plan.action==='aug_reckon') {
       engine.showCaption('命運清算・凶兆逆位',`捧起命運 · 實際清償 ${plan.repaid} 命債`,'THE RECKONING',false,2900);
