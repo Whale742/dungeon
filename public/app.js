@@ -1116,12 +1116,14 @@ function renderPendingDropModal(me) {
     return;
   }
 
-  const drop = dropInfo.drop;
-  elements.equipModalTitle.innerHTML = `${getIconSvg('chest')} <span>獲得戰利品裝備：【${escapeHtml(drop.name)}】！</span>`;
+  const equipOverride = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key===('equip.'+drop.role+'.'+drop.id));
+  const dropName = equipOverride?.title || drop.name;
+  const dropDesc = equipOverride?.body || drop.desc || drop.statDesc || '';
+  elements.equipModalTitle.innerHTML = `${getIconSvg('chest')} <span>獲得戰利品裝備：【${escapeHtml(dropName)}】！</span>`;
   elements.equipModalSubtitle.textContent = `你在${dropInfo.source === 'battle' ? '擊敗怪物' : '探索寶箱'}後獲得了這件裝備！請抉擇是否穿戴（每位角色上限 3 件）：`;
-  elements.dropItemName.textContent = drop.name;
+  elements.dropItemName.textContent = dropName;
   elements.dropItemType.innerHTML = drop.type === 'weapon' ? `${getIconSvg('sword')} 武器` : (drop.type === 'armor' ? `${getIconSvg('shield')} 防具` : `${getIconSvg('sparkle')} 飾品`);
-  elements.dropItemDesc.textContent = drop.desc || drop.statDesc || '';
+  elements.dropItemDesc.textContent = dropDesc;
 
   const myEquips = me.equips || [];
   elements.currentEquipCount.textContent = myEquips.length;
@@ -2269,9 +2271,11 @@ function renderMyActionBar(me) {
     if (myEquipCount === 0) {
       elements.myEquipsSummary.innerHTML = `[裝備 0/3]: 無`;
     } else {
-      const itemsHtml = myEquips.map((e, idx) => 
-        `<span class="equip-pill">${escapeHtml(e.name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`
-      ).join(', ');
+      const itemsHtml = myEquips.map((e, idx) => {
+        const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key===('equip.'+e.role+'.'+e.id));
+        const name = override?.title || e.name;
+        return `<span class="equip-pill">${escapeHtml(name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`;
+      }).join(', ');
       elements.myEquipsSummary.innerHTML = `[裝備 ${myEquipCount}/3]: ${itemsHtml}`;
 
       elements.myEquipsSummary.querySelectorAll('.unequip-btn').forEach(btn => {
@@ -2898,7 +2902,14 @@ function openRoleDetailModal(roleKey) {
       `;
     }
 
-    if(roomState?.state!=='LOBBY'&&details.equipment?.length) html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>'<p><strong>'+escapeHtml(e.name)+'</strong>：'+escapeHtml(e.desc)+'</p>').join('')+'</details>';
+    if(roomState?.state!=='LOBBY'&&details.equipment?.length) {
+      html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>{
+        const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key.startsWith('equip.'+roleKey+'.')&&(s.title===e.name||s.story_key.endsWith('.'+e.id)));
+        const name = override?.title || e.name;
+        const desc = override?.body || e.desc;
+        return '<p><strong>'+escapeHtml(name)+'</strong>：'+escapeHtml(desc)+'</p>';
+      }).join('')+'</details>';
+    }
     elements.roleDetailBody.innerHTML = html;
     document.getElementById('skillCopyDetailToggle')?.addEventListener('change',e=>{setSkillCopyDetailed(e.target.checked);openRoleDetailModal(roleKey);if(roomState?.state==='IN_BATTLE')renderMyActionBar(getMyPlayer());});
     elements.roleDetailBody.querySelectorAll('.role-detail-passive-card,.role-detail-skill-item').forEach(card=>{

@@ -10,6 +10,7 @@
   function visible(){const cat=byId('editorCategory').value,role=byId('editorRole').value,q=byId('editorSearch').value.toLowerCase();return [...records.entries()].filter(([id,row])=>{
     const kind=id.split(':')[0];if(cat==='role'||cat==='passive')return kind==='role'&&(!q||[row.role_id,row.name_zh].join(' ').toLowerCase().includes(q));
     if(cat==='skill')return kind==='skill'&&row.role_id===role&&row.skill_id!=='passive'&&[row.skill_id,row.display_name].join(' ').toLowerCase().includes(q);
+    if(cat==='equipment')return kind==='story'&&row.category==='equipment'&&(row.story_key.startsWith('equip.'+role+'.')||(q&&[row.story_key,row.title,row.body].join(' ').toLowerCase().includes(q)))&&[row.story_key,row.title,row.body].join(' ').toLowerCase().includes(q);
     return kind==='story'&&(cat==='story'||row.category===cat||cat==='route'&&['route','treasure','trap','floor'].includes(row.category)||cat==='other'&&row.category==='other')&&[row.story_key,row.title,row.body].join(' ').toLowerCase().includes(q);
   });}
   function list(){const entries=visible();byId('editorList').replaceChildren(...entries.map(([id,row])=>button((dirty.has(id)?'● ':drafts.has(id)?'草稿 · ':'')+(row.name_zh||row.display_name||row.title||row.story_key),()=>select(toItem(id.split(':')[0],row)),{class:selected&&itemId(selected)===id?'is-selected':''})));if(!selected||!entries.some(([id])=>id===itemId(selected))){if(entries[0])select(toItem(entries[0][0].split(':')[0],entries[0][1]));else {selected=null;byId('editorForm').replaceChildren();byId('editorPreview').replaceChildren(el('p',{text:'此分類沒有符合的內容。'}));}}}
@@ -17,15 +18,20 @@
     byId('editorTitle').textContent=row.name_zh||row.display_name||row.title||value.key;byId('editorIdentity').textContent=[value.kind,value.role_id,value.key,'識別碼不可變'].filter(Boolean).join(' · ');
     const labels={name_zh:'中文名稱',name_en:'英文名稱',short_intro:'簡介',full_intro:'完整介紹',position_label:'定位',tags:'標籤（逗號分隔）',passive_short:'被動簡介',passive_full:'被動完整說明',display_name:'技能顯示名稱',short_copy:'技能簡略文案',full_copy:'技能完整文案',category:'分類',title:'標題',body:'敘事內容',paragraphs:'段落（每行一段）'};
     const recruit=value.kind==='story'&&value.key.startsWith('entry.recruit.');
-    const nodes=(recruit?['body']:fields).map(field=>{
+    const isEquipment=value.kind==='story'&&(row.category==='equipment'||value.key.startsWith('equip.'));
+    const editFields=recruit?['body']:isEquipment?['title','body']:fields;
+    const nodes=editFields.map(field=>{
       if(field.startsWith('radar_')){const index=RadarRenderer.fields.indexOf(field),output=el('output',{text:row[field]+' / '+RadarRenderer.grade(row[field])}),slider=el('input',{type:'range',min:1,max:5,step:1,value:row[field],oninput:event=>{const v=Number(event.target.value);output.textContent=v+' / '+RadarRenderer.grade(v);dirtyChange(field,v);}});return el('label',{class:'studio-field'},[el('span',{text:RadarRenderer.axes[index]+(field==='radar_difficulty'?'（5 = S，最難操作）':'')}),slider,output]);}
-      const array=['tags','paragraphs'].includes(field);return formField(recruit?'顯示文案':labels[field]||field,array?row[field].join(field==='tags'?', ':'\n'):row[field],v=>dirtyChange(field,array?v.split(field==='tags'?/[,，]/:/\n/).map(s=>s.trim()).filter(Boolean):v),{type:field.includes('copy')||field.includes('intro')||field.includes('passive')||['body','paragraphs'].includes(field)?'textarea':'text'});
+      const array=['tags','paragraphs'].includes(field);
+      const label=recruit?'顯示文案':isEquipment?(field==='title'?'裝備名稱':field==='body'?'裝備說明文案':labels[field]||field):labels[field]||field;
+      return formField(label,array?row[field].join(field==='tags'?', ':'\n'):row[field],v=>dirtyChange(field,array?v.split(field==='tags'?/[,，]/:/\n/).map(s=>s.trim()).filter(Boolean):v),{type:field.includes('copy')||field.includes('intro')||field.includes('passive')||['body','paragraphs'].includes(field)?'textarea':'text'});
     });
     byId('editorForm').replaceChildren(...nodes);
     if(recruit)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此文案顯示在遊戲首頁的招募令。支援草稿、發布、批次發布、匯入匯出與版本回復。'}));
+    if(isEquipment)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此文案為職業專屬裝備的名稱與效果說明。支援草稿、發布、批次發布、匯入匯出與版本回復。'}));
     const meta=value.kind==='skill'?StudioContent.state.defaults.skillMeta[value.role_id+':'+value.key]:null;
     if(meta?.contextual)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此項有即時狀態文案。階段／場內版本各有獨立文案 ID；實際 actionId 保持 '+meta.actionId+'。可使用 {rageMultiplier} 佔位符。'}));
-    byId('editorItemActions').replaceChildren(button('儲存草稿',()=>save([selected]),{class:'studio-primary'}),button('發布此項',()=>publish([selected])),button('恢復原始文案',()=>{const base=StudioContent.state.defaults[specs[value.kind].table].find(r=>r[specs[value.kind].id]===value.key&&(value.kind!=='skill'||r.role_id===value.role_id));records.set(itemId(value),structuredClone(base));dirty.add(itemId(value));select(value);status();notice('已恢復內建文案；儲存後才會成為雲端草稿。');}),button('在 Lab 預覽',()=>labPreview(value)),button('載入版本歷史',()=>history(value)));
+    byId('editorItemActions').replaceChildren(button('儲存草稿',()=>save([selected]),{class:'studio-primary'}),button('發布此項',()=>publish([selected])),button('恢復原始文案',()=>{const base=StudioContent.state.defaults[specs[value.kind].table].find(r=>r[specs[value.kind].id]===value.key&&(value.kind!=='skill'||r.role_id===value.role_id));records.set(itemId(value),structuredClone(base));dirty.add(itemId(value));select(value);status();notice('已恢復內建文案；儲存後才會成為雲端草稿。');}),...(!isEquipment?[button('在 Lab 預覽',()=>labPreview(value))]:[]),button('載入版本歷史',()=>history(value)));
     byId('editorHistory').replaceChildren(el('p',{class:'studio-muted',text:'載入版本歷史需要 Studio 通行碼。'}));preview();
     byId('editorList').querySelectorAll('button').forEach((n,i)=>n.classList.toggle('is-selected',visible()[i]?.[0]===itemId(value)));
   }
@@ -34,6 +40,7 @@
       const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','studio-radar');RadarRenderer.render(svg,RadarRenderer.fields.map(f=>row[f]),row.name_zh);
       target.append(el('img',{src:avatar,alt:row.name_zh}),el('h3',{text:row.name_zh}),el('p',{class:'studio-muted',text:row.name_en+' · '+row.position_label}),el('div',{},row.tags.map(t=>el('span',{class:'studio-tag',text:t}))),svg,el('p',{text:row.short_intro}),el('p',{text:row.full_intro}),el('h4',{text:'被動與特性'}),el('p',{text:row.passive_short}),el('p',{text:row.passive_full}));
     }else if(selected.kind==='skill')target.append(el('h3',{text:row.display_name}),el('p',{text:row.short_copy}),el('hr'),el('p',{text:StudioContent.template(row.full_copy,{rageMultiplier:10})}));
+    else if(row.category==='equipment')target.append(el('div',{class:'studio-equip-preview',style:'background:rgba(255,255,255,0.04);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:16px;margin-top:12px;'},[el('h3',{style:'color:#fbbf24;margin-bottom:8px;',text:'【'+(row.title||'裝備名稱')+'】'}),el('p',{style:'white-space:pre-wrap;line-height:1.6;color:#e2e8f0;',text:row.body||'（暫無裝備說明）'})]));
     else target.append(el('h3',{text:StudioContent.template(row.title,{floor:1})}),el('p',{text:StudioContent.template(row.body,{player:'冒險者',boss:'遠古守衛石像',floor:1,route:'羊腸小徑'})}),...row.paragraphs.map(p=>el('p',{text:p})));
   }
   async function save(items){const result=await StudioWrite.request('/drafts',{method:'POST',body:{items:items.map(i=>toItem(i.kind,record(i)))}});for(const i of items){dirty.delete(itemId(i));drafts.add(itemId(i));record(i).status='draft';}status();notice('雲端草稿已儲存 '+result.saved+' 項。');list();}

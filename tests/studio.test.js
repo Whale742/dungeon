@@ -141,3 +141,33 @@ test('Studio migration endpoints report status and support dry-run preview',asyn
   }finally{await f.close();}
 });
 
+test('Equipment texts support editing, drafting, publishing and database sync via story_copies', async () => {
+  const equips = catalog.story_copies.filter(row => row.category === 'equipment');
+  assert.ok(equips.length >= 47, 'All equipment from LOOT_TABLE and kepler must exist in catalog');
+  assert.ok(equips.some(e => e.story_key === 'equip.warrior.w_sword' && e.title === '鋼鐵聖劍'));
+  assert.ok(equips.some(e => e.story_key === 'equip.onmyoji.onm_brush' && e.title === '硃砂引靈筆'));
+  assert.ok(equips.some(e => e.story_key === 'equip.paladin.pal_hammer' && e.title === '晨曦誓約重錘'));
+
+  const f = await fixture();
+  try {
+    const itemToEdit = equips.find(e => e.story_key === 'equip.warrior.w_sword');
+    const draftItem = item('story', { ...itemToEdit, body: '攻擊傷害 +8（強化版）' });
+
+    // 1. Save draft
+    const draftRes = await f.request('/api/studio/drafts', { method: 'POST', body: { items: [draftItem] } });
+    assert.equal(draftRes.status, 200);
+    const draftData = await draftRes.json();
+    assert.equal(draftData.saved, 1);
+
+    // 2. Publish item
+    const pubRes = await f.request('/api/studio/publish', {
+      method: 'POST',
+      body: { items: [{ kind: 'story', key: itemToEdit.story_key }] }
+    });
+    assert.equal(pubRes.status, 200);
+    assert.ok(f.calls.some(c => c.route?.includes('/rpc/studio_publish_one') || c.route?.includes('/rpc/studio_publish_batch')));
+  } finally {
+    await f.close();
+  }
+});
+
