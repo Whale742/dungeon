@@ -1543,9 +1543,12 @@ export class Room {
         const droppedTalismans = [];
         const keptTalismans = [];
 
+        const hasKariginu = Object.values(this.players).some(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'));
+        const dropThreshold = hasKariginu ? 0.35 : 0.50;
+
         for (const talisman of monster.talismans) {
           const dropRoll = typeof monster.talismanDropRng === 'function' ? monster.talismanDropRng() : Math.random();
-          if (dropRoll < 0.70) {
+          if (dropRoll < dropThreshold) {
             droppedTalismans.push(talisman);
           } else {
             keptTalismans.push(talisman);
@@ -2471,6 +2474,36 @@ export class Room {
               visualEvents.push({ type: 'corrosion_trigger', sourceId: p.id, teamCorrosion: teamCorroded });
             }
           }
+          if (p.role === 'onmyoji') {
+            const hasBrush = (p.equips || []).some(e => e.id === 'onm_brush');
+            if (hasBrush) {
+              const brushRoll = typeof p.rollBrushTalisman === 'number' ? p.rollBrushTalisman : Math.random();
+              if (brushRoll < 0.25) {
+                monster.talismans = monster.talismans || [];
+                if (monster.talismans.length < 10) {
+                  const TALISMANS = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
+                  const talisman = p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)];
+                  monster.talismans.push(talisman);
+                  const count = monster.talismans.length;
+                  const TALISMAN_NAMES = { blind: '障目符', seal: '封勁符', corrode: '蝕體符', confuse: '惑心符', drain: '抽髓符' };
+                  log.push({ text: `📜🖌️ **${p.name}**【硃砂引靈筆】靈光顯現！普通攻擊額外依附了一道【五鬼攝魂符・${TALISMAN_NAMES[talisman]}】！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'buff' });
+                  if (talisman === 'drain') {
+                    const drainCount = monster.talismans.filter(t => t === 'drain').length;
+                    const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.02));
+                    const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);
+                    monster.hp = Math.max(0, monster.hp - totalDrain);
+                    const drainNote = drainCount > 1 ? `（觸發 ${drainCount} 重削血，共扣除 ${totalDrain} 點）` : `（扣除 ${totalDrain} 點）`;
+                    log.push({ text: `📜💀 **【抽髓符】** 削血觸發！扣除目標最大生命值 2% 的血量${drainNote}！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'combat' });
+                    visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
+                  } else {
+                    visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: TALISMAN_NAMES[talisman] });
+                  }
+                } else {
+                  log.push({ text: `📜⚠️ **${p.name}**【硃砂引靈筆】觸發貼符，但目標身上的符咒已達上限（10 張）！`, type: 'warning' });
+                }
+              }
+            }
+          }
           break;
         }
         case 'w_strike': {
@@ -3193,7 +3226,9 @@ export class Room {
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '百符引爆(無符咒)' });
           } else {
             const countedCharms = Math.min(10, totalCharms);
-            const baseDamage = 10 + countedCharms * 3;
+            const hasMirror = (p.equips || []).some(e => e.id === 'onm_mirror');
+            const bonusPerCharm = hasMirror ? 5 : 3;
+            const baseDamage = 10 + countedCharms * bonusPerCharm;
             const raw = Math.floor((this.applyFateBlessing(p,baseDamage) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
             monster.hp -= dmg;

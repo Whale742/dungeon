@@ -287,30 +287,9 @@ class OnmyojiPresentationEngine {
 
   buildMarkup() {
     this.container.innerHTML = `
-      <div class="ink-stage-bg"></div>
-      <svg class="bg-svg-layer" viewBox="0 0 1200 500" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="onmInkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3" />
-            <stop offset="50%" stop-color="#ffffff" stop-opacity="0.05" />
-            <stop offset="100%" stop-color="#a855f7" stop-opacity="0.35" />
-          </linearGradient>
-        </defs>
-        <path d="M0,380 Q300,310 600,380 T1200,350 L1200,500 L0,500 Z" fill="url(#onmInkGrad)" />
-        <circle cx="600" cy="250" r="190" stroke="rgba(245,158,11,0.18)" stroke-width="1" stroke-dasharray="6 6" fill="none" />
-        <circle cx="600" cy="250" r="230" stroke="rgba(168,85,247,0.14)" stroke-width="1" fill="none" />
-      </svg>
-
-      <div class="stage-action-banner" id="onmActionBanner">
-        <span class="dot"></span>
-        <span id="onmActionText">陰陽師・符咒戰鬥演出</span>
-      </div>
-
       <div class="main-combat-grid">
         <!-- 我方陰陽師 -->
         <div class="onmyoji-combatant caster-side">
-          <div class="caster-speech-bubble" id="onmSpeechBubble">「五鬼聽令，急急如律令！」</div>
-          <div class="caster-aura-ring" id="onmAuraRing"></div>
           <div class="caster-avatar-box" id="onmCasterAvatarBox">
             <div class="inner-frame">
               <img id="onmCasterImg" src="${onmyojiAsset('/photo/Onmyoji.webp')}" alt="陰陽師" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='/photo/Onmyoji.webp';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='/photo/Onmyōji.webp';}"/>
@@ -349,14 +328,11 @@ class OnmyojiPresentationEngine {
 
           <div class="combatant-info boss-info">
             <div class="info-header">
-              <span class="name" id="onmBossName">荒神鬼王・羅剎</span>
+              <span class="name" id="onmBossName">首領</span>
               <span class="hp-text" id="onmBossHpText">500 / 500 HP</span>
             </div>
             <div class="hp-bar-bg"><div class="hp-bar-fill" id="onmBossHpFill" style="width: 100%;"></div></div>
           </div>
-
-          <!-- 5 色印記狀態列 -->
-          <div class="boss-debuff-bar" id="onmDebuffBar"></div>
         </div>
       </div>
     `;
@@ -397,7 +373,6 @@ class OnmyojiPresentationEngine {
       el.innerHTML = `
         <div style="position:relative;width:100%;height:100%;">
           ${getOnmyojiTalismanVisualHTML(t.color, true)}
-          <span class="index-badge">${i + 1}</span>
         </div>
       `;
       layer.appendChild(el);

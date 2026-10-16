@@ -27,36 +27,10 @@
   font-family: 'Noto Serif TC', Georgia, serif;
 }
 
-/* 水墨暗紋背景與氛圍燈效 */
-.onmyoji-presentation-container .ink-stage-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 45%, rgba(217, 119, 6, 0.16) 0%, transparent 45%),
-    radial-gradient(circle at 80% 45%, rgba(147, 51, 234, 0.16) 0%, transparent 48%),
-    radial-gradient(circle at 50% 50%, #1c1926 0%, #09080c 100%);
-  z-index: 0;
-  pointer-events: none;
-}
-
-.onmyoji-presentation-container .ink-stage-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
-  background-size: 24px 24px;
-  pointer-events: none;
-  opacity: 0.4;
-}
-
+/* 戰鬥風格統一：移除自己的背景，與其他職業戰鬥場景風格保持一致 */
+.onmyoji-presentation-container .ink-stage-bg,
 .onmyoji-presentation-container .bg-svg-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  opacity: 0.22;
-  z-index: 1;
+  display: none !important;
 }
 
 /* 陰陽師施法前衝與靈力共鳴 */
@@ -483,48 +457,22 @@
   z-index: 15;
 }
 
-/* 施法咒語氣泡 */
-.onmyoji-presentation-container .caster-speech-bubble {
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  position: absolute;
-  top: -46px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  white-space: nowrap;
-  padding: 5px 16px;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, rgba(69, 10, 10, 0.95), rgba(88, 28, 28, 0.95), rgba(69, 10, 10, 0.95));
-  border: 1px solid rgba(245, 158, 11, 0.7);
-  color: #fde68a;
-  font-weight: 700;
-  font-size: 13px;
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+/* 施法咒語氣泡與光環：隱藏以統一戰鬥視覺 */
+.onmyoji-presentation-container .caster-speech-bubble,
+.onmyoji-presentation-container .caster-aura-ring,
+.onmyoji-presentation-container .stage-action-banner {
+  display: none !important;
 }
 
-/* 陰陽師金色八卦靈陣光環 */
-.onmyoji-presentation-container .caster-aura-ring {
-  position: absolute;
-  inset: -16px;
-  border-radius: 24px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, rgba(220, 38, 38, 0.2) 40%, transparent 70%);
-  filter: blur(14px);
-  opacity: 0.6;
-  transition: all 0.5s;
-  pointer-events: none;
-}
-
-/* 陰陽師頭像主框體 */
+/* 陰陽師頭像主框體：移除彩色漸層外圈與圓角內襯，維持乾淨俐落風格 */
 .onmyoji-presentation-container .caster-avatar-box {
   position: relative;
   width: clamp(140px, 20vw, 200px);
   height: clamp(140px, 20vw, 200px);
-  border-radius: 18px;
-  padding: 6px;
-  background: linear-gradient(180deg, #fde047 0%, #d97706 50%, #78350f 100%);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   box-sizing: border-box;
 }
 
@@ -532,29 +480,30 @@
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #181520;
-  border: 1px solid rgba(254, 240, 138, 0.3);
+  border-radius: 0 !important;
+  overflow: visible;
+  background: transparent !important;
+  border: none !important;
 }
 
 .onmyoji-presentation-container .caster-avatar-box img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.88));
 }
 
-/* Boss 頭像主框體 */
+/* Boss 頭像主框體：移除彩色漸層外圈，與其他職業保持一致 */
 .onmyoji-presentation-container .boss-avatar-box {
   position: relative;
   width: clamp(140px, 20vw, 200px);
   height: clamp(140px, 20vw, 200px);
-  border-radius: 18px;
-  padding: 6px;
-  background: linear-gradient(180deg, #ef4444 0%, #7e22ce 50%, #020617 100%);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.9);
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   box-sizing: border-box;
 }
 
@@ -562,18 +511,19 @@
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #140d18;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 0 !important;
+  overflow: visible;
+  background: transparent !important;
+  border: none !important;
 }
 
 .onmyoji-presentation-container .boss-avatar-box img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.88));
 }
 
 /* Boss 受擊閃光覆蓋層 */
@@ -587,59 +537,71 @@
   z-index: 10;
 }
 
-/* 銘牌與血量條 */
+/* 銘牌與血量條：採用與其他職業一致的無多餘圓角、簡潔黑色底槽風格 */
 .onmyoji-presentation-container .combatant-info {
   margin-top: 10px;
-  width: clamp(150px, 22vw, 220px);
-  background: rgba(18, 16, 27, 0.92);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 12px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  width: clamp(140px, 20vw, 200px);
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
   box-sizing: border-box;
-}
-
-.onmyoji-presentation-container .combatant-info.boss-info {
-  border-color: rgba(239, 68, 68, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .onmyoji-presentation-container .info-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  font-size: 12px;
-  margin-bottom: 5px;
+  align-items: center;
+  font-size: 0.82rem;
+  font-family: var(--font-pixel, monospace);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  margin-bottom: 2px;
 }
 
 .onmyoji-presentation-container .info-header .name {
+  color: #f1f5f9;
+  font-size: 13px;
   font-weight: 700;
-  color: #f3efe6;
+  letter-spacing: 0.5px;
 }
 
 .onmyoji-presentation-container .info-header .hp-text {
-  font-family: monospace;
-  font-weight: 700;
-  color: #fca5a5;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-pixel, monospace);
   font-size: 11px;
+  font-weight: 700;
 }
 
 .onmyoji-presentation-container .hp-bar-bg {
+  position: relative;
   width: 100%;
-  height: 6px;
-  background: #09080e;
-  border-radius: 9999px;
+  height: 9px;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 0 !important;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .onmyoji-presentation-container .hp-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
   height: 100%;
   background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
-  transition: width 0.3s;
+  border-radius: 0 !important;
+  transition: width 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .onmyoji-presentation-container .boss-info .hp-bar-fill {
-  background: linear-gradient(90deg, #b91c1c 0%, #ef4444 60%, #f59e0b 100%);
+  background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%);
 }
 
 /* 階段 1 專用：Boss 頭像正上方的憑空召喚空間波紋 */
@@ -763,22 +725,7 @@
 }
 
 .onmyoji-presentation-container .attached-talisman .index-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.9);
-  border: 1px solid rgba(251, 191, 36, 0.8);
-  font-size: 8px;
-  font-family: monospace;
-  font-weight: 700;
-  color: #fde68a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 20;
+  display: none !important;
 }
 
 /* 中心聚能靈球與爆炸光球 */
@@ -811,19 +758,9 @@
   overflow: visible;
 }
 
-/* Boss 下方的印記狀態列 */
+/* Boss 下方的印記狀態列：隱藏以簡化戰鬥介面 */
 .onmyoji-presentation-container .boss-debuff-bar {
-  margin-top: 8px;
-  width: clamp(200px, 30vw, 320px);
-  background: rgba(18, 16, 27, 0.9);
-  border: 1px solid #1e293b;
-  border-radius: 12px;
-  padding: 6px 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  box-sizing: border-box;
+  display: none !important;
 }
 
 .onmyoji-presentation-container .debuff-slot {
