@@ -779,7 +779,7 @@ async function playScene(sceneName) {
   };
 
   try {
-    const fixture=(typeof AUGUR_LAB_SCENES!=='undefined'&&AUGUR_LAB_SCENES[sceneName])||(typeof SAMURAI_LAB_SCENES!=='undefined'&&SAMURAI_LAB_SCENES[sceneName])||(typeof GLADIATOR_LAB_SCENES!=='undefined'&&GLADIATOR_LAB_SCENES[sceneName])||(typeof PHASE6_LAB_SCENES!=='undefined'&&PHASE6_LAB_SCENES[sceneName]);
+    const fixture=(typeof ONMYOJI_LAB_SCENES!=='undefined'&&ONMYOJI_LAB_SCENES[sceneName])||(typeof AUGUR_LAB_SCENES!=='undefined'&&AUGUR_LAB_SCENES[sceneName])||(typeof SAMURAI_LAB_SCENES!=='undefined'&&SAMURAI_LAB_SCENES[sceneName])||(typeof GLADIATOR_LAB_SCENES!=='undefined'&&GLADIATOR_LAB_SCENES[sceneName])||(typeof PHASE6_LAB_SCENES!=='undefined'&&PHASE6_LAB_SCENES[sceneName]);
     const preloadRole=fixture?.role||fixture?.steps?.find(step=>step.sourceRole)?.sourceRole;
     if(preloadRole)await sfxManager.preloadRole(preloadRole);
     if(signal.aborted)return;
@@ -834,6 +834,14 @@ async function playScene(sceneName) {
     if (typeof AUGUR_LAB_SCENES !== 'undefined' && AUGUR_LAB_SCENES[sceneName]) {
       const scene = AUGUR_LAB_SCENES[sceneName];
       logLab('EXPECT',scene.expected || scene.label,'info');
+      await enterCombatStage(context);
+      try { for (const step of scene.steps) await playExpandedCombatPresentation(structuredClone(step), context); }
+      finally { await exitCombatStage(context); }
+      logLab('COMPLETE', scene.label, 'success'); return;
+    }
+    if (typeof ONMYOJI_LAB_SCENES !== 'undefined' && ONMYOJI_LAB_SCENES[sceneName]) {
+      const scene = ONMYOJI_LAB_SCENES[sceneName];
+      logLab('EXPECT', scene.expected || scene.label, 'info');
       await enterCombatStage(context);
       try { for (const step of scene.steps) await playExpandedCombatPresentation(structuredClone(step), context); }
       finally { await exitCombatStage(context); }
@@ -1232,7 +1240,7 @@ function initLabController() {
     audioSequence.textContent = 'Audio · Warrior Fight → Heavy Slash → Impact'; phase73Group.appendChild(audioSequence);
     if (typeof PHASE6_LAB_SCENES !== 'undefined') {
       const groups = new Map();
-      const roleOrder=['warrior','mage','archer','assassin','bard','alchemist','druid','dreamweaver','stargazer','gladiator','sage','samurai','augur'];
+      const roleOrder=['warrior','mage','archer','assassin','bard','alchemist','druid','dreamweaver','stargazer','gladiator','sage','samurai','augur','onmyoji'];
       for(const role of roleOrder){const group=document.createElement('optgroup');group.label=getClassDisplayName(role);groups.set(role,group);}
       for(const role of ['warrior','mage','archer','assassin','alchemist','druid']){
         const legacyOption=sceneSelect.querySelector('option[value="combat_'+role+'"]');
@@ -1260,6 +1268,11 @@ function initLabController() {
     if (typeof AUGUR_LAB_SCENES !== 'undefined') {
       const group=document.createElement('optgroup');group.label='Augur · Fate Study';
       for(const [id,scene] of Object.entries(AUGUR_LAB_SCENES)){const option=document.createElement('option');option.value=id;option.textContent=scene.label;group.appendChild(option);}
+      sceneSelect.appendChild(group);
+    }
+    if (typeof ONMYOJI_LAB_SCENES !== 'undefined') {
+      const group=document.createElement('optgroup');group.label='Onmyōji · Talisman & Detonation';
+      for(const [id,scene] of Object.entries(ONMYOJI_LAB_SCENES)){const option=document.createElement('option');option.value=id;option.textContent=scene.label;group.appendChild(option);}
       sceneSelect.appendChild(group);
     }
     sceneSelect.addEventListener('change', () => {

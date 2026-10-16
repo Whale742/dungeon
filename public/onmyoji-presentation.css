@@ -1,0 +1,897 @@
+/* ======================================================================
+   陰陽師 ONMYOJI · Combat Presentation Styles
+   1:1 ported from public/assets/Onmyoji.html
+   All effects, keyframes, timing and visual styling preserved faithfully.
+   ====================================================================== */
+
+:root {
+  --onm-speed-mult: 1;
+  --onm-seal-color: #a855f7;
+  --onm-seal-glow: rgba(168, 85, 247, 0.75);
+}
+
+.onmyoji-presentation-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 60;
+  overflow: hidden;
+  isolation: isolate;
+  font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  user-select: none;
+}
+
+.onmyoji-presentation-container .serif-font {
+  font-family: 'Noto Serif TC', Georgia, serif;
+}
+
+/* 水墨暗紋背景與氛圍燈效 */
+.onmyoji-presentation-container .ink-stage-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 45%, rgba(217, 119, 6, 0.16) 0%, transparent 45%),
+    radial-gradient(circle at 80% 45%, rgba(147, 51, 234, 0.16) 0%, transparent 48%),
+    radial-gradient(circle at 50% 50%, #1c1926 0%, #09080c 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.onmyoji-presentation-container .ink-stage-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+  background-size: 24px 24px;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.onmyoji-presentation-container .bg-svg-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.22;
+  z-index: 1;
+}
+
+/* 陰陽師施法前衝與靈力共鳴 */
+@keyframes casterCastPulse {
+  0% { transform: scale(1) translateX(0); filter: brightness(1); }
+  30% { transform: scale(1.06) translateX(14px); filter: brightness(1.25) drop-shadow(0 0 22px rgba(245, 158, 11, 0.8)); }
+  60% { transform: scale(1.02) translateX(4px); filter: brightness(1.1); }
+  100% { transform: scale(1) translateX(0); filter: brightness(1); }
+}
+.onmyoji-presentation-container .anim-caster-cast {
+  animation: casterCastPulse calc(0.55s * var(--onm-speed-mult, 1)) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 敕令「令」字大尺寸去背書法印記動畫 */
+@keyframes casterLingStampAnim {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.35) rotate(-14deg);
+    filter: brightness(2.2) blur(4px);
+  }
+  22% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.92) rotate(2deg);
+    filter: brightness(1.35) blur(0px);
+  }
+  38% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08) rotate(-1deg);
+    filter: brightness(1.15);
+  }
+  74% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.04) rotate(0deg);
+    filter: brightness(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.48) rotate(4deg);
+    filter: brightness(1.9) blur(5px);
+  }
+}
+
+/* Boss 受擊震動 (重重貼上時觸發) */
+@keyframes bossHeavyHitShake {
+  0% { transform: translate(0, 0) scale(1); }
+  12% { transform: translate(-12px, 10px) scale(0.93) rotate(-2.5deg); filter: brightness(1.5) contrast(1.2); }
+  25% { transform: translate(11px, -8px) scale(0.95) rotate(2deg); }
+  38% { transform: translate(-9px, -6px) scale(0.97) rotate(-1.5deg); }
+  52% { transform: translate(8px, 6px) scale(0.98) rotate(1deg); }
+  68% { transform: translate(-5px, 3px) scale(0.99); }
+  84% { transform: translate(3px, -2px) scale(1); }
+  100% { transform: translate(0, 0) scale(1); filter: brightness(1) contrast(1); }
+}
+.onmyoji-presentation-container .anim-boss-hit-shake {
+  animation: bossHeavyHitShake calc(0.48s * var(--onm-speed-mult, 1)) cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
+/* Boss 百符引爆劇烈震動 */
+@keyframes bossDetonateShake {
+  0% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+  10% { transform: translate(-18px, -12px) scale(0.9) rotate(-4deg); filter: brightness(2.2) saturate(1.8); }
+  20% { transform: translate(16px, 14px) scale(1.06) rotate(4deg); }
+  30% { transform: translate(-15px, 10px) scale(0.92) rotate(-3deg); filter: brightness(1.9) hue-rotate(-20deg); }
+  45% { transform: translate(14px, -12px) scale(1.04) rotate(3deg); }
+  60% { transform: translate(-10px, 8px) scale(0.96) rotate(-2deg); }
+  75% { transform: translate(8px, -6px) scale(0.99) rotate(1deg); }
+  90% { transform: translate(-4px, 3px) scale(1); }
+  100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+}
+.onmyoji-presentation-container .anim-boss-detonate-shake {
+  animation: bossDetonateShake calc(0.85s * var(--onm-speed-mult, 1)) ease-out forwards;
+}
+
+/* ==========================================
+   核心四階段動畫：符咒憑空出現 -> 重重貼上 -> 縮小進入 -> 印記閃耀
+   ========================================== */
+
+/* 階段 1：在 Boss 頭像正上方憑空顯現並蓄勢懸浮 */
+@keyframes talismanStage1Appear {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -175px) scale(0.25) rotate(-18deg);
+    filter: brightness(2.5) blur(6px);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(-50%, -142px) scale(1.12) rotate(3deg);
+    filter: brightness(1.5) blur(0px) drop-shadow(0 0 20px rgba(251, 191, 36, 0.95));
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -148px) scale(1.03) rotate(-2deg);
+    filter: brightness(1.2) drop-shadow(0 0 16px rgba(251, 191, 36, 0.8));
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -154px) scale(1.08) rotate(0deg);
+    filter: brightness(1.35) drop-shadow(0 0 24px rgba(251, 191, 36, 1));
+  }
+}
+
+/* 階段 2：從上方猛烈砸下，重重貼在 Boss 頭像正中央 */
+@keyframes talismanStage2Slam {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -154px) scale(1.15) perspective(500px) rotateX(28deg);
+    filter: brightness(1.5) drop-shadow(0 -18px 20px rgba(245, 158, 11, 0.9));
+  }
+  32% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleX(1.28) scaleY(1.22) perspective(500px) rotateX(0deg) rotate(-3deg);
+    filter: brightness(2.1) drop-shadow(0 0 35px rgba(251, 191, 36, 1));
+  }
+  52% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleX(0.94) scaleY(0.96) rotate(1.5deg);
+    filter: brightness(1.3) drop-shadow(0 0 18px rgba(217, 119, 6, 0.9));
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.03) rotate(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: brightness(1.15) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.85));
+  }
+}
+
+/* 階段 3：符咒慢慢縮小、化光沒入 Boss 頭像內部 */
+@keyframes talismanStage3ShrinkIntoBoss {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: brightness(1.15) drop-shadow(0 0 12px var(--onm-seal-color));
+  }
+  35% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.76) rotate(8deg);
+    filter: brightness(1.6) drop-shadow(0 0 24px var(--onm-seal-color));
+  }
+  75% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(0.32) rotate(-14deg);
+    filter: brightness(2.4) blur(1px) drop-shadow(0 0 32px var(--onm-seal-color));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.02) rotate(-25deg);
+    filter: brightness(3) blur(4px) drop-shadow(0 0 40px var(--onm-seal-color));
+  }
+}
+
+/* 階段 4：統一造型的「五鬼陰陽印記」以對應效果顏色亮一下提示玩家 */
+@keyframes sealStage4Flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2) rotate(-30deg);
+    filter: brightness(3) drop-shadow(0 0 10px var(--onm-seal-color));
+  }
+  28% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.22) rotate(0deg);
+    filter: brightness(2.2) drop-shadow(0 0 36px var(--onm-seal-color)) drop-shadow(0 0 70px var(--onm-seal-color));
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.04) rotate(0deg);
+    filter: brightness(1.6) drop-shadow(0 0 28px var(--onm-seal-color));
+  }
+  80% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(1.08) rotate(0deg);
+    filter: brightness(1.9) drop-shadow(0 0 34px var(--onm-seal-color));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45) rotate(8deg);
+    filter: brightness(2.5) blur(4px) drop-shadow(0 0 50px var(--onm-seal-color));
+  }
+}
+
+/* 重擊貼合時的衝擊波環 */
+@keyframes slamShockwave {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.25);
+    border-width: 8px;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.85);
+    border-width: 1px;
+  }
+}
+
+/* 吸收時的向內聚攏光環 */
+@keyframes absorbImplodeRing {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+  30% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.08);
+  }
+}
+
+/* 浮動戰鬥文字動畫 */
+@keyframes floatCombatText {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -12px) scale(1.12);
+  }
+  40% {
+    transform: translate(-50%, -18px) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -34px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -52px) scale(0.9);
+  }
+}
+
+/* 普攻引符術飛行軌跡動畫 */
+@keyframes talismanBasicFly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(-20deg);
+    filter: brightness(2.2);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--target-x, 300px) * 0.25), -20px) scale(1.1) rotate(5deg);
+    filter: brightness(1.6);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(calc(var(--target-x, 300px) * 0.9), 5px) scale(1.05) rotate(0deg);
+    filter: brightness(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--target-x, 300px), 0) scale(1.2) rotate(15deg);
+    filter: brightness(2.5) blur(2px);
+  }
+}
+
+/* 圍繞在 Boss 頭像邊框上的未掉落小符咒漂浮與脫落銷毀動畫 */
+@keyframes attachedTalismanIdle {
+  0%, 100% { transform: rotate(var(--start-deg, 0deg)) translateY(-106px) scale(1); }
+  50% { transform: rotate(calc(var(--start-deg, 0deg) + 3deg)) translateY(-110px) scale(1.04); }
+}
+.onmyoji-presentation-container .attached-talisman {
+  animation: attachedTalismanIdle 2.4s ease-in-out infinite;
+}
+
+/* 百符引爆階段 1：全體符咒鎖定共鳴顫抖（統一橘光） */
+@keyframes talismanChainLockOn {
+  0%, 100% {
+    transform: rotate(calc(var(--start-deg, 0deg) - 4deg)) translateY(-106px) scale(1.14);
+    filter: brightness(1.4) drop-shadow(0 0 10px #f97316) drop-shadow(0 0 18px #fb923c);
+  }
+  50% {
+    transform: rotate(calc(var(--start-deg, 0deg) + 4deg)) translateY(-108px) scale(1.22);
+    filter: brightness(1.8) drop-shadow(0 0 16px #f97316) drop-shadow(0 0 26px #fde047);
+  }
+}
+.onmyoji-presentation-container .anim-talisman-lock-on {
+  animation: talismanChainLockOn 0.12s ease-in-out infinite !important;
+}
+
+/* 百符引爆階段 2：所有符咒沿螺旋軌跡「旋轉聚集」至中心 */
+@keyframes talismanSpiralGather {
+  0% {
+    transform: rotate(var(--start-deg, 0deg)) translateY(-106px) scale(1.1);
+    filter: brightness(1.8) drop-shadow(0 0 10px #f97316);
+  }
+  35% {
+    transform: rotate(calc(var(--start-deg, 0deg) + 210deg)) translateY(-70px) scale(0.95);
+    filter: brightness(2.1) drop-shadow(0 0 14px #f97316);
+  }
+  75% {
+    transform: rotate(calc(var(--start-deg, 0deg) + 460deg)) translateY(-22px) scale(0.65);
+    filter: brightness(2.6) drop-shadow(0 0 16px #fb923c);
+  }
+  100% {
+    transform: rotate(calc(var(--start-deg, 0deg) + 640deg)) translateY(0px) scale(0.3);
+    filter: brightness(3) drop-shadow(0 0 18px #fde047);
+  }
+}
+.onmyoji-presentation-container .anim-talisman-gather-center {
+  animation: talismanSpiralGather calc(0.68s * var(--onm-speed-mult, 1)) cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards !important;
+}
+
+/* 中心聚能靈球蓄力壓縮動畫 */
+@keyframes megaCoreCharge {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+  }
+  70% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.95) rotate(240deg);
+  }
+  88% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.35) rotate(320deg);
+    filter: brightness(2.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.15) rotate(360deg);
+  }
+}
+
+/* 百符引爆階段 3：中心精巧緊湊的爆炸光球 */
+@keyframes megaExplosionNova {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.2);
+    filter: brightness(2.8);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.0);
+    filter: brightness(2);
+  }
+  65% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.22);
+    filter: brightness(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.42);
+    filter: brightness(1) blur(3px);
+  }
+}
+
+/* 爆炸後：符咒殘片小幅四散並向下脫落銷毀 */
+@keyframes talismanBlastScatterFall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.75) rotate(0deg);
+    filter: brightness(2.8) drop-shadow(0 0 12px #f97316);
+  }
+  35% {
+    opacity: 0.9;
+    transform: translate(var(--bx, 36px), var(--by, -28px)) scale(0.6) rotate(var(--br1, 120deg));
+    filter: brightness(1.6) contrast(1.4) drop-shadow(0 0 8px #fb923c);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--bx, 36px) * 1.25), calc(var(--by, -28px) + 95px)) scale(0.15) rotate(var(--br2, 280deg));
+    filter: brightness(0.2) grayscale(1) blur(1px);
+  }
+}
+.onmyoji-presentation-container .anim-talisman-fall-destroy {
+  animation: talismanBlastScatterFall calc(0.65s * var(--onm-speed-mult, 1)) cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+/* ==========================================
+   舞台元素排版與結構
+   ========================================== */
+
+.onmyoji-presentation-container .stage-action-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 6px 20px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fef3c7;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.onmyoji-presentation-container .stage-action-banner .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 8px #fbbf24;
+}
+
+.onmyoji-presentation-container .main-combat-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 40px 5%;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+/* 我方陰陽師與敵方 Boss Combatant 卡片 */
+.onmyoji-presentation-container .onmyoji-combatant {
+  display: flex;
+  flex-col;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 15;
+}
+
+/* 施法咒語氣泡 */
+.onmyoji-presentation-container .caster-speech-bubble {
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  position: absolute;
+  top: -46px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  white-space: nowrap;
+  padding: 5px 16px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(69, 10, 10, 0.95), rgba(88, 28, 28, 0.95), rgba(69, 10, 10, 0.95));
+  border: 1px solid rgba(245, 158, 11, 0.7);
+  color: #fde68a;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+}
+
+/* 陰陽師金色八卦靈陣光環 */
+.onmyoji-presentation-container .caster-aura-ring {
+  position: absolute;
+  inset: -16px;
+  border-radius: 24px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, rgba(220, 38, 38, 0.2) 40%, transparent 70%);
+  filter: blur(14px);
+  opacity: 0.6;
+  transition: all 0.5s;
+  pointer-events: none;
+}
+
+/* 陰陽師頭像主框體 */
+.onmyoji-presentation-container .caster-avatar-box {
+  position: relative;
+  width: clamp(140px, 20vw, 200px);
+  height: clamp(140px, 20vw, 200px);
+  border-radius: 18px;
+  padding: 6px;
+  background: linear-gradient(180deg, #fde047 0%, #d97706 50%, #78350f 100%);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
+  box-sizing: border-box;
+}
+
+.onmyoji-presentation-container .caster-avatar-box .inner-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #181520;
+  border: 1px solid rgba(254, 240, 138, 0.3);
+}
+
+.onmyoji-presentation-container .caster-avatar-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Boss 頭像主框體 */
+.onmyoji-presentation-container .boss-avatar-box {
+  position: relative;
+  width: clamp(140px, 20vw, 200px);
+  height: clamp(140px, 20vw, 200px);
+  border-radius: 18px;
+  padding: 6px;
+  background: linear-gradient(180deg, #ef4444 0%, #7e22ce 50%, #020617 100%);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.9);
+  box-sizing: border-box;
+}
+
+.onmyoji-presentation-container .boss-avatar-box .inner-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #140d18;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.onmyoji-presentation-container .boss-avatar-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Boss 受擊閃光覆蓋層 */
+.onmyoji-presentation-container .boss-hit-flash-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+/* 銘牌與血量條 */
+.onmyoji-presentation-container .combatant-info {
+  margin-top: 10px;
+  width: clamp(150px, 22vw, 220px);
+  background: rgba(18, 16, 27, 0.92);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+
+.onmyoji-presentation-container .combatant-info.boss-info {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.onmyoji-presentation-container .info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.onmyoji-presentation-container .info-header .name {
+  font-weight: 700;
+  color: #f3efe6;
+}
+
+.onmyoji-presentation-container .info-header .hp-text {
+  font-family: monospace;
+  font-weight: 700;
+  color: #fca5a5;
+  font-size: 11px;
+}
+
+.onmyoji-presentation-container .hp-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #09080e;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.onmyoji-presentation-container .hp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+  transition: width 0.3s;
+}
+
+.onmyoji-presentation-container .boss-info .hp-bar-fill {
+  background: linear-gradient(90deg, #b91c1c 0%, #ef4444 60%, #f59e0b 100%);
+}
+
+/* 階段 1 專用：Boss 頭像正上方的憑空召喚空間波紋 */
+.onmyoji-presentation-container .summon-portal-ripple {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: -110px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  width: 112px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 2px solid rgba(251, 191, 36, 0.8);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.3), rgba(254, 240, 138, 0.5), rgba(245, 158, 11, 0.3));
+  box-shadow: 0 0 25px rgba(251, 191, 36, 0.9);
+  transition: all 0.2s;
+}
+
+/* 核心動畫元件 0：大尺寸去背書法「令」字敕令印記 */
+.onmyoji-presentation-container .caster-ling-overlay {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 35;
+  width: clamp(130px, 18vw, 170px);
+  height: clamp(130px, 18vw, 170px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onmyoji-presentation-container .caster-ling-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.95));
+}
+
+/* 核心動畫元件 1：重擊貼合與縮小進入的「五鬼攝魂符咒」本體 */
+.onmyoji-presentation-container .active-talisman-actor {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 35;
+  width: clamp(120px, 16vw, 150px);
+  height: clamp(200px, 26vw, 250px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 核心動畫元件 2：衝擊波環與吸收環 */
+.onmyoji-presentation-container .slam-shockwave-ring {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 28;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 4px solid #fde047;
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.9);
+}
+
+.onmyoji-presentation-container .absorb-implode-ring {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 28;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  border: 2px dashed var(--onm-seal-color);
+  box-shadow: 0 0 30px var(--onm-seal-color);
+}
+
+/* 核心動畫元件 3：亮一下提示玩家的五色印記 */
+.onmyoji-presentation-container .unified-seal-emblem {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  width: clamp(130px, 18vw, 170px);
+  height: clamp(130px, 18vw, 170px);
+}
+
+.onmyoji-presentation-container .unified-seal-emblem svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* 環繞在 Boss 頭像四周的未掉落符咒掛載層 */
+.onmyoji-presentation-container .attached-talismans-layer {
+  position: absolute;
+  inset: -24px;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.onmyoji-presentation-container .attached-talisman {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 64px;
+  margin-left: -18px;
+  margin-top: -32px;
+  pointer-events: none;
+}
+
+.onmyoji-presentation-container .attached-talisman .index-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(251, 191, 36, 0.8);
+  font-size: 8px;
+  font-family: monospace;
+  font-weight: 700;
+  color: #fde68a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+/* 中心聚能靈球與爆炸光球 */
+.onmyoji-presentation-container #mega-gather-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  z-index: 45;
+  width: 64px;
+  height: 64px;
+}
+
+.onmyoji-presentation-container .mega-explosion-nova {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  z-index: 50;
+  width: 96px;
+  height: 96px;
+}
+
+/* 浮動戰鬥文字容器 */
+.onmyoji-presentation-container .floating-text-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  overflow: visible;
+}
+
+/* Boss 下方的印記狀態列 */
+.onmyoji-presentation-container .boss-debuff-bar {
+  margin-top: 8px;
+  width: clamp(200px, 30vw, 320px);
+  background: rgba(18, 16, 27, 0.9);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 6px 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+.onmyoji-presentation-container .debuff-slot {
+  position: relative;
+  border-radius: 8px;
+  background: #0b0912;
+  border: 1px solid rgba(30, 41, 59, 0.9);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+  transition: all 0.3s;
+}
+
+.onmyoji-presentation-container .debuff-slot.active {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.onmyoji-presentation-container .debuff-slot .icon-svg {
+  width: 20px;
+  height: 20px;
+}
+
+.onmyoji-presentation-container .debuff-slot .name-label {
+  font-size: 9px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.onmyoji-presentation-container .debuff-slot .count-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 1px solid #64748b;
+  font-size: 9px;
+  font-family: monospace;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 普攻飛行動畫 */
+.onmyoji-presentation-container .talisman-projectile {
+  position: absolute;
+  z-index: 38;
+  width: 50px;
+  height: 85px;
+  pointer-events: none;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .onmyoji-presentation-container .anim-caster-cast,
+  .onmyoji-presentation-container .anim-boss-hit-shake,
+  .onmyoji-presentation-container .anim-boss-detonate-shake,
+  .onmyoji-presentation-container .attached-talisman,
+  .onmyoji-presentation-container .anim-talisman-lock-on,
+  .onmyoji-presentation-container .anim-talisman-gather-center,
+  .onmyoji-presentation-container .anim-talisman-fall-destroy {
+    animation: none !important;
+  }
+}

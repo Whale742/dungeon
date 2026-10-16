@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>陰陽師 — 五鬼攝魂符 & 百符引爆 戰鬥動畫演示</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --speed-mult: 1;
+      --seal-color: #a855f7;
+      --seal-glow: rgba(168, 85, 247, 0.75);
+    }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #0b0a0e;
+      color: #f3efe6;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    .serif-font {
+      font-family: 'Noto Serif TC', serif;
+    }
+
+    /* 水墨暗紋背景與氛圍燈效 */
+    .ink-stage-bg {
+      background:
+        radial-gradient(circle at 20% 45%, rgba(217, 119, 6, 0.14) 0%, transparent 45%),
+        radial-gradient(circle at 80% 45%, rgba(147, 51, 234, 0.14) 0%, transparent 48%),
+        radial-gradient(circle at 50% 50%, #1c1926 0%, #09080c 100%);
+      position: relative;
+    }
+
+    .ink-stage-bg::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      background-size: 24px 24px;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    /* 陰陽師施法前衝與靈力共鳴 */
+    @keyframes casterCastPulse {
+      0% { transform: scale(1) translateX(0); filter: brightness(1); }
+      30% { transform: scale(1.06) translateX(14px); filter: brightness(1.25) drop-shadow(0 0 22px rgba(245, 158, 11, 0.8)); }
+      60% { transform: scale(1.02) translateX(4px); filter: brightness(1.1); }
+      100% { transform: scale(1) translateX(0); filter: brightness(1); }
+    }
+    .anim-caster-cast {
+      animation: casterCastPulse calc(0.55s * var(--speed-mult)) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* 敕令「令」字大尺寸去背書法印記動畫 */
+    @keyframes casterLingStampAnim {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(2.35) rotate(-14deg);
+        filter: brightness(2.2) blur(4px);
+      }
+      22% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.92) rotate(2deg);
+        filter: brightness(1.35) blur(0px);
+      }
+      38% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.08) rotate(-1deg);
+        filter: brightness(1.15);
+      }
+      74% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.04) rotate(0deg);
+        filter: brightness(1.25);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.48) rotate(4deg);
+        filter: brightness(1.9) blur(5px);
+      }
+    }
+
+    /* Boss 受擊震動 (重重貼上時觸發) */
+    @keyframes bossHeavyHitShake {
+      0% { transform: translate(0, 0) scale(1); }
+      12% { transform: translate(-12px, 10px) scale(0.93) rotate(-2.5deg); filter: brightness(1.5) contrast(1.2); }
+      25% { transform: translate(11px, -8px) scale(0.95) rotate(2deg); }
+      38% { transform: translate(-9px, -6px) scale(0.97) rotate(-1.5deg); }
+      52% { transform: translate(8px, 6px) scale(0.98) rotate(1deg); }
+      68% { transform: translate(-5px, 3px) scale(0.99); }
+      84% { transform: translate(3px, -2px) scale(1); }
+      100% { transform: translate(0, 0) scale(1); filter: brightness(1) contrast(1); }
+    }
+    .anim-boss-hit-shake {
+      animation: bossHeavyHitShake calc(0.48s * var(--speed-mult)) cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+    }
+
+    /* Boss 百符引爆劇烈震動 */
+    @keyframes bossDetonateShake {
+      0% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+      10% { transform: translate(-18px, -12px) scale(0.9) rotate(-4deg); filter: brightness(2.2) saturate(1.8); }
+      20% { transform: translate(16px, 14px) scale(1.06) rotate(4deg); }
+      30% { transform: translate(-15px, 10px) scale(0.92) rotate(-3deg); filter: brightness(1.9) hue-rotate(-20deg); }
+      45% { transform: translate(14px, -12px) scale(1.04) rotate(3deg); }
+      60% { transform: translate(-10px, 8px) scale(0.96) rotate(-2deg); }
+      75% { transform: translate(8px, -6px) scale(0.99) rotate(1deg); }
+      90% { transform: translate(-4px, 3px) scale(1); }
+      100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+    }
+    .anim-boss-detonate-shake {
+      animation: bossDetonateShake calc(0.85s * var(--speed-mult)) ease-out forwards;
+    }
+
+    /* ==========================================
+       核心四階段動畫：符咒憑空出現 -> 重重貼上 -> 縮小進入 -> 印記閃耀
+       ========================================== */
+
+    /* 階段 1：在 Boss 頭像正上方憑空顯現並蓄勢懸浮 */
+    @keyframes talismanStage1Appear {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -175px) scale(0.25) rotate(-18deg);
+        filter: brightness(2.5) blur(6px);
+      }
+      45% {
+        opacity: 1;
+        transform: translate(-50%, -142px) scale(1.12) rotate(3deg);
+        filter: brightness(1.5) blur(0px) drop-shadow(0 0 20px rgba(251, 191, 36, 0.95));
+      }
+      75% {
+        opacity: 1;
+        transform: translate(-50%, -148px) scale(1.03) rotate(-2deg);
+        filter: brightness(1.2) drop-shadow(0 0 16px rgba(251, 191, 36, 0.8));
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -154px) scale(1.08) rotate(0deg);
+        filter: brightness(1.35) drop-shadow(0 0 24px rgba(251, 191, 36, 1));
+      }
+    }
+
+    /* 階段 2：從上方猛烈砸下，重重貼在 Boss 頭像正中央 */
+    @keyframes talismanStage2Slam {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -154px) scale(1.15) perspective(500px) rotateX(28deg);
+        filter: brightness(1.5) drop-shadow(0 -18px 20px rgba(245, 158, 11, 0.9));
+      }
+      32% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scaleX(1.28) scaleY(1.22) perspective(500px) rotateX(0deg) rotate(-3deg);
+        filter: brightness(2.1) drop-shadow(0 0 35px rgba(251, 191, 36, 1));
+      }
+      52% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scaleX(0.94) scaleY(0.96) rotate(1.5deg);
+        filter: brightness(1.3) drop-shadow(0 0 18px rgba(217, 119, 6, 0.9));
+      }
+      72% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.03) rotate(-1deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        filter: brightness(1.15) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.85));
+      }
+    }
+
+    /* 階段 3：符咒慢慢縮小、化光沒入 Boss 頭像內部 */
+    @keyframes talismanStage3ShrinkIntoBoss {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        filter: brightness(1.15) drop-shadow(0 0 12px var(--seal-color));
+      }
+      35% {
+        opacity: 0.95;
+        transform: translate(-50%, -50%) scale(0.76) rotate(8deg);
+        filter: brightness(1.6) drop-shadow(0 0 24px var(--seal-color));
+      }
+      75% {
+        opacity: 0.85;
+        transform: translate(-50%, -50%) scale(0.32) rotate(-14deg);
+        filter: brightness(2.4) blur(1px) drop-shadow(0 0 32px var(--seal-color));
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.02) rotate(-25deg);
+        filter: brightness(3) blur(4px) drop-shadow(0 0 40px var(--seal-color));
+      }
+    }
+
+    /* 階段 4：統一造型的「五鬼陰陽印記」以對應效果顏色亮一下提示玩家 */
+    @keyframes sealStage4Flash {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.2) rotate(-30deg);
+        filter: brightness(3) drop-shadow(0 0 10px var(--seal-color));
+      }
+      28% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.22) rotate(0deg);
+        filter: brightness(2.2) drop-shadow(0 0 36px var(--seal-color)) drop-shadow(0 0 70px var(--seal-color));
+      }
+      55% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.04) rotate(0deg);
+        filter: brightness(1.6) drop-shadow(0 0 28px var(--seal-color));
+      }
+      80% {
+        opacity: 0.92;
+        transform: translate(-50%, -50%) scale(1.08) rotate(0deg);
+        filter: brightness(1.9) drop-shadow(0 0 34px var(--seal-color));
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.45) rotate(8deg);
+        filter: brightness(2.5) blur(4px) drop-shadow(0 0 50px var(--seal-color));
+      }
+    }
+
+    /* 重擊貼合時的衝擊波環 */
+    @keyframes slamShockwave {
+      0% {
+        opacity: 0.95;
+        transform: translate(-50%, -50%) scale(0.25);
+        border-width: 8px;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.85);
+        border-width: 1px;
+      }
+    }
+
+    /* 吸收時的向內聚攏光環 */
+    @keyframes absorbImplodeRing {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.45);
+      }
+      30% {
+        opacity: 0.85;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.08);
+      }
+    }
+
+    /* 浮動戰鬥文字動畫 */
+    @keyframes floatCombatText {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 10px) scale(0.6);
+      }
+      20% {
+        opacity: 1;
+        transform: translate(-50%, -12px) scale(1.12);
+      }
+      40% {
+        transform: translate(-50%, -18px) scale(1);
+      }
+      80% {
+        opacity: 1;
+        transform: translate(-50%, -34px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -52px) scale(0.9);
+      }
+    }
+
+    /* 圍繞在 Boss 頭像邊框上的未掉落小符咒漂浮與脫落銷毀動畫 */
+    @keyframes attachedTalismanIdle {
+      0%, 100% { transform: rotate(var(--start-deg, 0deg)) translateY(-106px) scale(1); }
+      50% { transform: rotate(calc(var(--start-deg, 0deg) + 3deg)) translateY(-110px) scale(1.04); }
+    }
+    .attached-talisman {
+      animation: attachedTalismanIdle 2.4s ease-in-out infinite;
+    }
+
+    /* 百符引爆階段 1：全體符咒鎖定共鳴顫抖（統一橘光） */
+    @keyframes talismanChainLockOn {
+      0%, 100% {
+        transform: rotate(calc(var(--start-deg, 0deg) - 4deg)) translateY(-106px) scale(1.14);
+        filter: brightness(1.4) drop-shadow(0 0 10px #f97316) drop-shadow(0 0 18px #fb923c);
+      }
+      50% {
+        transform: rotate(calc(var(--start-deg, 0deg) + 4deg)) translateY(-108px) scale(1.22);
+        filter: brightness(1.8) drop-shadow(0 0 16px #f97316) drop-shadow(0 0 26px #fde047);
+      }
+    }
+    .anim-talisman-lock-on {
+      animation: talismanChainLockOn 0.12s ease-in-out infinite !important;
+    }
+
+    /* 百符引爆階段 2：所有符咒沿螺旋軌跡「旋轉聚集」至中心 */
+    @keyframes talismanSpiralGather {
+      0% {
+        transform: rotate(var(--start-deg, 0deg)) translateY(-106px) scale(1.1);
+        filter: brightness(1.8) drop-shadow(0 0 10px #f97316);
+      }
+      35% {
+        transform: rotate(calc(var(--start-deg, 0deg) + 210deg)) translateY(-70px) scale(0.95);
+        filter: brightness(2.1) drop-shadow(0 0 14px #f97316);
+      }
+      75% {
+        transform: rotate(calc(var(--start-deg, 0deg) + 460deg)) translateY(-22px) scale(0.65);
+        filter: brightness(2.6) drop-shadow(0 0 16px #fb923c);
+      }
+      100% {
+        transform: rotate(calc(var(--start-deg, 0deg) + 640deg)) translateY(0px) scale(0.3);
+        filter: brightness(3) drop-shadow(0 0 18px #fde047);
+      }
+    }
+    .anim-talisman-gather-center {
+      animation: talismanSpiralGather calc(0.68s * var(--speed-mult)) cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards !important;
+    }
+
+    /* 中心聚能靈球蓄力壓縮動畫 */
+    @keyframes megaCoreCharge {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+      }
+      70% {
+        opacity: 0.95;
+        transform: translate(-50%, -50%) scale(0.95) rotate(240deg);
+      }
+      88% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.35) rotate(320deg);
+        filter: brightness(2.5);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.15) rotate(360deg);
+      }
+    }
+
+    /* 百符引爆階段 3：中心精巧緊湊的爆炸光球 */
+    @keyframes megaExplosionNova {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.2);
+        filter: brightness(2.8);
+      }
+      30% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.0);
+        filter: brightness(2);
+      }
+      65% {
+        opacity: 0.85;
+        transform: translate(-50%, -50%) scale(1.22);
+        filter: brightness(1.4);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.42);
+        filter: brightness(1) blur(3px);
+      }
+    }
+
+    /* 爆炸後：符咒殘片小幅四散並向下脫落銷毀 */
+    @keyframes talismanBlastScatterFall {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(0.75) rotate(0deg);
+        filter: brightness(2.8) drop-shadow(0 0 12px #f97316);
+      }
+      35% {
+        opacity: 0.9;
+        transform: translate(var(--bx, 36px), var(--by, -28px)) scale(0.6) rotate(var(--br1, 120deg));
+        filter: brightness(1.6) contrast(1.4) drop-shadow(0 0 8px #fb923c);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(calc(var(--bx, 36px) * 1.25), calc(var(--by, -28px) + 95px)) scale(0.15) rotate(var(--br2, 280deg));
+        filter: brightness(0.2) grayscale(1) blur(1px);
+      }
+    }
+    .anim-talisman-fall-destroy {
+      animation: talismanBlastScatterFall calc(0.65s * var(--speed-mult)) cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+
+    /* 捲軸美化 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #121018;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f3852;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #5b5175;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-5 lg:p-6">
+
+  <!-- 頂部標題與動畫階段即時指示器 -->
+  <header class="max-w-7xl w-full mx-auto mb-3">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-[#14121d]/90 border border-amber-500/30 rounded-2xl px-4 py-3 shadow-xl backdrop-blur-md">
+      <!-- 左側標題 -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/30 to-red-700/40 border border-amber-400/50 flex items-center justify-center shadow-inner">
+          <svg class="w-6 h-6 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 2L14.8 8.5L22 9.3L16.5 14L18.2 21L12 17.3L5.8 21L7.5 14L2 9.3L9.2 8.5L12 2Z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="serif-font text-lg sm:text-xl font-bold tracking-wider text-amber-100">陰陽師・符咒戰鬥演出系統</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 font-medium">去背太極雙五芒星符咒版</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">演示流程：去背符咒憑空出現於 Boss 上方 ➔ 重重貼上震動 ➔ 縮小沒入體內 ➔ 閃耀同造型五色印記</p>
+        </div>
+      </div>
+
+      <!-- 右側：五階段即時進度燈號與播放速度控制 -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div class="flex items-center bg-[#0d0b14] border border-slate-700/70 rounded-xl p-1.5 gap-1 text-xs">
+          <div id="step-badge-0" class="stage-step px-2.5 py-1 rounded-lg text-slate-400 transition-all duration-200 flex items-center gap-1">
+            <span class="w-4 h-4 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold">令</span>
+            <span>敕令顯現</span>
+          </div>
+          <span class="text-slate-600">▸</span>
+          <div id="step-badge-1" class="stage-step px-2.5 py-1 rounded-lg text-slate-400 transition-all duration-200 flex items-center gap-1">
+            <span class="w-4 h-4 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold">1</span>
+            <span>憑空出現</span>
+          </div>
+          <span class="text-slate-600">▸</span>
+          <div id="step-badge-2" class="stage-step px-2.5 py-1 rounded-lg text-slate-400 transition-all duration-200 flex items-center gap-1">
+            <span class="w-4 h-4 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold">2</span>
+            <span>重重貼上</span>
+          </div>
+          <span class="text-slate-600">▸</span>
+          <div id="step-badge-3" class="stage-step px-2.5 py-1 rounded-lg text-slate-400 transition-all duration-200 flex items-center gap-1">
+            <span class="w-4 h-4 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold">3</span>
+            <span>縮小沒入</span>
+          </div>
+          <span class="text-slate-600">▸</span>
+          <div id="step-badge-4" class="stage-step px-2.5 py-1 rounded-lg text-slate-400 transition-all duration-200 flex items-center gap-1">
+            <span class="w-4 h-4 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold">4</span>
+            <span>印記閃耀</span>
+          </div>
+        </div>
+
+        <!-- 速度與音效控制 -->
+        <div class="flex items-center gap-1.5 bg-[#0d0b14] border border-slate-700/70 rounded-xl p-1 text-xs">
+          <button onclick="setAnimSpeed(0.5)" id="speed-btn-0.5" class="px-2 py-1 rounded-lg text-slate-400 hover:text-white transition">0.5x 慢動作</button>
+          <button onclick="setAnimSpeed(1)" id="speed-btn-1" class="px-2 py-1 rounded-lg bg-amber-500/25 text-amber-300 border border-amber-500/40 font-medium transition">1.0x 正常</button>
+          <button onclick="setAnimSpeed(1.5)" id="speed-btn-1.5" class="px-2 py-1 rounded-lg text-slate-400 hover:text-white transition">1.5x 快速</button>
+        </div>
+
+        <button onclick="toggleSound()" id="sound-toggle-btn" class="px-3 py-1.5 rounded-xl bg-[#0d0b14] border border-amber-500/40 text-amber-300 text-xs flex items-center gap-1.5 hover:bg-amber-500/10 transition">
+          <span id="sound-icon">🔊</span>
+          <span id="sound-label">音效開啟</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 中央主戰鬥舞台 (左：職業頭像 / 右：Boss頭像) -->
+  <main class="max-w-7xl w-full mx-auto flex-1 flex flex-col gap-4">
+    <section class="ink-stage-bg border border-amber-500/25 rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col justify-center min-h-[430px] sm:min-h-[470px]">
+
+      <!-- 背景裝飾：水墨雲紋與朱紅燈籠光暈 SVG -->
+      <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 1200 500" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="inkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3" />
+            <stop offset="50%" stop-color="#ffffff" stop-opacity="0.05" />
+            <stop offset="100%" stop-color="#a855f7" stop-opacity="0.35" />
+          </linearGradient>
+        </defs>
+        <path d="M0,380 Q300,310 600,380 T1200,350 L1200,500 L0,500 Z" fill="url(#inkGrad)" />
+        <circle cx="600" cy="250" r="190" stroke="rgba(245,158,11,0.18)" stroke-width="1" stroke-dasharray="6 6" fill="none" />
+        <circle cx="600" cy="250" r="230" stroke="rgba(168,85,247,0.14)" stroke-width="1" fill="none" />
+      </svg>
+
+      <!-- 舞台頂部狀態橫幅：顯示目前正在演出的動作描述 -->
+      <div class="relative z-10 flex justify-center mb-4 sm:mb-6">
+        <div id="stage-action-banner" class="px-5 py-1.5 rounded-full bg-black/65 border border-amber-500/30 text-xs sm:text-sm text-amber-200/90 tracking-wide shadow-lg backdrop-blur-md flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="stage-action-text">準備就緒 — 點擊下方技能按鈕施放「五鬼攝魂符」或「急急如律令・百符引爆」</span>
+        </div>
+      </div>
+
+      <!-- 左右頭像對峙主視覺區 -->
+      <div class="relative z-10 grid grid-cols-1 md:grid-cols-11 items-center gap-6 md:gap-4 my-auto px-2 sm:px-6">
+
+        <!-- ================= 左側：我方陰陽師頭像區 (佔 4 欄) ================= -->
+        <div class="md:col-span-4 flex flex-col items-center">
+          <div class="relative group">
+            <!-- 施法咒語氣泡 -->
+            <div id="caster-speech-bubble" class="
+              opacity-0 pointer-events-none transition-all duration-300
+              absolute -top-12 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap
+              px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-950/95 via-red-950/95 to-amber-950/95
+              border border-amber-400/70 text-amber-200 serif-font font-bold text-sm shadow-[0_0_20px_rgba(245,158,11,0.5)]
+            ">
+              「五鬼聽令，急急如律令！」
+            </div>
+
+            <!-- 陰陽師背後的金色八卦靈陣光環 -->
+            <div id="caster-aura-ring" class="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-amber-500/25 via-red-600/20 to-amber-300/25 blur-xl opacity-60 transition-all duration-500"></div>
+
+            <!-- 陰陽師頭像主框體 -->
+            <div id="caster-avatar-box" class="relative w-44 h-44 sm:w-52 sm:h-52 rounded-2xl p-1.5 bg-gradient-to-b from-amber-300 via-amber-600 to-amber-900 shadow-[0_10px_35px_rgba(0,0,0,0.85)]">
+              <div class="relative w-full h-full rounded-xl overflow-hidden bg-[#181520] border border-amber-200/30">
+                <img
+                  id="onmyoji-portrait-img"
+                  src="../photo/Onmyoji.webp"
+                  alt="陰陽師頭像"
+                  class="w-full h-full object-cover object-center transition-transform duration-500"
+                  onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='/photo/Onmyoji.webp';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='../photo/Onmyōji.webp';}else{this.style.display='none';document.getElementById('onmyoji-fallback-svg').classList.remove('hidden');}"
+                />
+
+                <!-- 高還原度內建 SVG 陰陽師少年畫像 -->
+                <svg id="onmyoji-fallback-svg" class="hidden w-full h-full" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="bgInk" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stop-color="#d6ccb8"/>
+                      <stop offset="45%" stop-color="#8b8270"/>
+                      <stop offset="100%" stop-color="#2b2623"/>
+                    </linearGradient>
+                    <radialGradient id="lanternGlow" cx="85%" cy="68%" r="45%">
+                      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.75"/>
+                      <stop offset="50%" stop-color="#ea580c" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="robeBlue" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stop-color="#172554"/>
+                      <stop offset="50%" stop-color="#0f172a"/>
+                      <stop offset="100%" stop-color="#090d16"/>
+                    </linearGradient>
+                    <linearGradient id="skinTone" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#fce7d2"/>
+                      <stop offset="65%" stop-color="#f3cbb0"/>
+                      <stop offset="100%" stop-color="#d59f7e"/>
+                    </linearGradient>
+                    <radialGradient id="cheekBlush" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.65"/>
+                      <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+                    </radialGradient>
+                  </defs>
+                  <rect width="400" height="400" fill="url(#bgInk)"/>
+                  <path d="M-20,60 Q90,10 160,80 T340,40 L420,0 L420,180 Q290,130 200,190 T-20,150 Z" fill="#1e1b18" opacity="0.78"/>
+                  <path d="M260,20 Q340,90 380,40 T350,150" stroke="#f5efe6" stroke-width="6" fill="none" opacity="0.55" stroke-linecap="round"/>
+                  <circle cx="340" cy="280" r="160" fill="url(#lanternGlow)"/>
+                  <path d="M275,140 Q340,155 405,130 L405,162 Q340,175 280,160 Z" fill="#0f172a" stroke="#475569" stroke-width="2"/>
+                  <rect x="300" y="162" width="85" height="22" fill="#991b1b"/>
+                  <rect x="366" y="195" width="34" height="125" rx="4" fill="#fef08a" stroke="#1e1b18" stroke-width="5"/>
+                  <path d="M378,220 L385,295" stroke="#991b1b" stroke-width="4" stroke-dasharray="12 8" stroke-linecap="round"/>
+                  <path d="M35,390 Q10,330 45,295 T22,220 T55,155" stroke="#fde68a" stroke-width="7" fill="none" opacity="0.65" stroke-linecap="round"/>
+                  <path d="M35,390 Q10,330 45,295 T22,220 T55,155" stroke="#ffffff" stroke-width="2.5" fill="none" opacity="0.85" stroke-linecap="round"/>
+                  <path d="M55,400 L92,312 L195,280 L295,310 L355,400 Z" fill="url(#robeBlue)"/>
+                  <path d="M168,245 L168,315 L202,355 L235,305 L228,245 Z" fill="#e5b899"/>
+                  <path d="M150,285 L196,365 L252,282 L232,272 L196,338 L168,274 Z" fill="#f8fafc"/>
+                  <path d="M128,300 L144,400" stroke="#f59e0b" stroke-width="11"/>
+                  <path d="M275,300 L236,400" stroke="#f59e0b" stroke-width="11"/>
+                  <path d="M118,165 Q122,258 175,278 Q210,285 245,235 Q262,190 252,148 Z" fill="url(#skinTone)"/>
+                  <path d="M248,185 Q268,182 264,212 Q258,232 242,226 Z" fill="#eab396"/>
+                  <ellipse cx="145" cy="208" rx="24" ry="18" fill="url(#cheekBlush)"/>
+                  <ellipse cx="212" cy="206" rx="28" ry="20" fill="url(#cheekBlush)"/>
+                  <circle cx="208" cy="212" r="1.3" fill="#991b1b" opacity="0.6"/>
+                  <circle cx="216" cy="206" r="1.2" fill="#991b1b" opacity="0.6"/>
+                  <circle cx="213" cy="218" r="1.4" fill="#991b1b" opacity="0.5"/>
+                  <circle cx="142" cy="212" r="1.2" fill="#991b1b" opacity="0.5"/>
+                  <path d="M124,178 Q144,170 164,179" stroke="#090d16" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+                  <path d="M188,178 Q214,167 236,175" stroke="#090d16" stroke-width="5" fill="none" stroke-linecap="round"/>
+                  <path d="M128,192 Q145,184 162,193 Q146,199 128,192 Z" fill="#1e1b18"/>
+                  <circle cx="146" cy="191" r="5.5" fill="#9a3412"/>
+                  <circle cx="146" cy="191" r="2.5" fill="#090d16"/>
+                  <circle cx="144" cy="189" r="1.3" fill="#ffffff"/>
+                  <path d="M192,192 Q212,182 232,190 Q214,199 192,192 Z" fill="#1e1b18"/>
+                  <circle cx="210" cy="190" r="6" fill="#9a3412"/>
+                  <circle cx="210" cy="190" r="2.8" fill="#090d16"/>
+                  <circle cx="208" cy="188" r="1.4" fill="#ffffff"/>
+                  <path d="M175,186 L170,222 Q175,227 182,224" stroke="#c28562" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                  <path d="M162,243 Q175,237 190,243 Q176,255 162,243 Z" fill="#dc2626"/>
+                  <path d="M164,243 Q176,246 188,243" stroke="#7f1d1d" stroke-width="1.5" fill="none"/>
+                  <path d="M138,82 Q140,34 198,38 Q252,42 248,88 Z" fill="#090d16"/>
+                  <path d="M162,82 Q196,75 230,84" stroke="#dc2626" stroke-width="8" stroke-linecap="round" fill="none"/>
+                  <circle cx="178" cy="80" r="5" fill="#ef4444"/>
+                  <circle cx="195" cy="79" r="5" fill="#ef4444"/>
+                  <circle cx="212" cy="81" r="5" fill="#ef4444"/>
+                  <path d="M100,175 Q92,110 155,82 Q215,72 260,112 Q285,150 268,215 Q258,165 238,145 Q225,175 202,162 Q190,138 175,168 Q152,145 130,185 L118,245 Q102,205 100,175 Z" fill="#090d16"/>
+                  <path d="M135,115 Q165,95 198,112" stroke="#1e3a8a" stroke-width="4" fill="none" opacity="0.65" stroke-linecap="round"/>
+                  <path d="M205,105 Q235,115 248,148" stroke="#1e3a8a" stroke-width="4" fill="none" opacity="0.65" stroke-linecap="round"/>
+                  <path d="M236,98 Q252,125 250,168" stroke="#fbbf24" stroke-width="4" fill="none" stroke-linecap="round"/>
+                  <path d="M242,108 Q236,145 244,168" stroke="#f59e0b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                  <circle cx="235" cy="96" r="5" fill="#fde047"/>
+                </svg>
+
+                <!-- 頭像底部職業銘牌 -->
+                <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 flex items-end justify-between">
+                  <div>
+                    <span class="text-[10px] uppercase tracking-widest text-amber-400 font-semibold block">我方職業</span>
+                    <span class="serif-font text-base sm:text-lg font-bold text-white leading-tight">陰陽師・晴明傳人</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <label class="cursor-pointer text-[10px] px-1.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 border border-amber-400/40 transition" title="上傳自訂符咒圖片並自動去背">
+                      換符咒圖
+                      <input type="file" accept="image/*" class="hidden" onchange="handleCustomTalismanUpload(event)" />
+                    </label>
+                    <label class="cursor-pointer text-[10px] px-1.5 py-1 rounded bg-white/10 hover:bg-white/20 text-amber-200 border border-white/15 transition" title="更換本地頭像圖片">
+                      換頭像
+                      <input type="file" accept="image/*" class="hidden" onchange="handleCustomAvatarUpload(event)" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 陰陽師被動與技能簡述標籤 -->
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+              核心被動：負面符咒無回合限制
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 text-xs text-purple-300">
+              重複施加：立即觸發二段檢定
+            </span>
+          </div>
+        </div>
+
+        <!-- ================= 中央：對峙氣場與去背符咒預覽區 (佔 3 欄) ================= -->
+        <div class="md:col-span-3 flex flex-col items-center justify-center relative py-2">
+          <!-- 中央對峙視覺指標 -->
+          <div class="flex items-center gap-3 text-amber-500/60">
+            <div class="h-[1px] w-10 sm:w-14 bg-gradient-to-r from-transparent to-amber-500/60"></div>
+            <div class="w-10 h-10 rounded-full border border-amber-500/40 bg-[#14111d] flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <span class="serif-font font-black text-sm text-amber-400">對決</span>
+            </div>
+            <div class="h-[1px] w-10 sm:w-14 bg-gradient-to-l from-transparent to-purple-500/60"></div>
+          </div>
+
+          <!-- 顯示最近一次施放的符咒資訊卡片 + 去背符咒小預覽 -->
+          <div id="last-cast-card" class="mt-3 w-full max-w-[235px] rounded-xl bg-black/55 border border-slate-800 p-2.5 text-center transition-all duration-300 flex flex-col items-center">
+            <div class="text-[11px] text-slate-400">當前使用符咒（去背透明版）</div>
+            <div id="center-talisman-preview" class="w-14 h-24 my-1 flex items-center justify-center"></div>
+            <div id="last-cast-name" class="serif-font font-bold text-sm text-amber-200 mt-0.5">— 尚未施放 —</div>
+            <div id="last-cast-desc" class="text-[11px] text-slate-400 mt-0.5 leading-snug">施放技能後將在此顯示印記顏色與判定結果</div>
+          </div>
+        </div>
+
+        <!-- ================= 右側：敵方 Boss 頭像與符咒演出核心舞台 (佔 4 欄) ================= -->
+        <div class="md:col-span-4 flex flex-col items-center">
+
+          <!-- Boss 頂部血量條與符咒計數器 -->
+          <div class="w-56 sm:w-64 mb-3 bg-[#12101b]/90 border border-red-500/30 rounded-xl p-2.5 shadow-lg">
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="serif-font font-bold text-red-200">荒神鬼王・羅剎</span>
+              <span id="boss-hp-text" class="font-mono font-bold text-red-400">500 / 500 HP</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-700 via-red-500 to-amber-500 transition-all duration-300" style="width: 100%;"></div>
+            </div>
+            <!-- 未掉落符咒數量與百符引爆預計傷害 -->
+            <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/80 text-[11px]">
+              <div class="flex items-center gap-1.5">
+                <span class="text-amber-300">📜 附著符咒：</span>
+                <span id="attached-count-badge" class="font-mono font-bold text-sm text-amber-400">0</span>
+                <span class="text-slate-500">(引爆上限 10)</span>
+              </div>
+              <div id="expected-detonate-dmg" class="text-orange-300 font-medium">
+                引爆傷害: 0
+              </div>
+            </div>
+          </div>
+
+          <!-- Boss 頭像外層定位容器 -->
+          <div id="boss-stage-anchor" class="relative flex items-center justify-center my-2">
+
+            <!-- 環繞在 Boss 頭像四周的「未掉落去背符咒」視覺掛載層 -->
+            <div id="attached-talismans-layer" class="absolute -inset-6 pointer-events-none z-20"></div>
+
+            <!-- 階段 1 專用：Boss 頭像正上方的憑空召喚空間波紋 -->
+            <div id="summon-portal-ripple" class="
+              opacity-0 pointer-events-none
+              absolute -top-28 left-1/2 -translate-x-1/2 z-30
+              w-28 h-7 rounded-full border-2 border-amber-300/80
+              bg-gradient-to-r from-amber-500/30 via-yellow-200/50 to-amber-500/30
+              shadow-[0_0_25px_rgba(251,191,36,0.9)]
+              transition-all duration-200
+            "></div>
+
+            <!-- Boss 頭像本體框 -->
+            <div id="boss-avatar-box" class="relative w-44 h-44 sm:w-52 sm:h-52 rounded-2xl p-1.5 bg-gradient-to-b from-red-500 via-purple-800 to-slate-950 shadow-[0_10px_35px_rgba(0,0,0,0.9)]">
+              <div class="relative w-full h-full rounded-xl overflow-hidden bg-[#140d18] border border-red-400/30">
+
+                <!-- 精緻惡鬼 Boss SVG 頭像 -->
+                <svg class="w-full h-full" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <radialGradient id="bossBg" cx="50%" cy="45%" r="60%">
+                      <stop offset="0%" stop-color="#4c1d95"/>
+                      <stop offset="55%" stop-color="#1e1b4b"/>
+                      <stop offset="100%" stop-color="#09070f"/>
+                    </radialGradient>
+                    <linearGradient id="oniSkin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#991b1b"/>
+                      <stop offset="60%" stop-color="#7f1d1d"/>
+                      <stop offset="100%" stop-color="#450a0a"/>
+                    </linearGradient>
+                    <linearGradient id="hornGrad" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stop-color="#78350f"/>
+                      <stop offset="50%" stop-color="#d97706"/>
+                      <stop offset="100%" stop-color="#fef3c7"/>
+                    </linearGradient>
+                  </defs>
+                  <rect width="400" height="400" fill="url(#bossBg)"/>
+                  <circle cx="200" cy="200" r="165" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.25" stroke-dasharray="10 8"/>
+                  <path d="M30,360 Q110,270 200,320 T370,340 L400,400 L0,400 Z" fill="#0f0718"/>
+                  <path d="M55,240 Q25,140 95,85 Q150,35 200,55 Q255,35 310,85 Q375,140 345,240 Q310,185 290,220 L110,220 Q90,185 55,240 Z" fill="#e2e8f0"/>
+                  <path d="M125,115 Q95,40 65,22 Q115,35 152,98 Z" fill="url(#hornGrad)" stroke="#450a0a" stroke-width="3"/>
+                  <path d="M275,115 Q305,40 335,22 Q285,35 248,98 Z" fill="url(#hornGrad)" stroke="#450a0a" stroke-width="3"/>
+                  <path d="M50,400 L95,285 L305,285 L350,400 Z" fill="#1e1b2e" stroke="#f59e0b" stroke-width="3"/>
+                  <path d="M115,125 L285,125 L268,265 Q200,315 132,265 Z" fill="url(#oniSkin)" stroke="#450a0a" stroke-width="4"/>
+                  <path d="M128,195 L165,212 M272,195 L235,212" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+                  <polygon points="200,132 188,155 200,164 212,155" fill="#fef08a" stroke="#ca8a04" stroke-width="2"/>
+                  <circle cx="200" cy="150" r="4" fill="#dc2626"/>
+                  <path d="M135,172 L182,184 L172,198 L138,188 Z" fill="#fef08a"/>
+                  <circle cx="160" cy="186" r="5" fill="#dc2626"/>
+                  <path d="M265,172 L218,184 L228,198 L262,188 Z" fill="#fef08a"/>
+                  <circle cx="240" cy="186" r="5" fill="#dc2626"/>
+                  <path d="M148,242 Q200,225 252,242 Q235,278 200,278 Q165,278 148,242 Z" fill="#1f0909" stroke="#450a0a" stroke-width="3"/>
+                  <polygon points="156,245 166,222 176,244" fill="#fef3c7"/>
+                  <polygon points="244,245 234,222 224,244" fill="#fef3c7"/>
+                  <polygon points="182,242 188,258 194,242" fill="#fef3c7"/>
+                  <polygon points="206,242 212,258 218,242" fill="#fef3c7"/>
+                </svg>
+
+                <!-- Boss 受擊閃光覆蓋層 -->
+                <div id="boss-hit-flash-overlay" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-150"></div>
+
+                <!-- 頭像底部 Boss 銘牌 -->
+                <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 flex items-end justify-between">
+                  <div>
+                    <span class="text-[10px] uppercase tracking-widest text-red-400 font-semibold block">敵方首領</span>
+                    <span class="serif-font text-base sm:text-lg font-bold text-white leading-tight">荒神鬼王・羅剎</span>
+                  </div>
+                  <span id="boss-vuln-tag" class="hidden text-[11px] px-2 py-0.5 rounded bg-green-500/20 border border-green-400/50 text-green-300 font-bold">
+                    易傷 +0%
+                  </span>
+                </div>
+              </div>
+
+              <!-- ============================================================
+                   【核心動畫元件 0】施法前奏：大尺寸去背書法「令」字敕令印記
+                   ============================================================ -->
+              <div id="caster-ling-overlay" class="opacity-0 pointer-events-none absolute left-1/2 top-1/2 z-30 w-36 h-36 sm:w-40 sm:h-40 flex items-center justify-center">
+                <canvas id="caster-ling-canvas" class="hidden w-full h-full object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]"></canvas>
+                <img id="caster-ling-img" src="Onmyoji-2.png" class="w-full h-full object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]" alt="令" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='public/assets/Onmyoji-2.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='/assets/Onmyoji-2.png';}else{this.style.display='none';document.getElementById('caster-ling-svg')?.classList.remove('hidden');}" />
+                <svg id="caster-ling-svg" class="hidden w-full h-full overflow-visible drop-shadow-[0_0_20px_rgba(251,191,36,0.95)]" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="100" cy="100" r="78" fill="none" stroke="#dc2626" stroke-width="5" stroke-dasharray="18 8" opacity="0.85"/>
+                  <text x="100" y="138" text-anchor="middle" fill="#09090b" stroke="#fde047" stroke-width="3" font-family="'Noto Serif TC', serif" font-size="118" font-weight="900">令</text>
+                </svg>
+              </div>
+
+              <!-- ============================================================
+                   【核心動畫元件 1】重擊貼合與縮小進入的「五鬼攝魂符咒」本體 (附圖去背版)
+                   ============================================================ -->
+              <div id="active-talisman-actor" class="opacity-0 pointer-events-none absolute left-1/2 top-1/2 z-30 w-32 h-52 sm:w-36 sm:h-60 flex items-center justify-center">
+                <!-- 由 JS 的 getTalismanVisualHTML 渲染去背太極雙五芒星陰陽道符咒 -->
+              </div>
+
+              <!-- ============================================================
+                   【核心動畫元件 2】重重貼上時的衝擊波環 & 縮小吸收時的聚攏環
+                   ============================================================ -->
+              <div id="slam-shockwave-ring" class="opacity-0 pointer-events-none absolute left-1/2 top-1/2 z-20 w-36 h-36 rounded-full border-4 border-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.9)]"></div>
+              <div id="absorb-implode-ring" class="opacity-0 pointer-events-none absolute left-1/2 top-1/2 z-20 w-40 h-40 rounded-full border-2 border-dashed" style="border-color: var(--seal-color); box-shadow: 0 0 30px var(--seal-color);"></div>
+
+              <!-- ============================================================
+                   【核心動畫元件 3】亮一下提示玩家的「統一造型、五種顏色」印記
+                   ============================================================ -->
+              <div id="unified-seal-emblem" class="opacity-0 pointer-events-none absolute left-1/2 top-1/2 z-40 w-36 h-36 sm:w-40 sm:h-40">
+                <svg class="w-full h-full" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="100" cy="100" r="88" fill="none" stroke="var(--seal-color)" stroke-width="5"/>
+                  <circle cx="100" cy="100" r="76" fill="none" stroke="var(--seal-color)" stroke-width="2" stroke-dasharray="10 6"/>
+                  <polygon
+                    points="100,18 123,74 182,74 134,110 152,168 100,133 48,168 66,110 18,74 77,74"
+                    fill="var(--seal-glow)"
+                    fill-opacity="0.28"
+                    stroke="var(--seal-color)"
+                    stroke-width="6"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="100" cy="100" r="24" fill="none" stroke="#ffffff" stroke-width="4"/>
+                  <path d="M100,66 L100,134 M66,100 L134,100" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+                  <circle cx="100" cy="100" r="9" fill="#ffffff"/>
+                </svg>
+              </div>
+
+              <!-- 浮動文字提示層 -->
+              <div id="floating-text-container" class="absolute inset-0 pointer-events-none z-50 overflow-visible"></div>
+            </div>
+          </div>
+
+          <!-- Boss 下方：5 種負面效果印記狀態欄 -->
+          <div class="mt-3 w-full max-w-md bg-[#12101b]/90 border border-slate-800 rounded-2xl p-2.5 shadow-lg">
+            <div class="text-[11px] text-slate-400 mb-2 flex items-center justify-between px-1">
+              <span>Boss 當前印記狀態（同造型印記・五色區分）</span>
+              <span class="text-slate-500">無回合限制 / 引爆後清除</span>
+            </div>
+            <div class="grid grid-cols-5 gap-1.5" id="boss-debuff-bar"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- 下方控制面板與技能詳情區 -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+      <!-- 左側：技能施放與測試面板 (佔 8 欄) -->
+      <div class="lg:col-span-8 bg-[#14121d]/95 border border-amber-500/25 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col justify-between gap-4">
+
+        <!-- 兩大核心主動技能按鈕 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+
+          <!-- 【1 技能】五鬼攝魂符 -->
+          <button
+            id="btn-skill-1"
+            onclick="castSkill1Random()"
+            class="group relative overflow-hidden rounded-2xl p-4 text-left bg-gradient-to-br from-[#2a1f3d] via-[#1c162b] to-[#120e1c] border-2 border-purple-500/50 hover:border-amber-400 transition-all duration-200 shadow-lg active:scale-[0.99]"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <div class="w-11 h-11 rounded-xl bg-purple-500/20 border border-purple-400/50 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">
+                  🎴
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="serif-font font-bold text-base sm:text-lg text-amber-100 group-hover:text-amber-300 transition">【1 技能】五鬼攝魂符</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded bg-purple-900/70 text-purple-200 border border-purple-500/40">CD: 1</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-0.5">擲出去背符咒重貼 Boss 並沒入，隨機施加 5 種無回合限制印記之一</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-amber-300/90">
+              <span>✨ 點擊觀看完整 4 階段貼符＆印記動畫</span>
+              <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 font-semibold">隨機抽選施放 ▸</span>
+            </div>
+          </button>
+
+          <!-- 【2 技能】急急如律令・百符引爆 -->
+          <button
+            id="btn-skill-2"
+            onclick="castSkill2Detonate()"
+            class="group relative overflow-hidden rounded-2xl p-4 text-left bg-gradient-to-br from-[#3b181c] via-[#261116] to-[#140a0d] border-2 border-red-500/50 hover:border-amber-400 transition-all duration-200 shadow-lg active:scale-[0.99]"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <div class="w-11 h-11 rounded-xl bg-red-500/20 border border-red-400/50 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">
+                  💥
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="serif-font font-bold text-base sm:text-lg text-red-100 group-hover:text-amber-300 transition">【2 技能】急急如律令・百符引爆</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded bg-red-900/70 text-red-200 border border-red-500/40">CD: 2</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-0.5">引爆未掉落符咒（基礎10點 + 每張3點，上限10張=40點），結算後全數脫落銷毀</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-red-300/90">
+              <span id="skill2-sub-hint">🔥 目前可引爆 0 張符咒 (預計 0 點傷害)</span>
+              <span class="px-2 py-0.5 rounded bg-red-500/25 text-red-200 font-semibold">立即引爆 ▸</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- 指定顏色印記測試列 -->
+        <div class="bg-[#0d0b14] border border-slate-800 rounded-xl p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <span class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <span>🎨 指定預覽五鬼符咒（相同印記造型・5 種代表色與二段重複檢定測試）：</span>
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button onclick="quickStackTalismans(5)" class="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition">
+                + 快速疊加 5 張
+              </button>
+              <button onclick="quickStackTalismans(10)" class="text-[11px] px-2.5 py-1 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/30 transition">
+                + 一鍵疊滿 10 張
+              </button>
+              <button onclick="simulateBossTurn()" class="text-[11px] px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 transition">
+                ⚔️ 模擬 Boss 出手
+              </button>
+              <button onclick="resetBattleState()" class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                重置狀態
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2" id="specific-talisman-buttons"></div>
+        </div>
+      </div>
+
+      <!-- 右側：戰鬥與判定日誌 (佔 4 欄) -->
+      <div class="lg:col-span-4 bg-[#14121d]/95 border border-amber-500/25 rounded-2xl p-4 shadow-xl flex flex-col h-[270px] lg:h-auto">
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <h2 class="serif-font font-bold text-sm text-amber-100">戰鬥與印記結算日誌</h2>
+          </div>
+          <button onclick="clearCombatLog()" class="text-[11px] text-slate-400 hover:text-slate-200 transition">清除記錄</button>
+        </div>
+        <div id="combat-log-list" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs font-mono"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // ============================================================================
+    // 1. 技能與五種符咒資料定義 (相同印記造型，不同代表色與效果)
+    // ============================================================================
+    const TALISMAN_TYPES = [
+      {
+        id: 'blind',
+        name: '障目符',
+        color: '#a855f7', // 迷霧紫
+        glow: 'rgba(168, 85, 247, 0.75)',
+        badgeBg: 'bg-purple-950/80 border-purple-500/50 text-purple-200',
+        shortEffect: '命中大幅下降 (Miss)',
+        firstDesc: '目標攻擊命中率大幅下降，攻擊時有更高機率判定為 Miss（失誤）。',
+        repeatDesc: '【重複觸發】再次觸發自殘反噬檢定！'
+      },
+      {
+        id: 'seal',
+        name: '封勁符',
+        color: '#3b82f6', // 寒冰藍
+        glow: 'rgba(59, 130, 246, 0.75)',
+        badgeBg: 'bg-blue-950/80 border-blue-500/50 text-blue-200',
+        shortEffect: '機率當回合 0 傷害',
+        firstDesc: '目標有機率在當前回合完全不造成任何傷害。',
+        repeatDesc: '【重複觸發】再次進行當回合傷害無效化檢定！'
+      },
+      {
+        id: 'corrode',
+        name: '蝕體符',
+        color: '#22c55e', // 毒蝕綠
+        glow: 'rgba(34, 197, 94, 0.75)',
+        badgeBg: 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200',
+        shortEffect: '易傷 +10% 受傷提升',
+        firstDesc: '目標進入易傷狀態，受到的所有攻擊傷害提升 10%。',
+        repeatDesc: '【重複觸發】再次結算易傷判定（易傷加成疊加）！'
+      },
+      {
+        id: 'bewitch',
+        name: '惑心符',
+        color: '#ec4899', // 妖異桃紅
+        glow: 'rgba(236, 72, 153, 0.75)',
+        badgeBg: 'bg-pink-950/80 border-pink-500/50 text-pink-200',
+        shortEffect: '心智混亂 出手自殘',
+        firstDesc: '目標陷入心智混亂，出手時對自己造成傷害。',
+        repeatDesc: '【重複觸發】再次觸發自殘反噬檢定！'
+      },
+      {
+        id: 'drain',
+        name: '抽髓符',
+        color: '#ef4444', // 血煞紅
+        glow: 'rgba(239, 68, 68, 0.75)',
+        badgeBg: 'bg-red-950/80 border-red-500/50 text-red-200',
+        shortEffect: '扣除最大生命 2%',
+        firstDesc: '立即扣除目標最大生命值 2% 的血量（百分比削血）。',
+        repeatDesc: '【重複觸發】再次扣除目標最大生命值 2% 血量！'
+      }
+    ];
+
+    // 全域戰鬥與動畫狀態
+    const state = {
+      bossMaxHp: 500,
+      bossHp: 500,
+      isAnimating: false,
+      speedMultiplier: 1,
+      soundEnabled: true,
+      attachedTalismans: [],
+      debuffStacks: {
+        blind: 0,
+        seal: 0,
+        corrode: 0,
+        bewitch: 0,
+        drain: 0
+      }
+    };
+
+    // ============================================================================
+    // 2. Web Audio API 合成音效系統 (涵蓋全階段音效)
+    // ============================================================================
+    let audioCtx = null;
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSoundEffect(type) {
+      if (!state.soundEnabled) return;
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+
+      if (type === 'ling_stamp') {
+        const oscLow = ctx.createOscillator();
+        const gainLow = ctx.createGain();
+        oscLow.type = 'triangle';
+        oscLow.frequency.setValueAtTime(135, now);
+        oscLow.frequency.exponentialRampToValueAtTime(42, now + 0.24);
+        gainLow.gain.setValueAtTime(0.32, now);
+        gainLow.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+        oscLow.connect(gainLow);
+        gainLow.connect(ctx.destination);
+        oscLow.start(now);
+        oscLow.stop(now + 0.28);
+
+        const oscHigh = ctx.createOscillator();
+        const gainHigh = ctx.createGain();
+        oscHigh.type = 'sine';
+        oscHigh.frequency.setValueAtTime(1046.5, now);
+        oscHigh.frequency.exponentialRampToValueAtTime(1567.98, now + 0.18);
+        gainHigh.gain.setValueAtTime(0.14, now);
+        gainHigh.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+        oscHigh.connect(gainHigh);
+        gainHigh.connect(ctx.destination);
+        oscHigh.start(now);
+        oscHigh.stop(now + 0.26);
+      } else if (type === 'appear') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'slam') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(38, now + 0.22);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+      } else if (type === 'shrink') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(760, now);
+        osc.frequency.exponentialRampToValueAtTime(240, now + 0.36);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      } else if (type === 'seal_flash' || type === 'detonate_lock') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(587.33, now);
+        osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.28);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.34);
+      } else if (type === 'detonate_gather') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(920, now + 0.55);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.6);
+      } else if (type === 'detonate_final') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(28, now + 0.45);
+        gain.gain.setValueAtTime(0.38, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+    }
+
+    // ============================================================================
+    // 2.4 附圖「太極雙五芒星陰陽道符咒」精準去背處理器 & 1:1 高精細去背 SVG
+    //     採用「雙階段精準去背」：
+    //     1) 外部背景採用智慧 Flood-Fill + Color-Unmixing Alpha 完美轉為全透明，同時將邊緣的金藍靈氣光暈去背保留無白邊。
+    //     2) 符紙本體內部完整保留 100% 不透明的古宣紙質感、太極雙五芒星、書法咒文與朱砂符膽。
+    //     3) 額外疊加一層 SVG 向量透明底金藍靈氣光絲與星點，讓去背符咒在暗色水墨背景上更加璀璨立體！
+    // ============================================================================
+    let customTalismanDataUrl = null;
+
+    function getAuraRibbonOverlaySVG() {
+      return `
+        <svg viewBox="0 0 240 400" class="absolute inset-0 w-full h-full overflow-visible pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="talismanAuraRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
+              <stop offset="28%" stop-color="#fde047" stop-opacity="1"/>
+              <stop offset="65%" stop-color="#60a5fa" stop-opacity="0.95"/>
+              <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.95"/>
+            </linearGradient>
+            <filter id="talismanAuraGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="3.5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <g filter="url(#talismanAuraGlow)" opacity="0.95">
+            <path d="M 52,16 C 122,-14 206,8 210,78 C 214,148 175,205 204,278 C 224,335 170,392 102,386 C 30,378 8,322 26,255 C 44,188 -6,132 22,66 C 34,38 40,24 52,16 Z"
+                  fill="none" stroke="url(#talismanAuraRibbon)" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M 186,14 C 228,56 194,142 216,204 C 232,256 190,348 144,382 C 82,404 -4,348 14,276 C 32,208 -10,156 28,88"
+                  fill="none" stroke="#7dd3fc" stroke-width="1.8" stroke-dasharray="10 6" opacity="0.88"/>
+            <circle cx="20" cy="82" r="3.8" fill="#38bdf8"/>
+            <circle cx="14" cy="152" r="3.2" fill="#fde047"/>
+            <circle cx="216" cy="112" r="3.8" fill="#38bdf8"/>
+            <circle cx="208" cy="248" r="4.2" fill="#fbbf24"/>
+            <circle cx="20" cy="306" r="3.8" fill="#fde047"/>
+            <circle cx="178" cy="372" r="3.4" fill="#38bdf8"/>
+            <circle cx="130" cy="6" r="3.4" fill="#38bdf8"/>
+          </g>
+        </svg>
+      `;
+    }
+
+    function getTalismanVisualHTML(accentColor = '#f59e0b', isMini = false) {
+      if (customTalismanDataUrl) {
+        return `
+          <div class="relative w-full h-full flex items-center justify-center select-none"
+               style="filter: drop-shadow(0 4px ${isMini ? '5px' : '12px'} rgba(0,0,0,0.82)) drop-shadow(0 0 ${isMini ? '6px' : '15px'} ${accentColor});">
+            ${!isMini ? getAuraRibbonOverlaySVG() : ''}
+            <img src="${customTalismanDataUrl}" class="relative z-10 w-full h-full object-contain pointer-events-none" alt="去背太極雙五芒星符咒"/>
+          </div>
+        `;
+      }
+
+      // 1:1 高精細去背向量版「太極雙五芒星陰陽道符咒」（完全依照附圖細節繪製，透明背景）
+      return `
+        <div class="relative w-full h-full flex items-center justify-center select-none"
+             style="filter: drop-shadow(0 4px ${isMini ? '5px' : '12px'} rgba(0,0,0,0.82)) drop-shadow(0 0 ${isMini ? '6px' : '15px'} ${accentColor});">
+          <svg viewBox="0 0 240 400" class="w-full h-full overflow-visible" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="talismanPaperGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f5f0e2"/>
+                <stop offset="35%" stop-color="#fcfaf3"/>
+                <stop offset="70%" stop-color="#efe6d2"/>
+                <stop offset="100%" stop-color="#e2d5b8"/>
+              </linearGradient>
+              <linearGradient id="talismanAuraRibbonSvg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
+                <stop offset="32%" stop-color="#fde047" stop-opacity="1"/>
+                <stop offset="68%" stop-color="#60a5fa" stop-opacity="0.95"/>
+                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.95"/>
+              </linearGradient>
+              <filter id="talismanAuraGlowSvg" x="-25%" y="-25%" width="150%" height="150%">
+                <feGaussianBlur stdDeviation="3.2" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            ${!isMini ? `
+            <!-- 外圍環繞金藍靈氣光絲與星點 (去背透明底) -->
+            <g filter="url(#talismanAuraGlowSvg)" opacity="0.95">
+              <path d="M 52,16 C 122,-14 206,8 210,78 C 214,148 175,205 204,278 C 224,335 170,392 102,386 C 30,378 8,322 26,255 C 44,188 -6,132 22,66 C 34,38 40,24 52,16 Z"
+                    fill="none" stroke="url(#talismanAuraRibbonSvg)" stroke-width="3.2" stroke-linecap="round"/>
+              <path d="M 186,14 C 228,56 194,142 216,204 C 232,256 190,348 144,382 C 82,404 -4,348 14,276 C 32,208 -10,156 28,88"
+                    fill="none" stroke="#bae6fd" stroke-width="1.6" stroke-dasharray="10 6" opacity="0.85"/>
+              <circle cx="20" cy="82" r="3.6" fill="#38bdf8"/>
+              <circle cx="14" cy="152" r="3.2" fill="#fde047"/>
+              <circle cx="216" cy="112" r="3.6" fill="#38bdf8"/>
+              <circle cx="208" cy="248" r="4" fill="#fbbf24"/>
+              <circle cx="20" cy="306" r="3.6" fill="#fde047"/>
+              <circle cx="178" cy="372" r="3.2" fill="#38bdf8"/>
+              <circle cx="130" cy="6" r="3.2" fill="#38bdf8"/>
+            </g>
+            ` : ''}
+
+            <!-- 不規則古宣紙撕邊本體 (對應附圖外框缺口與邊緣紋理) -->
+            <path d="M 44,18 L 78,19 L 106,17 L 116,21 L 126,17 L 162,19 L 196,18
+                     L 197,62 L 195,102 L 198,150 L 196,205 L 198,260 L 194,318 L 197,376
+                     L 158,378 L 122,376 L 86,379 L 43,376
+                     L 45,326 L 42,272 L 45,218 L 43,162 L 46,104 L 43,52 Z"
+                  fill="url(#talismanPaperGrad)" stroke="#3d3227" stroke-width="2.5" stroke-linejoin="round"/>
+
+            <!-- 內層雙線框與四角回紋裝飾 -->
+            <rect x="52" y="28" width="136" height="338" fill="none" stroke="#3b2f26" stroke-width="1.9"/>
+            <rect x="56" y="32" width="128" height="330" fill="none" stroke="#3b2f26" stroke-width="1.1"/>
+
+            <!-- 四角回紋 -->
+            <g stroke="#3b2f26" stroke-width="1.6" fill="none">
+              <path d="M 52,48 H 68 V 28 M 56,44 H 64 V 32 M 52,40 H 60"/>
+              <path d="M 188,48 H 172 V 28 M 184,44 H 176 V 32 M 188,40 H 180"/>
+              <path d="M 52,346 H 68 V 366 M 56,350 H 64 V 362 M 52,354 H 60"/>
+              <path d="M 188,346 H 172 V 366 M 184,350 H 176 V 362 M 188,354 H 180"/>
+            </g>
+
+            <!-- 頂部：水墨太極陰陽魚 + 承托朱砂紅月牙 -->
+            <g transform="translate(120, 72)">
+              <circle cx="0" cy="0" r="25" fill="#fdfbf7" stroke="#1c1917" stroke-width="2.6"/>
+              <path d="M 0,-25 A 25,25 0 0,1 0,25 A 12.5,12.5 0 0,1 0,0 A 12.5,12.5 0 0,0 0,-25 Z" fill="#171717"/>
+              <circle cx="-3" cy="-11" r="3.8" fill="#171717"/>
+              <circle cx="3" cy="11" r="3.8" fill="#fdfbf7"/>
+              <path d="M -30,5 C -25,35 25,35 30,5 C 23,25 -23,25 -30,5 Z" fill="#b91c1c"/>
+            </g>
+
+            <!-- 第一重：上方朱砂圓環 + 黑墨五芒星 -->
+            <g transform="translate(120, 140)">
+              <circle cx="0" cy="0" r="34" fill="none" stroke="#b91c1c" stroke-width="4.4"/>
+              <polygon points="0,-32 20,27 -30,-10 30,-10 -20,27" fill="none" stroke="#171717" stroke-width="3.4" stroke-linejoin="round"/>
+              <text x="0" y="5" text-anchor="middle" fill="#b91c1c" font-size="13" font-weight="900" font-family="serif">天</text>
+              <text x="-13" y="-12" text-anchor="middle" fill="#b91c1c" font-size="9" font-weight="900" font-family="serif">元</text>
+              <text x="13" y="-12" text-anchor="middle" fill="#b91c1c" font-size="9" font-weight="900" font-family="serif">罡</text>
+              <text x="0" y="23" text-anchor="middle" fill="#b91c1c" font-size="9" font-weight="900" font-family="serif">敕</text>
+              <path d="M -37,22 Q -45,28 -37,35 Q -31,41 -40,47" fill="none" stroke="#b91c1c" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M 37,22 Q 45,28 37,35 Q 31,41 40,47" fill="none" stroke="#b91c1c" stroke-width="2.6" stroke-linecap="round"/>
+            </g>
+
+            <!-- 第二重：下方朱砂圓環 + 朱砂五芒星 -->
+            <g transform="translate(120, 214)">
+              <circle cx="0" cy="0" r="36" fill="none" stroke="#b91c1c" stroke-width="4"/>
+              <polygon points="0,-34 22,28 -32,-11 32,-11 -22,28" fill="none" stroke="#c2410c" stroke-width="2.8" stroke-linejoin="round"/>
+              <text x="0" y="4" text-anchor="middle" fill="#171717" font-size="14" font-weight="900" font-family="serif">五</text>
+              <text x="0" y="26" text-anchor="middle" fill="#171717" font-size="12" font-weight="900" font-family="serif">鬼</text>
+            </g>
+
+            <!-- 左右兩側直書水墨咒文 -->
+            <g fill="#171717" font-family="'Noto Serif TC', serif" font-size="14" font-weight="900" text-anchor="middle">
+              <text x="70" y="110">陰</text>
+              <text x="70" y="128">陽</text>
+              <text x="70" y="146">道</text>
+              <text x="70" y="176">敕</text>
+              <text x="70" y="194">善</text>
+              <text x="70" y="212">罡</text>
+              <text x="70" y="230">方</text>
+              <text x="70" y="264">才</text>
+              <text x="70" y="282">元</text>
+              <text x="70" y="300">策</text>
+              <text x="70" y="318">明</text>
+
+              <text x="170" y="108">五</text>
+              <text x="170" y="126">攝</text>
+              <text x="170" y="144">凡</text>
+              <text x="170" y="174">元</text>
+              <text x="170" y="192">生</text>
+              <text x="170" y="210">怨</text>
+              <text x="170" y="228">卍</text>
+              <text x="170" y="260">攝</text>
+              <text x="170" y="278">某</text>
+              <text x="170" y="296">道</text>
+              <text x="170" y="314">經</text>
+              <text x="170" y="332">方</text>
+            </g>
+
+            <!-- 底部中央：朱砂狂草符膽 + 左右黑雷電鎮煞紋 -->
+            <g transform="translate(120, 256)">
+              <path d="M -23,-3 L -32,18 L -22,19 L -39,86" fill="none" stroke="#171717" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 23,-3 L 16,18 L 26,19 L 41,86" fill="none" stroke="#171717" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M -10,6 C -2,2 10,6 4,14 C -4,22 -12,18 -4,28 M 6,8 L 12,26" fill="none" stroke="#b91c1c" stroke-width="4.4" stroke-linecap="round"/>
+              <path d="M -12,34 L 12,32 M -4,28 L -8,50 M 4,32 C 10,42 14,48 18,50" fill="none" stroke="#b91c1c" stroke-width="4.2" stroke-linecap="round"/>
+              <path d="M -14,58 L 14,56 M 0,52 L 0,72 M -12,68 C -4,76 8,76 15,70" fill="none" stroke="#b91c1c" stroke-width="4.4" stroke-linecap="round"/>
+              <path d="M -12,84 C -2,80 12,82 6,92 C 0,100 -10,96 14,104" fill="none" stroke="#b91c1c" stroke-width="4.4" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+      `;
+    }
+
+    // 對圖片執行「雙階段精準去背 + 色彩反混成 (Color-Unmixing)」，徹底消除外部白底與半透明白邊，同時 100% 保護符紙內部米白宣紙底色
+    function processTalismanImageToTransparentDataURL(img) {
+      const canvas = document.createElement('canvas');
+      const maxDim = 760;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      const visited = new Uint8Array(w * h);
+      const queue = new Int32Array(w * h * 2);
+      let head = 0;
+      let tail = 0;
+
+      function pushPixel(x, y) {
+        if (x < 0 || x >= w || y < 0 || y >= h) return;
+        const pIdx = y * w + x;
+        if (visited[pIdx]) return;
+        visited[pIdx] = 1;
+        queue[tail++] = x;
+        queue[tail++] = y;
+      }
+
+      // 從影像四周邊界往內開始搜尋外部背景區域
+      for (let x = 0; x < w; x++) {
+        pushPixel(x, 0);
+        pushPixel(x, h - 1);
+      }
+      for (let y = 0; y < h; y++) {
+        pushPixel(0, y);
+        pushPixel(w - 1, y);
+      }
+
+      // 判定是否觸碰到古宣紙符咒的深色外邊框（遇到深色邊框即停止向內洪水填充，100%保護符紙內部！）
+      function isTalismanPaperBorder(idx) {
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        return lum < 148;
+      }
+
+      while (head < tail) {
+        const x = queue[head++];
+        const y = queue[head++];
+        const pIdx = y * w + x;
+        const idx = pIdx * 4;
+
+        if (isTalismanPaperBorder(idx)) {
+          // 邊框像素本身保持不透明，且不往符紙內部擴散
+          continue;
+        }
+
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        const maxC = Math.max(r, g, b);
+        const minC = Math.min(r, g, b);
+        const chroma = maxC - minC;
+        const lum = (r + g + b) / 3;
+
+        // 針對符紙外部區域進行 Color-Unmixing 去白底：
+        // 若是純白或接近白底 -> Alpha = 0 (完全透明)
+        // 若是外部的金藍靈氣光絲 -> 扣除白色背景分量並轉換為純淨彩光 Alpha，消除灰白暈邊
+        if (lum > 240 && chroma < 24) {
+          data[idx + 3] = 0;
+        } else {
+          // 計算距離白色的色彩飽和度與濃度
+          const whitePart = minC / 255;
+          const colorAlpha = Math.max(0, Math.min(1, (1 - whitePart) * 2.1 + (chroma / 115)));
+          if (colorAlpha < 0.08) {
+            data[idx + 3] = 0;
+          } else {
+            // 還原扣除白底後的純彩光色澤 (避免在深色舞台上出現白霧邊)
+            const invA = 1 / Math.max(0.15, colorAlpha);
+            data[idx] = Math.min(255, Math.max(0, Math.round((r - 255 * (1 - colorAlpha)) * invA)));
+            data[idx + 1] = Math.min(255, Math.max(0, Math.round((g - 255 * (1 - colorAlpha)) * invA)));
+            data[idx + 2] = Math.min(255, Math.max(0, Math.round((b - 255 * (1 - colorAlpha)) * invA)));
+            data[idx + 3] = Math.round(255 * Math.pow(colorAlpha, 1.15));
+          }
+        }
+
+        pushPixel(x + 1, y);
+        pushPixel(x - 1, y);
+        pushPixel(x, y + 1);
+        pushPixel(x, y - 1);
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      return canvas.toDataURL('image/png');
+    }
+
+    function refreshAllTalismanVisuals() {
+      const activeActor = document.getElementById('active-talisman-actor');
+      if (activeActor) {
+        activeActor.innerHTML = getTalismanVisualHTML('#f59e0b', false);
+      }
+      const centerPreview = document.getElementById('center-talisman-preview');
+      if (centerPreview) {
+        centerPreview.innerHTML = getTalismanVisualHTML('#f59e0b', false);
+      }
+      renderAttachedTalismansAroundBoss();
+    }
+
+    function initTransparentTalismanImage() {
+      const candidateFiles = [
+        'Onmyoji-1.png',
+        'public/assets/Onmyoji-1.png',
+        '/assets/Onmyoji-1.png'
+      ];
+
+      let triedIndex = 0;
+      function tryLoadNext() {
+        if (triedIndex >= candidateFiles.length) return;
+        const img = new Image();
+        img.onload = function() {
+          try {
+            customTalismanDataUrl = candidateFiles[triedIndex];
+            refreshAllTalismanVisuals();
+          } catch (e) {
+            // fallback
+          }
+        };
+        img.onerror = function() {
+          triedIndex++;
+          tryLoadNext();
+        };
+        img.src = candidateFiles[triedIndex];
+      }
+
+      tryLoadNext();
+    }
+
+    // 支援使用者手動選擇附圖檔案立即去背並套用至全場符咒
+    function handleCustomTalismanUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          customTalismanDataUrl = processTalismanImageToTransparentDataURL(img);
+          refreshAllTalismanVisuals();
+          addCombatLog('系統', '已成功將上傳的符咒圖片完成自動去背並套用至全場動畫！', 'text-amber-300');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ============================================================================
+    // 2.5 自動讀取「令」字附圖並進行即時去背處理
+    // ============================================================================
+    function initTransparentLingImage() {
+      const lingImg = document.getElementById('caster-ling-img');
+      const candidateFiles = [
+        'Onmyoji-2.png',
+        'public/assets/Onmyoji-2.png',
+        '/assets/Onmyoji-2.png'
+      ];
+      let tried = 0;
+      function tryNext() {
+        if (tried >= candidateFiles.length) return;
+        const testImg = new Image();
+        testImg.onload = function() {
+          if (lingImg) lingImg.src = candidateFiles[tried];
+        };
+        testImg.onerror = function() {
+          tried++;
+          tryNext();
+        };
+        testImg.src = candidateFiles[tried];
+      }
+      tryNext();
+    }
+
+    // ============================================================================
+    // 3. 介面初始化：渲染五色同造型印記狀態欄與指定測試按鈕
+    // ============================================================================
+    function initUI() {
+      refreshAllTalismanVisuals();
+      initTransparentLingImage();
+      initTransparentTalismanImage();
+
+      const debuffBar = document.getElementById('boss-debuff-bar');
+      const btnContainer = document.getElementById('specific-talisman-buttons');
+
+      debuffBar.innerHTML = '';
+      btnContainer.innerHTML = '';
+
+      TALISMAN_TYPES.forEach(t => {
+        const slot = document.createElement('div');
+        slot.id = `debuff-slot-${t.id}`;
+        slot.className = 'relative rounded-xl bg-[#0b0912] border border-slate-800/90 p-1.5 flex flex-col items-center justify-center opacity-40 transition-all duration-300';
+        slot.innerHTML = `
+          <div class="w-7 h-7 flex items-center justify-center">
+            <svg class="w-full h-full" viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="88" fill="none" stroke="${t.color}" stroke-width="10"/>
+              <polygon
+                points="100,18 123,74 182,74 134,110 152,168 100,133 48,168 66,110 18,74 77,74"
+                fill="${t.glow}"
+                fill-opacity="0.35"
+                stroke="${t.color}"
+                stroke-width="10"
+                stroke-linejoin="round"
+              />
+              <circle cx="100" cy="100" r="22" fill="#ffffff"/>
+            </svg>
+          </div>
+          <span class="text-[11px] font-bold mt-1" style="color: ${t.color}">${t.name}</span>
+          <span class="text-[9px] text-slate-400 leading-tight text-center line-clamp-1">${t.shortEffect}</span>
+          <span id="debuff-count-${t.id}" class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 border border-slate-600 text-[10px] font-mono font-bold text-white flex items-center justify-center">0</span>
+        `;
+        debuffBar.appendChild(slot);
+
+        const btn = document.createElement('button');
+        btn.onclick = () => castSkill1Specific(t.id);
+        btn.className = 'group rounded-xl p-2 bg-[#14111f] hover:bg-[#1d182d] border border-slate-800 hover:border-amber-400/60 transition flex items-center gap-2 text-left active:scale-95';
+        btn.innerHTML = `
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background: ${t.glow}22; border: 1px solid ${t.color}">
+            <span class="w-3 h-3 rounded-full" style="background: ${t.color}; box-shadow: 0 0 8px ${t.color}"></span>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-bold truncate" style="color: ${t.color}">${t.name}</div>
+            <div class="text-[10px] text-slate-400 truncate">${t.shortEffect}</div>
+          </div>
+        `;
+        btnContainer.appendChild(btn);
+      });
+
+      updateStatusUI();
+      renderAttachedTalismansAroundBoss();
+      addCombatLog('系統', '陰陽師去背符咒戰鬥演出系統已就緒。點擊下方技能按鈕即可預覽動畫！', 'text-amber-200');
+    }
+
+    // ============================================================================
+    // 4. 階段進度燈號與浮動戰鬥跳字工具
+    // ============================================================================
+    function highlightStageStep(stepNum, bannerText) {
+      if (bannerText) {
+        document.getElementById('stage-action-text').textContent = bannerText;
+      }
+      for (let i = 0; i <= 4; i++) {
+        const badge = document.getElementById(`step-badge-${i}`);
+        if (!badge) continue;
+        if (i === stepNum) {
+          badge.className = 'stage-step px-2.5 py-1 rounded-lg bg-amber-500/25 border border-amber-400/60 text-amber-200 font-bold transition-all duration-200 flex items-center gap-1 shadow-[0_0_12px_rgba(245,158,11,0.35)]';
+        } else {
+          badge.className = 'stage-step px-2.5 py-1 rounded-lg text-slate-400 transition-all duration-200 flex items-center gap-1';
+        }
+      }
+    }
+
+    function spawnFloatingText(mainText, colorHex, subText = '') {
+      const container = document.getElementById('floating-text-container');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'absolute left-1/2 top-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap text-center z-50';
+      wrapper.style.animation = `floatCombatText calc(1.25s * var(--speed-mult)) cubic-bezier(0.16, 1, 0.3, 1) forwards`;
+
+      wrapper.innerHTML = `
+        <div class="serif-font font-black text-base sm:text-lg px-3 py-1 rounded-full bg-black/85 border shadow-lg"
+             style="color: ${colorHex}; border-color: ${colorHex}; text-shadow: 0 0 10px ${colorHex};">
+          ${mainText}
+        </div>
+        ${subText ? `<div class="mt-1 text-[11px] font-medium px-2.5 py-0.5 rounded bg-black/80 text-amber-100 border border-white/15">${subText}</div>` : ''}
+      `;
+
+      container.appendChild(wrapper);
+      setTimeout(() => {
+        wrapper.remove();
+      }, 1300 * state.speedMultiplier);
+    }
+
+    // ============================================================================
+    // 5. 【1 技能】五鬼攝魂符：四階段完整動畫演出
+    // ============================================================================
+    function castSkill1Random() {
+      if (state.isAnimating) return;
+      const randomIndex = Math.floor(Math.random() * TALISMAN_TYPES.length);
+      castSkill1Specific(TALISMAN_TYPES[randomIndex].id);
+    }
+
+    async function castSkill1Specific(typeId) {
+      if (state.isAnimating) return;
+      const talisman = TALISMAN_TYPES.find(t => t.id === typeId) || TALISMAN_TYPES[0];
+      state.isAnimating = true;
+
+      const mult = state.speedMultiplier;
+      const isRepeat = state.debuffStacks[talisman.id] > 0;
+
+      document.documentElement.style.setProperty('--seal-color', talisman.color);
+      document.documentElement.style.setProperty('--seal-glow', talisman.glow);
+
+      const casterBox = document.getElementById('caster-avatar-box');
+      const casterAura = document.getElementById('caster-aura-ring');
+      const casterLingOverlay = document.getElementById('caster-ling-overlay');
+      const speechBubble = document.getElementById('caster-speech-bubble');
+      const portalRipple = document.getElementById('summon-portal-ripple');
+      const talismanActor = document.getElementById('active-talisman-actor');
+      const bossBox = document.getElementById('boss-avatar-box');
+      const bossFlash = document.getElementById('boss-hit-flash-overlay');
+      const shockwaveRing = document.getElementById('slam-shockwave-ring');
+      const implodeRing = document.getElementById('absorb-implode-ring');
+      const sealEmblem = document.getElementById('unified-seal-emblem');
+
+      // 【前奏階段 0：在右側 Boss 頭像正中央浮現大尺寸去背「令」字】
+      highlightStageStep(0, `施法前奏：右側 Boss 頭像正中央霸氣蓋下大尺寸去背「令」字敕令！`);
+      playSoundEffect('ling_stamp');
+
+      casterBox.classList.remove('anim-caster-cast');
+      void casterBox.offsetWidth;
+      casterBox.classList.add('anim-caster-cast');
+
+      casterAura.classList.add('scale-125', 'opacity-100');
+
+      speechBubble.textContent = `「五鬼聽令，急急如律令！」`;
+      speechBubble.classList.remove('opacity-0');
+
+      if (casterLingOverlay) {
+        casterLingOverlay.style.animation = 'none';
+        void casterLingOverlay.offsetWidth;
+        casterLingOverlay.style.animation = `casterLingStampAnim calc(0.56s * var(--speed-mult)) cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+      }
+
+      bossFlash.style.backgroundColor = '#fef08a';
+      bossFlash.style.opacity = '0.35';
+      setTimeout(() => {
+        bossFlash.style.opacity = '0';
+      }, 150 * mult);
+
+      await waitMs(480 * mult);
+      casterAura.classList.remove('scale-125', 'opacity-100');
+
+      // 【階段 1：去背符咒憑空出現在 Boss 頭像正上方】
+      highlightStageStep(1, `階段 1/4：去背符咒憑空出現在 Boss 頭像正上方，凝聚靈力...`);
+      playSoundEffect('appear');
+
+      talismanActor.innerHTML = getTalismanVisualHTML(talisman.color, false);
+      const centerPreview = document.getElementById('center-talisman-preview');
+      if (centerPreview) {
+        centerPreview.innerHTML = getTalismanVisualHTML(talisman.color, false);
+      }
+
+      portalRipple.classList.remove('opacity-0');
+      talismanActor.style.animation = 'none';
+      void talismanActor.offsetWidth;
+      talismanActor.style.animation = `talismanStage1Appear calc(0.48s * var(--speed-mult)) cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+
+      await waitMs(480 * mult);
+
+      // 【階段 2：從上方重重貼到 Boss 頭像上，觸發受擊震動與衝擊波】
+      highlightStageStep(2, `階段 2/4：去背符咒重重貼在 Boss 頭像上！造成猛烈震動與衝擊波！`);
+      talismanActor.style.animation = 'none';
+      void talismanActor.offsetWidth;
+      talismanActor.style.animation = `talismanStage2Slam calc(0.45s * var(--speed-mult)) cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+
+      await waitMs(130 * mult);
+      playSoundEffect('slam');
+      portalRipple.classList.add('opacity-0');
+
+      bossBox.classList.remove('anim-boss-hit-shake');
+      void bossBox.offsetWidth;
+      bossBox.classList.add('anim-boss-hit-shake');
+
+      bossFlash.style.backgroundColor = '#fde047';
+      bossFlash.style.opacity = '0.5';
+      setTimeout(() => {
+        bossFlash.style.opacity = '0';
+      }, 130 * mult);
+
+      shockwaveRing.style.borderColor = '#fbbf24';
+      shockwaveRing.style.animation = 'none';
+      void shockwaveRing.offsetWidth;
+      shockwaveRing.style.animation = `slamShockwave calc(0.42s * var(--speed-mult)) ease-out forwards`;
+
+      await waitMs(340 * mult);
+
+      // 【階段 3：符咒慢慢縮小、化光進入 Boss 頭像內部】
+      highlightStageStep(3, `階段 3/4：去背符咒慢慢縮小，化為靈光沒入 Boss 體內...`);
+      playSoundEffect('shrink');
+
+      talismanActor.style.animation = 'none';
+      void talismanActor.offsetWidth;
+      talismanActor.style.animation = `talismanStage3ShrinkIntoBoss calc(0.52s * var(--speed-mult)) cubic-bezier(0.4, 0, 0.2, 1) forwards`;
+
+      implodeRing.style.animation = 'none';
+      void implodeRing.offsetWidth;
+      implodeRing.style.animation = `absorbImplodeRing calc(0.5s * var(--speed-mult)) ease-in forwards`;
+
+      await waitMs(500 * mult);
+
+      // 【階段 4：亮一下「相同造型、對應顏色」的印記提示玩家 Boss 獲得的效果】
+      highlightStageStep(4, `階段 4/4：印記閃耀！Boss 獲得【${talisman.name}】（${talisman.shortEffect}）`);
+      playSoundEffect('seal_flash');
+
+      sealEmblem.style.animation = 'none';
+      void sealEmblem.offsetWidth;
+      sealEmblem.style.animation = `sealStage4Flash calc(0.72s * var(--speed-mult)) cubic-bezier(0.16, 1, 0.3, 1) forwards`;
+
+      state.debuffStacks[talisman.id] += 1;
+      state.attachedTalismans.push({
+        uid: Date.now() + Math.random(),
+        typeId: talisman.id,
+        color: talisman.color,
+        name: talisman.name
+      });
+
+      let extraEffectNote = isRepeat ? talisman.repeatDesc : talisman.firstDesc;
+      if (talisman.id === 'drain') {
+        const drainHp = Math.max(1, Math.round(state.bossMaxHp * 0.02));
+        const totalDrain = isRepeat ? drainHp * 2 : drainHp;
+        dealDamageToBoss(totalDrain);
+        spawnFloatingText(
+          `✦ ${talisman.name} (-${totalDrain} HP)`,
+          talisman.color,
+          isRepeat ? `重複施加！觸發兩段 2% 最大生命削血` : `扣除最大生命值 2% (${drainHp} HP)`
+        );
+      } else if (isRepeat && (talisman.id === 'blind' || talisman.id === 'bewitch')) {
+        const backlashDmg = 12;
+        dealDamageToBoss(backlashDmg);
+        spawnFloatingText(
+          `✦ ${talisman.name}・二段反噬 (-${backlashDmg} HP)`,
+          talisman.color,
+          talisman.repeatDesc
+        );
+      } else {
+        spawnFloatingText(
+          `✦ ${talisman.name}【${talisman.shortEffect}】`,
+          talisman.color,
+          isRepeat ? talisman.repeatDesc : '無回合限制印記已生效'
+        );
+      }
+
+      document.getElementById('last-cast-name').textContent = `${talisman.name}（第 ${state.debuffStacks[talisman.id]} 層）`;
+      document.getElementById('last-cast-name').style.color = talisman.color;
+      document.getElementById('last-cast-desc').textContent = extraEffectNote;
+
+      renderAttachedTalismansAroundBoss();
+      updateStatusUI();
+
+      addCombatLog(
+        talisman.name,
+        `去背符咒重貼並沒入 Boss 體內，亮起【${talisman.name}】印記！${extraEffectNote}`,
+        'text-slate-200'
+      );
+
+      await waitMs(700 * mult);
+
+      speechBubble.classList.add('opacity-0');
+      highlightStageStep(-1, `施放完成 — 當前 Boss 身上共有 ${state.attachedTalismans.length} 張未掉落符咒`);
+      state.isAnimating = false;
+    }
+
+    // ============================================================================
+    // 6. 【2 技能】急急如律令・百符引爆
+    // ============================================================================
+    const DETONATE_ORANGE = '#f97316';
+
+    function spawnMegaGatherCoreFX() {
+      const layer = document.getElementById('attached-talismans-layer');
+      const core = document.createElement('div');
+      core.id = 'mega-gather-core';
+      core.className = 'absolute left-1/2 top-1/2 pointer-events-none z-40 w-16 h-16';
+      core.style.animation = `megaCoreCharge calc(0.68s * var(--speed-mult)) cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+
+      core.innerHTML = `
+        <div class="w-full h-full rounded-full border-2 border-dashed flex items-center justify-center"
+             style="border-color: #fde047; background: radial-gradient(circle, #ffffff 0%, #fb923c 45%, #f97316 70%, transparent 85%); box-shadow: 0 0 22px #f97316;">
+          <div class="w-5 h-5 rounded-full bg-white shadow-[0_0_12px_#ffffff]"></div>
+        </div>
+      `;
+      layer.appendChild(core);
+      setTimeout(() => {
+        core.remove();
+      }, 700 * state.speedMultiplier);
+    }
+
+    function spawnMegaExplosionFX() {
+      const layer = document.getElementById('attached-talismans-layer');
+      const nova = document.createElement('div');
+      nova.className = 'absolute left-1/2 top-1/2 pointer-events-none z-50 w-24 h-24';
+      nova.style.animation = `megaExplosionNova calc(0.48s * var(--speed-mult)) cubic-bezier(0.16, 1, 0.3, 1) forwards`;
+
+      nova.innerHTML = `
+        <div class="relative w-full h-full rounded-full flex items-center justify-center"
+             style="background: radial-gradient(circle, #ffffff 0%, #fef08a 26%, #fb923c 55%, #ea580c 75%, transparent 88%); box-shadow: 0 0 32px #f97316;">
+          <div class="absolute inset-1.5 rounded-full border-2 border-amber-200/90"></div>
+          <div class="absolute -inset-2 rounded-full border border-dashed border-orange-400/80"></div>
+        </div>
+      `;
+      layer.appendChild(nova);
+
+      setTimeout(() => {
+        nova.remove();
+      }, 520 * state.speedMultiplier);
+    }
+
+    async function castSkill2Detonate() {
+      if (state.isAnimating) return;
+      state.isAnimating = true;
+
+      const mult = state.speedMultiplier;
+      const totalAttached = state.attachedTalismans.length;
+      const casterBox = document.getElementById('caster-avatar-box');
+      const speechBubble = document.getElementById('caster-speech-bubble');
+      const bossBox = document.getElementById('boss-avatar-box');
+      const bossFlash = document.getElementById('boss-hit-flash-overlay');
+      const shockwaveRing = document.getElementById('slam-shockwave-ring');
+
+      casterBox.classList.remove('anim-caster-cast');
+      void casterBox.offsetWidth;
+      casterBox.classList.add('anim-caster-cast');
+
+      if (totalAttached === 0) {
+        speechBubble.textContent = `「急急如律令・引爆！」`;
+        speechBubble.classList.remove('opacity-0');
+        highlightStageStep(-1, `【百符引爆】目標身上沒有任何未掉落的符咒（0 張），不造成任何傷害！`);
+        spawnFloatingText(`無符咒可引爆 (0 傷害)`, '#94a3b8', '需先施放【1技能】五鬼攝魂符貼附符咒');
+        addCombatLog('百符引爆', '施放【急急如律令・百符引爆】，但目標身上為 0 張符咒，未造成任何傷害。', 'text-slate-400');
+
+        await waitMs(850 * mult);
+        speechBubble.classList.add('opacity-0');
+        state.isAnimating = false;
+        return;
+      }
+
+      const effectiveCount = Math.min(10, totalAttached);
+      const rawDetonateDmg = 10 + effectiveCount * 3;
+      const vulnStacks = state.debuffStacks.corrode;
+      const vulnMultiplier = 1 + vulnStacks * 0.1;
+      const finalDamage = Math.round(rawDetonateDmg * vulnMultiplier);
+
+      speechBubble.textContent = `「萬符歸宗・急急如律令・爆！！」`;
+      speechBubble.classList.remove('opacity-0');
+
+      const attachedEls = Array.from(document.querySelectorAll('#attached-talismans-layer .attached-talisman'));
+
+      // 【階段 1：全體去背符咒敕令鎖定，同步亮起烈焰橘光】
+      highlightStageStep(-1, `【百符引爆 1/3】敕令鎖定！Boss 身上的 ${totalAttached} 張去背符咒同時產生橘色烈焰共鳴...`);
+      playSoundEffect('detonate_lock');
+      attachedEls.forEach(el => {
+        el.classList.add('anim-talisman-lock-on');
+      });
+
+      await waitMs(280 * mult);
+
+      // 【階段 2：所有去背符咒沿著螺旋軌跡「旋轉聚集」至 Boss 頭像正中央】
+      highlightStageStep(-1, `【百符引爆 2/3】旋轉聚集！所有去背符咒高速盤旋縮小，捲入 Boss 正中央...`);
+      playSoundEffect('detonate_gather');
+      spawnMegaGatherCoreFX();
+
+      attachedEls.forEach(el => {
+        el.classList.remove('anim-talisman-lock-on');
+        el.classList.add('anim-talisman-gather-center');
+      });
+
+      await waitMs(680 * mult);
+
+      // 【階段 3：中心凝縮完成後，觸發精緻緊湊的「百符引爆」！】
+      highlightStageStep(-1, `【百符引爆 3/3】轟！！旋轉匯聚的 ${effectiveCount} 道符咒在中心瞬間引爆！`);
+      playSoundEffect('detonate_final');
+      spawnMegaExplosionFX();
+
+      attachedEls.forEach((el, idx) => {
+        el.classList.remove('anim-talisman-gather-center');
+        const angle = (idx / Math.max(1, attachedEls.length)) * Math.PI * 2 + (Math.random() * 0.35 - 0.175);
+        const dist = 36 + Math.random() * 24;
+        const bx = Math.round(Math.cos(angle) * dist);
+        const by = Math.round(Math.sin(angle) * dist - 12);
+        el.style.setProperty('--bx', `${bx}px`);
+        el.style.setProperty('--by', `${by}px`);
+        el.style.setProperty('--br1', `${(idx % 2 === 0 ? 1 : -1) * 130}deg`);
+        el.style.setProperty('--br2', `${(idx % 2 === 0 ? 1 : -1) * 280}deg`);
+        el.classList.add('anim-talisman-fall-destroy');
+      });
+
+      bossBox.classList.remove('anim-boss-detonate-shake');
+      void bossBox.offsetWidth;
+      bossBox.classList.add('anim-boss-detonate-shake');
+
+      bossFlash.style.backgroundColor = DETONATE_ORANGE;
+      bossFlash.style.opacity = '0.65';
+      setTimeout(() => {
+        bossFlash.style.opacity = '0';
+      }, 180 * mult);
+
+      shockwaveRing.style.borderColor = DETONATE_ORANGE;
+      shockwaveRing.style.animation = 'none';
+      void shockwaveRing.offsetWidth;
+      shockwaveRing.style.animation = `slamShockwave calc(0.45s * var(--speed-mult)) ease-out forwards`;
+
+      dealDamageToBoss(finalDamage);
+      document.getElementById('attached-count-badge').textContent = '0';
+
+      const vulnNote = vulnStacks > 0
+        ? `基礎 ${rawDetonateDmg} 點 (10+3×${effectiveCount}) × 蝕體易傷 +${vulnStacks * 10}% = ${finalDamage} 傷害`
+        : `基礎 10 點 + ${effectiveCount} 張符咒 × 3 = ${finalDamage} 點傷害`;
+
+      spawnFloatingText(`💥 百符引爆 -${finalDamage} HP`, DETONATE_ORANGE, `${vulnNote}｜全數符咒脫落銷毀`);
+      addCombatLog(
+        '百符引爆',
+        `將目標身上所有去背符咒旋轉聚集並引爆！（有效引爆 ${effectiveCount}/${totalAttached} 張，公式：10 + 3×${effectiveCount} = ${rawDetonateDmg} 點${vulnStacks > 0 ? `，含蝕體易傷共 ${finalDamage} 點` : ''}）。結算後所有符咒全數脫落並銷毀！`,
+        'text-amber-400 font-bold'
+      );
+
+      await waitMs(680 * mult);
+
+      state.attachedTalismans = [];
+      Object.keys(state.debuffStacks).forEach(k => state.debuffStacks[k] = 0);
+
+      renderAttachedTalismansAroundBoss();
+      updateStatusUI();
+      speechBubble.classList.add('opacity-0');
+      highlightStageStep(-1, `【百符引爆】旋轉聚集引爆結算完畢 — 目標身上所有符咒已全數脫落並銷毀`);
+      state.isAnimating = false;
+    }
+
+    // ============================================================================
+    // 7. 輔助功能：渲染環繞去背小符咒、快速疊加與狀態更新
+    // ============================================================================
+    function renderAttachedTalismansAroundBoss() {
+      const layer = document.getElementById('attached-talismans-layer');
+      layer.innerHTML = '';
+
+      const visibleList = state.attachedTalismans.slice(0, 12);
+      const count = visibleList.length;
+
+      visibleList.forEach((item, index) => {
+        const startDeg = Math.round((index / Math.max(1, count)) * 360);
+
+        const badge = document.createElement('div');
+        badge.className = 'attached-talisman absolute left-1/2 top-1/2 w-9 h-16 -ml-4.5 -mt-8 pointer-events-none';
+        badge.style.setProperty('--start-deg', `${startDeg}deg`);
+        badge.dataset.index = index;
+
+        badge.innerHTML = `
+          <div class="relative w-full h-full flex items-center justify-center">
+            ${getTalismanVisualHTML(item.color, true)}
+            <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-black/90 border border-amber-400/80 text-[8px] font-mono font-bold text-amber-200 flex items-center justify-center z-20">
+              ${index + 1}
+            </span>
+          </div>
+        `;
+        layer.appendChild(badge);
+      });
+    }
+
+    function updateStatusUI() {
+      const hpPercent = Math.max(0, Math.min(100, (state.bossHp / state.bossMaxHp) * 100));
+      document.getElementById('boss-hp-bar').style.width = `${hpPercent}%`;
+      document.getElementById('boss-hp-text').textContent = `${state.bossHp} / ${state.bossMaxHp} HP`;
+
+      const count = state.attachedTalismans.length;
+      const effectiveCount = Math.min(10, count);
+      const rawDmg = count === 0 ? 0 : 10 + effectiveCount * 3;
+      const vulnStacks = state.debuffStacks.corrode;
+      const finalDmg = Math.round(rawDmg * (1 + vulnStacks * 0.1));
+
+      document.getElementById('attached-count-badge').textContent = count;
+      document.getElementById('expected-detonate-dmg').textContent =
+        count === 0 ? '引爆傷害: 0' : `引爆傷害: ${finalDmg} (${effectiveCount}/10張)`;
+
+      document.getElementById('skill2-sub-hint').textContent =
+        count === 0
+          ? '🔥 目前可引爆 0 張符咒 (預計 0 點傷害)'
+          : `🔥 可引爆 ${effectiveCount} 張符咒 (預計造成 ${finalDmg} 點傷害，結算後全數銷毀)`;
+
+      const vulnTag = document.getElementById('boss-vuln-tag');
+      if (vulnStacks > 0) {
+        vulnTag.classList.remove('hidden');
+        vulnTag.textContent = `易傷 +${vulnStacks * 10}%`;
+      } else {
+        vulnTag.classList.add('hidden');
+      }
+
+      TALISMAN_TYPES.forEach(t => {
+        const slot = document.getElementById(`debuff-slot-${t.id}`);
+        const countBadge = document.getElementById(`debuff-count-${t.id}`);
+        const stacks = state.debuffStacks[t.id];
+        countBadge.textContent = stacks;
+
+        if (stacks > 0) {
+          slot.classList.remove('opacity-40');
+          slot.classList.add('opacity-100', 'scale-[1.03]');
+          slot.style.borderColor = t.color;
+          slot.style.boxShadow = `0 0 15px ${t.glow}`;
+        } else {
+          slot.classList.add('opacity-40');
+          slot.classList.remove('opacity-100', 'scale-[1.03]');
+          slot.style.borderColor = 'rgba(30, 41, 59, 0.9)';
+          slot.style.boxShadow = 'none';
+        }
+      });
+    }
+
+    function dealDamageToBoss(dmg) {
+      state.bossHp = Math.max(0, state.bossHp - dmg);
+      if (state.bossHp === 0) {
+        setTimeout(() => {
+          addCombatLog('系統', '🎉 荒神鬼王血量歸零！已自動為您恢復滿血以便繼續測試動畫。', 'text-emerald-400 font-bold');
+          state.bossHp = state.bossMaxHp;
+          updateStatusUI();
+        }, 600);
+      }
+      updateStatusUI();
+    }
+
+    function quickStackTalismans(amount) {
+      if (state.isAnimating) return;
+      for (let i = 0; i < amount; i++) {
+        const t = TALISMAN_TYPES[i % TALISMAN_TYPES.length];
+        state.attachedTalismans.push({
+          uid: Date.now() + Math.random() + i,
+          typeId: t.id,
+          color: t.color,
+          name: t.name
+        });
+        state.debuffStacks[t.id] += 1;
+      }
+      playSoundEffect('seal_flash');
+      renderAttachedTalismansAroundBoss();
+      updateStatusUI();
+      spawnFloatingText(`+ 快速貼附 ${amount} 張去背符咒`, '#fbbf24', `當前附著 ${state.attachedTalismans.length} 張 (可立即測試百符引爆)`);
+      addCombatLog('快速測試', `已快速為 Boss 貼上 ${amount} 張去背符咒，當前共 ${state.attachedTalismans.length} 張未掉落符咒。`, 'text-amber-300');
+    }
+
+    function simulateBossTurn() {
+      if (state.isAnimating) return;
+      const bossBox = document.getElementById('boss-avatar-box');
+      bossBox.classList.remove('anim-boss-hit-shake');
+      void bossBox.offsetWidth;
+      bossBox.classList.add('anim-boss-hit-shake');
+
+      if (state.debuffStacks.bewitch > 0) {
+        const selfDmg = 18;
+        dealDamageToBoss(selfDmg);
+        playSoundEffect('slam');
+        spawnFloatingText(`💫 惑心混亂自殘 -${selfDmg} HP`, '#ec4899', '【惑心符】生效：Boss 出手時攻擊自己！');
+        addCombatLog('Boss回合', `Boss 試圖出手，但受【惑心符】心智混亂影響，對自己造成了 ${selfDmg} 點自殘傷害！`, 'text-pink-300');
+      } else if (state.debuffStacks.blind > 0) {
+        playSoundEffect('appear');
+        spawnFloatingText(`💨 攻擊失誤 MISS！`, '#a855f7', '【障目符】生效：Boss 命中率大幅下降');
+        addCombatLog('Boss回合', `Boss 發動猛擊，但受【障目符】影響判定為 Miss（失誤），陰陽師毫髮無傷！`, 'text-purple-300');
+      } else if (state.debuffStacks.seal > 0) {
+        playSoundEffect('shrink');
+        spawnFloatingText(`🛡️ 勁力封鎖 0 傷害！`, '#3b82f6', '【封勁符】生效：當前回合完全不造成傷害');
+        addCombatLog('Boss回合', `Boss 出手攻擊，但受【封勁符】影響，當前回合傷害被完全無效化 (0 傷害)！`, 'text-blue-300');
+      } else {
+        playSoundEffect('slam');
+        spawnFloatingText(`⚔️ Boss 普攻出手`, '#f87171', '目前無障目/封勁/惑心印記干擾');
+        addCombatLog('Boss回合', `Boss 發動普通攻擊（可先施放【障目符】、【封勁符】或【惑心符】觀察干擾效果）。`, 'text-slate-300');
+      }
+    }
+
+    function resetBattleState() {
+      if (state.isAnimating) return;
+      state.bossHp = state.bossMaxHp;
+      state.attachedTalismans = [];
+      Object.keys(state.debuffStacks).forEach(k => state.debuffStacks[k] = 0);
+      renderAttachedTalismansAroundBoss();
+      updateStatusUI();
+      highlightStageStep(-1, '狀態已重置 — 點擊下方技能按鈕施放「五鬼攝魂符」或「急急如律令・百符引爆」');
+      addCombatLog('系統', '已重置 Boss 血量與所有符咒印記狀態。', 'text-slate-400');
+    }
+
+    function setAnimSpeed(speed) {
+      state.speedMultiplier = 1 / speed;
+      document.documentElement.style.setProperty('--speed-mult', state.speedMultiplier);
+
+      [0.5, 1, 1.5].forEach(s => {
+        const btn = document.getElementById(`speed-btn-${s}`);
+        if (s === speed) {
+          btn.className = 'px-2 py-1 rounded-lg bg-amber-500/25 text-amber-300 border border-amber-500/40 font-medium transition';
+        } else {
+          btn.className = 'px-2 py-1 rounded-lg text-slate-400 hover:text-white transition';
+        }
+      });
+    }
+
+    function toggleSound() {
+      state.soundEnabled = !state.soundEnabled;
+      document.getElementById('sound-icon').textContent = state.soundEnabled ? '🔊' : '🔇';
+      document.getElementById('sound-label').textContent = state.soundEnabled ? '音效開啟' : '音效靜音';
+    }
+
+    function handleCustomAvatarUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const imgEl = document.getElementById('onmyoji-portrait-img');
+        const svgFallback = document.getElementById('onmyoji-fallback-svg');
+        imgEl.src = e.target.result;
+        imgEl.style.display = 'block';
+        svgFallback.classList.add('hidden');
+        addCombatLog('系統', '已成功載入自訂陰陽師頭像圖片！', 'text-amber-300');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function addCombatLog(tag, message, colorClass = 'text-slate-300') {
+      const list = document.getElementById('combat-log-list');
+      const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+      const item = document.createElement('div');
+      item.className = 'p-2 rounded-lg bg-[#0d0b14] border border-slate-800/80 leading-relaxed';
+      item.innerHTML = `
+        <span class="text-slate-500">[${time}]</span>
+        <span class="font-bold text-amber-400">【${tag}】</span>
+        <span class="${colorClass}">${message}</span>
+      `;
+      list.prepend(item);
+    }
+
+    function clearCombatLog() {
+      document.getElementById('combat-log-list').innerHTML = '';
+    }
+
+    function waitMs(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    window.onload = function() {
+      initUI();
+    };
+  </script>
+</body>
+</html>

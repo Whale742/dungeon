@@ -714,6 +714,7 @@ async function playExpandedCombatPresentationCore(step, context = {}) {
   if (typeof isSamuraiAction === "function" && isSamuraiAction(step)) return playSamuraiPresentation(step, context);
   if (typeof hasSamuraiParry === "function" && hasSamuraiParry(step)) rememberSamuraiEnemyPhase(step, context);
   if (step.sourceRole === 'augur' && typeof playAugurPresentation === 'function') return playAugurPresentation(step, context);
+  if (step.sourceRole === 'onmyoji' && typeof playOnmyojiPresentation === 'function') return playOnmyojiPresentation(step, context);
   const sharedBasic = step.type === 'player_action' && step.actionId === 'basic' && ['stargazer','dreamweaver','samurai','sage','gladiator'].includes(step.sourceRole);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,context);
   if(step.sourceRole==='sage'&&step.actionId==='sge_equation')return playSageEquationPresentation(step,context);

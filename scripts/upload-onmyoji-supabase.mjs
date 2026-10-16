@@ -63,50 +63,63 @@ for (const storagePath of storagePaths) {
 
 const primaryStoragePath = `images/roles/Onmyoji-${hash8}.webp`;
 
-// 2. 登記 game_assets (local 與 storage)
-const localAsset = {
-  asset_key: localKey,
-  display_name: 'Onmyōji.webp',
-  kind: 'image',
-  category: 'roles',
-  source_type: 'local',
-  local_path: '/photo/Onmyōji.webp',
-  storage_bucket: null,
-  storage_path: null,
-  external_url: null,
-  mime_type: 'image/webp',
-  size_bytes: stat.size,
-  preload_group: 'roles',
-  volume: 1,
-  duration_ms: null,
-  is_public: true
-};
+// 上傳 Onmyoji-1.png (符咒) 與 Onmyoji-2.png (令字)
+const fxFiles = [
+  {
+    localPath: 'public/assets/Onmyoji-1.png',
+    fallbackPath: '/assets/Onmyoji-1.png',
+    bindingKey: 'skill.onmyoji.talisman',
+    category: 'effects',
+    displayName: 'Onmyoji-1.png'
+  },
+  {
+    localPath: 'public/assets/Onmyoji-2.png',
+    fallbackPath: '/assets/Onmyoji-2.png',
+    bindingKey: 'skill.onmyoji.ling',
+    category: 'effects',
+    displayName: 'Onmyoji-2.png'
+  }
+];
 
-const storageAsset = {
-  asset_key: storageKey,
-  display_name: 'Onmyōji.webp',
-  kind: 'image',
-  category: 'roles',
-  source_type: 'storage',
-  local_path: null,
-  storage_bucket: 'game-assets',
-  storage_path: primaryStoragePath,
-  external_url: null,
-  mime_type: 'image/webp',
-  size_bytes: stat.size,
-  preload_group: 'roles',
-  volume: 1,
-  duration_ms: null,
-  is_public: true
-};
+const allAssetsToRegister = [
+  {
+    asset_key: localKey,
+    display_name: 'Onmyōji.webp',
+    kind: 'image',
+    category: 'roles',
+    source_type: 'local',
+    local_path: '/photo/Onmyōji.webp',
+    storage_bucket: null,
+    storage_path: null,
+    external_url: null,
+    mime_type: 'image/webp',
+    size_bytes: stat.size,
+    preload_group: 'roles',
+    volume: 1,
+    duration_ms: null,
+    is_public: true
+  },
+  {
+    asset_key: storageKey,
+    display_name: 'Onmyōji.webp',
+    kind: 'image',
+    category: 'roles',
+    source_type: 'storage',
+    local_path: null,
+    storage_bucket: 'game-assets',
+    storage_path: primaryStoragePath,
+    external_url: null,
+    mime_type: 'image/webp',
+    size_bytes: stat.size,
+    preload_group: 'roles',
+    volume: 1,
+    duration_ms: null,
+    is_public: true
+  }
+];
 
-console.log('📝 登記 game_assets...');
-await cloud.upsert('game_assets', [localAsset, storageAsset], 'asset_key');
-console.log('✅ game_assets 登記完成');
-
-// 3. 登記 asset_bindings (draft 與 published)
 const bindingKey = 'role.onmyoji.avatar';
-const bindings = [
+const allBindingsToRegister = [
   {
     binding_key: bindingKey,
     asset_key: storageKey,
@@ -129,8 +142,99 @@ const bindings = [
   }
 ];
 
+for (const fx of fxFiles) {
+  const fxFullPath = path.resolve(fx.localPath);
+  if (fs.existsSync(fxFullPath)) {
+    const fxBuf = fs.readFileSync(fxFullPath);
+    const fxStat = fs.statSync(fxFullPath);
+    const fxHash = crypto.createHash('sha256').update(fxBuf).digest('hex');
+    const fxLocalKey = assetKeyForPath(fx.fallbackPath);
+    const fxStorageKey = 'storage.' + fxLocalKey.replace(/^local\./, '');
+    const fxHash8 = fxLocalKey.replace(/^local\./, '').slice(0, 8);
+    const fxStoragePath = `images/effects/${path.basename(fx.localPath, '.png')}-${fxHash8}.png`;
+    const fxStoragePaths = [
+      fxStoragePath,
+      `images/effects/${path.basename(fx.localPath)}`
+    ];
+
+    for (const sp of fxStoragePaths) {
+      console.log(`📤 上傳特效圖至 Storage: bucket='game-assets', path='${sp}'...`);
+      const { error } = await supabase.storage.from('game-assets').upload(sp, fxBuf, {
+        contentType: 'image/png',
+        upsert: true
+      });
+      if (error) console.warn(`⚠️ 上傳 ${sp} 警告:`, error.message);
+      else console.log(`✅ Storage 上傳成功: ${sp}`);
+    }
+
+    allAssetsToRegister.push(
+      {
+        asset_key: fxLocalKey,
+        display_name: fx.displayName,
+        kind: 'image',
+        category: fx.category,
+        source_type: 'local',
+        local_path: fx.fallbackPath,
+        storage_bucket: null,
+        storage_path: null,
+        external_url: null,
+        mime_type: 'image/png',
+        size_bytes: fxStat.size,
+        preload_group: 'effects',
+        volume: 1,
+        duration_ms: null,
+        is_public: true
+      },
+      {
+        asset_key: fxStorageKey,
+        display_name: fx.displayName,
+        kind: 'image',
+        category: fx.category,
+        source_type: 'storage',
+        local_path: null,
+        storage_bucket: 'game-assets',
+        storage_path: fxStoragePath,
+        external_url: null,
+        mime_type: 'image/png',
+        size_bytes: fxStat.size,
+        preload_group: 'effects',
+        volume: 1,
+        duration_ms: null,
+        is_public: true
+      }
+    );
+
+    allBindingsToRegister.push(
+      {
+        binding_key: fx.bindingKey,
+        asset_key: fxStorageKey,
+        fallback_path: fx.fallbackPath,
+        preload_group: 'effects',
+        volume_override: null,
+        status: 'draft',
+        published_at: null,
+        version: 1
+      },
+      {
+        binding_key: fx.bindingKey,
+        asset_key: fxStorageKey,
+        fallback_path: fx.fallbackPath,
+        preload_group: 'effects',
+        volume_override: null,
+        status: 'published',
+        published_at: new Date().toISOString(),
+        version: 1
+      }
+    );
+  }
+}
+
+console.log('📝 登記 game_assets...');
+await cloud.upsert('game_assets', allAssetsToRegister, 'asset_key');
+console.log('✅ game_assets 登記完成');
+
 console.log('📝 登記 asset_bindings...');
-await cloud.upsert('asset_bindings', bindings, 'binding_key,status');
+await cloud.upsert('asset_bindings', allBindingsToRegister, 'binding_key,status');
 console.log('✅ asset_bindings 登記完成');
 
 // 4. 登記 role_profiles (draft 與 published)
