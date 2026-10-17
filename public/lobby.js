@@ -64,6 +64,26 @@ function updateRoleDescriptionPanel() {
   document.getElementById('lobbySkillCopy').textContent=copy;
   document.getElementById('lobbyRoleDescription').classList.toggle('is-detailed',detailed);
 }
+function syncRolePortraitSize() {
+  const eyebrow=document.querySelector('#viewLobby .role-eyebrow');
+  const hp=document.querySelector('#viewLobby .role-hp-meta');
+  const portrait=document.querySelector('#viewLobby .role-hero-portrait');
+  if(!eyebrow||!hp||!portrait)return;
+  if(window.matchMedia&&window.matchMedia('(max-width: 900px)').matches){
+    portrait.style.width='';
+    portrait.style.height='';
+    portrait.style.flex='';
+    return;
+  }
+  const eyebrowRect=eyebrow.getBoundingClientRect();
+  const hpRect=hp.getBoundingClientRect();
+  const size=hpRect.bottom-eyebrowRect.top;
+  if(size>20){
+    portrait.style.width=size+'px';
+    portrait.style.height=size+'px';
+    portrait.style.flex='0 0 '+size+'px';
+  }
+}
 function renderRoleDetailPanel() {
   const {classes,players,myId}=lobbyRoleUi.data,role=lobbyRoleUi.role,conf=classes[role],profile=getLobbyProfile(role);
   const avatar=document.getElementById('lobbyRoleAvatar');avatar.src=conf.avatar;avatar.alt=conf.name;
@@ -76,6 +96,8 @@ function renderRoleDetailPanel() {
   const me=players.find(p=>p.id===myId),others=players.filter(p=>p.role===role&&p.id!==myId);
   document.getElementById('roleSelectionStatus').textContent=me?.role===role?'已選擇此職業':others.length?'隊友已選 · 請選擇其他職業':'點擊頭像選擇職業';
   renderRadarChart(role);updateRoleDescriptionPanel();
+  syncRolePortraitSize();
+  if(typeof requestAnimationFrame==='function')requestAnimationFrame(syncRolePortraitSize);
 }
 function renderRolePortraitStrip() {
   const {classes,players,myId,onSelect}=lobbyRoleUi.data,container=document.getElementById('roleSelectionGrid');
@@ -123,6 +145,9 @@ function renderRoleLobby(data) {
       button.addEventListener('click',()=>{lobbyRoleUi.tab=button.dataset.roleTab;updateRoleDescriptionPanel();});
       button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?3:(index+(event.key==='ArrowRight'?1:3))%4;tabs[next].click();tabs[next].focus();});
     });
+    const copy=document.querySelector('#viewLobby .role-identity-copy');
+    if(copy&&typeof ResizeObserver!=='undefined'){new ResizeObserver(syncRolePortraitSize).observe(copy);}
+    window.addEventListener('resize',syncRolePortraitSize);
   }
   renderRolePortraitStrip();renderRoleDetailPanel();
 }

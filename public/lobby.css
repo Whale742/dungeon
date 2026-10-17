@@ -684,6 +684,8 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   width: 105px;
   height: 105px;
   flex: 0 0 105px;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
   border-radius: 8px;
   background: #3b1f0e;
   border: 2px solid #7a481e;

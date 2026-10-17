@@ -271,12 +271,20 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 6. 戰鬥技能選擇與鎖定 / 取消鎖定
-  socket.on('battle:lock', ({ actionId, targetPlayerId }, callback) => {
+  // 6. 戰鬥技能選擇與鎖定 / 取消鎖定 / 切換攻擊目標
+  socket.on('battle:select_target', ({ targetEnemyId }, callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.lockAction(socket.id, actionId, targetPlayerId);
+    const res = room.selectTargetEnemy(socket.id, targetEnemyId);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('battle:lock', ({ actionId, targetPlayerId, targetEnemyId }, callback) => {
+    const code = socketToRoom.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) return;
+    const res = room.lockAction(socket.id, actionId, targetPlayerId, targetEnemyId);
     if (typeof callback === 'function') callback(res);
   });
 
@@ -296,11 +304,11 @@ io.on('connection', (socket) => {
   });
 
   // 兼容舊版本提交戰鬥行動
-  socket.on('battle:action', ({ actionId, targetPlayerId }, callback) => {
+  socket.on('battle:action', ({ actionId, targetPlayerId, targetEnemyId }, callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.lockAction ? room.lockAction(socket.id, actionId, targetPlayerId) : room.submitAction(socket.id, actionId, targetPlayerId);
+    const res = room.lockAction ? room.lockAction(socket.id, actionId, targetPlayerId, targetEnemyId) : room.submitAction(socket.id, actionId, targetPlayerId, targetEnemyId);
     if (typeof callback === 'function') callback(res);
   });
 
@@ -362,6 +370,87 @@ io.on('connection', (socket) => {
 
   socket.on('chest:open', () => {
     // Client clicked open chest; presentation runs locally and ACKs upon completion
+  });
+
+  // 6.5 背包與鍛造 (Phase 3)
+  socket.on('inventory:transfer_to_squad', ({ bagIndex }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.transferToSquad(socket.id, bagIndex);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:transfer_to_personal', ({ squadIndex }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.transferToPersonal(socket.id, squadIndex);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:equip_from_bag', ({ bagIndex, preferredSlot }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.equipItemFromBag(socket.id, bagIndex, preferredSlot);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:unequip_to_bag', ({ slotKey }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.unequipItemToBag(socket.id, slotKey);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:craft', ({ item1Id, item2Id, fromSquad }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.craftEquipment(socket.id, item1Id, item2Id, fromSquad);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 6.6 事件互動（商店、寶箱、隨機事件） (Phase 3)
+  socket.on('event:shop_action', (data, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.handleShopAction(socket.id, data?.action, data);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('event:chest_action', (data, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.handleChestAction(socket.id, data?.action, data);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('event:random_action', (data, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.handleRandomEventAction(socket.id, data?.action, data);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 6.7 隊長技能使用 (Phase 4)
+  socket.on('leader:use_skill', (data, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.useLeaderSkill(socket.id, data);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  // 6.8 深淵對話與抉擇 (Phase 5)
+  socket.on('abyss:advance_stage', (callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.advanceAbyssDialogue(socket.id);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('abyss:vote', ({ choiceId }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.voteAbyssChoice(socket.id, choiceId);
+    if (typeof callback === 'function') callback(res);
   });
 
   // 7. 休息站抉擇

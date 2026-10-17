@@ -12,6 +12,13 @@ import {
   CLASSES,
   LOOT_TABLE,
   ENCOUNTERS,
+  EXCLUSIVE_MINIONS,
+  GENERAL_MINIONS,
+  ABYSS_MINIONS,
+  SPECIAL_ELITES,
+  ABYSS_BOSSES,
+  ABYSS_AUGUR_EASTER_EGG,
+  getExclusiveMinionForBoss,
   ROUTES,
   getRandomRoutes,
   applyEquipStats,
@@ -31,7 +38,16 @@ import {
   getActionPriority,
   rollCrossbowAmmo,
   getCrossbowAmmoLabel,
-  getCrossbowAmmoIcon
+  getCrossbowAmmoIcon,
+  EQUIP_SLOTS,
+  determineEquipSlot,
+  TIER1_EQUIPMENTS,
+  TIER2_EQUIPMENTS,
+  CRAFTING_RECIPES,
+  getCraftingRecipe,
+  findItemTemplate,
+  LEADER_SKILLS,
+  ABYSS_DIALOGUES
 } from './constants.js';
 
 export class Room {
@@ -54,7 +70,8 @@ export class Room {
     this.alcShieldTurns = 0;
     this.alcVulnerableTurns = 0;
     this.alcVulnerableNextTurn = false;
-    this.currentMonster = null;
+    this.enemies = [];
+    this._currentMonster = null;
     this.currentEvent = null; // 寶箱或陷阱事件資訊
     this.currentTransition = null; // 踏入第X層之轉場資訊
     this.isNarrating = false; // 戰況交鋒敘述中（鎖定玩家技能選擇）
@@ -94,8 +111,554 @@ export class Room {
     this.logs = [];
     this.chatMessages = [];
 
+    // Module 1: 六角蜂巢迷霧地圖系統 (10 層，向上下逐漸延展至最高 7 層，中央為 row = 3)
+    this.leaderScoutBonus = 0;
+    this.scoutedCols = new Set();
+    this.currentHex = { col: 0, row: 3 };
+    this.hexMap = this.generateHexMap();
+
+    // Module 3 & 4: 雙層背包、經濟與事件系統
+    this.gold = 100;
+    this.squadInventory = [];
+
+    // Module 6: 隊長技鎖定與繼承
+    this.lockedLeaderId = leaderSocket.id;
+    this.lockedLeaderRole = null;
+    this.pendingLeaderTransfer = false;
+    this.leaderSkillUsedThisBattle = false;
+    this.warriorLeaderGuarded = false;
+    this.assassinLeaderFlawApplied = false;
+    this.samuraiLeaderCounterPursuitDone = false;
+    this.sageLeaderRetried = false;
+    this.druidLeaderShieldGiven = false;
+    this.bardPriorityActive = false;
+
+    // Module 5: 深淵遭遇系統
+    this.abyssState = null;
+    this.abyssFlashRedEye = false;
+    this.hasTriggeredAbyss = false;
+
     // 加入第一位玩家（隊長）
     this.addPlayer(leaderSocket, leaderName, leaderAvatar);
+  }
+
+  getValidRowsForCol(col) {
+    const c = Math.max(0, Math.min(9, Number(col) || 0));
+    const halfSpan = Math.min(c, 9 - c, 3); // col 0..9 -> 0, 1, 2, 3, 3, 3, 3, 2, 1, 0 (對應 1, 3, 5, 7, 7, 7, 7, 5, 3, 1 層)
+    const rows = [];
+    for (let r = 3 - halfSpan; r <= 3 + halfSpan; r++) {
+      rows.push(r);
+    }
+    return rows;
+  }
+
+  generateHexMap(options = {}) {
+    const rng = typeof options.rng === 'function' ? options.rng : (typeof options.random === 'function' ? options.random : Math.random);
+    const scoutableCols = new Set([3, 6, 8]);
+    const columns = [];
+
+    for (let col = 0; col <= 9; col++) {
+      if (col === 9) {
+        const routeTmpl = ROUTES[0];
+        columns.push([
+          {
+            id: 'hex_9_3',
+            col: 9,
+            row: 3,
+            type: 'END_ELITE',
+            routeId: routeTmpl.id,
+            name: '深淵終點・王座決戰',
+            desc: '收斂於深淵最深處的最終試煉，必定遭遇 1 精英怪 + 2 小怪！',
+            icon: '👑',
+            isRevealed: false,
+            isVisited: false,
+            isScouted: false,
+            isWeakened: false
+          }
+        ]);
+        continue;
+      }
+
+      if (col === 0) {
+        columns.push([
+          {
+            id: 'hex_0_3',
+            col: 0,
+            row: 3,
+            type: 'START',
+            routeId: ROUTES[0].id,
+            name: '遠征起點',
+            desc: '冒險小隊踏入深淵迷宮的起始據點。',
+            icon: '⛵',
+            isRevealed: false,
+            isVisited: true,
+            isScouted: false,
+            isWeakened: false
+          }
+        ]);
+        continue;
+      }
+
+      // col 1 ~ 8: 向上下逐漸遞增延展至最高 7 層 (1 -> 3 -> 5 -> 7 -> 7 -> 7 -> 7 -> 5 -> 3 -> 1)
+      const validRows = this.getValidRowsForCol(col);
+      const rowTypes = {};
+
+      if (scoutableCols.has(col)) {
+        // 確保可偵測層 (col = 3, 6, 8) 必定包含至少 1 格 SHOP、1 格 CHEST 與 1 格 BATTLE
+        const pool = validRows.slice();
+        const shopRow = pool.splice(Math.floor(rng() * pool.length), 1)[0];
+        const chestRow = pool.splice(Math.floor(rng() * pool.length), 1)[0];
+        const battleRow = pool.splice(Math.floor(rng() * pool.length), 1)[0];
+        rowTypes[shopRow] = 'SHOP';
+        rowTypes[chestRow] = 'CHEST';
+        rowTypes[battleRow] = 'BATTLE';
+        for (const r of pool) {
+          const roll = rng();
+          rowTypes[r] = roll < 0.45 ? 'BATTLE' : roll < 0.65 ? 'CHEST' : roll < 0.80 ? 'SHOP' : 'EVENT';
+        }
+      } else {
+        const guaranteedBattleRow = validRows[Math.floor(rng() * validRows.length)];
+        for (const r of validRows) {
+          if (r === guaranteedBattleRow) {
+            rowTypes[r] = 'BATTLE';
+          } else {
+            const roll = rng();
+            rowTypes[r] = roll < 0.45 ? 'BATTLE' : roll < 0.65 ? 'CHEST' : roll < 0.80 ? 'SHOP' : 'EVENT';
+          }
+        }
+      }
+
+      const colNodes = [];
+      for (const row of validRows) {
+        const routeTmpl = ROUTES[(col * 7 + row) % ROUTES.length];
+        const nodeType = rowTypes[row];
+        colNodes.push({
+          id: `hex_${col}_${row}`,
+          col,
+          row,
+          type: nodeType,
+          routeId: routeTmpl.id,
+          name: routeTmpl.name,
+          desc: routeTmpl.desc,
+          icon: routeTmpl.icon,
+          isRevealed: false,
+          isVisited: false,
+          isScouted: false,
+          isWeakened: nodeType === 'BATTLE' && rng() < 0.25,
+          isShadyMerchant: nodeType === 'SHOP' && rng() < 0.25,
+          isMimic: nodeType === 'CHEST' && rng() < 0.30
+        });
+      }
+      columns.push(colNodes);
+    }
+
+    this.hexMap = columns;
+    this.currentHex = { col: 0, row: 3 };
+    this.scoutedCols = new Set();
+    return columns;
+  }
+
+  getHexNode(col, row) {
+    if (!Array.isArray(this.hexMap) || col < 0 || col >= this.hexMap.length) return null;
+    return (this.hexMap[col] || []).find(n => n.row === row) || null;
+  }
+
+  getHexNodeById(hexId) {
+    if (!hexId || !Array.isArray(this.hexMap)) return null;
+    for (const colNodes of this.hexMap) {
+      const found = (colNodes || []).find(n => n.id === hexId);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // 六角形單向向右移動規則（僅可走向 col + 1 的右上 row-1、右平移 row、右下 row+1 相鄰節點）
+  getAdjacentNextHexes(col = this.currentHex?.col ?? 0, row = this.currentHex?.row ?? 3) {
+    const nextCol = Number(col) + 1;
+    if (!Array.isArray(this.hexMap) || nextCol < 1 || nextCol > 9) return [];
+    if (nextCol === 9) {
+      const finalNode = this.getHexNode(9, 3) || (this.hexMap[9] && this.hexMap[9][0]) || null;
+      return finalNode ? [finalNode] : [];
+    }
+    const candidateRows = [row - 1, row, row + 1];
+    const directNeighbors = candidateRows.map(r => this.getHexNode(nextCol, r)).filter(Boolean);
+    if (directNeighbors.length > 0) return directNeighbors;
+    // 若因測試手動指定超出該層列範圍的 row，則取該層距離最近的相鄰節點
+    const colNodes = this.hexMap[nextCol] || [];
+    if (!colNodes.length) return [];
+    const sorted = colNodes.slice().sort((a, b) => Math.abs(a.row - row) - Math.abs(b.row - row));
+    const minDiff = Math.abs(sorted[0].row - row);
+    return colNodes.filter(n => Math.abs(n.row - row) <= minDiff + 1);
+  }
+
+  // 戰爭迷霧預先偵測機制：每推進特定層數 (預設 col = 3, 6, 8) 進行 40% 機率判定
+  tryScoutColumn(targetCol, options = {}) {
+    const scoutableCols = [3, 6, 8];
+    if (!options.forceCol && !scoutableCols.includes(targetCol)) {
+      return { triggered: false, scoutedNodes: [] };
+    }
+    if (!this.scoutedCols) this.scoutedCols = new Set();
+    if (!options.forceReRoll && this.scoutedCols.has(targetCol)) {
+      return { triggered: false, alreadyChecked: true, scoutedNodes: [] };
+    }
+    this.scoutedCols.add(targetCol);
+
+    const rng = typeof options.rng === 'function' ? options.rng : (typeof options.random === 'function' ? options.random : Math.random);
+    const baseChance = typeof options.chance === 'number' ? options.chance : 0.40;
+    const archerBonus = (this.getEffectiveLeaderRole() === 'archer') ? 0.35 : 0;
+    const chance = Math.max(0, Math.min(1, baseChance + (this.leaderScoutBonus || 0) + archerBonus));
+    const roll = rng();
+
+    if (roll < chance) {
+      const colNodes = this.hexMap?.[targetCol] || [];
+      const scoutedNodes = [];
+      for (const node of colNodes) {
+        if (node.type === 'SHOP' || node.type === 'CHEST') {
+          node.isScouted = true;
+          scoutedNodes.push(node);
+        }
+      }
+      if (scoutedNodes.length > 0) {
+        this.addLog(`🔭 【迷霧預先偵測】斥候在前方第 ${targetCol} 層迷霧中偵測到了微光，提前標記出該層的【商店／寶箱】位置！`, 'info');
+      }
+      return { triggered: true, roll, chance, scoutedNodes };
+    }
+    return { triggered: false, roll, chance, scoutedNodes: [] };
+  }
+
+  getClientHexMap() {
+    if (!Array.isArray(this.hexMap)) return [];
+    const selectableIds = new Set(
+      this.state === 'CHOOSING_ROUTE'
+        ? (this.currentRoutes || []).map(r => r.hexId || r.id)
+        : []
+    );
+    const currentCol = this.currentHex?.col ?? 0;
+    const currentRow = this.currentHex?.row ?? 3;
+    return this.hexMap.map(colNodes =>
+      (colNodes || []).map(node => {
+        const isCurrent = Boolean(this.currentHex && this.currentHex.col === node.col && this.currentHex.row === node.row);
+        const isStartNode = node.col === 0 && node.row === 3;
+        const colDelta = node.col - currentCol;
+        const rowDelta = Math.abs(node.row - currentRow);
+        const inVision = Boolean(
+          node.isVisited ||
+          node.isRevealed ||
+          isCurrent ||
+          (colDelta >= 1 && colDelta <= 2 && ((node.col === 9 && colDelta === 1) || rowDelta <= colDelta))
+        );
+        const visibleType = node.isRevealed
+          ? node.type
+          : isStartNode
+            ? 'START'
+            : node.isScouted && (node.type === 'SHOP' || node.type === 'CHEST')
+              ? node.type
+              : node.col === 9
+                ? 'END_ELITE'
+                : 'UNKNOWN';
+        const visibleIcon = node.isRevealed
+          ? (node.type === 'SHOP' ? '🛒' : node.type === 'CHEST' ? '📦' : node.type === 'END_ELITE' ? '👑' : node.type === 'START' ? '🏕️' : node.icon || '⚔️')
+          : isStartNode
+            ? '🏕️'
+            : node.isScouted && node.type === 'SHOP'
+              ? '🛒'
+              : node.isScouted && node.type === 'CHEST'
+                ? '📦'
+                : node.col === 9
+                  ? '👑'
+                  : '🌫️';
+        return {
+          id: node.id,
+          col: node.col,
+          row: node.row,
+          type: visibleType,
+          routeId: node.routeId,
+          name: node.isRevealed
+            ? node.name
+            : node.isScouted && node.type === 'SHOP'
+              ? `【偵測：商店】${node.name}`
+              : node.isScouted && node.type === 'CHEST'
+                ? `【偵測：寶箱】${node.name}`
+                : node.col === 9
+                  ? node.name
+                  : node.name,
+          routeName: node.name,
+          desc: node.isRevealed
+            ? node.desc
+            : node.isScouted && node.type === 'SHOP'
+              ? '斥候提前偵測到商隊蹤跡（未揭露是否為奸商）'
+              : node.isScouted && node.type === 'CHEST'
+                ? '斥候提前偵測到寶箱輪廓（未揭露是否為寶箱怪）'
+                : '籠罩於深淵戰爭迷霧中的未知節點',
+          icon: visibleIcon,
+          isRevealed: Boolean(node.isRevealed),
+          isVisited: Boolean(node.isVisited),
+          isScouted: Boolean(node.isScouted),
+          isKnownMimic: Boolean(this.getEffectiveLeaderRole() === 'archer' && node.isMimic && (node.isScouted || node.isRevealed)),
+          inVision,
+          isCurrent,
+          isSelectable: selectableIds.has(node.id),
+          voteCount: this.routeVotes ? Object.values(this.routeVotes).filter(v => v === node.id).length : 0
+        };
+      })
+    );
+  }
+
+  get currentMonster() {
+    return this._currentMonster;
+  }
+
+  set currentMonster(val) {
+    this._currentMonster = val;
+    if (!val) {
+      this.enemies = [];
+      return;
+    }
+    if (!val.instanceId) {
+      val.instanceId = val.id || 'enemy_0';
+    }
+    if (!val.tier) {
+      val.tier = 'ELITE';
+    }
+    if (!Array.isArray(this.enemies) || !this.enemies.includes(val)) {
+      this.enemies = [val];
+    }
+  }
+
+  setEnemies(enemiesList = []) {
+    this.enemies = Array.isArray(enemiesList) ? enemiesList.map((e, idx) => {
+      if (!e.instanceId) e.instanceId = `enemy_${idx}`;
+      if (!e.tier) e.tier = 'ELITE';
+      return e;
+    }) : [];
+    this._currentMonster = this.getPrimaryEnemy();
+    return this.enemies;
+  }
+
+  getLivingEnemies() {
+    return (this.enemies || []).filter(e => e && e.hp > 0);
+  }
+
+  getPrimaryEnemy() {
+    const living = this.getLivingEnemies();
+    if (living.length > 0) {
+      const elite = living.find(e => e.tier === 'ELITE' || e.tier === 'ABYSS');
+      return elite || living[0];
+    }
+    return this.enemies?.[0] || this._currentMonster || null;
+  }
+
+  getTargetEnemy(targetEnemyId = null) {
+    const living = this.getLivingEnemies();
+    if (living.length === 0) return this._currentMonster || this.enemies?.[0] || null;
+    if (targetEnemyId && targetEnemyId !== 'monster') {
+      const found = living.find(e => e.instanceId === targetEnemyId || e.id === targetEnemyId);
+      if (found) return found;
+    }
+    if (this._currentMonster && this._currentMonster.hp > 0 && living.includes(this._currentMonster)) {
+      return this._currentMonster;
+    }
+    return this.getPrimaryEnemy();
+  }
+
+  refreshPrimaryMonster() {
+    this._currentMonster = this.getPrimaryEnemy();
+    return this._currentMonster;
+  }
+
+  formatEnemySnapshot(enemy) {
+    if (!enemy) return null;
+    return {
+      instanceId: enemy.instanceId || enemy.id || 'enemy_0',
+      id: enemy.id || enemy.instanceId || 'enemy_0',
+      tier: enemy.tier || 'ELITE',
+      kind: enemy.kind || null,
+      role: enemy.role || null,
+      hp: Math.max(0, enemy.hp),
+      maxHp: enemy.maxHp,
+      tempHp: enemy.tempHp || 0,
+      attack: enemy.attack,
+      name: enemy.name,
+      originalName: enemy.originalName || enemy.name,
+      avatar: enemy.avatar,
+      desc: enemy.desc || '',
+      ultName: enemy.ultName || '猛烈反擊',
+      resistances: {
+        physical: getBossResistance(enemy, 'physical'),
+        magic: getBossResistance(enemy, 'magic'),
+        effect: getBossResistance(enemy, 'effect')
+      },
+      augurResistanceBreak: enemy.augurResistanceBreak || 0,
+      reversedOmenRemaining: enemy.reversedOmenRemaining || 0,
+      reversedOmenBonus: enemy.reversedOmenBonus || 0,
+      statuses: [
+        ...p8State(enemy, this).phase8Statuses,
+        ...(enemy.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: enemy.poisonTurns, stacks: enemy.poisonDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.burnTurns ? [{ id: 'burn', label: 'BURN', icon: 'burn', turns: enemy.burnTurns, stacks: enemy.burnDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.fractureTurns ? [{ id: 'fracture', label: 'FRACTURE', icon: 'fracture', turns: enemy.fractureTurns, stacks: enemy.fractureDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.chillTurns ? [{ id: 'chill', label: 'CHILL', icon: 'chill', turns: enemy.chillTurns, stacks: enemy.chillDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.corrosionTurns ? [{ id: 'corrosion', label: 'CORROSION', icon: 'corrosion', turns: enemy.corrosionTurns, isNegative: true, category: 'DEBUFF' }] : []),
+        ...(this.roundModifiers?.monsterAttackReduction ? [{ id: 'attack_down', label: 'ATK DOWN', icon: 'debuff', turns: 1, value: this.roundModifiers.monsterAttackReduction }] : []),
+        ...(enemy.talismans && enemy.talismans.length > 0 ? [
+          { id: 'talismans', label: `符咒 (${enemy.talismans.length})`, icon: 'debuff', stacks: enemy.talismans.length, isNegative: true, category: 'DEBUFF' },
+          ...(enemy.talismans.includes('blind') ? [{ id: 'talisman_blind', label: '障目符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'blind').length }] : []),
+          ...(enemy.talismans.includes('seal') ? [{ id: 'talisman_seal', label: '封勁符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'seal').length }] : []),
+          ...(enemy.talismans.includes('corrode') ? [{ id: 'talisman_corrode', label: '蝕體符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'corrode').length }] : []),
+          ...(enemy.talismans.includes('confuse') ? [{ id: 'talisman_confuse', label: '惑心符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'confuse').length }] : []),
+          ...(enemy.talismans.includes('drain') ? [{ id: 'talisman_drain', label: '抽髓符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'drain').length }] : [])
+        ] : [])
+      ]
+    };
+  }
+
+  createEnemyInstance(baseTemplate, index = 0, options = {}) {
+    const isWeakened = Boolean(options.isWeakened);
+    const playerCount = Math.max(1, this.memberIds.length);
+    const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
+    const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
+    const floorMultiplier = getFloorDifficultyMultiplier(this.floor);
+    const minAtk = (options.tier === 'MINION' || baseTemplate.tier === 'MINION') ? 3 : 5;
+
+    let scaledHp = Math.max(1, Math.floor(baseTemplate.hp * hpPlayerMultiplier * floorMultiplier));
+    let scaledAtk = Math.max(minAtk, Math.floor(baseTemplate.attack * atkPlayerMultiplier * floorMultiplier));
+
+    if (isWeakened) {
+      scaledHp = Math.max(1, Math.floor(scaledHp * 0.75));
+      scaledAtk = Math.max(minAtk, Math.floor(scaledAtk * 0.75));
+    }
+
+    const routeId = this.currentTransition?.routeId || 'route_trail';
+    const bossStory = this.studioContent.getRouteBossStory(routeId, baseTemplate.name);
+    const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該敵人在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
+    const encounterStory = (baseTemplate.encounterStory || bossStory) + weakenedSuffix;
+
+    return {
+      instanceId: options.instanceId || `enemy_${index}`,
+      id: baseTemplate.id || `enemy_${index}`,
+      tier: options.tier || baseTemplate.tier || 'ELITE',
+      kind: baseTemplate.kind || null,
+      role: baseTemplate.role || null,
+      bossName: baseTemplate.bossName || null,
+      name: isWeakened ? `【削弱】${baseTemplate.name}` : baseTemplate.name,
+      originalName: baseTemplate.name,
+      routeId,
+      encounterStory,
+      isWeakened,
+      avatar: baseTemplate.avatar,
+      desc: isWeakened ? `${baseTemplate.desc} (⚠️ 負傷削弱：傷害與血量為原本 75%)` : baseTemplate.desc,
+      attack: scaledAtk,
+      hp: scaledHp,
+      maxHp: scaledHp,
+      tempHp: 0,
+      baseHp: baseTemplate.hp,
+      ...createBossResistances(baseTemplate, this.floor, options.rng),
+      noBonusResistance: Boolean(baseTemplate.noBonusResistance),
+      ultName: baseTemplate.ultName || '猛烈反擊',
+      script: baseTemplate.script ? structuredClone(baseTemplate.script) : null,
+      passive: baseTemplate.passive ? structuredClone(baseTemplate.passive) : null,
+      ult: baseTemplate.ult ? structuredClone(baseTemplate.ult) : null,
+      poisonTurns: 0,
+      poisonDmg: 0,
+      burnTurns: 0,
+      burnDmg: 0,
+      fractureTurns: 0,
+      fractureDmg: 0,
+      chillTurns: 0,
+      chillDmg: 0,
+      corrosionTurns: 0,
+      corrosionMaxHpDeducted: 0,
+      talismans: []
+    };
+  }
+
+  getUnpickedAbyssBossPool() {
+    const activeRoles = new Set(Object.values(this.players).map(p => p.role).filter(Boolean));
+    return Object.values(ABYSS_BOSSES).filter(b => b.role !== 'augur' && !activeRoles.has(b.role));
+  }
+
+  buildEncounterFormation(col = 1, options = {}) {
+    const rng = typeof options.rng === 'function' ? options.rng : (typeof options.random === 'function' ? options.random : Math.random);
+    const isWeakened = Boolean(options.isWeakened);
+    const pickRandom = (arr) => arr[Math.floor(rng() * arr.length)];
+    const clampedCol = Math.max(1, Math.min(9, Number(col) || 1));
+    const resolvedAbyssBoss = options.abyssBoss || (options.forceAbyss ? pickRandom(this.getUnpickedAbyssBossPool()) : null);
+
+    // Special override: explicit elite (e.g. shady_merchant, treasure_mimic, or specific abyssBoss)
+    if (options.specialElite) {
+      return [this.createEnemyInstance(options.specialElite, 0, { isWeakened, tier: options.specialElite.tier || 'ELITE', rng })];
+    }
+
+    // col 1 ~ 3: 100% 遭遇 2~3 隻「泛用雜兵」
+    if (clampedCol >= 1 && clampedCol <= 3) {
+      const count = options.minionCount || (2 + (rng() < 0.5 ? 0 : 1));
+      const list = [];
+      for (let i = 0; i < count; i++) {
+        const tmpl = pickRandom(GENERAL_MINIONS);
+        list.push(this.createEnemyInstance(tmpl, i, { isWeakened, tier: 'MINION', rng }));
+      }
+      return list;
+    }
+
+    // col 4 ~ 6: 70% 遭遇「2 泛用雜兵 + 1 隨機專屬小怪」；30% 遭遇「單體巡邏精英怪」或觸發「深淵遭遇戰」
+    if (clampedCol >= 4 && clampedCol <= 6) {
+      const roll = typeof options.formationRoll === 'number' ? options.formationRoll : rng();
+      if (roll < 0.70 && !options.forceElite && !resolvedAbyssBoss) {
+        const g1 = pickRandom(GENERAL_MINIONS);
+        const g2 = pickRandom(GENERAL_MINIONS);
+        const ex = pickRandom(EXCLUSIVE_MINIONS);
+        return [
+          this.createEnemyInstance(g1, 0, { isWeakened, tier: 'MINION', rng }),
+          this.createEnemyInstance(g2, 1, { isWeakened, tier: 'MINION', rng }),
+          this.createEnemyInstance(ex, 2, { isWeakened, tier: 'MINION', rng })
+        ];
+      }
+      if (resolvedAbyssBoss) {
+        return [
+          this.createEnemyInstance(resolvedAbyssBoss, 0, { isWeakened, tier: 'ABYSS', rng })
+        ];
+      }
+      const elite = options.eliteTemplate || pickRandom(ENCOUNTERS);
+      return [this.createEnemyInstance(elite, 0, { isWeakened, tier: 'ELITE', rng })];
+    }
+
+    // col 7 ~ 8: 50% 遭遇「2 專屬小怪 + 1 泛用雜兵」；50% 遭遇「1 精英怪 + 1 專屬小怪」
+    if (clampedCol >= 7 && clampedCol <= 8) {
+      const roll = typeof options.formationRoll === 'number' ? options.formationRoll : rng();
+      if (roll < 0.50 && !options.forceElite) {
+        const ex1 = pickRandom(EXCLUSIVE_MINIONS);
+        const ex2 = pickRandom(EXCLUSIVE_MINIONS);
+        const g1 = pickRandom(GENERAL_MINIONS);
+        return [
+          this.createEnemyInstance(ex1, 0, { isWeakened, tier: 'MINION', rng }),
+          this.createEnemyInstance(ex2, 1, { isWeakened, tier: 'MINION', rng }),
+          this.createEnemyInstance(g1, 2, { isWeakened, tier: 'MINION', rng })
+        ];
+      }
+      const elite = options.eliteTemplate || pickRandom(ENCOUNTERS);
+      const pairedMinion = getExclusiveMinionForBoss(elite.name) || pickRandom(EXCLUSIVE_MINIONS);
+      return [
+        this.createEnemyInstance(elite, 0, { isWeakened, tier: 'ELITE', rng }),
+        this.createEnemyInstance(pairedMinion, 1, { isWeakened, tier: 'MINION', rng })
+      ];
+    }
+
+    // col 9（終點）：固定遭遇「1 精英怪 + 2 小怪」
+    if (resolvedAbyssBoss) {
+      const m1 = ABYSS_MINIONS[0] || pickRandom(EXCLUSIVE_MINIONS);
+      const m2 = ABYSS_MINIONS[1] || ABYSS_MINIONS[0] || pickRandom(EXCLUSIVE_MINIONS);
+      return [
+        this.createEnemyInstance(resolvedAbyssBoss, 0, { isWeakened, tier: 'ABYSS', rng }),
+        this.createEnemyInstance(m1, 1, { isWeakened, tier: 'MINION', rng }),
+        this.createEnemyInstance(m2, 2, { isWeakened, tier: 'MINION', rng })
+      ];
+    }
+    const elite = options.eliteTemplate || pickRandom(ENCOUNTERS);
+    const pairedMinion = getExclusiveMinionForBoss(elite.name) || pickRandom(EXCLUSIVE_MINIONS);
+    return [
+      this.createEnemyInstance(elite, 0, { isWeakened, tier: 'ELITE', rng }),
+      this.createEnemyInstance(pairedMinion, 1, { isWeakened, tier: 'MINION', rng }),
+      this.createEnemyInstance(pairedMinion, 2, { isWeakened, tier: 'MINION', rng })
+    ];
   }
 
   clearPlayerDebuffs(player) {
@@ -188,7 +751,12 @@ export class Room {
       paladinGloryCastedRound: 0,
       sageX: 30,
       sageDebt: 0,
-      equips: [], // 上限 3 件裝備陣列
+      equips: [], // 上限 3 件裝備陣列（相容同步）
+      equipSlots: { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null }, // 4 個裝備欄位
+      bag: [], // 4 格備用欄 (私人背包)
+      bonusDef: 0,
+      regenPerRound: 0,
+      battleStartShield: 0,
       equipCounts: {},
       cooldowns: {},
       action: null,
@@ -252,6 +820,10 @@ export class Room {
         if (this.players[this.leaderId]) {
           this.players[this.leaderId].isReady = false;
           this.addLog(`👑 **${this.players[this.leaderId].name}** 成為了新隊長！`, 'info');
+          if (this.state !== 'LOBBY') {
+            this.pendingLeaderTransfer = true;
+            this.addLog(`⏳ 【隊長技交接】新隊長 **${this.players[this.leaderId].name}** 將在下一場戰鬥開始時繼承隊長技！`, 'info');
+          }
         }
       } else {
         this.leaderId = null;
@@ -372,6 +944,11 @@ export class Room {
 
     player.role = roleKey;
     player.equips = [];
+    player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
+    player.bag = [];
+    player.bonusDef = 0;
+    player.regenPerRound = 0;
+    player.battleStartShield = 0;
     player.equipCounts = {};
     player.bonusAtk = 0;
     player.victoryAtkBonus = 0;
@@ -407,7 +984,6 @@ export class Room {
   }
 
   transferLeader(socketId, targetId) {
-    if (this.state !== 'LOBBY') return { success: false, message: '只能在選職大廳移交隊長！' };
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能移交隊長職位！' };
     if (!this.players[targetId]) return { success: false, message: '目標玩家不存在！' };
     if (targetId === this.leaderId) return { success: false, message: '您已經是隊長！' };
@@ -419,6 +995,12 @@ export class Room {
     this.memberIds = [targetId, ...this.memberIds.filter(id => id !== targetId)];
     const targetName = this.players[targetId].name;
     this.addLog(`👑 隊長已轉移給 **${targetName}**！`, 'info');
+
+    if (this.state !== 'LOBBY') {
+      this.pendingLeaderTransfer = true;
+      this.addLog(`⏳ 【隊長技交接】新隊長 **${targetName}** 將在下一場戰鬥開始時繼承隊長技！`, 'info');
+    }
+
     this.broadcastState();
     return { success: true };
   }
@@ -444,6 +1026,18 @@ export class Room {
     this.floor = 1;
     this.battleCount = 0;
     this.battlesInCurrentCycle = 0;
+    this.hexMap = this.generateHexMap();
+    this.currentHex = { col: 0, row: 3 };
+    this.scoutedCols = new Set();
+    this.lockedLeaderId = this.leaderId;
+    this.lockedLeaderRole = this.players[this.leaderId]?.role;
+    this.pendingLeaderTransfer = false;
+    this.leaderSkillUsedThisBattle = false;
+    const lSkill = this.getEffectiveLeaderSkill();
+    if (lSkill) {
+      const roleName = CLASSES[this.lockedLeaderRole]?.name || this.lockedLeaderRole;
+      this.addLog(`👑 【隊長技啟動】隊長 **${this.players[this.leaderId]?.name}**（${roleName}）的隊長技【${lSkill.name}】已就緒！`, 'info');
+    }
     for (const p of Object.values(this.players)) {
       p.hasDealtFirstBattleCrit = false;
       if(p.role==='sage'){p.sageX=30;p.sageDebt=0;delete p.sageDebtScheduledRound;}
@@ -536,22 +1130,62 @@ export class Room {
     this.currentEvent = null;
     this.currentTransition = null;
     this.routeVotes = {}; // 重置全體投票記錄
-    this.currentRoutes = getRandomRoutes(4); // 每次從 6 個選項中隨機抽出 4 個
+
+    if (!Array.isArray(this.hexMap) || !this.hexMap.length || (this.currentHex?.col ?? 0) >= 9) {
+      this.generateHexMap();
+    }
+    const nextCol = Math.min(9, (this.currentHex?.col ?? 0) + 1);
+    if ([3, 6, 8].includes(nextCol)) {
+      this.tryScoutColumn(nextCol);
+    }
+    const adjHexes = this.getAdjacentNextHexes(this.currentHex?.col ?? 0, this.currentHex?.row ?? 3);
+    this.currentRoutes = adjHexes.length > 0 ? adjHexes.map(hex => ({
+      id: hex.id,
+      hexId: hex.id,
+      routeId: hex.routeId,
+      col: hex.col,
+      row: hex.row,
+      name: hex.isRevealed
+        ? hex.name
+        : hex.isScouted && hex.type === 'SHOP'
+          ? `【偵測：商店】${hex.name}`
+          : hex.isScouted && hex.type === 'CHEST'
+            ? `【偵測：寶箱】${hex.name}`
+            : hex.name,
+      desc: hex.isRevealed
+        ? hex.desc
+        : hex.isScouted && hex.type === 'SHOP'
+          ? '斥候於迷霧中偵測到商隊蹤跡（未揭露是否為奸商）'
+          : hex.isScouted && hex.type === 'CHEST'
+            ? '斥候於迷霧中偵測到寶箱輪廓（未揭露是否為寶箱怪）'
+            : hex.col === 9
+              ? hex.desc
+              : '籠罩在戰爭迷霧中的未知節點，踏入後才揭露事件。',
+      icon: hex.isRevealed
+        ? hex.icon
+        : hex.isScouted && hex.type === 'SHOP'
+          ? '🛒'
+          : hex.isScouted && hex.type === 'CHEST'
+            ? '📦'
+            : hex.col === 9
+              ? '👑'
+              : '🌫️',
+      isRevealed: Boolean(hex.isRevealed),
+      isScouted: Boolean(hex.isScouted),
+      visibleType: hex.isRevealed
+        ? hex.type
+        : hex.isScouted && (hex.type === 'SHOP' || hex.type === 'CHEST')
+          ? hex.type
+          : hex.col === 9
+            ? 'END_ELITE'
+            : 'UNKNOWN'
+    })) : getRandomRoutes(4);
+
     this.routePresentationId += 1;
     if (options.skipIntro) {
       this.isNarrating = false;
       this.pendingPresentationAcks.clear();
-      this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！（15 秒倒數）`, 'info');
-      this.setTimer(15, () => {
-        if (this.state === 'CHOOSING_ROUTE') {
-          this.tallyRouteVotes();
-        }
-      }, true);
-      if (this.isPaused) {
-        clearTimeout(this.turnTimer);
-        this.turnTimer = null;
-        this.pausedRemainingSeconds = 15;
-      }
+      this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！`, 'info');
     } else {
       this.isNarrating = true;
       this.pendingPresentationAcks = new Set(
@@ -576,18 +1210,7 @@ export class Room {
     if (this.state !== 'CHOOSING_ROUTE' || !this.isNarrating || this.pendingPresentationAcks.size) return;
     if (!Object.values(this.players).some(p => p.connected)) return;
     this.isNarrating = false;
-    this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！（15 秒倒數）`, 'info');
-    // 敘述結束、選項渲染並可互動後，才正式啟動 15 秒全員投票倒數計時器
-    this.setTimer(15, () => {
-      if (this.state === 'CHOOSING_ROUTE') {
-        this.tallyRouteVotes();
-      }
-    }, true);
-    if (this.isPaused) {
-      clearTimeout(this.turnTimer);
-      this.turnTimer = null;
-      this.pausedRemainingSeconds = 15;
-    }
+    this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！`, 'info');
     this.broadcastState();
   }
 
@@ -599,10 +1222,10 @@ export class Room {
     if (player.hp <= 0) return { success: false, message: '已陣亡玩家無法參與投票' };
 
     const activeRoutes = this.currentRoutes || ROUTES;
-    const targetRoute = activeRoutes.find(r => r.id === routeId);
-    if (!targetRoute) return { success: false, message: '無效的路線選項' };
+    const targetRoute = activeRoutes.find(r => r.id === routeId || r.hexId === routeId);
+    if (!targetRoute) return { success: false, message: '無效的路線選項（僅能向右側相鄰的六角格移動）' };
 
-    this.routeVotes[socketId] = routeId;
+    this.routeVotes[socketId] = targetRoute.id;
     this.broadcastState();
 
     // 檢查是否所有存活隊員都已投票，若已全員完成投票則提早結算
@@ -643,7 +1266,7 @@ export class Room {
     if (totalVotes === 0 || maxVotes === 0) {
       // 全員棄票 (0 票)
       chosenRoute = activeRoutes[Math.floor(Math.random() * activeRoutes.length)];
-      this.addLog(`⏱️ 15 秒時間截止，全員棄票！由系統隨機指引前進路線：【${chosenRoute.name}】！`, 'warning');
+      this.addLog(`🧭 全員棄票！由系統隨機指引前進路線：【${chosenRoute.name}】！`, 'warning');
     } else {
       const topRoutes = activeRoutes.filter(r => voteCounts[r.id] === maxVotes);
       if (topRoutes.length === 1) {
@@ -751,33 +1374,59 @@ export class Room {
   }
 
   resolveRouteChoice(route) {
-    const floorInCycle = ((this.floor - 1) % 5) + 1; // 1 ~ 5
-    const floorsRemainingInCycle = 5 - floorInCycle + 1; // 5 ~ 1
-    const battlesNeeded = Math.max(0, 2 - (this.battlesInCurrentCycle || 0));
-
+    const hexNode = this.getHexNodeById(route?.hexId || route?.id);
     let outcomeType = 'battle';
     let isWeakenedBoss = false;
 
-    if (battlesNeeded >= floorsRemainingInCycle) {
-      // 每5層保底至少2次戰鬥事件觸發（50% 一般BOSS，50% 削弱BOSS）
-      outcomeType = 'battle';
-      isWeakenedBoss = Math.random() < 0.5;
-    } else {
-      const rand = Math.random();
-      if (rand < 0.25) {
-        // 25% 一般BOSS事件
+    if (hexNode) {
+      this.currentHex = { col: hexNode.col, row: hexNode.row };
+      hexNode.isRevealed = true;
+      hexNode.isVisited = true;
+      if (hexNode.col > 0 && hexNode.col % 3 === 0 && this.getEffectiveLeaderRole() === 'stargazer') {
+        const targetCol = hexNode.col + 1;
+        if (targetCol <= 9 && Array.isArray(this.hexMap?.[targetCol])) {
+          for (const n of this.hexMap[targetCol]) {
+            n.isRevealed = true;
+            n.isScouted = true;
+          }
+          this.addLog(`🔭🌟 【星軌先見】觀星者隊長觀測星象，完全揭露了前方第 ${targetCol} 層的所有真實事件！`, 'buff');
+        }
+      }
+      if (hexNode.type === 'END_ELITE') {
         outcomeType = 'battle';
         isWeakenedBoss = false;
-      } else if (rand < 0.50) {
-        // 25% 削弱BOSS事件 (傷害及血量變成原本的75%)
+      } else if (hexNode.type === 'BATTLE') {
         outcomeType = 'battle';
-        isWeakenedBoss = true;
-      } else if (rand < 0.75) {
-        // 25% 寶箱事件
-        outcomeType = 'treasure';
+        isWeakenedBoss = Boolean(hexNode.isWeakened);
+      } else if (hexNode.type === 'SHOP') {
+        outcomeType = 'shop';
+      } else if (hexNode.type === 'CHEST') {
+        outcomeType = 'chest';
+      } else if (hexNode.type === 'EVENT') {
+        outcomeType = 'random_event';
+      }
+    } else {
+      const floorInCycle = ((this.floor - 1) % 5) + 1; // 1 ~ 5
+      const floorsRemainingInCycle = 5 - floorInCycle + 1; // 5 ~ 1
+      const battlesNeeded = Math.max(0, 2 - (this.battlesInCurrentCycle || 0));
+
+      if (battlesNeeded >= floorsRemainingInCycle) {
+        // 每5層保底至少2次戰鬥事件觸發（50% 一般BOSS，50% 削弱BOSS）
+        outcomeType = 'battle';
+        isWeakenedBoss = Math.random() < 0.5;
       } else {
-        // 25% 陷阱事件
-        outcomeType = 'trap';
+        const rand = Math.random();
+        if (rand < 0.25) {
+          outcomeType = 'battle';
+          isWeakenedBoss = false;
+        } else if (rand < 0.50) {
+          outcomeType = 'battle';
+          isWeakenedBoss = true;
+        } else if (rand < 0.75) {
+          outcomeType = 'treasure';
+        } else {
+          outcomeType = 'trap';
+        }
       }
     }
 
@@ -785,7 +1434,8 @@ export class Room {
       this.battlesInCurrentCycle = (this.battlesInCurrentCycle || 0) + 1;
     }
 
-    const routeData = this.studioContent.routeStories[route.id] || this.studioContent.routeStories['route_trail'];
+    const storyKey = route?.routeId || hexNode?.routeId || route?.id || 'route_trail';
+    const routeData = this.studioContent.routeStories[storyKey] || this.studioContent.routeStories['route_trail'];
     let outcomeData = routeData[outcomeType] || routeData['battle'];
 
     if (isWeakenedBoss) {
@@ -795,31 +1445,44 @@ export class Room {
       };
     }
 
+    const routeDisplayName = hexNode ? hexNode.name : route.name;
+    const routeDisplayIcon = hexNode ? hexNode.icon : route.icon;
+
     this.state = 'TRANSITION';
     this.currentTransition = {
       floor: this.floor,
-      title: `【前進路線・${route.name}】`,
-      routeId: route.id,
-      routeName: route.name,
-      routeIcon: route.icon,
+      title: `【前進路線・${routeDisplayName}】`,
+      routeId: storyKey,
+      hexId: hexNode?.id || route?.id,
+      routeName: routeDisplayName,
+      routeIcon: routeDisplayIcon,
       outcomeType: isWeakenedBoss ? 'battle_weakened' : outcomeType,
       isWeakenedBoss: isWeakenedBoss,
-      storyTitle: `【路線結算・${route.name}】`,
-      storyText: this.studioContent.text('event.routeTransition',`小隊踏入【${route.name}】，正向第 ${this.floor} 層深處探索前行……`,{route:route.name,floor:this.floor})
+      storyTitle: `【路線結算・${routeDisplayName}】`,
+      storyText: this.studioContent.text('event.routeTransition',`小隊踏入【${routeDisplayName}】，正向第 ${this.floor} 層深處探索前行……`,{route:routeDisplayName,floor:this.floor})
     };
 
-    this.addLog(`🧭 小隊決定前進：【${route.name}】`, 'info');
+    this.addLog(`🧭 小隊決定前進：【${routeDisplayName}】`, 'info');
     this.broadcastState();
 
     // 路線結算轉場（持續 2 秒），隨後正式展開事件或戰鬥 (Node 10 -> Node 11/12/13/14)
     this.setTimer(2, () => {
       if (this.state === 'TRANSITION') {
-        if (outcomeType === 'treasure') {
+        if (outcomeType === 'shop') {
+          this.handleShopEvent(hexNode);
+        } else if (outcomeType === 'chest') {
+          this.handleChestEvent(hexNode);
+        } else if (outcomeType === 'random_event') {
+          this.handleRandomEvent(hexNode);
+        } else if (outcomeType === 'treasure') {
           this.handleTreasureEvent(outcomeData);
         } else if (outcomeType === 'trap') {
           this.handleTrapEvent(outcomeData);
         } else {
-          this.handleBattleEvent(outcomeData, isWeakenedBoss);
+          if (hexNode && this.checkAbyssEncounterTrigger(hexNode)) {
+            return;
+          }
+          this.handleBattleEvent(outcomeData, isWeakenedBoss, hexNode ? { col: hexNode.col } : {});
         }
       }
     });
@@ -1019,47 +1682,47 @@ export class Room {
     else this.advanceToNextFloorOrCheckpoint();
   }
 
-  monsterAllowsEffect(label) {
-    if (!this.currentMonster || this.currentMonster.hp <= 0) return false;
-    const resistance = getBossResistance(this.currentMonster, 'effect');
+  monsterAllowsEffect(label, targetEnemy = this.currentMonster) {
+    if (!targetEnemy || targetEnemy.hp <= 0) return false;
+    const resistance = getBossResistance(targetEnemy, 'effect');
     if (resistance > 0 && Math.random() < resistance / 100) {
-      this.p8Log(`🛡️ **${this.currentMonster.name}** 以 ${resistance}% 效果抗性免疫【${label}】！`, 'combat');
+      this.p8Log(`🛡️ **${targetEnemy.name}** 以 ${resistance}% 效果抗性免疫【${label}】！`, 'combat');
       return false;
     }
     return true;
   }
 
-  applyMonsterPoison(damage = 8, turns = 2) {
-    if (!this.monsterAllowsEffect('劇毒') && !this.monsterAllowsEffect('中毒')) return false;
-    this.currentMonster.poisonTurns = turns;
-    this.currentMonster.poisonDmg = (this.currentMonster.poisonDmg || 0) + damage;
+  applyMonsterPoison(damage = 8, turns = 2, targetEnemy = this.currentMonster) {
+    if (!this.monsterAllowsEffect('劇毒', targetEnemy) && !this.monsterAllowsEffect('中毒', targetEnemy)) return false;
+    targetEnemy.poisonTurns = turns;
+    targetEnemy.poisonDmg = (targetEnemy.poisonDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterBurn(damage = 10, turns = 1) {
-    if (!this.monsterAllowsEffect('燃燒')) return false;
-    this.currentMonster.burnTurns = turns;
-    this.currentMonster.burnDmg = (this.currentMonster.burnDmg || 0) + damage;
+  applyMonsterBurn(damage = 10, turns = 1, targetEnemy = this.currentMonster) {
+    if (!this.monsterAllowsEffect('燃燒', targetEnemy)) return false;
+    targetEnemy.burnTurns = turns;
+    targetEnemy.burnDmg = (targetEnemy.burnDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterFracture(damage = 5, turns = 3) {
-    if (!this.monsterAllowsEffect('骨折')) return false;
-    this.currentMonster.fractureTurns = turns;
-    this.currentMonster.fractureDmg = (this.currentMonster.fractureDmg || 0) + damage;
+  applyMonsterFracture(damage = 5, turns = 3, targetEnemy = this.currentMonster) {
+    if (!this.monsterAllowsEffect('骨折', targetEnemy)) return false;
+    targetEnemy.fractureTurns = turns;
+    targetEnemy.fractureDmg = (targetEnemy.fractureDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterChill(damage = 6, turns = 2) {
-    if (!this.monsterAllowsEffect('寒冷')) return false;
-    this.currentMonster.chillTurns = turns;
-    this.currentMonster.chillDmg = (this.currentMonster.chillDmg || 0) + damage;
+  applyMonsterChill(damage = 6, turns = 2, targetEnemy = this.currentMonster) {
+    if (!this.monsterAllowsEffect('寒冷', targetEnemy)) return false;
+    targetEnemy.chillTurns = turns;
+    targetEnemy.chillDmg = (targetEnemy.chillDmg || 0) + damage;
     return true;
   }
 
-  applyMonsterCorrosion(turns = 1) {
-    if (!this.monsterAllowsEffect('腐蝕')) return false;
-    const m = this.currentMonster;
+  applyMonsterCorrosion(turns = 1, targetEnemy = this.currentMonster) {
+    if (!this.monsterAllowsEffect('腐蝕', targetEnemy)) return false;
+    const m = targetEnemy;
     if (!m) return false;
     if (!m.corrosionTurns || m.corrosionTurns <= 0) {
       const maxHpDeduction = Math.max(1, Math.floor(m.maxHp * 0.05));
@@ -1100,57 +1763,105 @@ export class Room {
     }
   }
 
-  // 戰鬥事件
-  handleBattleEvent(outcomeData = null, isWeakened = false) {
+  // 戰鬥事件（支援舊版單體 Boss 與新版 Module 2 多目標編隊 options.col / options.enemies）
+  handleBattleEvent(outcomeData = null, isWeakened = false, options = {}) {
     this.state = 'IN_BATTLE';
-    const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
-    const playerCount = this.memberIds.length;
-    const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
-    const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
-    // 敵方難度加成：1~5層每層+10%，6~10層每層+15%，以此類推
-    const floorMultiplier = getFloorDifficultyMultiplier(this.floor);
+    let encounterStory = '';
 
-    let scaledHp = Math.floor(baseMonster.hp * hpPlayerMultiplier * floorMultiplier);
-    let scaledAtk = Math.max(5, Math.floor(baseMonster.attack * atkPlayerMultiplier * floorMultiplier));
+    const useFormation = Boolean(
+      options && (
+        options.col !== undefined ||
+        options.enemies ||
+        options.specialElite ||
+        options.abyssBoss ||
+        options.useFormation ||
+        this.useHexGrid
+      )
+    );
 
-    if (isWeakened) {
-      scaledHp = Math.max(1, Math.floor(scaledHp * 0.75));
-      scaledAtk = Math.max(5, Math.floor(scaledAtk * 0.75));
+    if (useFormation) {
+      const col = options.col !== undefined ? options.col : (this.currentHex?.col ?? 1);
+      const formationEnemies = Array.isArray(options.enemies) && options.enemies.length > 0
+        ? options.enemies.map((e, idx) => (e.maxHp ? e : this.createEnemyInstance(e, idx, { isWeakened, tier: e.tier, rng: options.rng })))
+        : this.buildEncounterFormation(col, { ...options, isWeakened });
+      this.setEnemies(formationEnemies);
+      if (options.abyssModifiers) {
+        const primary = this.getPrimaryEnemy();
+        if (primary) {
+          if (options.abyssModifiers.atkMod) {
+            primary.attack = Math.max(1, Math.round(primary.attack * (1 + options.abyssModifiers.atkMod)));
+          }
+          if (options.abyssModifiers.defMod) {
+            primary.baseResistances.physical = Math.max(0, Math.round((primary.baseResistances.physical || 0) * (1 + options.abyssModifiers.defMod)));
+            primary.baseResistances.magic = Math.max(0, Math.round((primary.baseResistances.magic || 0) * (1 + options.abyssModifiers.defMod)));
+          }
+        }
+      }
+      if (options.abyssBoss && this.getEffectiveLeaderRole() === 'onmyoji') {
+        for (const enemy of this.enemies) {
+          if (enemy.tier === 'MINION') {
+            enemy.stunnedNextTurn = true;
+          }
+        }
+        this.addLog('📜 【百鬼敕令】陰陽師隊長釋放百鬼血咒，深淵隨從小怪首回合行動遭到徹底封印！', 'buff');
+      }
+      const primary = this.getPrimaryEnemy();
+      encounterStory = primary?.encounterStory || `小隊在第 ${col} 層遭遇了敵方編隊（${formationEnemies.map(e => e.name).join('、')}）！`;
+    } else {
+      const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
+      const playerCount = this.memberIds.length;
+      const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
+      const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
+      // 敵方難度加成：1~5層每層+10%，6~10層每層+15%，以此類推
+      const floorMultiplier = getFloorDifficultyMultiplier(this.floor);
+
+      let scaledHp = Math.floor(baseMonster.hp * hpPlayerMultiplier * floorMultiplier);
+      let scaledAtk = Math.max(5, Math.floor(baseMonster.attack * atkPlayerMultiplier * floorMultiplier));
+
+      if (isWeakened) {
+        scaledHp = Math.max(1, Math.floor(scaledHp * 0.75));
+        scaledAtk = Math.max(5, Math.floor(scaledAtk * 0.75));
+      }
+
+      const routeId = this.currentTransition?.routeId || 'route_trail';
+      const bossStory = this.studioContent.getRouteBossStory(routeId, baseMonster.name);
+      const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
+      encounterStory = bossStory + weakenedSuffix;
+
+      this.currentMonster = {
+        instanceId: 'enemy_0',
+        id: baseMonster.id || 'enemy_0',
+        tier: 'ELITE',
+        name: isWeakened ? `【削弱】${baseMonster.name}` : baseMonster.name,
+        originalName: baseMonster.name,
+        routeId,
+        encounterStory,
+        isWeakened: Boolean(isWeakened),
+        avatar: baseMonster.avatar,
+        desc: isWeakened ? `${baseMonster.desc} (⚠️ 負傷削弱：傷害與血量為原本 75%)` : baseMonster.desc,
+        attack: scaledAtk,
+        hp: scaledHp,
+        maxHp: scaledHp,
+        tempHp: 0,
+        baseHp: baseMonster.hp,
+        ...createBossResistances(baseMonster, this.floor),
+        ultName: baseMonster.ultName,
+        poisonTurns: 0,
+        poisonDmg: 0,
+        burnTurns: 0,
+        burnDmg: 0,
+        fractureTurns: 0,
+        fractureDmg: 0,
+        chillTurns: 0,
+        chillDmg: 0,
+        corrosionTurns: 0,
+        corrosionMaxHpDeducted: 0,
+        talismans: []
+      };
     }
 
-    const routeId = this.currentTransition?.routeId || 'route_trail';
-    const bossStory = this.studioContent.getRouteBossStory(routeId, baseMonster.name);
-    const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
-    const encounterStory = bossStory + weakenedSuffix;
-
-    this.currentMonster = {
-      name: isWeakened ? `【削弱】${baseMonster.name}` : baseMonster.name,
-      originalName: baseMonster.name,
-      routeId,
-      encounterStory,
-      isWeakened: Boolean(isWeakened),
-      avatar: baseMonster.avatar,
-      desc: isWeakened ? `${baseMonster.desc} (⚠️ 負傷削弱：傷害與血量為原本 75%)` : baseMonster.desc,
-      attack: scaledAtk,
-      hp: scaledHp,
-      maxHp: scaledHp,
-      baseHp: baseMonster.hp,
-      ...createBossResistances(baseMonster, this.floor),
-      ultName: baseMonster.ultName,
-      poisonTurns: 0,
-      poisonDmg: 0,
-      burnTurns: 0,
-      burnDmg: 0,
-      fractureTurns: 0,
-      fractureDmg: 0,
-      chillTurns: 0,
-      chillDmg: 0,
-      corrosionTurns: 0,
-      corrosionMaxHpDeducted: 0,
-      talismans: []
-    };
-
     this.battleCount = (this.battleCount || 0) + 1;
+    this.handleLeaderTransferOnBattleStart();
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
     this.alcShieldTurns = 0;
@@ -1194,10 +1905,13 @@ export class Room {
       outcomeData.story = encounterStory;
     }
     this.addLog(`⚠️ **${encounterStory}**`, 'warning');
+    const enemyNamesLabel = this.enemies.length > 1
+      ? this.enemies.map(e => e.name).join('、')
+      : (this.currentMonster?.name || '未知魔物');
     if (isWeakened) {
-      this.addLog(`⚔️🥀 **遭遇削弱BOSS！【${this.currentMonster.name}】（傷害及血量削弱為原本 75%）擋住了去路！**`, 'warning');
+      this.addLog(`⚔️🥀 **遭遇削弱BOSS！【${enemyNamesLabel}】（傷害及血量削弱為原本 75%）擋住了去路！**`, 'warning');
     } else {
-      this.addLog(`⚔️ **遭遇強敵！【${this.currentMonster.name}】擋住了去路！**`, 'warning');
+      this.addLog(`⚔️ **遭遇強敵！【${enemyNamesLabel}】擋住了去路！**`, 'warning');
     }
     this.p8ResetBattle();
     this.executeTurn();
@@ -1291,6 +2005,28 @@ export class Room {
       return {actualDmg:0,hpDmg:0,tempAbsorbed:0};
     }
     let remaining = dmg;
+
+    // 煉金隊長藥劑 15% 減傷
+    if (player.alcPotionDefTurns > 0) {
+      remaining = Math.max(1, Math.floor(remaining * 0.85));
+    }
+
+    // 戰士隊長技：每場戰鬥首次生命降至 30% 以下時，所受傷害降低 50%
+    if (this.getEffectiveLeaderRole() === 'warrior' && !this.warriorLeaderGuarded && (player.hp + (player.tempHp || 0) - remaining) < player.maxHp * 0.30) {
+      remaining = Math.max(1, Math.floor(remaining * 0.5));
+      this.warriorLeaderGuarded = true;
+      this.p8Log(`🛡️ 【堅守陣線】戰士隊長守護觸發，${player.name} 承受傷害降低 50%！`);
+    }
+
+    // 織夢術士隊長技：50% 傷害延後至下一回合
+    if (player.dreamDamageDelayActive) {
+      player.dreamDamageDelayActive = false;
+      const delayed = Math.floor(remaining * 0.5);
+      player.delayedDreamDmg = (player.delayedDreamDmg || 0) + delayed;
+      remaining -= delayed;
+      this.p8Log(`🌙 【共夢契約】織夢術士隊長延後了 ${player.name} 的 ${delayed} 點傷害至次回合！`);
+    }
+
     let tempAbsorbed = 0;
     if ((player.tempHp || 0) > 0) {
       if (player.tempHp >= remaining) {
@@ -1303,6 +2039,14 @@ export class Room {
         player.tempHp = 0;
       }
     }
+
+    // 聖騎士隊長技：不屈誓約（致命傷害保留 1 HP）
+    if (player.paladinFatalGuard && remaining >= player.hp) {
+      player.paladinFatalGuard = false;
+      remaining = Math.max(0, player.hp - 1);
+      this.p8Log(`🛡️✨ 【不屈誓約】聖騎士隊長聖光庇佑顯靈！${player.name} 免於致死打擊，生命保留 1 點！`);
+    }
+
     if (remaining > 0) {
       player.hp = Math.max(0, player.hp - remaining);
     }
@@ -1331,31 +2075,8 @@ export class Room {
   getHpSnapshot() {
     return {
       arena: this.arena ? {playerId:this.arena.playerId,until:this.arena.until} : null,
-      monster: this.currentMonster ? {
-        hp: Math.max(0, this.currentMonster.hp),
-        maxHp: this.currentMonster.maxHp,
-        name: this.currentMonster.name,
-        avatar: this.currentMonster.avatar,
-        resistances:{physical:getBossResistance(this.currentMonster,'physical'),magic:getBossResistance(this.currentMonster,'magic'),effect:getBossResistance(this.currentMonster,'effect')},
-        augurResistanceBreak:this.currentMonster.augurResistanceBreak || 0,
-        reversedOmenRemaining:this.currentMonster.reversedOmenRemaining || 0,
-        reversedOmenBonus:this.currentMonster.reversedOmenBonus || 0,
-        statuses: [ ...p8State(this.currentMonster,this).phase8Statuses,
-          ...(this.currentMonster.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: this.currentMonster.poisonTurns, stacks: this.currentMonster.poisonDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
-          ...(this.currentMonster.burnTurns ? [{ id: 'burn', label: 'BURN', icon: 'burn', turns: this.currentMonster.burnTurns, stacks: this.currentMonster.burnDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
-          ...(this.currentMonster.fractureTurns ? [{ id: 'fracture', label: 'FRACTURE', icon: 'fracture', turns: this.currentMonster.fractureTurns, stacks: this.currentMonster.fractureDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
-          ...(this.currentMonster.chillTurns ? [{ id: 'chill', label: 'CHILL', icon: 'chill', turns: this.currentMonster.chillTurns, stacks: this.currentMonster.chillDmg, isNegative:true,category:'DEBUFF',isDot:true }] : []),
-          ...(this.currentMonster.corrosionTurns ? [{ id: 'corrosion', label: 'CORROSION', icon: 'corrosion', turns: this.currentMonster.corrosionTurns, isNegative:true,category:'DEBUFF' }] : []),
-          ...(this.roundModifiers?.monsterAttackReduction ? [{ id: 'attack_down', label: 'ATK DOWN', icon: 'debuff', turns: 1, value: this.roundModifiers.monsterAttackReduction }] : []),
-          ...(this.currentMonster.talismans && this.currentMonster.talismans.length > 0 ? [
-            { id: 'talismans', label: `符咒 (${this.currentMonster.talismans.length})`, icon: 'debuff', stacks: this.currentMonster.talismans.length, isNegative: true, category: 'DEBUFF' },
-            ...(this.currentMonster.talismans.includes('blind') ? [{ id: 'talisman_blind', label: '障目符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: this.currentMonster.talismans.filter(t => t === 'blind').length }] : []),
-            ...(this.currentMonster.talismans.includes('seal') ? [{ id: 'talisman_seal', label: '封勁符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: this.currentMonster.talismans.filter(t => t === 'seal').length }] : []),
-            ...(this.currentMonster.talismans.includes('corrode') ? [{ id: 'talisman_corrode', label: '蝕體符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: this.currentMonster.talismans.filter(t => t === 'corrode').length }] : []),
-            ...(this.currentMonster.talismans.includes('confuse') ? [{ id: 'talisman_confuse', label: '惑心符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: this.currentMonster.talismans.filter(t => t === 'confuse').length }] : []),
-            ...(this.currentMonster.talismans.includes('drain') ? [{ id: 'talisman_drain', label: '抽髓符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: this.currentMonster.talismans.filter(t => t === 'drain').length }] : [])
-          ] : []) ]
-      } : null,
+      monster: this.currentMonster ? this.formatEnemySnapshot(this.currentMonster) : null,
+      enemies: (this.enemies || []).map(e => this.formatEnemySnapshot(e)),
       players: Object.values(this.players).map(p => ({
         id: p.id, name: p.name, role: p.role,
         hp: p.hp, druidForm: p.druidForm, druidFormTurns: p.druidFormTurns,
@@ -1384,7 +2105,14 @@ export class Room {
     this.clearTimer();
     this.roundModifiers = { equipmentEffectMultiplier: 1.0, acidFlaskCount: 0 }; // 每回合初確保裝備倍率恢復 100%
     Object.values(this.players).forEach(p => { p.isCrouchedThisRound = false; });
-    if (this.currentMonster) this.currentMonster.sealedThisRound = false;
+    for (const enemy of (this.enemies || [])) {
+      if (enemy) {
+        enemy.sealedThisRound = false;
+        enemy.untargetableThisRound = false;
+        enemy.reflectDamageRatio = 0;
+        enemy.counterChance = 0;
+      }
+    }
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) {
       this.handleGameOver();
@@ -1402,6 +2130,44 @@ export class Room {
     const roundBefore = this.getHpSnapshot();
     const log = [];
     const visualEvents = [];
+
+    // 裝備開場護盾 (守護者吊墜)
+    if (this.battleRound === 1) {
+      for (const p of alivePlayers) {
+        if (p.battleStartShield > 0) {
+          p.tempHp = (p.tempHp || 0) + p.battleStartShield;
+          log.push({ text: `🛡️ **${p.name}** 的【守護者吊墜】生效，獲得 ${p.battleStartShield} 點開場護盾！`, type: 'buff' });
+          visualEvents.push({ type: 'shield_gain', targetId: p.id, value: p.battleStartShield });
+        }
+      }
+    }
+
+    // 每回合初裝備自動回復 (再生草環、生命指環) 與延後夢境傷害
+    for (const p of alivePlayers) {
+      if (p.hp > 0 && p.regenPerRound > 0) {
+        const heal = Math.min(p.maxHp - p.hp, p.regenPerRound);
+        if (heal > 0) {
+          p.hp += heal;
+          log.push({ text: `🌱 **${p.name}** 的裝備律動生機，自動回復了 ${heal} 點生命！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+          visualEvents.push({ type: 'regen', targetId: p.id, value: heal });
+        }
+      }
+      if (p.delayedDreamDmg > 0 && p.hp > 0) {
+        const dDmg = p.delayedDreamDmg;
+        p.delayedDreamDmg = 0;
+        p.hp = Math.max(0, p.hp - dDmg);
+        log.push({ text: `🌙 **${p.name}** 延遲的夢境傷害生效，受到 **${dDmg}** 點傷害！（❤️ ${p.hp}/${p.maxHp}）`, type: 'damage' });
+        visualEvents.push({ type: 'delayed_damage', targetId: p.id, value: dDmg });
+      }
+      if (p.alcPotionDefTurns > 0) p.alcPotionDefTurns -= 1;
+      if (p.alcPotionAtkTurns > 0) {
+        p.alcPotionAtkTurns -= 1;
+        if (p.alcPotionAtkTurns === 0) {
+          p.bonusAtk = Math.max(0, (p.bonusAtk || 0) - 8);
+          p.alcPotionDot = false;
+        }
+      }
+    }
 
     const arenaQueue=[];
     this.augurReactions=[]; this.augurVisuals=visualEvents; this.p8Results=null;
@@ -1421,7 +2187,7 @@ export class Room {
     }
 
     // 1. 流血撕裂傷害結算 (套用難度層數加成)
-    if (monster && monster.baseHp < 100) {
+    if (this.getLivingEnemies().some(e => e.baseHp < 100)) {
       const bleedDmg = Math.floor(2 * getFloorDifficultyMultiplier(this.floor));
       for (const p of Object.values(this.players)) {
         if (p.hp > 0 && p.bleedTurns > 0) {
@@ -1458,13 +2224,39 @@ export class Room {
       }
     }
 
-    // 2.5 腐蝕結算 (回合初倒數)
-    if (monster && monster.hp > 0 && monster.corrosionTurns > 0) {
-      monster.corrosionTurns -= 1;
-      if (monster.corrosionTurns === 0 && (monster.corrosionMaxHpDeducted || 0) > 0) {
-        monster.maxHp += monster.corrosionMaxHpDeducted;
-        monster.corrosionMaxHpDeducted = 0;
-        log.push({ text: `🧪 **${monster.name}** 的【腐蝕】效果結束，血量上限恢復！`, type: 'info' });
+    // 2.5 腐蝕結算與深淵智者被動 (回合初倒數)
+    const isPrimeRound = (n) => {
+      if (n < 2) return false;
+      for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
+      return true;
+    };
+    for (const enemy of this.getLivingEnemies()) {
+      if (enemy.id === 'abyss_sage') {
+        enemy.sageOperand = (enemy.sageOperand || 0) + 1;
+        log.push({ text: `📐 **${enemy.name}**【變數成長】觸發！回合初獲得 1 點演算值（當前演算值: ${enemy.sageOperand}，造成傷害提升 ${enemy.sageOperand * 5}%）！`, type: 'warning' });
+        if (isPrimeRound(this.battleRound)) {
+          enemy.poisonTurns = 0; enemy.poisonDmg = 0;
+          enemy.burnTurns = 0; enemy.burnDmg = 0;
+          enemy.fractureTurns = 0; enemy.fractureDmg = 0;
+          enemy.chillTurns = 0; enemy.chillDmg = 0;
+          if (enemy.corrosionTurns > 0 && (enemy.corrosionMaxHpDeducted || 0) > 0) {
+            enemy.maxHp += enemy.corrosionMaxHpDeducted;
+            enemy.corrosionMaxHpDeducted = 0;
+          }
+          enemy.corrosionTurns = 0;
+          enemy.talismans = [];
+          const healAmt = Math.max(1, Math.floor(enemy.maxHp * 0.05));
+          enemy.hp = Math.min(enemy.maxHp, enemy.hp + healAmt);
+          log.push({ text: `🔢✨ **${enemy.name}** 於質數回合（第 ${this.battleRound} 回合）發動【質數重構】！清除自身所有負面狀態並回復 **${healAmt}** 點生命！`, type: 'buff' });
+        }
+      }
+      if (enemy.corrosionTurns > 0) {
+        enemy.corrosionTurns -= 1;
+        if (enemy.corrosionTurns === 0 && (enemy.corrosionMaxHpDeducted || 0) > 0) {
+          enemy.maxHp += enemy.corrosionMaxHpDeducted;
+          enemy.corrosionMaxHpDeducted = 0;
+          log.push({ text: `🧪 **${enemy.name}** 的【腐蝕】效果結束，血量上限恢復！`, type: 'info' });
+        }
       }
     }
     let anyPlayerCorrosionExpired = false;
@@ -1482,56 +2274,58 @@ export class Room {
     }
 
     // 3. 持續傷害 (DoT) 結算 (回合初 DoT: 中毒、燃燒、骨折、寒冷)
-    if (monster && monster.hp > 0) {
-      if (monster.poisonTurns > 0) {
-        const pDmg = this.augmentOmenDamage(monster.poisonDmg || 5);
-        monster.hp = Math.max(0, monster.hp - pDmg);
-        monster.poisonTurns -= 1;
-        if (monster.poisonTurns === 0) monster.poisonDmg = 0;
-        visualEvents.push({ type: 'poison_damage', target: 'monster', value: pDmg });
-        if (monster.hp <= 0) {
-          log.push({ text: `🧪 **${monster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
+    const multiEnemyMode = (this.enemies || []).length > 1;
+    for (const targetMonster of this.getLivingEnemies()) {
+      const targetKey = multiEnemyMode ? targetMonster.instanceId : 'monster';
+      if (targetMonster.hp > 0 && targetMonster.poisonTurns > 0) {
+        const pDmg = this.augmentOmenDamage(targetMonster.poisonDmg || 5);
+        targetMonster.hp = Math.max(0, targetMonster.hp - pDmg);
+        targetMonster.poisonTurns -= 1;
+        if (targetMonster.poisonTurns === 0) targetMonster.poisonDmg = 0;
+        visualEvents.push({ type: 'poison_damage', target: targetKey, value: pDmg });
+        if (targetMonster.hp <= 0) {
+          log.push({ text: `🧪 **${targetMonster.name}** 體內劇毒發作受到 **${pDmg}** 點毒傷倒下！💀`, type: 'damage' });
         } else {
-          log.push({ text: `🧪 **${monster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${monster.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
+          log.push({ text: `🧪 **${targetMonster.name}** 劇毒發作受到 **${pDmg}** 點毒素傷害！（剩餘中毒: ${targetMonster.poisonTurns} 回合，每回合 ${pDmg} 點）`, type: 'damage' });
         }
       }
-      if (monster.hp > 0 && monster.burnTurns > 0) {
-        const bDmg = this.augmentOmenDamage(monster.burnDmg || 7);
-        monster.hp = Math.max(0, monster.hp - bDmg);
-        monster.burnTurns -= 1;
-        if (monster.burnTurns === 0) monster.burnDmg = 0;
-        visualEvents.push({ type: 'burn_damage', target: 'monster', value: bDmg });
-        if (monster.hp <= 0) {
-          log.push({ text: `🔥 **${monster.name}** 烈火焚身受到 **${bDmg}** 點燃燒傷害倒下！💀`, type: 'damage' });
+      if (targetMonster.hp > 0 && targetMonster.burnTurns > 0) {
+        const bDmg = this.augmentOmenDamage(targetMonster.burnDmg || 7);
+        targetMonster.hp = Math.max(0, targetMonster.hp - bDmg);
+        targetMonster.burnTurns -= 1;
+        if (targetMonster.burnTurns === 0) targetMonster.burnDmg = 0;
+        visualEvents.push({ type: 'burn_damage', target: targetKey, value: bDmg });
+        if (targetMonster.hp <= 0) {
+          log.push({ text: `🔥 **${targetMonster.name}** 烈火焚身受到 **${bDmg}** 點燃燒傷害倒下！💀`, type: 'damage' });
         } else {
-          log.push({ text: `🔥 **${monster.name}** 烈火焚身受到 **${bDmg}** 點燃燒傷害！（剩餘燃燒: ${monster.burnTurns} 回合，每回合 ${bDmg} 點）`, type: 'damage' });
+          log.push({ text: `🔥 **${targetMonster.name}** 烈火焚身受到 **${bDmg}** 點燃燒傷害！（剩餘燃燒: ${targetMonster.burnTurns} 回合，每回合 ${bDmg} 點）`, type: 'damage' });
         }
       }
-      if (monster.hp > 0 && monster.fractureTurns > 0) {
-        const fDmg = this.augmentOmenDamage(monster.fractureDmg || 2);
-        monster.hp = Math.max(0, monster.hp - fDmg);
-        monster.fractureTurns -= 1;
-        if (monster.fractureTurns === 0) monster.fractureDmg = 0;
-        visualEvents.push({ type: 'fracture_damage', target: 'monster', value: fDmg });
-        if (monster.hp <= 0) {
-          log.push({ text: `🦴 **${monster.name}** 骨骼粉碎受到 **${fDmg}** 點骨折傷害倒下！💀`, type: 'damage' });
+      if (targetMonster.hp > 0 && targetMonster.fractureTurns > 0) {
+        const fDmg = this.augmentOmenDamage(targetMonster.fractureDmg || 2);
+        targetMonster.hp = Math.max(0, targetMonster.hp - fDmg);
+        targetMonster.fractureTurns -= 1;
+        if (targetMonster.fractureTurns === 0) targetMonster.fractureDmg = 0;
+        visualEvents.push({ type: 'fracture_damage', target: targetKey, value: fDmg });
+        if (targetMonster.hp <= 0) {
+          log.push({ text: `🦴 **${targetMonster.name}** 骨骼粉碎受到 **${fDmg}** 點骨折傷害倒下！💀`, type: 'damage' });
         } else {
-          log.push({ text: `🦴 **${monster.name}** 骨骼劇痛受到 **${fDmg}** 點骨折傷害！（剩餘骨折: ${monster.fractureTurns} 回合，每回合 ${fDmg} 點）`, type: 'damage' });
+          log.push({ text: `🦴 **${targetMonster.name}** 骨骼劇痛受到 **${fDmg}** 點骨折傷害！（剩餘骨折: ${targetMonster.fractureTurns} 回合，每回合 ${fDmg} 點）`, type: 'damage' });
         }
       }
-      if (monster.hp > 0 && monster.chillTurns > 0) {
-        const cDmg = this.augmentOmenDamage(monster.chillDmg || 3);
-        monster.hp = Math.max(0, monster.hp - cDmg);
-        monster.chillTurns -= 1;
-        if (monster.chillTurns === 0) monster.chillDmg = 0;
-        visualEvents.push({ type: 'chill_damage', target: 'monster', value: cDmg });
-        if (monster.hp <= 0) {
-          log.push({ text: `❄️ **${monster.name}** 凍氣攻心受到 **${cDmg}** 點寒冷傷害倒下！💀`, type: 'damage' });
+      if (targetMonster.hp > 0 && targetMonster.chillTurns > 0) {
+        const cDmg = this.augmentOmenDamage(targetMonster.chillDmg || 3);
+        targetMonster.hp = Math.max(0, targetMonster.hp - cDmg);
+        targetMonster.chillTurns -= 1;
+        if (targetMonster.chillTurns === 0) targetMonster.chillDmg = 0;
+        visualEvents.push({ type: 'chill_damage', target: targetKey, value: cDmg });
+        if (targetMonster.hp <= 0) {
+          log.push({ text: `❄️ **${targetMonster.name}** 凍氣攻心受到 **${cDmg}** 點寒冷傷害倒下！💀`, type: 'damage' });
         } else {
-          log.push({ text: `❄️ **${monster.name}** 寒氣侵蝕受到 **${cDmg}** 點寒冷傷害！（剩餘寒冷: ${monster.chillTurns} 回合，每回合 ${cDmg} 點）`, type: 'damage' });
+          log.push({ text: `❄️ **${targetMonster.name}** 寒氣侵蝕受到 **${cDmg}** 點寒冷傷害！（剩餘寒冷: ${targetMonster.chillTurns} 回合，每回合 ${cDmg} 點）`, type: 'damage' });
         }
       }
-      if (monster.hp > 0 && monster.talismans && monster.talismans.length > 0) {
+      if (targetMonster.hp > 0 && targetMonster.talismans && targetMonster.talismans.length > 0) {
         const TALISMAN_NAMES = {
           blind: '障目符',
           seal: '封勁符',
@@ -1546,16 +2340,25 @@ export class Room {
         const hasKariginu = Object.values(this.players).some(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'));
         const dropThreshold = hasKariginu ? 0.35 : 0.50;
 
-        for (const talisman of monster.talismans) {
-          const dropRoll = typeof monster.talismanDropRng === 'function' ? monster.talismanDropRng() : Math.random();
-          if (dropRoll < dropThreshold) {
-            droppedTalismans.push(talisman);
-          } else {
-            keptTalismans.push(talisman);
+        if (targetMonster.talismansLockedTurns > 0) {
+          targetMonster.talismansLockedTurns -= 1;
+          keptTalismans.push(...targetMonster.talismans);
+          log.push({
+            text: `📜🔒 【百鬼敕令】陰陽師隊長符咒封印生效，魔物身上所有符咒（共 ${targetMonster.talismans.length} 張）全數鎖定保留，未發生脫落！`,
+            type: 'buff'
+          });
+        } else {
+          for (const talisman of targetMonster.talismans) {
+            const dropRoll = typeof targetMonster.talismanDropRng === 'function' ? targetMonster.talismanDropRng() : Math.random();
+            if (dropRoll < dropThreshold) {
+              droppedTalismans.push(talisman);
+            } else {
+              keptTalismans.push(talisman);
+            }
           }
         }
 
-        monster.talismans = keptTalismans;
+        targetMonster.talismans = keptTalismans;
 
         if (droppedTalismans.length > 0) {
           const droppedSummary = droppedTalismans.map(t => TALISMAN_NAMES[t] || t).join('、');
@@ -1567,39 +2370,42 @@ export class Room {
 
         // 沒掉落的符咒再次觸發每一個效果
         for (const talisman of keptTalismans) {
-          if (monster.hp <= 0) break;
+          if (targetMonster.hp <= 0) break;
 
           if (talisman === 'drain') {
-            const drainDmg = this.augmentOmenDamage(Math.max(1, Math.floor(monster.maxHp * 0.02)));
-            monster.hp = Math.max(0, monster.hp - drainDmg);
-            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: drainDmg, label: '抽髓符' });
-            if (monster.hp <= 0) {
+            const drainDmg = this.augmentOmenDamage(Math.max(1, Math.floor(targetMonster.maxHp * 0.02)));
+            targetMonster.hp = Math.max(0, targetMonster.hp - drainDmg);
+            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: targetKey, dmgType: 'mag', value: drainDmg, label: '抽髓符' });
+            if (targetMonster.hp <= 0) {
               log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 2%（${drainDmg} 點削血），魔物倒下！💀`, type: 'damage' });
             } else {
-              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 2%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'damage' });
+              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 2%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'damage' });
             }
           } else if (talisman === 'confuse') {
-            const confuseRatio = typeof monster.talismanConfuseRatio === 'number'
-              ? monster.talismanConfuseRatio
+            const confuseRatio = typeof targetMonster.talismanConfuseRatio === 'number'
+              ? targetMonster.talismanConfuseRatio
               : (0.50 + Math.random() * 0.50);
-            const confuseDmg = Math.max(1, Math.round((monster.attack || 20) * confuseRatio));
-            monster.hp = Math.max(0, monster.hp - confuseDmg);
-            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: confuseDmg, label: '惑心反噬' });
-            if (monster.hp <= 0) {
+            const confuseDmg = Math.max(1, Math.round((targetMonster.attack || 20) * confuseRatio));
+            targetMonster.hp = Math.max(0, targetMonster.hp - confuseDmg);
+            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: targetKey, dmgType: 'mag', value: confuseDmg, label: '惑心反噬' });
+            if (targetMonster.hp <= 0) {
               log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身倒下！💀`, type: 'warning' });
             } else {
-              log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
+              log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'warning' });
             }
           } else if (talisman === 'blind') {
             log.push({ text: `📜👁️ **【障目符】** 未掉落再次觸發！魔物視界持續受障，攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！`, type: 'buff' });
           } else if (talisman === 'seal') {
-            monster.sealedThisRound = true;
+            targetMonster.sealedThisRound = true;
             log.push({ text: `📜🔒 **【封勁符】** 未掉落再次觸發！封鎖魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
           } else if (talisman === 'corrode') {
             log.push({ text: `📜🩸 **【蝕體符】** 未掉落再次結算易傷判定！魔物肉體受蝕，受到的所有攻擊傷害提升 10%！`, type: 'buff' });
           }
         }
       }
+    }
+    if (this._currentMonster && this._currentMonster.hp <= 0 && this.getLivingEnemies().length > 0) {
+      this.refreshPrimaryMonster();
     }
 
     const tickPlayerDot = (p, dotName, dotIcon, turnsKey, dmgKey, defaultDmg) => {
@@ -1748,6 +2554,9 @@ export class Room {
       } else {
         p.action = null;
         p.targetPlayerId = null;
+        if (p.targetEnemyId && !this.getLivingEnemies().some(e => e.instanceId === p.targetEnemyId || e.id === p.targetEnemyId)) {
+          p.targetEnemyId = null;
+        }
         p.isLocked = false;
       }
       p.isStealthed = false;
@@ -1779,25 +2588,23 @@ export class Room {
       this.selectionReadyTimer = null;
     }
 
-    // 正式啟動 30 秒技能選擇倒數計時器
-    this.setTimer(30, () => {
-      if (this.state === 'IN_BATTLE' && this.selectionState === 'SELECTING') {
-        this.addLog('⏱️ 回合時間截止，未行動者自動跳過回合！', 'warning');
-        for (const p of Object.values(this.players)) {
-          if (p.hp > 0 && !p.isLocked) {
-            p.action = 'skip';
-            p.isLocked = true;
-          }
-        }
-        this.checkTurnCompletion();
-      }
-    });
     this.broadcastState();
     this.checkTurnCompletion();
   }
 
+  selectTargetEnemy(socketId, targetEnemyId) {
+    if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    const found = this.getLivingEnemies().find(e => e.instanceId === targetEnemyId || e.id === targetEnemyId);
+    if (!found) return { success: false, message: '無效或已陣亡的敵方目標' };
+    player.targetEnemyId = found.instanceId;
+    this.broadcastState();
+    return { success: true, targetEnemyId: found.instanceId };
+  }
+
   // 玩家鎖定技能 (CONFIRM -> LOCKED)
-  lockAction(socketId, actionId, targetPlayerId = null) {
+  lockAction(socketId, actionId, targetPlayerId = null, targetEnemyId = null) {
     if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
     if (this.selectionState !== 'SELECTING') return { success: false, message: '目前正在結算中，無法更改指令！' };
     const player = this.players[socketId];
@@ -1812,7 +2619,8 @@ export class Room {
       if (!others.length) targetPlayerId=player.id;
       else if (!others.some(p=>p.id===targetPlayerId)) return {success:false,message:'命運繫結必須指定自身以外的存活隊友'};
     }
-    if (actionId === 'dw_butterfly' && targetPlayerId !== 'monster' && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp<=0)) return {success:false,message:'請指定存活隊友或魔物'};
+    const isEnemyTargetId = (id) => Boolean(id && (id === 'monster' || (this.enemies || []).some(e => e.instanceId === id || e.id === id)));
+    if (actionId === 'dw_butterfly' && !isEnemyTargetId(targetPlayerId) && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp<=0)) return {success:false,message:'請指定存活隊友或魔物'};
     if (actionId === 'b_revive' && this.players[targetPlayerId]?.noReviveFloor===this.floor) return {success:false,message:'同歸於盡者本層不能甦生'};
     if (player.stunnedNextTurn) return { success: false, message: '你處於脫力虛脫中，本回合無法行動' };
     if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
@@ -1851,8 +2659,19 @@ export class Room {
       }
     }
 
+    // If caller passed an enemy instanceId as targetPlayerId (or explicit targetEnemyId), store it on player.targetEnemyId
+    let resolvedEnemyId = targetEnemyId || player.targetEnemyId || null;
+    if (!targetEnemyId && targetPlayerId && isEnemyTargetId(targetPlayerId) && actionId !== 'dw_butterfly') {
+      resolvedEnemyId = targetPlayerId === 'monster' ? (this.getPrimaryEnemy()?.instanceId || 'enemy_0') : targetPlayerId;
+      targetPlayerId = null;
+    } else if (actionId === 'dw_butterfly' && isEnemyTargetId(targetPlayerId)) {
+      if (targetPlayerId !== 'monster') resolvedEnemyId = targetPlayerId;
+      targetPlayerId = 'monster';
+    }
+
     player.action = actionId;
     player.targetPlayerId = targetPlayerId;
+    player.targetEnemyId = resolvedEnemyId;
     player.isLocked = true;
     this.broadcastState();
 
@@ -1887,8 +2706,8 @@ export class Room {
   }
 
   // 兼容舊接口 submitAction
-  submitAction(socketId, actionId, targetPlayerId = null) {
-    return this.lockAction(socketId, actionId, targetPlayerId);
+  submitAction(socketId, actionId, targetPlayerId = null, targetEnemyId = null) {
+    return this.lockAction(socketId, actionId, targetPlayerId, targetEnemyId);
   }
 
   // 檢查是否全體存活玩家皆已鎖定
@@ -1932,6 +2751,14 @@ export class Room {
     const victoryBefore = this.getHpSnapshot();
     for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;}
     monster.hp = 0;
+    let goldGain = 40;
+    if (this.getEffectiveLeaderRole() === 'gladiator') {
+      goldGain = Math.round(goldGain * 1.30);
+      log.push({ text: `⚔️ 【榮耀號角】角鬥士隊長引領勝利，精英怪金幣掉落 +30%（獲得 ${goldGain} 金幣）！`, type: 'loot' });
+    } else {
+      log.push({ text: `💰 戰鬥勝利！小隊獲得了 ${goldGain} 金幣！`, type: 'loot' });
+    }
+    this.gold = (this.gold || 0) + goldGain;
     log.push({ text: `🎉 **${monster.name} 倒下了！小隊成功突破第 ${this.floor} 層！**`, type: 'loot' });
 
     for (const p of Object.values(this.players)) {
@@ -2104,9 +2931,13 @@ export class Room {
   }
 
   // 手動卸下裝備
-  handleUnequip(socketId, equipIndex) {
+  handleUnequip(socketId, equipIndexOrSlot) {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
+    if (typeof equipIndexOrSlot === 'string') {
+      return this.unequipItemToBag(socketId, equipIndexOrSlot);
+    }
+    const equipIndex = equipIndexOrSlot;
     if (!player.equips || equipIndex < 0 || equipIndex >= player.equips.length) {
       return { success: false, message: '無效的裝備欄位' };
     }
@@ -2114,6 +2945,14 @@ export class Room {
     const removed = unequipItemFromPlayer(player, equipIndex);
     this.p8RefreshEquipment();
     if (removed) {
+      if (player.equipSlots) {
+        for (const [k, v] of Object.entries(player.equipSlots)) {
+          if (v === removed) {
+            player.equipSlots[k] = null;
+            break;
+          }
+        }
+      }
       this.addLog(`🎒 **${player.name}** 手動卸下了【${removed.name}】。(${formatPlayerEquips(player)})`, 'info');
       this.broadcastState();
       return { success: true };
@@ -2121,12 +2960,954 @@ export class Room {
     return { success: false, message: '卸下裝備失敗' };
   }
 
+  // ==========================================
+  // Module 3 & 4：雙層背包、裝備欄位與合成系統
+  // ==========================================
+
+  syncPlayerEquips(player) {
+    if (!player) return;
+    if (!player.equipSlots) {
+      player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
+    }
+    player.equips = Object.values(player.equipSlots).filter(Boolean);
+    player.equipCounts = {};
+    for (const eq of player.equips) {
+      player.equipCounts[eq.name] = (player.equipCounts[eq.name] || 0) + 1;
+    }
+    this.p8RefreshEquipment();
+  }
+
+  transferToSquad(socketId, bagIndex) {
+    if (this.state === 'IN_BATTLE') {
+      return { success: false, message: '戰鬥中無法轉移裝備！' };
+    }
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!Array.isArray(player.bag) || bagIndex < 0 || bagIndex >= player.bag.length) {
+      return { success: false, message: '無效的背包物品索引' };
+    }
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+    if (this.squadInventory.length >= 20) {
+      return { success: false, message: '小隊背包已滿（上限 20 格）！' };
+    }
+    const item = player.bag.splice(bagIndex, 1)[0];
+    this.squadInventory.push(item);
+    this.addLog(`🎒 **${player.name}** 將【${item.name}】轉移至小隊背包。`, 'info');
+    this.broadcastState();
+    return { success: true, item };
+  }
+
+  transferToPersonal(socketId, squadIndex) {
+    if (this.state === 'IN_BATTLE') {
+      return { success: false, message: '戰鬥中無法轉移裝備！' };
+    }
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!Array.isArray(this.squadInventory) || squadIndex < 0 || squadIndex >= this.squadInventory.length) {
+      return { success: false, message: '無效的小隊背包索引' };
+    }
+    if (!Array.isArray(player.bag)) player.bag = [];
+    if (player.bag.length >= 4) {
+      return { success: false, message: '個人背包已滿（上限 4 格）！' };
+    }
+    const item = this.squadInventory.splice(squadIndex, 1)[0];
+    player.bag.push(item);
+    this.addLog(`🎒 **${player.name}** 從小隊背包領取了【${item.name}】至個人背包。`, 'info');
+    this.broadcastState();
+    return { success: true, item };
+  }
+
+  equipItemFromBag(socketId, bagIndex, preferredSlot = null) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!Array.isArray(player.bag) || bagIndex < 0 || bagIndex >= player.bag.length) {
+      return { success: false, message: '無效的背包物品索引' };
+    }
+    const item = player.bag[bagIndex];
+    if (!canPlayerEquipItem(player, item)) {
+      return { success: false, message: '此特殊裝備不可重複穿戴！' };
+    }
+    if (!player.equipSlots) {
+      player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
+    }
+
+    const targetSlot = (preferredSlot && EQUIP_SLOTS[preferredSlot]) ? preferredSlot : determineEquipSlot(item);
+    const oldItem = player.equipSlots[targetSlot];
+
+    if (oldItem) {
+      removeEquipStats(player, oldItem);
+      player.bag[bagIndex] = oldItem;
+      this.addLog(`🔄 **${player.name}** 卸下了【${oldItem.name}】。`, 'loot');
+    } else {
+      player.bag.splice(bagIndex, 1);
+    }
+
+    player.equipSlots[targetSlot] = item;
+    applyEquipStats(player, item);
+    this.syncPlayerEquips(player);
+
+    this.addLog(`🛡️ **${player.name}** 裝備了【${item.name}】於【${targetSlot}】欄位！`, 'loot');
+    this.broadcastState();
+    return { success: true, equippedSlot: targetSlot, item };
+  }
+
+  unequipItemToBag(socketId, slotKey) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!player.equipSlots || !player.equipSlots[slotKey]) {
+      return { success: false, message: '該欄位無裝備' };
+    }
+    const item = player.equipSlots[slotKey];
+    if (slotKey === 'CLASS_EXCLUSIVE' && (item.isClassExclusive || item.tier === 'CLASS_EXCLUSIVE')) {
+      return { success: false, message: '專屬裝備無法卸下！' };
+    }
+    if (!Array.isArray(player.bag)) player.bag = [];
+    if (player.bag.length >= 4) {
+      return { success: false, message: '個人背包已滿（上限 4 格）！' };
+    }
+
+    player.equipSlots[slotKey] = null;
+    removeEquipStats(player, item);
+    player.bag.push(item);
+    this.syncPlayerEquips(player);
+
+    this.addLog(`🎒 **${player.name}** 卸下了【${item.name}】並收回個人背包。`, 'info');
+    this.broadcastState();
+    return { success: true, item };
+  }
+
+  craftEquipment(socketId, item1Id, item2Id, fromSquad = true) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    const recipe = getCraftingRecipe(item1Id, item2Id);
+    if (!recipe) return { success: false, message: '無效的合成配方！' };
+
+    const container = fromSquad ? this.squadInventory : player.bag;
+    if (!Array.isArray(container)) return { success: false, message: '背包不存在' };
+
+    const idx1 = container.findIndex(e => e.id === item1Id);
+    const idx2 = container.findIndex((e, i) => e.id === item2Id && i !== idx1);
+    if (idx1 === -1 || idx2 === -1) {
+      return { success: false, message: '缺少合成材料！' };
+    }
+
+    const resultTmpl = TIER2_EQUIPMENTS.find(e => e.id === recipe.resultId) || findItemTemplate(recipe.resultId);
+    if (!resultTmpl) return { success: false, message: '找不到目標裝備！' };
+
+    // 煉金術士隊長特質：30% 機率保留其中一件材料或產出 20 金幣
+    const leaderRole = this.getEffectiveLeaderRole();
+    let retainMaterial = false;
+    let extraGoldBonus = false;
+    if (leaderRole === 'alchemist' && Math.random() < 0.30) {
+      if (Math.random() < 0.50) {
+        retainMaterial = true;
+      } else {
+        extraGoldBonus = true;
+        this.gold = (this.gold || 0) + 20;
+      }
+    }
+
+    if (retainMaterial) {
+      container.splice(idx1, 1);
+      this.addLog('⚗️ 【戰地調配】煉金術士隊長特質觸發：合成時成功保留了一件材料！', 'buff');
+    } else {
+      const maxIdx = Math.max(idx1, idx2);
+      const minIdx = Math.min(idx1, idx2);
+      container.splice(maxIdx, 1);
+      container.splice(minIdx, 1);
+      if (extraGoldBonus) {
+        this.addLog('⚗️ 【戰地調配】煉金術士隊長特質觸發：合成時額外產出 20 金幣！', 'buff');
+      }
+    }
+
+    const newItem = structuredClone(resultTmpl);
+    container.push(newItem);
+    this.addLog(`🔨 **${player.name}** 成功合成了 **【${newItem.name}】**！(${recipe.desc})`, 'loot');
+    this.broadcastState();
+    return { success: true, item: newItem };
+  }
+
+  // 商店事件 (Module 4)
+  handleShopEvent(hexNode) {
+    this.clearTimer();
+    this.state = 'EVENT';
+    const isShady = typeof hexNode === 'boolean' ? hexNode : Boolean(hexNode?.isShadyMerchant);
+    const leaderRole = this.getEffectiveLeaderRole();
+    const discount = (leaderRole === 'assassin') ? 0.8 : 1.0;
+
+    let items = [];
+    if (isShady) {
+      items = [
+        { ...structuredClone(TIER2_EQUIPMENTS[0]), price: Math.round(180 * discount) },
+        { ...structuredClone(TIER2_EQUIPMENTS[1]), price: Math.round(180 * discount) },
+        { ...structuredClone(TIER2_EQUIPMENTS[2]), price: Math.round(180 * discount) }
+      ];
+    } else {
+      items = [
+        { ...structuredClone(TIER1_EQUIPMENTS[0]), price: Math.round(50 * discount) },
+        { ...structuredClone(TIER1_EQUIPMENTS[1]), price: Math.round(50 * discount) },
+        { ...structuredClone(TIER2_EQUIPMENTS[0]), price: Math.round(120 * discount) }
+      ];
+    }
+
+    this.currentEvent = {
+      type: 'shop',
+      isShady,
+      hexId: hexNode?.id,
+      col: hexNode?.col ?? 1,
+      title: isShady ? '🛒 幽暗黑市・神秘奸商' : '🛒 迷宮行商據點',
+      story: isShady
+        ? '角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。'
+        : '迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。',
+      items,
+      restPrice: 30,
+      canRob: isShady,
+      canSteal: isShady && leaderRole === 'assassin',
+      canLeave: true
+    };
+    this.broadcastState();
+  }
+
+  handleShopAction(socketId, rawAction, params = {}) {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'shop') {
+      return { success: false, message: '目前非商店事件' };
+    }
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    const action = String(rawAction || '').toLowerCase();
+
+    if (action === 'buy') {
+      let idx = params.itemIndex;
+      if (idx === undefined && params.itemId) {
+        idx = this.currentEvent.items.findIndex(i => i.id === params.itemId);
+      }
+      idx = Number(idx ?? 0);
+      const item = this.currentEvent.items[idx];
+      if (!item) return { success: false, message: '商品不存在' };
+      if ((this.gold || 0) < item.price) return { success: false, message: '金幣不足！' };
+      if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+      if (this.squadInventory.length >= 20) return { success: false, message: '小隊背包已滿！' };
+
+      this.gold -= item.price;
+      this.currentEvent.items.splice(idx, 1);
+      const boughtItem = structuredClone(item);
+      delete boughtItem.price;
+      this.squadInventory.push(boughtItem);
+      this.addLog(`🛒 小隊花費 ${item.price} 金幣購買了【${boughtItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
+      this.broadcastState();
+      return { success: true, item: boughtItem };
+    }
+
+    if (action === 'rest') {
+      const restPrice = this.currentEvent.restPrice || 30;
+      if ((this.gold || 0) < restPrice) return { success: false, message: '金幣不足！' };
+      this.gold -= restPrice;
+      for (const p of Object.values(this.players)) {
+        if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.35));
+      }
+      this.addLog(`⛺ 小隊花費 ${restPrice} 金幣在商隊營地休憩，全員回復了 35% 生命！(剩餘金幣: ${this.gold})`, 'heal');
+      this.broadcastState();
+      return { success: true };
+    }
+
+    if (action === 'rob') {
+      if (!this.currentEvent.isShady) return { success: false, message: '只有奸商可以搶劫！' };
+      this.addLog(`⚔️ **${player.name}** 與小隊決定翻臉搶劫奸商！黑市奸商撕破偽裝拔出法杖！`, 'warning');
+      const leaderRole = this.getEffectiveLeaderRole();
+      if (leaderRole === 'warrior') {
+        this.monsterStunnedThisRound = true;
+        this.addLog('🛡️ 【堅守陣線】戰士隊長怒吼掀桌，黑市商人首回合陷入暈眩！', 'buff');
+      }
+      const col = this.currentEvent.col;
+      this.currentEvent = null;
+      this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col });
+      return { success: true };
+    }
+
+    if (action === 'steal') {
+      const leaderRole = this.getEffectiveLeaderRole();
+      if (leaderRole !== 'assassin') return { success: false, message: '只有刺客隊長能暗中行竊！' };
+      if (!this.currentEvent.isShady) return { success: false, message: '只有奸商可以行竊！' };
+
+      const success = (typeof params.stealSuccess === 'boolean') ? params.stealSuccess : Math.random() < 0.50;
+      if (success && this.currentEvent.items.length > 0) {
+        const stolen = this.currentEvent.items.splice(0, 1)[0];
+        const stolenItem = structuredClone(stolen);
+        delete stolenItem.price;
+        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+        if (this.squadInventory.length < 20) this.squadInventory.push(stolenItem);
+        this.addLog(`🗡️ 【無聲行軍】刺客隊長神不知鬼不覺偷走了【${stolenItem.name}】！小隊未被察覺安然離去！`, 'loot');
+        this.currentEvent = null;
+        this.advanceToNextFloorOrCheckpoint();
+        return { success: true, stolenItem };
+      } else {
+        this.addLog('🗡️ 【無聲行軍】行竊失風！奸商察覺後狂怒召喚護衛！戰鬥爆發！', 'warning');
+        const col = this.currentEvent.col;
+        this.currentEvent = null;
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col });
+        return { success: false, message: '行竊失敗，觸發戰鬥！' };
+      }
+    }
+
+    if (action === 'leave') {
+      this.addLog('🛒 小隊告別了商人，整頓行囊繼續前行。', 'info');
+      this.currentEvent = null;
+      this.advanceToNextFloorOrCheckpoint();
+      return { success: true };
+    }
+
+    return { success: false, message: '未知行動' };
+  }
+
+  // 寶箱事件 (Module 4)
+  handleChestEvent(hexNode) {
+    this.clearTimer();
+    this.state = 'EVENT';
+    const isMimic = typeof hexNode === 'boolean' ? hexNode : Boolean(hexNode?.isMimic);
+    const leaderRole = this.getEffectiveLeaderRole();
+    const canPacify = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
+
+    if (isMimic) {
+      this.currentEvent = {
+        type: 'chest',
+        isMimic: true,
+        hexId: hexNode?.id,
+        col: hexNode?.col ?? 1,
+        title: '📦 異樣的秘銀寶箱',
+        story: '一具華麗的寶箱立在前方，箱縫邊緣卻隱隱滲出腥臭黏液與細微的呼吸聲……',
+        canPacify,
+        canOpen: true
+      };
+      this.broadcastState();
+      return;
+    }
+
+    // 常規寶箱
+    const goldGain = 30 + Math.floor(Math.random() * 21);
+    this.gold = (this.gold || 0) + goldGain;
+    const drop = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+    if (this.squadInventory.length < 20) this.squadInventory.push(drop);
+
+    for (const p of Object.values(this.players)) {
+      if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
+    }
+
+    this.currentEvent = {
+      type: 'chest',
+      isMimic: false,
+      hexId: hexNode?.id,
+      col: hexNode?.col ?? 1,
+      title: '🎁 發現古老寶箱！',
+      story: '小隊協力掀開寶箱，溫暖的聖光與豐厚戰利品映入眼簾！',
+      goldGain,
+      drop,
+      canLeave: true
+    };
+    this.addLog(`🎁 開啟寶箱！全員回復 25 HP，獲得 ${goldGain} 金幣與【${drop.name}】！(當前金幣: ${this.gold})`, 'loot');
+    this.broadcastState();
+  }
+
+  handleChestAction(socketId, rawAction, params = {}) {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'chest') {
+      return { success: false, message: '目前非寶箱事件' };
+    }
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    const action = String(rawAction || '').toLowerCase();
+
+    if (action === 'pacify') {
+      const leaderRole = this.getEffectiveLeaderRole();
+      const hasDruid = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
+      if (!hasDruid) return { success: false, message: '只有德魯伊隊長能安撫寶箱怪！' };
+      const goldGain = 40;
+      this.gold = (this.gold || 0) + goldGain;
+      const drop = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
+      if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+      if (this.squadInventory.length < 20) this.squadInventory.push(drop);
+      for (const p of Object.values(this.players)) {
+        if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
+      }
+      this.addLog(`🐾 【群生號令】德魯伊隊長溫柔安撫了寶箱怪，寶箱怪主動吐出【${drop.name}】與 ${goldGain} 金幣後遁入地底！`, 'loot');
+      this.currentEvent = null;
+      this.advanceToNextFloorOrCheckpoint();
+      return { success: true, drop, goldGain };
+    }
+
+    if (action === 'open') {
+      if (this.currentEvent.isMimic) {
+        this.addLog('📦 寶箱猛然張開獠牙巨口！【貪婪噬魂寶箱怪】撲向了小隊！', 'warning');
+        const col = this.currentEvent.col;
+        this.currentEvent = null;
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.treasure_mimic, col });
+        return { success: true };
+      } else {
+        this.currentEvent = null;
+        this.advanceToNextFloorOrCheckpoint();
+        return { success: true };
+      }
+    }
+
+    if (action === 'leave') {
+      this.currentEvent = null;
+      this.advanceToNextFloorOrCheckpoint();
+      return { success: true };
+    }
+
+    return { success: false, message: '未知行動' };
+  }
+
+  // 隨機事件 (Module 4)
+  handleRandomEvent(hexNode) {
+    this.clearTimer();
+    this.state = 'EVENT';
+    const subTypes = ['WANDERING_MERCHANT', 'ALTAR', 'GAMBLE', 'REFORGE'];
+    const subType = typeof hexNode === 'string' ? hexNode : subTypes[((hexNode?.col ?? 1) * 3 + (hexNode?.row ?? 1)) % subTypes.length];
+    const leaderRole = this.getEffectiveLeaderRole();
+
+    this.currentEvent = {
+      type: 'random_event',
+      subType,
+      hexId: hexNode?.id,
+      col: hexNode?.col ?? 1,
+      title: subType === 'WANDERING_MERCHANT' ? '🏕️ 迷途流浪商人'
+        : subType === 'ALTAR' ? '⛩️ 古老深淵祭壇'
+        : subType === 'GAMBLE' ? '🎲 命運賭局'
+        : '⚒️ 黑鐵重鑄工坊',
+      story: subType === 'WANDERING_MERCHANT' ? '一名背負巨大行囊的流浪行者向你們招手，願意以物易物或分享前方情報。'
+        : subType === 'ALTAR' ? '一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。'
+        : subType === 'GAMBLE' ? '迷霧中擺著一張黑曜石牌桌，一名神秘的發牌人微笑著洗牌。'
+        : '一座地底矮人廢棄的鍛造台，殘存的爐火依然熾熱。',
+      canLeave: true
+    };
+    this.broadcastState();
+  }
+
+  handleRandomEventAction(socketId, rawAction, params = {}) {
+    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'random_event') {
+      return { success: false, message: '目前非隨機事件' };
+    }
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    const subType = this.currentEvent.subType;
+    const leaderRole = this.getEffectiveLeaderRole();
+    const action = String(rawAction || '').toLowerCase();
+
+    if (action === 'leave') {
+      this.addLog('小隊離開了事件據點，繼續向前推進。', 'info');
+      this.currentEvent = null;
+      this.advanceToNextFloorOrCheckpoint();
+      return { success: true };
+    }
+
+    if (subType === 'WANDERING_MERCHANT') {
+      if (action === 'info') {
+        const cost = (leaderRole === 'bard') ? 0 : 15;
+        if ((this.gold || 0) < cost) return { success: false, message: '金幣不足！' };
+        this.gold -= cost;
+        const targetCol = Math.min(9, (this.currentEvent.col || 1) + 1);
+        if (Array.isArray(this.hexMap?.[targetCol])) {
+          for (const node of this.hexMap[targetCol]) {
+            node.isScouted = true;
+          }
+        }
+        if (leaderRole === 'bard') {
+          this.addLog(`🎶 【變奏指揮】詩人隊長以美妙琴音打動商人，商人免費分享了前方第 ${targetCol} 層的全部情報！`, 'buff');
+        } else {
+          this.addLog(`🏕️ 小隊花費 15 金幣向流浪商人打探到了前方第 ${targetCol} 層的情報！`, 'info');
+        }
+        this.broadcastState();
+        return { success: true };
+      }
+
+      if (action === 'barter') {
+        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+          return { success: false, message: '小隊背包中沒有可供交換的裝備！' };
+        }
+        const removed = this.squadInventory.shift();
+        let gainedItem;
+        if (leaderRole === 'bard') {
+          gainedItem = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
+          this.addLog(`🎶 【變奏指揮】詩人隊長巧舌如簧，以【${removed.name}】換取了更高一階的【${gainedItem.name}】！`, 'loot');
+        } else {
+          gainedItem = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
+          this.addLog(`🏕️ 小隊以【${removed.name}】與商人交換了【${gainedItem.name}】！`, 'loot');
+        }
+        this.squadInventory.push(gainedItem);
+        this.broadcastState();
+        return { success: true, item: gainedItem };
+      }
+
+      if (action === 'reshape') {
+        if (leaderRole !== 'dreamweaver') return { success: false, message: '只有織夢術士隊長能重塑配飾！' };
+        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+          return { success: false, message: '小隊背包中沒有可供重塑的裝備！' };
+        }
+        const removed = this.squadInventory.shift();
+        const accPool = TIER2_EQUIPMENTS.filter(e => e.slot === EQUIP_SLOTS.ACCESSORY);
+        const gainedAcc = structuredClone(accPool[Math.floor(Math.random() * accPool.length)] || TIER2_EQUIPMENTS[1]);
+        this.squadInventory.push(gainedAcc);
+        this.addLog(`🌙 【共夢契約】織夢術士隊長編織幻象，將【${removed.name}】重塑為同階配飾【${gainedAcc.name}】！`, 'loot');
+        this.broadcastState();
+        return { success: true, item: gainedAcc };
+      }
+    }
+
+    if (subType === 'ALTAR') {
+      if (action === 'sacrifice' || action === 'pray') {
+        const hpLossRatio = (leaderRole === 'warrior') ? 0.10 : 0.20;
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0) {
+            const loss = Math.max(1, Math.floor(p.maxHp * hpLossRatio));
+            p.hp = Math.max(1, p.hp - loss);
+          }
+        }
+        const rewardItem = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
+        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+        if (this.squadInventory.length < 20) this.squadInventory.push(rewardItem);
+        for (const p of Object.values(this.players)) {
+          p.bonusAtk = (p.bonusAtk || 0) + 3;
+        }
+        if (leaderRole === 'warrior') {
+          this.addLog(`🛡️ 【堅守陣線】戰士隊長堅毅挺身，鮮血獻祭扣血減半！全員獲得 +3 永久攻擊力與【${rewardItem.name}】！`, 'loot');
+        } else {
+          this.addLog(`⛩️ 小隊完成了鮮血獻祭！全員扣除 20% 生命，獲得 +3 永久攻擊力與【${rewardItem.name}】！`, 'loot');
+        }
+        this.currentEvent = null;
+        this.advanceToNextFloorOrCheckpoint();
+        return { success: true, rewardItem };
+      }
+
+      if (action === 'desecrate') {
+        const goldGain = 60;
+        this.gold = (this.gold || 0) + goldGain;
+        const rewardItem = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
+        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+        if (this.squadInventory.length < 20) this.squadInventory.push(rewardItem);
+
+        if (leaderRole === 'onmyoji') {
+          this.addLog(`📜 【百鬼敕令】陰陽師隊長釋放淨化結界，全隊搜刮祭壇（獲得 60 金幣與【${rewardItem.name}】）且完全免疫減防詛咒！`, 'buff');
+        } else {
+          for (const p of Object.values(this.players)) {
+            p.warriorVulnerableTurns = 2;
+          }
+          this.addLog(`⛩️ 小隊褻瀆了祭壇，獲得 60 金幣與【${rewardItem.name}】，但受到了減防詛咒（下場戰鬥承傷 +20%）！`, 'warning');
+        }
+        this.currentEvent = null;
+        this.advanceToNextFloorOrCheckpoint();
+        return { success: true, goldGain, rewardItem };
+      }
+
+      if (action === 'purify') {
+        if (leaderRole !== 'paladin') return { success: false, message: '只有聖騎士隊長能執行聖光淨化！' };
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0) {
+            p.hp = Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.30));
+            p.tempHp = (p.tempHp || 0) + 15;
+          }
+        }
+        this.addLog('🛡️✨ 【不屈誓約】聖騎士隊長引導聖光淨化祭壇！免除一切代價為全員回復 30% 生命並附加 15 點護盾！', 'buff');
+        this.currentEvent = null;
+        this.advanceToNextFloorOrCheckpoint();
+        return { success: true };
+      }
+    }
+
+    if (subType === 'GAMBLE') {
+      if (action === 'coin' || action === 'bet') {
+        const betAmt = Number(params.amount ?? 30);
+        if ((this.gold || 0) < betAmt) return { success: false, message: `金幣不足 ${betAmt}！` };
+        this.gold -= betAmt;
+        const winChance = (leaderRole === 'sage') ? 0.70 : 0.50;
+        const win = (typeof params.win === 'boolean') ? params.win : Math.random() < winChance;
+        if (win) {
+          const winAmt = betAmt * 2;
+          this.gold += winAmt;
+          if (leaderRole === 'sage') {
+            this.addLog(`📐 【預設解】智者隊長精準演算概率，賭局大獲全勝！贏得 ${winAmt} 金幣！`, 'loot');
+          } else {
+            this.addLog(`🎲 幸運女神眷顧！賭金翻倍，贏得 ${winAmt} 金幣！`, 'loot');
+          }
+          this.broadcastState();
+          return { success: true, win: true };
+        } else {
+          this.addLog(`🎲 押注失敗，${betAmt} 金幣被發牌人收走……`, 'warning');
+          this.broadcastState();
+          return { success: true, win: false };
+        }
+      }
+
+      if (action === 'box') {
+        if ((this.gold || 0) < 50) return { success: false, message: '金幣不足 50！' };
+        this.gold -= 50;
+        const breakChance = (leaderRole === 'sage') ? 0.0 : 0.50;
+        const isBroken = (typeof params.isBroken === 'boolean') ? params.isBroken : Math.random() < breakChance;
+        if (!isBroken) {
+          const item = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
+          if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+          if (this.squadInventory.length < 20) this.squadInventory.push(item);
+          if (leaderRole === 'sage') {
+            this.addLog(`📐 【預設解】智者隊長完全排除盲盒碎裂風險，成功開出【${item.name}】！`, 'loot');
+          } else {
+            this.addLog(`🎲 盲盒中開出了珍貴的【${item.name}】！`, 'loot');
+          }
+          this.broadcastState();
+          return { success: true, item };
+        } else {
+          this.addLog('🎲 盲盒開啟時碎成了一堆無用瓦礫……', 'warning');
+          this.broadcastState();
+          return { success: true, isBroken: true };
+        }
+      }
+
+      if (action === 'hp_gamble') {
+        if (leaderRole !== 'gladiator') return { success: false, message: '只有角鬥士隊長能押注生命！' };
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0) p.hp = Math.max(1, Math.floor(p.hp * 0.80));
+        }
+        const win = (typeof params.win === 'boolean') ? params.win : Math.random() < 0.60;
+        if (win) {
+          this.gold = (this.gold || 0) + 80;
+          const item = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
+          if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+          if (this.squadInventory.length < 20) this.squadInventory.push(item);
+          this.addLog(`⚔️ 【榮耀號角】角鬥士隊長以熱血為注豪賭獲勝！獲得 80 金幣與【${item.name}】！`, 'loot');
+          this.broadcastState();
+          return { success: true, win: true, item };
+        } else {
+          this.addLog('⚔️ 【榮耀號角】血氣押注未果，小隊損失了生命……', 'warning');
+          this.broadcastState();
+          return { success: true, win: false };
+        }
+      }
+    }
+
+    if (subType === 'REFORGE') {
+      if (action === 'reforge_weapon' || action === 'reforge') {
+        const cost = (leaderRole === 'mage') ? 15 : 30;
+        if ((this.gold || 0) < cost) return { success: false, message: `金幣不足 ${cost}！` };
+        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+          return { success: false, message: '小隊背包中沒有裝備可供重鑄！' };
+        }
+        this.gold -= cost;
+        const target = this.squadInventory[0];
+        const boostMultiplier = (leaderRole === 'samurai') ? 0.40 : 0.25;
+        const atkBoost = Math.max(3, Math.round((target.bonusAtk || 4) * boostMultiplier));
+        target.bonusAtk = (target.bonusAtk || 0) + atkBoost;
+        target.name = `精煉的 ${target.name}`;
+
+        if (leaderRole === 'samurai') {
+          this.addLog(`⚔️ 【拔刀號令】武士隊長親自淬火，【${target.name}】獲得 +40% 超常增幅 (+${atkBoost} 攻擊)！`, 'loot');
+        } else if (leaderRole === 'mage') {
+          this.addLog(`🪄 【奧術共鳴】法師隊長以半價 (15G) 強化了【${target.name}】(+${atkBoost} 攻擊)！`, 'loot');
+        } else {
+          this.addLog(`⚒️ 重鑄成功！【${target.name}】攻擊力提升 +${atkBoost}！`, 'loot');
+        }
+        this.broadcastState();
+        return { success: true, item: target };
+      }
+
+      if (action === 'convert_magic') {
+        if (leaderRole !== 'mage') return { success: false, message: '只有法師隊長能轉換武器屬性！' };
+        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+          return { success: false, message: '小隊背包中沒有裝備可供轉換！' };
+        }
+        const target = this.squadInventory[0];
+        target.isMagic = true;
+        target.name = `附魔的 ${target.name}`;
+        this.addLog(`🪄 【奧術共鳴】法師隊長注入奧術結晶，成功將【${target.name}】轉換為魔法武器！`, 'buff');
+        this.broadcastState();
+        return { success: true, item: target };
+      }
+    }
+
+    return { success: false, message: '未知行動' };
+  }
+
+  // ==========================================
+  // Module 6：隊長技系統
+  // ==========================================
+
+  getEffectiveLeaderId() {
+    return this.lockedLeaderId || this.leaderId;
+  }
+
+  getEffectiveLeaderRole() {
+    return this.lockedLeaderRole || null;
+  }
+
+  getEffectiveLeaderSkill() {
+    const role = this.getEffectiveLeaderRole();
+    return role ? LEADER_SKILLS[role] : null;
+  }
+
+  handleLeaderTransferOnBattleStart() {
+    if (this.pendingLeaderTransfer) {
+      this.lockedLeaderId = this.leaderId;
+      this.lockedLeaderRole = this.players[this.leaderId]?.role;
+      this.pendingLeaderTransfer = false;
+      const roleName = CLASSES[this.lockedLeaderRole]?.name || this.lockedLeaderRole;
+      this.addLog(`👑 【隊長技繼承】新隊長 **${this.players[this.leaderId]?.name || '新隊長'}**（${roleName}）的隊長光環正式生效！`, 'info');
+    }
+    this.leaderSkillUsedThisBattle = false;
+    this.warriorLeaderGuarded = false;
+    this.assassinLeaderFlawApplied = false;
+    this.samuraiLeaderCounterPursuitDone = false;
+    this.sageLeaderRetried = false;
+    this.druidLeaderShieldGiven = false;
+    this.bardPriorityActive = false;
+  }
+
+  useLeaderSkill(socketId, options = {}) {
+    if (socketId !== this.getEffectiveLeaderId()) {
+      return { success: false, message: '只有當前具備資格的隊長能使用隊長技！' };
+    }
+    if (this.state !== 'IN_BATTLE') {
+      return { success: false, message: '隊長技只能在戰鬥中使用！' };
+    }
+    if (this.leaderSkillUsedThisBattle) {
+      return { success: false, message: '每場戰鬥隊長技只能使用一次！' };
+    }
+    const skill = this.getEffectiveLeaderSkill();
+    if (!skill) return { success: false, message: '無可用的隊長技' };
+    if (skill.type !== 'ACTIVE') {
+      return { success: false, message: '此隊長技為被動技能，戰鬥中會自動生效！' };
+    }
+
+    const leader = this.players[socketId];
+    const role = skill.role;
+
+    if (role === 'mage') {
+      const target = this.players[options.targetPlayerId] || leader;
+      target.magePierceNextMagic = true;
+      this.addLog(`✨ 【奧術共鳴】法師隊長引導奧術能量灌注 **${target.name}**，下一次魔法攻擊無視 50% 魔法抗性！`, 'buff');
+    } else if (role === 'archer') {
+      const targetEnemy = this.getTargetEnemy(options.targetEnemyId);
+      if (targetEnemy) targetEnemy.isMarkedByArcherLeader = true;
+      this.addLog(`🎯 【獵殺標記】弓箭手隊長鎖定標記了 **${targetEnemy?.name || '敵方目標'}**，隊伍下一輪首次攻擊必定命中無視閃避！`, 'buff');
+    } else if (role === 'bard') {
+      this.bardPriorityActive = true;
+      this.addLog('🎵 【變奏指揮】詩人隊長彈奏狂想曲！全體隊員攻擊將在敵方行動前優先結算！', 'buff');
+    } else if (role === 'alchemist') {
+      const potion = options.potionType || 'defense';
+      if (potion === 'defense') {
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0) {
+            p.tempHp = (p.tempHp || 0) + 20;
+            p.alcPotionDefTurns = 2;
+          }
+        }
+        this.addLog('🧪 【戰地調配】煉金隊長投擲全效防禦藥劑！全員獲得 20 點護盾與 15% 減傷（2 回合）！', 'buff');
+      } else {
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0) {
+            p.bonusAtk = (p.bonusAtk || 0) + 8;
+            p.alcPotionAtkTurns = 2;
+            p.alcPotionDot = true;
+          }
+        }
+        this.addLog('🧪 【戰地調配】煉金隊長投擲腐蝕進攻藥劑！全員攻擊 +8 且普通攻擊附帶 DoT（2 回合）！', 'buff');
+      }
+    } else if (role === 'paladin') {
+      const target = this.players[options.targetPlayerId] || leader;
+      target.paladinFatalGuard = true;
+      this.addLog(`🛡️✨ 【不屈誓約】聖騎士隊長為 **${target.name}** 施加致命守護，受到致死打擊時生命保留 1 點！`, 'buff');
+    } else if (role === 'stargazer') {
+      for (const p of Object.values(this.players)) {
+        if (p.cooldowns) {
+          for (const k of Object.keys(p.cooldowns)) {
+            p.cooldowns[k] = Math.max(0, p.cooldowns[k] - 1);
+          }
+        }
+      }
+      const roundsUntilUlt = 3 - (this.battleRound % 3);
+      this.addLog(`🌟 【星軌先見】觀星者隊長逆轉星盤！全體技能 CD 減少 1 回合，並預見魔物將在 ${roundsUntilUlt} 回合後釋放必殺技！`, 'buff');
+    } else if (role === 'dreamweaver') {
+      const target = this.players[options.targetPlayerId] || leader;
+      target.dreamDamageDelayActive = true;
+      this.addLog(`🌙 【共夢契約】織夢術士隊長鏈接夢境，**${target.name}** 本回合受到的 50% 傷害將延後至次回合！`, 'buff');
+    } else if (role === 'augur') {
+      const target = this.players[options.targetPlayerId] || leader;
+      target.augurAbsolutePositive = true;
+      this.addLog(`🔮 【命運宣告】卜者隊長命運干涉！**${target.name}** 本回合機率判定獲得絕對正面結果且免除命債！`, 'buff');
+    } else if (role === 'onmyoji') {
+      const targetEnemy = this.getTargetEnemy(options.targetEnemyId);
+      if (targetEnemy) targetEnemy.talismansLockedTurns = 1;
+      this.addLog(`📜 【百鬼敕令】陰陽師隊長敕令符咒封印，**${targetEnemy?.name || '目標'}** 身上所有符咒在下次脫落判定時全數鎖定保留！`, 'buff');
+    }
+
+    this.leaderSkillUsedThisBattle = true;
+    this.broadcastState();
+    return { success: true };
+  }
+
+  // ==========================================
+  // Module 5：深淵遭遇與四階段對話系統
+  // ==========================================
+
+  checkAbyssEncounterTrigger(hexNode, options = {}) {
+    if (this.hasTriggeredAbyss && !options.forceAbyss) return false;
+    const col = hexNode?.col ?? this.currentHex?.col ?? 1;
+    if (col < 4 || col > 8) return false;
+    if (this.memberIds.length < 4 && !options.forceAbyss) return false;
+    if (hexNode && hexNode.type && hexNode.type !== 'BATTLE' && !options.forceAbyss) return false;
+
+    const unpickedPool = this.getUnpickedAbyssBossPool();
+    if (!unpickedPool || unpickedPool.length === 0) return false;
+
+    const roll = (typeof options.triggerRoll === 'number') ? options.triggerRoll : Math.random();
+    if (options.forceAbyss || roll < 0.35) {
+      const bossTmpl = unpickedPool[Math.floor(Math.random() * unpickedPool.length)];
+      this.startAbyssDialogue(bossTmpl, hexNode);
+      return true;
+    }
+    return false;
+  }
+
+  startAbyssDialogue(bossTemplate, hexNode) {
+    this.clearTimer();
+    this.state = 'ABYSS_DIALOGUE';
+    this.hasTriggeredAbyss = true;
+    const bossRole = bossTemplate.role;
+    const stage1Text = ABYSS_DIALOGUES.bossDialogues[bossRole]?.stage1 || bossTemplate.desc;
+
+    this.abyssState = {
+      stage: 1,
+      bossRole,
+      bossTemplate,
+      bossName: bossTemplate.name,
+      bossAvatar: bossTemplate.avatar,
+      bossDesc: bossTemplate.desc,
+      hexId: hexNode?.id,
+      col: hexNode?.col ?? 5,
+      dialogueText: stage1Text,
+      votes: {},
+      chosenChoice: null,
+      modifiers: { atkMod: 0, defMod: 0 }
+    };
+
+    this.addLog(`🌑 【深淵異變】迷霧深處湧出刺骨黑霧……昔日被留在大廳的同伴【${bossTemplate.name}】緩緩浮現！`, 'warning');
+    this.broadcastState();
+  }
+
+  advanceAbyssDialogue(socketId) {
+    if (this.state !== 'ABYSS_DIALOGUE' || !this.abyssState) {
+      return { success: false, message: '非深淵對話狀態' };
+    }
+    const stage = this.abyssState.stage;
+    const bossRole = this.abyssState.bossRole;
+
+    if (stage === 1) {
+      this.abyssState.stage = 2;
+      const leaderRole = this.getEffectiveLeaderRole();
+      const leaderDiff = ABYSS_DIALOGUES.bossDialogues[bossRole]?.leaderDiff?.[leaderRole];
+      this.abyssState.dialogueText = leaderDiff || ABYSS_DIALOGUES.bossDialogues[bossRole]?.stage2 || '……';
+      this.broadcastState();
+      return { success: true, stage: 2 };
+    }
+
+    if (stage === 2) {
+      this.abyssState.stage = 3;
+      this.abyssState.choices = ABYSS_DIALOGUES.choices;
+      this.abyssState.votes = {};
+      this.broadcastState();
+      return { success: true, stage: 3 };
+    }
+
+    if (stage === 4) {
+      this.completeAbyssDialogue();
+      return { success: true, stage: 'battle' };
+    }
+
+    return { success: false, message: '當前階段無法直接前進' };
+  }
+
+  voteAbyssChoice(socketId, choiceId) {
+    if (this.state !== 'ABYSS_DIALOGUE' || !this.abyssState || this.abyssState.stage !== 3) {
+      return { success: false, message: '目前非深淵抉擇投票階段' };
+    }
+    const player = this.players[socketId];
+    if (!player || player.hp <= 0) return { success: false, message: '玩家無法投票' };
+
+    const validChoice = ABYSS_DIALOGUES.choices.find(c => c.id === choiceId);
+    if (!validChoice) return { success: false, message: '無效的選項' };
+
+    this.abyssState.votes[socketId] = choiceId;
+    this.broadcastState();
+
+    const living = Object.values(this.players).filter(p => p.hp > 0 && p.connected);
+    const allVoted = living.length > 0 && living.every(p => Boolean(this.abyssState.votes[p.id]));
+
+    if (allVoted) {
+      this.resolveAbyssChoiceVote();
+    }
+    return { success: true };
+  }
+
+  resolveAbyssChoiceVote() {
+    if (!this.abyssState || this.abyssState.stage !== 3) return;
+    const counts = { apology: 0, rational: 0, provoke: 0 };
+    for (const cid of Object.values(this.abyssState.votes || {})) {
+      if (counts[cid] !== undefined) counts[cid] += 1;
+    }
+    let max = -1;
+    let winner = 'rational';
+    for (const [cid, count] of Object.entries(counts)) {
+      if (count > max) {
+        max = count;
+        winner = cid;
+      }
+    }
+
+    const choiceObj = ABYSS_DIALOGUES.choices.find(c => c.id === winner) || ABYSS_DIALOGUES.choices[1];
+    this.abyssState.chosenChoice = winner;
+    this.abyssState.modifiers = {
+      atkMod: choiceObj.atkMod,
+      defMod: choiceObj.defMod
+    };
+
+    const bossRole = this.abyssState.bossRole;
+    this.abyssState.stage = 4;
+    this.abyssState.dialogueText = ABYSS_DIALOGUES.bossDialogues[bossRole]?.stage3 || '……';
+    this.abyssFlashRedEye = true;
+    this.addLog(`🌑 小隊選擇了【${choiceObj.label}】！(${choiceObj.desc})`, 'warning');
+    this.broadcastState();
+
+    if (this.io && this.code) {
+      this.io.to(this.code).emit('abyss:red_eye_flash', {
+        bossName: this.abyssState.bossName,
+        choice: choiceObj
+      });
+    }
+
+    setTimeout(() => {
+      this.abyssFlashRedEye = false;
+      this.broadcastState();
+    }, 1500);
+  }
+
+  completeAbyssDialogue() {
+    if (!this.abyssState) return;
+    const bossTmpl = this.abyssState.bossTemplate;
+    const modifiers = this.abyssState.modifiers;
+    const col = this.abyssState.col;
+    this.abyssState = null;
+    this.abyssFlashRedEye = false;
+
+    this.handleBattleEvent(null, false, {
+      abyssBoss: bossTmpl,
+      abyssModifiers: modifiers,
+      col
+    });
+  }
+
   // 戰鬥結算
   resolveTurnActions() {
     this.clearTimer();
     this.selectionState = 'RESOLVING';
     this.isNarrating = true;
-    const monster = this.currentMonster;
+    this.refreshPrimaryMonster();
+    let monster = this.currentMonster;
     const log = [];
     const visualEvents = [];
     const narratives = [];
@@ -2175,6 +3956,9 @@ export class Room {
 
     // 重設本回合催眠狀態
     this.monsterStunnedThisRound = false;
+    for (const e of (this.enemies || [])) {
+      if (e) e.stunnedThisRound = false;
+    }
 
     // 1. 詩人增傷 50% / 狂亂殺戮曲 70%
     for (const p of Object.values(this.players)) {
@@ -2200,7 +3984,8 @@ export class Room {
 
     let phase8Actor = null;
     const applyResistanceDamage = (rawDmg, dmgType, options = {}) => {
-      if(monster.hp<=0)return {dmg:0,isResisted:false,resistPercent:0};
+      const targetEnemy = options.enemy || monster;
+      if(!targetEnemy || targetEnemy.hp<=0 || targetEnemy.untargetableThisRound)return {dmg:0,isResisted:false,resistPercent:0};
       this.p8BossOutcome=null;
       const presentationCue={};this.p8DamagePresentationOutcomes?.push(presentationCue);
       if (!options.equation && dmgType!=='true') {
@@ -2212,24 +3997,37 @@ export class Room {
         const triumphActor=options.actor||phase8Actor;
         const triumph=this.p8Has(triumphActor,'triumph');
         if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
-        if(this.p8Has(monster,'dissociate') || (this.p8Has(monster,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
-        const corrodeStacks = (monster.talismans || []).filter(t => t === 'corrode').length;
+        if(this.p8Has(targetEnemy,'dissociate') || (this.p8Has(targetEnemy,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
+        const corrodeStacks = (targetEnemy.talismans || []).filter(t => t === 'corrode').length;
         if(corrodeStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * corrodeStacks));
       }
       rawDmg=this.augmentOmenDamage(rawDmg);
       if(options.equation&&rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
-      const dream=this.p8DreamDamage(monster,rawDmg);
+      const dream=this.p8DreamDamage(targetEnemy,rawDmg);
       if(dream) {
         this.p8BossOutcome=dream.outcome;
         presentationCue.type=dream.outcome;
         return {dmg:dream.damage,isResisted:false,resistPercent:0};
       }
-      if(this.arena || dmgType==='true' || options.penetration===1)return {dmg:Math.max(0,Math.floor(rawDmg)),isResisted:false,resistPercent:0};
-      const mirrored = Boolean(this.p8Has(monster, 'mirror'));
-      const type = dmgType === 'phys' ? (mirrored ? 'magic' : 'physical') : (mirrored ? 'physical' : 'magic');
-      const resistPercent = Math.max(0, getBossResistance(monster, type) - (bardBuffActive && !options.equation ? 5 : 0)) * (1 - (options.penetration || 0));
-      const finalDmg = Math.floor(rawDmg * (1 - resistPercent / 100));
-      return { dmg: Math.max(1, finalDmg), isResisted: resistPercent > 0, resistPercent };
+      let computedDmg;
+      let isResisted = false;
+      let resistPercent = 0;
+      if(this.arena || dmgType==='true' || options.penetration===1) {
+        computedDmg = Math.max(0,Math.floor(rawDmg));
+      } else {
+        const mirrored = Boolean(this.p8Has(targetEnemy, 'mirror'));
+        const type = dmgType === 'phys' ? (mirrored ? 'magic' : 'physical') : (mirrored ? 'physical' : 'magic');
+        resistPercent = Math.max(0, getBossResistance(targetEnemy, type) - (bardBuffActive && !options.equation ? 5 : 0)) * (1 - (options.penetration || 0));
+        const finalDmg = Math.floor(rawDmg * (1 - resistPercent / 100));
+        computedDmg = Math.max(1, finalDmg);
+        isResisted = resistPercent > 0;
+      }
+      if ((targetEnemy.tempHp || 0) > 0 && computedDmg > 0) {
+        const absorbed = Math.min(targetEnemy.tempHp, computedDmg);
+        targetEnemy.tempHp -= absorbed;
+        computedDmg = Math.max(0, computedDmg - absorbed);
+      }
+      return { dmg: computedDmg, isResisted, resistPercent };
     };
 
     // Owner follow-up retains the existing damage formula and one hit per living minion.
@@ -2276,8 +4074,14 @@ export class Room {
 
     const baseBardDmgMultiplier = bardDmgMultiplier;
     for (const p of sortedPlayers) {
-      if (monster.hp <= 0) break;
+      if (this.getLivingEnemies().length === 0) break;
       if (arenaRoundPlayerId && arenaRoundPlayerId !== p.id) continue;
+      const targetEnemy = this.getTargetEnemy(p.targetEnemyId);
+      if (targetEnemy) {
+        this.currentMonster = targetEnemy;
+        monster = targetEnemy;
+      }
+      if (!monster || monster.hp <= 0) break;
       const gloryBuff = (p.p8Shields || []).some(s => s.kind === 'paladin_glory' && s.value > 0 && s.until >= this.battleRound) ? 1.20 : 1.0;
       bardDmgMultiplier = baseBardDmgMultiplier * gloryBuff;
       phase8Actor=p; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
@@ -2665,6 +4469,13 @@ export class Room {
             log.push({ text: `🏹 **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}${attackReduced ? '並削弱怪物 10 點攻擊' : '；怪物免疫攻擊降低'}！`, type: 'combat' });
           }
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '箭雨壓制' });
+          for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
+            const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(raw, 'mag', { enemy: otherEnemy });
+            otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);
+            const otherResNote = otherResisted ? ` (🔮抗性減免${otherResPct}%)` : '';
+            log.push({ text: `🏹 **${p.name}** 的【箭雨壓制】同時波及 **${otherEnemy.name}**，造成 **${otherDmg}** 點【魔法】傷害！${otherResNote}`, type: 'combat' });
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: otherEnemy.instanceId, targetEnemyId: otherEnemy.instanceId, isSecondaryEnemy: true, dmgType: 'mag', value: otherDmg, isCrit: false, label: '箭雨壓制' });
+          }
           break;
         }
         case 'a_reload': {
@@ -2776,15 +4587,16 @@ export class Room {
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const isStun = this.intervenePositive(p, '催眠夜曲・深度催眠', 30).success && this.monsterAllowsEffect('催眠');
+          const isStun = this.intervenePositive(p, '催眠夜曲・深度催眠', 30).success && this.monsterAllowsEffect('催眠', monster);
           if (isStun) {
             actionOutcome = { type: 'sleep', label: '催眠成功' };
-            this.monsterStunnedThisRound = true;
+            monster.stunnedThisRound = true;
+            this.monsterStunnedThisRound = this.getLivingEnemies().every(e => e.stunnedThisRound);
             log.push({ text: `🪕💤 **${p.name}** 奏響【催眠夜曲】，造成 **${dmg}** 點【魔法】傷害${resNote}！魔性琴音成功催眠 **${monster.name}**，使其本回合無法行動！`, type: 'combat' });
           } else {
             log.push({ text: `🪕 **${p.name}** 奏響【催眠夜曲】，造成 **${dmg}** 點【魔法】傷害！${resNote}`, type: 'combat' });
           }
-          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '催眠夜曲' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: dmg, isCrit: false, label: '催眠夜曲' });
           break;
         }
         case 'b_frenzy': {
@@ -3261,6 +5073,22 @@ export class Room {
             pal.paladinGloryTrackedDamage = (pal.paladinGloryTrackedDamage || 0) + monsterHpDelta;
           }
         }
+        // 深淵角鬥士【狂怒疊層】：每次受到傷害攻擊力提升
+        if (monster.abyssMechanics?.passiveRageAtkPerStack) {
+          monster.abyssRageStacks = (monster.abyssRageStacks || 0) + 1;
+        }
+        // 深淵聖騎士【荊棘聖盾】：反彈 20% 傷害
+        if (monster.abyssMechanics?.passiveReflectRatio && p.hp > 0) {
+          const reflectDmg = Math.max(1, Math.floor(monsterHpDelta * monster.abyssMechanics.passiveReflectRatio));
+          this.applyDamageToPlayer(p, reflectDmg, { kind: 'abyss_reflect' });
+          log.push({ text: `🛡️⚡ **${monster.name}** 的【荊棘聖盾】反彈了 **${reflectDmg}** 點真實傷害予 **${p.name}**！`, type: 'damage' });
+        }
+        // 深淵武士【見切反擊】：25% 機率反擊
+        if (monster.abyssMechanics?.passiveCounterChance && monster.hp > 0 && p.hp > 0 && Math.random() < monster.abyssMechanics.passiveCounterChance) {
+          const counterDmg = monster.abyssMechanics.passiveCounterDmg || 8;
+          this.applyDamageToPlayer(p, counterDmg, { kind: 'abyss_counter' });
+          log.push({ text: `⚔️⚡ **${monster.name}** 觸發【見切反擊】，瞬間拔刀對 **${p.name}** 造成 **${counterDmg}** 點傷害！`, type: 'damage' });
+        }
       }
       const finalDamage = attackVisual ? attackVisual.value : monsterHpDelta;
       const damageType = attackVisual?.dmgType === 'mag' ? 'magic' : 'physical';
@@ -3275,6 +5103,7 @@ export class Room {
       const actionAfter = this.getHpSnapshot();
       const actionCategory = p8Action?.category || SKILL_CATEGORIES[p.action] || 'OFFENSIVE';
       stepVisuals.filter(event=>event.type==='player_attack').forEach((event,i)=>{
+        if (!event.targetEnemyId) event.targetEnemyId = monster.instanceId;
         const cue=this.p8DamagePresentationOutcomes[i];if(cue?.type)event.outcome={type:cue.type};
       });
       const actionResults = this.p8Results || buildActionResults({ outcome: actionOutcome, category: actionCategory, sourceId: p.id, cleansedSnapshot: this.actionCleansedSnapshot }, actionBefore, actionAfter, stepVisuals, this.actionHeals);
@@ -3298,6 +5127,7 @@ export class Room {
           operandDelta:p.sageOperand-(snapshotTarget(actionBefore,p.id)?.sageOperand||0)
         }}:{}),
         monsterName: monster.name, monsterAvatar: monster.avatar,
+        targetEnemyId: monster.instanceId,
         type: 'player_action', hiddenBeforeAction, consumedStacks,
         sourceId: p.id,
         sourceName: p.name,
@@ -3353,10 +5183,10 @@ export class Room {
           sourceId: p.id, sourceName: p.name, sourceRole: p.role, druidForm: p.druidForm,
           actionId: 'dru_claw', skillName: '狼人強化普攻', detail,
           outcome: { type: 'critical', label: 'CRITICAL' }, isCritical: true,
-          targetId: 'monster', targetName: monster.name, monsterName: monster.name, monsterAvatar: monster.avatar,
+          targetId: 'monster', targetEnemyId: monster.instanceId, targetName: monster.name, monsterName: monster.name, monsterAvatar: monster.avatar,
           finalDamage: dmg, damageType: 'physical', isLethal: monster.hp <= 0,
           hpSnapshotBefore: before, hpSnapshot: after,
-          results: [{ kind: 'damage', targetId: 'monster', finalDamage: dmg,
+          results: [{ kind: 'damage', targetId: 'monster', targetEnemyId: monster.instanceId, finalDamage: dmg,
             targetBefore: before.monster, targetAfter: after.monster, damageType: 'physical',
             outcome: { type: 'critical', label: 'CRITICAL' }, hpSnapshot: after }]
         });
@@ -3395,6 +5225,7 @@ export class Room {
         const minionResults = [{
           kind: 'damage',
           targetId: 'monster',
+          targetEnemyId: monster.instanceId,
           minion: structuredClone(m),
           targetBefore,
           targetAfter,
@@ -3410,6 +5241,7 @@ export class Room {
           skillName: `${m.name}突擊`,
           outcome: { type: 'normal' },
           targetId: 'monster',
+          targetEnemyId: monster.instanceId,
           targetName: monster.name,
           monsterName: monster.name,
           monsterAvatar: monster.avatar,
@@ -3424,14 +5256,20 @@ export class Room {
       this.resolveAssassinFollowUps(p, presentationQueue, log, bardDmgMultiplier, applyResistanceDamage);
 
       if (monster.hp <= 0) {
-        presentationQueue.push({
-          type: 'kill',
-          monsterName: monster.name,
-          narrative: this.studioContent.text('event.victory',`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,{boss:monster.name}),
-          visualEvents: [{ type: 'monster_killed' }],
-          hpSnapshot: this.getHpSnapshot()
-        });
-        break; // 擊殺怪物跳出玩家行動
+        if (this.getLivingEnemies().length === 0) {
+          presentationQueue.push({
+            type: 'kill',
+            monsterName: monster.name,
+            narrative: this.studioContent.text('event.victory',`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,{boss:monster.name}),
+            visualEvents: [{ type: 'monster_killed', targetEnemyId: monster.instanceId }],
+            hpSnapshot: this.getHpSnapshot()
+          });
+          break; // 全數敵人擊殺，跳出玩家行動
+        } else {
+          log.push({ text: `💀 **${monster.name}** 已被擊倒！戰場上仍有 **${this.getLivingEnemies().length}** 名敵人存活！`, type: 'combat' });
+          this.refreshPrimaryMonster();
+          monster = this.currentMonster;
+        }
       }
     }
     bardDmgMultiplier = baseBardDmgMultiplier;
@@ -3488,7 +5326,9 @@ export class Room {
     }
 
     // 5. 判定怪物擊殺與勝負判定
-    if (monster.hp <= 0) {
+    this.refreshPrimaryMonster();
+    monster = this.currentMonster;
+    if (this.getLivingEnemies().length === 0) {
       narratives.push({
         type: 'kill',
         name: monster.name,
@@ -3497,394 +5337,500 @@ export class Room {
       // Phase 5.1: 怪物已死亡，嚴禁提前 return 或跳過 presentation_queue！
       // 致命一擊與擊殺演出必須由客戶端依序播放完畢並發送 ACK，再由 finishTurnPresentation() 統一過渡至勝利階段。
     } else {
-    // 6. 怪物反擊結算 (僅在怪物存活時結算)
-    const bossBefore = this.getHpSnapshot();
-    const bossAugurReactionIndex=this.augurReactions.length;
-    const interceptResults = [];
+    // 6. 怪物反擊結算 (對場上所有存活敵人依序結算反擊)
+    const actingEnemies = this.getLivingEnemies();
     const isUltTurn = (this.battleRound % 3 === 0);
-    const monsterHits = [];
-    let aoeDmgRaw = 0;
-    const scatterHits = {};
     let shieldDamageMod = 1.0;
+    if (this.warriorShieldTurn === 1) {
+      shieldDamageMod = 0.1;
+      log.push({ text: `🛡️ **【壁壘守護】本回合為全隊阻擋了 90% 的衝擊！**`, type: 'buff' });
+    } else if (this.warriorShieldTurn === 2) {
+      shieldDamageMod = 0.6;
+      log.push({ text: `🛡️ **【壁壘守護】餘威為全隊阻擋了 40% 的傷害！**`, type: 'buff' });
+    }
+    let alcShieldMod = (this.alcShieldTurns > 0) ? 0.30 : 1.0;
+    let alcVulnMod = (this.alcVulnerableTurns > 0) ? 1.20 : 1.0;
 
-    if (this.monsterStunnedThisRound) {
-      this.monsterStunnedThisRound = false;
-      const stunNarrative = `💤 **${monster.name}** 受到【催眠夜曲】深度催眠，沉沉睡去無法發動反擊！`;
-      narratives.push({
-        type: 'monster',
-        name: monster.name,
-        isUlt: false,
-        text: stunNarrative
-      });
-      log.push({ text: stunNarrative, type: 'info' });
-      visualEvents.push({
-        type: 'monster_stunned',
-        monsterName: monster.name
-      });
-    } else {
-      let baseDamageCalc = monster.attack;
-      if(this.p8Has(monster,'frenzy_backfire'))baseDamageCalc=Math.floor(baseDamageCalc*1.1);
-      if(!this.arena && this.p8Has(monster,'sage_square')?.starts<=this.battleRound)baseDamageCalc=Math.floor(baseDamageCalc*.75);
-      if(monster.corrosionTurns > 0)baseDamageCalc=Math.floor(baseDamageCalc*0.95);
+    for (const actingEnemy of actingEnemies) {
+      if (actingEnemy.hp <= 0) continue;
+      if (Object.values(this.players).every(p => p.hp <= 0)) break;
+      monster = actingEnemy;
+      this._currentMonster = actingEnemy;
 
-      // 惑心符：目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身。
-      const confuseCount = (monster.talismans || []).filter(t => t === 'confuse').length;
-      if (confuseCount > 0) {
-        let totalBacklashDmg = 0;
-        let totalRatioPercent = 0;
-        const attackDmg = Math.max(1, baseDamageCalc);
-        for (let i = 0; i < confuseCount; i++) {
-          const ratio = typeof monster.talismanConfuseRatio === 'number'
-            ? monster.talismanConfuseRatio
-            : (0.50 + Math.random() * 0.50);
-          const dmg = Math.max(1, Math.round(attackDmg * ratio));
-          totalBacklashDmg += dmg;
-          totalRatioPercent += Math.round(ratio * 100);
-        }
-        if (totalBacklashDmg > 0) {
-          monster.hp = Math.max(0, monster.hp - totalBacklashDmg);
-          const ratioText = confuseCount > 1 ? `（${confuseCount} 重惑心，共 ${totalRatioPercent}%）` : `（${totalRatioPercent}%）`;
-          log.push({ text: `📜🌀 **【惑心符】** 心智混亂！魔物出手時將造成的傷害${ratioText}作用在自身，反噬受到 **${totalBacklashDmg}** 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-          visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
-        }
-      }
+      const bossBefore = this.getHpSnapshot();
+      const bossAugurReactionIndex = this.augurReactions.length;
+      const interceptResults = [];
+      const monsterHits = [];
+      let aoeDmgRaw = 0;
+      const scatterHits = {};
+      const isEnemyStunned = Boolean(actingEnemy.stunnedThisRound || this.monsterStunnedThisRound);
+      actingEnemy.stunnedThisRound = false;
 
-      // 封勁符：目標有 100% 機率在當前回合完全不造成任何傷害。
-      const sealCount = (monster.talismans || []).filter(t => t === 'seal').length;
-      let sealTriggered = Boolean(monster.sealedThisRound) || sealCount > 0;
-      if (sealTriggered && !monster.sealedThisRound) {
-        log.push({ text: `📜🔒 **【封勁符】** 咒印爆發！封鎖了魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
-      }
-
-      const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
-        normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
-        ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
-      };
-      const monsterNarrative = isUltTurn ? monsterTemplate.ult : monsterTemplate.normal;
-      narratives.push({
-        type: 'monster',
-        name: monster.name,
-        isUlt: isUltTurn,
-        text: monsterNarrative
-      });
-
-      if (isUltTurn) {
-        baseDamageCalc = Math.floor(baseDamageCalc * 1.35);
-        log.push({ text: monsterNarrative, type: 'warning' });
+      if (isEnemyStunned) {
+        const stunNarrative = `💤 **${monster.name}** 受到【催眠夜曲】深度催眠，沉沉睡去無法發動反擊！`;
+        narratives.push({
+          type: 'monster',
+          name: monster.name,
+          isUlt: false,
+          text: stunNarrative
+        });
+        log.push({ text: stunNarrative, type: 'info' });
+        visualEvents.push({
+          type: 'monster_stunned',
+          monsterName: monster.name,
+          targetEnemyId: monster.instanceId
+        });
       } else {
-        log.push({ text: monsterNarrative, type: 'combat' });
-      }
+        let baseDamageCalc = monster.attack;
+        if(this.p8Has(monster,'frenzy_backfire'))baseDamageCalc=Math.floor(baseDamageCalc*1.1);
+        if(!this.arena && this.p8Has(monster,'sage_square')?.starts<=this.battleRound)baseDamageCalc=Math.floor(baseDamageCalc*.75);
+        if(monster.corrosionTurns > 0)baseDamageCalc=Math.floor(baseDamageCalc*0.95);
 
-      const effectiveBaseAtk = sealTriggered ? 0 : Math.max(5, baseDamageCalc - monsterAttackReduction);
-      aoeDmgRaw = sealTriggered ? 0 : Math.max(1, Math.floor(effectiveBaseAtk * 0.5));
-      const scatterDmgPool = sealTriggered ? 0 : Math.max(0, effectiveBaseAtk - aoeDmgRaw);
+        // 深淵轉化敵人專屬回合與大招加成
+        if (monster.abyssMechanics) {
+          const mech = monster.abyssMechanics;
+          if (isUltTurn && mech.ultShieldMaxHpRatio) {
+            const shieldAmt = Math.max(1, Math.round(monster.maxHp * mech.ultShieldMaxHpRatio));
+            monster.tempHp = (monster.tempHp || 0) + shieldAmt;
+            log.push({ text: `🛡️🌑 **${monster.name}** 釋放深淵障壁，獲得 **${shieldAmt}** 點護盾！`, type: 'warning' });
+          }
+          if ((monster.tempHp || 0) > 0 && mech.ultDamageBonusWithShield) {
+            baseDamageCalc = Math.floor(baseDamageCalc * (1 + mech.ultDamageBonusWithShield));
+          }
+          if (mech.passiveRageAtkPerStack && (monster.abyssRageStacks || 0) > 0) {
+            baseDamageCalc = Math.floor(baseDamageCalc * (1 + monster.abyssRageStacks * mech.passiveRageAtkPerStack));
+            if (isUltTurn) monster.abyssRageStacks = 0;
+          }
+          if (mech.passiveHealMaxHpRatio) {
+            const healAmt = Math.max(1, Math.round(monster.maxHp * mech.passiveHealMaxHpRatio));
+            monster.hp = Math.min(monster.maxHp, monster.hp + healAmt);
+            log.push({ text: `🩸🌑 **${monster.name}** 觸發【黑闇汲取】，回復了 **${healAmt}** 點生命！`, type: 'warning' });
+          }
+          if (mech.passiveTalismanPerTurn) {
+            monster.abyssTalismans = (monster.abyssTalismans || 0) + mech.passiveTalismanPerTurn;
+            if (isUltTurn && monster.abyssTalismans > 0) {
+              baseDamageCalc += monster.abyssTalismans * (mech.ultDmgPerTalisman || 4);
+              monster.abyssTalismans = 0;
+            }
+          }
+          if (isUltTurn && mech.ultCritMultiplier) {
+            baseDamageCalc = Math.floor(baseDamageCalc * mech.ultCritMultiplier);
+          }
+          if (isUltTurn && mech.ultEquationBonusPerRound) {
+            baseDamageCalc += mech.ultEquationBonusPerRound * this.battleRound;
+          }
+        }
 
-      // 僕從優先替全隊擋下怪物的隨機分散/彈射傷害
-      let remainingScatter = scatterDmgPool;
-      for (const owner of Object.values(this.players)) {
-        if(this.arena && this.arena.playerId!==owner.id)continue;
-        if (remainingScatter <= 0) break;
-        if (owner.minions && owner.minions.length > 0) {
-          for (let mi = owner.minions.length - 1; mi >= 0; mi--) {
-            if (remainingScatter <= 0) break;
-            const m = owner.minions[mi];
-            if (m.hp > 0) {
-              const minionBefore = structuredClone(m);
-              const absorb = Math.min(m.hp, remainingScatter);
-              m.hp -= absorb;
-              remainingScatter -= absorb;
-              interceptResults.push({ kind: 'intercept', category: 'MINION_INTERCEPT', targetId: m.id,
-                ownerId: owner.id, originalTargetIds: Object.values(this.players).filter(p => p.hp > 0).map(p => p.id),
-                minion: structuredClone(m), targetBefore: minionBefore, targetAfter: structuredClone(m),
-                finalDamage: absorb, outcome: { type: 'normal' }, hpSnapshot: this.getHpSnapshot() });
-              visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
-              if (m.hp <= 0) {
-                log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${m.name}】挺身為全隊擋下 **${absorb}** 點彈射傷害，隨後力竭消散！💀`, type: 'warning' });
-                owner.minions.splice(mi, 1);
-              } else {
-                log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${m.name}】優先替全隊擋下 **${absorb}** 點彈射傷害！（僕從 HP: ${m.hp}/${m.maxHp}）`, type: 'buff' });
+        // 惑心符：目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身。
+        const confuseCount = (monster.talismans || []).filter(t => t === 'confuse').length;
+        if (confuseCount > 0) {
+          let totalBacklashDmg = 0;
+          let totalRatioPercent = 0;
+          const attackDmg = Math.max(1, baseDamageCalc);
+          for (let i = 0; i < confuseCount; i++) {
+            const ratio = typeof monster.talismanConfuseRatio === 'number'
+              ? monster.talismanConfuseRatio
+              : (0.50 + Math.random() * 0.50);
+            const dmg = Math.max(1, Math.round(attackDmg * ratio));
+            totalBacklashDmg += dmg;
+            totalRatioPercent += Math.round(ratio * 100);
+          }
+          if (totalBacklashDmg > 0) {
+            monster.hp = Math.max(0, monster.hp - totalBacklashDmg);
+            const ratioText = confuseCount > 1 ? `（${confuseCount} 重惑心，共 ${totalRatioPercent}%）` : `（${totalRatioPercent}%）`;
+            log.push({ text: `📜🌀 **【惑心符】** 心智混亂！魔物出手時將造成的傷害${ratioText}作用在自身，反噬受到 **${totalBacklashDmg}** 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
+            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
+          }
+        }
+
+        // 封勁符：目標有 100% 機率在當前回合完全不造成任何傷害。
+        const sealCount = (monster.talismans || []).filter(t => t === 'seal').length;
+        let sealTriggered = Boolean(monster.sealedThisRound) || sealCount > 0;
+        if (sealTriggered && !monster.sealedThisRound) {
+          log.push({ text: `📜🔒 **【封勁符】** 咒印爆發！封鎖了魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
+        }
+
+        const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
+          normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
+          ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
+        };
+        const monsterNarrative = isUltTurn ? monsterTemplate.ult : monsterTemplate.normal;
+        narratives.push({
+          type: 'monster',
+          name: monster.name,
+          isUlt: isUltTurn,
+          text: monsterNarrative
+        });
+
+        if (isUltTurn) {
+          baseDamageCalc = Math.floor(baseDamageCalc * 1.35);
+          log.push({ text: monsterNarrative, type: 'warning' });
+        } else {
+          log.push({ text: monsterNarrative, type: 'combat' });
+        }
+
+        const effectiveBaseAtk = sealTriggered ? 0 : Math.max(5, baseDamageCalc - monsterAttackReduction);
+        aoeDmgRaw = sealTriggered ? 0 : Math.max(1, Math.floor(effectiveBaseAtk * 0.5));
+        const scatterDmgPool = sealTriggered ? 0 : Math.max(0, effectiveBaseAtk - aoeDmgRaw);
+
+        // 僕從優先替全隊擋下怪物的隨機分散/彈射傷害
+        let remainingScatter = scatterDmgPool;
+        for (const owner of Object.values(this.players)) {
+          if(this.arena && this.arena.playerId!==owner.id)continue;
+          if (remainingScatter <= 0) break;
+          if (owner.minions && owner.minions.length > 0) {
+            for (let mi = owner.minions.length - 1; mi >= 0; mi--) {
+              if (remainingScatter <= 0) break;
+              const m = owner.minions[mi];
+              if (m.hp > 0) {
+                const minionBefore = structuredClone(m);
+                const absorb = Math.min(m.hp, remainingScatter);
+                m.hp -= absorb;
+                remainingScatter -= absorb;
+                interceptResults.push({ kind: 'intercept', category: 'MINION_INTERCEPT', targetId: m.id,
+                  ownerId: owner.id, originalTargetIds: Object.values(this.players).filter(p => p.hp > 0).map(p => p.id),
+                  minion: structuredClone(m), targetBefore: minionBefore, targetAfter: structuredClone(m),
+                  finalDamage: absorb, outcome: { type: 'normal' }, hpSnapshot: this.getHpSnapshot() });
+                visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
+                if (m.hp <= 0) {
+                  log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${m.name}】挺身為全隊擋下 **${absorb}** 點彈射傷害，隨後力竭消散！💀`, type: 'warning' });
+                  owner.minions.splice(mi, 1);
+                } else {
+                  log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${m.name}】優先替全隊擋下 **${absorb}** 點彈射傷害！（僕從 HP: ${m.hp}/${m.maxHp}）`, type: 'buff' });
+                }
               }
             }
-          }
-          owner.minion = owner.minions[0] || null;
-        } else if (owner.minion && owner.minion.hp > 0) {
-          const absorb = Math.min(owner.minion.hp, remainingScatter);
-          owner.minion.hp -= absorb;
-          remainingScatter -= absorb;
-          visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
-          if (owner.minion.hp <= 0) {
-            log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${owner.minion.name}】挺身為全隊擋下 **${absorb}** 點彈射傷害，隨後力竭消散！💀`, type: 'warning' });
-            owner.minion = null;
-          } else {
-            log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${owner.minion.name}】優先替全隊擋下 **${absorb}** 點彈射傷害！（僕從 HP: ${owner.minion.hp}/${owner.minion.maxHp}）`, type: 'buff' });
-          }
-        }
-      }
-
-      // 在受到傷害時只讀取狀態、不扣減次數，統一交給回合末尾進行倒數
-      if (this.warriorShieldTurn === 1) {
-        shieldDamageMod = 0.1;
-        log.push({ text: `🛡️ **【壁壘守護】本回合為全隊阻擋了 90% 的衝擊！**`, type: 'buff' });
-      } else if (this.warriorShieldTurn === 2) {
-        shieldDamageMod = 0.6;
-        log.push({ text: `🛡️ **【壁壘守護】餘威為全隊阻擋了 40% 的傷害！**`, type: 'buff' });
-      }
-
-      let alcShieldMod = (this.alcShieldTurns > 0) ? 0.30 : 1.0;
-      let alcVulnMod = (this.alcVulnerableTurns > 0) ? 1.20 : 1.0;
-
-      const calculateDamageToPlayer = (player, rawDamage) => {
-        let finalDmg = rawDamage;
-        if (player.role === 'assassin') finalDmg = Math.floor(finalDmg * CLASSES.assassin.vulnerableMod);
-        if (player.warriorVulnerableTurns > 0) finalDmg = Math.floor(finalDmg * 1.20);
-        if (shieldDamageMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * shieldDamageMod));
-        if (alcShieldMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * alcShieldMod));
-        if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * alcVulnMod);
-        if (bardDmgReduction < 1.0) finalDmg = Math.floor(finalDmg * bardDmgReduction);
-        // 架弩蹲伏減傷 20%
-        if (player.isCrouchedThisRound) {
-          finalDmg = Math.floor(finalDmg * 0.80);
-        }
-        // 樹精/古樹形態減傷由 GAME_BALANCE 管理
-        if (player.druidForm === 'treant' || player.druidForm === 'tree') {
-          finalDmg = Math.floor(finalDmg * (1 - GAME_BALANCE.treantDamageReduction));
-        }
-        // 聖騎士【代受恩典】：二技能多獲得 15% 減傷
-        if (player.role === 'paladin' && player.paladinGrace) {
-          finalDmg = Math.floor(finalDmg * 0.85);
-        }
-        // 聖騎士【庇護之光軍旗】：自身持有任何護盾時受到的傷害降低 15%
-        if (player.role === 'paladin' && ((player.tempHp > 0) || (player.p8Shields || []).some(s => s.value > 0)) && (player.equips || []).some(e => e.id === 'pal_banner')) {
-          finalDmg = Math.floor(finalDmg * 0.85);
-        }
-        return Math.max(1, finalDmg);
-      };
-
-      const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && (!arenaRoundPlayerId || arenaRoundPlayerId===p.id));
-      const playerRawScatter = {};
-      livingPlayers.forEach(p => { playerRawScatter[p.id] = 0; scatterHits[p.id] = []; });
-
-      let remainingDmg = remainingScatter;
-      while (remainingDmg > 0 && livingPlayers.length > 0) {
-        const randomTarget = this.pickTargetWithTaunt(livingPlayers);
-        const stepDmg = Math.min(remainingDmg, Math.floor(Math.random() * 4) + 2);
-        playerRawScatter[randomTarget.id] += stepDmg;
-        scatterHits[randomTarget.id].push(stepDmg);
-        remainingDmg -= stepDmg;
-      }
-
-      const treantDruid = arenaRoundPlayerId ? null : Object.values(this.players).find(p => p.hp > 0 && p.druidForm === 'treant');
-
-      for (const p of Object.values(this.players)) {
-        if (p.hp <= 0 || (arenaRoundPlayerId && arenaRoundPlayerId!==p.id)) continue;
-
-        const hitBefore = this.getHpSnapshot();
-        const hitStart = monsterHits.length;
-        const targetBefore = snapshotTarget(hitBefore, p.id);
-        if (isAssassinHidden(p)) {
-          log.push({ text: `💨 **${p.name}** 處於匿蹤狀態，避開了所有反擊！`, type: 'buff' });
-          monsterHits.push({ targetId: p.id, role: p.role, stealthed: true, value: 0, outcome: { type: 'dodge', stealth: true }, targetBefore, targetAfter: targetBefore, hpSnapshot: this.getHpSnapshot() });
-          continue;
-        }
-
-        let dodgeRate = 0;
-        if (p.isCrouchedThisRound) {
-          dodgeRate = 0;
-          p.archerNextDodgeBonus = 0;
-        } else if (p.role === 'archer') {
-          const angelBowCount = (p.equips || []).filter(e => e.id === 'a_archangel_bow' || e.id === 'a_bow' || e.name === '大天使重弓').length;
-          dodgeRate = Math.max(0, CLASSES.archer.dodgeRate - 0.20 * angelBowCount);
-        }
-        if (!p.isCrouchedThisRound && (dodgeRate > 0 || p.archerNextDodgeBonus > 0) && this.checkDodge(p, dodgeRate)) {
-          log.push({ text: `🪶 **${p.name}** 身手矯健，閃避了所有反擊！`, type: 'buff' });
-          monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
-          continue;
-        }
-
-        // 障目符：目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。
-        const blindCount = (monster.talismans || []).filter(t => t === 'blind').length;
-        if (blindCount > 0) {
-          const avoidRate = typeof monster.talismanBlindAvoidRate === 'number'
-            ? monster.talismanBlindAvoidRate
-            : (0.60 + Math.random() * 0.40);
-          const isFullMiss = typeof monster.talismanBlindMiss === 'boolean'
-            ? monster.talismanBlindMiss
-            : (Math.random() < avoidRate);
-
-          if (isFullMiss) {
-            log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊判定有 ${Math.round(avoidRate * 100)}% 不對我方造成傷害，攻擊判定為 Miss（失誤），未能命中 **${p.name}**！`, type: 'buff' });
-            monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge', label: 'MISS' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
-            continue;
-          } else {
-            // 若未直接判定完全失誤，此次攻擊依然有 60%~100% 的傷害不對我方造成傷害
-            playerRawScatter[p.id] = Math.round((playerRawScatter[p.id] || 0) * (1 - avoidRate));
-            log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊有 ${Math.round(avoidRate * 100)}% 的傷害未對 **${p.name}** 生效！`, type: 'buff' });
+            owner.minion = owner.minions[0] || null;
+          } else if (owner.minion && owner.minion.hp > 0) {
+            const absorb = Math.min(owner.minion.hp, remainingScatter);
+            owner.minion.hp -= absorb;
+            remainingScatter -= absorb;
+            visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
+            if (owner.minion.hp <= 0) {
+              log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${owner.minion.name}】挺身為全隊擋下 **${absorb}** 點彈射傷害，隨後力竭消散！💀`, type: 'warning' });
+              owner.minion = null;
+            } else {
+              log.push({ text: `🛡️🐾 **${owner.name}** 的僕從【${owner.minion.name}】優先替全隊擋下 **${absorb}** 點彈射傷害！（僕從 HP: ${owner.minion.hp}/${owner.minion.maxHp}）`, type: 'buff' });
+            }
           }
         }
 
-        const totalRawAssigned = aoeDmgRaw + (playerRawScatter[p.id] || 0);
-        if (totalRawAssigned === 0) {
-          monsterHits.push({ targetId: p.id, role: p.role, dodged: false, value: 0, outcome: { type: 'normal' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
-          continue;
-        }
-        const rawParts=[aoeDmgRaw,...(scatterHits[p.id]||[])];
-        if(p.role==='samurai'||this.p8Has(p,'dream_butterfly')) {
-          this.p8ResolveBossHits(p,rawParts,n=>calculateDamageToPlayer(p,n),monsterHits,treantDruid);
-          continue;
-        }
-        const segmented=p.role==='samurai'||this.p8Has(p,'dream_butterfly')||this.arena;
-        const incomingParts=segmented ? rawParts.map(raw=>this.p8Incoming(p,raw,n=>calculateDamageToPlayer(p,n))) : [];
-        let totalTakenDmg = segmented
-          ? incomingParts.reduce((n,x)=>n+x.damage,0)
-          : this.p8Incoming(p,totalRawAssigned,n=>calculateDamageToPlayer(p,n)).damage;
-        if(incomingParts.some(x=>x.outcome==='parry') && totalTakenDmg===0) {
-          monsterHits.push({targetId:p.id,role:p.role,value:0,finalDamage:0,outcome:{type:'block',parry:true},targetBefore,targetAfter:snapshotTarget(this.getHpSnapshot(),p.id),hpSnapshot:this.getHpSnapshot()});continue;
-        }
-        if(this.arena && this.arena.playerId!==p.id)continue;
-
-        // 聖騎士【代受恩典】：守護隊友承受傷害與負面狀態
-        const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === p.id);
-        if (paladinGrace && paladinGrace.id !== p.id && totalTakenDmg > 0) {
-          let redirectedDmg = totalTakenDmg;
+        const calculateDamageToPlayer = (player, rawDamage) => {
+          let finalDmg = rawDamage;
+          if (player.role === 'assassin') finalDmg = Math.floor(finalDmg * CLASSES.assassin.vulnerableMod);
+          if (player.warriorVulnerableTurns > 0) finalDmg = Math.floor(finalDmg * 1.20);
+          if (shieldDamageMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * shieldDamageMod));
+          if (alcShieldMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * alcShieldMod));
+          if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * alcVulnMod);
+          if (bardDmgReduction < 1.0) finalDmg = Math.floor(finalDmg * bardDmgReduction);
+          // 架弩蹲伏減傷 20%
+          if (player.isCrouchedThisRound) {
+            finalDmg = Math.floor(finalDmg * 0.80);
+          }
+          // 樹精/古樹形態減傷由 GAME_BALANCE 管理
+          if (player.druidForm === 'treant' || player.druidForm === 'tree') {
+            finalDmg = Math.floor(finalDmg * (1 - GAME_BALANCE.treantDamageReduction));
+          }
           // 聖騎士【代受恩典】：二技能多獲得 15% 減傷
-          redirectedDmg = Math.floor(redirectedDmg * 0.85);
-          if (paladinGrace.role === 'paladin' && ((paladinGrace.tempHp > 0) || (paladinGrace.p8Shields || []).some(s => s.value > 0)) && (paladinGrace.equips || []).some(e => e.id === 'pal_banner')) {
+          if (player.role === 'paladin' && player.paladinGrace) {
+            finalDmg = Math.floor(finalDmg * 0.85);
+          }
+          // 聖騎士【庇護之光軍旗】：自身持有任何護盾時受到的傷害降低 15%
+          if (player.role === 'paladin' && ((player.tempHp > 0) || (player.p8Shields || []).some(s => s.value > 0)) && (player.equips || []).some(e => e.id === 'pal_banner')) {
+            finalDmg = Math.floor(finalDmg * 0.85);
+          }
+          return Math.max(1, finalDmg);
+        };
+
+        const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && (!arenaRoundPlayerId || arenaRoundPlayerId===p.id));
+        const playerRawScatter = {};
+        livingPlayers.forEach(p => { playerRawScatter[p.id] = 0; scatterHits[p.id] = []; });
+
+        let remainingDmg = remainingScatter;
+        while (remainingDmg > 0 && livingPlayers.length > 0) {
+          const randomTarget = this.pickTargetWithTaunt(livingPlayers);
+          const stepDmg = Math.min(remainingDmg, Math.floor(Math.random() * 4) + 2);
+          playerRawScatter[randomTarget.id] += stepDmg;
+          scatterHits[randomTarget.id].push(stepDmg);
+          remainingDmg -= stepDmg;
+        }
+
+        const treantDruid = arenaRoundPlayerId ? null : Object.values(this.players).find(p => p.hp > 0 && p.druidForm === 'treant');
+
+        for (const p of Object.values(this.players)) {
+          if (p.hp <= 0 || (arenaRoundPlayerId && arenaRoundPlayerId!==p.id)) continue;
+
+          const hitBefore = this.getHpSnapshot();
+          const hitStart = monsterHits.length;
+          const targetBefore = snapshotTarget(hitBefore, p.id);
+          if (isAssassinHidden(p)) {
+            log.push({ text: `💨 **${p.name}** 處於匿蹤狀態，避開了所有反擊！`, type: 'buff' });
+            monsterHits.push({ targetId: p.id, role: p.role, stealthed: true, value: 0, outcome: { type: 'dodge', stealth: true }, targetBefore, targetAfter: targetBefore, hpSnapshot: this.getHpSnapshot() });
+            continue;
+          }
+
+          let dodgeRate = 0;
+          if (p.isCrouchedThisRound) {
+            dodgeRate = 0;
+            p.archerNextDodgeBonus = 0;
+          } else if (p.role === 'archer') {
+            const angelBowCount = (p.equips || []).filter(e => e.id === 'a_archangel_bow' || e.id === 'a_bow' || e.name === '大天使重弓').length;
+            dodgeRate = Math.max(0, CLASSES.archer.dodgeRate - 0.20 * angelBowCount);
+          }
+          if (!p.isCrouchedThisRound && (dodgeRate > 0 || p.archerNextDodgeBonus > 0) && this.checkDodge(p, dodgeRate)) {
+            log.push({ text: `🪶 **${p.name}** 身手矯健，閃避了所有反擊！`, type: 'buff' });
+            monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
+            continue;
+          }
+
+          // 障目符：目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。
+          const blindCount = (monster.talismans || []).filter(t => t === 'blind').length;
+          if (blindCount > 0) {
+            const avoidRate = typeof monster.talismanBlindAvoidRate === 'number'
+              ? monster.talismanBlindAvoidRate
+              : (0.60 + Math.random() * 0.40);
+            const isFullMiss = typeof monster.talismanBlindMiss === 'boolean'
+              ? monster.talismanBlindMiss
+              : (Math.random() < avoidRate);
+
+            if (isFullMiss) {
+              log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊判定有 ${Math.round(avoidRate * 100)}% 不對我方造成傷害，攻擊判定為 Miss（失誤），未能命中 **${p.name}**！`, type: 'buff' });
+              monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge', label: 'MISS' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
+              continue;
+            } else {
+              // 若未直接判定完全失誤，此次攻擊依然有 60%~100% 的傷害不對我方造成傷害
+              playerRawScatter[p.id] = Math.round((playerRawScatter[p.id] || 0) * (1 - avoidRate));
+              log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊有 ${Math.round(avoidRate * 100)}% 的傷害未對 **${p.name}** 生效！`, type: 'buff' });
+            }
+          }
+
+          const totalRawAssigned = aoeDmgRaw + (playerRawScatter[p.id] || 0);
+          if (totalRawAssigned === 0) {
+            monsterHits.push({ targetId: p.id, role: p.role, dodged: false, value: 0, outcome: { type: 'normal' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
+            continue;
+          }
+          const rawParts=[aoeDmgRaw,...(scatterHits[p.id]||[])];
+          if(p.role==='samurai'||this.p8Has(p,'dream_butterfly')) {
+            this.p8ResolveBossHits(p,rawParts,n=>calculateDamageToPlayer(p,n),monsterHits,treantDruid);
+            continue;
+          }
+          const segmented=p.role==='samurai'||this.p8Has(p,'dream_butterfly')||this.arena;
+          const incomingParts=segmented ? rawParts.map(raw=>this.p8Incoming(p,raw,n=>calculateDamageToPlayer(p,n))) : [];
+          let totalTakenDmg = segmented
+            ? incomingParts.reduce((n,x)=>n+x.damage,0)
+            : this.p8Incoming(p,totalRawAssigned,n=>calculateDamageToPlayer(p,n)).damage;
+          if(incomingParts.some(x=>x.outcome==='parry') && totalTakenDmg===0) {
+            monsterHits.push({targetId:p.id,role:p.role,value:0,finalDamage:0,outcome:{type:'block',parry:true},targetBefore,targetAfter:snapshotTarget(this.getHpSnapshot(),p.id),hpSnapshot:this.getHpSnapshot()});continue;
+          }
+          if(this.arena && this.arena.playerId!==p.id)continue;
+
+          // 聖騎士【代受恩典】：守護隊友承受傷害與負面狀態
+          const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === p.id);
+          if (paladinGrace && paladinGrace.id !== p.id && totalTakenDmg > 0) {
+            let redirectedDmg = totalTakenDmg;
+            // 聖騎士【代受恩典】：二技能多獲得 15% 減傷
             redirectedDmg = Math.floor(redirectedDmg * 0.85);
+            if (paladinGrace.role === 'paladin' && ((paladinGrace.tempHp > 0) || (paladinGrace.p8Shields || []).some(s => s.value > 0)) && (paladinGrace.equips || []).some(e => e.id === 'pal_banner')) {
+              redirectedDmg = Math.floor(redirectedDmg * 0.85);
+            }
+            const dmgRes = this.applyDamageToPlayer(paladinGrace, redirectedDmg, { kind: 'grace_redirect' });
+            paladinGrace.paladinGrace.interceptedDamage = (paladinGrace.paladinGrace.interceptedDamage || 0) + redirectedDmg;
+            if (redirectedDmg > 0 && monster.baseHp < 100) {
+              paladinGrace.bleedTurns = 2;
+            }
+            log.push({ text: `🛡️🕊️ **${paladinGrace.name}**【代受恩典】挺身而出，為 **${p.name}** 承受了 **${redirectedDmg}** 點傷害！（聖騎士 ❤️ ${paladinGrace.hp + (paladinGrace.tempHp || 0)}/${paladinGrace.maxHp}）`, type: 'buff' });
+            if (paladinGrace.hp <= 0) {
+              paladinGrace.hp = 0;
+              this.clearPlayerDebuffs(paladinGrace);
+              paladinGrace.paladinGrace = null;
+              log.push({ text: `💥 **${paladinGrace.name}** 因替隊友承受致命傷害而倒地陣亡！💀`, type: 'damage' });
+              monsterHits.push({ targetId: paladinGrace.id, sharedFrom: p.id, value: redirectedDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: true, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+            } else {
+              monsterHits.push({ targetId: paladinGrace.id, sharedFrom: p.id, value: redirectedDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+            }
+            monsterHits.push({ targetId: p.id, role: p.role, value: 0, finalDamage: 0, outcome: { type: 'block', grace: true }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
+            continue;
           }
-          const dmgRes = this.applyDamageToPlayer(paladinGrace, redirectedDmg, { kind: 'grace_redirect' });
-          paladinGrace.paladinGrace.interceptedDamage = (paladinGrace.paladinGrace.interceptedDamage || 0) + redirectedDmg;
-          if (redirectedDmg > 0 && monster.baseHp < 100) {
-            paladinGrace.bleedTurns = 2;
+          if (paladinGrace && paladinGrace.id === p.id && totalTakenDmg > 0) {
+            paladinGrace.paladinGrace.interceptedDamage = (paladinGrace.paladinGrace.interceptedDamage || 0) + totalTakenDmg;
           }
-          log.push({ text: `🛡️🕊️ **${paladinGrace.name}**【代受恩典】挺身而出，為 **${p.name}** 承受了 **${redirectedDmg}** 點傷害！（聖騎士 ❤️ ${paladinGrace.hp + (paladinGrace.tempHp || 0)}/${paladinGrace.maxHp}）`, type: 'buff' });
-          if (paladinGrace.hp <= 0) {
-            paladinGrace.hp = 0;
-            this.clearPlayerDebuffs(paladinGrace);
-            paladinGrace.paladinGrace = null;
-            log.push({ text: `💥 **${paladinGrace.name}** 因替隊友承受致命傷害而倒地陣亡！💀`, type: 'damage' });
-            monsterHits.push({ targetId: paladinGrace.id, sharedFrom: p.id, value: redirectedDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: true, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+
+          // 樹精替全體隊友主動吸收 50% 受到傷害
+          if (treantDruid && treantDruid.id !== p.id && totalTakenDmg > 0 && treantDruid.hp > 0) {
+            const absorbedDmg = Math.floor(totalTakenDmg * 0.5);
+            totalTakenDmg -= absorbedDmg;
+            const treantActualDmg = Math.max(1, Math.floor(absorbedDmg * (1 - GAME_BALANCE.treantDamageReduction))); // 樹精減傷30%
+            const treantDmgRes = this.applyDamageToPlayer(treantDruid, treantActualDmg);
+            log.push({ text: `🌳 **${treantDruid.name}** (樹精) 伸展藤蔓為 **${p.name}** 承受吸收了 **${absorbedDmg}** 點傷害（減傷30%後實受 **${treantActualDmg}** 點）！（❤️ 樹精剩餘HP: ${treantDruid.hp}/${treantDruid.maxHp}）`, type: 'buff' });
+            
+            if (treantDruid.hp <= 0) {
+              treantDruid.hp = 1;
+              treantDruid.druidForm = 'tree';
+              treantDruid.druidFormTurns = 1;
+              treantDruid.stunnedNextTurn = true;
+              log.push({ text: `🪵 **${treantDruid.name}** 因替隊友承受致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+              visualEvents.push({ type: 'transform_tree', sourceId: treantDruid.id });
+              monsterHits.push({ targetId: treantDruid.id, sharedFrom: p.id, value: treantActualDmg, tempAbsorbed: treantDmgRes.tempAbsorbed, hpDmg: treantDmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+            } else {
+              monsterHits.push({ targetId: treantDruid.id, sharedFrom: p.id, value: treantActualDmg, tempAbsorbed: treantDmgRes.tempAbsorbed, hpDmg: treantDmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+            }
+          }
+
+          let remainingShield=p.tempHp||0, hpEvents=0, assigned=0;
+          for(let i=0;i<rawParts.length;i++) {
+            const value=i===rawParts.length-1?totalTakenDmg-assigned:Math.floor(totalTakenDmg*rawParts[i]/totalRawAssigned);assigned+=value;
+            if(value>remainingShield)hpEvents++;remainingShield=Math.max(0,remainingShield-value);
+          }
+          const dmgRes = this.applyDamageToPlayer(p, totalTakenDmg, {kind:'enemy_direct',hpEvents});
+          for(const incoming of incomingParts)if(incoming.outcome==='nightmare')this.p8NightmareHeal(p,incoming.ownerId);
+
+          if (totalTakenDmg > 0 && monster.baseHp < 100) {
+            p.bleedTurns = 2;
+          }
+
+          if (p.hp <= 0) {
+            if (p.druidForm === 'treant') {
+              p.hp = 1;
+              p.druidForm = 'tree';
+              p.druidFormTurns = 1;
+              p.stunnedNextTurn = true;
+              log.push({ text: `🪵 **${p.name}** 受到致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
+              visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+              monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+            } else {
+              p.hp = 0;
+              this.clearPlayerDebuffs(p);
+              if (p.druidForm === 'tree') {
+                // Treant grants shield; maximum HP remains unchanged.
+                p.druidForm = null;
+                p.druidFormTurns = 0;
+              }
+              if (p.druidForm === 'werewolf' && (p.werewolfMaxHpDeducted || 0) > 0) {
+                p.maxHp += p.werewolfMaxHpDeducted;
+                p.werewolfMaxHpDeducted = 0;
+                p.druidForm = null;
+                p.druidFormTurns = 0;
+              }
+              log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
+              monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: true, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+            }
           } else {
-            monsterHits.push({ targetId: paladinGrace.id, sharedFrom: p.id, value: redirectedDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
-          }
-          monsterHits.push({ targetId: p.id, role: p.role, value: 0, finalDamage: 0, outcome: { type: 'block', grace: true }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
-          continue;
-        }
-        if (paladinGrace && paladinGrace.id === p.id && totalTakenDmg > 0) {
-          paladinGrace.paladinGrace.interceptedDamage = (paladinGrace.paladinGrace.interceptedDamage || 0) + totalTakenDmg;
-        }
-
-        // 樹精替全體隊友主動吸收 50% 受到傷害
-        if (treantDruid && treantDruid.id !== p.id && totalTakenDmg > 0 && treantDruid.hp > 0) {
-          const absorbedDmg = Math.floor(totalTakenDmg * 0.5);
-          totalTakenDmg -= absorbedDmg;
-          const treantActualDmg = Math.max(1, Math.floor(absorbedDmg * (1 - GAME_BALANCE.treantDamageReduction))); // 樹精減傷30%
-          const treantDmgRes = this.applyDamageToPlayer(treantDruid, treantActualDmg);
-          log.push({ text: `🌳 **${treantDruid.name}** (樹精) 伸展藤蔓為 **${p.name}** 承受吸收了 **${absorbedDmg}** 點傷害（減傷30%後實受 **${treantActualDmg}** 點）！（❤️ 樹精剩餘HP: ${treantDruid.hp}/${treantDruid.maxHp}）`, type: 'buff' });
-          
-          if (treantDruid.hp <= 0) {
-            treantDruid.hp = 1;
-            treantDruid.druidForm = 'tree';
-            treantDruid.druidFormTurns = 1;
-            treantDruid.stunnedNextTurn = true;
-            log.push({ text: `🪵 **${treantDruid.name}** 因替隊友承受致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
-            visualEvents.push({ type: 'transform_tree', sourceId: treantDruid.id });
-            monsterHits.push({ targetId: treantDruid.id, sharedFrom: p.id, value: treantActualDmg, tempAbsorbed: treantDmgRes.tempAbsorbed, hpDmg: treantDmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
-          } else {
-            monsterHits.push({ targetId: treantDruid.id, sharedFrom: p.id, value: treantActualDmg, tempAbsorbed: treantDmgRes.tempAbsorbed, hpDmg: treantDmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
-          }
-        }
-
-        let remainingShield=p.tempHp||0, hpEvents=0, assigned=0;
-        for(let i=0;i<rawParts.length;i++) {
-          const value=i===rawParts.length-1?totalTakenDmg-assigned:Math.floor(totalTakenDmg*rawParts[i]/totalRawAssigned);assigned+=value;
-          if(value>remainingShield)hpEvents++;remainingShield=Math.max(0,remainingShield-value);
-        }
-        const dmgRes = this.applyDamageToPlayer(p, totalTakenDmg, {kind:'enemy_direct',hpEvents});
-        for(const incoming of incomingParts)if(incoming.outcome==='nightmare')this.p8NightmareHeal(p,incoming.ownerId);
-
-        if (totalTakenDmg > 0 && monster.baseHp < 100) {
-          p.bleedTurns = 2;
-        }
-
-        if (p.hp <= 0) {
-          if (p.druidForm === 'treant') {
-            p.hp = 1;
-            p.druidForm = 'tree';
-            p.druidFormTurns = 1;
-            p.stunnedNextTurn = true;
-            log.push({ text: `🪵 **${p.name}** 受到致命傷害，觸發樹精守護！保留 1 點生命並化身為【沉睡古樹】，進入 1 回合休眠狀態（無法行動）！`, type: 'buff' });
-            visualEvents.push({ type: 'transform_tree', sourceId: p.id });
+            const absorbNote = dmgRes.tempAbsorbed > 0 ? ` (🛡️超量生命抵擋 ${dmgRes.tempAbsorbed} 點)` : '';
+            log.push({ text: `💢 **${p.name}** 受到 **${totalTakenDmg}** 點傷害${absorbNote}（❤️ ${p.hp + (p.tempHp || 0)}/${p.maxHp}）`, type: 'damage' });
             monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
-          } else {
-            p.hp = 0;
-            this.clearPlayerDebuffs(p);
-            if (p.druidForm === 'tree') {
-              // Treant grants shield; maximum HP remains unchanged.
-              p.druidForm = null;
-              p.druidFormTurns = 0;
-            }
-            if (p.druidForm === 'werewolf' && (p.werewolfMaxHpDeducted || 0) > 0) {
-              p.maxHp += p.werewolfMaxHpDeducted;
-              p.werewolfMaxHpDeducted = 0;
-              p.druidForm = null;
-              p.druidFormTurns = 0;
-            }
-            log.push({ text: `💥 **${p.name}** 受到 **${totalTakenDmg}** 點傷害，倒地陣亡！💀`, type: 'damage' });
-            monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: true, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
           }
-        } else {
-          const absorbNote = dmgRes.tempAbsorbed > 0 ? ` (🛡️超量生命抵擋 ${dmgRes.tempAbsorbed} 點)` : '';
-          log.push({ text: `💢 **${p.name}** 受到 **${totalTakenDmg}** 點傷害${absorbNote}（❤️ ${p.hp + (p.tempHp || 0)}/${p.maxHp}）`, type: 'damage' });
-          monsterHits.push({ targetId: p.id, value: totalTakenDmg, tempAbsorbed: dmgRes.tempAbsorbed, hpDmg: dmgRes.hpDmg, isDead: false, shieldMod: shieldDamageMod, hpSnapshot: this.getHpSnapshot() });
+          const hitAfter = this.getHpSnapshot();
+          for (const hit of monsterHits.slice(hitStart)) {
+            hit.role = this.players[hit.targetId]?.role;
+            hit.targetBefore = snapshotTarget(hitBefore, hit.targetId);
+            hit.hpSnapshot = hit.hpSnapshot || hitAfter;
+            hit.targetAfter = snapshotTarget(hit.hpSnapshot, hit.targetId);
+            hit.finalDamage = hit.value;
+            if(hit.targetId===p.id&&dmgRes.sageMomentumCapture)hit.sageMomentumCapture=dmgRes.sageMomentumCapture;
+            hit.guard = shieldDamageMod < 1 || alcShieldMod < 1 || bardDmgReduction < 1 || hit.targetAfter?.druidForm === 'treant';
+            hit.absorbed = hit.tempAbsorbed || 0;
+            hit.shieldBreak = (hit.targetBefore?.tempHp || 0) > 0 && !(hit.targetAfter?.tempHp > 0);
+            hit.outcome = { type: hit.absorbed > 0 && hit.hpDmg === 0 ? 'block' : 'normal', protection: hit.targetAfter?.druidForm === 'tree' };
+          }
         }
-        const hitAfter = this.getHpSnapshot();
-        for (const hit of monsterHits.slice(hitStart)) {
-          hit.role = this.players[hit.targetId]?.role;
-          hit.targetBefore = snapshotTarget(hitBefore, hit.targetId);
-          hit.hpSnapshot = hit.hpSnapshot || hitAfter;
-          hit.targetAfter = snapshotTarget(hit.hpSnapshot, hit.targetId);
-          hit.finalDamage = hit.value;
-          if(hit.targetId===p.id&&dmgRes.sageMomentumCapture)hit.sageMomentumCapture=dmgRes.sageMomentumCapture;
-          hit.guard = shieldDamageMod < 1 || alcShieldMod < 1 || bardDmgReduction < 1 || hit.targetAfter?.druidForm === 'treant';
-          hit.absorbed = hit.tempAbsorbed || 0;
-          hit.shieldBreak = (hit.targetBefore?.tempHp || 0) > 0 && !(hit.targetAfter?.tempHp > 0);
-          hit.outcome = { type: hit.absorbed > 0 && hit.hpDmg === 0 ? 'block' : 'normal', protection: hit.targetAfter?.druidForm === 'tree' };
+      }
+
+      // Preserve the existing aggregate mitigation/dodge rules while exposing each
+      // actual scatter allocation as a separate server-authored presentation hit.
+      // Integer allocation conserves the original damage exactly; no new dice.
+      const display = structuredClone(bossBefore);
+      const expandedHits = [];
+      for (const hit of monsterHits) {
+        const parts = !hit.segment && !hit.sharedFrom && hit.outcome?.type === 'normal'
+          ? [aoeDmgRaw, ...(scatterHits[hit.targetId] || [])] : [];
+        if (parts.length < 2) { expandedHits.push(hit); if (hit.targetAfter) Object.assign(snapshotTarget(display, hit.targetId), hit.targetAfter); continue; }
+        let allocated = 0, rawAllocated = 0;
+        const rawTotal = parts.reduce((sum, n) => sum + n, 0);
+        const target = snapshotTarget(display, hit.targetId);
+        Object.assign(target, hit.targetBefore);
+        for (let i = 0; i < parts.length; i++) {
+          rawAllocated += parts[i];
+          const cumulative = i === parts.length - 1 ? hit.finalDamage : Math.floor(hit.finalDamage * rawAllocated / rawTotal);
+          const value = cumulative - allocated; allocated = cumulative;
+          const before = structuredClone(target), absorbed = Math.min(target.tempHp || 0, value);
+          target.tempHp = Math.max(0, (target.tempHp || 0) - absorbed);
+          target.hp = Math.max(hit.outcome.protection ? 1 : 0, target.hp - (value - absorbed));
+          if (i === parts.length - 1) Object.assign(target, hit.targetAfter);
+          expandedHits.push({ ...hit, value, finalDamage: value, absorbed, tempAbsorbed: absorbed, hpDmg: value - absorbed,
+            // Aggregate gameplay records one operand increment. Do not repeat it
+            // for each presentation-only scatter segment.
+            sageMomentumCapture:i===parts.length-1?hit.sageMomentumCapture:undefined,
+            targetBefore: before, targetAfter: structuredClone(target), hpSnapshot: structuredClone(display),
+            shieldBreak: before.tempHp > 0 && target.tempHp === 0,
+            outcome: { type: absorbed > 0 && absorbed === value ? 'block' : 'normal', protection: i === parts.length - 1 && hit.outcome.protection },
+            segment: i === 0 ? 'aoe' : 'bounce' });
         }
+      }
+      monsterHits.splice(0, monsterHits.length, ...expandedHits);
+
+      visualEvents.push({
+        type: 'monster_attack',
+        monsterId: monster.instanceId,
+        isUlt: isUltTurn,
+        ultName: monster.ultName,
+        shieldMod: shieldDamageMod,
+        hits: monsterHits
+      });
+
+      // 首領/敵人行動演出步驟加入 presentationQueue (直接接續，不插入 BOSS TURN 字幕)
+      if (monster.hp > 0) {
+        const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
+          normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
+          ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
+        };
+        const firstHit = monsterHits[0] || {};
+        const primaryTargetId = firstHit.targetId;
+        const primaryTarget = primaryTargetId ? this.players[primaryTargetId] : null;
+
+        presentationQueue.push({
+          type: 'boss_action',
+          enemyId: monster.instanceId,
+          augurReactions:this.augurReactions.slice(bossAugurReactionIndex),
+          category: 'AOE_OFFENSIVE', outcome: { type: 'normal' },
+          hpSnapshotBefore: bossBefore, results: [...interceptResults, ...monsterHits.map(hit => ({ ...hit, kind: hit.kind || 'damage' }))],
+          monsterName: monster.name,
+          monsterAvatar: monster.avatar,
+          isUlt: isUltTurn,
+          ultName: monster.ultName,
+          skillName: isUltTurn ? monster.ultName : '猛烈反擊',
+          narrative: isUltTurn ? monsterTemplate.ult : monsterTemplate.normal,
+          detail: log[log.length - 1]?.text || '',
+          hits: monsterHits,
+          targetId: primaryTargetId,
+          targetName: primaryTarget ? primaryTarget.name : '冒險者',
+          targetRole: primaryTarget ? primaryTarget.role : 'warrior',
+          finalDamage: firstHit.value || 0,
+          damageDealt: firstHit.value || 0,
+          tempHpDamage: firstHit.tempAbsorbed || 0,
+          hpDamage: firstHit.hpDmg || firstHit.value || 0,
+          isLethal: firstHit.isDead || false,
+          targetHpBefore: firstHit.hpBefore !== undefined ? firstHit.hpBefore : (primaryTarget ? primaryTarget.hp : 0),
+          targetHpAfter: firstHit.hpAfter !== undefined ? firstHit.hpAfter : (primaryTarget ? primaryTarget.hp : 0),
+          targetMaxHp: firstHit.maxHp !== undefined ? firstHit.maxHp : (primaryTarget ? primaryTarget.maxHp : 100),
+          actorHpBefore: monster.hp,
+          actorHpAfter: monster.hp,
+          actorMaxHp: monster.maxHp,
+          visualEvents: [{
+            type: 'monster_attack',
+            monsterId: monster.instanceId,
+            isUlt: isUltTurn,
+            ultName: monster.ultName,
+            shieldMod: shieldDamageMod,
+            hits: monsterHits
+          }],
+          hpSnapshot: this.getHpSnapshot()
+        });
       }
     }
 
-    // Preserve the existing aggregate mitigation/dodge rules while exposing each
-    // actual scatter allocation as a separate server-authored presentation hit.
-    // Integer allocation conserves the original damage exactly; no new dice.
-    const display = structuredClone(bossBefore);
-    const expandedHits = [];
-    for (const hit of monsterHits) {
-      const parts = !hit.segment && !hit.sharedFrom && hit.outcome?.type === 'normal'
-        ? [aoeDmgRaw, ...(scatterHits[hit.targetId] || [])] : [];
-      if (parts.length < 2) { expandedHits.push(hit); if (hit.targetAfter) Object.assign(snapshotTarget(display, hit.targetId), hit.targetAfter); continue; }
-      let allocated = 0, rawAllocated = 0;
-      const rawTotal = parts.reduce((sum, n) => sum + n, 0);
-      const target = snapshotTarget(display, hit.targetId);
-      Object.assign(target, hit.targetBefore);
-      for (let i = 0; i < parts.length; i++) {
-        rawAllocated += parts[i];
-        const cumulative = i === parts.length - 1 ? hit.finalDamage : Math.floor(hit.finalDamage * rawAllocated / rawTotal);
-        const value = cumulative - allocated; allocated = cumulative;
-        const before = structuredClone(target), absorbed = Math.min(target.tempHp || 0, value);
-        target.tempHp = Math.max(0, (target.tempHp || 0) - absorbed);
-        target.hp = Math.max(hit.outcome.protection ? 1 : 0, target.hp - (value - absorbed));
-        if (i === parts.length - 1) Object.assign(target, hit.targetAfter);
-        expandedHits.push({ ...hit, value, finalDamage: value, absorbed, tempAbsorbed: absorbed, hpDmg: value - absorbed,
-          // Aggregate gameplay records one operand increment. Do not repeat it
-          // for each presentation-only scatter segment.
-          sageMomentumCapture:i===parts.length-1?hit.sageMomentumCapture:undefined,
-          targetBefore: before, targetAfter: structuredClone(target), hpSnapshot: structuredClone(display),
-          shieldBreak: before.tempHp > 0 && target.tempHp === 0,
-          outcome: { type: absorbed > 0 && absorbed === value ? 'block' : 'normal', protection: i === parts.length - 1 && hit.outcome.protection },
-          segment: i === 0 ? 'aoe' : 'bounce' });
-      }
-    }
-    monsterHits.splice(0, monsterHits.length, ...expandedHits);
+    this.monsterStunnedThisRound = false;
+    this.refreshPrimaryMonster();
+    monster = this.currentMonster;
 
     // 回合末尾統一進行減傷盾與易傷的倒數
     if (this.warriorShieldTurn === 1) {
@@ -3915,62 +5861,6 @@ export class Room {
 
     }
 
-    visualEvents.push({
-      type: 'monster_attack',
-      isUlt: isUltTurn,
-      ultName: monster.ultName,
-      shieldMod: shieldDamageMod,
-      hits: monsterHits
-    });
-
-    // 首領行動演出步驟加入 presentationQueue (直接接續，不插入 BOSS TURN 字幕)
-    if (!this.monsterStunnedThisRound && monster.hp > 0) {
-      const monsterTemplate = this.studioContent.battleNarratives.monsters[monster.originalName || monster.name] || {
-        normal: `👾 **${monster.name}** 發動了猛烈反擊！`,
-        ult: `🔥 **${monster.name}** 釋放了必殺技【${monster.ultName}】！`
-      };
-      const firstHit = monsterHits[0] || {};
-      const primaryTargetId = firstHit.targetId;
-      const primaryTarget = primaryTargetId ? this.players[primaryTargetId] : null;
-
-      presentationQueue.push({
-        type: 'boss_action',
-        augurReactions:this.augurReactions.slice(bossAugurReactionIndex),
-        category: 'AOE_OFFENSIVE', outcome: { type: 'normal' },
-        hpSnapshotBefore: bossBefore, results: [...interceptResults, ...monsterHits.map(hit => ({ ...hit, kind: hit.kind || 'damage' }))],
-        monsterName: monster.name,
-        monsterAvatar: monster.avatar,
-        isUlt: isUltTurn,
-        ultName: monster.ultName,
-        skillName: isUltTurn ? monster.ultName : '猛烈反擊',
-        narrative: isUltTurn ? monsterTemplate.ult : monsterTemplate.normal,
-        detail: log[log.length - 1]?.text || '',
-        hits: monsterHits,
-        targetId: primaryTargetId,
-        targetName: primaryTarget ? primaryTarget.name : '冒險者',
-        targetRole: primaryTarget ? primaryTarget.role : 'warrior',
-        finalDamage: firstHit.value || 0,
-        damageDealt: firstHit.value || 0,
-        tempHpDamage: firstHit.tempAbsorbed || 0,
-        hpDamage: firstHit.hpDmg || firstHit.value || 0,
-        isLethal: firstHit.isDead || false,
-        targetHpBefore: firstHit.hpBefore !== undefined ? firstHit.hpBefore : (primaryTarget ? primaryTarget.hp : 0),
-        targetHpAfter: firstHit.hpAfter !== undefined ? firstHit.hpAfter : (primaryTarget ? primaryTarget.hp : 0),
-        targetMaxHp: firstHit.maxHp !== undefined ? firstHit.maxHp : (primaryTarget ? primaryTarget.maxHp : 100),
-        actorHpBefore: monster.hp,
-        actorHpAfter: monster.hp,
-        actorMaxHp: monster.maxHp,
-        visualEvents: [{
-          type: 'monster_attack',
-          isUlt: isUltTurn,
-          ultName: monster.ultName,
-          shieldMod: shieldDamageMod,
-          hits: monsterHits
-        }],
-        hpSnapshot: this.getHpSnapshot()
-      });
-    }
-
     } // 結束怪物存活時的反擊結算 (else 區塊)
 
     if(this.arena&&this.players[this.arena.playerId]?.hp<=0)this.p8ExitArena(presentationQueue,'gladiator_dead');
@@ -3996,7 +5886,7 @@ export class Room {
         }
       }
     }
-    if(monster.hp>0 && Object.values(this.players).some(p=>P8_ROLES.includes(p.role)||p.role==='druid'))presentationQueue.push({type:"status_cleanup",hpSnapshot:this.getHpSnapshot()});
+    if(this.getLivingEnemies().length > 0 && Object.values(this.players).some(p=>P8_ROLES.includes(p.role)||p.role==='druid'))presentationQueue.push({type:"status_cleanup",hpSnapshot:this.getHpSnapshot()});
 
     // Boss 攻擊完成並處理所有結算後，清除 Temporary Overheal
     const anyOverhealCleared = this.clearTemporaryOverheal();
@@ -4021,10 +5911,12 @@ export class Room {
 
     this.p8LogBuffer=null;
     this.augurVisuals=null;
-    if (monster.hp <= 0 && !presentationQueue.some(step => step.type === 'kill')) {
+    this.refreshPrimaryMonster();
+    monster = this.currentMonster;
+    if (this.getLivingEnemies().length === 0 && monster && !presentationQueue.some(step => step.type === 'kill')) {
       presentationQueue.push({type:'kill',monsterName:monster.name,
         narrative:this.studioContent.text('event.victory',`💀 **${monster.name}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！`,{boss:monster.name}),
-        visualEvents:[{type:'monster_killed'}],hpSnapshot:this.getHpSnapshot()});
+        visualEvents:[{type:'monster_killed', targetEnemyId: monster.instanceId}],hpSnapshot:this.getHpSnapshot()});
     }
     this.publishCombatQueue(presentationQueue, 'resolution');
   }
@@ -4055,7 +5947,9 @@ export class Room {
   publishCombatQueue(queue, mode = 'resolution') {
     queue.forEach(sequenceAugurDamageResults);
     this.augurVisuals=null;
-    if(this.currentMonster?.hp<=0) {
+    this.refreshPrimaryMonster();
+    const allEnemiesDead = this.enemies?.length > 0 ? this.getLivingEnemies().length === 0 : (this.currentMonster?.hp <= 0);
+    if(allEnemiesDead) {
       this.clearAugurBattleDebts();
       if(queue.length)queue.at(-1).hpSnapshot=this.getHpSnapshot();
     }
@@ -4068,7 +5962,7 @@ export class Room {
     this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
     this.io.to(this.code).emit('battle:presentation_queue', {
       queue, round: this.battleRound, presentationId: this.battlePresentationId,
-      monsterKilled: this.currentMonster?.hp <= 0
+      monsterKilled: allEnemiesDead
     });
     this.broadcastState();
   }
@@ -4089,10 +5983,12 @@ export class Room {
     }
     if (this.selectionState !== 'RESOLVING') return;
 
+    this.refreshPrimaryMonster();
     const monster = this.currentMonster;
+    const allEnemiesDead = this.enemies?.length > 0 ? this.getLivingEnemies().length === 0 : Boolean(monster && monster.hp <= 0);
     const remainingLiving = Object.values(this.players).filter(p => p.hp > 0);
     if (remainingLiving.length === 0) {
-      if (monster && monster.hp <= 0) {
+      if (allEnemiesDead) {
         this.addLog(`⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, 'damage');
       }
       this.handleGameOver();
@@ -4106,7 +6002,7 @@ export class Room {
       return;
     }
 
-    if (monster && monster.hp <= 0) {
+    if (monster && allEnemiesDead) {
       this.handleMonsterVictory(monster, [], [], true);
       return;
     }
@@ -4122,12 +6018,6 @@ export class Room {
     if (this.floor % 5 === 0) {
       this.state = 'CHECKPOINT';
       this.addLog(`🏰【第 ${this.floor} 層 - 深淵休息站】恭喜小隊成功突破至第 ${this.floor} 層！前方是神聖的守護結界。請隊長做出抉擇！`, 'info');
-      this.setTimer(45, () => {
-        if (this.state === 'CHECKPOINT') {
-          this.addLog('⏱️ 隊長沈思許久，決定讓小隊在泉水前修整完畢並自動繼續前進！', 'info');
-          this.continueFromCheckpoint();
-        }
-      });
       this.broadcastState();
     } else {
       this.floor += 1;
@@ -4194,6 +6084,9 @@ export class Room {
     this.pendingDrop = null;
     this.monsterStunnedThisRound = false;
     this.isWolfSurrenderGameOver = false;
+    this.hexMap = this.generateHexMap();
+    this.currentHex = { col: 0, row: 1 };
+    this.scoutedCols = new Set();
 
     for (const p of Object.values(this.players)) {
       p.hp = p.role ? CLASSES[p.role].maxHp : 100;
@@ -4212,6 +6105,7 @@ export class Room {
       }
       p.action = null;
       p.targetPlayerId = null;
+      p.targetEnemyId = null;
       p.cannotCrit = false;
       p.isStealthed = false;
       p.stunnedNextTurn = false;
@@ -4394,6 +6288,14 @@ export class Room {
     return {
       code: this.code,
       leaderId: this.leaderId,
+      lockedLeaderId: this.getEffectiveLeaderId(),
+      lockedLeaderRole: this.getEffectiveLeaderRole(),
+      leaderSkill: this.getEffectiveLeaderSkill() || (this.players[this.leaderId]?.role ? LEADER_SKILLS[this.players[this.leaderId]?.role] : null),
+      leaderSkillUsedThisBattle: Boolean(this.leaderSkillUsedThisBattle),
+      gold: this.gold ?? 100,
+      squadInventory: (this.squadInventory || []).slice(),
+      abyssState: this.abyssState ? structuredClone(this.abyssState) : null,
+      abyssFlashRedEye: Boolean(this.abyssFlashRedEye),
       state: this.state,
       selectionState: this.selectionState || 'SELECTING',
       floor: this.floor,
@@ -4405,6 +6307,7 @@ export class Room {
       isPaused: this.isPaused,
       timerRemaining: timerRemaining,
       gameOverReason: this.gameOverReason,
+      enemies: (this.enemies || []).map(e => this.formatEnemySnapshot(e)),
       currentMonster: this.currentMonster ? {
         ...this.currentMonster,
         poisonTurns: this.currentMonster.poisonTurns || 0,
@@ -4423,6 +6326,8 @@ export class Room {
       currentPrologue: (this.state === 'PROLOGUE') ? this.studioContent.storyTexts.prologue : null,
       narrativeControl: this.getNarrativeControl(),
       isNarrating: this.isNarrating || false,
+      currentHex: this.currentHex ? { ...this.currentHex } : { col: 0, row: 3 },
+      hexMap: this.getClientHexMap(),
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
       routeVotes: this.routeVotes || {},
       routeVoteCounts: routeVoteCounts,
@@ -4449,8 +6354,14 @@ export class Room {
         bonusAtk: p.bonusAtk,
         equips: (p.equips || []).map(e => ({ id: e.id, name: e.name, type: e.type, desc: e.desc, statDesc: e.statDesc })),
         equipCounts: p.equipCounts || {},
+        bag: (p.bag || []).map(item => ({ ...item })),
+        equipSlots: p.equipSlots ? { ...p.equipSlots } : { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null },
+        bonusDef: p.bonusDef || 0,
+        regenPerRound: p.regenPerRound || 0,
+        battleStartShield: p.battleStartShield || 0,
         availableSkills: getPlayerSkills(p),
         votedRouteId: (this.routeVotes && this.routeVotes[p.id]) || null,
+        targetEnemyId: p.targetEnemyId || null,
         warriorVulnerableTurns: p.warriorVulnerableTurns || 0,
         downedForFloor: p.hp <= 0,
         archerNextDodgeBonus: p.archerNextDodgeBonus || 0,

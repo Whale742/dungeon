@@ -6,11 +6,12 @@ export function rollBonusResistance(floor, random = Math.random) {
 }
 
 export function createBossResistances(monster, floor, random = Math.random) {
-  const baseResistances = { ...monster.baseResistances };
+  const baseResistances = { physical: 0, magic: 0, effect: 0, ...(monster?.baseResistances || {}) };
   const bonusResistances = {};
   const resistances = {};
+  const noBonus = Boolean(monster?.noBonusResistance);
   for (const type of ['physical', 'magic', 'effect']) {
-    bonusResistances[type] = rollBonusResistance(floor, random);
+    bonusResistances[type] = noBonus ? 0 : rollBonusResistance(floor, random);
     resistances[type] = (baseResistances[type] || 0) + bonusResistances[type];
   }
   return { baseResistances, bonusResistances, resistances };

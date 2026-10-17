@@ -41,6 +41,6 @@ test('encounter from TRANSITION accepts first-round status ACKs before selection
   room.handleSelectionReady('p0', 1);
   assert.equal(room.turnTimer, null);
   room.handleSelectionReady('p1', 1);
-  assert.notEqual(room.turnTimer, null);
-  assert.equal(events.findLast(e => e.name === 'room:update').data.timerRemaining, 30);
+  assert.equal(room.turnTimer, null);
+  assert.equal(events.findLast(e => e.name === 'room:update').data.timerRemaining, null);
 });

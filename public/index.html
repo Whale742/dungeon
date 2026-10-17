@@ -191,6 +191,9 @@
         <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">
           <svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰
         </button>
+        <button id="btnOpenInventory" class="btn-icon hidden" title="查看行囊與裝備鍛造">
+          <svg class="svg-icon"><use href="#icon-chest"></use></svg> 🎒 行囊 <span id="headerGoldDisplay" class="header-gold-pill">🪙 100</span>
+        </button>
         <button id="btnLeaveParty" onclick="exitRoomToLobbyMenu()" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
           <svg class="svg-icon"><use href="#icon-close"></use></svg> 離開隊伍
         </button>
@@ -443,7 +446,7 @@
             </div>
             <div id="routeTimerBar" class="timer-container hidden">
               <div class="timer-bar" id="routeTimerProgress"></div>
-              <span class="timer-text" id="routeTimerText"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 倒數 15 秒</span>
+              <span class="timer-text" id="routeTimerText"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 無時間限制</span>
             </div>
           </div>
 
@@ -452,8 +455,11 @@
           <!-- 全體隊員投票狀態標籤欄 -->
           <div id="routeVotersStatusList" class="route-voters-status-list hidden"></div>
 
+          <!-- 六角蜂巢迷霧地圖 (10 層 Odd-Q Offset Coordinates) -->
+          <div id="hexMapContainer" class="hex-map-container hidden" aria-label="六角蜂巢迷霧地圖"></div>
+
           <div id="routeOptionsGrid" class="route-grid hidden">
-            <!-- 4 條路線按鈕，每張按鈕即時顯示即時得票數與投票玩家 -->
+            <!-- 相鄰六角格路線按鈕，每張按鈕即時顯示即時得票數與投票玩家 -->
           </div>
         </div>
       </section>
@@ -499,6 +505,35 @@
           </div>
           <div class="event-footer">
             <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 整理裝備中，即將前往下一層...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 視圖 4.5：深淵對話與抉擇 (Module 5) -->
+      <section id="viewAbyssDialogue" class="view-panel abyss-view-panel">
+        <div class="abyss-dialogue-card">
+          <div class="abyss-boss-portrait-wrap">
+            <img id="abyssBossAvatar" src="/photo/Warrior.webp" alt="深淵化身" class="abyss-boss-avatar">
+            <div id="abyssRedEyeOverlay" class="abyss-red-eye-overlay hidden"></div>
+          </div>
+          <div class="abyss-dialogue-content">
+            <div class="abyss-stage-indicator">
+              <span id="abyssStageTag" class="abyss-stage-tag">階段 1/4 · 命運的相逢</span>
+            </div>
+            <h2 id="abyssBossName" class="abyss-boss-name">深淵化身</h2>
+            <div id="abyssDialogueTextBox" class="abyss-dialogue-text-box"></div>
+            
+            <!-- 階段 3 抉擇按鈕列 -->
+            <div id="abyssChoicesContainer" class="abyss-choices-container hidden">
+              <!-- 動態生成 3 種抉擇按鈕 -->
+            </div>
+
+            <!-- 前進下一階段按鈕 -->
+            <div id="abyssActionsContainer" class="abyss-actions-container">
+              <button id="btnAdvanceAbyss" class="btn-abyss-advance" type="button">
+                繼續聆聽 (ADVANCE) ›
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -603,6 +638,9 @@
                 <span id="selectionTargetText" class="selection-target-text hidden"></span>
               </div>
               <div class="selection-action-buttons">
+                <button id="btnUseLeaderSkill" class="btn btn-leader-skill hidden" type="button">
+                  👑 隊長技
+                </button>
                 <button id="btnConfirmLock" class="btn btn-primary btn-lock" disabled>
                   <svg class="svg-icon"><use href="#icon-lock"></use></svg> 確定鎖定 (CONFIRM)
                 </button>
@@ -1138,6 +1176,62 @@
       <div class="modal-actions">
         <button type="button" id="btnCloseDirectConnectModal" class="parchment-btn flex-1">取消</button>
         <button id="btnJoinRoom" type="button" class="parchment-btn parchment-btn-crimson flex-1">加入討伐</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: 雙層行囊與鍛造工坊 (Module 3 & 4) ================= -->
+  <div id="inventoryModal" class="modal-overlay hidden" style="z-index: 2400;">
+    <div class="kraft-paper kraft-paper-rivets modal-card inventory-modal-card">
+      <div class="modal-header">
+        <div class="inventory-header-info">
+          <h3 class="modal-title">🎒 探險行囊與鍛造工坊</h3>
+          <span id="inventoryGoldCount" class="inventory-gold-badge">🪙 100 金幣</span>
+        </div>
+        <button type="button" id="btnCloseInventoryModal" class="modal-close-btn" title="關閉">
+          <svg class="svg-icon"><use href="#icon-close"></use></svg>
+        </button>
+      </div>
+
+      <!-- 分頁切換鈕 -->
+      <div class="inventory-tabs">
+        <button type="button" class="inv-tab-btn active" data-tab="squad">小隊行囊 (20格)</button>
+        <button type="button" class="inv-tab-btn" data-tab="personal">個人裝備與背包 (4格)</button>
+        <button type="button" class="inv-tab-btn" data-tab="crafting">鍛造工坊 (5種配方)</button>
+      </div>
+
+      <div class="modal-body inventory-modal-body">
+        <!-- 分頁 1: 小隊行囊 -->
+        <div id="tabSquadInventory" class="inv-tab-content active">
+          <div class="inv-sub-header">
+            <span>小隊共享行囊（點擊物品可領取至個人背包）：</span>
+            <span id="squadCapacityText">0 / 20</span>
+          </div>
+          <div id="squadGrid" class="inventory-slots-grid squad-grid"></div>
+        </div>
+
+        <!-- 分頁 2: 個人裝備與背包 -->
+        <div id="tabPersonalInventory" class="inv-tab-content hidden">
+          <div class="personal-equip-section">
+            <h4 class="inv-section-title">🛡️ 目前穿戴裝備（點擊裝備可卸下回個人背包）：</h4>
+            <div id="equippedSlotsGrid" class="equipped-slots-grid">
+              <!-- WEAPON, ARMOR, ACCESSORY, CLASS_EXCLUSIVE -->
+            </div>
+          </div>
+          <div class="personal-bag-section">
+            <div class="inv-sub-header">
+              <span>個人背包（點擊可穿戴或放回小隊行囊）：</span>
+              <span id="personalBagCapacityText">0 / 4</span>
+            </div>
+            <div id="personalBagGrid" class="inventory-slots-grid personal-grid"></div>
+          </div>
+        </div>
+
+        <!-- 分頁 3: 鍛造工坊 -->
+        <div id="tabCrafting" class="inv-tab-content hidden">
+          <p class="crafting-hint">消耗小隊行囊中的兩件階級 1 裝備，合成強大的階級 2 裝備：</p>
+          <div id="craftingRecipesList" class="crafting-recipes-list"></div>
+        </div>
       </div>
     </div>
   </div>

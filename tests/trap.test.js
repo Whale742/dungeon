@@ -88,7 +88,7 @@ test('archer presentation records actual random dodge result', t => {
   } finally { Math.random = originalRandom; }
 });
 
-test('checkpoint timer begins after all trap exit ACKs', t => {
+test('checkpoint enters with no countdown timer after all trap exit ACKs', t => {
   const room = fixture(t, 5);
   room.handleTrapEvent();
   const id = room.currentEvent.presentationId;
@@ -96,5 +96,6 @@ test('checkpoint timer begins after all trap exit ACKs', t => {
   room.handleTrapPresentationComplete('leader', id);
   room.handleTrapPresentationComplete('member', id);
   assert.equal(room.state, 'CHECKPOINT');
-  assert.equal(room.getClientState().timerRemaining, 45);
+  assert.equal(room.turnTimer, null);
+  assert.equal(room.getClientState().timerRemaining, null);
 });

@@ -753,6 +753,10 @@ export function applyEquipStats(player, item) {
       player.hp = Math.max(1, player.hp);
     }
   }
+  if (item.bonusDef) player.bonusDef = (player.bonusDef || 0) + item.bonusDef;
+  if (item.regenPerRound) player.regenPerRound = (player.regenPerRound || 0) + item.regenPerRound;
+  if (item.battleStartShield) player.battleStartShield = (player.battleStartShield || 0) + item.battleStartShield;
+  if (item.bonusCrit) player.bonusCrit = (player.bonusCrit || 0) + item.bonusCrit;
 }
 
 // 卸除裝備數值扣減
@@ -764,6 +768,10 @@ export function removeEquipStats(player, item) {
     player.hp = Math.min(player.hp, player.maxHp);
     player.hp = Math.max(1, player.hp);
   }
+  if (item.bonusDef) player.bonusDef = Math.max(0, (player.bonusDef || 0) - item.bonusDef);
+  if (item.regenPerRound) player.regenPerRound = Math.max(0, (player.regenPerRound || 0) - item.regenPerRound);
+  if (item.battleStartShield) player.battleStartShield = Math.max(0, (player.battleStartShield || 0) - item.battleStartShield);
+  if (item.bonusCrit) player.bonusCrit = Math.max(0, (player.bonusCrit || 0) - item.bonusCrit);
 }
 
 // 檢查玩家是否可以裝備該物品（雙手劍、精靈木提琴及改良型重弩不能重複穿戴）
@@ -1259,3 +1267,1026 @@ export function getCrossbowAmmoIcon(ammo) {
   if (ammo === 'burst') return '💥';
   return '▫️';
 }
+
+// ==========================================
+// Module 2：10 大精英怪專屬伴生小怪與 3 種泛用雜兵
+// ==========================================
+
+export const EXCLUSIVE_MINIONS = [
+  // 1. 地底熔岩巨像 專屬
+  {
+    id: 'lava_larva',
+    bossName: '地底熔岩巨像',
+    name: '爆裂熔岩幼體',
+    avatar: '/MONSTER/Lava Larva.webp',
+    hp: 30,
+    desc: '熔岩巨像崩落碎片孕育出的火元素生物，死亡時會引發自爆。',
+    attack: 4,
+    baseResistances: { physical: 15, magic: 15, effect: 0 },
+    ultName: '焦油自爆烈焰'
+  },
+  // 2. 暗影魔狼族長 專屬
+  {
+    id: 'shadow_wolf_pup',
+    bossName: '暗影魔狼族長',
+    name: '暗影疾行幼狼',
+    avatar: '/MONSTER/Shadow Wolf Pup.webp',
+    hp: 24,
+    desc: '穿梭於陰影中的敏捷狼崽，擅長群體包抄擾亂目標。',
+    attack: 5,
+    baseResistances: { physical: 5, magic: 10, effect: 5 },
+    ultName: '暗影連環撕咬'
+  },
+  // 3. 古代守護魔偶 專屬
+  {
+    id: 'ancient_repair_drone',
+    bossName: '古代守護魔偶',
+    name: '古代維修浮游機',
+    avatar: '/MONSTER/Ancient Repair Drone.webp',
+    hp: 35,
+    desc: '古代遺跡的自主修復裝置，會持續為主要魔偶輸送護盾與能量。',
+    attack: 3,
+    baseResistances: { physical: 0, magic: 0, effect: 15 },
+    ultName: '奈米過載充能'
+  },
+  // 4. 赤月嗜血巫師 專屬
+  {
+    id: 'blood_moon_acolyte',
+    bossName: '赤月嗜血巫師',
+    name: '赤月狂熱侍僧',
+    avatar: '/MONSTER/Blood Moon Acolyte.webp',
+    hp: 28,
+    desc: '沉溺於赤月詛咒的教徒，願意獻祭自身的生命強化主祭的咒語。',
+    attack: 6,
+    baseResistances: { physical: 0, magic: 15, effect: 10 },
+    ultName: '血咒獻祭爆裂'
+  },
+  // 5. 深淵腐蝕巨蟒 專屬
+  {
+    id: 'corrosive_slime',
+    bossName: '深淵腐蝕巨蟒',
+    name: '酸蝕劇毒泥怪',
+    avatar: '/MONSTER/Corrosive Slime.webp',
+    hp: 38,
+    desc: '巨蟒腹部蛻下的腐蝕黏液化成的軟泥怪，能溶解玩家的防禦護甲。',
+    attack: 3,
+    baseResistances: { physical: 5, magic: 15, effect: 15 },
+    ultName: '強酸腐蝕噴吐'
+  },
+  // 6. 霜骨亡靈騎士 專屬
+  {
+    id: 'frostbone_skeleton',
+    bossName: '霜骨亡靈騎士',
+    name: '霜髓殘破骷髏兵',
+    avatar: '/MONSTER/Frostbone Skeleton.webp',
+    hp: 32,
+    desc: '伴隨騎士一同長眠的步兵枯骨，手中的鏽蝕長矛附帶刺骨嚴寒。',
+    attack: 4,
+    baseResistances: { physical: 0, magic: 10, effect: 15 },
+    ultName: '寒冰刺骨戳擊'
+  },
+  // 7. 迷宮食腐暴食魔 專屬
+  {
+    id: 'carrion_crawler',
+    bossName: '迷宮食腐暴食魔',
+    name: '寄生腐肉爬行者',
+    avatar: '/MONSTER/Carrion Crawler.webp',
+    hp: 42,
+    desc: '寄生於暴食魔爛肉皺褶中的多足蟲，以腐爛血肉為食，生命力頑強。',
+    attack: 3,
+    baseResistances: { physical: 5, magic: 0, effect: 10 },
+    ultName: '腐臭毒液寄生'
+  },
+  // 8. 幻惑幽魂歌姬 專屬
+  {
+    id: 'whispering_apparition',
+    bossName: '幻惑幽魂歌姬',
+    name: '低語迷失怨魂',
+    avatar: '/MONSTER/Whispering Apparition.webp',
+    hp: 22,
+    desc: '無實體的游離幽魂，透過哀怨的尖叫削弱敵人的精神抗性。',
+    attack: 7,
+    baseResistances: { physical: 20, magic: 0, effect: 0 },
+    ultName: '迷亂惑心低語'
+  },
+  // 9. 結晶守護巨蠍 專屬
+  {
+    id: 'crystal_beetle',
+    bossName: '結晶守護巨蠍',
+    name: '共鳴紫晶甲蟲',
+    avatar: '/MONSTER/Crystal Beetle.webp',
+    hp: 36,
+    desc: '甲殼覆蓋結晶碎屑的小型甲蟲，能與巨蠍的晶甲產生共鳴屏障。',
+    attack: 4,
+    baseResistances: { physical: 15, magic: 0, effect: 0 },
+    ultName: '晶屑折射反彈'
+  },
+  // 10. 煉獄炎獄行者 專屬
+  {
+    id: 'hellfire_imp',
+    bossName: '煉獄炎獄行者',
+    name: '焦灼地獄小鬼',
+    avatar: '/MONSTER/Hellfire Imp.webp',
+    hp: 26,
+    desc: '狡黠的地獄下級僕從，喜歡在戰場邊緣投擲火球製造混亂。',
+    attack: 6,
+    baseResistances: { physical: 5, magic: 8, effect: 5 },
+    ultName: '煉獄火球連擲'
+  }
+];
+
+// 3 種泛用雜兵
+export const GENERAL_MINIONS = [
+  {
+    id: 'gel_slime',
+    name: '迷途凝膠史萊姆',
+    avatar: '/MONSTER/Gel Slime.webp',
+    hp: 35,
+    desc: '地下城最常見的膠狀生物，體質具彈性，能吸收各類衝擊。',
+    attack: 3,
+    baseResistances: { physical: 10, magic: 5, effect: 5 },
+    ultName: '黏液纏繞重壓'
+  },
+  {
+    id: 'cave_goblin_rogue',
+    name: '洞窟暗刃哥布林',
+    avatar: '/MONSTER/Cave Goblin Rogue.webp',
+    hp: 25,
+    desc: '手持粗糙匕首的哥布林斥候，偏好偷襲落單冒險者的弱點。',
+    attack: 6,
+    baseResistances: { physical: 5, magic: 0, effect: 0 },
+    ultName: '背刺偷襲突刺'
+  },
+  {
+    id: 'labyrinth_crossbowman',
+    name: '流浪迷宮弩手',
+    avatar: '/MONSTER/Labyrinth Crossbowman.webp',
+    hp: 28,
+    desc: '在迷宮中迷失理智的冒險者亡骸，盲目地向視野內一切生靈射擊。',
+    attack: 5,
+    baseResistances: { physical: 0, magic: 5, effect: 5 },
+    ultName: '穿甲散射重弩'
+  }
+];
+
+// 深淵隨從小怪（供 col 9 深淵精英戰固定搭配 2 隻隨從小怪）
+export const ABYSS_MINIONS = [
+  {
+    id: 'abyss_remnant',
+    name: '深淵執念殘響',
+    avatar: '/MONSTER/Whispering Apparition.webp',
+    hp: 34,
+    desc: '由未被選擇者的遺恨凝聚而成的深淵隨從，撕扯生者的靈魂。',
+    attack: 5,
+    baseResistances: { physical: 10, magic: 15, effect: 10 },
+    ultName: '深淵哀鳴衝擊',
+    isAbyssMinion: true
+  },
+  {
+    id: 'abyss_watcher',
+    name: '深淵侵蝕凝視者',
+    avatar: '/MONSTER/Corrosive Slime.webp',
+    hp: 36,
+    desc: '寄生於深淵裂隙的暗影眷屬，為深淵化的宿主提供掩護。',
+    attack: 4,
+    baseResistances: { physical: 15, magic: 10, effect: 10 },
+    ultName: '虛空侵蝕射線',
+    isAbyssMinion: true
+  }
+];
+
+// 特殊事件觸發的精英怪（奸商、寶箱怪）
+export const SPECIAL_ELITES = {
+  shady_merchant: {
+    id: 'shady_merchant',
+    name: '深淵黑市奸商・格里德',
+    avatar: '/BOSS/Blood Moon Sorcerer.webp',
+    hp: 110,
+    desc: '撕下偽善面具的黑市商人，揮舞著鑲滿假寶石的沉重金庫法杖！',
+    attack: 14,
+    baseResistances: { physical: 15, magic: 15, effect: 15 },
+    ultName: '黑金暴利轟炸',
+    tier: 'ELITE',
+    isShadyMerchant: true
+  },
+  treasure_mimic: {
+    id: 'treasure_mimic',
+    name: '貪婪噬魂寶箱怪',
+    avatar: '/BOSS/Labyrinth Glutton Demon.webp',
+    hp: 125,
+    desc: '偽裝成華麗秘銀寶箱的擬態魔物，箱蓋張開時露出密密麻麻的利齒與血紅長舌！',
+    attack: 15,
+    baseResistances: { physical: 20, magic: 10, effect: 10 },
+    ultName: '貪婪吞噬猛咬',
+    tier: 'ELITE',
+    isMimic: true
+  }
+};
+
+// ==========================================
+// Module 5：深淵化職業設定 (整合自 public/assets/深淵.md)
+// ==========================================
+
+export const ABYSS_BOSSES = {
+  warrior: {
+    id: 'abyss_warrior',
+    role: 'warrior',
+    name: '深淵戰士',
+    avatar: '/photo/Warrior.webp',
+    hp: 180,
+    attack: 7,
+    baseResistances: { physical: 30, magic: 5, effect: 5 },
+    noBonusResistance: false,
+    desc: '墮入深淵的前排坦鋒，揮舞被深淵黑血浸染的巨劍。',
+    basicName: '巨劍揮砍',
+    basicDesc: '揮動巨劍造成 7 點傷害',
+    ultName: '深淵壁壘重斬',
+    ultDesc: '開啟基於當下生命值30%的護盾，並造成18點傷害',
+    script: {
+      basicDamage: 7,
+      specialDamage: 18,
+      specialShieldCurrentHpRatio: 0.30
+    }
+  },
+  mage: {
+    id: 'abyss_mage',
+    role: 'mage',
+    name: '深淵法師',
+    avatar: '/photo/Mage.webp',
+    hp: 90,
+    attack: 18,
+    baseResistances: { physical: 0, magic: 30, effect: 10 },
+    noBonusResistance: false,
+    desc: '被狂暴奧術吞噬心智的法師，肆意傾瀉毀滅性的深淵魔力。',
+    basicName: '狂暴魔力轟炸',
+    basicDesc: '引爆狂暴魔力轟炸敵方造成 18 點傷害',
+    ultName: '深淵亂流汲取',
+    ultDesc: '造成 1~27 點劇烈浮動的傷害，恢復造成傷害5%的血量',
+    script: {
+      basicDamage: 18,
+      specialMinDamage: 1,
+      specialMaxDamage: 27,
+      specialLifestealRatio: 0.05
+    }
+  },
+  archer: {
+    id: 'abyss_archer',
+    role: 'archer',
+    name: '深淵弓箭手',
+    avatar: '/photo/Archer.webp',
+    hp: 85,
+    attack: 12,
+    baseResistances: { physical: 10, magic: 10, effect: 0 },
+    noBonusResistance: false,
+    desc: '隱沒於深淵迷霧中的冷血射手，箭矢專挑昔日同伴的命門。',
+    basicName: '百步穿楊',
+    basicDesc: '百步穿楊狙擊目標造成 12 點傷害',
+    ultName: '深淵貫穿壓制',
+    ultDesc: '20 點傷害並削弱敵方 10 點攻擊力',
+    script: {
+      basicDamage: 12,
+      specialDamage: 20,
+      specialWeakenAtk: 10
+    }
+  },
+  assassin: {
+    id: 'abyss_assassin',
+    role: 'assassin',
+    name: '深淵刺客',
+    avatar: '/photo/Assassin.webp',
+    hp: 50,
+    attack: 20,
+    baseResistances: { physical: 0, magic: 0, effect: 0 },
+    noBonusResistance: true, // (不會獲得抗性)
+    desc: '徹底融入深淵暗影的刺客，捨棄了一切防禦換取極致的致命殺機。',
+    basicName: '深淵背刺',
+    basicDesc: '背刺敵方造成 20 點傷害',
+    ultName: '虛無暗影步',
+    ultDesc: '此回合玩家不可對他造成傷害。造成10點傷害。',
+    script: {
+      basicDamage: 20,
+      specialDamage: 10,
+      specialUntargetableRound: true
+    }
+  },
+  bard: {
+    id: 'abyss_bard',
+    role: 'bard',
+    name: '深淵吟遊詩人',
+    avatar: '/photo/Bard.webp',
+    hp: 90,
+    attack: 8,
+    baseResistances: { physical: 5, magic: 20, effect: 0 },
+    noBonusResistance: false,
+    desc: '撥動斷裂琴弦的絕望樂手，奏響令人理智崩潰的深淵輓歌。',
+    basicName: '悲鳴音波',
+    basicDesc: '撥動琴弦引導音波造成 8 點傷害',
+    ultName: '深淵安魂頌',
+    ultDesc: '恢復自身10%血量，不造成傷害。',
+    script: {
+      basicDamage: 8,
+      specialDamage: 0,
+      specialSelfHealMaxHpRatio: 0.10
+    }
+  },
+  alchemist: {
+    id: 'abyss_alchemist',
+    role: 'alchemist',
+    name: '深淵煉金術士',
+    avatar: '/photo/Alchemist.webp',
+    hp: 80,
+    attack: 15,
+    baseResistances: { physical: 0, magic: 5, effect: 35 },
+    noBonusResistance: false,
+    desc: '將深淵瘴氣注入試劑瓶的瘋狂學者，以劇毒與烈火灼燒萬物。',
+    basicName: '深淵禁忌投擲',
+    basicDesc: '施放【劇毒煙霧瓶】、【焦油燃燒瓶】、【重鉛裂骨瓶】、【霜蝕吸熱瓶】造成15傷害',
+    ultName: '禁忌再生提純',
+    ultDesc: '清除自身所有負面狀態，恢復5%生命。',
+    script: {
+      basicDamage: 15,
+      basicRandomFlaskDot: ['poison', 'burn', 'fracture', 'chill'],
+      specialDamage: 0,
+      specialCleanseSelf: true,
+      specialSelfHealMaxHpRatio: 0.05
+    }
+  },
+  druid: {
+    id: 'abyss_druid',
+    role: 'druid',
+    name: '深淵德魯伊',
+    avatar: '/photo/Druid.webp',
+    hp: 90,
+    attack: 10,
+    baseResistances: { physical: 30, magic: 5, effect: 5 },
+    noBonusResistance: false,
+    desc: '遭深淵腐化扭曲的自然化身，在嗜血狂狼與腐朽古樹間狂亂切換。',
+    basicName: '腐化自然之力',
+    basicDesc: '引導自然力量造成 10 點傷害',
+    ultName: '深淵狂暴變形',
+    ultDesc: '下回合有一半機率化身狼人（減少5%生命，立即造成 20 傷害）；有一半機率化身遠古樹精（恢復20%生命，立即造成3點傷害）',
+    script: {
+      basicDamage: 10,
+      specialWolfHpCostRatio: 0.05,
+      specialWolfDamage: 20,
+      specialTreantHealRatio: 0.20,
+      specialTreantDamage: 3
+    }
+  },
+  paladin: {
+    id: 'abyss_paladin',
+    role: 'paladin',
+    name: '深淵聖騎士',
+    avatar: '/photo/Paladin.webp',
+    hp: 80,
+    attack: 2,
+    baseResistances: { physical: 30, magic: 0, effect: 10 },
+    noBonusResistance: false,
+    desc: '背棄聖光誓言的墮落騎士，將信仰化為不可侵犯的荊棘反傷壁壘。',
+    basicName: '墮落懲戒',
+    basicDesc: '造成2點傷害，並且獲得基於造成傷害2倍的護盾',
+    ultName: '黑蝕荊棘聖盾',
+    ultDesc: '獲得當下生命30%的護盾，將此回合受到傷害50%反擊回去',
+    script: {
+      basicDamage: 2,
+      basicShieldMultiplier: 2,
+      specialDamage: 0,
+      specialShieldCurrentHpRatio: 0.30,
+      specialReflectDamageRatio: 0.50
+    }
+  },
+  gladiator: {
+    id: 'abyss_gladiator',
+    role: 'gladiator',
+    name: '深淵角鬥士',
+    avatar: '/photo/Gladiator.webp',
+    hp: 150,
+    attack: 12,
+    baseResistances: { physical: 30, magic: 0, effect: 0 },
+    noBonusResistance: false,
+    desc: '沉淪於無盡殺戮的深淵鬥士，燃燒自身鮮血強行將獵物拖入死鬥。',
+    basicName: '狂血猛擊',
+    basicDesc: '減少20%生命，並造成12點傷害',
+    ultName: '深淵死鬥角鬥場',
+    ultDesc: '出現額外回合，隨機選一名玩家進入角鬥場，雙方受到傷害不受減免，並造成18點傷害。',
+    script: {
+      basicDamage: 12,
+      basicSelfHpCostRatio: 0.20,
+      specialDamage: 18,
+      specialForceArena: true
+    }
+  },
+  stargazer: {
+    id: 'abyss_stargazer',
+    role: 'stargazer',
+    name: '深淵觀星者',
+    avatar: '/photo/Stargazer.webp',
+    hp: 80,
+    attack: 9,
+    baseResistances: { physical: 0, magic: 25, effect: 5 },
+    noBonusResistance: false,
+    desc: '直視深淵黑洞而陷入瘋狂的觀星者，以扭曲引力撕裂空間與時間。',
+    basicName: '引力坍縮',
+    basicDesc: '引力坍縮撕裂空間，造成9點真實撕裂傷害。',
+    ultName: '星軌停滯崩落',
+    ultDesc: '全部玩家CD增加一回合，並造成15點傷害。',
+    script: {
+      basicDamage: 9,
+      basicTrueDamage: true,
+      specialDamage: 15,
+      specialAllPlayersCooldownPlus: 1
+    }
+  },
+  dreamweaver: {
+    id: 'abyss_dreamweaver',
+    role: 'dreamweaver',
+    name: '深淵織夢術士',
+    avatar: '/photo/Dreamweaver.webp',
+    hp: 80,
+    attack: 10,
+    baseResistances: { physical: 0, magic: 15, effect: 25 },
+    noBonusResistance: false,
+    desc: '編織無盡惡夢的深淵術士，篡改隊員的感官使其自相殘殺。',
+    basicName: '惡夢穿刺',
+    basicDesc: '造成10點傷害',
+    ultName: '深淵群體惑亂',
+    ultDesc: '迷惑全體玩家，使玩家造成傷害打在隊友身上。',
+    script: {
+      basicDamage: 10,
+      specialDamage: 0,
+      specialConfuseAllPlayers: true
+    }
+  },
+  samurai: {
+    id: 'abyss_samurai',
+    role: 'samurai',
+    name: '深淵武士',
+    avatar: '/photo/武士.webp',
+    hp: 80,
+    attack: 12,
+    baseResistances: { physical: 25, magic: 10, effect: 0 },
+    noBonusResistance: false,
+    desc: '被妖刀徹底支配的劍鬼，刀鋒所向無人能全身而退。',
+    basicName: '魔刃斬擊',
+    basicDesc: '造成12點傷害，40%觸發反擊，每次反擊傷害為3點',
+    ultName: '深淵秘劍・燕返',
+    ultDesc: '快速砍出連續4刀【燕返】，每刀造成3點物理傷害',
+    script: {
+      basicDamage: 12,
+      basicCounterChance: 0.40,
+      basicCounterDamage: 3,
+      specialMultiHits: 4,
+      specialHitDamage: 3
+    }
+  },
+  onmyoji: {
+    id: 'abyss_onmyoji',
+    role: 'onmyoji',
+    name: '深淵陰陽師',
+    avatar: '/photo/陰陽師.webp',
+    hp: 65,
+    attack: 12,
+    baseResistances: { physical: 0, magic: 15, effect: 15 },
+    noBonusResistance: false,
+    desc: '役使百鬼怨靈的墮落陰陽師，將惡毒咒印烙印在生者魂魄之上。',
+    basicName: '怨靈符擊',
+    basicDesc: '擲出一道符咒，造成12點傷害',
+    ultName: '百鬼血咒印',
+    ultDesc: '擲出一道符咒，對隨機一名玩家施加以下3種負面效果之一：將造成的傷害10%~30%作用在自身、有100%機率在當前回合完全不造成任何傷害、受到的所有攻擊傷害提升10%',
+    script: {
+      basicDamage: 12,
+      specialDamage: 0,
+      specialApplyPlayerCurse: ['backlash', 'seal_zero', 'vulnerable']
+    }
+  },
+  sage: {
+    id: 'abyss_sage',
+    role: 'sage',
+    name: '深淵智者 - 無解的方程',
+    avatar: '/photo/智者.webp',
+    hp: 85,
+    attack: 11,
+    baseResistances: { physical: 5, magic: 25, effect: 20 },
+    noBonusResistance: false,
+    desc: '無法接受演算結果不選自己、認定整個世界皆為錯誤的深淵演算者。',
+    passiveName: '錯誤演算',
+    passiveDesc: '每回合累積誤差並干擾玩家行動結果',
+    basicName: '向量崩解',
+    basicDesc: '造成物理傷害並使目標下次受傷增加',
+    ultName: '無解證明',
+    ultDesc: '每兩回合依累積誤差對全隊造成傷害並重置誤差',
+    script: {
+      passiveErrorPerRound: 6,
+      basicDamage: 11,
+      basicApplyNextHitVulnerable: 0.20,
+      specialEveryNRounds: 2,
+      specialBaseDamage: 10,
+      specialResetError: true
+    }
+  }
+};
+
+// 卜者特殊彩蛋設定（排除出一般深淵候選池）
+export const ABYSS_AUGUR_EASTER_EGG = Object.freeze({
+  role: 'augur',
+  name: '卜者・命運預見者',
+  avatar: '/photo/卜者.webp',
+  excludedFromAbyssPool: true,
+  triggerChance: 0.08,
+  dialogue: '「在你們踏入大廳之前，水晶球就已經映出了我不會被選上的結局。深淵的誘惑對早已看透因果的人毫無意義……小心吧，真正被怨恨吞噬的人，就在我身後。」'
+});
+
+export function getExclusiveMinionForBoss(bossName) {
+  if (!bossName) return EXCLUSIVE_MINIONS[0];
+  const cleanName = String(bossName).replace(/^【削弱】/, '').trim();
+  return EXCLUSIVE_MINIONS.find(m => m.bossName === cleanName || cleanName.includes(m.bossName)) || EXCLUSIVE_MINIONS[0];
+}
+
+// ==========================================
+// Module 3：雙層背包、裝備欄位與合成系統
+// ==========================================
+
+export const EQUIP_SLOTS = Object.freeze({
+  WEAPON: 'WEAPON',
+  ARMOR: 'ARMOR',
+  ACCESSORY: 'ACCESSORY',
+  CLASS_EXCLUSIVE: 'CLASS_EXCLUSIVE'
+});
+
+export function determineEquipSlot(item) {
+  if (!item) return EQUIP_SLOTS.ACCESSORY;
+  if (item.slot && EQUIP_SLOTS[item.slot]) return item.slot;
+  if (item.tier === 'CLASS_EXCLUSIVE' || (item.role && !item.slot)) {
+    return EQUIP_SLOTS.CLASS_EXCLUSIVE;
+  }
+  if (item.bonusDef || (item.name && (item.name.includes('甲') || item.name.includes('盾') || item.name.includes('鎧')))) {
+    return EQUIP_SLOTS.ARMOR;
+  }
+  if (item.bonusAtk && !item.bonusDef && !item.regenPerRound && !item.battleStartShield) {
+    return EQUIP_SLOTS.WEAPON;
+  }
+  return EQUIP_SLOTS.ACCESSORY;
+}
+
+export const TIER1_EQUIPMENTS = [
+  {
+    id: 'short_sword',
+    name: '精煉短劍',
+    slot: EQUIP_SLOTS.WEAPON,
+    tier: 1,
+    bonusAtk: 4,
+    cost: 50,
+    desc: '輕巧銳利的精鋼短劍，物理攻擊 +4。'
+  },
+  {
+    id: 'magic_crystal',
+    name: '魔力水晶',
+    slot: EQUIP_SLOTS.WEAPON,
+    tier: 1,
+    bonusAtk: 4,
+    isMagic: true,
+    cost: 50,
+    desc: '蘊含純淨以太能量的水晶，魔法攻擊 +4。'
+  },
+  {
+    id: 'leather_armor',
+    name: '探險者皮甲',
+    slot: EQUIP_SLOTS.ARMOR,
+    tier: 1,
+    bonusHp: 15,
+    cost: 50,
+    desc: '野獸厚皮縫製的防具，最大生命 +15。'
+  },
+  {
+    id: 'buckler',
+    name: '輕型圓盾',
+    slot: EQUIP_SLOTS.ARMOR,
+    tier: 1,
+    bonusHp: 10,
+    bonusDef: 2,
+    cost: 50,
+    desc: '輕巧靈活的青銅圓盾，最大生命 +10，防禦 +2。'
+  },
+  {
+    id: 'ruby',
+    name: '熾熱紅寶石',
+    slot: EQUIP_SLOTS.ACCESSORY,
+    tier: 1,
+    bonusHp: 10,
+    cost: 50,
+    desc: '溫暖脈動的赤紅晶石，最大生命 +10。'
+  },
+  {
+    id: 'regen_herb_ring',
+    name: '再生草環',
+    slot: EQUIP_SLOTS.ACCESSORY,
+    tier: 1,
+    bonusHp: 5,
+    regenPerRound: 3,
+    cost: 50,
+    desc: '以生命草根莖編織的指環，最大生命 +5，每回合初自動回復 3 點生命。'
+  },
+  {
+    id: 'bronze_ring',
+    name: '青銅指環',
+    slot: EQUIP_SLOTS.ACCESSORY,
+    tier: 1,
+    bonusAtk: 2,
+    bonusHp: 5,
+    cost: 50,
+    desc: '刻有古代銘文的指環，攻擊 +2，最大生命 +5。'
+  }
+];
+
+export const TIER2_EQUIPMENTS = [
+  {
+    id: 'rune_greatsword',
+    name: '符文長劍',
+    slot: EQUIP_SLOTS.WEAPON,
+    tier: 2,
+    bonusAtk: 12,
+    cost: 120,
+    desc: '融合鋒刃與奧術的附魔長劍，攻擊 +12，普通攻擊額外附帶 3 點魔法穿透傷害。'
+  },
+  {
+    id: 'ring_of_life',
+    name: '生命指環',
+    slot: EQUIP_SLOTS.ACCESSORY,
+    tier: 2,
+    bonusHp: 25,
+    regenPerRound: 8,
+    cost: 120,
+    desc: '蘊藏豐沛生命律動的翡翠指環，最大生命 +25，每回合開始自動回復 8 點生命。'
+  },
+  {
+    id: 'steel_plate_armor',
+    name: '堅韌精鋼鎧',
+    slot: EQUIP_SLOTS.ARMOR,
+    tier: 2,
+    bonusHp: 35,
+    bonusDef: 5,
+    cost: 120,
+    desc: '重型精鋼板甲，提供堅不可摧的防護，最大生命 +35，防禦 +5。'
+  },
+  {
+    id: 'assault_blade',
+    name: '破陣鋒刃',
+    slot: EQUIP_SLOTS.WEAPON,
+    tier: 2,
+    bonusAtk: 10,
+    bonusCrit: 0.10,
+    cost: 120,
+    desc: '專破厚甲的重破鋒刃，攻擊 +10，暴擊率 +10%。'
+  },
+  {
+    id: 'guardian_pendant',
+    name: '守護者吊墜',
+    slot: EQUIP_SLOTS.ACCESSORY,
+    tier: 2,
+    bonusHp: 25,
+    battleStartShield: 15,
+    cost: 120,
+    desc: '受聖光祝福的守護墜飾，最大生命 +25，每場戰鬥首回合獲得 15 點護盾。'
+  }
+];
+
+export const CRAFTING_RECIPES = [
+  {
+    id: 'craft_rune_greatsword',
+    ingredients: ['short_sword', 'magic_crystal'],
+    resultId: 'rune_greatsword',
+    name: '符文長劍',
+    desc: '短劍 ＋ 魔力水晶'
+  },
+  {
+    id: 'craft_ring_of_life',
+    ingredients: ['ruby', 'regen_herb_ring'],
+    resultId: 'ring_of_life',
+    name: '生命指環',
+    desc: '熾熱紅寶石 ＋ 再生草環'
+  },
+  {
+    id: 'craft_steel_plate_armor',
+    ingredients: ['leather_armor', 'buckler'],
+    resultId: 'steel_plate_armor',
+    name: '堅韌精鋼鎧',
+    desc: '探險者皮甲 ＋ 輕型圓盾'
+  },
+  {
+    id: 'craft_assault_blade',
+    ingredients: ['short_sword', 'bronze_ring'],
+    resultId: 'assault_blade',
+    name: '破陣鋒刃',
+    desc: '短劍 ＋ 青銅指環'
+  },
+  {
+    id: 'craft_guardian_pendant',
+    ingredients: ['buckler', 'ruby'],
+    resultId: 'guardian_pendant',
+    name: '守護者吊墜',
+    desc: '輕型圓盾 ＋ 熾熱紅寶石'
+  }
+];
+
+export function getCraftingRecipe(item1Id, item2Id) {
+  if (!item1Id || !item2Id) return null;
+  const sorted = [item1Id, item2Id].sort();
+  return CRAFTING_RECIPES.find(r => {
+    const rSorted = r.ingredients.slice().sort();
+    return rSorted[0] === sorted[0] && rSorted[1] === sorted[1];
+  }) || null;
+}
+
+export function findItemTemplate(itemId) {
+  if (!itemId) return null;
+  return TIER1_EQUIPMENTS.find(e => e.id === itemId) ||
+    TIER2_EQUIPMENTS.find(e => e.id === itemId) ||
+    LOOT_TABLE.find(e => e.id === itemId) ||
+    NEW_LOOT.find(e => e.id === itemId) ||
+    null;
+}
+
+// ==========================================
+// Module 6：15 職業隊長技系統
+// ==========================================
+
+export const LEADER_SKILLS = Object.freeze({
+  warrior: {
+    id: 'leader_warrior',
+    role: 'warrior',
+    name: '堅守陣線',
+    type: 'PASSIVE',
+    combatDesc: '【戰鬥】被動；每場戰鬥首次有隊友生命降至 30% 以下時，該次所受傷害降低 50%。',
+    eventDesc: '【事件】翻臉搶劫奸商時使奸商首回合暈眩；祭壇鮮血獻祭扣血減半。'
+  },
+  mage: {
+    id: 'leader_mage',
+    role: 'mage',
+    name: '奧術共鳴',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；指定隊友，下一次魔法攻擊無視敵方 50% 魔法抗性。',
+    eventDesc: '【事件】「重鑄」事件費用減半，且必定可將物理武器轉為魔法武器。'
+  },
+  archer: {
+    id: 'leader_archer',
+    role: 'archer',
+    name: '獵殺標記',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；標記敵方目標，讓隊伍下一輪的首次攻擊更容易命中（無視閃避）。',
+    eventDesc: '【事件】六角地圖提前偵測「寶箱/商店」格機率提高 35%，並直接看穿寶箱怪偽裝。'
+  },
+  assassin: {
+    id: 'leader_assassin',
+    role: 'assassin',
+    name: '無聲行軍',
+    type: 'PASSIVE',
+    combatDesc: '【戰鬥】被動；全隊本場首次攻擊獲得額外破綻效果（目標次回合承傷 +20%）。',
+    eventDesc: '【事件】一般商店 8 折；遇到奸商時解鎖專屬選項「暗中行竊」（50% 機率免戰偷走一件商品）。'
+  },
+  bard: {
+    id: 'leader_bard',
+    role: 'bard',
+    name: '變奏指揮',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；調整本回合隊伍技能優先級，全隊攻擊於敵方行動前優先結算。',
+    eventDesc: '【事件】「流浪商人」免費提供路況情報，且以物易物必換出高一階裝備。'
+  },
+  alchemist: {
+    id: 'leader_alchemist',
+    role: 'alchemist',
+    name: '戰地調配',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；每場戰鬥選擇一次偏防禦（全隊獲得 20 護盾與 15% 減傷）或偏進攻（全隊攻擊 +8 且攻擊附加 DoT）藥劑。',
+    eventDesc: '【事件】背包「合成裝備」時，30% 機率保留其中一件小件材料或額外產出 20 金幣。'
+  },
+  druid: {
+    id: 'leader_druid',
+    role: 'druid',
+    name: '群生號令',
+    type: 'PASSIVE',
+    combatDesc: '【戰鬥】被動；召喚物首次替隊友承受傷害時，為該隊友提供 10 點額外臨時護盾保護。',
+    eventDesc: '【事件】遇到「寶箱怪」時解鎖「餵食安撫」選項，可免戰直接領取寶箱獎勵。'
+  },
+  paladin: {
+    id: 'leader_paladin',
+    role: 'paladin',
+    name: '不屈誓約',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；指定隊友，抵擋一次致命傷害（受到致死打擊時生命保留 1 點）。',
+    eventDesc: '【事件】「祭壇」解鎖專屬選項「聖光淨化」，免代價為全隊回復 30% 生命並附加 15 護盾。'
+  },
+  gladiator: {
+    id: 'leader_gladiator',
+    role: 'gladiator',
+    name: '榮耀號角',
+    type: 'PASSIVE',
+    combatDesc: '【戰鬥】被動；成功存活離開角鬥場後，全隊獲得防守優勢（全隊防禦 +20%，持續 2 回合）。',
+    eventDesc: '【事件】「賭博」解鎖押注生命值換雙倍獎勵；擊敗精英怪金幣掉落 +30%。'
+  },
+  stargazer: {
+    id: 'leader_stargazer',
+    role: 'stargazer',
+    name: '星軌先見',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；預知下一次敵方特殊攻擊時機，並協助全體隊友技能冷卻減少 1 回合。',
+    eventDesc: '【事件】每通過 3 層六角格，自動揭露前方一整列（所有格點）的所有真實事件。'
+  },
+  dreamweaver: {
+    id: 'leader_dreamweaver',
+    role: 'dreamweaver',
+    name: '共夢契約',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；將一次指定隊友本回合受到的 50% 傷害延後至下一回合結算。',
+    eventDesc: '【事件】在「流浪商人」或「賭博盲盒」中，可將裝備重塑為隨機同階配飾（含被動）。'
+  },
+  samurai: {
+    id: 'leader_samurai',
+    role: 'samurai',
+    name: '拔刀號令',
+    type: 'PASSIVE',
+    combatDesc: '【戰鬥】被動；隊伍本場首次成功反擊後，讓一名隊友獲得一次額外普攻追擊機會。',
+    eventDesc: '【事件】「重鑄」強化武器部位時，數值增幅從 +25% 提升至 +40%。'
+  },
+  sage: {
+    id: 'leader_sage',
+    role: 'sage',
+    name: '預設解',
+    type: 'PASSIVE',
+    combatDesc: '【戰鬥】被動；每場戰鬥首次求解失利（未命中或思緒紊亂）時，自動重試一次演算判定。',
+    eventDesc: '【事件】「賭博」金幣勝率從 50% 提升至 70%，且裝備盲盒碎裂機率降為 0%。'
+  },
+  augur: {
+    id: 'leader_augur',
+    role: 'augur',
+    name: '命運宣告',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；一次性讓指定隊友的機率判定獲得絕對正面干涉（本回合免除命債代價）。',
+    eventDesc: '【事件】踏入「奸商、寶箱怪、深淵」格前觸發預警，允許隊長重選同層其他相鄰格。'
+  },
+  onmyoji: {
+    id: 'leader_onmyoji',
+    role: 'onmyoji',
+    name: '百鬼敕令',
+    type: 'ACTIVE',
+    combatDesc: '【戰鬥】主動；指定目標身上現存符咒，在下次自然脫落判定時全數保留。',
+    eventDesc: '【事件】「祭壇」選擇褻瀆祭壇時完全免疫減防詛咒；深淵戰中封印隨從小怪首回合行動。'
+  }
+});
+
+// ==========================================
+// Module 5：深淵遭遇四階段對話庫
+// ==========================================
+
+export const ABYSS_DIALOGUES = {
+  // 通用回答選項與戰鬥條件修正
+  choices: [
+    {
+      id: 'apology',
+      label: '誠摯道歉',
+      text: '「我們當時別無選擇……對不起，請原諒我們。」',
+      desc: '深淵魔化首領受到觸動，首回合攻擊力降低 30%。',
+      atkMod: -0.30,
+      defMod: 0
+    },
+    {
+      id: 'rational',
+      label: '冷靜理性',
+      text: '「深淵已經侵蝕了你的心智，多說無益，請安息吧。」',
+      desc: '維持正常戰鬥條件。',
+      atkMod: 0,
+      defMod: 0
+    },
+    {
+      id: 'provoke',
+      label: '拔刃挑釁',
+      text: '「弱者才會把落選怪罪給世界，要戰便戰！」',
+      desc: '激怒深淵首領，其首回合攻擊力提升 30%，但防禦與抗性降低 30%。',
+      atkMod: 0.30,
+      defMod: -0.30
+    }
+  ],
+  // 各深淵職業階段台詞庫
+  bossDialogues: {
+    warrior: {
+      stage1: '「……是你？隊長，好久不見了。自從那次在大廳分道揚鑣後，我就一直在這底層探索……」',
+      stage2: '「為什麼……為什麼當初握劍守在門口的……不是我？為什麼被拋下的是我——！？」',
+      stage3: '「這把染滿深淵黑血的巨劍，現在要將你們所有人……徹底碾碎！」',
+      leaderDiff: {
+        warrior: '「同為持盾揮劍之人，你憑什麼站在他們面前，而我卻只能在地底腐爛？！」',
+        mage: '「你那孱弱的魔法能庇護誰？！站在前面流血的本該是我！」',
+        paladin: '「偽善的聖光……我的鋼鐵壁壘才是一切！」'
+      }
+    },
+    mage: {
+      stage1: '「呵呵……你們終於來了。看啊，這座深淵裡流淌的奧術能量，比高塔上的更加純粹……」',
+      stage2: '「你們嫌棄我不可控？嫌棄我的魔力太過危險？！現在……看看到底是誰不可控！！」',
+      stage3: '「深淵的虛空裂隙已經向我敞開……你們一個也逃不掉！」',
+      leaderDiff: {
+        mage: '「你以為你的奧術算得上純粹？在深淵狂潮面前，你的法杖就像枯枝！」',
+        warrior: '「無知的莽夫，你當初憑什麼決定誰能出發？！」'
+      }
+    },
+    archer: {
+      stage1: '「腳步聲太重了，隊長。我的箭尖……早就已經對準了你的喉嚨。」',
+      stage2: '「選職那天，你們甚至沒有回頭看我一眼……我的箭矢在你們眼裡就這麼不值一提？！」',
+      stage3: '「我的箭不會再射偏了……這一次，全部貫穿你們的心臟！」',
+      leaderDiff: {
+        archer: '「同行之間的較量……今天就讓你看清楚，誰才是百步穿楊的死神！」',
+        assassin: '「藏在陰影裡的老鼠，別以為能逃過我的鷹眼！」'
+      }
+    },
+    assassin: {
+      stage1: '「別拔刀，隊長。在黑暗裡，我比你們更早熟悉這座迷宮的每一個死角。」',
+      stage2: '「落單的滋味……你們體會過嗎？每一次呼吸都像利刃在肺裡攪動……」',
+      stage3: '「既然不選我，那就成為我淬毒刀刃下的祭品吧！」',
+      leaderDiff: {
+        warrior: '「笨重的盔甲，救不了你這顆該死的心臟！」',
+        assassin: '「暗影只認可最強的獵手……你根本不配匿蹤！」'
+      }
+    },
+    bard: {
+      stage1: '「啦啦啦……聽啊，隊長，這首深淵輓歌，是專門為你們譜寫的……」',
+      stage2: '「琴弦斷了……被你們硬生生扯斷了！為什麼連一個位置都不肯分給我？！」',
+      stage3: '「讓我們在瘋狂的旋律裡一同墜落吧……哈哈哈哈！！」',
+      leaderDiff: {
+        bard: '「聽聽看什麼才是真正的狂亂之曲！你的讚歌只配給死人陪葬！」',
+        paladin: '「你那神聖的禱告，根本比不上深淵的哀號！」'
+      }
+    },
+    alchemist: {
+      stage1: '「看啊隊長，深淵的瘴氣與強酸……真是世間最完美的試劑原料……」',
+      stage2: '「說我不穩定？！說我的藥劑會害死隊友？！現在我就讓你們嚐嚐什麼叫完美反應！」',
+      stage3: '「所有試管都已經填滿……連同你們的骨血一起蒸餾吧！」',
+      leaderDiff: {
+        alchemist: '「你的調配比例簡直是兒戲！深淵的禁忌才是真正的真理！」'
+      }
+    },
+    druid: {
+      stage1: '「樹木在哭泣……隊長，自然早已經拋棄了這座地下城，連同我一起。」',
+      stage2: '「古樹腐朽，群狼飢餓……你們離開時，可曾聽見我的咆哮？！」',
+      stage3: '「狂暴的深淵之靈……撕碎這些背信棄義的人！」',
+      leaderDiff: {
+        druid: '「偽善的自然守護者！腐化的狂獸才是進化的終點！」'
+      }
+    },
+    paladin: {
+      stage1: '「聖光在這裡早已熄滅……隊長，不要再用那種眼神看著我。」',
+      stage2: '「我曾發誓守護隊伍……但隊伍在哪裡？！你們拋棄誓約時，聖光就在嘲笑我！」',
+      stage3: '「現在……以深淵的黑蝕聖盾，制裁你們的罪孽！」',
+      leaderDiff: {
+        paladin: '「榮耀？正義？你握緊聖徽的手……不覺得虛偽嗎？！」'
+      }
+    },
+    gladiator: {
+      stage1: '「熱血在沸騰啊隊長！在深淵的鬥技場裡，我每一天都在等待這場決鬥！」',
+      stage2: '「不選我上場？！把最強的戰士留在冷板凳上腐爛？！不可原諒！！」',
+      stage3: '「踏入我的深淵角鬥場……今天只有一個人能站著走出去！」',
+      leaderDiff: {
+        warrior: '「把你的重盾扔掉！像個真正的角鬥士一樣跟我用血肉互毆！」',
+        gladiator: '「王座只有一個，唯有更嗜血的野獸才能活著加冕！」'
+      }
+    },
+    stargazer: {
+      stage1: '「星辰早已熄滅，隊長……深淵黑洞的視界邊緣，才是宇宙唯一的真相。」',
+      stage2: '「你們以為天眼看見的是希望？我看見的……只有你們離去的冷漠背影！」',
+      stage3: '「引力坍縮……讓時間與你們的生命一同停止！」',
+      leaderDiff: {
+        stargazer: '「你的星軌算錯了……黑洞才是萬物的歸宿！」'
+      }
+    },
+    dreamweaver: {
+      stage1: '「這是一個夢，隊長……一個你們永遠無法醒來的深淵噩夢。」',
+      stage2: '「美夢留給了你們……惡夢全部留給了我！這公平嗎？！回答我！！」',
+      stage3: '「在虛構的現實裡自相殘殺吧……這是你們應得的下場！」',
+      leaderDiff: {
+        dreamweaver: '「看清楚了，誰的織機能編出更殘忍的幻象！」'
+      }
+    },
+    samurai: {
+      stage1: '「……刀已出鞘。隊長，在迷宮的黑暗中，村雨的渴望從未停歇。」',
+      stage2: '「武士的榮耀被你們踐踏在腳下……沒有出發的拔刀，比死更加屈辱！」',
+      stage3: '「秘劍・燕返……這一次，斬斷的是我們昔日的羈絆！」',
+      leaderDiff: {
+        samurai: '「居合對決！今天用你的刀，來洗刷當日落選之恥！」'
+      }
+    },
+    onmyoji: {
+      stage1: '「符咒在黑夜中飄落，隊長……你們身上的生氣，真是讓人垂涎啊。」',
+      stage2: '「陰陽失衡，百鬼夜行……把我留在陽世之外，你們就該料到這一天！」',
+      stage3: '「急急如律令！百鬼血咒，將你們的魂魄全數拘入深淵！」',
+      leaderDiff: {
+        onmyoji: '「你的道術太過稚嫩！真正的咒印，是用怨恨血肉刻下的！」'
+      }
+    },
+    sage: {
+      stage1: '「演算的終點是發散的……隊長，你們的世界模型從一開始就是錯的。」',
+      stage2: '「邏輯不會說謊！數學不會出錯！唯一錯誤的……就是你們不選擇我的決定！！」',
+      stage3: '「錯誤演算無可逆轉……現在，讓我為你們的世界寫下【無解證明】！」',
+      leaderDiff: {
+        sage: '「你算出的解全都是謬誤！在絕對誤差面前，你的公理不堪一擊！」'
+      }
+    }
+  }
+};
+
+
