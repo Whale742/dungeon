@@ -25,7 +25,8 @@ test('floor/narrative have no timer and fastest/duplicate ACKs cannot start it',
   assert.equal(room.turnTimer, null);
   room.handleRouteNarrativeDone('member', room.routePresentationId);
   assert.equal(room.isNarrating, false);
-  assert.equal(room.getClientState().timerRemaining, 15);
+  assert.equal(room.turnTimer, null);
+  assert.equal(room.getClientState().timerRemaining, null);
 });
 
 test('unknown and previous-floor readiness cannot release the current floor', t => {
@@ -53,33 +54,32 @@ test('route input is rejected during narrative and while paused', t => {
   assert.equal(room.voteRoute('leader', routeId).success, true);
 });
 
-test('disconnect releases finished clients with a fresh 15 seconds', t => {
+test('disconnect releases finished clients with no time limit', t => {
   const { room } = routeRoom(t);
   room.handleRouteNarrativeDone('leader', room.routePresentationId);
   room.removePlayer('member');
   assert.equal(room.isNarrating, false);
-  assert.equal(room.getClientState().timerRemaining, 15);
+  assert.equal(room.turnTimer, null);
+  assert.equal(room.getClientState().timerRemaining, null);
 });
 
-test('paused readiness preserves all 15 seconds until resume', t => {
+test('paused readiness preserves unlimited voting state until resume', t => {
   const { room } = routeRoom(t);
   room.togglePause('leader');
   room.handleRouteNarrativeDone('leader', room.routePresentationId);
   room.handleRouteNarrativeDone('member', room.routePresentationId);
   assert.equal(room.turnTimer, null);
-  assert.equal(room.getClientState().timerRemaining, 15);
+  assert.equal(room.getClientState().timerRemaining, null);
   room.togglePause('leader');
-  assert.equal(room.getClientState().timerRemaining, 15);
-  assert.equal(room.timerBroadcastTicks, true);
+  assert.equal(room.getClientState().timerRemaining, null);
 });
 
-test('existing timer publishes decreasing route seconds without a second clock', async t => {
+test('route voting stays open with no countdown timer after narrative finishes', async t => {
   const { room, emitted } = routeRoom(t);
   room.handleRouteNarrativeDone('leader', room.routePresentationId);
   room.handleRouteNarrativeDone('member', room.routePresentationId);
-  await new Promise(resolve => setTimeout(resolve, 1120));
   const states = emitted.filter(event => event.name === 'room:update').map(event => event.data);
-  assert.ok(states.some(state => state.timerRemaining === 15));
-  assert.ok(states.some(state => state.timerRemaining === 14));
+  assert.ok(states.every(state => state.timerRemaining === null));
   assert.equal(room.isNarrating, false);
+  assert.equal(room.turnTimer, null);
 });

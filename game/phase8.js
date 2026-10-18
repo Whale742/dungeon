@@ -30,7 +30,7 @@ export function sageEquationPreview(p,room) {
 }
 export function p8State(p,room) {
   const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:s.permanent?null:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
-  if (p === room.currentMonster) {
+  if (p === room.currentMonster || (room.enemies && room.enemies.includes(p))) {
     if (p.augurResistanceBreak > 0) effects.push({id:'augur_resistance_break',icon:'debuff',label:'星芒破障',turns:p.augurResistanceBreak,value:'效果抗性 −15pp',isNegative:true,category:'DEBUFF'});
     if (p.reversedOmenRemaining > 0) effects.push({id:'reversed_omen',icon:'debuff',label:'凶兆逆位',turns:p.reversedOmenRemaining,value:`受傷 +${p.reversedOmenBonus || 10}%`,isNegative:true,category:'DEBUFF'});
   }
@@ -93,7 +93,7 @@ export const phase8Methods = {
   },
   p8Log(text,type='buff') { (this.p8LogBuffer || this.logs).push(this.p8LogBuffer?{text,type}:{id:Date.now()+Math.random().toString(36),time:new Date().toLocaleTimeString(),text,type}); },
   p8Effect(target,id,label,turns=1,extra={},resistanceChecked=false) {
-    if (target === this.currentMonster && !resistanceChecked && !this.monsterAllowsEffect(label)) return false;
+    if ((target === this.currentMonster || (this.enemies && this.enemies.includes(target))) && !resistanceChecked && !this.monsterAllowsEffect(label, target)) return false;
     target.p8Effects ||= {}; target.p8Effects[id]={label,until:this.battleRound+turns-1,...extra};
     return true;
   },
@@ -316,6 +316,7 @@ export const phase8Methods = {
       }
     }
     if(this.currentMonster)this.currentMonster.p8Effects={};
+    for(const e of this.enemies || []) if(e) e.p8Effects={};
     this.p8RefreshEquipment();
   },
   p8ExitArena(queue,reason='round_end') {
@@ -358,6 +359,7 @@ export const phase8Methods = {
   },
   p8RoundStart(queue=[]) {
     this.p8RefreshEquipment();this.p8Expire(this.currentMonster);
+    for(const e of this.enemies || []) if(e && e !== this.currentMonster) this.p8Expire(e);
     if(this.arena && this.arena.until<this.battleRound) {this.p8ExitArena(queue);this.p8Log('死亡角鬥場落幕，隊伍重返戰場。');}
     if(this.arenaPending && this.arenaPending.round===this.battleRound) {
       const p=this.players[this.arenaPending.playerId];
@@ -885,9 +887,10 @@ export const phase8Methods = {
         }
       }
     }
-    if (m) {
-      if (m.augurResistanceBreak > 0) m.augurResistanceBreak--;
-      if (m.reversedOmenRemaining > 0) m.reversedOmenRemaining--;
+    const enemySet = new Set([m, ...(this.enemies || [])].filter(Boolean));
+    for (const enemy of enemySet) {
+      if (enemy.augurResistanceBreak > 0) enemy.augurResistanceBreak--;
+      if (enemy.reversedOmenRemaining > 0) enemy.reversedOmenRemaining--;
     }
     for(const p of alive(this)) {
       p.sageSamplingEnded=true;

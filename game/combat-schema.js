@@ -61,8 +61,11 @@ export function playerStatuses(player, room, balance) {
 }
 
 export function snapshotTarget(snapshot, id) {
+  if (!snapshot) return null;
   if (id === 'monster') return snapshot.monster;
-  return snapshot.players.find(p => p.id === id) || snapshot.players.flatMap(p => p.minions || []).find(m => m.id === id);
+  return (snapshot.enemies || []).find(e => e.instanceId === id || e.id === id) ||
+    snapshot.players.find(p => p.id === id) ||
+    snapshot.players.flatMap(p => p.minions || []).find(m => m.id === id);
 }
 
 export function buildActionResults(step, before, after, visuals, heals = []) {
@@ -71,8 +74,18 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
   const append = (result, targetAfter) => {
     const current = snapshotTarget(display, result.targetId);
     const targetBefore = current ? structuredClone(current) : null;
-    if (result.targetId === 'monster') display.monster = structuredClone(targetAfter);
-    else if (current && targetAfter) Object.assign(current, structuredClone(targetAfter));
+    if (result.targetId === 'monster') {
+      display.monster = structuredClone(targetAfter);
+      if (display.enemies && targetAfter?.instanceId) {
+        const idx = display.enemies.findIndex(e => e.instanceId === targetAfter.instanceId);
+        if (idx >= 0) display.enemies[idx] = structuredClone(targetAfter);
+      }
+    } else if (current && targetAfter) {
+      Object.assign(current, structuredClone(targetAfter));
+      if (display.monster && current.instanceId && display.monster.instanceId === current.instanceId) {
+        display.monster = structuredClone(targetAfter);
+      }
+    }
     results.push({ ...result, targetBefore, targetAfter: structuredClone(targetAfter), hpSnapshot: structuredClone(display) });
   };
   if (step.cleansedSnapshot) for (const player of step.cleansedSnapshot.players.filter(p => p.hp > 0)) {
@@ -95,8 +108,18 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
   }
   for (const event of attacks) {
     if(event.outcome?.type==='dream_heal'&&event.value===0)continue;
+    if (event.isSecondaryEnemy && event.targetEnemyId) {
+      const enemyCur = snapshotTarget(display, event.targetEnemyId);
+      if (enemyCur) {
+        const nextEnemy = { ...enemyCur, hp: Math.max(0, enemyCur.hp - event.value) };
+        append({ kind: 'damage', targetId: event.targetEnemyId, targetEnemyId: event.targetEnemyId, finalDamage: event.value,
+          sourceId: event.sourceId, outcome: event.outcome || step.outcome,
+          damageType: event.dmgType === 'mag' ? 'magic' : 'physical' }, nextEnemy);
+      }
+      continue;
+    }
     const next = { ...display.monster, hp: Math.max(0, display.monster.hp - event.value) };
-    append({ kind: 'damage', targetId: 'monster', finalDamage: event.value,
+    append({ kind: 'damage', targetId: 'monster', targetEnemyId: event.targetEnemyId || display.monster?.instanceId, finalDamage: event.value,
       sourceId:event.sourceId,sourceRole:event.type==='augur_tome'?'augur':undefined,
       outcome: event.type==='augur_tome'?{type:'augur_tome'}:event.outcome || step.outcome,
       damageType:event.type==='augur_tome'||event.outcome?.type==='nightmare'?'true':event.dmgType === 'mag' ? 'magic' : 'physical' }, next);

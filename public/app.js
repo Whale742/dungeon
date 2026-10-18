@@ -453,10 +453,33 @@ const elements = {
     route: document.getElementById('viewRoute'),
     transition: document.getElementById('viewTransition'),
     event: document.getElementById('viewEvent'),
+    abyss: document.getElementById('viewAbyssDialogue'),
     battle: document.getElementById('viewBattle'),
     checkpoint: document.getElementById('viewCheckpoint'),
     end: document.getElementById('viewEnd')
   },
+
+  // Modules 3-6: Inventory, Leader Skills, Abyss
+  btnOpenInventory: document.getElementById('btnOpenInventory'),
+  headerGoldDisplay: document.getElementById('headerGoldDisplay'),
+  inventoryModal: document.getElementById('inventoryModal'),
+  btnCloseInventoryModal: document.getElementById('btnCloseInventoryModal'),
+  squadGrid: document.getElementById('squadGrid'),
+  personalBagGrid: document.getElementById('personalBagGrid'),
+  equippedSlotsGrid: document.getElementById('equippedSlotsGrid'),
+  craftingRecipesList: document.getElementById('craftingRecipesList'),
+  inventoryGoldCount: document.getElementById('inventoryGoldCount'),
+  squadCapacityText: document.getElementById('squadCapacityText'),
+  personalBagCapacityText: document.getElementById('personalBagCapacityText'),
+  viewAbyssDialogue: document.getElementById('viewAbyssDialogue'),
+  abyssBossAvatar: document.getElementById('abyssBossAvatar'),
+  abyssBossName: document.getElementById('abyssBossName'),
+  abyssStageTag: document.getElementById('abyssStageTag'),
+  abyssDialogueTextBox: document.getElementById('abyssDialogueTextBox'),
+  abyssChoicesContainer: document.getElementById('abyssChoicesContainer'),
+  btnAdvanceAbyss: document.getElementById('btnAdvanceAbyss'),
+  abyssRedEyeOverlay: document.getElementById('abyssRedEyeOverlay'),
+  btnUseLeaderSkill: document.getElementById('btnUseLeaderSkill'),
 
   // Entry & Modals
   inputPlayerName: document.getElementById('inputPlayerName'),
@@ -562,6 +585,7 @@ const elements = {
   floorIntroNumber: document.getElementById('floorIntroNumber'),
   floorIntroTitle: document.getElementById('floorIntroTitle'),
   routeTimerBar: document.getElementById('routeTimerBar'),
+  hexMapContainer: document.getElementById('hexMapContainer'),
 
   // Event
   eventIcon: document.getElementById('eventIcon'),
@@ -988,28 +1012,32 @@ function renderApp() {
     }
   }
 
-  // 暫停與放棄挑戰按鈕控制
+  // 放棄挑戰按鈕控制（暫停按鈕已移除）
+  if (elements.btnPauseGame) elements.btnPauseGame.classList.add('hidden');
+  if (elements.pauseOverlay) elements.pauseOverlay.classList.add('hidden');
   if (roomState.state === 'LOBBY' || roomState.state === 'GAME_OVER' || roomState.state === 'VICTORY') {
-    elements.btnPauseGame.classList.add('hidden');
     elements.btnEndBattle.classList.add('hidden');
-    elements.pauseOverlay.classList.add('hidden');
   } else {
-    elements.btnPauseGame.classList.remove('hidden');
     if (isLeader) {
       elements.btnEndBattle.classList.remove('hidden');
     } else {
       elements.btnEndBattle.classList.add('hidden');
     }
+  }
 
-    if (roomState.isPaused) {
-      elements.btnPauseGame.textContent = '▶️ 繼續';
-      elements.btnPauseGame.classList.add('paused-active');
-      elements.pauseOverlay.classList.remove('hidden');
+  // 更新行囊按鈕與金幣 (Module 3)
+  if (elements.btnOpenInventory) {
+    if (roomState.state === 'LOBBY' || roomState.state === 'GAME_OVER' || roomState.state === 'VICTORY') {
+      elements.btnOpenInventory.classList.add('hidden');
     } else {
-      elements.btnPauseGame.textContent = '⏸️ 暫停';
-      elements.btnPauseGame.classList.remove('paused-active');
-      elements.pauseOverlay.classList.add('hidden');
+      elements.btnOpenInventory.classList.remove('hidden');
     }
+  }
+  if (elements.headerGoldDisplay) {
+    elements.headerGoldDisplay.textContent = `🪙 ${roomState.gold ?? 100}G`;
+  }
+  if (elements.inventoryModal && !elements.inventoryModal.classList.contains('hidden')) {
+    renderInventoryModal();
   }
 
   // 檢查階段變更並觸發 1 秒轉場與專屬像素大字幕
@@ -1056,6 +1084,11 @@ function renderApp() {
     case 'EVENT':
       switchView('event');
       renderEvent();
+      break;
+
+    case 'ABYSS_DIALOGUE':
+      switchView('abyss');
+      renderAbyssDialogue(me, isLeader);
       break;
 
     case 'IN_BATTLE':
@@ -1876,6 +1909,11 @@ function renderEvent() {
     return;
   }
 
+  if (ev.type === 'shop' || ev.type === 'chest' || ev.type === 'random_event') {
+    renderInteractiveEvent(ev);
+    return;
+  }
+
   const evKey = `EV_${roomState.floor}_${ev.type}_${ev.title}`;
   if (!presentationManager.hasPlayed(evKey)) {
     presentationManager.markPlayed(evKey);
@@ -1965,8 +2003,16 @@ async function revealBattleControls() {
 }
 
 // 4. 渲染戰鬥畫面 (P2-R1 Section 23, 24: 首領進場與回合橫幅走 Presentation Root)
+let currentSelectedEnemyId = null;
 function renderBattle(me, isLeader) {
-  const monster = roomState.currentMonster;
+  const enemies = Array.isArray(roomState.enemies) && roomState.enemies.length > 0 ? roomState.enemies : (roomState.currentMonster ? [roomState.currentMonster] : []);
+  if (me?.targetEnemyId && enemies.some(e => (e.instanceId || e.id) === me.targetEnemyId && e.hp > 0)) {
+    currentSelectedEnemyId = me.targetEnemyId;
+  } else if (!currentSelectedEnemyId || !enemies.some(e => (e.instanceId || e.id) === currentSelectedEnemyId && e.hp > 0)) {
+    const firstLiving = enemies.find(e => e.hp > 0) || enemies[0];
+    currentSelectedEnemyId = firstLiving ? (firstLiving.instanceId || firstLiving.id || null) : null;
+  }
+  const monster = enemies.find(e => (e.instanceId || e.id) === currentSelectedEnemyId) || roomState.currentMonster;
   if (!monster) return;
 
   elements.battleFloorNum.textContent = roomState.floor;
@@ -1976,8 +2022,12 @@ function renderBattle(me, isLeader) {
   void ensureBattlePhase(roomState.battleRound);
   void revealBattleControls();
 
-  // 倒數計時：Resolving、Round Start 或計時尚未啟動時顯示 --，其餘正常顯示 (P2-R1.1 Section 6)
+  // 倒數計時：若無時間限制 (timerRemaining == null) 則隱藏倒數區塊
   const isResolving = (roomState.selectionState === 'RESOLVING' || isProcessingPresentationQueue || battlePhaseController || battleControlsReadyKey !== battleRoundKey() || roomState.selectionState === 'ROUND_START');
+  const battleTimerWrap = document.getElementById('battleTimerWrap');
+  if (battleTimerWrap) {
+    battleTimerWrap.classList.toggle('hidden', roomState.timerRemaining == null);
+  }
   if (isResolving || roomState.timerRemaining === null) {
     elements.battleTimerCount.textContent = '--';
   } else {
@@ -1987,7 +2037,7 @@ function renderBattle(me, isLeader) {
   // 怪物卡
   elements.monsterName.textContent = monster.name;
   elements.monsterDesc.textContent = monster.desc;
-  elements.monsterHpText.textContent = `${monster.hp} / ${monster.maxHp}`;
+  elements.monsterHpText.textContent = `${monster.hp} / ${monster.maxHp}${monster.tempHp > 0 ? ` (+🛡️${monster.tempHp})` : ''}`;
   const monsterHpPercent = Math.max(0, Math.min(100, (monster.hp / monster.maxHp) * 100));
   elements.monsterHpFill.style.width = `${monsterHpPercent}%`;
 
@@ -2022,9 +2072,26 @@ function renderBattle(me, isLeader) {
     elements.monsterUltName.classList.remove('ult-alert');
   }
 
-  // 怪物劇毒與削弱狀態提示
+  // 怪物劇毒與削弱狀態提示 + 多目標敵方編隊選擇列
   if (elements.monsterBuffsRow) {
     let buffHtml = '';
+    if (enemies.length > 1) {
+      buffHtml += `<div class="enemy-formation-bar" style="display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-bottom:6px;">`;
+      enemies.forEach((en, idx) => {
+        const eid = en.instanceId || en.id || `enemy_${idx}`;
+        const isTarget = eid === ( monster.instanceId || monster.id );
+        const isDead = en.hp <= 0;
+        const hpPct = Math.max(0, Math.min(100, Math.round((en.hp / Math.max(1, en.maxHp)) * 100)));
+        const tierLabel = en.tier === 'ABYSS' ? '深淵' : en.tier === 'ELITE' ? '精英' : '小怪';
+        buffHtml += `<button type="button" class="enemy-target-chip${isTarget ? ' active' : ''}${isDead ? ' dead' : ''}" data-enemy-id="${escapeHtml(eid)}" ${isDead ? 'disabled' : ''} style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;border:1px solid ${isTarget ? '#f59e0b' : 'rgba(255,255,255,0.2)'};background:${isTarget ? 'rgba(245,158,11,0.22)' : 'rgba(15,23,42,0.75)'};color:#f8fafc;cursor:${isDead ? 'not-allowed' : 'pointer'};opacity:${isDead ? '0.45' : '1'};font-size:12px;">
+          <span style="font-weight:700;color:${en.tier === 'ABYSS' ? '#c084fc' : en.tier === 'ELITE' ? '#fbbf24' : '#94a3b8'};">[${tierLabel}]</span>
+          <span>${escapeHtml(en.name)}</span>
+          <span style="font-family:monospace;color:${isDead ? '#ef4444' : '#cbd5e1'};">${en.hp}/${en.maxHp} (${hpPct}%)</span>
+          ${isTarget && !isDead ? '<span style="color:#f59e0b;">🎯</span>' : ''}
+        </button>`;
+      });
+      buffHtml += `</div>`;
+    }
     if (monster.isWeakened) {
       buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;">${getIconSvg('status')} 削弱狀態 (傷害/血量 75%)</span>`;
     }
@@ -2044,6 +2111,15 @@ function renderBattle(me, isLeader) {
       buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;">🧪 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
+    elements.monsterBuffsRow.querySelectorAll('.enemy-target-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetEnemyId = btn.getAttribute('data-enemy-id');
+        if (!targetEnemyId) return;
+        currentSelectedEnemyId = targetEnemyId;
+        socket.emit('battle:select_target', { targetEnemyId });
+        renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
+      });
+    });
   }
 
   // 護盾與隊伍增益提示
@@ -2596,8 +2672,25 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     bar.className = 'skill-selection-bar';
     prompt.textContent = '請點選上方技能進行選擇';
     targetTxt.classList.add('hidden');
-    btnLock.disabled = true;
     btnUnlock.classList.add('hidden');
+  }
+
+  // 隊長技按鈕控制 (Module 6)
+  const btnLeader = elements.btnUseLeaderSkill;
+  if (btnLeader) {
+    const isEffectiveLeader = (roomState?.lockedLeaderId === myId || (!roomState?.lockedLeaderId && roomState?.leaderId === myId));
+    const skill = roomState?.leaderSkill;
+    const canUse = isEffectiveLeader && skill?.type === 'ACTIVE' && !roomState?.leaderSkillUsedThisBattle && !isLocked && !isResolving && !isNarrating && !isDead;
+    if (canUse) {
+      btnLeader.classList.remove('hidden');
+      btnLeader.textContent = `👑 隊長技：【${skill.name}】`;
+      btnLeader.title = skill.combatDesc || '點擊使用本場戰鬥專屬隊長主動技';
+      btnLeader.onclick = () => {
+        socket.emit('leader:use_skill', { targetPlayerId: myId });
+      };
+    } else {
+      btnLeader.classList.add('hidden');
+    }
   }
 }
 
@@ -2696,7 +2789,8 @@ if (elements.btnConfirmLock) {
     playSound('select');
     socket.emit('battle:lock', {
       actionId: currentPendingAction,
-      targetPlayerId: currentPendingTarget
+      targetPlayerId: currentPendingTarget,
+      targetEnemyId: me.targetEnemyId || currentSelectedEnemyId || null
     });
   });
 }
@@ -4992,9 +5086,422 @@ document.getElementById('logDrawerHandle')?.addEventListener('click',()=>{
   });
 // Fixed drawers belong to the viewport, outside animated view containers.
 if(elements.battleLogCard)document.body.appendChild(elements.battleLogCard);
-['equipDropModal', 'targetModal', 'endBattleModal', 'avatarModalOverlay', 'minionDetailModal', 'roleDetailModal', 'transferLeaderModal'].forEach(id => {
+['equipDropModal', 'targetModal', 'endBattleModal', 'avatarModalOverlay', 'minionDetailModal', 'roleDetailModal', 'transferLeaderModal', 'inventoryModal'].forEach(id => {
   const el = document.getElementById(id);
   if (el && el.parentElement !== document.body) document.body.appendChild(el);
 });
 
 installNarrativeControls();
+
+// ==========================================
+// Phase 3: 雙層背包、裝備穿戴與合成鍛造
+// ==========================================
+const CRAFTING_RECIPE_TEMPLATES = [
+  { item1: 'short_sword', item2: 'magic_crystal', result: 'rune_greatsword', name: '符文長劍', desc: '攻擊 +12，普通攻擊附帶 3 點魔法穿透' },
+  { item1: 'ruby', item2: 'regen_herb_ring', result: 'ring_of_life', name: '生命指環', desc: '最大生命 +25，每回合初回復 8 點生命' },
+  { item1: 'leather_armor', item2: 'buckler', result: 'steel_plate_armor', name: '堅韌精鋼鎧', desc: '最大生命 +35，防禦 +5' },
+  { item1: 'short_sword', item2: 'bronze_ring', result: 'assault_blade', name: '破陣鋒刃', desc: '攻擊 +10，暴擊率 +10%' },
+  { item1: 'buckler', item2: 'ruby', result: 'guardian_pendant', name: '守護者吊墜', desc: '最大生命 +25，戰鬥首回合獲得 15 點護盾' }
+];
+
+function openInventoryModal() {
+  if (!elements.inventoryModal) return;
+  elements.inventoryModal.classList.remove('hidden');
+  renderInventoryModal();
+}
+
+function closeInventoryModal() {
+  if (!elements.inventoryModal) return;
+  elements.inventoryModal.classList.add('hidden');
+}
+
+function renderInventoryModal() {
+  if (!roomState || !elements.inventoryModal || elements.inventoryModal.classList.contains('hidden')) return;
+
+  const me = roomState.players.find(p => p.id === myId);
+  const gold = roomState.gold ?? 100;
+  if (elements.inventoryGoldCount) {
+    elements.inventoryGoldCount.textContent = `🪙 ${gold} 金幣`;
+  }
+
+  // 1. 小隊行囊 (20 格)
+  const squad = roomState.squadInventory || [];
+  if (elements.squadCapacityText) {
+    elements.squadCapacityText.textContent = `${squad.length} / 20`;
+  }
+  if (elements.squadGrid) {
+    let squadHtml = '';
+    for (let i = 0; i < 20; i++) {
+      const item = squad[i];
+      if (item) {
+        squadHtml += `
+          <div class="inv-slot occupied" title="${escapeHtml(item.name)}: ${escapeHtml(item.desc || '')}">
+            <div class="inv-slot-name">${escapeHtml(item.name)}</div>
+            <div class="inv-slot-type">${escapeHtml(item.type || item.slot || '裝備')}</div>
+            <button type="button" class="btn-inv-transfer" data-idx="${i}" title="領取至個人背包">領取 ›</button>
+          </div>
+        `;
+      } else {
+        squadHtml += `<div class="inv-slot empty"><span class="inv-slot-empty-num">${i + 1}</span></div>`;
+      }
+    }
+    elements.squadGrid.innerHTML = squadHtml;
+    elements.squadGrid.querySelectorAll('.btn-inv-transfer').forEach(b => {
+      b.onclick = () => {
+        socket.emit('inventory:transfer_to_personal', { squadIndex: Number(b.dataset.idx) });
+      };
+    });
+  }
+
+  // 2. 個人穿戴與背包 (4格)
+  if (me) {
+    const bag = me.bag || [];
+    if (elements.personalBagCapacityText) {
+      elements.personalBagCapacityText.textContent = `${bag.length} / 4`;
+    }
+    if (elements.equippedSlotsGrid) {
+      const slots = [
+        { key: 'WEAPON', label: '⚔️ 武器 (WEAPON)' },
+        { key: 'ARMOR', label: '🛡️ 防具 (ARMOR)' },
+        { key: 'ACCESSORY', label: '💍 飾品 (ACCESSORY)' },
+        { key: 'CLASS_EXCLUSIVE', label: '✨ 專屬 (EXCLUSIVE)' }
+      ];
+      elements.equippedSlotsGrid.innerHTML = slots.map(s => {
+        const eq = me.equipSlots?.[s.key];
+        return `
+          <div class="equip-slot-card ${eq ? 'equipped' : 'empty'}">
+            <div class="equip-slot-label">${s.label}</div>
+            ${eq ? `
+              <div class="equip-slot-content">
+                <span class="equip-slot-item-name">${escapeHtml(eq.name)}</span>
+                <span class="equip-slot-item-desc">${escapeHtml(eq.desc || eq.statDesc || '')}</span>
+                <button type="button" class="btn-slot-unequip" data-slot="${s.key}">卸下至背包</button>
+              </div>
+            ` : `<div class="equip-slot-none">（無穿戴）</div>`}
+          </div>
+        `;
+      }).join('');
+
+      elements.equippedSlotsGrid.querySelectorAll('.btn-slot-unequip').forEach(b => {
+        b.onclick = () => {
+          socket.emit('inventory:unequip_to_bag', { slotKey: b.dataset.slot });
+        };
+      });
+    }
+
+    if (elements.personalBagGrid) {
+      let bagHtml = '';
+      for (let i = 0; i < 4; i++) {
+        const item = bag[i];
+        if (item) {
+          bagHtml += `
+            <div class="inv-slot occupied" title="${escapeHtml(item.name)}: ${escapeHtml(item.desc || '')}">
+              <div class="inv-slot-name">${escapeHtml(item.name)}</div>
+              <div class="inv-slot-actions">
+                <button type="button" class="btn-bag-equip" data-idx="${i}">穿戴</button>
+                <button type="button" class="btn-bag-to-squad" data-idx="${i}">存入小隊</button>
+              </div>
+            </div>
+          `;
+        } else {
+          bagHtml += `<div class="inv-slot empty"><span class="inv-slot-empty-num">${i + 1}</span></div>`;
+        }
+      }
+      elements.personalBagGrid.innerHTML = bagHtml;
+      elements.personalBagGrid.querySelectorAll('.btn-bag-equip').forEach(b => {
+        b.onclick = () => {
+          socket.emit('inventory:equip_from_bag', { bagIndex: Number(b.dataset.idx) });
+        };
+      });
+      elements.personalBagGrid.querySelectorAll('.btn-bag-to-squad').forEach(b => {
+        b.onclick = () => {
+          socket.emit('inventory:transfer_to_squad', { bagIndex: Number(b.dataset.idx) });
+        };
+      });
+    }
+  }
+
+  // 3. 鍛造工坊
+  if (elements.craftingRecipesList) {
+    const squadIds = squad.map(i => i.id);
+    elements.craftingRecipesList.innerHTML = CRAFTING_RECIPE_TEMPLATES.map(r => {
+      const has1 = squadIds.includes(r.item1);
+      const remainingIds = squadIds.slice();
+      if (has1) remainingIds.splice(remainingIds.indexOf(r.item1), 1);
+      const has2 = remainingIds.includes(r.item2);
+      const canCraft = has1 && has2;
+
+      return `
+        <div class="crafting-recipe-card ${canCraft ? 'can-craft' : ''}">
+          <div class="recipe-header">
+            <span class="recipe-title">【${r.name}】</span>
+            <span class="recipe-status ${canCraft ? 'ready' : 'missing'}">${canCraft ? '✅ 可鍛造' : '❌ 材料不足'}</span>
+          </div>
+          <div class="recipe-desc">${r.desc}</div>
+          <div class="recipe-materials">
+            <span class="mat-badge ${has1 ? 'have' : 'lack'}">${r.item1} ${has1 ? '✓' : '✗'}</span>
+            <span class="mat-plus">+</span>
+            <span class="mat-badge ${has2 ? 'have' : 'lack'}">${r.item2} ${has2 ? '✓' : '✗'}</span>
+          </div>
+          <button type="button" class="btn-craft-item" data-i1="${r.item1}" data-i2="${r.item2}" ${canCraft ? '' : 'disabled'}>
+            立即鍛造 (CRAFT)
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    elements.craftingRecipesList.querySelectorAll('.btn-craft-item').forEach(b => {
+      b.onclick = () => {
+        socket.emit('inventory:craft', { item1Id: b.dataset.i1, item2Id: b.dataset.i2, fromSquad: true });
+      };
+    });
+  }
+}
+
+// ==========================================
+// Phase 3: 商店、寶箱與隨機事件互動渲染
+// ==========================================
+function renderInteractiveEvent(ev) {
+  if (!elements.eventCardBox) return;
+  elements.eventCardBox.classList.remove('hidden');
+  if (elements.eventDetails) elements.eventDetails.style.display = 'block';
+  const evFooter = document.querySelector('.event-footer');
+  if (evFooter) evFooter.style.display = 'none';
+
+  if (ev.type === 'shop') {
+    elements.eventIcon.innerHTML = '🛒';
+    elements.eventTitle.textContent = ev.title || '🛒 迷宮行商據點';
+    elements.eventStoryText.textContent = ev.story || '';
+
+    const currentGold = roomState.gold || 0;
+    const itemsHtml = (ev.items || []).map((item, idx) => `
+      <div class="shop-item-card">
+        <div class="shop-item-title-row">
+          <span class="shop-item-name">【${escapeHtml(item.name)}】</span>
+          <span class="shop-item-cost">🪙 ${item.price}G</span>
+        </div>
+        <div class="shop-item-desc">${escapeHtml(item.desc || '')}</div>
+        <button type="button" class="btn-shop-buy" data-index="${idx}" ${currentGold < item.price ? 'disabled' : ''}>
+          購買 (${item.price}G)
+        </button>
+      </div>
+    `).join('');
+
+    elements.eventDetails.innerHTML = `
+      <div class="shop-container">
+        <div class="shop-items-grid">${itemsHtml}</div>
+        <div class="shop-special-actions">
+          <button type="button" class="btn-shop-action btn-shop-rest" ${currentGold < (ev.restPrice || 30) ? 'disabled' : ''}>
+            ⛺ 休憩整頓 (${ev.restPrice || 30}G / 全員回復 35% HP)
+          </button>
+          ${ev.canRob ? `<button type="button" class="btn-shop-action btn-shop-rob">⚔️ 翻臉搶劫奸商！</button>` : ''}
+          ${ev.canSteal ? `<button type="button" class="btn-shop-action btn-shop-steal">🗡️ 刺客暗中行竊 (50%免戰偷取)</button>` : ''}
+          <button type="button" class="btn-shop-action btn-shop-leave">告別離開 ›</button>
+        </div>
+      </div>
+    `;
+
+    elements.eventDetails.querySelectorAll('.btn-shop-buy').forEach(b => {
+      b.onclick = () => {
+        const itemIndex = Number(b.dataset.index);
+        socket.emit('event:shop_action', { action: 'buy', itemIndex });
+      };
+    });
+    elements.eventDetails.querySelector('.btn-shop-rest')?.addEventListener('click', () => {
+      socket.emit('event:shop_action', { action: 'rest' });
+    });
+    elements.eventDetails.querySelector('.btn-shop-rob')?.addEventListener('click', () => {
+      socket.emit('event:shop_action', { action: 'rob' });
+    });
+    elements.eventDetails.querySelector('.btn-shop-steal')?.addEventListener('click', () => {
+      socket.emit('event:shop_action', { action: 'steal' });
+    });
+    elements.eventDetails.querySelector('.btn-shop-leave')?.addEventListener('click', () => {
+      socket.emit('event:shop_action', { action: 'leave' });
+    });
+  } else if (ev.type === 'chest') {
+    elements.eventIcon.innerHTML = '📦';
+    elements.eventTitle.textContent = ev.title || '📦 發現寶箱！';
+    elements.eventStoryText.textContent = ev.story || '';
+
+    if (ev.isMimic) {
+      elements.eventDetails.innerHTML = `
+        <div class="mimic-container">
+          <div class="mimic-warning-banner">⚠️ 箱縫滲出黑血與粗重喘息……這是一具嗜血的寶箱怪！</div>
+          <div class="mimic-actions-row">
+            <button type="button" class="btn-chest-action btn-mimic-open">⚔️ 拔劍迎擊（強制開箱進入戰鬥）</button>
+            ${ev.canPacify ? `<button type="button" class="btn-chest-action btn-mimic-pacify">🐾 餵食安撫（德魯伊專屬免戰領取）</button>` : ''}
+            <button type="button" class="btn-chest-action btn-chest-leave">繞開避走 ›</button>
+          </div>
+        </div>
+      `;
+      elements.eventDetails.querySelector('.btn-mimic-open')?.addEventListener('click', () => {
+        socket.emit('event:chest_action', { action: 'open' });
+      });
+      elements.eventDetails.querySelector('.btn-mimic-pacify')?.addEventListener('click', () => {
+        socket.emit('event:chest_action', { action: 'pacify' });
+      });
+      elements.eventDetails.querySelector('.btn-chest-leave')?.addEventListener('click', () => {
+        socket.emit('event:chest_action', { action: 'leave' });
+      });
+    } else {
+      elements.eventDetails.innerHTML = `
+        <div class="normal-chest-container">
+          <div class="normal-chest-loot">
+            <p>🪙 金幣獎勵：<b>+${ev.goldGain || 30}G</b></p>
+            ${ev.drop ? `<p>🛡️ 獲得裝備：<b>【${escapeHtml(ev.drop.name)}】</b>（${escapeHtml(ev.drop.desc || '')}）</p>` : ''}
+            <p>❤️ 探險療癒：全員生命回復 <b>+25 HP</b></p>
+          </div>
+          <button type="button" class="btn-chest-action btn-chest-leave">收下戰利品前進 ›</button>
+        </div>
+      `;
+      elements.eventDetails.querySelector('.btn-chest-leave')?.addEventListener('click', () => {
+        socket.emit('event:chest_action', { action: 'leave' });
+      });
+    }
+  } else if (ev.type === 'random_event') {
+    elements.eventIcon.innerHTML = ev.subType === 'WANDERING_MERCHANT' ? '🏕️' : ev.subType === 'ALTAR' ? '⛩️' : ev.subType === 'GAMBLE' ? '🎲' : '⚒️';
+    elements.eventTitle.textContent = ev.title;
+    elements.eventStoryText.textContent = ev.story;
+
+    let actionsHtml = '';
+    const leaderRole = roomState.lockedLeaderRole;
+
+    if (ev.subType === 'WANDERING_MERCHANT') {
+      actionsHtml = `
+        <button type="button" class="btn-rand-action" data-act="info">🏕️ 打探路況情報 (${leaderRole === 'bard' ? '免費' : '15G'})</button>
+        <button type="button" class="btn-rand-action" data-act="barter">🏕️ 以物易物 (隨機交換小隊背包首件物品)</button>
+        ${leaderRole === 'dreamweaver' ? `<button type="button" class="btn-rand-action" data-act="reshape">🌙 幻象重塑 (織夢術士專屬重塑配飾)</button>` : ''}
+      `;
+    } else if (ev.subType === 'ALTAR') {
+      actionsHtml = `
+        <button type="button" class="btn-rand-action" data-act="sacrifice">⛩️ 鮮血獻祭 (${leaderRole === 'warrior' ? '扣10%HP' : '扣20%HP'}，全員永久+3攻擊 & T2裝備)</button>
+        <button type="button" class="btn-rand-action" data-act="desecrate">⛩️ 搜刮祭壇 (+60G & T1裝備${leaderRole === 'onmyoji' ? '，陰陽師免除詛咒' : '，受減防詛咒'})</button>
+        ${leaderRole === 'paladin' ? `<button type="button" class="btn-rand-action" data-act="purify">🛡️ 聖光淨化 (聖騎士專屬免代價回復30%HP與15護盾)</button>` : ''}
+      `;
+    } else if (ev.subType === 'GAMBLE') {
+      actionsHtml = `
+        <button type="button" class="btn-rand-action" data-act="coin">🎲 擲硬幣押注 (押注30G 贏取60G，${leaderRole === 'sage' ? '智者勝率70%' : '勝率50%'})</button>
+        <button type="button" class="btn-rand-action" data-act="box">🎲 購買神秘盲盒 (50G 抽取T2裝備，${leaderRole === 'sage' ? '智者免碎裂' : '50%碎裂'})</button>
+        ${leaderRole === 'gladiator' ? `<button type="button" class="btn-rand-action" data-act="hp_gamble">⚔️ 豪賭生命 (角鬥士專屬扣20%HP換80G與T2裝備)</button>` : ''}
+      `;
+    } else if (ev.subType === 'REFORGE') {
+      actionsHtml = `
+        <button type="button" class="btn-rand-action" data-act="reforge">⚒️ 重鑄武器 (${leaderRole === 'mage' ? '15G' : '30G'} / ${leaderRole === 'samurai' ? '武士增幅+40%' : '攻擊力提升'})</button>
+        ${leaderRole === 'mage' ? `<button type="button" class="btn-rand-action" data-act="convert_magic">🪄 奧術附魔 (法師專屬武器轉為魔法屬性)</button>` : ''}
+      `;
+    }
+
+    elements.eventDetails.innerHTML = `
+      <div class="rand-event-container">
+        <div class="rand-event-actions">${actionsHtml}</div>
+        <button type="button" class="btn-rand-action btn-rand-leave" data-act="leave">離開據點 ›</button>
+      </div>
+    `;
+
+    elements.eventDetails.querySelectorAll('.btn-rand-action').forEach(b => {
+      b.onclick = () => {
+        const act = b.dataset.act;
+        socket.emit('event:random_action', { action: act });
+      };
+    });
+  }
+}
+
+// ==========================================
+// Phase 5: 深淵遭遇與四階段對話系統
+// ==========================================
+function renderAbyssDialogue(me, isLeader) {
+  const abyss = roomState?.abyssState;
+  if (!abyss) return;
+
+  if (elements.abyssBossAvatar) {
+    elements.abyssBossAvatar.src = abyss.bossAvatar || '/photo/Warrior.webp';
+  }
+  if (elements.abyssBossName) {
+    elements.abyssBossName.textContent = abyss.bossName || '深淵化身';
+  }
+  if (elements.abyssStageTag) {
+    const titles = {
+      1: '階段 1/4 · 命運的相逢',
+      2: '階段 2/4 · 哲思與嘲諷',
+      3: '階段 3/4 · 深淵的抉擇',
+      4: '階段 4/4 · 命運的終局'
+    };
+    elements.abyssStageTag.textContent = titles[abyss.stage] || `階段 ${abyss.stage}/4`;
+  }
+  if (elements.abyssDialogueTextBox) {
+    elements.abyssDialogueTextBox.textContent = abyss.dialogueText || '……';
+  }
+
+  if (abyss.stage === 3) {
+    elements.abyssActionsContainer?.classList.add('hidden');
+    elements.abyssChoicesContainer?.classList.remove('hidden');
+
+    const choices = abyss.choices || [
+      { id: 'apology', label: '謝罪求和', desc: '低頭向昔日夥伴哀求原諒，承擔懦弱的代價' },
+      { id: 'rational', label: '理性析構', desc: '冷靜分析方程式，以智慧重構破綻' },
+      { id: 'provoke', label: '譏諷挑釁', desc: '拔劍怒斥昔日同伴，激起深淵狂怒' }
+    ];
+
+    const myVote = abyss.votes?.[myId];
+    const voteCounts = { apology: 0, rational: 0, provoke: 0 };
+    for (const v of Object.values(abyss.votes || {})) {
+      if (voteCounts[v] !== undefined) voteCounts[v] += 1;
+    }
+
+    elements.abyssChoicesContainer.innerHTML = choices.map(c => `
+      <button type="button" class="btn-abyss-choice ${myVote === c.id ? 'voted' : ''}" data-id="${c.id}">
+        <div class="choice-title-row">
+          <span class="choice-label">${escapeHtml(c.label)}</span>
+          <span class="choice-votes">票數：${voteCounts[c.id] || 0}</span>
+        </div>
+        <div class="choice-desc">${escapeHtml(c.desc)}</div>
+      </button>
+    `).join('');
+
+    elements.abyssChoicesContainer.querySelectorAll('.btn-abyss-choice').forEach(b => {
+      b.onclick = () => {
+        socket.emit('abyss:vote', { choiceId: b.dataset.id });
+      };
+    });
+  } else {
+    elements.abyssChoicesContainer?.classList.add('hidden');
+    elements.abyssActionsContainer?.classList.remove('hidden');
+
+    if (elements.btnAdvanceAbyss) {
+      elements.btnAdvanceAbyss.textContent = abyss.stage === 4 ? '拔劍迎戰！(ENTER BATTLE)' : '繼續聆聽 (ADVANCE) ›';
+      elements.btnAdvanceAbyss.onclick = () => {
+        socket.emit('abyss:advance_stage');
+      };
+    }
+  }
+}
+
+// 註冊紅眼閃爍演出
+socket.on('abyss:red_eye_flash', () => {
+  const overlay = elements.abyssRedEyeOverlay;
+  if (overlay) {
+    overlay.classList.remove('hidden');
+    overlay.classList.add('abyss-red-eye-anim');
+    setTimeout(() => {
+      overlay.classList.remove('abyss-red-eye-anim');
+      overlay.classList.add('hidden');
+    }, 1500);
+  }
+});
+
+// 行囊視窗按鈕綁定
+elements.btnOpenInventory?.addEventListener('click', openInventoryModal);
+elements.btnCloseInventoryModal?.addEventListener('click', closeInventoryModal);
+document.querySelectorAll('.inv-tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.tab;
+    document.getElementById('tabSquadInventory')?.classList.toggle('hidden', target !== 'squad');
+    document.getElementById('tabPersonalInventory')?.classList.toggle('hidden', target !== 'personal');
+    document.getElementById('tabCrafting')?.classList.toggle('hidden', target !== 'crafting');
+  };
+});
+
