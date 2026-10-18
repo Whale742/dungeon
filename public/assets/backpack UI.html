@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dungeon Abyss - 六角蜂巢背包與裝備系統演示</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* 尖頂六角形 (Pointy-Topped Hexagon) 幾何尺寸變數 */
+      --hex-w: 76px;
+      --hex-h: 87.76px; /* W * 2 / sqrt(3) */
+      --hex-row-overlap: -20.5px; /* 垂直方向緊密連在一起的負邊距 (-0.25 * H + 邊框微調) */
+      --hex-col-overlap: -2px;    /* 水平方向緊密連在一起的共邊微調 */
+      --hex-bg: #0c2144;
+      --hex-bg-hover: #17376e;
+      --hex-bg-active: #1e4b94;
+      --hex-border: #ffffff;
+    }
+
+    @media (max-width: 640px) {
+      :root {
+        --hex-w: 58px;
+        --hex-h: 66.97px;
+        --hex-row-overlap: -15.5px;
+        --hex-col-overlap: -1.5px;
+      }
+    }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: radial-gradient(circle at 50% 15%, #111c35 0%, #070b16 70%, #03050a 100%);
+      color: #f1f5f9;
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    .hex-grid-squad {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+    }
+
+    .hex-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .hex-row:not(:first-child) {
+      margin-top: var(--hex-row-overlap);
+    }
+
+    .hex-slot {
+      position: relative;
+      width: var(--hex-w);
+      height: var(--hex-h);
+      margin-left: var(--hex-col-overlap);
+      margin-right: var(--hex-col-overlap);
+      cursor: pointer;
+      transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), filter 0.16s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+
+    .hex-slot:hover {
+      z-index: 20;
+      transform: scale(1.06);
+      filter: drop-shadow(0 0 10px rgba(147, 197, 253, 0.65));
+    }
+
+    .hex-slot.selected-slot {
+      z-index: 25;
+      transform: scale(1.08);
+      filter: drop-shadow(0 0 14px rgba(250, 204, 21, 0.9));
+    }
+
+    .hex-slot.craft-selected {
+      z-index: 25;
+      filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.95));
+    }
+
+    /* 新道具進入小隊背包的閃光動畫 */
+    @keyframes lootPulse {
+      0% { transform: scale(1.25); filter: drop-shadow(0 0 20px #38bdf8) brightness(1.6); z-index: 30; }
+      100% { transform: scale(1); filter: none; z-index: 1; }
+    }
+    .loot-flash {
+      animation: lootPulse 0.75s ease-out;
+    }
+
+    /* 背景 SVG 六角框（深藍底 + 純白邊） */
+    .hex-bg-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .hex-polygon {
+      fill: var(--hex-bg);
+      stroke: var(--hex-border);
+      stroke-width: 3.2;
+      stroke-linejoin: round;
+      transition: fill 0.15s ease, stroke 0.15s ease;
+    }
+
+    .hex-slot:hover .hex-polygon {
+      fill: var(--hex-bg-hover);
+      stroke: #ffffff;
+    }
+
+    .hex-slot.selected-slot .hex-polygon {
+      fill: var(--hex-bg-active);
+      stroke: #fde047;
+      stroke-width: 4;
+    }
+
+    .hex-slot.craft-selected .hex-polygon {
+      fill: #0f3d3e;
+      stroke: #34d399;
+      stroke-width: 4;
+    }
+
+    /* 裝備欄中央 50% 透明度純白圖示 */
+    .equip-watermark {
+      position: relative;
+      z-index: 2;
+      width: 50%;
+      height: 50%;
+      opacity: 0.5;
+      color: #ffffff;
+      fill: #ffffff;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 當裝備欄已穿戴裝備時，底圖微縮保留辨識或可切換 */
+    .hex-slot.has-item .equip-watermark {
+      opacity: 0.16;
+      transform: scale(0.85);
+    }
+
+    /* 強制預覽底圖模式 */
+    body.watermark-preview-mode .hex-slot.has-item .equip-watermark {
+      opacity: 0.5 !important;
+      transform: scale(1) !important;
+    }
+    body.watermark-preview-mode .hex-slot.has-item .item-layer {
+      opacity: 0.15 !important;
+    }
+
+    /* 物品圖層 */
+    .item-layer {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 76%;
+      height: 76%;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    /* 槽位編號微標記 */
+    .slot-index-badge {
+      position: absolute;
+      bottom: 8%;
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.28);
+      font-weight: 700;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* 品階光暈 */
+    .tier-1-badge { border-color: #94a3b8; }
+    .tier-2-badge { border-color: #38bdf8; }
+    .tier-3-badge { border-color: #f59e0b; }
+  </style>
+</head>
+<body class="p-3 sm:p-6">
+
+  <div class="max-w-7xl mx-auto space-y-5">
+    
+    <!-- 頂部標題與控制列 -->
+    <header class="bg-slate-900/85 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-md">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="px-2.5 py-0.5 text-xs font-bold tracking-wider uppercase bg-blue-600/30 text-blue-300 border border-blue-400/40 rounded-full">
+              Hexagon Honeycomb UI
+            </span>
+            <span class="px-2.5 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40 rounded-full">
+              優先入小隊背包 (19格)
+            </span>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
+            《Dungeon Abyss》深藍白邊連體六角背包 ＆ 裝備系統
+          </h1>
+          <p class="text-xs sm:text-sm text-slate-300 mt-0.5">
+            小隊背包（3-4-5-4-3 連體 19 格）｜個人背包（4 格連體）｜裝備欄（4 格連體 + 50% 透明度純白職業/部位底圖）
+          </p>
+        </div>
+
+        <!-- 互動戰利品測試按鈕區 -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="acquireRandomLoot('TIER1')" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-900/50 border border-blue-300/40 transition flex items-center gap-1.5">
+            <span>🎁</span> 獲得小件道具 (入小隊包)
+          </button>
+          <button onclick="acquireRandomLoot('EXCLUSIVE')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-900/50 border border-indigo-300/40 transition flex items-center gap-1.5">
+            <span>👑</span> 獲得當前職業專屬裝
+          </button>
+          <button onclick="acquireRecipePair()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-900/50 border border-emerald-300/40 transition flex items-center gap-1.5">
+            <span>⚗️</span> 派發合成材料組
+          </button>
+          <button onclick="clearAllEquipToSquad()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm border border-slate-600 transition">
+            卸下全裝備看 50% 底圖
+          </button>
+        </div>
+      </div>
+
+      <!-- 15 職業選擇器與武器底圖模式切換 -->
+      <div class="mt-4 pt-4 border-t border-slate-800 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-1.5" id="classSelectorContainer">
+          <!-- 由 JS 動態渲染 15 個職業按鈕 -->
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 shrink-0 bg-slate-950/70 px-3.5 py-2 rounded-xl border border-slate-800">
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-400">武器欄底圖：</span>
+            <button id="btnWeaponAuto" onclick="setWeaponWatermarkOverride('AUTO')" class="px-2 py-1 rounded bg-blue-600 text-white font-bold">依職業自動</button>
+            <button id="btnWeaponPhys" onclick="setWeaponWatermarkOverride('PHYS')" class="px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">強制物攻(雙劍)</button>
+            <button id="btnWeaponMag" onclick="setWeaponWatermarkOverride('MAG')" class="px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">強制魔攻(魔導書)</button>
+          </div>
+          <label class="flex items-center gap-1.5 text-xs text-amber-300 cursor-pointer font-semibold">
+            <input type="checkbox" id="chkPreviewWatermarks" onchange="toggleWatermarkPreview(this.checked)" class="rounded accent-amber-400" />
+            透視 50% 純白底圖
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- 左欄：小隊背包（圖一：3-4-5-4-3 連在一起共 19 格） -->
+      <section class="lg:col-span-6 bg-slate-900/80 border border-slate-700/80 rounded-2xl p-5 shadow-2xl flex flex-col items-center relative overflow-hidden">
+        <div class="w-full flex items-center justify-between mb-2">
+          <div>
+            <h2 class="text-lg font-black text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse"></span>
+              小隊共用背包 (Squad Honeycomb)
+            </h2>
+            <p class="text-xs text-slate-400">
+              3-4-5-4-3 緊密相連蜂巢（共 19 格）• <span class="text-blue-300 font-semibold">取得道具時優先自動存入此處</span>
+            </p>
+          </div>
+          <div class="text-right">
+            <span id="squadCountBadge" class="px-3 py-1 rounded-full bg-blue-950 border border-white/40 text-blue-200 font-bold text-xs">
+              0 / 19 格
+            </span>
+          </div>
+        </div>
+
+        <!-- 19 格蜂巢容器 (3-4-5-4-3 連體) -->
+        <div id="squadGridContainer" class="hex-grid-squad my-2">
+          <!-- 由 JS 渲染 5 列 (3, 4, 5, 4, 3) 連在一起的深藍白邊六角格 -->
+        </div>
+
+        <!-- 小件裝備合成操作列 -->
+        <div class="w-full mt-3 pt-3 border-t border-slate-800/90 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-300">
+            <span class="font-bold text-emerald-400">⚒️ 小件裝備合成：</span>
+            <span id="craftStatusText">請點擊「開啟合成選擇」並勾選 2 件小件裝備</span>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="btnToggleCraftMode" onclick="toggleCraftMode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition">
+              開啟合成選擇
+            </button>
+            <button id="btnExecuteCraft" onclick="executeCraft()" disabled class="px-3.5 py-1.5 rounded-lg bg-emerald-600/40 text-white/50 text-xs font-bold transition cursor-not-allowed">
+              合成進階裝備
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右欄：個人裝備欄（圖二 4格連體 + 50%白底圖）與 個人背包（圖二 4格連體） -->
+      <section class="lg:col-span-6 space-y-5">
+        
+        <!-- 角色資訊與四格連體裝備欄 -->
+        <div class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-5 shadow-2xl">
+          <!-- 當前職業狀態頭條 -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+              <div id="currentClassAvatar" class="w-12 h-12 rounded-xl bg-[#0c2144] border-2 border-white flex items-center justify-center p-2 shadow-inner">
+                <!-- 當前職業純白圖示 -->
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 id="currentClassName" class="text-lg font-black text-white">戰士 WARRIOR</h3>
+                  <span id="currentAttackTypeBadge" class="px-2 py-0.5 text-[11px] font-bold rounded bg-rose-500/20 text-rose-300 border border-rose-400/40">
+                    物理攻擊型 (武器顯示：雙劍)
+                  </span>
+                </div>
+                <p id="currentClassExclusiveHint" class="text-xs text-slate-400 mt-0.5">
+                  專屬裝備欄底圖：戰士雙劍徽記 (50% 透明度純白)
+                </p>
+              </div>
+            </div>
+
+            <!-- 角色即時屬性面板 -->
+            <div class="grid grid-cols-4 gap-2 text-center bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-xs">
+              <div>
+                <div class="text-slate-400 text-[10px]">生命 HP</div>
+                <div id="statHp" class="font-black text-emerald-400">120</div>
+              </div>
+              <div>
+                <div class="text-slate-400 text-[10px]">物攻 PATK</div>
+                <div id="statPhys" class="font-black text-rose-400">15</div>
+              </div>
+              <div>
+                <div class="text-slate-400 text-[10px]">魔攻 MATK</div>
+                <div id="statMag" class="font-black text-sky-400">5</div>
+              </div>
+              <div>
+                <div class="text-slate-400 text-[10px]">防禦 DEF</div>
+                <div id="statDef" class="font-black text-amber-300">10</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 裝備欄標題 -->
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h2 class="text-base font-black text-white">
+                角色裝備欄 (Equipment Slots - 4格連體)
+              </h2>
+              <p class="text-xs text-slate-400">
+                由左至右：<span class="text-white font-semibold">1.武器（物攻劍／魔攻書）</span> • <span class="text-white font-semibold">2.裝備（鎧甲）</span> • <span class="text-white font-semibold">3.飾品（純白戒指）</span> • <span class="text-white font-semibold">4.專屬裝備（職業圖示）</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- 圖二排列：4 格水平緊密連在一起的裝備欄 -->
+          <div class="flex flex-col items-center py-4 bg-slate-950/50 rounded-xl border border-slate-800/80">
+            <div id="equipRowContainer" class="hex-row">
+              <!-- 由 JS 渲染 4 個緊密連在一起的裝備欄六角格 -->
+            </div>
+            <!-- 對應欄位下方文字標籤 -->
+            <div class="flex justify-center mt-2" style="gap: calc(var(--hex-w) * 0.28);">
+              <span id="labelWeaponSlot" class="text-xs font-bold text-blue-200 w-16 text-center">武器(劍)</span>
+              <span class="text-xs font-bold text-blue-200 w-16 text-center">裝備(鎧甲)</span>
+              <span class="text-xs font-bold text-blue-200 w-16 text-center">飾品(戒指)</span>
+              <span id="labelExclusiveSlot" class="text-xs font-bold text-amber-300 w-16 text-center">專屬(戰士)</span>
+            </div>
+          </div>
+
+          <!-- 觸發中的配飾／專屬被動效果顯示 -->
+          <div id="activePassivesBox" class="mt-3 px-3.5 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs text-blue-200">
+            ✨ 當前裝備被動：尚未穿戴具備特殊被動的飾品或專屬裝備
+          </div>
+        </div>
+
+        <!-- 個人背包（圖二：4 格水平緊密連在一起） -->
+        <div class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-5 shadow-2xl">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h2 class="text-base font-black text-white">
+                個人隨身背包 (Personal Bag - 4格連體)
+              </h2>
+              <p class="text-xs text-slate-400">
+                如圖二排列且水平連在一起，可與小隊背包自由互轉或直接穿戴
+              </p>
+            </div>
+            <span id="personalCountBadge" class="px-3 py-1 rounded-full bg-blue-950 border border-white/40 text-blue-200 font-bold text-xs">
+              0 / 4 格
+            </span>
+          </div>
+
+          <div class="flex flex-col items-center py-4 bg-slate-950/50 rounded-xl border border-slate-800/80">
+            <div id="personalRowContainer" class="hex-row">
+              <!-- 由 JS 渲染 4 個緊密連在一起的個人背包六角格 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 選中格子／道具詳情與互動面板 -->
+        <div class="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 shadow-xl">
+          <div id="inspectorPanel" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="text-xs text-slate-400 font-semibold">💡 操作提示（支援點擊互換 或 拖曳移動）</div>
+              <div class="text-sm font-bold text-white mt-0.5">
+                點擊任一六角格可查看道具詳情，並可「一鍵穿戴」、「移至個人/小隊背包」或「出售」
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 1. 裝備欄中央 50% 透明度純白圖示庫 (完全對應使用者上傳之圖片 3~7)
+     * 所有路徑與線條皆強制為純白色 (#ffffff)，搭配外層 .equip-watermark { opacity: 0.5 }
+     */
+    const SLOT_WATERMARK_SVGS = {
+      // 圖片 3 (sword.png)：交叉雙劍 (物攻武器欄顯示)
+      SWORD: `
+        <svg viewBox="0 0 100 100" class="w-full h-full" fill="#ffffff">
+          <!-- 左上至右下長劍 -->
+          <path d="M12 12 L28 15 L68 55 L55 68 L15 28 Z" />
+          <rect x="52" y="62" width="26" height="7" rx="3.5" transform="rotate(-45 65 65.5)" />
+          <rect x="67" y="67" width="12" height="20" rx="5" transform="rotate(-45 73 77)" />
+          <!-- 右上至左下長劍 -->
+          <path d="M88 12 L85 28 L63 50 L50 37 L72 15 Z" />
+          <path d="M32 55 L45 68 L37 76 L24 63 Z" />
+          <rect x="22" y="62" width="26" height="7" rx="3.5" transform="rotate(45 35 65.5)" />
+          <rect x="21" y="67" width="12" height="20" rx="5" transform="rotate(45 27 77)" />
+        </svg>
+      `,
+
+      // 圖片 4 (book.png)：四角星芒魔導書 (魔攻武器欄顯示)
+      BOOK: `
+        <svg viewBox="0 0 100 100" class="w-full h-full" fill="#ffffff">
+          <path d="M22 10 C15 10 11 15 11 22 L11 82 C11 90 16 95 24 95 L84 95 C87 95 89 93 89 90 C89 87 87 85 84 85 L25 85 C21 85 19 83 19 79 C19 75 21 73 25 73 L84 73 C87 73 89 71 89 68 L89 16 C89 12 86 10 82 10 L22 10 Z M26 16 L26 67 L21 67 L21 16 Z" />
+          <!-- 書角雕花與中央四角星 (縷空反白呈現) -->
+          <path fill="#0c2144" d="M32 18 L46 18 C46 26 40 32 32 32 Z M80 18 L80 32 C72 32 66 26 66 18 Z M32 64 C40 64 46 70 46 78 L32 78 Z M80 64 L80 78 L66 78 C66 70 72 64 80 64 Z" />
+          <path fill="#0c2144" d="M56 27 C58 37 61 40 71 42 C61 44 58 47 56 57 C54 47 51 44 41 42 C51 40 54 37 56 27 Z" />
+          <path fill="#ffffff" d="M56 34 C57 39 59 41 64 42 C59 43 57 45 56 50 C55 45 53 43 48 42 C53 41 55 39 56 34 Z" />
+        </svg>
+      `,
+
+      // 圖片 5 (armor.png)：重裝肩甲胸鎧 (裝備欄顯示)
+      ARMOR: `
+        <svg viewBox="0 0 100 100" class="w-full h-full" fill="#ffffff">
+          <!-- 左右肩甲 -->
+          <path d="M25 10 L38 10 C39 22 61 22 62 10 L75 10 L96 27 L86 42 L68 30 L80 46 L74 86 L50 95 L26 86 L20 46 L32 30 L14 42 L4 27 Z" />
+          <!-- 胸甲幾何菱形刻線 -->
+          <path fill="#0c2144" d="M50 38 L68 62 L58 86 L50 90 L42 86 L32 62 Z" />
+          <path fill="#ffffff" d="M50 45 L62 63 L54 83 L50 85 L46 83 L38 63 Z" />
+        </svg>
+      `,
+
+      // 圖片 6 (ring.png)：鑽石戒指（轉為純白色 #ffffff）(飾品欄顯示)
+      RING: `
+        <svg viewBox="0 0 100 100" class="w-full h-full" fill="none" stroke="#ffffff">
+          <!-- 頂部寶石切面 (純白) -->
+          <polygon points="38,8 62,8 70,22 30,22" fill="#ffffff" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+          <!-- 寶石戒托雙爪 (純白) -->
+          <path d="M24 32 C22 22 30 18 35 24 L65 24 C70 18 78 22 76 32 L68 40 L32 40 Z" fill="#ffffff" stroke="none" />
+          <!-- 雙層厚實純白戒環 -->
+          <circle cx="50" cy="60" r="32" stroke="#ffffff" stroke-width="12" />
+          <circle cx="50" cy="60" r="22" stroke="#0c2144" stroke-width="2.5" />
+        </svg>
+      `
+    };
+
+    /**
+     * 2. 第五張圖 (Unknown.jpeg) 15 大職業定義與專屬純白圖示庫
+     */
+    const CLASSES_DATA = [
+      {
+        id: 'WARRIOR', name: '戰士', en: 'WARRIOR', atkType: 'PHYS',
+        exclusiveName: '戰神雙刃徽章',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20 L30 20 L80 70 L70 80 L20 30 Z" fill="#ffffff"/><path d="M82 20 L70 20 L20 70 L30 80 L80 30 Z" fill="#ffffff"/><line x1="65" y1="85" x2="85" y2="65" stroke-width="7"/><line x1="15" y1="65" x2="35" y2="85" stroke-width="7"/></svg>`
+      },
+      {
+        id: 'PALADIN', name: '聖騎士', en: 'PALADIN', atkType: 'PHYS',
+        exclusiveName: '聖十字重盾與戰鎚',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><path d="M18 20 L58 20 L58 52 C58 70 38 84 38 84 C38 84 18 70 18 52 Z" fill="#ffffff" fill-opacity="0.25"/><line x1="38" y1="22" x2="38" y2="80" stroke-width="6"/><line x1="20" y1="45" x2="56" y2="45" stroke-width="6"/><rect x="58" y="18" width="28" height="16" rx="3" transform="rotate(15 72 26)" fill="#ffffff"/><line x1="70" y1="34" x2="56" y2="86" stroke-width="6" stroke-linecap="round"/></svg>`
+      },
+      {
+        id: 'STARGAZER', name: '觀星者', en: 'STARGAZER', atkType: 'MAG',
+        exclusiveName: '星軌觀測望遠鏡',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="22" y="34" width="58" height="16" rx="3" transform="rotate(-22 51 42)" fill="#ffffff"/><line x1="50" y1="50" x2="34" y2="86"/><line x1="50" y1="50" x2="66" y2="86"/><line x1="50" y1="50" x2="50" y2="88"/><path d="M24 16 A10 10 0 1 0 34 28 A8 8 0 1 1 24 16 Z" fill="#ffffff" stroke="none"/><circle cx="72" cy="18" r="3" fill="#ffffff"/></svg>`
+      },
+      {
+        id: 'MAGE', name: '法師', en: 'MAGE', atkType: 'MAG',
+        exclusiveName: '璀璨星芒魔杖',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"><line x1="20" y1="82" x2="68" y2="34"/><circle cx="72" cy="30" r="9" fill="#ffffff"/><line x1="72" y1="10" x2="72" y2="15" stroke-width="4"/><line x1="90" y1="30" x2="85" y2="30" stroke-width="4"/><line x1="85" y1="16" x2="81" y2="20" stroke-width="4"/><path d="M35 28 L38 35 L45 38 L38 41 L35 48 L32 41 L25 38 L32 35 Z" fill="#ffffff" stroke="none"/></svg>`
+      },
+      {
+        id: 'BARD', name: '吟遊詩人', en: 'BARD', atkType: 'MAG',
+        exclusiveName: '風吟天鵝豎琴',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 18 C20 18 20 28 26 28 L26 78 L72 78 C78 55 84 35 84 26 C64 26 50 18 26 18 Z"/><line x1="38" y1="22" x2="38" y2="78" stroke-width="3"/><line x1="48" y1="24" x2="48" y2="78" stroke-width="3"/><line x1="58" y1="26" x2="58" y2="78" stroke-width="3"/><line x1="20" y1="82" x2="76" y2="82" stroke-width="7"/></svg>`
+      },
+      {
+        id: 'ALCHEMIST', name: '煉金術士', en: 'ALCHEMIST', atkType: 'MAG',
+        exclusiveName: '賢者沸騰燒瓶',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><path d="M40 16 L60 16 M44 16 L44 34 A28 28 0 1 0 56 34 L56 16"/><path d="M26 65 Q50 58 74 65 A25 25 0 0 1 26 65 Z" fill="#ffffff"/><circle cx="44" cy="52" r="3" fill="#ffffff"/><circle cx="56" cy="45" r="4" fill="#ffffff"/></svg>`
+      },
+      {
+        id: 'ASSASSIN', name: '刺客', en: 'ASSASSIN', atkType: 'PHYS',
+        exclusiveName: '暗影假面與短匕',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 22 C24 45 36 58 46 68 L54 60 C44 48 32 34 18 22 Z" fill="#ffffff"/><line x1="42" y1="72" x2="58" y2="56" stroke-width="6"/><line x1="50" y1="64" x2="62" y2="78" stroke-width="7"/><path d="M48 30 C58 24 66 30 68 32 C70 30 78 24 88 30 C86 42 76 44 68 38 C60 44 50 42 48 30 Z" fill="#ffffff"/><circle cx="58" cy="34" r="3" fill="#0c2144" stroke="none"/><circle cx="78" cy="34" r="3" fill="#0c2144" stroke="none"/></svg>`
+      },
+      {
+        id: 'DRUID', name: '德魯伊', en: 'DRUID', atkType: 'MAG',
+        exclusiveName: '森之鹿角與古葉',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M40 46 C26 42 18 28 22 14 M26 34 L16 28 M32 40 L30 24"/><path d="M60 46 C74 42 82 28 78 14 M74 34 L84 28 M68 40 L70 24"/><path d="M35 55 C55 50 70 65 68 84 C48 86 33 72 35 55 Z" fill="#ffffff"/><line x1="35" y1="55" x2="65" y2="82" stroke="#0c2144" stroke-width="3"/></svg>`
+      },
+      {
+        id: 'ONMYOJI', name: '陰陽師', en: 'ONMYOJI', atkType: 'MAG',
+        exclusiveName: '百鬼太極靈符',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="4"><circle cx="50" cy="50" r="36" stroke-opacity="0.6"/><rect x="34" y="16" width="32" height="68" rx="2" transform="rotate(8 50 50)" fill="#ffffff"/><path d="M48 28 L56 28 M46 40 L56 40 L48 54 L56 54 M44 68 L56 68 M50 24 L46 74" stroke="#0c2144" stroke-width="4" stroke-linecap="round"/></svg>`
+      },
+      {
+        id: 'DREAMWEAVER', name: '織夢術士', en: 'DREAMWEAVER', atkType: 'MAG',
+        exclusiveName: '幻夢星塵蝶翼',
+        svg: `<svg viewBox="0 0 100 100" fill="#ffffff" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"><path d="M48 48 C34 24 14 22 18 42 C20 52 36 54 48 52 C34 56 22 68 28 78 C34 86 46 74 48 58 Z"/><path d="M52 48 C66 24 86 22 82 42 C80 52 64 54 52 52 C66 56 78 68 72 78 C66 86 54 74 52 58 Z"/><line x1="50" y1="32" x2="50" y2="72" stroke-width="5" stroke-linecap="round"/></svg>`
+      },
+      {
+        id: 'DIVINER', name: '卜者', en: 'DIVINER', atkType: 'MAG',
+        exclusiveName: '星命預言水晶球',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5"><circle cx="50" cy="46" r="28" fill="#ffffff" fill-opacity="0.25"/><path d="M30 74 L70 74 L76 86 L24 86 Z" fill="#ffffff"/><path d="M58 32 L61 39 L68 42 L61 45 L58 52 L55 45 L48 42 L55 39 Z" fill="#ffffff" stroke="none"/></svg>`
+      },
+      {
+        id: 'SAMURAI', name: '武士', en: 'SAMURAI', atkType: 'PHYS',
+        exclusiveName: '鬼神鍬形兜與太刀',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M32 22 C32 36 42 42 50 42 C58 42 68 36 68 22" stroke-width="6"/><path d="M26 48 C26 32 74 32 74 48 L82 68 L18 68 Z" fill="#ffffff" fill-opacity="0.3"/><line x1="16" y1="22" x2="84" y2="84" stroke-width="7"/></svg>`
+      },
+      {
+        id: 'SAGE', name: '智者', en: 'SAGE', atkType: 'MAG',
+        exclusiveName: '真理演算全書 (πΣ√)',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><text x="20" y="34" fill="#ffffff" stroke="none" font-size="22" font-weight="bold">π Σ √</text><path d="M16 48 L48 52 L48 84 L16 80 Z" fill="#ffffff"/><path d="M84 48 L52 52 L52 84 L84 80 Z" fill="#ffffff"/></svg>`
+      },
+      {
+        id: 'ARCHER', name: '弓箭手', en: 'ARCHER', atkType: 'PHYS',
+        exclusiveName: '疾風獵鷹長弓',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 18 C66 24 76 58 56 86"/><line x1="26" y1="18" x2="56" y2="86" stroke-width="3"/><line x1="22" y1="78" x2="78" y2="22" stroke-width="5"/><polygon points="78,22 65,24 76,35" fill="#ffffff"/></svg>`
+      },
+      {
+        id: 'GLADIATOR', name: '角鬥士', en: 'GLADIATOR', atkType: 'PHYS',
+        exclusiveName: '競技場斯巴達戰盔',
+        svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="18" x2="82" y2="82" stroke-width="6"/><line x1="82" y1="18" x2="18" y2="82" stroke-width="6"/><path d="M30 42 C30 24 70 24 70 42 L70 74 L56 84 L56 58 L44 58 L44 84 L30 74 Z" fill="#ffffff"/><path d="M36 48 L46 52 L36 56 Z M64 48 L54 52 L64 56 Z" fill="#0c2144" stroke="none"/></svg>`
+      }
+    ];
+
+    const ITEM_TEMPLATES = [
+      // Tier 1 小件裝備 (可兩兩合成)
+      { id: 'short_sword', name: '鐵製短劍', icon: '🗡️', slot: 'WEAPON', tier: 1, stats: { physAtk: 10 }, desc: '基礎物理短劍 (+10 物攻)' },
+      { id: 'mana_crystal', name: '魔力水晶書', icon: '📘', slot: 'WEAPON', tier: 1, stats: { magAtk: 10 }, desc: '蘊含魔力的法典 (+10 魔攻)' },
+      { id: 'leather_armor', name: '硬質皮甲', icon: '🧥', slot: 'ARMOR', tier: 1, stats: { maxHp: 30, def: 3 }, desc: '輕便防具 (+30 生命, +3 防禦)' },
+      { id: 'iron_pauldrons', name: '玄鐵護肩', icon: '🛡️', slot: 'ARMOR', tier: 1, stats: { maxHp: 15, def: 6 }, desc: '強化肩部防護 (+15 生命, +6 防禦)' },
+      { id: 'ruby_ring', name: '紅寶石戒環', icon: '💍', slot: 'ACCESSORY', tier: 1, stats: { maxHp: 20, physAtk: 2, def: 2 }, desc: '基礎三圍配飾 (+20 生命, +2 物攻, +2 防禦)' },
+      { id: 'regen_band', name: '再生草指環', icon: '🌿', slot: 'ACCESSORY', tier: 1, stats: { maxHp: 15, magAtk: 3, def: 2 }, passive: '每回合微幅回復 2 點生命', desc: '帶有微弱生機的配飾' }
+    ];
+
+    // Tier 2 合成進階裝備
+    const CRAFTED_ITEMS = {
+      'short_sword+mana_crystal': {
+        id: 'rune_longsword', name: '符文魔導長劍', icon: '⚔️', slot: 'WEAPON', tier: 2,
+        stats: { physAtk: 22, magAtk: 22 }, passive: '物魔雙修：普攻附加 10 點奧術傷害',
+        desc: '由短劍與魔力水晶合成的高階雙修武器'
+      },
+      'leather_armor+iron_pauldrons': {
+        id: 'heavy_chainmail', name: '重裝秘銀鎖甲', icon: '🦺', slot: 'ARMOR', tier: 2,
+        stats: { maxHp: 65, def: 14 }, passive: '堅韌護體：受到的暴擊傷害降低 20%',
+        desc: '由皮甲與玄鐵護肩合成的重型鎧甲'
+      },
+      'ruby_ring+regen_band': {
+        id: 'life_ring', name: '生命指環', icon: '💖', slot: 'ACCESSORY', tier: 2,
+        stats: { maxHp: 45, physAtk: 5, magAtk: 5, def: 5 }, passive: '【生命湧泉】每回合開始自動回復 5% 最大生命',
+        desc: '三圍全滿並具備強大每回合回血被動的核心飾品'
+      }
+    };
+
+    let currentClassIndex = 0;
+    let weaponWatermarkOverride = 'AUTO'; // 'AUTO' | 'PHYS' | 'MAG'
+    let craftMode = false;
+    let craftSelection = []; // 儲存選中的 slot descriptor
+    let selectedSlot = null; // { area: 'SQUAD'|'PERSONAL'|'EQUIP', index: number }
+    let uidCounter = 100;
+
+    // 19 格小隊背包 (3 - 4 - 5 - 4 - 3)
+    const squadInventory = new Array(19).fill(null);
+    // 4 格個人背包
+    const personalInventory = new Array(4).fill(null);
+    // 4 格裝備欄: [0: WEAPON, 1: ARMOR, 2: ACCESSORY, 3: CLASS_EXCLUSIVE]
+    const equipmentSlots = [null, null, null, null];
+
+    const EQUIP_SLOT_META = [
+      { key: 'WEAPON', label: '武器' },
+      { key: 'ARMOR', label: '裝備' },
+      { key: 'ACCESSORY', label: '飾品' },
+      { key: 'CLASS_EXCLUSIVE', label: '專屬裝備' }
+    ];
+
+    // 產生深藍白邊尖頂六角形背景 SVG
+    function createHexBgSvg() {
+      return `
+        <svg class="hex-bg-svg" viewBox="0 0 100 115.47" preserveAspectRatio="none">
+          <polygon class="hex-polygon" points="50,2 98,29.5 98,85.97 50,113.47 2,85.97 2,29.5" />
+        </svg>
+      `;
+    }
+
+    // 根據當前職業與設定，取得 4 個裝備欄中央 50% 透明度的純白 SVG 底圖
+    function getEquipSlotWatermarkSvg(slotIndex) {
+      const cls = CLASSES_DATA[currentClassIndex];
+      if (slotIndex === 0) {
+        // 武器欄：物攻顯示劍 (sword.png)，魔攻顯示書 (book.png)
+        const mode = weaponWatermarkOverride === 'AUTO' ? cls.atkType : weaponWatermarkOverride;
+        return mode === 'PHYS' ? SLOT_WATERMARK_SVGS.SWORD : SLOT_WATERMARK_SVGS.BOOK;
+      }
+      if (slotIndex === 1) {
+        // 裝備欄：顯示鎧甲 (armor.png)
+        return SLOT_WATERMARK_SVGS.ARMOR;
+      }
+      if (slotIndex === 2) {
+        // 飾品欄：顯示純白戒指 (ring.png 轉純白)
+        return SLOT_WATERMARK_SVGS.RING;
+      }
+      if (slotIndex === 3) {
+        // 專屬裝備欄：顯示第五張圖對應的職業圖示
+        return cls.svg;
+      }
+      return '';
+    }
+
+    function addItemToInventoryPrioritySquad(newItem) {
+      // 1. 優先尋找 19 格小隊背包的第一個空格
+      const emptySquadIdx = squadInventory.findIndex(item => item === null);
+      if (emptySquadIdx !== -1) {
+        squadInventory[emptySquadIdx] = newItem;
+        selectedSlot = { area: 'SQUAD', index: emptySquadIdx };
+        renderAll(emptySquadIdx, 'SQUAD');
+        return;
+      }
+
+      // 2. 若小隊背包 19 格已滿，才退而求其次放入個人背包 (4 格)
+      const emptyPersonalIdx = personalInventory.findIndex(item => item === null);
+      if (emptyPersonalIdx !== -1) {
+        personalInventory[emptyPersonalIdx] = newItem;
+        selectedSlot = { area: 'PERSONAL', index: emptyPersonalIdx };
+        renderAll(emptyPersonalIdx, 'PERSONAL');
+        return;
+      }
+
+      showInspectorBanner('⚠️ 小隊背包 (19格) 與個人背包 (4格) 皆已滿載！請先合成或出售道具。', 'amber');
+    }
+
+    function acquireRandomLoot(type) {
+      const cls = CLASSES_DATA[currentClassIndex];
+      let itemObj;
+      if (type === 'EXCLUSIVE') {
+        itemObj = {
+          uid: ++uidCounter,
+          id: `excl_${cls.id.toLowerCase()}`,
+          name: `${cls.name}・${cls.exclusiveName}`,
+          icon: '🌟',
+          slot: 'CLASS_EXCLUSIVE',
+          requiredClass: cls.id,
+          requiredClassName: cls.name,
+          tier: 3,
+          stats: cls.atkType === 'PHYS'
+            ? { physAtk: 28, maxHp: 40, def: 8 }
+            : { magAtk: 30, maxHp: 35, def: 6 },
+          passive: `【${cls.name}專屬覺醒】強化隊長技與職業核心技能效果 25%`,
+          desc: `僅限【${cls.name}】可穿戴的傳奇專屬裝備`
+        };
+      } else {
+        const tpl = ITEM_TEMPLATES[Math.floor(Math.random() * ITEM_TEMPLATES.length)];
+        itemObj = { ...tpl, uid: ++uidCounter };
+      }
+      addItemToInventoryPrioritySquad(itemObj);
+    }
+
+    function acquireRecipePair() {
+      // 直接派發「紅寶石戒環 + 再生草指環」進入小隊背包供測試合成「生命指環」
+      const itemA = { ...ITEM_TEMPLATES[4], uid: ++uidCounter };
+      const itemB = { ...ITEM_TEMPLATES[5], uid: ++uidCounter };
+      addItemToInventoryPrioritySquad(itemA);
+      addItemToInventoryPrioritySquad(itemB);
+      showInspectorBanner('⚗️ 已將「紅寶石戒環」與「再生草指環」優先放入小隊背包！可開啟合成製作【生命指環】。', 'emerald');
+    }
+
+    function renderClassSelector() {
+      const container = document.getElementById('classSelectorContainer');
+      container.innerHTML = CLASSES_DATA.map((cls, idx) => {
+        const active = idx === currentClassIndex;
+        return `
+          <button onclick="selectClass(${idx})"
+            class="px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 ${
+              active
+                ? 'bg-blue-600 text-white border-white shadow-md shadow-blue-900/60'
+                : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700'
+            }">
+            <span class="w-3.5 h-3.5 inline-block">${cls.svg}</span>
+            <span>${cls.name}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectClass(index) {
+      currentClassIndex = index;
+      // 若專屬裝備欄穿戴了非本職業的專屬裝，自動退回小隊背包
+      const exclItem = equipmentSlots[3];
+      const cls = CLASSES_DATA[currentClassIndex];
+      if (exclItem && exclItem.requiredClass && exclItem.requiredClass !== cls.id) {
+        equipmentSlots[3] = null;
+        addItemToInventoryPrioritySquad(exclItem);
+      }
+      renderAll();
+    }
+
+    function setWeaponWatermarkOverride(mode) {
+      weaponWatermarkOverride = mode;
+      document.getElementById('btnWeaponAuto').className = `px-2 py-1 rounded text-xs font-bold ${mode === 'AUTO' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`;
+      document.getElementById('btnWeaponPhys').className = `px-2 py-1 rounded text-xs font-bold ${mode === 'PHYS' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300'}`;
+      document.getElementById('btnWeaponMag').className = `px-2 py-1 rounded text-xs font-bold ${mode === 'MAG' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-300'}`;
+      renderAll();
+    }
+
+    function toggleWatermarkPreview(checked) {
+      document.body.classList.toggle('watermark-preview-mode', checked);
+    }
+
+    function renderSlotContent(item, slotNumber, watermarkSvg = '') {
+      const tierColor = item
+        ? (item.tier === 3 ? 'text-amber-300' : item.tier === 2 ? 'text-sky-300' : 'text-slate-100')
+        : '';
+      return `
+        ${createHexBgSvg()}
+        ${watermarkSvg ? `<div class="equip-watermark">${watermarkSvg}</div>` : ''}
+        ${item ? `
+          <div class="item-layer">
+            <span class="text-xl sm:text-2xl leading-none drop-shadow">${item.icon}</span>
+            <span class="text-[10px] font-bold leading-tight mt-1 px-1 truncate max-w-full ${tierColor}">
+              ${item.name}
+            </span>
+          </div>
+        ` : `<span class="slot-index-badge">${slotNumber}</span>`}
+      `;
+    }
+
+    function renderAll(flashIndex = null, flashArea = null) {
+      renderClassSelector();
+      const cls = CLASSES_DATA[currentClassIndex];
+      const effectiveWeaponMode = weaponWatermarkOverride === 'AUTO' ? cls.atkType : weaponWatermarkOverride;
+
+      // 更新職業頭像與標籤
+      document.getElementById('currentClassAvatar').innerHTML = cls.svg;
+      document.getElementById('currentClassName').textContent = `${cls.name} ${cls.en}`;
+      const atkBadge = document.getElementById('currentAttackTypeBadge');
+      if (effectiveWeaponMode === 'PHYS') {
+        atkBadge.textContent = '物理攻擊 (武器底圖：雙劍 50%)';
+        atkBadge.className = 'px-2 py-0.5 text-[11px] font-bold rounded bg-rose-500/20 text-rose-300 border border-rose-400/40';
+      } else {
+        atkBadge.textContent = '魔法攻擊 (武器底圖：魔導書 50%)';
+        atkBadge.className = 'px-2 py-0.5 text-[11px] font-bold rounded bg-sky-500/20 text-sky-300 border border-sky-400/40';
+      }
+      document.getElementById('currentClassExclusiveHint').textContent =
+        `專屬裝備欄底圖：${cls.name}（${cls.exclusiveName}）50% 透明度純白圖示`;
+      document.getElementById('labelWeaponSlot').textContent =
+        effectiveWeaponMode === 'PHYS' ? '武器(物攻劍)' : '武器(魔攻書)';
+      document.getElementById('labelExclusiveSlot').textContent = `專屬(${cls.name})`;
+
+      // 1. 渲染 19 格小隊蜂巢背包 (3 - 4 - 5 - 4 - 3 連體排列)
+      const rowDistribution = [3, 4, 5, 4, 3];
+      const squadContainer = document.getElementById('squadGridContainer');
+      let currentIdx = 0;
+      let squadHtml = '';
+
+      for (let r = 0; r < rowDistribution.length; r++) {
+        const count = rowDistribution[r];
+        squadHtml += `<div class="hex-row">`;
+        for (let c = 0; c < count; c++) {
+          const idx = currentIdx++;
+          const item = squadInventory[idx];
+          const isSelected = selectedSlot && selectedSlot.area === 'SQUAD' && selectedSlot.index === idx;
+          const isCraftSel = craftSelection.some(s => s.area === 'SQUAD' && s.index === idx);
+          const isFlash = flashArea === 'SQUAD' && flashIndex === idx;
+          squadHtml += `
+            <div class="hex-slot ${item ? 'has-item' : ''} ${isSelected ? 'selected-slot' : ''} ${isCraftSel ? 'craft-selected' : ''} ${isFlash ? 'loot-flash' : ''}"
+                 onclick="handleSlotClick('SQUAD', ${idx})"
+                 draggable="${item ? 'true' : 'false'}"
+                 ondragstart="handleDragStart(event, 'SQUAD', ${idx})"
+                 ondragover="event.preventDefault()"
+                 ondrop="handleDrop(event, 'SQUAD', ${idx})">
+              ${renderSlotContent(item, idx + 1)}
+            </div>
+          `;
+        }
+        squadHtml += `</div>`;
+      }
+      squadContainer.innerHTML = squadHtml;
+
+      // 2. 渲染 4 格連體裝備欄 (含 50% 透明度純白底圖)
+      const equipContainer = document.getElementById('equipRowContainer');
+      equipContainer.innerHTML = equipmentSlots.map((item, idx) => {
+        const isSelected = selectedSlot && selectedSlot.area === 'EQUIP' && selectedSlot.index === idx;
+        const watermark = getEquipSlotWatermarkSvg(idx);
+        return `
+          <div class="hex-slot ${item ? 'has-item' : ''} ${isSelected ? 'selected-slot' : ''}"
+               onclick="handleSlotClick('EQUIP', ${idx})"
+               draggable="${item ? 'true' : 'false'}"
+               ondragstart="handleDragStart(event, 'EQUIP', ${idx})"
+               ondragover="event.preventDefault()"
+               ondrop="handleDrop(event, 'EQUIP', ${idx})">
+            ${renderSlotContent(item, EQUIP_SLOT_META[idx].label, watermark)}
+          </div>
+        `;
+      }).join('');
+
+      // 3. 渲染 4 格連體個人背包
+      const personalContainer = document.getElementById('personalRowContainer');
+      personalContainer.innerHTML = personalInventory.map((item, idx) => {
+        const isSelected = selectedSlot && selectedSlot.area === 'PERSONAL' && selectedSlot.index === idx;
+        const isCraftSel = craftSelection.some(s => s.area === 'PERSONAL' && s.index === idx);
+        const isFlash = flashArea === 'PERSONAL' && flashIndex === idx;
+        return `
+          <div class="hex-slot ${item ? 'has-item' : ''} ${isSelected ? 'selected-slot' : ''} ${isCraftSel ? 'craft-selected' : ''} ${isFlash ? 'loot-flash' : ''}"
+               onclick="handleSlotClick('PERSONAL', ${idx})"
+               draggable="${item ? 'true' : 'false'}"
+               ondragstart="handleDragStart(event, 'PERSONAL', ${idx})"
+               ondragover="event.preventDefault()"
+               ondrop="handleDrop(event, 'PERSONAL', ${idx})">
+            ${renderSlotContent(item, `P${idx + 1}`)}
+          </div>
+        `;
+      }).join('');
+
+      // 更新容量計數與角色屬性
+      const squadUsed = squadInventory.filter(Boolean).length;
+      const personalUsed = personalInventory.filter(Boolean).length;
+      document.getElementById('squadCountBadge').textContent = `${squadUsed} / 19 格`;
+      document.getElementById('personalCountBadge').textContent = `${personalUsed} / 4 格`;
+
+      updateCharacterStats();
+      renderInspector();
+    }
+
+    function getItemAt(area, index) {
+      if (area === 'SQUAD') return squadInventory[index];
+      if (area === 'PERSONAL') return personalInventory[index];
+      if (area === 'EQUIP') return equipmentSlots[index];
+      return null;
+    }
+
+    function setItemAt(area, index, item) {
+      if (area === 'SQUAD') squadInventory[index] = item;
+      if (area === 'PERSONAL') personalInventory[index] = item;
+      if (area === 'EQUIP') equipmentSlots[index] = item;
+    }
+
+    function canEquipToSlot(item, equipIndex) {
+      if (!item) return true;
+      const expectedSlot = EQUIP_SLOT_META[equipIndex].key;
+      if (item.slot !== expectedSlot) {
+        showInspectorBanner(`❌ 部位不符：【${item.name}】屬於${getSlotNameTw(item.slot)}，無法放入「${EQUIP_SLOT_META[equipIndex].label}」欄！`, 'rose');
+        return false;
+      }
+      if (expectedSlot === 'CLASS_EXCLUSIVE') {
+        const cls = CLASSES_DATA[currentClassIndex];
+        if (item.requiredClass && item.requiredClass !== cls.id) {
+          showInspectorBanner(`❌ 職業限制：【${item.name}】僅限「${item.requiredClassName}」穿戴！`, 'rose');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function getSlotNameTw(slotKey) {
+      const map = { WEAPON: '武器', ARMOR: '裝備(鎧甲)', ACCESSORY: '飾品', CLASS_EXCLUSIVE: '專屬裝備' };
+      return map[slotKey] || slotKey;
+    }
+
+    function handleSlotClick(area, index) {
+      const clickedItem = getItemAt(area, index);
+
+      // 若處於合成選擇模式
+      if (craftMode) {
+        if (area === 'EQUIP' || !clickedItem) return;
+        if (clickedItem.tier !== 1) {
+          showInspectorBanner('⚠️ 只有 Tier 1 小件裝備可以進行合成！', 'amber');
+          return;
+        }
+        const existIdx = craftSelection.findIndex(s => s.area === area && s.index === index);
+        if (existIdx !== -1) {
+          craftSelection.splice(existIdx, 1);
+        } else if (craftSelection.length < 2) {
+          craftSelection.push({ area, index });
+        } else {
+          craftSelection[1] = { area, index };
+        }
+        updateCraftButtonState();
+        renderAll();
+        return;
+      }
+
+      // 一般選取或互換移動
+      if (!selectedSlot) {
+        selectedSlot = { area, index };
+        renderAll();
+        return;
+      }
+
+      if (selectedSlot.area === area && selectedSlot.index === index) {
+        selectedSlot = null;
+        renderAll();
+        return;
+      }
+
+      // 執行兩格交換/移動
+      trySwapSlots(selectedSlot.area, selectedSlot.index, area, index);
+    }
+
+    function trySwapSlots(fromArea, fromIdx, toArea, toIdx) {
+      const itemA = getItemAt(fromArea, fromIdx);
+      const itemB = getItemAt(toArea, toIdx);
+
+      if (!itemA && !itemB) {
+        selectedSlot = { area: toArea, index: toIdx };
+        renderAll();
+        return;
+      }
+
+      // 檢查裝備欄相容性
+      if (toArea === 'EQUIP' && !canEquipToSlot(itemA, toIdx)) return;
+      if (fromArea === 'EQUIP' && !canEquipToSlot(itemB, fromIdx)) return;
+
+      setItemAt(toArea, toIdx, itemA);
+      setItemAt(fromArea, fromIdx, itemB);
+      selectedSlot = { area: toArea, index: toIdx };
+      renderAll();
+    }
+
+    let dragSource = null;
+    function handleDragStart(e, area, index) {
+      dragSource = { area, index };
+    }
+    function handleDrop(e, targetArea, targetIndex) {
+      e.preventDefault();
+      if (!dragSource) return;
+      trySwapSlots(dragSource.area, dragSource.index, targetArea, targetIndex);
+      dragSource = null;
+    }
+
+    // 快速裝備／轉移按鈕動作
+    function quickEquipSelected() {
+      if (!selectedSlot) return;
+      const item = getItemAt(selectedSlot.area, selectedSlot.index);
+      if (!item) return;
+
+      const targetEquipIdx = EQUIP_SLOT_META.findIndex(m => m.key === item.slot);
+      if (targetEquipIdx === -1) return;
+      if (!canEquipToSlot(item, targetEquipIdx)) return;
+
+      const prevEquip = equipmentSlots[targetEquipIdx];
+      equipmentSlots[targetEquipIdx] = item;
+      setItemAt(selectedSlot.area, selectedSlot.index, prevEquip);
+      selectedSlot = { area: 'EQUIP', index: targetEquipIdx };
+      renderAll();
+    }
+
+    function quickTransferSelected() {
+      if (!selectedSlot) return;
+      const item = getItemAt(selectedSlot.area, selectedSlot.index);
+      if (!item) return;
+
+      if (selectedSlot.area === 'SQUAD') {
+        const emptyIdx = personalInventory.findIndex(x => x === null);
+        if (emptyIdx === -1) {
+          showInspectorBanner('⚠️ 個人背包 (4格) 已滿！', 'amber');
+          return;
+        }
+        personalInventory[emptyIdx] = item;
+        squadInventory[selectedSlot.index] = null;
+        selectedSlot = { area: 'PERSONAL', index: emptyIdx };
+      } else {
+        // 從個人背包或裝備欄移回 19 格小隊背包
+        const emptyIdx = squadInventory.findIndex(x => x === null);
+        if (emptyIdx === -1) {
+          showInspectorBanner('⚠️ 小隊背包 (19格) 已滿！', 'amber');
+          return;
+        }
+        squadInventory[emptyIdx] = item;
+        setItemAt(selectedSlot.area, selectedSlot.index, null);
+        selectedSlot = { area: 'SQUAD', index: emptyIdx };
+      }
+      renderAll();
+    }
+
+    function clearAllEquipToSquad() {
+      for (let i = 0; i < 4; i++) {
+        if (equipmentSlots[i]) {
+          const item = equipmentSlots[i];
+          equipmentSlots[i] = null;
+          addItemToInventoryPrioritySquad(item);
+        }
+      }
+      selectedSlot = null;
+      renderAll();
+      showInspectorBanner('👁️ 已卸下所有裝備至小隊背包，現在可清楚檢視裝備欄中央 50% 透明度的純白底圖！', 'sky');
+    }
+
+    // 合成邏輯
+    function toggleCraftMode() {
+      craftMode = !craftMode;
+      craftSelection = [];
+      const btn = document.getElementById('btnToggleCraftMode');
+      if (craftMode) {
+        btn.textContent = '取消合成模式';
+        btn.className = 'px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold transition';
+      } else {
+        btn.textContent = '開啟合成選擇';
+        btn.className = 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition';
+      }
+      updateCraftButtonState();
+      renderAll();
+    }
+
+    function updateCraftButtonState() {
+      const statusEl = document.getElementById('craftStatusText');
+      const execBtn = document.getElementById('btnExecuteCraft');
+      if (!craftMode) {
+        statusEl.textContent = '請點擊「開啟合成選擇」並勾選 2 件小件裝備';
+        execBtn.disabled = true;
+        execBtn.className = 'px-3.5 py-1.5 rounded-lg bg-emerald-600/40 text-white/50 text-xs font-bold transition cursor-not-allowed';
+        return;
+      }
+      statusEl.textContent = `已選擇 ${craftSelection.length} / 2 件小件裝備`;
+      if (craftSelection.length === 2) {
+        execBtn.disabled = false;
+        execBtn.className = 'px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black shadow-lg shadow-emerald-900/50 transition cursor-pointer';
+      } else {
+        execBtn.disabled = true;
+        execBtn.className = 'px-3.5 py-1.5 rounded-lg bg-emerald-600/40 text-white/50 text-xs font-bold transition cursor-not-allowed';
+      }
+    }
+
+    function executeCraft() {
+      if (craftSelection.length !== 2) return;
+      const [s1, s2] = craftSelection;
+      const item1 = getItemAt(s1.area, s1.index);
+      const item2 = getItemAt(s2.area, s2.index);
+      if (!item1 || !item2) return;
+
+      // 查詢特定配方或通用進階合成
+      const key1 = `${item1.id}+${item2.id}`;
+      const key2 = `${item2.id}+${item1.id}`;
+      let craftedTemplate = CRAFTED_ITEMS[key1] || CRAFTED_ITEMS[key2];
+
+      if (!craftedTemplate) {
+        // 通用小件二合一配方
+        craftedTemplate = {
+          id: 'custom_craft',
+          name: `精煉・${item1.name}`,
+          icon: item1.icon,
+          slot: item1.slot,
+          tier: 2,
+          stats: {
+            physAtk: (item1.stats.physAtk || 0) + (item2.stats.physAtk || 0) + 6,
+            magAtk: (item1.stats.magAtk || 0) + (item2.stats.magAtk || 0) + 6,
+            maxHp: (item1.stats.maxHp || 0) + (item2.stats.maxHp || 0) + 20,
+            def: (item1.stats.def || 0) + (item2.stats.def || 0) + 4
+          },
+          passive: '合成共鳴：全屬性獲得額外加成',
+          desc: `由 ${item1.name} 與 ${item2.name} 融合而成的進階裝備`
+        };
+      }
+
+      setItemAt(s1.area, s1.index, null);
+      setItemAt(s2.area, s2.index, null);
+      craftMode = false;
+      craftSelection = [];
+      updateCraftButtonState();
+      document.getElementById('btnToggleCraftMode').textContent = '開啟合成選擇';
+      document.getElementById('btnToggleCraftMode').className = 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition';
+
+      // 合成後的新裝備同樣優先進入 19 格小隊背包
+      const finalItem = { ...craftedTemplate, uid: ++uidCounter };
+      addItemToInventoryPrioritySquad(finalItem);
+      showInspectorBanner(`✨ 合成成功！已生成【${finalItem.name}】並優先存入小隊背包！`, 'emerald');
+    }
+
+    function updateCharacterStats() {
+      const cls = CLASSES_DATA[currentClassIndex];
+      let hp = 100;
+      let phys = cls.atkType === 'PHYS' ? 18 : 6;
+      let mag = cls.atkType === 'MAG' ? 18 : 6;
+      let def = 8;
+      const passives = [];
+
+      equipmentSlots.forEach(item => {
+        if (!item) return;
+        if (item.stats.maxHp) hp += item.stats.maxHp;
+        if (item.stats.physAtk) phys += item.stats.physAtk;
+        if (item.stats.magAtk) mag += item.stats.magAtk;
+        if (item.stats.def) def += item.stats.def;
+        if (item.passive) passives.push(`【${item.name}】${item.passive}`);
+      });
+
+      document.getElementById('statHp').textContent = hp;
+      document.getElementById('statPhys').textContent = phys;
+      document.getElementById('statMag').textContent = mag;
+      document.getElementById('statDef').textContent = def;
+
+      const passiveBox = document.getElementById('activePassivesBox');
+      if (passives.length > 0) {
+        passiveBox.innerHTML = passives.map(p => `<div>✨ ${p}</div>`).join('');
+      } else {
+        passiveBox.innerHTML = `✨ 當前裝備被動：尚未穿戴具備特殊被動的飾品（如生命指環）或專屬裝備`;
+      }
+    }
+
+    function renderInspector() {
+      const panel = document.getElementById('inspectorPanel');
+      if (!selectedSlot) {
+        panel.innerHTML = `
+          <div>
+            <div class="text-xs text-slate-400 font-semibold">💡 操作提示（點擊格子選取／交換，或直接拖曳）</div>
+            <div class="text-sm font-bold text-white mt-0.5">
+              點擊任一六角格可查看道具詳情，獲得的新道具會自動優先進入左側 19 格小隊背包
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const item = getItemAt(selectedSlot.area, selectedSlot.index);
+      if (!item) {
+        const areaName = selectedSlot.area === 'SQUAD'
+          ? `小隊背包 第 ${selectedSlot.index + 1} 格`
+          : selectedSlot.area === 'PERSONAL'
+            ? `個人背包 第 ${selectedSlot.index + 1} 格`
+            : `裝備欄【${EQUIP_SLOT_META[selectedSlot.index].label}】`;
+        panel.innerHTML = `
+          <div class="flex items-center justify-between w-full">
+            <div>
+              <span class="text-xs text-blue-300 font-bold">${areaName}（空置中）</span>
+              <p class="text-xs text-slate-400 mt-0.5">可點擊其他有道具的格子將物品移入此處</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const statBadges = [];
+      if (item.stats.physAtk) statBadges.push(`物攻 +${item.stats.physAtk}`);
+      if (item.stats.magAtk) statBadges.push(`魔攻 +${item.stats.magAtk}`);
+      if (item.stats.maxHp) statBadges.push(`生命 +${item.stats.maxHp}`);
+      if (item.stats.def) statBadges.push(`防禦 +${item.stats.def}`);
+
+      panel.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-blue-950 border border-white/60 flex items-center justify-center text-2xl shrink-0">
+              ${item.icon}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-black text-white text-sm">${item.name}</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                  Tier ${item.tier} • ${getSlotNameTw(item.slot)}
+                </span>
+              </div>
+              <div class="text-xs text-emerald-300 font-semibold mt-0.5">
+                ${statBadges.join(' ｜ ')} ${item.passive ? `｜ ${item.passive}` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            ${selectedSlot.area !== 'EQUIP' ? `
+              <button onclick="quickEquipSelected()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">
+                穿戴至裝備欄
+              </button>
+            ` : ''}
+            <button onclick="quickTransferSelected()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold transition">
+              ${selectedSlot.area === 'SQUAD' ? '移至個人背包' : '移回小隊背包'}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function showInspectorBanner(msg, color = 'blue') {
+      const panel = document.getElementById('inspectorPanel');
+      panel.innerHTML = `<div class="text-xs sm:text-sm font-bold text-${color}-300 py-1">${msg}</div>`;
+    }
+
+    // 初始載入：預先放入幾件示範道具到 19 格小隊背包，裝備欄保持空置以便第一眼看清楚 50% 透明度純白底圖
+    window.onload = function () {
+      addItemToInventoryPrioritySquad({ ...ITEM_TEMPLATES[0], uid: ++uidCounter }); // 短劍
+      addItemToInventoryPrioritySquad({ ...ITEM_TEMPLATES[1], uid: ++uidCounter }); // 魔力水晶書
+      addItemToInventoryPrioritySquad({ ...ITEM_TEMPLATES[2], uid: ++uidCounter }); // 皮甲
+      addItemToInventoryPrioritySquad({ ...ITEM_TEMPLATES[4], uid: ++uidCounter }); // 紅寶石戒環
+      addItemToInventoryPrioritySquad({ ...ITEM_TEMPLATES[5], uid: ++uidCounter }); // 再生草指環
+      selectedSlot = null;
+      renderAll();
+    };
+  </script>
+</body>
+</html>

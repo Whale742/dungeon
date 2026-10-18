@@ -192,7 +192,7 @@
           <svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰
         </button>
         <button id="btnOpenInventory" class="btn-icon hidden" title="查看行囊與裝備鍛造">
-          <svg class="svg-icon"><use href="#icon-chest"></use></svg> 🎒 行囊 <span id="headerGoldDisplay" class="header-gold-pill">🪙 100</span>
+          <svg class="svg-icon"><use href="#icon-chest"></use></svg> 行囊 <span id="headerGoldDisplay" class="header-gold-pill">🪙 0</span>
         </button>
         <button id="btnLeaveParty" onclick="exitRoomToLobbyMenu()" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
           <svg class="svg-icon"><use href="#icon-close"></use></svg> 離開隊伍
@@ -1182,55 +1182,107 @@
 
   <!-- ================= MODAL: 雙層行囊與鍛造工坊 (Module 3 & 4) ================= -->
   <div id="inventoryModal" class="modal-overlay hidden" style="z-index: 2400;">
-    <div class="kraft-paper kraft-paper-rivets modal-card inventory-modal-card">
+    <div class="modal-card inventory-modal-card">
       <div class="modal-header">
         <div class="inventory-header-info">
-          <h3 class="modal-title">🎒 探險行囊與鍛造工坊</h3>
-          <span id="inventoryGoldCount" class="inventory-gold-badge">🪙 100 金幣</span>
+          <h3 class="modal-title">探險行囊與裝備系統</h3>
+          <span id="inventoryGoldCount" class="inventory-gold-badge">🪙 0 金幣</span>
         </div>
         <button type="button" id="btnCloseInventoryModal" class="modal-close-btn" title="關閉">
           <svg class="svg-icon"><use href="#icon-close"></use></svg>
         </button>
       </div>
 
-      <!-- 分頁切換鈕 -->
-      <div class="inventory-tabs">
-        <button type="button" class="inv-tab-btn active" data-tab="squad">小隊行囊 (20格)</button>
-        <button type="button" class="inv-tab-btn" data-tab="personal">個人裝備與背包 (4格)</button>
-        <button type="button" class="inv-tab-btn" data-tab="crafting">鍛造工坊 (5種配方)</button>
+      <!-- 頂部即時屬性列 (在上方顯示: HP 物攻+ 魔攻+ 防禦力) -->
+      <div class="inv-player-stats-bar" id="invPlayerStatsBar">
+        <div class="inv-stat-pill">
+          <span class="inv-stat-label">生命 HP</span>
+          <span id="invStatHp" class="inv-stat-val inv-stat-hp">100 / 100</span>
+        </div>
+        <div class="inv-stat-pill">
+          <span class="inv-stat-label">物攻+</span>
+          <span id="invStatPhys" class="inv-stat-val inv-stat-phys">+0</span>
+        </div>
+        <div class="inv-stat-pill">
+          <span class="inv-stat-label">魔攻+</span>
+          <span id="invStatMag" class="inv-stat-val inv-stat-mag">+0</span>
+        </div>
+        <div class="inv-stat-pill">
+          <span class="inv-stat-label">防禦力</span>
+          <span id="invStatDef" class="inv-stat-val inv-stat-def">0</span>
+        </div>
       </div>
 
       <div class="modal-body inventory-modal-body">
-        <!-- 分頁 1: 小隊行囊 -->
-        <div id="tabSquadInventory" class="inv-tab-content active">
+        <!-- 1. 小隊背包 (19格，3-4-5-4-3 蜂巢連體) -->
+        <div class="squad-backpack-section">
           <div class="inv-sub-header">
-            <span>小隊共享行囊（點擊物品可領取至個人背包）：</span>
-            <span id="squadCapacityText">0 / 20</span>
+            <div class="inv-sub-title">
+              <span class="pulse-dot"></span>
+              <span>小隊共用背包 (19格)</span>
+              <span class="inv-sub-hint">・取得道具優先自動存入此處</span>
+            </div>
+            <span id="squadCapacityText" class="inv-capacity-badge">0 / 19 格</span>
           </div>
-          <div id="squadGrid" class="inventory-slots-grid squad-grid"></div>
+          <div id="squadGrid" class="hex-grid-squad">
+            <!-- 由 JS 渲染 3-4-5-4-3 蜂巢六角格 -->
+          </div>
         </div>
 
-        <!-- 分頁 2: 個人裝備與背包 -->
-        <div id="tabPersonalInventory" class="inv-tab-content hidden">
-          <div class="personal-equip-section">
-            <h4 class="inv-section-title">🛡️ 目前穿戴裝備（點擊裝備可卸下回個人背包）：</h4>
-            <div id="equippedSlotsGrid" class="equipped-slots-grid">
-              <!-- WEAPON, ARMOR, ACCESSORY, CLASS_EXCLUSIVE -->
-            </div>
-          </div>
-          <div class="personal-bag-section">
+        <!-- 2. 裝備欄與個人背包在小隊背包下方 -->
+        <div class="lower-backpack-grid">
+          <!-- 裝備欄 (4格連體，從左到右：武器、裝備、飾品、專屬裝備) -->
+          <div class="equipment-section">
             <div class="inv-sub-header">
-              <span>個人背包（點擊可穿戴或放回小隊行囊）：</span>
-              <span id="personalBagCapacityText">0 / 4</span>
+              <div class="inv-sub-title">
+                <span>角色裝備欄 (4格)</span>
+              </div>
             </div>
-            <div id="personalBagGrid" class="inventory-slots-grid personal-grid"></div>
+            <div class="equip-hex-wrapper">
+              <div id="equippedSlotsGrid" class="hex-row">
+                <!-- 4 個連體六角格：武器、裝備、飾品、專屬裝備 -->
+              </div>
+              <div class="equip-slot-labels-row">
+                <span id="labelEquipWeapon" class="equip-label-item">武器</span>
+                <span id="labelEquipArmor" class="equip-label-item">裝備</span>
+                <span id="labelEquipAccessory" class="equip-label-item">飾品</span>
+                <span id="labelEquipExclusive" class="equip-label-item">專屬</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 個人隨身背包 (4格連體) -->
+          <div class="personal-backpack-section">
+            <div class="inv-sub-header">
+              <div class="inv-sub-title">
+                <span>個人隨身背包 (4格)</span>
+              </div>
+              <span id="personalBagCapacityText" class="inv-capacity-badge">0 / 4 格</span>
+            </div>
+            <div class="personal-hex-wrapper">
+              <div id="personalBagGrid" class="hex-row">
+                <!-- 4 個連體六角格 -->
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 分頁 3: 鍛造工坊 -->
-        <div id="tabCrafting" class="inv-tab-content hidden">
-          <p class="crafting-hint">消耗小隊行囊中的兩件階級 1 裝備，合成強大的階級 2 裝備：</p>
-          <div id="craftingRecipesList" class="crafting-recipes-list"></div>
+        <!-- 3. 選中道具詳情與操作面板 (Inspector Panel) -->
+        <div id="invInspectorPanel" class="inv-inspector-card">
+          <div id="invInspectorContent" class="inv-inspector-empty">
+            點擊任一六角格可查看道具詳情，並可穿戴、卸下或在背包間轉移。
+          </div>
+        </div>
+
+        <!-- 4. 鍛造工坊折疊區塊 -->
+        <div class="inv-crafting-accordion">
+          <button type="button" id="btnToggleCraftingPanel" class="btn-toggle-crafting">
+            <span>⚒️ 裝備鍛造工坊 (5種合成配方)</span>
+            <span id="craftingToggleArrow">▼</span>
+          </button>
+          <div id="craftingPanelBody" class="crafting-panel-body hidden">
+            <div id="craftingRecipesList" class="crafting-recipes-list"></div>
+          </div>
         </div>
       </div>
     </div>

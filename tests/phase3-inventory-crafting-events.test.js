@@ -33,7 +33,7 @@ test('Phase 3: Inventory dual-layer management and capacity limits', () => {
   const p0 = room.players.p0;
 
   // Initial states
-  assert.equal(room.gold, 100);
+  assert.equal(room.gold, 0);
   assert.deepEqual(room.squadInventory, []);
   assert.deepEqual(p0.bag, []);
   assert.deepEqual(p0.equipSlots, {
@@ -67,14 +67,30 @@ test('Phase 3: Inventory dual-layer management and capacity limits', () => {
   assert.equal(fullRes.success, false);
   assert.match(fullRes.message, /個人背包已滿/);
 
-  // Capacity test: Squad inventory max is 20
-  for (let i = 0; i < 20; i++) {
+  // Capacity test: Squad inventory max is 19 (3-4-5-4-3 honeycomb)
+  room.squadInventory = [];
+  for (let i = 0; i < 19; i++) {
     room.squadInventory.push({ ...TIER1_EQUIPMENTS[0] });
   }
-  assert.equal(room.squadInventory.length, 21);
+  assert.equal(room.squadInventory.length, 19);
   const squadFullRes = room.transferToSquad('p0', 0);
   assert.equal(squadFullRes.success, false);
   assert.match(squadFullRes.message, /小隊.*已滿/);
+
+  // Test addItemPrioritySquad prioritizes squad first, then personal bag
+  room.squadInventory = [];
+  const prioritySquadRes = room.addItemPrioritySquad({ ...TIER1_EQUIPMENTS[0] });
+  assert.equal(prioritySquadRes.target, 'squad');
+  assert.equal(room.squadInventory.length, 1);
+
+  // When squad is 19 full, priority goes to personal bag
+  for (let i = 1; i < 19; i++) {
+    room.squadInventory.push({ ...TIER1_EQUIPMENTS[0] });
+  }
+  p0.bag = [];
+  const fallbackPersonalRes = room.addItemPrioritySquad({ ...TIER1_EQUIPMENTS[0] }, 'p0');
+  assert.equal(fallbackPersonalRes.target, 'personal');
+  assert.equal(p0.bag.length, 1);
 });
 
 test('Phase 3: Equip and unequip slots with stat updates', () => {

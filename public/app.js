@@ -471,6 +471,15 @@ const elements = {
   inventoryGoldCount: document.getElementById('inventoryGoldCount'),
   squadCapacityText: document.getElementById('squadCapacityText'),
   personalBagCapacityText: document.getElementById('personalBagCapacityText'),
+  invStatHp: document.getElementById('invStatHp'),
+  invStatPhys: document.getElementById('invStatPhys'),
+  invStatMag: document.getElementById('invStatMag'),
+  invStatDef: document.getElementById('invStatDef'),
+  invInspectorPanel: document.getElementById('invInspectorPanel'),
+  invInspectorContent: document.getElementById('invInspectorContent'),
+  btnToggleCraftingPanel: document.getElementById('btnToggleCraftingPanel'),
+  craftingPanelBody: document.getElementById('craftingPanelBody'),
+  craftingToggleArrow: document.getElementById('craftingToggleArrow'),
   viewAbyssDialogue: document.getElementById('viewAbyssDialogue'),
   abyssBossAvatar: document.getElementById('abyssBossAvatar'),
   abyssBossName: document.getElementById('abyssBossName'),
@@ -1027,14 +1036,14 @@ function renderApp() {
 
   // 更新行囊按鈕與金幣 (Module 3)
   if (elements.btnOpenInventory) {
-    if (roomState.state === 'LOBBY' || roomState.state === 'GAME_OVER' || roomState.state === 'VICTORY') {
+    if (!roomState || roomState.state === 'ENTRY' || roomState.state === 'LOBBY' || roomState.state === 'GAME_OVER' || roomState.state === 'VICTORY') {
       elements.btnOpenInventory.classList.add('hidden');
     } else {
       elements.btnOpenInventory.classList.remove('hidden');
     }
   }
   if (elements.headerGoldDisplay) {
-    elements.headerGoldDisplay.textContent = `🪙 ${roomState.gold ?? 100}G`;
+    elements.headerGoldDisplay.textContent = `🪙 ${roomState.gold ?? 0}G`;
   }
   if (elements.inventoryModal && !elements.inventoryModal.classList.contains('hidden')) {
     renderInventoryModal();
@@ -5104,124 +5113,314 @@ const CRAFTING_RECIPE_TEMPLATES = [
   { item1: 'buckler', item2: 'ruby', result: 'guardian_pendant', name: '守護者吊墜', desc: '最大生命 +25，戰鬥首回合獲得 15 點護盾' }
 ];
 
+const SLOT_WATERMARK_SVGS = {
+  SWORD: `
+    <svg viewBox="0 0 100 100" fill="#ffffff">
+      <path d="M12 12 L28 15 L68 55 L55 68 L15 28 Z" />
+      <rect x="52" y="62" width="26" height="7" rx="3.5" transform="rotate(-45 65 65.5)" />
+      <rect x="67" y="67" width="12" height="20" rx="5" transform="rotate(-45 73 77)" />
+      <path d="M88 12 L85 28 L63 50 L50 37 L72 15 Z" />
+      <path d="M32 55 L45 68 L37 76 L24 63 Z" />
+      <rect x="22" y="62" width="26" height="7" rx="3.5" transform="rotate(45 35 65.5)" />
+      <rect x="21" y="67" width="12" height="20" rx="5" transform="rotate(45 27 77)" />
+    </svg>
+  `,
+  BOOK: `
+    <svg viewBox="0 0 100 100" fill="#ffffff">
+      <path d="M22 10 C15 10 11 15 11 22 L11 82 C11 90 16 95 24 95 L84 95 C87 95 89 93 89 90 C89 87 87 85 84 85 L25 85 C21 85 19 83 19 79 C19 75 21 73 25 73 L84 73 C87 73 89 71 89 68 L89 16 C89 12 86 10 82 10 L22 10 Z M26 16 L26 67 L21 67 L21 16 Z" />
+      <path fill="#0c2144" d="M32 18 L46 18 C46 26 40 32 32 32 Z M80 18 L80 32 C72 32 66 26 66 18 Z M32 64 C40 64 46 70 46 78 L32 78 Z M80 64 L80 78 L66 78 C66 70 72 64 80 64 Z" />
+      <path fill="#0c2144" d="M56 27 C58 37 61 40 71 42 C61 44 58 47 56 57 C54 47 51 44 41 42 C51 40 54 37 56 27 Z" />
+      <path fill="#ffffff" d="M56 34 C57 39 59 41 64 42 C59 43 57 45 56 50 C55 45 53 43 48 42 C53 41 55 39 56 34 Z" />
+    </svg>
+  `,
+  ARMOR: `
+    <svg viewBox="0 0 100 100" fill="#ffffff">
+      <path d="M25 10 L38 10 C39 22 61 22 62 10 L75 10 L96 27 L86 42 L68 30 L80 46 L74 86 L50 95 L26 86 L20 46 L32 30 L14 42 L4 27 Z" />
+      <path fill="#0c2144" d="M50 38 L68 62 L58 86 L50 90 L42 86 L32 62 Z" />
+      <path fill="#ffffff" d="M50 45 L62 63 L54 83 L50 85 L46 83 L38 63 Z" />
+    </svg>
+  `,
+  RING: `
+    <svg viewBox="0 0 100 100" fill="none" stroke="#ffffff">
+      <polygon points="38,8 62,8 70,22 30,22" fill="#ffffff" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M24 32 C22 22 30 18 35 24 L65 24 C70 18 78 22 76 32 L68 40 L32 40 Z" fill="#ffffff" stroke="none" />
+      <circle cx="50" cy="60" r="32" stroke="#ffffff" stroke-width="12" />
+      <circle cx="50" cy="60" r="22" stroke="#0c2144" stroke-width="2.5" />
+    </svg>
+  `
+};
+
+const CLASS_ATK_TYPES = {
+  warrior: 'PHYS',
+  paladin: 'PHYS',
+  assassin: 'PHYS',
+  samurai: 'PHYS',
+  archer: 'PHYS',
+  gladiator: 'PHYS',
+  stargazer: 'MAG',
+  augur: 'MAG',
+  mage: 'MAG',
+  bard: 'MAG',
+  alchemist: 'MAG',
+  druid: 'MAG',
+  onmyoji: 'MAG',
+  dreamweaver: 'MAG',
+  diviner: 'MAG',
+  sage: 'MAG',
+  cleric: 'MAG'
+};
+
+const CLASS_EXCLUSIVE_SVGS = {
+  warrior: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20 L30 20 L80 70 L70 80 L20 30 Z" fill="#ffffff"/><path d="M82 20 L70 20 L20 70 L30 80 L80 30 Z" fill="#ffffff"/><line x1="65" y1="85" x2="85" y2="65" stroke-width="7"/><line x1="15" y1="65" x2="35" y2="85" stroke-width="7"/></svg>`,
+  paladin: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><path d="M18 20 L58 20 L58 52 C58 70 38 84 38 84 C38 84 18 70 18 52 Z" fill="#ffffff" fill-opacity="0.25"/><line x1="38" y1="22" x2="38" y2="80" stroke-width="6"/><line x1="20" y1="45" x2="56" y2="45" stroke-width="6"/><rect x="58" y="18" width="28" height="16" rx="3" transform="rotate(15 72 26)" fill="#ffffff"/><line x1="70" y1="34" x2="56" y2="86" stroke-width="6" stroke-linecap="round"/></svg>`,
+  stargazer: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="22" y="34" width="58" height="16" rx="3" transform="rotate(-22 51 42)" fill="#ffffff"/><line x1="50" y1="50" x2="34" y2="86"/><line x1="50" y1="50" x2="66" y2="86"/><line x1="50" y1="50" x2="50" y2="88"/><path d="M24 16 A10 10 0 1 0 34 28 A8 8 0 1 1 24 16 Z" fill="#ffffff" stroke="none"/><circle cx="72" cy="18" r="3" fill="#ffffff"/></svg>`,
+  augur: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="22" y="34" width="58" height="16" rx="3" transform="rotate(-22 51 42)" fill="#ffffff"/><line x1="50" y1="50" x2="34" y2="86"/><line x1="50" y1="50" x2="66" y2="86"/><line x1="50" y1="50" x2="50" y2="88"/><path d="M24 16 A10 10 0 1 0 34 28 A8 8 0 1 1 24 16 Z" fill="#ffffff" stroke="none"/><circle cx="72" cy="18" r="3" fill="#ffffff"/></svg>`,
+  mage: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"><line x1="20" y1="82" x2="68" y2="34"/><circle cx="72" cy="30" r="9" fill="#ffffff"/><line x1="72" y1="10" x2="72" y2="15" stroke-width="4"/><line x1="90" y1="30" x2="85" y2="30" stroke-width="4"/><line x1="85" y1="16" x2="81" y2="20" stroke-width="4"/><path d="M35 28 L38 35 L45 38 L38 41 L35 48 L32 41 L25 38 L32 35 Z" fill="#ffffff" stroke="none"/></svg>`,
+  bard: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 18 C20 18 20 28 26 28 L26 78 L72 78 C78 55 84 35 84 26 C64 26 50 18 26 18 Z"/><line x1="38" y1="22" x2="38" y2="78" stroke-width="3"/><line x1="48" y1="24" x2="48" y2="78" stroke-width="3"/><line x1="58" y1="26" x2="58" y2="78" stroke-width="3"/><line x1="20" y1="82" x2="76" y2="82" stroke-width="7"/></svg>`,
+  alchemist: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><path d="M40 16 L60 16 M44 16 L44 34 A28 28 0 1 0 56 34 L56 16"/><path d="M26 65 Q50 58 74 65 A25 25 0 0 1 26 65 Z" fill="#ffffff"/><circle cx="44" cy="52" r="3" fill="#ffffff"/><circle cx="56" cy="45" r="4" fill="#ffffff"/></svg>`,
+  assassin: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 22 C24 45 36 58 46 68 L54 60 C44 48 32 34 18 22 Z" fill="#ffffff"/><line x1="42" y1="72" x2="58" y2="56" stroke-width="6"/><line x1="50" y1="64" x2="62" y2="78" stroke-width="7"/><path d="M48 30 C58 24 66 30 68 32 C70 30 78 24 88 30 C86 42 76 44 68 38 C60 44 50 42 48 30 Z" fill="#ffffff"/><circle cx="58" cy="34" r="3" fill="#0c2144" stroke="none"/><circle cx="78" cy="34" r="3" fill="#0c2144" stroke="none"/></svg>`,
+  druid: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M40 46 C26 42 18 28 22 14 M26 34 L16 28 M32 40 L30 24"/><path d="M60 46 C74 42 82 28 78 14 M74 34 L84 28 M68 40 L70 24"/><path d="M35 55 C55 50 70 65 68 84 C48 86 33 72 35 55 Z" fill="#ffffff"/><line x1="35" y1="55" x2="65" y2="82" stroke="#0c2144" stroke-width="3"/></svg>`,
+  onmyoji: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="4"><circle cx="50" cy="50" r="36" stroke-opacity="0.6"/><rect x="34" y="16" width="32" height="68" rx="2" transform="rotate(8 50 50)" fill="#ffffff"/><path d="M48 28 L56 28 M46 40 L56 40 L48 54 L56 54 M44 68 L56 68 M50 24 L46 74" stroke="#0c2144" stroke-width="4" stroke-linecap="round"/></svg>`,
+  dreamweaver: `<svg viewBox="0 0 100 100" fill="#ffffff" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"><path d="M48 48 C34 24 14 22 18 42 C20 52 36 54 48 52 C34 56 22 68 28 78 C34 86 46 74 48 58 Z"/><path d="M52 48 C66 24 86 22 82 42 C80 52 64 54 52 52 C66 56 78 68 72 78 C66 86 54 74 52 58 Z"/><line x1="50" y1="32" x2="50" y2="72" stroke-width="5" stroke-linecap="round"/></svg>`,
+  diviner: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5"><circle cx="50" cy="46" r="28" fill="#ffffff" fill-opacity="0.25"/><path d="M30 74 L70 74 L76 86 L24 86 Z" fill="#ffffff"/><path d="M58 32 L61 39 L68 42 L61 45 L58 52 L55 45 L48 42 L55 39 Z" fill="#ffffff" stroke="none"/></svg>`,
+  samurai: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M32 22 C32 36 42 42 50 42 C58 42 68 36 68 22" stroke-width="6"/><path d="M26 48 C26 32 74 32 74 48 L82 68 L18 68 Z" fill="#ffffff" fill-opacity="0.3"/><line x1="16" y1="22" x2="84" y2="84" stroke-width="7"/></svg>`,
+  sage: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><text x="20" y="34" fill="#ffffff" stroke="none" font-size="22" font-weight="bold">π Σ √</text><path d="M16 48 L48 52 L48 84 L16 80 Z" fill="#ffffff"/><path d="M84 48 L52 52 L52 84 L84 80 Z" fill="#ffffff"/></svg>`,
+  archer: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 18 C66 24 76 58 56 86"/><line x1="26" y1="18" x2="56" y2="86" stroke-width="3"/><line x1="22" y1="78" x2="78" y2="22" stroke-width="5"/><polygon points="78,22 65,24 76,35" fill="#ffffff"/></svg>`,
+  gladiator: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="18" x2="82" y2="82" stroke-width="6"/><line x1="82" y1="18" x2="18" y2="82" stroke-width="6"/><path d="M30 42 C30 24 70 24 70 42 L70 74 L56 84 L56 58 L44 58 L44 84 L30 74 Z" fill="#ffffff"/><path d="M36 48 L46 52 L36 56 Z M64 48 L54 52 L64 56 Z" fill="#0c2144" stroke="none"/></svg>`,
+  cleric: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><rect x="38" y="14" width="24" height="72" rx="4" fill="#ffffff"/><rect x="18" y="34" width="64" height="24" rx="4" fill="#ffffff"/><circle cx="50" cy="46" r="14" fill="#0c2144"/></svg>`
+};
+
+let selectedInvSlot = null;
+
+function createHexBgSvg() {
+  return `
+    <svg class="hex-bg-svg" viewBox="0 0 100 115.47" preserveAspectRatio="none">
+      <polygon class="hex-polygon" points="50,2 98,29.5 98,85.97 50,113.47 2,85.97 2,29.5" />
+    </svg>
+  `;
+}
+
+function renderHexSlotContent(item, badgeText, watermarkSvg = '') {
+  return `
+    ${createHexBgSvg()}
+    ${watermarkSvg ? `<div class="equip-watermark">${watermarkSvg}</div>` : ''}
+    ${item ? `
+      <div class="item-layer">
+        <span class="item-layer-icon">${item.icon || '⚔️'}</span>
+        <span class="item-layer-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+      </div>
+    ` : (badgeText ? `<span class="slot-index-badge">${badgeText}</span>` : '')}
+  `;
+}
+
 function openInventoryModal() {
   if (!elements.inventoryModal) return;
-  elements.inventoryModal.classList.remove('hidden');
+  playSound('click');
   renderInventoryModal();
+  if (window.ModalMotion) {
+    ModalMotion.show(elements.inventoryModal);
+  } else {
+    elements.inventoryModal.classList.remove('hidden');
+    elements.inventoryModal.classList.add('is-open');
+  }
 }
 
 function closeInventoryModal() {
   if (!elements.inventoryModal) return;
-  elements.inventoryModal.classList.add('hidden');
+  playSound('click');
+  if (window.ModalMotion) {
+    ModalMotion.hide(elements.inventoryModal);
+  } else {
+    elements.inventoryModal.classList.remove('is-open');
+    elements.inventoryModal.classList.add('hidden');
+  }
 }
+window.openInventoryModal = openInventoryModal;
+window.closeInventoryModal = closeInventoryModal;
 
 function renderInventoryModal() {
-  if (!roomState || !elements.inventoryModal || elements.inventoryModal.classList.contains('hidden')) return;
+  if (!elements.inventoryModal) return;
 
-  const me = roomState.players.find(p => p.id === myId);
-  const gold = roomState.gold ?? 100;
+  const me = (roomState?.players || []).find(p => p.id === myId) || (roomState?.players || [])[0] || null;
+  const gold = roomState?.gold ?? 0;
   if (elements.inventoryGoldCount) {
     elements.inventoryGoldCount.textContent = `🪙 ${gold} 金幣`;
   }
+  if (elements.headerGoldDisplay) {
+    elements.headerGoldDisplay.textContent = `🪙 ${gold}`;
+  }
 
-  // 1. 小隊行囊 (20 格)
-  const squad = roomState.squadInventory || [];
+  // 頂部即時屬性列 (HP 物攻+ 魔攻+ 防禦力)
+  const isPhys = me?.role ? (CLASS_ATK_TYPES[me.role] === 'PHYS') : true;
+  if (elements.invStatHp) {
+    elements.invStatHp.textContent = me ? `${Math.round(me.hp)} / ${me.maxHp}` : '-- / --';
+  }
+  if (elements.invStatPhys) {
+    elements.invStatPhys.textContent = me ? `+${isPhys ? (me.bonusAtk || 0) : (me.bonusPhysAtk || 0)}` : '+0';
+  }
+  if (elements.invStatMag) {
+    elements.invStatMag.textContent = me ? `+${!isPhys ? (me.bonusAtk || 0) : (me.bonusMagAtk || 0)}` : '+0';
+  }
+  if (elements.invStatDef) {
+    elements.invStatDef.textContent = me ? `${me.bonusDef || 0}` : '0';
+  }
+
+  // 1. 小隊背包 (3-4-5-4-3 蜂巢連體共 19 格)
+  const squad = roomState?.squadInventory || [];
   if (elements.squadCapacityText) {
-    elements.squadCapacityText.textContent = `${squad.length} / 20`;
+    elements.squadCapacityText.textContent = `${squad.length} / 19 格`;
   }
   if (elements.squadGrid) {
+    const rowCounts = [3, 4, 5, 4, 3];
+    let currentIdx = 0;
     let squadHtml = '';
-    for (let i = 0; i < 20; i++) {
-      const item = squad[i];
-      if (item) {
+    for (let r = 0; r < rowCounts.length; r++) {
+      const count = rowCounts[r];
+      squadHtml += `<div class="hex-row">`;
+      for (let c = 0; c < count; c++) {
+        const idx = currentIdx++;
+        const item = squad[idx];
+        const isSelected = selectedInvSlot && selectedInvSlot.area === 'SQUAD' && selectedInvSlot.index === idx;
         squadHtml += `
-          <div class="inv-slot occupied" title="${escapeHtml(item.name)}: ${escapeHtml(item.desc || '')}">
-            <div class="inv-slot-name">${escapeHtml(item.name)}</div>
-            <div class="inv-slot-type">${escapeHtml(item.type || item.slot || '裝備')}</div>
-            <button type="button" class="btn-inv-transfer" data-idx="${i}" title="領取至個人背包">領取 ›</button>
+          <div class="hex-slot ${item ? 'has-item' : ''} ${isSelected ? 'selected-slot' : ''}" data-area="SQUAD" data-idx="${idx}" title="${item ? escapeHtml(item.name + ': ' + (item.desc || '')) : `第 ${idx + 1} 格`}">
+            ${renderHexSlotContent(item, idx + 1)}
           </div>
         `;
-      } else {
-        squadHtml += `<div class="inv-slot empty"><span class="inv-slot-empty-num">${i + 1}</span></div>`;
       }
+      squadHtml += `</div>`;
     }
     elements.squadGrid.innerHTML = squadHtml;
-    elements.squadGrid.querySelectorAll('.btn-inv-transfer').forEach(b => {
-      b.onclick = () => {
-        socket.emit('inventory:transfer_to_personal', { squadIndex: Number(b.dataset.idx) });
+    elements.squadGrid.querySelectorAll('.hex-slot').forEach(slot => {
+      slot.onclick = () => {
+        const idx = Number(slot.dataset.idx);
+        selectedInvSlot = { area: 'SQUAD', index: idx, item: squad[idx] };
+        renderInventoryModal();
       };
     });
   }
 
-  // 2. 個人穿戴與背包 (4格)
-  if (me) {
-    const bag = me.bag || [];
-    if (elements.personalBagCapacityText) {
-      elements.personalBagCapacityText.textContent = `${bag.length} / 4`;
+  // 2. 裝備欄 (4格連體：武器、裝備、飾品、專屬裝備)
+  const roleName = me?.role ? (classesData[me.role]?.name || me.role) : '專屬';
+  const equipSlotsMeta = [
+    { key: 'WEAPON', label: isPhys ? '武器(劍)' : '武器(書)', watermark: isPhys ? SLOT_WATERMARK_SVGS.SWORD : SLOT_WATERMARK_SVGS.BOOK },
+    { key: 'ARMOR', label: '裝備', watermark: SLOT_WATERMARK_SVGS.ARMOR },
+    { key: 'ACCESSORY', label: '飾品', watermark: SLOT_WATERMARK_SVGS.RING },
+    { key: 'CLASS_EXCLUSIVE', label: `專屬(${roleName})`, watermark: (me?.role && CLASS_EXCLUSIVE_SVGS[me.role]) || SLOT_WATERMARK_SVGS.SWORD }
+  ];
+
+  if (elements.equippedSlotsGrid) {
+    let equipHtml = '';
+    equipSlotsMeta.forEach((s, idx) => {
+      const item = me?.equipSlots?.[s.key];
+      const isSelected = selectedInvSlot && selectedInvSlot.area === 'EQUIP' && selectedInvSlot.key === s.key;
+      equipHtml += `
+        <div class="hex-slot ${item ? 'has-item' : ''} ${isSelected ? 'selected-slot' : ''}" data-area="EQUIP" data-key="${s.key}" data-idx="${idx}" title="${item ? escapeHtml(item.name + ': ' + (item.desc || '')) : s.label}">
+          ${renderHexSlotContent(item, '', s.watermark)}
+        </div>
+      `;
+    });
+    elements.equippedSlotsGrid.innerHTML = equipHtml;
+    elements.equippedSlotsGrid.querySelectorAll('.hex-slot').forEach(slot => {
+      slot.onclick = () => {
+        const key = slot.dataset.key;
+        selectedInvSlot = { area: 'EQUIP', key, index: Number(slot.dataset.idx), item: me?.equipSlots?.[key] };
+        renderInventoryModal();
+      };
+    });
+
+    const labelWeapon = document.getElementById('labelEquipWeapon');
+    if (labelWeapon) labelWeapon.textContent = isPhys ? '武器(劍)' : '武器(書)';
+    const labelExclusive = document.getElementById('labelEquipExclusive');
+    if (labelExclusive) labelExclusive.textContent = me?.role ? `專屬` : '專屬';
+  }
+
+  // 3. 個人隨身背包 (4格連體)
+  const bag = me?.bag || [];
+  if (elements.personalBagCapacityText) {
+    elements.personalBagCapacityText.textContent = `${bag.length} / 4 格`;
+  }
+  if (elements.personalBagGrid) {
+    let bagHtml = '';
+    for (let i = 0; i < 4; i++) {
+      const item = bag[i];
+      const isSelected = selectedInvSlot && selectedInvSlot.area === 'PERSONAL' && selectedInvSlot.index === i;
+      bagHtml += `
+        <div class="hex-slot ${item ? 'has-item' : ''} ${isSelected ? 'selected-slot' : ''}" data-area="PERSONAL" data-idx="${i}" title="${item ? escapeHtml(item.name + ': ' + (item.desc || '')) : `P${i + 1}`}">
+          ${renderHexSlotContent(item, `P${i + 1}`)}
+        </div>
+      `;
     }
-    if (elements.equippedSlotsGrid) {
-      const slots = [
-        { key: 'WEAPON', label: '⚔️ 武器 (WEAPON)' },
-        { key: 'ARMOR', label: '🛡️ 防具 (ARMOR)' },
-        { key: 'ACCESSORY', label: '💍 飾品 (ACCESSORY)' },
-        { key: 'CLASS_EXCLUSIVE', label: '✨ 專屬 (EXCLUSIVE)' }
-      ];
-      elements.equippedSlotsGrid.innerHTML = slots.map(s => {
-        const eq = me.equipSlots?.[s.key];
-        return `
-          <div class="equip-slot-card ${eq ? 'equipped' : 'empty'}">
-            <div class="equip-slot-label">${s.label}</div>
-            ${eq ? `
-              <div class="equip-slot-content">
-                <span class="equip-slot-item-name">${escapeHtml(eq.name)}</span>
-                <span class="equip-slot-item-desc">${escapeHtml(eq.desc || eq.statDesc || '')}</span>
-                <button type="button" class="btn-slot-unequip" data-slot="${s.key}">卸下至背包</button>
-              </div>
-            ` : `<div class="equip-slot-none">（無穿戴）</div>`}
-          </div>
+    elements.personalBagGrid.innerHTML = bagHtml;
+    elements.personalBagGrid.querySelectorAll('.hex-slot').forEach(slot => {
+      slot.onclick = () => {
+        const idx = Number(slot.dataset.idx);
+        selectedInvSlot = { area: 'PERSONAL', index: idx, item: bag[idx] };
+        renderInventoryModal();
+      };
+    });
+  }
+
+  // 4. 詳情與操作面板 (Inspector Panel)
+  if (elements.invInspectorContent) {
+    if (selectedInvSlot && selectedInvSlot.item) {
+      const item = selectedInvSlot.item;
+      let actionButtons = '';
+      if (selectedInvSlot.area === 'SQUAD') {
+        actionButtons = `
+          <button type="button" class="btn-inv-action btn-inv-transfer" id="btnInspectTransfer">領取至個人背包</button>
         `;
-      }).join('');
-
-      elements.equippedSlotsGrid.querySelectorAll('.btn-slot-unequip').forEach(b => {
-        b.onclick = () => {
-          socket.emit('inventory:unequip_to_bag', { slotKey: b.dataset.slot });
-        };
-      });
-    }
-
-    if (elements.personalBagGrid) {
-      let bagHtml = '';
-      for (let i = 0; i < 4; i++) {
-        const item = bag[i];
-        if (item) {
-          bagHtml += `
-            <div class="inv-slot occupied" title="${escapeHtml(item.name)}: ${escapeHtml(item.desc || '')}">
-              <div class="inv-slot-name">${escapeHtml(item.name)}</div>
-              <div class="inv-slot-actions">
-                <button type="button" class="btn-bag-equip" data-idx="${i}">穿戴</button>
-                <button type="button" class="btn-bag-to-squad" data-idx="${i}">存入小隊</button>
-              </div>
-            </div>
-          `;
-        } else {
-          bagHtml += `<div class="inv-slot empty"><span class="inv-slot-empty-num">${i + 1}</span></div>`;
-        }
+      } else if (selectedInvSlot.area === 'PERSONAL') {
+        actionButtons = `
+          <button type="button" class="btn-inv-action btn-inv-equip" id="btnInspectEquip">穿戴裝備</button>
+          <button type="button" class="btn-inv-action btn-inv-transfer" id="btnInspectToSquad">存入小隊背包</button>
+        `;
+      } else if (selectedInvSlot.area === 'EQUIP') {
+        actionButtons = `
+          <button type="button" class="btn-inv-action btn-inv-unequip" id="btnInspectUnequip">卸下裝備</button>
+        `;
       }
-      elements.personalBagGrid.innerHTML = bagHtml;
-      elements.personalBagGrid.querySelectorAll('.btn-bag-equip').forEach(b => {
-        b.onclick = () => {
-          socket.emit('inventory:equip_from_bag', { bagIndex: Number(b.dataset.idx) });
-        };
+
+      elements.invInspectorContent.innerHTML = `
+        <div class="inv-inspector-body">
+          <div class="inv-inspector-info">
+            <div class="inv-inspector-title">${item.icon || '⚔️'} ${escapeHtml(item.name)} <span style="font-size: 0.75rem; color: #94a3b8;">[${item.slot || item.type || '裝備'}]</span></div>
+            <div class="inv-inspector-desc">${escapeHtml(item.desc || item.statDesc || '無特殊說明')}</div>
+          </div>
+          <div class="inv-inspector-actions">
+            ${actionButtons}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('btnInspectTransfer')?.addEventListener('click', () => {
+        socket.emit('inventory:transfer_to_personal', { squadIndex: selectedInvSlot.index });
+        selectedInvSlot = null;
       });
-      elements.personalBagGrid.querySelectorAll('.btn-bag-to-squad').forEach(b => {
-        b.onclick = () => {
-          socket.emit('inventory:transfer_to_squad', { bagIndex: Number(b.dataset.idx) });
-        };
+      document.getElementById('btnInspectToSquad')?.addEventListener('click', () => {
+        socket.emit('inventory:transfer_to_squad', { bagIndex: selectedInvSlot.index });
+        selectedInvSlot = null;
       });
+      document.getElementById('btnInspectEquip')?.addEventListener('click', () => {
+        socket.emit('inventory:equip_from_bag', { bagIndex: selectedInvSlot.index });
+        selectedInvSlot = null;
+      });
+      document.getElementById('btnInspectUnequip')?.addEventListener('click', () => {
+        socket.emit('inventory:unequip_to_bag', { slotKey: selectedInvSlot.key });
+        selectedInvSlot = null;
+      });
+    } else if (selectedInvSlot && !selectedInvSlot.item) {
+      const areaName = selectedInvSlot.area === 'SQUAD' ? `小隊背包第 ${selectedInvSlot.index + 1} 格` : (selectedInvSlot.area === 'PERSONAL' ? `個人背包第 ${selectedInvSlot.index + 1} 格` : `裝備欄【${selectedInvSlot.key}】`);
+      elements.invInspectorContent.innerHTML = `
+        <div class="inv-inspector-empty">【${areaName}】目前為空，可由其他背包移入或穿戴裝備。</div>
+      `;
+    } else {
+      elements.invInspectorContent.innerHTML = `
+        <div class="inv-inspector-empty">點擊任一六角格可查看道具詳情，並可穿戴、卸下或在背包間轉移。</div>
+      `;
     }
   }
 
-  // 3. 鍛造工坊
+  // 5. 鍛造工坊
   if (elements.craftingRecipesList) {
     const squadIds = squad.map(i => i.id);
     elements.craftingRecipesList.innerHTML = CRAFTING_RECIPE_TEMPLATES.map(r => {
@@ -5494,14 +5693,16 @@ socket.on('abyss:red_eye_flash', () => {
 // 行囊視窗按鈕綁定
 elements.btnOpenInventory?.addEventListener('click', openInventoryModal);
 elements.btnCloseInventoryModal?.addEventListener('click', closeInventoryModal);
-document.querySelectorAll('.inv-tab-btn').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const target = btn.dataset.tab;
-    document.getElementById('tabSquadInventory')?.classList.toggle('hidden', target !== 'squad');
-    document.getElementById('tabPersonalInventory')?.classList.toggle('hidden', target !== 'personal');
-    document.getElementById('tabCrafting')?.classList.toggle('hidden', target !== 'crafting');
-  };
+elements.inventoryModal?.addEventListener('click', (e) => {
+  if (e.target === elements.inventoryModal) {
+    closeInventoryModal();
+  }
+});
+elements.btnToggleCraftingPanel?.addEventListener('click', () => {
+  if (!elements.craftingPanelBody) return;
+  const isHidden = elements.craftingPanelBody.classList.toggle('hidden');
+  if (elements.craftingToggleArrow) {
+    elements.craftingToggleArrow.textContent = isHidden ? '▼' : '▲';
+  }
 });
 

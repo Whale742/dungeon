@@ -118,7 +118,7 @@ export class Room {
     this.hexMap = this.generateHexMap();
 
     // Module 3 & 4: 雙層背包、經濟與事件系統
-    this.gold = 100;
+    this.gold = 0;
     this.squadInventory = [];
 
     // Module 6: 隊長技鎖定與繼承
@@ -1029,6 +1029,8 @@ export class Room {
     this.hexMap = this.generateHexMap();
     this.currentHex = { col: 0, row: 3 };
     this.scoutedCols = new Set();
+    this.gold = 0;
+    this.squadInventory = [];
     this.lockedLeaderId = this.leaderId;
     this.lockedLeaderRole = this.players[this.leaderId]?.role;
     this.pendingLeaderTransfer = false;
@@ -2915,7 +2917,7 @@ export class Room {
       if (replaced) {
         this.addLog(`🔄 **${player.name}** 卸下了【${replaced.name}】，替換並穿上了【${drop.name}】！(${formatPlayerEquips(player)})`, 'loot');
       } else {
-        this.addLog(`🎒 **${player.name}** 穿上了【${drop.name}】！(${formatPlayerEquips(player)})`, 'loot');
+        this.addLog(`🛡️ **${player.name}** 穿上了【${drop.name}】！(${formatPlayerEquips(player)})`, 'loot');
       }
     } else {
       this.addLog(`🗑️ **${player.name}** 選擇放棄了【${drop.name}】。`, 'info');
@@ -2953,7 +2955,7 @@ export class Room {
           }
         }
       }
-      this.addLog(`🎒 **${player.name}** 手動卸下了【${removed.name}】。(${formatPlayerEquips(player)})`, 'info');
+      this.addLog(`📦 **${player.name}** 手動卸下了【${removed.name}】。(${formatPlayerEquips(player)})`, 'info');
       this.broadcastState();
       return { success: true };
     }
@@ -2977,6 +2979,32 @@ export class Room {
     this.p8RefreshEquipment();
   }
 
+  addItemPrioritySquad(item, preferredPlayerId = null) {
+    if (!item) return false;
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+    if (this.squadInventory.length < 19) {
+      this.squadInventory.push(item);
+      return { target: 'squad', index: this.squadInventory.length - 1 };
+    }
+    // 小隊背包已滿（19格），退而求其次放入個人背包（4格）
+    if (preferredPlayerId && this.players[preferredPlayerId]) {
+      const p = this.players[preferredPlayerId];
+      if (!Array.isArray(p.bag)) p.bag = [];
+      if (p.bag.length < 4) {
+        p.bag.push(item);
+        return { target: 'personal', playerId: preferredPlayerId, index: p.bag.length - 1 };
+      }
+    }
+    for (const p of Object.values(this.players)) {
+      if (!Array.isArray(p.bag)) p.bag = [];
+      if (p.bag.length < 4) {
+        p.bag.push(item);
+        return { target: 'personal', playerId: p.id, index: p.bag.length - 1 };
+      }
+    }
+    return false;
+  }
+
   transferToSquad(socketId, bagIndex) {
     if (this.state === 'IN_BATTLE') {
       return { success: false, message: '戰鬥中無法轉移裝備！' };
@@ -2987,12 +3015,12 @@ export class Room {
       return { success: false, message: '無效的背包物品索引' };
     }
     if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-    if (this.squadInventory.length >= 20) {
-      return { success: false, message: '小隊背包已滿（上限 20 格）！' };
+    if (this.squadInventory.length >= 19) {
+      return { success: false, message: '小隊背包已滿（上限 19 格）！' };
     }
     const item = player.bag.splice(bagIndex, 1)[0];
     this.squadInventory.push(item);
-    this.addLog(`🎒 **${player.name}** 將【${item.name}】轉移至小隊背包。`, 'info');
+    this.addLog(`📦 **${player.name}** 將【${item.name}】轉移至小隊背包。`, 'info');
     this.broadcastState();
     return { success: true, item };
   }
@@ -3012,7 +3040,7 @@ export class Room {
     }
     const item = this.squadInventory.splice(squadIndex, 1)[0];
     player.bag.push(item);
-    this.addLog(`🎒 **${player.name}** 從小隊背包領取了【${item.name}】至個人背包。`, 'info');
+    this.addLog(`📦 **${player.name}** 從小隊背包領取了【${item.name}】至個人背包。`, 'info');
     this.broadcastState();
     return { success: true, item };
   }
@@ -3071,7 +3099,7 @@ export class Room {
     player.bag.push(item);
     this.syncPlayerEquips(player);
 
-    this.addLog(`🎒 **${player.name}** 卸下了【${item.name}】並收回個人背包。`, 'info');
+    this.addLog(`📦 **${player.name}** 卸下了【${item.name}】並收回個人背包。`, 'info');
     this.broadcastState();
     return { success: true, item };
   }
@@ -3186,7 +3214,7 @@ export class Room {
       if (!item) return { success: false, message: '商品不存在' };
       if ((this.gold || 0) < item.price) return { success: false, message: '金幣不足！' };
       if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-      if (this.squadInventory.length >= 20) return { success: false, message: '小隊背包已滿！' };
+      if (this.squadInventory.length >= 19) return { success: false, message: '小隊背包已滿（上限 19 格）！' };
 
       this.gold -= item.price;
       this.currentEvent.items.splice(idx, 1);
@@ -3234,8 +3262,7 @@ export class Room {
         const stolen = this.currentEvent.items.splice(0, 1)[0];
         const stolenItem = structuredClone(stolen);
         delete stolenItem.price;
-        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-        if (this.squadInventory.length < 20) this.squadInventory.push(stolenItem);
+        this.addItemPrioritySquad(stolenItem, socketId);
         this.addLog(`🗡️ 【無聲行軍】刺客隊長神不知鬼不覺偷走了【${stolenItem.name}】！小隊未被察覺安然離去！`, 'loot');
         this.currentEvent = null;
         this.advanceToNextFloorOrCheckpoint();
@@ -3286,8 +3313,7 @@ export class Room {
     const goldGain = 30 + Math.floor(Math.random() * 21);
     this.gold = (this.gold || 0) + goldGain;
     const drop = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
-    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-    if (this.squadInventory.length < 20) this.squadInventory.push(drop);
+    this.addItemPrioritySquad(drop);
 
     for (const p of Object.values(this.players)) {
       if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
@@ -3323,8 +3349,7 @@ export class Room {
       const goldGain = 40;
       this.gold = (this.gold || 0) + goldGain;
       const drop = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
-      if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-      if (this.squadInventory.length < 20) this.squadInventory.push(drop);
+      this.addItemPrioritySquad(drop, socketId);
       for (const p of Object.values(this.players)) {
         if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
       }
@@ -3433,7 +3458,7 @@ export class Room {
           gainedItem = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
           this.addLog(`🏕️ 小隊以【${removed.name}】與商人交換了【${gainedItem.name}】！`, 'loot');
         }
-        this.squadInventory.push(gainedItem);
+        this.addItemPrioritySquad(gainedItem, socketId);
         this.broadcastState();
         return { success: true, item: gainedItem };
       }
@@ -3446,7 +3471,7 @@ export class Room {
         const removed = this.squadInventory.shift();
         const accPool = TIER2_EQUIPMENTS.filter(e => e.slot === EQUIP_SLOTS.ACCESSORY);
         const gainedAcc = structuredClone(accPool[Math.floor(Math.random() * accPool.length)] || TIER2_EQUIPMENTS[1]);
-        this.squadInventory.push(gainedAcc);
+        this.addItemPrioritySquad(gainedAcc, socketId);
         this.addLog(`🌙 【共夢契約】織夢術士隊長編織幻象，將【${removed.name}】重塑為同階配飾【${gainedAcc.name}】！`, 'loot');
         this.broadcastState();
         return { success: true, item: gainedAcc };
@@ -3463,8 +3488,7 @@ export class Room {
           }
         }
         const rewardItem = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
-        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-        if (this.squadInventory.length < 20) this.squadInventory.push(rewardItem);
+        this.addItemPrioritySquad(rewardItem, socketId);
         for (const p of Object.values(this.players)) {
           p.bonusAtk = (p.bonusAtk || 0) + 3;
         }
@@ -3482,8 +3506,7 @@ export class Room {
         const goldGain = 60;
         this.gold = (this.gold || 0) + goldGain;
         const rewardItem = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
-        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-        if (this.squadInventory.length < 20) this.squadInventory.push(rewardItem);
+        this.addItemPrioritySquad(rewardItem, socketId);
 
         if (leaderRole === 'onmyoji') {
           this.addLog(`📜 【百鬼敕令】陰陽師隊長釋放淨化結界，全隊搜刮祭壇（獲得 60 金幣與【${rewardItem.name}】）且完全免疫減防詛咒！`, 'buff');
@@ -3544,8 +3567,7 @@ export class Room {
         const isBroken = (typeof params.isBroken === 'boolean') ? params.isBroken : Math.random() < breakChance;
         if (!isBroken) {
           const item = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
-          if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-          if (this.squadInventory.length < 20) this.squadInventory.push(item);
+          this.addItemPrioritySquad(item, socketId);
           if (leaderRole === 'sage') {
             this.addLog(`📐 【預設解】智者隊長完全排除盲盒碎裂風險，成功開出【${item.name}】！`, 'loot');
           } else {
@@ -3569,8 +3591,7 @@ export class Room {
         if (win) {
           this.gold = (this.gold || 0) + 80;
           const item = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
-          if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-          if (this.squadInventory.length < 20) this.squadInventory.push(item);
+          this.addItemPrioritySquad(item, socketId);
           this.addLog(`⚔️ 【榮耀號角】角鬥士隊長以熱血為注豪賭獲勝！獲得 80 金幣與【${item.name}】！`, 'loot');
           this.broadcastState();
           return { success: true, win: true, item };
@@ -6292,7 +6313,7 @@ export class Room {
       lockedLeaderRole: this.getEffectiveLeaderRole(),
       leaderSkill: this.getEffectiveLeaderSkill() || (this.players[this.leaderId]?.role ? LEADER_SKILLS[this.players[this.leaderId]?.role] : null),
       leaderSkillUsedThisBattle: Boolean(this.leaderSkillUsedThisBattle),
-      gold: this.gold ?? 100,
+      gold: this.gold ?? 0,
       squadInventory: (this.squadInventory || []).slice(),
       abyssState: this.abyssState ? structuredClone(this.abyssState) : null,
       abyssFlashRedEye: Boolean(this.abyssFlashRedEye),
