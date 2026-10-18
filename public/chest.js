@@ -14,8 +14,9 @@ async function playRewardReveal(ev, context = {}) {
         rewardElements.presentationRewardRarity.textContent = isRare ? '【稀有裝備】' : '【戰利品裝備】';
         rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity ' + (isRare ? 'is-rare' : 'is-common');
         rewardElements.presentationRewardTitle.textContent = `【${ev.drop.name}】`;
-        rewardElements.presentationRewardDesc.textContent = ev.drop.desc || ev.drop.statDesc || '';
-        rewardElements.presentationRewardMeta.textContent = `獲得者：${ev.ownerName || '冒險者'} 正在抉擇是否穿戴`;
+        rewardElements.presentationRewardMeta.textContent = (ev.ownerName === '小隊背包' || ev.recoveryRule)
+          ? '戰利品已直接放入小隊背包！'
+          : `獲得者：${ev.ownerName || '冒險者'} 正在抉擇是否穿戴`;
       } else if (ev.discardedDrop) {
         rewardElements.presentationRewardRarity.textContent = '【遺棄戰利品】';
         rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';

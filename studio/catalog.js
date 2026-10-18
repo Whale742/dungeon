@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
-import { CLASSES, ROLE_DETAILS, LOOT_TABLE, ENCOUNTERS, STORY_TEXTS, ROUTE_STORIES, ROUTE_BOSS_STORIES, BATTLE_NARRATIVES, getPlayerSkills } from '../game/constants.js';
+import { CLASSES, ROLE_DETAILS, LOOT_TABLE, ENCOUNTERS, STORY_TEXTS, ROUTE_STORIES, ROUTE_BOSS_STORIES, BATTLE_NARRATIVES, getPlayerSkills, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS } from '../game/constants.js';
 
 const publicDir = new URL('../public/', import.meta.url);
 const read = name => fs.readFileSync(new URL(name, publicDir), 'utf8');
@@ -101,6 +101,7 @@ export function buildCatalog() {
     for(const [type,list] of Object.entries(c.summons||{}))list.forEach((d,i)=>localAsset(d.avatar,'roles',`role.${role}.summon.${type}.${i+1}`));
   }
   for(const boss of ENCOUNTERS)localAsset(boss.avatar,'bosses','boss.'+encodeURIComponent(boss.name)+'.avatar');
+  for(const minion of [...EXCLUSIVE_MINIONS, ...GENERAL_MINIONS, ...ABYSS_MINIONS])localAsset(minion.avatar,'bosses','minion.'+encodeURIComponent(minion.name)+'.avatar');
   for(const [key,p] of Object.entries(sfx.assets)){localAsset(p.src,'sfx','sfx.'+key);usage[assetKeyForPath(p.src)]=['sfx-assets.js','presentation-core.js'];}
   for(const [key,p] of Object.entries(bgm)){localAsset(p.src,'bgm','bgm.'+key);usage[assetKeyForPath(p.src)]=['bgm.js'];}
   const files=fs.readdirSync(publicDir).filter(f=>/\.(js|css|html)$/.test(f));

@@ -29,7 +29,7 @@ export function getStoragePath(asset) {
 }
 
 export function getStorageAssetKey(localAssetKey) {
-  return 'storage.' + String(localAssetKey || '').replace(/^local\./, '');
+  return 'storage.' + String(localAssetKey || '').replace(/^(local|storage)\./, '');
 }
 
 export async function getMigrationStatus({

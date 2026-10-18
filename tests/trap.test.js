@@ -90,6 +90,7 @@ test('archer presentation records actual random dodge result', t => {
 
 test('checkpoint enters with no countdown timer after all trap exit ACKs', t => {
   const room = fixture(t, 5);
+  room.currentHex = { col: 9, row: 3 };
   room.handleTrapEvent();
   const id = room.currentEvent.presentationId;
   assert.equal(room.turnTimer, null);

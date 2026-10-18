@@ -51,7 +51,7 @@ export const NEW_CLASSES = {
       skill('onm_detonate', '急急如律令・百符引爆', 2, 'mag', '引爆目標身上所有未掉落的符咒。若目標身上沒有符咒（0 張），不造成任何傷害。若目標身上有符咒，啟動基礎傷害 10 點，每張符咒額外增加 3 點傷害。單次引爆上限為 10 張符咒（滿 10 張時造成 40 點傷害）。引爆結算：技能結算後，目標身上所有符咒全數脫落並銷毀。', 'OFFENSIVE')] }
 
 };
-const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, ...stats, unique });
+const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', ...stats, unique });
 export const NEW_LOOT = [
   item('dw_spindle','dreamweaver','命運的紡錘','使【潛意識混淆】觸發機率提高25%（至75%），裝備不可疊加。',{},true),
   item('dw_loom','dreamweaver','莫比烏斯的織機','提高我方全體20生命上限。當我方角色觸發【夢魘成真】效果受到傷害後，恢復生命上限5%生命。可疊加。'),
@@ -62,6 +62,7 @@ export const NEW_LOOT = [
   item('sg_cloak','stargazer','流浪占星師的粗呢斗篷','生命 +10。',{bonusHp:10}),
   item('sg_watch','stargazer','赫密斯的星盤懷錶','魔法 +6。',{bonusAtk:6}),
   item('sg_bracer','stargazer','墜星隕鐵護腕','魔法 +10。',{bonusAtk:10}),
+  item('sg_eye','stargazer','克卜勒的深空天眼','【天體觀測・深空探索】：移除【發現星座】，其餘各25%。【發現星球】：數值更改2 + 300% × A的魔法傷害、30%機率當輪暈眩；【發現星系】：數值更改為1 + 75% × A；【發現黑洞】：數值改造成10點真實傷害；【發現宇宙邊界】：目標更變成兩位隊友。',{},true),
   item('g_xiphos','gladiator','斯巴達破陣短劍','【血債血償】：每次【鮮血獻祭】扣除生命時獲得【血祭】，每層物理傷害 +2；【死亡角鬥場】結束清空；效果不可疊加，完全免疫腐蝕。',{},true),
   item('g_cuirass','gladiator','染血的赤銅戰鎧','生命 +35。【死線喘息】：生命低於30時，使用【鮮血獻祭】後獲得治療量 +20%，持續2回合。被動不可疊加，只有生命值受腐蝕瓶影響。',{bonusHp:35}),
   item('g_cingulum','gladiator','血砂角鬥士束帶','物理伤害 +4。【末路狂瀾】：1v1死鬥領域使用【同歸於盡】時，怒氣額外伤害從每層10提升至每層15。',{bonusAtk:4}),
@@ -70,9 +71,10 @@ export const NEW_LOOT = [
   item('sa_murasame','samurai','妖刀・村雨','生命 -15；狂刀減傷 50% 取代完全招架；反擊 20 + 次數×2；主動傷害每缺少 1% 生命增加 0.25%。',{bonusHp:-15}),
   item('sge_lens','sage','演算透鏡','使智者【推演成功】機率提高 10 個百分點；重複獲得的每件額外提高 5 個百分點。增加的成功率只減少【無事發生】，不佔用【思緒紊亂】機率；超出可用機率的部分忽略。裝備腐蝕依既有規則降低效果。'),
   item('sge_rule','sage','慣性計算尺','使【方程結算】最終傷害提高 10%；重複獲得的每件額外提高 5%。方程專屬加成，不視為一般全隊傷害增益；腐蝕依既有規則降低效果。'),
+  item('sge_template','sage','解題範本','被動運算元更改為20~45。',{},true),
   item('pal_hammer','paladin','晨曦誓約重錘','物理傷害 +5，生命值 +10。',{bonusAtk:5,bonusHp:10}),
   item('pal_cuirass','paladin','受難代贖者聖鎧','1 技能【榮耀讚歌】觸發「護盾減少 50%」的負面機率由 40% 降低至 15%。',{},true),
-  item('pal_banner','paladin','庇護之光軍旗','生命值 +20。被動：當聖騎士自身持有任何護盾時，受到的傷害額外降低 15%。',{bonusHp:20},true),
+  item('pal_banner','paladin','庇護之光軍旗','生命值 +20。被動：當聖騎士自身持有任何盾牌時，受到的傷害額外降低 15%。',{bonusHp:20},true),
   item('aug_amethyst','augur','無瑕紫晶球','使【命運加護】提供的技能基礎數值加成 +5%，且普通攻擊【水晶折光】額外清償 4 點【命債】。若重複獲得，則新增的每件使數值加成 +5%、普攻清償量 +2 點。'),
   item('aug_gilded_box','augur','鎏金諭示牌盒','最大生命 +15。觸發【逆位】成功封存厄運時，產生的【命債】減少 5 點（最低為 5 點）；觸發【正位】時，正面效果機率額外 +5%。',{bonusHp:15},true),
   item('aug_forbidden_tome','augur','禁忌厄運聖契','最大生命 -10。【命債】到期清算時間由第 3 回合縮短為第 2 回合；但每當卜者獲得或透過技能清償【命債】時，會將該次變動命債量的 50%（四捨五入）轉化為無視抗性的真實傷害轟擊 Boss，且二技能【凶兆逆位】使敵方受到的傷害加成由 10% 提升至 18%。',{bonusHp:-10},true),

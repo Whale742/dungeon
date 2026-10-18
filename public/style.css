@@ -6039,6 +6039,16 @@ body.presentation-opening .narrative-controls,
   stroke-width: 1.2;
 }
 
+/* 迷霧漸層（除右側可選路徑外，向右逐漸遞增深邃迷霧） */
+.hex-cell.hex-fog-gradient {
+  opacity: var(--fog-opacity, 0.28);
+  filter: brightness(var(--fog-brightness, 0.65)) blur(var(--fog-blur, 1px));
+}
+.hex-cell.hex-fog-gradient .hex-poly {
+  fill: #060913;
+  stroke: rgba(30, 48, 80, 0.22);
+}
+
 /* 視野內節點（目前節點與後方 1~2 格範圍） */
 .hex-cell.hex-in-vision {
   opacity: 1;
@@ -6076,11 +6086,14 @@ body.presentation-opening .narrative-controls,
 .hex-cell.hex-selectable:not(:disabled) {
   cursor: pointer;
   z-index: 3;
+  opacity: 1 !important;
+  filter: none !important;
 }
 .hex-cell.hex-selectable:not(:disabled) .hex-poly {
   fill: #1e345c;
   stroke: #93c5fd;
   stroke-width: 2.8;
+  filter: drop-shadow(0 0 8px rgba(147, 197, 253, 0.45));
 }
 .hex-cell.hex-selectable.hex-scouted:not(:disabled) .hex-poly {
   fill: #274475;
@@ -6139,6 +6152,18 @@ body.presentation-opening .narrative-controls,
   padding: 0;
   line-height: 1;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.75);
+}
+
+/* 已走過節點的事件圖示 */
+.hex-visited-icon {
+  font-size: 1.45rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.75));
+  opacity: 0.95;
+  pointer-events: none;
 }
 
 /* 點選後按確定才算投票的確認按鈕列 */
@@ -6719,43 +6744,147 @@ body.presentation-opening .narrative-controls,
 }
 
 /* 商店與事件卡片樣式 */
-.shop-goods-grid {
+.shop-goods-grid,
+.shop-items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
   margin: 14px 0;
 }
 
 .shop-item-card {
-  background: #0f172a;
-  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.shop-item-card:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+}
+
+.shop-item-icon-wrap {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.7);
   border-radius: 8px;
-  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px;
+}
+.shop-item-icon-wrap .shop-item-icon {
+  max-width: 38px;
+  max-height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+}
+.shop-item-icon-wrap .exclusive-equip-svg-wrap {
+  width: 36px;
+  height: 36px;
+}
+
+.shop-item-info {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 2px;
 }
 
 .shop-item-title-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 2px;
 }
 
 .shop-item-name {
   font-weight: 700;
-  color: #60a5fa;
+  font-size: 13px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shop-item-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.shop-item-tag.tag-exclusive {
+  background: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+.shop-item-tag.tag-general {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
 .shop-item-cost {
   color: #fbbf24;
   font-weight: 700;
+  font-size: 12px;
 }
 
 .shop-item-desc {
   font-size: 0.78rem;
-  color: #cbd5e1;
-  margin-bottom: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+/* 背包六角格與浮動面板內裝備圖示 */
+.item-layer-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+.item-equipment-img {
+  max-width: 28px;
+  max-height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+}
+.exclusive-equip-svg-wrap {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+}
+.exclusive-equip-svg-wrap svg {
+  width: 100%;
+  height: 100%;
+}
+.tooltip-item-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.exclusive-equip-svg-wrap.tooltip-item-icon-svg {
+  width: 22px;
+  height: 22px;
 }
 
 .btn-shop-buy, .btn-shop-action, .btn-chest-action, .btn-rand-action {
@@ -6955,5 +7084,328 @@ body.presentation-opening .narrative-controls,
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+}
+
+/* ==========================================================================
+   Battle Enemy Formation Stage (Tower of Saviors Style)
+   ========================================================================== */
+.battle-enemies-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 220px;
+  padding: 16px 12px 14px;
+  margin-bottom: 16px;
+  background: radial-gradient(circle at 50% 90%, rgba(30, 58, 138, 0.32) 0%, rgba(10, 15, 29, 0.9) 75%),
+              linear-gradient(180deg, rgba(8, 12, 22, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 2px solid rgba(59, 130, 246, 0.35);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4);
+  overflow: visible;
+}
+
+@media (max-width: 640px) {
+  .battle-enemies-stage {
+    gap: 8px;
+    padding: 12px 6px 10px;
+    min-height: 180px;
+  }
+}
+
+/* Individual Enemy Slot */
+.battle-enemy-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+  user-select: none;
+  flex: 0 1 auto;
+}
+.battle-enemy-slot:hover {
+  transform: translateY(-4px);
+}
+.battle-enemy-slot.is-target {
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.75));
+}
+.battle-enemy-slot.is-dead {
+  opacity: 0.35;
+  filter: grayscale(80%);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* CD Indicator floating above monster */
+.enemy-cd-badge {
+  position: absolute;
+  top: -12px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid #ef4444;
+  border-radius: 9999px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 800;
+  font-size: 11px;
+  color: #f87171;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+  z-index: 5;
+  pointer-events: none;
+}
+.enemy-cd-badge.ult-ready {
+  border-color: #fbbf24;
+  color: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.7);
+  animation: pulseUlt 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseUlt {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px #fbbf24); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 10px #f59e0b); }
+}
+
+/* Target Reticle Indicator */
+.enemy-target-reticle {
+  position: absolute;
+  top: 10px;
+  font-size: 20px;
+  color: #f59e0b;
+  text-shadow: 0 0 10px #f59e0b;
+  animation: targetBounce 1s infinite alternate ease-in-out;
+  pointer-events: none;
+  z-index: 6;
+}
+
+@keyframes targetBounce {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-6px); }
+}
+
+/* Sprite wrapper and sizes */
+.enemy-sprite-wrap {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.battle-enemy-slot.is-boss-slot .enemy-sprite-wrap {
+  width: 175px;
+  height: 180px;
+}
+.battle-enemy-slot.is-minion-slot .enemy-sprite-wrap {
+  width: 115px;
+  height: 120px;
+}
+.battle-enemy-slot.is-uniform-slot .enemy-sprite-wrap {
+  width: 130px;
+  height: 135px;
+}
+.battle-enemy-slot.is-single-slot .enemy-sprite-wrap {
+  width: 200px;
+  height: 200px;
+}
+
+@media (max-width: 640px) {
+  .battle-enemy-slot.is-boss-slot .enemy-sprite-wrap {
+    width: 130px;
+    height: 135px;
+  }
+  .battle-enemy-slot.is-minion-slot .enemy-sprite-wrap {
+    width: 85px;
+    height: 90px;
+  }
+  .battle-enemy-slot.is-uniform-slot .enemy-sprite-wrap {
+    width: 80px;
+    height: 85px;
+  }
+  .battle-enemy-slot.is-single-slot .enemy-sprite-wrap {
+    width: 150px;
+    height: 150px;
+  }
+}
+
+.enemy-sprite-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.75));
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+
+/* Pedestal/Ground Base */
+.enemy-pedestal {
+  position: absolute;
+  bottom: 0px;
+  width: 85%;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.5) 0%, rgba(56, 189, 248, 0) 72%);
+  pointer-events: none;
+  z-index: 1;
+}
+.is-boss-slot .enemy-pedestal {
+  background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.65) 0%, rgba(239, 68, 68, 0) 74%);
+}
+
+/* Health Bar directly under each monster */
+.tos-enemy-hp-bar {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  margin-top: 6px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+.battle-enemy-slot.is-boss-slot .tos-enemy-hp-bar {
+  height: 12px;
+  border-color: rgba(244, 63, 94, 0.65);
+}
+.tos-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 4px;
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tos-hp-fill.hp-warn {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+.tos-hp-fill.hp-crit {
+  background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%);
+}
+.battle-enemy-slot.is-boss-slot .tos-hp-fill {
+  background: linear-gradient(90deg, #ec4899 0%, #be185d 100%);
+}
+.tos-enemy-hp-text {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-top: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* Enemy Name Label under HP bar */
+.tos-enemy-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-align: center;
+  margin-top: 2px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+}
+.is-target .tos-enemy-name {
+  color: #fbbf24;
+}
+
+/* Floating Status Inspection Tooltip (Fixed position, Clamped to screen) */
+.floating-status-tooltip,
+.floating-item-tooltip {
+  position: fixed;
+  z-index: 10000;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 16px;
+  background: rgba(13, 20, 38, 0.96);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(147, 197, 253, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 16px rgba(59, 130, 246, 0.2);
+  color: #f1f5f9;
+  font-size: 13px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  transform: scale(0.96);
+}
+.floating-status-tooltip.visible,
+.floating-item-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+.floating-tooltip-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.floating-tooltip-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+.floating-tooltip-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+.floating-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.floating-tooltip-label {
+  color: #94a3b8;
+}
+.floating-tooltip-val {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.floating-tooltip-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.floating-tooltip-desc {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #cbd5e1;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: 6px;
+}
+
+/* Drag-and-Drop Highlights in Inventory */
+.hex-slot[draggable="true"] {
+  cursor: grab;
+}
+.hex-slot[draggable="true"]:active {
+  cursor: grabbing;
+}
+.hex-slot.is-dragging {
+  opacity: 0.4;
+  transform: scale(0.92);
+}
+.hex-slot.drag-over {
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.85);
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.18) !important;
 }
 

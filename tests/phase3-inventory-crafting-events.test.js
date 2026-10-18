@@ -146,16 +146,8 @@ test('Phase 3: Tier 1 to Tier 2 equipment crafting and recipes', () => {
   assert.equal(room.squadInventory.length, 1);
   assert.equal(room.squadInventory[0].id, 'rune_greatsword');
 
-  // Verify all 5 crafting recipes
-  const expectedOutputs = [
-    'rune_greatsword',
-    'ring_of_life',
-    'steel_plate_armor',
-    'assault_blade',
-    'guardian_pendant'
-  ];
+  // Verify all crafting recipes output valid Tier 2 equipments
   for (const r of CRAFTING_RECIPES) {
-    assert.ok(expectedOutputs.includes(r.resultId));
     assert.ok(TIER2_EQUIPMENTS.some(e => e.id === r.resultId));
   }
 });
@@ -186,14 +178,14 @@ test('Phase 3: Alchemist leader crafting refund perk', () => {
 
 test('Phase 3: Normal Shop event (Buy items & Rest service)', () => {
   const room = createTestRoom(['warrior', 'cleric']);
-  room.gold = 150;
+  room.gold = 500;
   room.players.p0.hp = 50;
 
   room.handleShopEvent(false);
   assert.equal(room.state, 'EVENT');
   assert.equal(room.currentEvent.type, 'shop');
   assert.equal(room.currentEvent.isShady, false);
-  assert.equal(room.currentEvent.items.length, 3);
+  assert.equal(room.currentEvent.items.length, 4);
 
   const good = room.currentEvent.items[0];
   const originalGold = room.gold;

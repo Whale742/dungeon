@@ -272,18 +272,60 @@ export class Room {
     return null;
   }
 
-  // 六角形單向向右移動規則（僅可走向 col + 1 的右上 row-1、右平移 row、右下 row+1 相鄰節點）
+  // 計算任意節點在蜂巢網格上的視覺橫向座標 (Visual X)
+  getNodeVisualX(node) {
+    if (!node) return 0;
+    const rowDist = Math.abs(node.row - 3);
+    const rowPadding = rowDist * 0.5;
+    let rowNodes = [];
+    if (Array.isArray(this.hexMap)) {
+      for (const c of this.hexMap) {
+        const found = (c || []).find(n => n.row === node.row);
+        if (found) rowNodes.push(found);
+      }
+    }
+    const k = rowNodes.findIndex(n => n.id === node.id || (n.col === node.col && n.row === node.row));
+    return rowPadding + (k >= 0 ? k : 0);
+  }
+
+  // 六角形單向向右移動規則：只要是相鄰在目前節點附近的右方節點皆可選擇，左方不可選擇
   getAdjacentNextHexes(col = this.currentHex?.col ?? 0, row = this.currentHex?.row ?? 3) {
-    const nextCol = Number(col) + 1;
-    if (!Array.isArray(this.hexMap) || nextCol < 1 || nextCol > 9) return [];
-    if (nextCol === 9) {
+    if (!Array.isArray(this.hexMap)) return [];
+    if (col >= 8) {
       const finalNode = this.getHexNode(9, 3) || (this.hexMap[9] && this.hexMap[9][0]) || null;
       return finalNode ? [finalNode] : [];
     }
+
+    const currentNode = this.getHexNode(col, row) || { id: `hex_${col}_${row}`, col, row };
+    const currentVx = this.getNodeVisualX(currentNode);
+    const adjacentNodes = [];
+
+    // 檢查相鄰範圍內的右方節點（包括右平移、右上、右下）
+    for (let c = col; c <= Math.min(9, col + 2); c++) {
+      for (const node of (this.hexMap[c] || [])) {
+        if (!node || node.id === currentNode.id || node.isVisited) continue;
+        const vx = this.getNodeVisualX(node);
+        const dx = Math.round((vx - currentVx) * 10) / 10;
+        const dy = node.row - currentNode.row;
+
+        // 判定嚴格右側相鄰：
+        // 1. 直向右側相鄰：dy === 0, dx === 1.0
+        // 2. 右上方相鄰：dy === -1, dx === 0.5
+        // 3. 右下方相鄰：dy === 1, dx === 0.5
+        if ((dy === 0 && Math.abs(dx - 1.0) < 0.15) ||
+            (dy === -1 && Math.abs(dx - 0.5) < 0.15) ||
+            (dy === 1 && Math.abs(dx - 0.5) < 0.15)) {
+          adjacentNodes.push(node);
+        }
+      }
+    }
+    if (adjacentNodes.length > 0) return adjacentNodes;
+
+    // 保底備用邏輯：若特殊情況未匹配到，取 col + 1 中行差最小的相鄰節點
+    const nextCol = Number(col) + 1;
     const candidateRows = [row - 1, row, row + 1];
     const directNeighbors = candidateRows.map(r => this.getHexNode(nextCol, r)).filter(Boolean);
     if (directNeighbors.length > 0) return directNeighbors;
-    // 若因測試手動指定超出該層列範圍的 row，則取該層距離最近的相鄰節點
     const colNodes = this.hexMap[nextCol] || [];
     if (!colNodes.length) return [];
     const sorted = colNodes.slice().sort((a, b) => Math.abs(a.row - row) - Math.abs(b.row - row));
@@ -345,6 +387,7 @@ export class Room {
           node.isVisited ||
           node.isRevealed ||
           isCurrent ||
+          selectableIds.has(node.id) ||
           (colDelta >= 1 && colDelta <= 2 && ((node.col === 9 && colDelta === 1) || rowDelta <= colDelta))
         );
         const visibleType = node.isRevealed
@@ -2808,38 +2851,23 @@ export class Room {
       }
     }
 
-    const activeRoles = new Set(Object.values(this.players).map(p => p.role).filter(Boolean));
-    const unplayedLoots = LOOT_TABLE.filter(l => !activeRoles.has(l.role));
-    const playedLoots = this.getEligiblePlayedLoots(activeRoles);
+    // 戰鬥結束後不再能拿到職業專屬裝備，只能獲得小裝備
+    const smallEquipPool = (this.floor >= 5)
+      ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS]
+      : TIER1_EQUIPMENTS;
+    const drop = structuredClone(smallEquipPool[Math.floor(Math.random() * smallEquipPool.length)]);
 
-    // 寶箱及戰鬥成功後可能會有低機率(15%)出現沒有玩家玩的職業裝備
-    const isUnplayedDrop = unplayedLoots.length > 0 && Math.random() < 0.15;
-    let drop = null;
-    let equipOwner = null;
-
-    if (isUnplayedDrop) {
-      drop = unplayedLoots[Math.floor(Math.random() * unplayedLoots.length)];
-      log.push({ text: `💨 沒玩家玩這個職業，系統幫你們把【${drop.name}】丟掉嘍`, type: 'warning' });
+    // 裝備直接進入小隊背包，不再需要裝備抉擇
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+    if (this.squadInventory.length < 19) {
+      this.squadInventory.push(drop);
+      log.push({ text: `🎁 **【戰利品掉落】獲得小裝備：【${drop.name}】**（${drop.desc}），已直接放入小隊背包！`, type: 'loot' });
     } else {
-      drop = (playedLoots.length > 0)
-        ? playedLoots[Math.floor(Math.random() * playedLoots.length)]
-        : LOOT_TABLE[Math.floor(Math.random() * LOOT_TABLE.length)];
-
-      const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
-      equipOwner = this.selectEquipOwner(matchingPlayers, drop) ||
-        this.selectEquipOwner(Object.values(this.players).filter(p => p.hp > 0), drop) ||
-        this.selectEquipOwner(Object.values(this.players), drop);
-
-      if (equipOwner) {
-        this.pendingDrop = {
-          drop: drop,
-          ownerId: equipOwner.id,
-          ownerName: equipOwner.name,
-          source: 'battle'
-        };
-        log.push({ text: `🎁 **【戰利品掉落】獲得裝備：【${drop.name}】**（${drop.desc}），等待 **${equipOwner.name}** 抉擇是否穿戴！`, type: 'loot' });
-      }
+      log.push({ text: `📦 小隊背包已滿（19格），戰利品【${drop.name}】未能放入小隊背包！`, type: 'warning' });
     }
+
+    this.pendingDrop = null;
+    this.victoryPendingDrop = null;
 
     log.forEach(l => this.addLog(l.text, l.type));
     const victoryAfter = this.getHpSnapshot();
@@ -2853,9 +2881,9 @@ export class Room {
       survivors: alivePlayers.length, partySize: Object.keys(this.players).length,
       story: '巨獸倒下後，籠罩在四周的污染逐漸散去……',
       hpBefore: victoryBefore, hpAfter: victoryAfter, results,
-      drop, discarded: isUnplayedDrop, ownerName: equipOwner?.name,
+      drop, discarded: false, ownerName: '小隊背包',
       recoveryRule: 'HP 上限 +10、ATK +5；恢復 10 + 新 Max HP 的 20%' };
-    this.victoryPendingDrop = this.pendingDrop;
+    this.victoryPendingDrop = null;
     this.pendingDrop = null;
     this.state = 'BATTLE_VICTORY';
     this.victoryInteractionReady = false;
@@ -3046,7 +3074,11 @@ export class Room {
       player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
     }
 
-    const targetSlot = (preferredSlot && EQUIP_SLOTS[preferredSlot]) ? preferredSlot : determineEquipSlot(item);
+    const requiredSlot = determineEquipSlot(item);
+    if (preferredSlot && preferredSlot !== requiredSlot) {
+      return { success: false, message: `裝備與欄位不符！此裝備只能穿戴在【${requiredSlot}】欄位。` };
+    }
+    const targetSlot = requiredSlot;
     const oldItem = player.equipSlots[targetSlot];
 
     if (oldItem) {
@@ -3066,7 +3098,111 @@ export class Room {
     return { success: true, equippedSlot: targetSlot, item };
   }
 
-  unequipItemToBag(socketId, slotKey) {
+  equipItemFromSquad(socketId, squadIndex, preferredSlot = null) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!Array.isArray(this.squadInventory) || squadIndex < 0 || squadIndex >= this.squadInventory.length) {
+      return { success: false, message: '無效的小隊背包物品' };
+    }
+    const item = this.squadInventory[squadIndex];
+    if (!item) return { success: false, message: '格子無物品' };
+    if (!canPlayerEquipItem(player, item)) {
+      return { success: false, message: '此特殊裝備不可重複穿戴！' };
+    }
+    const requiredSlot = determineEquipSlot(item);
+    if (preferredSlot && preferredSlot !== requiredSlot) {
+      return { success: false, message: `裝備與欄位不符！此裝備只能穿戴在【${requiredSlot}】欄位。` };
+    }
+    const targetSlot = requiredSlot;
+    if (!player.equipSlots) {
+      player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
+    }
+    const oldItem = player.equipSlots[targetSlot];
+    if (oldItem) {
+      removeEquipStats(player, oldItem);
+      this.squadInventory[squadIndex] = oldItem;
+      this.addLog(`🔄 **${player.name}** 卸下了【${oldItem.name}】放回小隊背包。`, 'loot');
+    } else {
+      this.squadInventory.splice(squadIndex, 1);
+    }
+    player.equipSlots[targetSlot] = item;
+    applyEquipStats(player, item);
+    this.syncPlayerEquips(player);
+    this.addLog(`🛡️ **${player.name}** 從小隊背包裝備了【${item.name}】於【${targetSlot}】欄位！`, 'loot');
+    this.broadcastState();
+    return { success: true, equippedSlot: targetSlot, item };
+  }
+
+  swapInventorySlots(socketId, { fromArea, fromIndex, toArea, toIndex }) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!Array.isArray(player.bag)) player.bag = [];
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+
+    // 1. 個人背包內拖曳重排
+    if (fromArea === 'PERSONAL' && toArea === 'PERSONAL') {
+      if (fromIndex < 0 || fromIndex >= 4 || toIndex < 0 || toIndex >= 4 || fromIndex === toIndex) {
+        return { success: false, message: '無效的背包格子' };
+      }
+      const itemFrom = player.bag[fromIndex] || null;
+      const itemTo = player.bag[toIndex] || null;
+      player.bag[fromIndex] = itemTo;
+      player.bag[toIndex] = itemFrom;
+      while (player.bag.length > 0 && player.bag[player.bag.length - 1] === null) player.bag.pop();
+      this.broadcastState();
+      return { success: true };
+    }
+
+    // 2. 小隊背包內拖曳重排
+    if (fromArea === 'SQUAD' && toArea === 'SQUAD') {
+      if (fromIndex < 0 || fromIndex >= 19 || toIndex < 0 || toIndex >= 19 || fromIndex === toIndex) {
+        return { success: false, message: '無效的小隊背包格子' };
+      }
+      const itemFrom = this.squadInventory[fromIndex] || null;
+      const itemTo = this.squadInventory[toIndex] || null;
+      this.squadInventory[fromIndex] = itemTo;
+      this.squadInventory[toIndex] = itemFrom;
+      while (this.squadInventory.length > 0 && this.squadInventory[this.squadInventory.length - 1] === null) this.squadInventory.pop();
+      this.broadcastState();
+      return { success: true };
+    }
+
+    // 3. 個人背包 -> 小隊背包
+    if (fromArea === 'PERSONAL' && toArea === 'SQUAD') {
+      const item = player.bag[fromIndex];
+      if (!item) return { success: false, message: '個人背包該位置無物品' };
+      if (this.squadInventory.length >= 19 && !this.squadInventory[toIndex]) {
+        return { success: false, message: '小隊背包已滿！' };
+      }
+      const squadTargetItem = this.squadInventory[toIndex] || null;
+      player.bag[fromIndex] = squadTargetItem;
+      this.squadInventory[toIndex] = item;
+      while (player.bag.length > 0 && player.bag[player.bag.length - 1] === null) player.bag.pop();
+      while (this.squadInventory.length > 0 && this.squadInventory[this.squadInventory.length - 1] === null) this.squadInventory.pop();
+      this.broadcastState();
+      return { success: true };
+    }
+
+    // 4. 小隊背包 -> 個人背包
+    if (fromArea === 'SQUAD' && toArea === 'PERSONAL') {
+      const item = this.squadInventory[fromIndex];
+      if (!item) return { success: false, message: '小隊背包該位置無物品' };
+      if (player.bag.length >= 4 && !player.bag[toIndex]) {
+        return { success: false, message: '個人隨身背包已滿！' };
+      }
+      const personalTargetItem = player.bag[toIndex] || null;
+      this.squadInventory[fromIndex] = personalTargetItem;
+      player.bag[toIndex] = item;
+      while (player.bag.length > 0 && player.bag[player.bag.length - 1] === null) player.bag.pop();
+      while (this.squadInventory.length > 0 && this.squadInventory[this.squadInventory.length - 1] === null) this.squadInventory.pop();
+      this.broadcastState();
+      return { success: true };
+    }
+
+    return { success: false, message: '不支援的拖曳操作' };
+  }
+
+  unequipItemToBag(socketId, slotKey, targetBagIndex = null) {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
     if (!player.equipSlots || !player.equipSlots[slotKey]) {
@@ -3077,16 +3213,49 @@ export class Room {
       return { success: false, message: '專屬裝備無法卸下！' };
     }
     if (!Array.isArray(player.bag)) player.bag = [];
-    if (player.bag.length >= 4) {
+    if (player.bag.length >= 4 && (targetBagIndex === null || !player.bag[targetBagIndex])) {
       return { success: false, message: '個人背包已滿（上限 4 格）！' };
     }
 
     player.equipSlots[slotKey] = null;
     removeEquipStats(player, item);
-    player.bag.push(item);
+    if (targetBagIndex !== null && targetBagIndex >= 0 && targetBagIndex < 4) {
+      player.bag[targetBagIndex] = item;
+    } else {
+      player.bag.push(item);
+    }
     this.syncPlayerEquips(player);
 
     this.addLog(`📦 **${player.name}** 卸下了【${item.name}】並收回個人背包。`, 'info');
+    this.broadcastState();
+    return { success: true, item };
+  }
+
+  unequipItemToSquad(socketId, slotKey, targetSquadIndex = null) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+    if (!player.equipSlots || !player.equipSlots[slotKey]) {
+      return { success: false, message: '該欄位無裝備' };
+    }
+    const item = player.equipSlots[slotKey];
+    if (slotKey === 'CLASS_EXCLUSIVE' && (item.isClassExclusive || item.tier === 'CLASS_EXCLUSIVE')) {
+      return { success: false, message: '專屬裝備無法卸下！' };
+    }
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+    if (this.squadInventory.length >= 19 && (targetSquadIndex === null || !this.squadInventory[targetSquadIndex])) {
+      return { success: false, message: '小隊背包已滿（上限 19 格）！' };
+    }
+
+    player.equipSlots[slotKey] = null;
+    removeEquipStats(player, item);
+    if (targetSquadIndex !== null && targetSquadIndex >= 0 && targetSquadIndex < 19) {
+      this.squadInventory[targetSquadIndex] = item;
+    } else {
+      this.squadInventory.push(item);
+    }
+    this.syncPlayerEquips(player);
+
+    this.addLog(`📦 **${player.name}** 卸下了【${item.name}】並存入小隊背包。`, 'info');
     this.broadcastState();
     return { success: true, item };
   }
@@ -3150,19 +3319,45 @@ export class Room {
     const leaderRole = this.getEffectiveLeaderRole();
     const discount = (leaderRole === 'assassin') ? 0.8 : 1.0;
 
-    let items = [];
-    if (isShady) {
-      items = [
-        { ...structuredClone(TIER2_EQUIPMENTS[0]), price: Math.round(180 * discount) },
-        { ...structuredClone(TIER2_EQUIPMENTS[1]), price: Math.round(180 * discount) },
-        { ...structuredClone(TIER2_EQUIPMENTS[2]), price: Math.round(180 * discount) }
-      ];
-    } else {
-      items = [
-        { ...structuredClone(TIER1_EQUIPMENTS[0]), price: Math.round(50 * discount) },
-        { ...structuredClone(TIER1_EQUIPMENTS[1]), price: Math.round(50 * discount) },
-        { ...structuredClone(TIER2_EQUIPMENTS[0]), price: Math.round(120 * discount) }
-      ];
+    const items = [];
+    const hasExclusive = Math.random() < 0.50;
+
+    if (hasExclusive) {
+      // 50% 機率出現職業專屬裝備，價格為 250G
+      const partyRoles = Object.values(this.players).map(p => p.role).filter(Boolean);
+      const partyExclusives = LOOT_TABLE.filter(e => e.role && partyRoles.includes(e.role));
+      const pool = (partyExclusives.length > 0 && Math.random() < 0.8)
+        ? partyExclusives
+        : LOOT_TABLE.filter(e => e.role);
+      const chosen = pool[Math.floor(Math.random() * pool.length)] || LOOT_TABLE[0];
+      const exclusiveItem = structuredClone(chosen);
+      exclusiveItem.slot = EQUIP_SLOTS.CLASS_EXCLUSIVE;
+      exclusiveItem.tier = 'CLASS_EXCLUSIVE';
+      exclusiveItem.price = Math.round(250 * discount);
+      items.push(exclusiveItem);
+    }
+
+    // 填補其餘項目至 4 項（通用裝備，優先不重複）
+    const generalPool = isShady
+      ? [...TIER2_EQUIPMENTS]
+      : (this.floor >= 5 ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS]);
+
+    const shuffledGeneral = [...generalPool].sort(() => Math.random() - 0.5);
+    while (items.length < 4 && shuffledGeneral.length > 0) {
+      const gItem = shuffledGeneral.pop();
+      if (!items.some(it => it.name === gItem.name)) {
+        const itemClone = structuredClone(gItem);
+        const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
+        itemClone.price = Math.round((isShady ? Math.round(basePrice * 1.25) : basePrice) * discount);
+        items.push(itemClone);
+      }
+    }
+    while (items.length < 4) {
+      const gItem = generalPool[Math.floor(Math.random() * generalPool.length)];
+      const itemClone = structuredClone(gItem);
+      const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
+      itemClone.price = Math.round(basePrice * discount);
+      items.push(itemClone);
     }
 
     this.currentEvent = {
@@ -3641,7 +3836,7 @@ export class Room {
   }
 
   getEffectiveLeaderRole() {
-    return this.lockedLeaderRole || null;
+    return this.lockedLeaderRole || this.players[this.leaderId]?.role || null;
   }
 
   getEffectiveLeaderSkill() {
@@ -4654,6 +4849,24 @@ export class Room {
             isCrit: false,
             label: `不穩定試劑瓶(${dotCfg.name})`
           });
+          for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
+            const nonPrimaryRaw = Math.floor(raw * 0.5);
+            const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(nonPrimaryRaw, 'mag', { enemy: otherEnemy });
+            otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);
+            const otherResNote = otherResisted ? ` (🔮抗性減免${otherResPct}%)` : '';
+            log.push({ text: `${dotCfg.icon} **${p.name}** 的【不穩定試劑瓶】飛濺波及 **${otherEnemy.name}**，造成 **${otherDmg}** 點【魔法】濺射傷害！${otherResNote}`, type: 'combat' });
+            visualEvents.push({
+              type: 'player_attack',
+              sourceId: p.id,
+              target: otherEnemy.instanceId,
+              targetEnemyId: otherEnemy.instanceId,
+              isSecondaryEnemy: true,
+              dmgType: 'mag',
+              value: otherDmg,
+              isCrit: false,
+              label: `不穩定試劑瓶(濺射)`
+            });
+          }
           break;
         }
 
@@ -4664,6 +4877,24 @@ export class Room {
           const raw = Math.floor((this.applyFateBlessing(p, 40) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
+          for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
+            const nonPrimaryRaw = Math.floor(raw * 0.5);
+            const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(nonPrimaryRaw, 'mag', { enemy: otherEnemy });
+            otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);
+            const otherResNote = otherResisted ? ` (🔮抗性減免${otherResPct}%)` : '';
+            log.push({ text: `⚗️ **${p.name}** 的【腐蝕強酸瓶】飛濺波及 **${otherEnemy.name}**，造成 **${otherDmg}** 點【魔法】濺射傷害！${otherResNote}`, type: 'combat' });
+            visualEvents.push({
+              type: 'player_attack',
+              sourceId: p.id,
+              target: otherEnemy.instanceId,
+              targetEnemyId: otherEnemy.instanceId,
+              isSecondaryEnemy: true,
+              dmgType: 'mag',
+              value: otherDmg,
+              isCrit: false,
+              label: '腐蝕強酸瓶(濺射)'
+            });
+          }
           for(const ally of Object.values(this.players).filter(x=>x.hp>0)) {
               const incoming=this.p8Incoming(ally,20,n=>this.p8MitigateFriendly(ally,n),{kind:'friendly'});
               const res=this.applyDamageToPlayer(ally,incoming.damage,{kind:'friendly'});
@@ -5976,9 +6207,10 @@ export class Room {
 
   advanceToNextFloorOrCheckpoint() {
     this.clearTimer();
-    if (this.floor % 5 === 0) {
+    const isCol9Boss = Boolean((this.currentHex && this.currentHex.col === 9) || this.currentHex?.type === 'END_ELITE');
+    if (isCol9Boss) {
       this.state = 'CHECKPOINT';
-      this.addLog(`🏰【第 ${this.floor} 層 - 深淵休息站】恭喜小隊成功突破至第 ${this.floor} 層！前方是神聖的守護結界。請隊長做出抉擇！`, 'info');
+      this.addLog(`🏰【深淵終點守護結界】恭喜小隊成功討伐第 9 區深淵領主！前方是神聖的守護結界。請隊長做出抉擇：凱旋撤退或繼續深入！`, 'info');
       this.broadcastState();
     } else {
       this.floor += 1;
@@ -5993,7 +6225,7 @@ export class Room {
     this.clearTimer();
     if (choice === 'end') {
       this.state = 'VICTORY';
-      this.addLog(`🏆【榮耀凱旋】隊長決定滿載而歸！小隊成功突破至第 ${this.floor} 層並安全撤出！`, 'loot');
+      this.addLog(`🏆【榮耀凱旋】隊長決定滿載而歸！小隊成功擊敗深淵領主並安全撤出！`, 'loot');
       this.broadcastState();
     } else {
       this.continueFromCheckpoint();
@@ -6010,6 +6242,9 @@ export class Room {
     }
     this.addLog(`✨【神聖泉水休整】全體角色生命值完全回滿！重振旗鼓，踏向更深層！`, 'heal');
     this.floor += 1;
+    this.hexMap = this.generateHexMap();
+    this.currentHex = { col: 0, row: 3 };
+    this.scoutedCols = new Set();
     this.startRouteSelection();
   }
 

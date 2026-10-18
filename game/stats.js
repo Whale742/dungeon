@@ -9,6 +9,12 @@ const magical = new Set(['mage','bard','alchemist','dreamweaver','stargazer','au
 export const basicDamageType = role => magical.has(role) ? 'mag' : 'phys';
 export function equipmentAttack(item, role) {
   // Old saves/loot have one bonusAtk field. Its role affinity is explicit here.
+  if (item.bonusPhysAtk !== undefined || item.bonusMagAtk !== undefined) {
+    return {
+      physical: Number(item.bonusPhysAtk ?? (!magical.has(item.role || role) ? item.bonusAtk : 0)) || 0,
+      magic: Number(item.bonusMagAtk ?? (magical.has(item.role || role) ? item.bonusAtk : 0)) || 0
+    };
+  }
   const typed = item.PAtk_gear !== undefined || item.MAtk_gear !== undefined;
   return {physical:Number(item.PAtk_gear ?? (!typed && !magical.has(item.role || role) ? item.bonusAtk : 0)) || 0,
     magic:Number(item.MAtk_gear ?? (!typed && magical.has(item.role || role) ? item.bonusAtk : 0)) || 0};

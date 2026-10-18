@@ -358,3 +358,22 @@ test('Alchemist precision burette does NOT alter alc_fate failure chance (remain
   assert.equal(alc.hp, 60 - 4); // 20 + 40 heal - 4 minimum boss attack (after DEF 3) = 56
   assert.equal(room.alcVulnerableNextTurn, false);
 });
+
+test('Alchemist alc_flask deals 100% damage to primary target and 50% splash damage to non-primary enemies', t => {
+  const { room } = fixture(t, ['alchemist', 'warrior']);
+  const alc = room.players.p0;
+  
+  const primaryMonster = { instanceId: 'boss_1', id: 'boss_1', name: '首領', hp: 500, maxHp: 500, resistances: { physical: 0, magic: 0, effect: 0 } };
+  const minion = { instanceId: 'minion_1', id: 'minion_1', name: '小怪', hp: 200, maxHp: 200, resistances: { physical: 0, magic: 0, effect: 0 } };
+  room.currentMonster = primaryMonster;
+  room.setEnemies([primaryMonster, minion]);
+
+  alc.action = 'alc_flask';
+  alc.rolledFlaskDot = 'burn';
+  alc.rollTeamDot = false;
+  resolveWith(room, 0.5);
+
+  assert.equal(primaryMonster.hp, 465);
+  assert.equal(minion.hp, 183);
+});
+

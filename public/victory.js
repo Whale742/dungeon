@@ -18,9 +18,15 @@ function projectExpandedDisplayState(state) {
   return { ...state, players: state.players.map(p => ({ ...p, ...map.get(p.id) })) };
 }
 function refreshVictoryControls() {
-  if (!victoryContinueButton || typeof roomState === 'undefined') return;
-  victoryContinueButton.disabled = !roomState.victoryInteractionReady || Boolean(roomState.pendingDrop) || roomState.leaderId !== myId;
-  victoryContinueButton.textContent = roomState.pendingDrop ? '等待裝備抉擇' : roomState.leaderId !== myId ? '等待隊長繼續深入' : '繼續深入';
+  if (typeof roomState === 'undefined') return;
+  if (victoryContinueButton) {
+    victoryContinueButton.disabled = !roomState.victoryInteractionReady || Boolean(roomState.pendingDrop) || roomState.leaderId !== myId;
+    victoryContinueButton.textContent = roomState.pendingDrop ? '等待裝備抉擇' : roomState.leaderId !== myId ? '等待隊長繼續深入' : '繼續深入';
+  }
+  // 自動推進：當勝利演出完成且 interaction ready，身為隊長時直接觸發繼續深入，不須等待手動點擊
+  if (roomState.state === 'BATTLE_VICTORY' && roomState.victoryInteractionReady && roomState.leaderId === myId) {
+    socket.emit('victory:continue', { presentationId: roomState.currentVictory?.presentationId });
+  }
 }
 async function playVictoryPresentation(victory, context = {}) {
   const controller = context.controller || new AbortController();
@@ -105,31 +111,40 @@ async function playVictoryPresentation(victory, context = {}) {
     const equipmentModal = document.getElementById('equipDropModal');
     if (equipmentModal) equipmentModal.style.zIndex = '1100';
     presentationManager.setBlocking(false);
-    const button = document.createElement('button');
-    button.type = 'button'; button.className = 'presentation-victory-continue'; button.textContent = '繼續深入';
-    victoryContinueButton = button;
-    canvas.appendChild(button);
-    // Narrative/recovery/reward have fully exited before readiness is ACKed.
+
+    // 直接觸發繼續深入，不須等待
     context.onReady?.();
     if (context.mode !== 'lab') refreshVictoryControls();
     context.onTiming?.('victory_interaction_ready', {});
-    await new Promise((resolve, reject) => {
-      const cancel = () => { button.removeEventListener('click', click); reject(new DOMException('Presentation cancelled', 'AbortError')); };
-      const click = async () => {
-        if (button.disabled) return;
-        button.disabled = true;
-        canvas.classList.add('exit');
-        try {
-          await wait(500);
-          signal.removeEventListener('abort', cancel);
-          context.onContinue?.();
-          resolve();
-        } catch (error) { reject(error); }
-      };
-      button.addEventListener('click', click);
-      signal.addEventListener('abort', cancel, { once: true });
-      if (signal.aborted) cancel();
-    });
+
+    if (context.mode === 'lab') {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'presentation-victory-continue'; button.textContent = '繼續深入';
+      victoryContinueButton = button;
+      canvas.appendChild(button);
+      await new Promise((resolve, reject) => {
+        const cancel = () => { button.removeEventListener('click', click); reject(new DOMException('Presentation cancelled', 'AbortError')); };
+        const click = async () => {
+          if (button.disabled) return;
+          button.disabled = true;
+          canvas.classList.add('exit');
+          try {
+            await wait(500);
+            signal.removeEventListener('abort', cancel);
+            context.onContinue?.();
+            resolve();
+          } catch (error) { reject(error); }
+        };
+        button.addEventListener('click', click);
+        signal.addEventListener('abort', cancel, { once: true });
+        if (signal.aborted) cancel();
+      });
+    } else {
+      await wait(350);
+      canvas.classList.add('exit');
+      await wait(400);
+      context.onContinue?.();
+    }
   } finally {
     signal.removeEventListener('abort', cleanup);
     cleanup();

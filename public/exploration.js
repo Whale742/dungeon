@@ -141,9 +141,18 @@ function buildHexRouteArrowHtml(currentCol, currentRow, targetNode, centerRow) {
   const startDist = Math.abs(currentRow - centerRow);
   const endDist = Math.abs(targetNode.row - centerRow);
 
-  const cx1 = (currentCol - 0.5 * startDist + 0.5) * hexW;
+  const allMapNodes = [];
+  if (Array.isArray(roomState?.hexMap)) {
+    for (const c of roomState.hexMap) for (const n of (c || [])) if (n) allMapNodes.push(n);
+  }
+  const rowNodes1 = allMapNodes.filter(n => n.row === currentRow);
+  const k1 = rowNodes1.findIndex(n => n.col === currentCol && n.row === currentRow);
+  const cx1 = (startDist * 0.5 + (k1 >= 0 ? k1 : 0) + 0.5) * hexW;
   const cy1 = (0.75 * currentRow + 0.5) * hexH;
-  const cx2 = (targetNode.col - 0.5 * endDist + 0.5) * hexW;
+
+  const rowNodes2 = allMapNodes.filter(n => n.row === targetNode.row);
+  const k2 = rowNodes2.findIndex(n => n.id === targetNode.id || (n.col === targetNode.col && n.row === targetNode.row));
+  const cx2 = (endDist * 0.5 + (k2 >= 0 ? k2 : 0) + 0.5) * hexW;
   const cy2 = (0.75 * targetNode.row + 0.5) * hexH;
 
   const dxFull = cx2 - cx1;
@@ -254,8 +263,20 @@ function renderHexGridMap(me, enabled, myVoteId) {
             node.isVisited ||
             node.isRevealed ||
             node.isCurrent ||
+            isSelectable ||
             (colDelta >= 1 && colDelta <= 2 && ((node.col === 9 && colDelta === 1) || rowDelta <= colDelta))
           );
+
+      let fogDepthClass = '';
+      let fogStyle = '';
+      if (!isSelectable && !node.isCurrent && !node.isVisited) {
+        fogDepthClass = 'hex-fog-gradient';
+        const depth = Math.max(1, colDelta >= 1 ? colDelta : 1);
+        const fogOpacity = Math.max(0.06, (0.55 - (depth - 1) * 0.075)).toFixed(2);
+        const fogBrightness = Math.max(0.20, (0.80 - (depth - 1) * 0.09)).toFixed(2);
+        const fogBlur = Math.min(3.5, ((depth - 1) * 0.45)).toFixed(1);
+        fogStyle = 'style="--col-delta:' + colDelta + '; --fog-depth:' + depth + '; --fog-opacity:' + fogOpacity + '; --fog-brightness:' + fogBrightness + '; --fog-blur:' + fogBlur + 'px;" ';
+      }
 
       const classes = [
         'hex-cell',
@@ -265,6 +286,7 @@ function renderHexGridMap(me, enabled, myVoteId) {
         node.isCurrent ? 'hex-current' : '',
         node.isVisited ? 'hex-visited' : '',
         inVision && node.isRevealed ? 'hex-revealed' : 'hex-fog',
+        fogDepthClass,
         inVision && node.isScouted ? 'hex-scouted' : '',
         inVision && node.col === 9 ? 'hex-end-boss' : '',
         isSelectable ? 'hex-selectable' : '',
@@ -272,12 +294,23 @@ function renderHexGridMap(me, enabled, myVoteId) {
         isMyVote ? 'my-vote' : ''
       ].filter(Boolean).join(' ');
 
-      // 所有節點皆為空白，不顯示 ? 或其他符號；僅在有票數時於正中央顯示純數字（無外框、無底色）
-      const centerContentHtml = (inVision && votes > 0)
-        ? '<span class="hex-center-vote">' + votes + '</span>'
-        : '';
+      // 已走過的節點顯示遇到的事件圖示；未走過節點有票數時顯示純數字票數
+      let centerContentHtml = '';
+      if (node.isVisited) {
+        const eventIcon = (
+          node.type === 'START' ? '🏕️' :
+          node.type === 'SHOP' ? '🛒' :
+          node.type === 'CHEST' ? '📦' :
+          (node.type === 'END_ELITE' || node.type === 'BOSS' || node.type === 'ELITE') ? '👑' :
+          node.type === 'EVENT' ? '📜' :
+          node.icon || '⚔️'
+        );
+        centerContentHtml = '<span class="hex-visited-icon" title="已完成事件">' + eventIcon + '</span>';
+      } else if (inVision && votes > 0) {
+        centerContentHtml = '<span class="hex-center-vote">' + votes + '</span>';
+      }
 
-      html += '<button type="button" class="' + classes + '" data-hex-id="' + escapeHtml(node.id) + '" ' +
+      html += '<button type="button" class="' + classes + '" ' + fogStyle + 'data-hex-id="' + escapeHtml(node.id) + '" ' +
         (isSelectable && canVote ? '' : 'disabled ') + '>' +
         '<svg class="hex-tile-svg" viewBox="0 0 86.6 100" preserveAspectRatio="none" aria-hidden="true">' +
           '<polygon class="hex-poly" points="43.3,1.2 85.4,25 85.4,75 43.3,98.8 1.2,75 1.2,25" />' +

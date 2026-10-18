@@ -394,10 +394,31 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  socket.on('inventory:unequip_to_bag', ({ slotKey }, callback) => {
+  socket.on('inventory:equip_from_squad', ({ squadIndex, preferredSlot }, callback) => {
     const room = rooms.get(socketToRoom.get(socket.id));
     if (!room) return;
-    const res = room.unequipItemToBag(socket.id, slotKey);
+    const res = room.equipItemFromSquad(socket.id, squadIndex, preferredSlot);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:swap_slots', ({ fromArea, fromIndex, toArea, toIndex }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.swapInventorySlots(socket.id, { fromArea, fromIndex, toArea, toIndex });
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:unequip_to_bag', ({ slotKey, targetBagIndex }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.unequipItemToBag(socket.id, slotKey, targetBagIndex);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('inventory:unequip_to_squad', ({ slotKey, targetSquadIndex }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.unequipItemToSquad(socket.id, slotKey, targetSquadIndex);
     if (typeof callback === 'function') callback(res);
   });
 

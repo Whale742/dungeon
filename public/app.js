@@ -113,7 +113,7 @@ const DEFAULT_ROLE_DETAILS = {
     passive: '【異常調和】\n・腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半（持續 1 回合）。\n・中毒：每回合開始時造成 8 點傷害，持續 2 回合（重複釋放可疊加）。\n・燃燒：每回合開始時造成 10 點傷害，持續 1 回合（重複釋放可疊加）。\n・骨折：每回合開始時造成 5 點傷害，持續 3 回合（重複釋放可疊加）。\n・寒冷：每回合開始時造成 6 點傷害，持續 2 回合（重複釋放可疊加）。',
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【魔法】', cd: '無 CD', desc: '造成 10 點傷害，有 70% 機率造成腐蝕效果持續一回合，當觸發腐蝕效果時，有 35% 機率使我方全體也觸發腐蝕效果。' },
-      { type: '1 技能', name: '不穩定試劑瓶', dmgType: '【魔法/持續傷害】', cd: '無 CD', desc: '造成 15 點傷害，並對敵方造成 4 種持續傷害其中一種：中毒、燃燒、骨折、寒冷（重複釋放可疊加）。有 40% 機率對我方全體同步造成此次效果。' },
+      { type: '1 技能', name: '不穩定試劑瓶', dmgType: '【魔法/群體/持續傷害】', cd: '無 CD', desc: '群體攻擊：對主目標造成 15 點傷害，對其餘敵方造成 50% 濺射傷害。並對主目標造成 4 種持續傷害其中一種：中毒、燃燒、骨折、寒冷（重複釋放可疊加）。有 40% 機率對我方全體同步造成此次效果。' },
       { type: '2 技能', name: '命運煉成試劑', dmgType: '【驅散/調和】', cd: '2 回合', desc: '立即驅散全隊所有負面狀態（中毒/燃燒/骨折/寒冷/腐蝕/撕裂）。若自身有異常狀態：50% 機率煉金大成功（全員回復 40 點生命 + 2 回合 70% 減傷護盾）/ 50% 機率煉金失敗（全員回復 10 點生命 + 下回合全隊受傷 +20%）；若自身無異常狀態：全員穩定回復 15 點生命。' }
     ]
   },
@@ -623,6 +623,9 @@ const elements = {
   battleNarrativeBox: document.getElementById('battleNarrativeBox'),
   battleNarrativeText: document.getElementById('battleNarrativeText'),
   monsterCard: document.getElementById('monsterCard'),
+  battleEnemiesStage: document.getElementById('battleEnemiesStage'),
+  floatingEnemyTooltip: document.getElementById('floatingEnemyTooltip'),
+  floatingItemTooltip: document.getElementById('floatingItemTooltip'),
   monsterAvatarWrap: document.getElementById('monsterAvatarWrap'),
   monsterAvatar: document.getElementById('monsterAvatar'),
   monsterSlashOverlay: document.getElementById('monsterSlashOverlay'),
@@ -1727,9 +1730,114 @@ async function typePrologueParagraphs(container, paragraphs, signal, timing = PR
   } finally { finishTyping(); }
 }
 
+const preloadedPartyAssetUrls = new Set();
+async function preloadPartyClassAssets(state) {
+  try {
+    const players = Array.isArray(state?.players)
+      ? state.players
+      : (state?.players ? Object.values(state.players) : []);
+    const roles = [...new Set(players.map(p => p.role).filter(Boolean))];
+    if (roles.length === 0) return;
+
+    // 1. Audio Preload
+    if (typeof sfxManager !== 'undefined' && sfxManager) {
+      void sfxManager.preload();
+      for (const role of roles) {
+        void sfxManager.preloadRole(role);
+      }
+    }
+    if (typeof bgmManager !== 'undefined' && bgmManager) {
+      void bgmManager.preload();
+    }
+
+    // 2. Class Presentation Animations & FX Preloaders
+    if (typeof preloadCombatFxAssets === 'function') void preloadCombatFxAssets();
+    if (roles.includes('samurai') && typeof preloadSamuraiFxAssets === 'function') void preloadSamuraiFxAssets();
+    if (roles.includes('augur') && typeof preloadAugurAssets === 'function') void preloadAugurAssets();
+    if (roles.includes('onmyoji') && typeof preloadOnmyojiAssets === 'function') void preloadOnmyojiAssets();
+    if (roles.includes('sage') && typeof preloadSageHands === 'function') void preloadSageHands();
+
+    // 3. Image URLs per class
+    const urlsToPreload = new Set([
+      '/assets/armor.png',
+      '/assets/book.png',
+      '/assets/ring.png',
+      '/assets/sword.png',
+      '/assets/hex-arrow-curved.png'
+    ]);
+
+    const ROLE_ASSET_MAP = {
+      warrior: ['/photo/Warrior.webp'],
+      mage: ['/photo/Mage.webp'],
+      archer: ['/photo/Archer.webp', '/assets/archer-special-1.webp', '/assets/archer-special-2.webp', '/assets/archer-special-3.webp'],
+      assassin: ['/photo/Assassin.webp'],
+      bard: ['/photo/Bard.webp'],
+      alchemist: ['/photo/Alchemist.webp'],
+      druid: [
+        '/photo/Druid.webp',
+        '/photo/狼人.webp',
+        '/photo/遠古樹精.webp',
+        '/photo/小樹精1.webp',
+        '/photo/小樹精2.webp',
+        '/photo/小樹精3.webp',
+        '/photo/幼狼1.webp',
+        '/photo/幼狼2.webp',
+        '/photo/幼狼3.webp'
+      ],
+      paladin: ['/photo/Paladin.webp'],
+      onmyoji: ['/photo/Onmyōji.webp', '/photo/Onmyoji.webp', '/assets/Onmyoji-1.png', '/assets/Onmyoji-2.png'],
+      samurai: ['/photo/武士.webp', '/assets/samurai-eye.png', '/assets/samurai-skill1.png', '/assets/samurai-skill2.png'],
+      sage: ['/photo/智者.webp', '/assets/sage-error.png', '/assets/sage-snap-1.png', '/assets/sage-snap-2.png'],
+      augur: ['/photo/Augur.webp', '/assets/augur1.png', '/assets/augur2.png'],
+      dreamweaver: ['/photo/Dreamweaver.webp'],
+      gladiator: ['/photo/Gladiator.webp'],
+      stargazer: ['/photo/Stargazer.webp']
+    };
+
+    for (const p of players) {
+      if (p.customAvatar) urlsToPreload.add(p.customAvatar);
+      if (p.avatar) urlsToPreload.add(p.avatar);
+    }
+
+    for (const role of roles) {
+      const classAvatar = (typeof classesData !== 'undefined' && classesData[role]?.avatar)
+        || (typeof DEFAULT_ROLE_AVATARS !== 'undefined' && DEFAULT_ROLE_AVATARS[role]?.avatar);
+      if (classAvatar) urlsToPreload.add(classAvatar);
+      const specificAssets = ROLE_ASSET_MAP[role];
+      if (specificAssets) {
+        for (const assetUrl of specificAssets) urlsToPreload.add(assetUrl);
+      }
+    }
+
+    // 4. Batch decode/preload images
+    const pendingPromises = [];
+    for (const url of urlsToPreload) {
+      if (!url || preloadedPartyAssetUrls.has(url)) continue;
+      preloadedPartyAssetUrls.add(url);
+      pendingPromises.push(new Promise((resolve) => {
+        if (typeof window !== 'undefined' && window.assetRegistry && typeof window.assetRegistry.preloadImage === 'function') {
+          window.assetRegistry.preloadImage(url).then(resolve).catch(resolve);
+          return;
+        }
+        const img = new Image();
+        img.src = url;
+        if (img.decode) {
+          img.decode().then(resolve).catch(resolve);
+        } else {
+          img.onload = img.onerror = resolve;
+        }
+      }));
+    }
+    await Promise.allSettled(pendingPromises);
+  } catch (err) {
+    console.warn('[Prologue:PreloadPartyAssets]', err);
+  }
+}
+
 async function renderProloguePresentation() {
   if (prologueCompleted || isPrologueTyping) return;
   isPrologueTyping = true;
+  void preloadPartyClassAssets(roomState);
   if(typeof bgmManager!=='undefined')void bgmManager.preload();
   const controller = new AbortController();
   prologueController = controller;
@@ -1845,6 +1953,7 @@ async function renderProloguePresentation() {
 }
 
 function renderPrologue() {
+  void preloadPartyClassAssets(roomState);
   // All failures are handled inside the async owner; no unhandled promise.
   void renderProloguePresentation();
 }
@@ -2011,6 +2120,204 @@ async function revealBattleControls() {
   try { await battleControlsEntryPromise; } finally { battleControlsEntryPromise = null; }
 }
 
+// ============================================================================
+// 戰鬥多目標敵方舞台排佈 (神魔之塔風格) 與邊界限制懸浮面板
+// ============================================================================
+
+// 通用浮動懸浮面板視窗邊界限制定位 (確保絕不超出畫面邊界)
+function positionFloatingTooltip(e, tooltip) {
+  if (!tooltip) return;
+  const tw = tooltip.offsetWidth || 300;
+  const th = tooltip.offsetHeight || 220;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const pad = 14;
+
+  let left = e.clientX + 16;
+  if (left + tw > vw - pad) {
+    left = e.clientX - tw - 16;
+  }
+  if (left < pad) left = pad;
+
+  let top = e.clientY - 20;
+  if (top + th > vh - pad) {
+    top = vh - th - pad;
+  }
+  if (top < pad) top = pad;
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function showEnemyTooltip(en, e) {
+  if (!elements.floatingEnemyTooltip || !en) return;
+
+  const hpPct = Math.max(0, Math.min(100, Math.round((en.hp / Math.max(1, en.maxHp)) * 100)));
+  const tierName = en.tier === 'ABYSS' ? '深淵' : en.tier === 'ELITE' ? '精英' : (en.isBoss ? '首領' : '小怪');
+
+  const resistances = en.resistances || { physical: en.resistance === 'phys' ? 70 : 0, magic: en.resistance === 'mag' ? 70 : 0, effect: 0 };
+  const mirrored = en.p8Effects?.mirror?.until >= (roomState?.battleRound || 0);
+  const physical = mirrored ? resistances.magic : resistances.physical;
+  const magic = mirrored ? resistances.physical : resistances.magic;
+
+  const isUltRound = ((roomState?.battleRound || 1) % 3 === 0);
+  const ultAtk = Math.floor((en.attack || 10) * 1.35);
+
+  const buffs = [];
+  if (en.isWeakened) buffs.push('⚠️ 削弱 (傷害/血量 75%)');
+  if (en.poisonTurns > 0) buffs.push(`🟢 中毒 (${en.poisonTurns} 回合 / -${en.poisonDmg || 5})`);
+  if (en.burnTurns > 0) buffs.push(`🔥 燃燒 (${en.burnTurns} 回合 / -${en.burnDmg || 7})`);
+  if (en.fractureTurns > 0) buffs.push(`🦴 骨折 (${en.fractureTurns} 回合 / -${en.fractureDmg || 2})`);
+  if (en.chillTurns > 0) buffs.push(`❄️ 寒冷 (${en.chillTurns} 回合 / -${en.chillDmg || 3})`);
+  if (en.corrosionTurns > 0) buffs.push(`🧪 腐蝕 (${en.corrosionTurns} 回合)`);
+  if (en.tempHp > 0) buffs.push(`🛡️ 護盾 (+${en.tempHp})`);
+
+  let buffsHtml = '';
+  if (buffs.length > 0) {
+    buffsHtml = `<div class="floating-tooltip-buffs">${buffs.map(b => `<span class="buff-badge" style="font-size:11px;padding:2px 6px;">${escapeHtml(b)}</span>`).join('')}</div>`;
+  } else {
+    buffsHtml = `<div class="floating-tooltip-row"><span class="floating-tooltip-label">當前狀態</span><span class="floating-tooltip-val" style="color:#94a3b8;">正常</span></div>`;
+  }
+
+  elements.floatingEnemyTooltip.innerHTML = `
+    <div class="floating-tooltip-title-row">
+      <span class="floating-tooltip-name">${escapeHtml(en.name)}</span>
+      <span class="floating-tooltip-badge">${tierName}</span>
+    </div>
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">生命值</span>
+      <span class="floating-tooltip-val" style="color:${hpPct < 25 ? '#ef4444' : hpPct < 50 ? '#f59e0b' : '#10b981'};">${en.hp} / ${en.maxHp} (${hpPct}%)</span>
+    </div>
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">反擊攻擊力</span>
+      <span class="floating-tooltip-val">${isUltRound ? `${ultAtk} 點 (必殺爆發！)` : `${en.attack || 10} 點`}</span>
+    </div>
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">蓄力必殺</span>
+      <span class="floating-tooltip-val" style="color:#fbbf24;">${escapeHtml(en.ultName || '狂暴重擊')}</span>
+    </div>
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">抗性體質</span>
+      <span class="floating-tooltip-val">物抗 ${physical}% · 魔抗 ${magic}% · 效抗 ${resistances.effect}%</span>
+    </div>
+    ${buffsHtml}
+    <div class="floating-tooltip-desc">${escapeHtml(en.desc || '地下城凶險的魔物。')}</div>
+  `;
+
+  elements.floatingEnemyTooltip.classList.add('visible');
+  positionFloatingTooltip(e, elements.floatingEnemyTooltip);
+}
+
+function hideEnemyTooltip() {
+  if (elements.floatingEnemyTooltip) {
+    elements.floatingEnemyTooltip.classList.remove('visible');
+  }
+}
+
+// 神魔之塔風格敵方排佈舞台渲染
+function renderBattleEnemiesStage(enemies, monster, me) {
+  if (!elements.battleEnemiesStage) return;
+  if (!enemies || enemies.length === 0) {
+    elements.battleEnemiesStage.innerHTML = '';
+    return;
+  }
+
+  // 判定是否為 1 首領/精英 + 小怪陣容
+  const bosses = enemies.filter(e => e.isBoss || e.tier === 'ELITE' || e.tier === 'ABYSS');
+  const minions = enemies.filter(e => !bosses.includes(e));
+
+  let displayOrder = [];
+  let isOneBossMultiMinions = (bosses.length === 1 && minions.length > 0);
+
+  if (isOneBossMultiMinions) {
+    // 依神魔之塔風格配置：首領/精英放較大置中，小怪放較小置兩側
+    if (minions.length === 1) {
+      displayOrder = [minions[0], bosses[0]];
+    } else if (minions.length === 2) {
+      displayOrder = [minions[0], bosses[0], minions[1]];
+    } else {
+      const half = Math.floor(minions.length / 2);
+      displayOrder = [...minions.slice(0, half), bosses[0], ...minions.slice(half)];
+    }
+  } else {
+    // 全小怪或全 Boss 或單一目標
+    displayOrder = [...enemies];
+  }
+
+  const isUltRound = (roomState.battleRound % 3 === 0);
+
+  let html = '';
+  displayOrder.forEach((en, idx) => {
+    const eid = en.instanceId || en.id || `enemy_${idx}`;
+    const isTarget = eid === (monster?.instanceId || monster?.id) || eid === currentSelectedEnemyId;
+    const isDead = en.hp <= 0;
+    const hpPct = Math.max(0, Math.min(100, Math.round((en.hp / Math.max(1, en.maxHp)) * 100)));
+    const fillClass = hpPct < 25 ? 'hp-crit' : (hpPct < 50 ? 'hp-warn' : '');
+
+    let sizeClass = 'is-uniform-slot';
+    if (enemies.length === 1) {
+      sizeClass = 'is-single-slot';
+    } else if (isOneBossMultiMinions) {
+      sizeClass = (en === bosses[0]) ? 'is-boss-slot' : 'is-minion-slot';
+    }
+
+    const cdTurns = en.cd ?? (isUltRound ? 1 : ((3 - (roomState.battleRound % 3)) % 3 || 3));
+    const cdClass = (cdTurns === 1 || isUltRound) ? 'enemy-cd-badge ult-ready' : 'enemy-cd-badge';
+    const cdText = (cdTurns === 1 || isUltRound) ? 'CD 1 💥' : `CD ${cdTurns}`;
+
+    const avatarSrc = en.avatar || '';
+    const avatarImg = avatarSrc
+      ? `<img src="${avatarSrc}" class="enemy-sprite-img" alt="${escapeHtml(en.name)}" loading="lazy" />`
+      : `<svg class="svg-icon svg-hero-icon" style="width:60%;height:60%;"><use href="#icon-sword"></use></svg>`;
+
+    html += `
+      <div class="battle-enemy-slot ${sizeClass} ${isTarget ? 'is-target' : ''} ${isDead ? 'is-dead' : ''}"
+           data-enemy-id="${escapeHtml(eid)}"
+           role="button"
+           tabindex="${isDead ? -1 : 0}"
+           aria-label="${escapeHtml(en.name)} HP ${en.hp}/${en.maxHp}">
+        <div class="${cdClass}">${cdText}</div>
+        ${isTarget && !isDead ? '<div class="enemy-target-reticle">🎯</div>' : ''}
+        <div class="enemy-sprite-wrap">
+          <div class="enemy-pedestal"></div>
+          ${avatarImg}
+        </div>
+        <div class="tos-enemy-hp-bar">
+          <div class="tos-hp-fill ${fillClass}" style="width: ${hpPct}%;"></div>
+        </div>
+        <div class="tos-enemy-hp-text">${en.hp} / ${en.maxHp}${en.tempHp > 0 ? ` (+🛡️${en.tempHp})` : ''}</div>
+        <div class="tos-enemy-name">${escapeHtml(en.name)}</div>
+      </div>
+    `;
+  });
+
+  elements.battleEnemiesStage.innerHTML = html;
+
+  // 綁定點擊目標切換與懸浮提示面板
+  elements.battleEnemiesStage.querySelectorAll('.battle-enemy-slot').forEach(slot => {
+    const eid = slot.getAttribute('data-enemy-id');
+    const en = enemies.find(e => (e.instanceId || e.id || '') === eid);
+    if (!en) return;
+
+    slot.addEventListener('click', () => {
+      if (en.hp <= 0) return;
+      currentSelectedEnemyId = eid;
+      socket.emit('battle:select_target', { targetEnemyId: eid });
+      renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
+    });
+
+    slot.addEventListener('mouseenter', (e) => {
+      showEnemyTooltip(en, e);
+    });
+    slot.addEventListener('mousemove', (e) => {
+      positionFloatingTooltip(e, elements.floatingEnemyTooltip);
+    });
+    slot.addEventListener('mouseleave', () => {
+      hideEnemyTooltip();
+    });
+  });
+}
+
 // 4. 渲染戰鬥畫面 (P2-R1 Section 23, 24: 首領進場與回合橫幅走 Presentation Root)
 let currentSelectedEnemyId = null;
 function renderBattle(me, isLeader) {
@@ -2023,6 +2330,9 @@ function renderBattle(me, isLeader) {
   }
   const monster = enemies.find(e => (e.instanceId || e.id) === currentSelectedEnemyId) || roomState.currentMonster;
   if (!monster) return;
+
+  // 神魔之塔風格敵方戰場編隊排佈舞台與血條渲染
+  renderBattleEnemiesStage(enemies, monster, me);
 
   elements.battleFloorNum.textContent = roomState.floor;
   elements.battleRoundNum.textContent = roomState.battleRound;
@@ -4427,7 +4737,14 @@ async function playPresentationStep(step, round) {
     await sleep(400);
 
   } else if (step.type === 'kill') {
-    if(typeof bgmManager!=='undefined')void bgmManager.bossDefeated();
+    const allDead = (
+      step.hpSnapshot?.enemies?.length > 0
+        ? step.hpSnapshot.enemies.every(e => e.hp <= 0)
+        : (step.hpSnapshot?.monster ? step.hpSnapshot.monster.hp <= 0 : true)
+    );
+    if (allDead && typeof bgmManager !== 'undefined') {
+      void bgmManager.bossDefeated();
+    }
     if (step.hpSnapshot) applyHpSnapshot(step.hpSnapshot);
     await waitForPresentation(300, activeCombatContext.signal);
   }
@@ -4461,7 +4778,23 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   const controller = new AbortController();
   combatQueueController = controller;
   lastCombatPresentationId = queueKey;
-  activeCombatContext = { controller, signal: controller.signal,onTiming:beat=>{if(beat==='boss_death_start'&&typeof bgmManager!=='undefined')void bgmManager.bossDefeated();} };
+  activeCombatContext = {
+    controller,
+    signal: controller.signal,
+    monsterKilled,
+    onTiming: beat => {
+      if (beat === 'boss_death_start') {
+        const allDead = Boolean(monsterKilled) || (
+          Array.isArray(roomState?.enemies) && roomState.enemies.length > 0
+            ? roomState.enemies.every(e => e.hp <= 0)
+            : Boolean(roomState?.currentMonster && roomState.currentMonster.hp <= 0)
+        );
+        if (allDead && typeof bgmManager !== 'undefined') {
+          void bgmManager.bossDefeated();
+        }
+      }
+    }
+  };
   isProcessingPresentationQueue = true;
   isPlayingBattleNarrative = true;
   presentationManager.setBlocking(true);
@@ -5106,11 +5439,18 @@ installNarrativeControls();
 // Phase 3: 雙層背包、裝備穿戴與合成鍛造
 // ==========================================
 const CRAFTING_RECIPE_TEMPLATES = [
-  { item1: 'short_sword', item2: 'magic_crystal', result: 'rune_greatsword', name: '符文長劍', desc: '攻擊 +12，普通攻擊附帶 3 點魔法穿透' },
-  { item1: 'ruby', item2: 'regen_herb_ring', result: 'ring_of_life', name: '生命指環', desc: '最大生命 +25，每回合初回復 8 點生命' },
-  { item1: 'leather_armor', item2: 'buckler', result: 'steel_plate_armor', name: '堅韌精鋼鎧', desc: '最大生命 +35，防禦 +5' },
-  { item1: 'short_sword', item2: 'bronze_ring', result: 'assault_blade', name: '破陣鋒刃', desc: '攻擊 +10，暴擊率 +10%' },
-  { item1: 'buckler', item2: 'ruby', result: 'guardian_pendant', name: '守護者吊墜', desc: '最大生命 +25，戰鬥首回合獲得 15 點護盾' }
+  { item1: 'short_sword', item2: 'magic_crystal', result: 'rune_greatsword', name: '符文長劍', desc: '物攻 +8、魔攻 +8' },
+  { item1: 'short_sword', item2: 'bronze_ring', result: 'assault_blade', name: '破陣鋒刃', desc: '物攻 +11、最大 HP +5' },
+  { item1: 'leather_armor', item2: 'buckler', result: 'steel_plate_armor', name: '精鋼鎧', desc: '最大 HP +30、防禦 +5' },
+  { item1: 'ruby', item2: 'regen_herb_ring', result: 'ring_of_life', name: '生命指環', desc: '最大 HP +18；每回合初恢復 5 HP' },
+  { item1: 'buckler', item2: 'ruby', result: 'guardian_pendant', name: '守護者吊墜', desc: '最大 HP +20、防禦 +1；每場戰鬥開始獲得 12 護盾' },
+  { item1: 'star_staff', item2: 'starlight_earring', result: 'hymn_scepter', name: '聖歌權杖', desc: '魔攻 +9；自身受到治療量 +8%' },
+  { item1: 'hunter_bow', item2: 'hawkeye_feather', result: 'hunting_bow', name: '追獵長弓', desc: '百步穿楊神弓，物攻 +12' },
+  { item1: 'armor_cleaver', item2: 'steel_armor', result: 'siege_axe', name: '破城巨斧', desc: '物攻 +13、防禦 +2、最大 HP -10' },
+  { item1: 'forbidden_tome', item2: 'frost_ring', result: 'frost_tome', name: '霜蝕秘典', desc: '魔攻 +12、防禦 +2、最大 HP -8' },
+  { item1: 'arcane_dagger', item2: 'balance_talisman', result: 'dual_phase_dagger', name: '雙相短刃', desc: '物攻 +7、魔攻 +7、最大 HP +8' },
+  { item1: 'ragged_robe', item2: 'traveler_robe', result: 'ancient_robe', name: '古紋長袍', desc: '古老長袍，最大 HP +40' },
+  { item1: 'copper_armor', item2: 'guardian_amulet', result: 'city_guard_armor', name: '守城戰衣', desc: '最大 HP +22、防禦 +3；每場戰鬥開始獲得 12 護盾' }
 ];
 
 const SLOT_WATERMARK_SVGS = {
@@ -5192,6 +5532,23 @@ const CLASS_EXCLUSIVE_SVGS = {
 
 let selectedInvSlot = null;
 
+function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
+  if (!item) return '';
+  const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
+  if (isExclusive) {
+    const meRole = (typeof roomState !== 'undefined' && roomState?.players?.[window.currentSocketId]?.role) || (typeof me !== 'undefined' && me?.role);
+    const roleKey = item.role || meRole || 'warrior';
+    const svg = CLASS_EXCLUSIVE_SVGS[roleKey] || CLASS_EXCLUSIVE_SVGS.warrior || '';
+    return `<div class="exclusive-equip-svg-wrap ${iconClass}-svg">${svg}</div>`;
+  }
+  const imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`;
+  const fallbackEmoji = item.fallbackIcon || (item.slot === 'WEAPON' ? '⚔️' : item.slot === 'ARMOR' ? '🛡️' : '💍');
+  return `
+    <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline-block';" />
+    <span class="item-fallback-icon" style="display:none;">${fallbackEmoji}</span>
+  `;
+}
+
 function createHexBgSvg() {
   return `
     <svg class="hex-bg-svg" viewBox="0 0 100 115.47" preserveAspectRatio="none">
@@ -5206,7 +5563,9 @@ function renderHexSlotContent(item, badgeText, watermarkSvg = '') {
     ${watermarkSvg ? `<div class="equip-watermark">${watermarkSvg}</div>` : ''}
     ${item ? `
       <div class="item-layer">
-        <span class="item-layer-icon">${item.icon || '⚔️'}</span>
+        <div class="item-layer-icon-box">
+          ${renderItemIconHtml(item, 'item-equipment-img')}
+        </div>
         <span class="item-layer-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
       </div>
     ` : (badgeText ? `<span class="slot-index-badge">${badgeText}</span>` : '')}
@@ -5227,6 +5586,7 @@ function openInventoryModal() {
 
 function closeInventoryModal() {
   if (!elements.inventoryModal) return;
+  hideItemTooltip();
   playSound('click');
   if (window.ModalMotion) {
     ModalMotion.hide(elements.inventoryModal);
@@ -5237,6 +5597,234 @@ function closeInventoryModal() {
 }
 window.openInventoryModal = openInventoryModal;
 window.closeInventoryModal = closeInventoryModal;
+
+// ============================================================================
+// 背包裝備欄位判斷、懸浮提示面板與拖曳放置 (Drag and Drop)
+// ============================================================================
+const EQUIP_SLOTS = Object.freeze({
+  WEAPON: 'WEAPON',
+  ARMOR: 'ARMOR',
+  ACCESSORY: 'ACCESSORY',
+  CLASS_EXCLUSIVE: 'CLASS_EXCLUSIVE'
+});
+
+function determineEquipSlot(item) {
+  if (!item) return EQUIP_SLOTS.ACCESSORY;
+  if (item.slot && EQUIP_SLOTS[item.slot]) return item.slot;
+  if (item.tier === 'CLASS_EXCLUSIVE' || (item.role && !item.slot)) {
+    return EQUIP_SLOTS.CLASS_EXCLUSIVE;
+  }
+  if (item.bonusDef || (item.name && (item.name.includes('甲') || item.name.includes('盾') || item.name.includes('鎧')))) {
+    return EQUIP_SLOTS.ARMOR;
+  }
+  if (item.bonusAtk && !item.bonusDef && !item.regenPerRound && !item.battleStartShield) {
+    return EQUIP_SLOTS.WEAPON;
+  }
+  return EQUIP_SLOTS.ACCESSORY;
+}
+
+let draggedInventorySlot = null;
+
+function showItemTooltip(item, e, isShop = false) {
+  if (!elements.floatingItemTooltip || !item) return;
+
+  const slotType = determineEquipSlot(item);
+  const slotLabels = {
+    WEAPON: '武器',
+    ARMOR: '裝備(防具)',
+    ACCESSORY: '飾品',
+    CLASS_EXCLUSIVE: item.role ? `專屬(${item.role})` : '職業專屬'
+  };
+  const slotLabel = slotLabels[slotType] || '道具';
+
+  const stats = [];
+  if (item.bonusAtk) stats.push(`攻擊力 +${item.bonusAtk}`);
+  if (item.bonusDef) stats.push(`防禦力 +${item.bonusDef}`);
+  if (item.bonusPhysAtk) stats.push(`物攻 +${item.bonusPhysAtk}`);
+  if (item.bonusMagAtk) stats.push(`魔攻 +${item.bonusMagAtk}`);
+  if (item.bonusHp) stats.push(`生命上限 +${item.bonusHp}`);
+  if (item.regenPerRound) stats.push(`每回合回血 +${item.regenPerRound}`);
+  if (item.battleStartShield) stats.push(`開場護盾 +${item.battleStartShield}`);
+  if (item.bonusCrit) stats.push(`暴擊率 +${Math.round(item.bonusCrit * 100)}%`);
+
+  let statsHtml = '';
+  if (stats.length > 0) {
+    statsHtml = `<div class="floating-tooltip-row"><span class="floating-tooltip-label">裝備加成</span><span class="floating-tooltip-val" style="color:#38bdf8;">${stats.join(' · ')}</span></div>`;
+  }
+
+  const iconHtml = renderItemIconHtml(item, 'tooltip-item-icon');
+
+  elements.floatingItemTooltip.innerHTML = `
+    <div class="floating-tooltip-title-row">
+      <div style="display:flex;align-items:center;gap:6px;">
+        ${iconHtml}
+        <span class="floating-tooltip-name">${escapeHtml(item.name)}</span>
+      </div>
+      <span class="floating-tooltip-badge">${slotLabel}</span>
+    </div>
+    ${statsHtml}
+    <div class="floating-tooltip-desc">${escapeHtml(item.desc || item.statDesc || '無特殊說明')}</div>
+    <div style="margin-top:6px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
+      ${isShop ? (item.price ? `🪙 售價: ${item.price} 金幣 · 點擊購買直接放入小隊背包` : '💡 滑鼠懸浮檢視裝備屬性') : `💡 可拖曳調整位置，或拖曳至【${slotLabel}】欄位穿戴`}
+    </div>
+  `;
+
+  elements.floatingItemTooltip.classList.add('visible');
+  positionFloatingTooltip(e, elements.floatingItemTooltip);
+}
+
+function hideItemTooltip() {
+  if (elements.floatingItemTooltip) {
+    elements.floatingItemTooltip.classList.remove('visible');
+  }
+}
+
+function handleInventoryDrop(source, target) {
+  if (!source || !target) return;
+  if (!source.item) return;
+
+  // Case 1: 拖曳至裝備欄 (EQUIP) - 嚴格限制欄位
+  if (target.area === 'EQUIP') {
+    const requiredSlot = determineEquipSlot(source.item);
+    if (requiredSlot !== target.key) {
+      const slotLabels = {
+        WEAPON: '武器',
+        ARMOR: '裝備(防具)',
+        ACCESSORY: '飾品',
+        CLASS_EXCLUSIVE: '職業專屬'
+      };
+      const reqName = slotLabels[requiredSlot] || requiredSlot;
+      const targetName = slotLabels[target.key] || target.key;
+      alert(`裝備欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。`);
+      return;
+    }
+    if (target.key === 'CLASS_EXCLUSIVE' && source.item.role && me?.role && source.item.role !== me.role) {
+      alert(`此裝備為【${source.item.role}】專屬裝備，非本職業（${me.role}）無法穿戴！`);
+      return;
+    }
+
+    if (source.area === 'PERSONAL') {
+      socket.emit('inventory:equip_from_bag', { bagIndex: source.index, preferredSlot: target.key }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    } else if (source.area === 'SQUAD') {
+      socket.emit('inventory:equip_from_squad', { squadIndex: source.index, preferredSlot: target.key }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    }
+    return;
+  }
+
+  // Case 2: 拖曳至個人背包 (PERSONAL)
+  if (target.area === 'PERSONAL') {
+    if (source.area === 'PERSONAL') {
+      if (source.index === target.index) return;
+      socket.emit('inventory:swap_slots', {
+        fromArea: 'PERSONAL',
+        fromIndex: source.index,
+        toArea: 'PERSONAL',
+        toIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    } else if (source.area === 'SQUAD') {
+      socket.emit('inventory:swap_slots', {
+        fromArea: 'SQUAD',
+        fromIndex: source.index,
+        toArea: 'PERSONAL',
+        toIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    } else if (source.area === 'EQUIP') {
+      socket.emit('inventory:unequip_to_bag', {
+        slotKey: source.key,
+        targetBagIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    }
+    return;
+  }
+
+  // Case 3: 拖曳至小隊背包 (SQUAD)
+  if (target.area === 'SQUAD') {
+    if (source.area === 'SQUAD') {
+      if (source.index === target.index) return;
+      socket.emit('inventory:swap_slots', {
+        fromArea: 'SQUAD',
+        fromIndex: source.index,
+        toArea: 'SQUAD',
+        toIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    } else if (source.area === 'PERSONAL') {
+      socket.emit('inventory:swap_slots', {
+        fromArea: 'PERSONAL',
+        fromIndex: source.index,
+        toArea: 'SQUAD',
+        toIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    } else if (source.area === 'EQUIP') {
+      socket.emit('inventory:unequip_to_squad', {
+        slotKey: source.key,
+        targetSquadIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+    }
+    return;
+  }
+}
+
+function attachSlotDragAndTooltip(slot, area, idx, key, item) {
+  // 懸浮提示面板與拖曳起點
+  if (item) {
+    slot.addEventListener('mouseenter', (e) => showItemTooltip(item, e));
+    slot.addEventListener('mousemove', (e) => positionFloatingTooltip(e, elements.floatingItemTooltip));
+    slot.addEventListener('mouseleave', () => hideItemTooltip());
+
+    slot.setAttribute('draggable', 'true');
+    slot.addEventListener('dragstart', (e) => {
+      draggedInventorySlot = { area, index: idx, key, item };
+      slot.classList.add('is-dragging');
+      hideItemTooltip();
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', JSON.stringify({ area, index: idx, key }));
+    });
+    slot.addEventListener('dragend', () => {
+      slot.classList.remove('is-dragging');
+      draggedInventorySlot = null;
+      document.querySelectorAll('.hex-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+  }
+
+  // 拖曳放置目標
+  slot.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+  slot.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    slot.classList.add('drag-over');
+  });
+  slot.addEventListener('dragleave', (e) => {
+    if (!slot.contains(e.relatedTarget)) {
+      slot.classList.remove('drag-over');
+    }
+  });
+  slot.addEventListener('drop', (e) => {
+    e.preventDefault();
+    slot.classList.remove('drag-over');
+    if (!draggedInventorySlot) return;
+    const source = draggedInventorySlot;
+    draggedInventorySlot = null;
+    handleInventoryDrop(source, { area, index: idx, key });
+  });
+}
 
 function renderInventoryModal() {
   if (!elements.inventoryModal) return;
@@ -5294,8 +5882,10 @@ function renderInventoryModal() {
     }
     elements.squadGrid.innerHTML = squadHtml;
     elements.squadGrid.querySelectorAll('.hex-slot').forEach(slot => {
+      const idx = Number(slot.dataset.idx);
+      const item = squad[idx];
+      attachSlotDragAndTooltip(slot, 'SQUAD', idx, null, item);
       slot.onclick = () => {
-        const idx = Number(slot.dataset.idx);
         selectedInvSlot = { area: 'SQUAD', index: idx, item: squad[idx] };
         renderInventoryModal();
       };
@@ -5324,9 +5914,12 @@ function renderInventoryModal() {
     });
     elements.equippedSlotsGrid.innerHTML = equipHtml;
     elements.equippedSlotsGrid.querySelectorAll('.hex-slot').forEach(slot => {
+      const key = slot.dataset.key;
+      const idx = Number(slot.dataset.idx);
+      const item = me?.equipSlots?.[key];
+      attachSlotDragAndTooltip(slot, 'EQUIP', idx, key, item);
       slot.onclick = () => {
-        const key = slot.dataset.key;
-        selectedInvSlot = { area: 'EQUIP', key, index: Number(slot.dataset.idx), item: me?.equipSlots?.[key] };
+        selectedInvSlot = { area: 'EQUIP', key, index: idx, item: me?.equipSlots?.[key] };
         renderInventoryModal();
       };
     });
@@ -5355,8 +5948,10 @@ function renderInventoryModal() {
     }
     elements.personalBagGrid.innerHTML = bagHtml;
     elements.personalBagGrid.querySelectorAll('.hex-slot').forEach(slot => {
+      const idx = Number(slot.dataset.idx);
+      const item = bag[idx];
+      attachSlotDragAndTooltip(slot, 'PERSONAL', idx, null, item);
       slot.onclick = () => {
-        const idx = Number(slot.dataset.idx);
         selectedInvSlot = { area: 'PERSONAL', index: idx, item: bag[idx] };
         renderInventoryModal();
       };
@@ -5476,18 +6071,29 @@ function renderInteractiveEvent(ev) {
     elements.eventStoryText.textContent = ev.story || '';
 
     const currentGold = roomState.gold || 0;
-    const itemsHtml = (ev.items || []).map((item, idx) => `
-      <div class="shop-item-card">
-        <div class="shop-item-title-row">
-          <span class="shop-item-name">【${escapeHtml(item.name)}】</span>
-          <span class="shop-item-cost">🪙 ${item.price}G</span>
+    const itemsHtml = (ev.items || []).map((item, idx) => {
+      const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
+      const iconHtml = renderItemIconHtml(item, 'shop-item-icon');
+      const tagLabel = isExclusive ? `專屬(${item.role || '職業'})` : (item.tier === 2 ? 'T2 通用' : 'T1 通用');
+      return `
+      <div class="shop-item-card" data-index="${idx}">
+        <div class="shop-item-icon-wrap">
+          ${iconHtml}
         </div>
-        <div class="shop-item-desc">${escapeHtml(item.desc || '')}</div>
+        <div class="shop-item-info">
+          <div class="shop-item-title-row">
+            <span class="shop-item-name">【${escapeHtml(item.name)}】</span>
+            <span class="shop-item-tag ${isExclusive ? 'tag-exclusive' : 'tag-general'}">${tagLabel}</span>
+          </div>
+          <div class="shop-item-cost">🪙 ${item.price}G</div>
+          <div class="shop-item-desc">${escapeHtml(item.desc || '')}</div>
+        </div>
         <button type="button" class="btn-shop-buy" data-index="${idx}" ${currentGold < item.price ? 'disabled' : ''}>
           購買 (${item.price}G)
         </button>
       </div>
-    `).join('');
+      `;
+    }).join('');
 
     elements.eventDetails.innerHTML = `
       <div class="shop-container">
@@ -5503,8 +6109,21 @@ function renderInteractiveEvent(ev) {
       </div>
     `;
 
+    // 綁定 Hover 顯示浮動提示面板
+    elements.eventDetails.querySelectorAll('.shop-item-card').forEach(card => {
+      const idx = Number(card.dataset.index);
+      const item = ev.items?.[idx];
+      if (item) {
+        card.addEventListener('mouseenter', (e) => showItemTooltip(item, e, true));
+        card.addEventListener('mousemove', (e) => positionFloatingTooltip(e, elements.floatingItemTooltip));
+        card.addEventListener('mouseleave', () => hideItemTooltip());
+      }
+    });
+
     elements.eventDetails.querySelectorAll('.btn-shop-buy').forEach(b => {
-      b.onclick = () => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        hideItemTooltip();
         const itemIndex = Number(b.dataset.index);
         socket.emit('event:shop_action', { action: 'buy', itemIndex });
       };
@@ -5709,3 +6328,12 @@ elements.btnToggleCraftingPanel?.addEventListener('click', () => {
   }
 });
 
+window.addEventListener('scroll', () => {
+  if (typeof hideEnemyTooltip === 'function') hideEnemyTooltip();
+  if (typeof hideItemTooltip === 'function') hideItemTooltip();
+}, { passive: true });
+
+window.addEventListener('resize', () => {
+  if (typeof hideEnemyTooltip === 'function') hideEnemyTooltip();
+  if (typeof hideItemTooltip === 'function') hideItemTooltip();
+}, { passive: true });

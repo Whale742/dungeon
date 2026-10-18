@@ -1153,7 +1153,7 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
     return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然夥伴' };
   }
   if (descriptor.entityType === 'monster') {
-    const fallback = descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp';
+    const fallback = descriptor.avatar || '/BOSS/Ancient Guardian Golem_fullbody.webp';
     const bossKey = descriptor.name ? 'boss.' + descriptor.name + '.avatar' : null;
     let src = fallback;
     if (typeof window !== 'undefined' && window.assetRegistry) {

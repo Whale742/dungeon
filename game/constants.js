@@ -75,7 +75,7 @@ export const CLASSES = {
     desc: '【生命 70】神秘調和者。\n被動【異常調和】：\n・腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半（持續 1 回合）。\n・中毒：每回合開始時造成 8 點傷害，持續 2 回合（重複釋放可疊加）。\n・燃燒：每回合開始時造成 10 點傷害，持續 1 回合（重複釋放可疊加）。\n・骨折：每回合開始時造成 5 點傷害，持續 3 回合（重複釋放可疊加）。\n・寒冷：每回合開始時造成 6 點傷害，持續 2 回合（重複釋放可疊加）。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'mag', tags: ['魔法', '單體', '腐蝕'], desc: '造成 10 點傷害，有 70% 機率造成腐蝕效果持續一回合，當觸發腐蝕效果時，有 35% 機率使我方全體也觸發腐蝕效果。' },
-      { id: 'alc_flask', label: '1 技能: 不穩定試劑瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '持續傷害', '隨機'], desc: '造成 15 點傷害，並對敵方造成 4 種持續傷害其中一種：中毒、燃燒、骨折、寒冷（重複釋放可疊加）。有 40% 機率對我方全體同步造成此次效果。' },
+      { id: 'alc_flask', label: '1 技能: 不穩定試劑瓶', cd: 0, dmgType: 'mag', tags: ['魔法', '群體', '持續傷害', '隨機'], desc: '造成 15 點傷害並波及其他敵方（非主目標承受 50% 傷害），並對主目標造成 4 種持續傷害其中一種：中毒、燃燒、骨折、寒冷（重複釋放可疊加）。有 40% 機率對我方全體同步造成此次效果。' },
       { id: 'alc_fate', label: '2 技能: 命運煉成試劑', cd: 2, tags: ['淨化', '治療', '全體', '高風險'], desc: '立即驅散全隊所有負面狀態。可能煉金大成功或煉金失敗。' }
     ]
   },
@@ -112,7 +112,14 @@ export const CLASSES = {
   ...NEW_CLASSES
 };
 
-// 完整重構裝備池 (共 19 種專屬裝備)
+export const EQUIP_SLOTS = Object.freeze({
+  WEAPON: 'WEAPON',
+  ARMOR: 'ARMOR',
+  ACCESSORY: 'ACCESSORY',
+  CLASS_EXCLUSIVE: 'CLASS_EXCLUSIVE'
+});
+
+// 完整重構裝備池 (15 職業專屬裝備池)
 export const LOOT_TABLE = [
   ...NEW_LOOT,
   // 戰士 (Warrior)
@@ -120,22 +127,37 @@ export const LOOT_TABLE = [
     id: 'w_sword',
     role: 'warrior',
     name: '鋼鐵聖劍',
-    bonusAtk: 5,
-    desc: '攻擊傷害 +5'
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
+    bonusAtk: 10,
+    desc: '被動：當全體玩家未持有護盾時，自身攻擊力＋10點，直到獲得護盾時解除此效果。'
+  },
+  {
+    id: 'w_thorn_shield',
+    role: 'warrior',
+    name: '荊棘重盾',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
+    desc: '被動：當自身護盾被擊破時，會獲得一次反傷，反傷倍率等同於受到傷害的100%，冷卻三回合。'
   },
   {
     id: 'w_armor',
     role: 'warrior',
     name: '荊棘重鎧',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: 30,
     bonusAtk: -5,
-    desc: '最大生命 +30，但造成的傷害 -5'
+    desc: '最大生命 +30，但造成的傷害 -5。'
   },
   {
     id: 'w_greatsword',
     role: 'warrior',
     name: '雙手劍',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
+    unique: true,
     desc: '原本2技能護盾失效，替換為攻擊技能【狂怒重劈】；1技能與2技能基礎傷害分別提升為 25 與 40。不受效果減半影響，不可重複穿戴'
   },
 
@@ -144,20 +166,26 @@ export const LOOT_TABLE = [
     id: 'm_wand',
     role: 'mage',
     name: '虛空魔杖',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 15,
-    desc: '法師攻擊傷害 +15'
+    desc: '被動：每回合攻擊敵方時，都會降低受到傷害的敵方2%魔法抗性（最低降至0%）。法師攻擊傷害 +15。'
   },
   {
     id: 'm_amulet',
     role: 'mage',
     name: '大魔導護符',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: 20,
-    desc: '法師最大生命值 +20'
+    desc: '被動：每回合隨機 +1~10 魔法攻擊力，僅當回合生效。法師最大生命值 +20。'
   },
   {
     id: 'm_robe',
     role: 'mage',
     name: '嗜血法袍',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: -20,
     bonusAtk: 20,
     isSpecial: true,
@@ -169,20 +197,26 @@ export const LOOT_TABLE = [
     id: 'a_bow',
     role: 'archer',
     name: '破甲獵弓',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 12,
-    desc: '弓箭手攻擊傷害 +12'
+    desc: '被動：每命中一次敵方時，都會降低受到傷害的敵方1%物理抗性（最低降至0%）。弓箭手攻擊傷害 +12。'
   },
   {
     id: 'a_cloak',
     role: 'archer',
     name: '靈巧披風',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: 20,
-    desc: '弓箭手最大生命值 +20'
+    desc: '被動：使閃避率提高10%，每次攻擊多增加一段傷害。弓箭手最大生命值 +20。'
   },
   {
     id: 'a_archangel_bow',
     role: 'archer',
     name: '大天使重弓',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 20,
     dodgePenalty: 0.20,
     desc: '攻擊傷害 +20，但閃避機率降低 20%'
@@ -191,7 +225,10 @@ export const LOOT_TABLE = [
     id: 'a_crossbow',
     role: 'archer',
     name: '改良型重弩',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
+    unique: true,
     desc: '裝備後原有技能失效，替換為【戰術上膛】與【極速狂熱裝填】。裝填時獲得【架弩蹲伏】（減傷 20% 但無法閃避）；普通攻擊消耗彈匣弩箭齊射（穿甲物理／元素魔法／爆裂等量自傷）。不可重複穿戴'
   },
 
@@ -200,17 +237,29 @@ export const LOOT_TABLE = [
     id: 's_blade',
     role: 'assassin',
     name: '染毒刺刃',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusAtk: -10,
     bonusCrit: 0.30,
-    desc: '基礎傷害 -10；暴擊率 +30%（不可疊加）；第 2／3 把分別將追擊上限提高至 3／4 次'
+    desc: '被動：暴擊率 +30%（不可疊加）；第 2／3 把分別將追擊上限提高至 3／4 次。基礎傷害 -10。'
   },
   {
     id: 's_armor',
     role: 'assassin',
     name: '暗影皮甲',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: -10,
     bonusAtk: 10,
-    desc: '傷害 +10，最大生命 -10'
+    desc: '被動：有50%機率不會失去匿蹤，傷害 +10，最大生命 -10。'
+  },
+  {
+    id: 's_boots',
+    role: 'assassin',
+    name: '赫米斯之靴',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
+    desc: '被動：當刺客施放1技能時，有30%機率多造成一次傷害。（第二次傷害暴擊可獲得匿蹤，但是造成傷害為原傷害50%）。'
   },
 
   // 吟遊詩人 (Bard)
@@ -218,23 +267,30 @@ export const LOOT_TABLE = [
     id: 'b_harp',
     role: 'bard',
     name: '精靈木豎琴',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
-    desc: '1技能與2技能的效果數值皆提升 10%'
+    desc: '被動：施放2技能時，全隊獲得20%減傷，持續兩回合。1技能與2技能的效果數值皆提升 10%。'
   },
   {
     id: 'b_robe',
     role: 'bard',
     name: '祝福絲綢袍',
-    bonusHp: 15,
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
+    bonusHp: 10,
     isSpecial: true,
-    desc: '最大生命 +15。每回合初自動為全隊當前生命最低的隊友補血，補血量為詩人最大生命值的 5%'
+    desc: '被動：HP +10。每回合初自動為全隊當前生命最低的隊友補血，補血量為詩人HP的 5%。'
   },
   {
     id: 'b_violin',
     role: 'bard',
-    name: '精靈木提琴',
+    name: '妖精木提琴',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 10,
     isSpecial: true,
+    unique: true,
     desc: '攻擊傷害 +10。原本1、2技能失效，1技能替換為【催眠夜曲】(15傷害+30%機率使敵方本回合無法行動)；2技能替換為【狂亂殺戮曲】(20傷害，我方全體下回合扣20%最大生命，但全隊傷害提升70%)。不受效果減半影響，不可重複穿戴'
   },
 
@@ -243,22 +299,28 @@ export const LOOT_TABLE = [
     id: 'alc_flask',
     role: 'alchemist',
     name: '賢者燒瓶',
-    bonusAtk: 12,
-    desc: '藥劑傷害 +12'
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
+    bonusAtk: 15,
+    desc: '被動：攻擊力 +15，造成的DoT傷害降低25%，但持續回合延長一回合。'
   },
   {
     id: 'alc_robe',
     role: 'alchemist',
     name: '防護生化袍',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: 20,
-    desc: '最大生命 +20'
+    desc: '被動：使因為普攻和1技能造成我方全體的 DoT 傷害降低 50%。最大生命 +20。'
   },
   {
     id: 'alc_burette',
     role: 'alchemist',
     name: '精密滴管',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
-    desc: '使因為普攻和1技能造成我方全體的 DoT 傷害降低 50%'
+    desc: '被動：2技能的失敗機率降低15%，大成功補血倍率變成15+300% A。'
   },
 
   // 德魯伊 (Druid)
@@ -266,15 +328,27 @@ export const LOOT_TABLE = [
     id: 'dru_amulet',
     role: 'druid',
     name: '荒野守護符',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     bonusHp: 30,
-    desc: '德魯伊最大生命值 +30'
+    desc: '被動：有10%機率再多召喚一隻夥伴。德魯伊最大生命值 +30。'
   },
   {
     id: 'dru_resonance',
     role: 'druid',
     name: '自然共鳴',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
-    desc: '小樹精最大生命 +5；幼狼造成傷害 +2'
+    desc: '被動：小樹精最大生命 +15；幼狼造成傷害 +7。'
+  },
+  {
+    id: 'dru_beast',
+    role: 'druid',
+    name: '野獸招喚',
+    slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
+    tier: 'CLASS_EXCLUSIVE',
+    desc: '被動：1技能變身多增加“巨熊”，機率為各1/3。巨熊血量與攻擊力為：10+100%A 攻擊力，增加200%D的血量，退出狀態後恢復。'
   }
 ];
 
@@ -282,7 +356,7 @@ export const LOOT_TABLE = [
 export const ENCOUNTERS = [
   { 
     name: '地底熔岩巨像', 
-    avatar: '/BOSS/Lava Colossus.webp',
+    avatar: '/BOSS/Lava Colossus_fullbody.webp',
     hp: 100, 
     desc: '巨石與高溫熔岩構成的巨像，岩石外殼極為厚重！', 
     attack: 10,
@@ -291,7 +365,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '暗影魔狼族長', 
-    avatar: '/BOSS/Shadow Wolf Alpha.webp',
+    avatar: '/BOSS/Shadow Wolf Alpha_fullbody.webp',
     hp: 70, 
     desc: '動作敏捷的狼王，周身幽暗的暗影能量流動！', 
     attack: 5,
@@ -300,7 +374,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '古代守護魔偶', 
-    avatar: '/BOSS/Ancient Guardian Golem.webp',
+    avatar: '/BOSS/Ancient Guardian Golem_fullbody.webp',
     hp: 120, 
     desc: '古代鋼鐵魔偶的意志堅不可摧，擅長抵禦負面狀態！',
     attack: 15,
@@ -309,7 +383,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '赤月嗜血巫師', 
-    avatar: '/BOSS/Blood Moon Sorcerer.webp',
+    avatar: '/BOSS/Blood Moon Sorcerer_fullbody.webp',
     hp: 100, 
     desc: '赤月能量構築出強大的魔法護盾！', 
     attack: 15,
@@ -318,7 +392,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '深淵腐蝕巨蟒', 
-    avatar: '/BOSS/Abyssal Corrosive Serpent.webp',
+    avatar: '/BOSS/Abyssal Corrosive Serpent_fullbody.webp',
     hp: 110, 
     desc: '毒沼中的巨蟒，體表黏液對元素魔法有極高抗性！', 
     attack: 12,
@@ -327,7 +401,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '霜骨亡靈騎士', 
-    avatar: '/BOSS/Frostbone Death Knight.webp',
+    avatar: '/BOSS/Frostbone Death Knight_fullbody.webp',
     hp: 120, 
     desc: '古老亡靈騎兵的寒霜魔力能抵禦法術與負面狀態！',
     attack: 14,
@@ -336,7 +410,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '迷宮食腐暴食魔', 
-    avatar: '/BOSS/Labyrinth Glutton Demon.webp',
+    avatar: '/BOSS/Labyrinth Glutton Demon_fullbody.webp',
     hp: 160, 
     desc: '體型龐大且長滿利齒的惡臭憎惡，飢渴地撲向生者！', 
     attack: 8,
@@ -345,7 +419,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '幻惑幽魂歌姬', 
-    avatar: '/BOSS/Spectral Banshee.webp',
+    avatar: '/BOSS/Spectral Banshee_fullbody.webp',
     hp: 80, 
     desc: '純粹的精神虛無體，尋常物理攻擊難以觸及！',
     attack: 16,
@@ -354,7 +428,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '結晶守護巨蠍', 
-    avatar: '/BOSS/Crystal Guardian Scorpion.webp',
+    avatar: '/BOSS/Crystal Guardian Scorpion_fullbody.webp',
     hp: 115, 
     desc: '紫晶甲殼堅不可摧，擅長彈開物理兵刃！', 
     attack: 13,
@@ -363,7 +437,7 @@ export const ENCOUNTERS = [
   },
   { 
     name: '煉獄炎獄行者', 
-    avatar: '/BOSS/Infernal Hellstrider Demon.webp',
+    avatar: '/BOSS/Infernal Hellstrider Demon_fullbody.webp',
     hp: 145, 
     desc: '自地心火海中爬出的惡魔，氣息粗暴凶悍！', 
     attack: 13,
@@ -747,6 +821,8 @@ export function applyEquipStats(player, item) {
   if (!player || !item) return;
   player.statsVersion = 2;
   if (item.bonusAtk) player.bonusAtk = (player.bonusAtk || 0) + item.bonusAtk;
+  if (item.bonusPhysAtk) player.bonusPhysAtk = (player.bonusPhysAtk || 0) + item.bonusPhysAtk;
+  if (item.bonusMagAtk) player.bonusMagAtk = (player.bonusMagAtk || 0) + item.bonusMagAtk;
   if (item.bonusHp) {
     player.maxHp += item.bonusHp;
     if (item.bonusHp > 0) {
@@ -766,6 +842,8 @@ export function applyEquipStats(player, item) {
 export function removeEquipStats(player, item) {
   if (!player || !item) return;
   if (item.bonusAtk) player.bonusAtk = (player.bonusAtk || 0) - item.bonusAtk;
+  if (item.bonusPhysAtk) player.bonusPhysAtk = (player.bonusPhysAtk || 0) - item.bonusPhysAtk;
+  if (item.bonusMagAtk) player.bonusMagAtk = (player.bonusMagAtk || 0) - item.bonusMagAtk;
   if (item.bonusHp) {
     player.maxHp -= item.bonusHp;
     player.hp = Math.min(player.hp, player.maxHp);
@@ -781,10 +859,10 @@ export function removeEquipStats(player, item) {
 export function canPlayerEquipItem(player, drop, replaceIndex = -1) {
   if (!player || !drop) return false;
   const uniqueEquipIds = ['w_greatsword', 'b_violin', 'a_crossbow'];
-  const uniqueEquipNames = ['雙手劍', '精靈木提琴', '改良型重弩'];
+  const uniqueEquipNames = ['雙手劍', '精靈木提琴', '妖精木提琴', '改良型重弩'];
   const isUnique = drop.unique || uniqueEquipIds.includes(drop.id) || uniqueEquipNames.includes(drop.name);
   if (isUnique) {
-  const equips = player.equips || [];
+    const equips = player.equips || [];
     const existingIndex = equips.findIndex(e => e.id === drop.id || e.name === drop.name);
     if (existingIndex !== -1 && existingIndex !== replaceIndex) {
       return false; // 已穿戴且不是替換同一格，禁止重複穿戴
@@ -1300,7 +1378,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'lava_larva',
     bossName: '地底熔岩巨像',
     name: '爆裂熔岩幼體',
-    avatar: '/MONSTER/Lava Larva.webp',
+    avatar: '/BOSS/爆裂熔岩幼體.webp',
     hp: 30,
     desc: '熔岩巨像崩落碎片孕育出的火元素生物，死亡時會引發自爆。',
     attack: 4,
@@ -1312,7 +1390,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'shadow_wolf_pup',
     bossName: '暗影魔狼族長',
     name: '暗影疾行幼狼',
-    avatar: '/MONSTER/Shadow Wolf Pup.webp',
+    avatar: '/BOSS/暗影疾行幼狼.webp',
     hp: 24,
     desc: '穿梭於陰影中的敏捷狼崽，擅長群體包抄擾亂目標。',
     attack: 5,
@@ -1324,7 +1402,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'ancient_repair_drone',
     bossName: '古代守護魔偶',
     name: '古代維修浮游機',
-    avatar: '/MONSTER/Ancient Repair Drone.webp',
+    avatar: '/BOSS/古代維修浮游機.webp',
     hp: 35,
     desc: '古代遺跡的自主修復裝置，會持續為主要魔偶輸送護盾與能量。',
     attack: 3,
@@ -1336,7 +1414,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'blood_moon_acolyte',
     bossName: '赤月嗜血巫師',
     name: '赤月狂熱侍僧',
-    avatar: '/MONSTER/Blood Moon Acolyte.webp',
+    avatar: '/BOSS/赤月狂熱侍僧.webp',
     hp: 28,
     desc: '沉溺於赤月詛咒的教徒，願意獻祭自身的生命強化主祭的咒語。',
     attack: 6,
@@ -1348,7 +1426,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'corrosive_slime',
     bossName: '深淵腐蝕巨蟒',
     name: '酸蝕劇毒泥怪',
-    avatar: '/MONSTER/Corrosive Slime.webp',
+    avatar: '/BOSS/酸蝕劇毒泥怪.webp',
     hp: 38,
     desc: '巨蟒腹部蛻下的腐蝕黏液化成的軟泥怪，能溶解玩家的防禦護甲。',
     attack: 3,
@@ -1360,7 +1438,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'frostbone_skeleton',
     bossName: '霜骨亡靈騎士',
     name: '霜髓殘破骷髏兵',
-    avatar: '/MONSTER/Frostbone Skeleton.webp',
+    avatar: '/BOSS/霜髓殘破骷髏兵.webp',
     hp: 32,
     desc: '伴隨騎士一同長眠的步兵枯骨，手中的鏽蝕長矛附帶刺骨嚴寒。',
     attack: 4,
@@ -1372,7 +1450,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'carrion_crawler',
     bossName: '迷宮食腐暴食魔',
     name: '寄生腐肉爬行者',
-    avatar: '/MONSTER/Carrion Crawler.webp',
+    avatar: '/BOSS/寄生腐肉爬行者.webp',
     hp: 42,
     desc: '寄生於暴食魔爛肉皺褶中的多足蟲，以腐爛血肉為食，生命力頑強。',
     attack: 3,
@@ -1384,7 +1462,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'whispering_apparition',
     bossName: '幻惑幽魂歌姬',
     name: '低語迷失怨魂',
-    avatar: '/MONSTER/Whispering Apparition.webp',
+    avatar: '/BOSS/迷失怨魂.webp',
     hp: 22,
     desc: '無實體的游離幽魂，透過哀怨的尖叫削弱敵人的精神抗性。',
     attack: 7,
@@ -1396,7 +1474,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'crystal_beetle',
     bossName: '結晶守護巨蠍',
     name: '共鳴紫晶甲蟲',
-    avatar: '/MONSTER/Crystal Beetle.webp',
+    avatar: '/BOSS/紫晶甲蟲.webp',
     hp: 36,
     desc: '甲殼覆蓋結晶碎屑的小型甲蟲，能與巨蠍的晶甲產生共鳴屏障。',
     attack: 4,
@@ -1408,7 +1486,7 @@ export const EXCLUSIVE_MINIONS = [
     id: 'hellfire_imp',
     bossName: '煉獄炎獄行者',
     name: '焦灼地獄小鬼',
-    avatar: '/MONSTER/Hellfire Imp.webp',
+    avatar: '/BOSS/地獄小鬼.webp',
     hp: 26,
     desc: '狡黠的地獄下級僕從，喜歡在戰場邊緣投擲火球製造混亂。',
     attack: 6,
@@ -1422,7 +1500,7 @@ export const GENERAL_MINIONS = [
   {
     id: 'gel_slime',
     name: '迷途凝膠史萊姆',
-    avatar: '/MONSTER/Gel Slime.webp',
+    avatar: '/BOSS/史萊姆.webp',
     hp: 35,
     desc: '地下城最常見的膠狀生物，體質具彈性，能吸收各類衝擊。',
     attack: 3,
@@ -1432,7 +1510,7 @@ export const GENERAL_MINIONS = [
   {
     id: 'cave_goblin_rogue',
     name: '洞窟暗刃哥布林',
-    avatar: '/MONSTER/Cave Goblin Rogue.webp',
+    avatar: '/BOSS/哥布林.webp',
     hp: 25,
     desc: '手持粗糙匕首的哥布林斥候，偏好偷襲落單冒險者的弱點。',
     attack: 6,
@@ -1442,7 +1520,7 @@ export const GENERAL_MINIONS = [
   {
     id: 'labyrinth_crossbowman',
     name: '流浪迷宮弩手',
-    avatar: '/MONSTER/Labyrinth Crossbowman.webp',
+    avatar: '/BOSS/流浪迷宮弩手.webp',
     hp: 28,
     desc: '在迷宮中迷失理智的冒險者亡骸，盲目地向視野內一切生靈射擊。',
     attack: 5,
@@ -1456,7 +1534,7 @@ export const ABYSS_MINIONS = [
   {
     id: 'abyss_remnant',
     name: '深淵執念殘響',
-    avatar: '/MONSTER/Whispering Apparition.webp',
+    avatar: '/BOSS/迷失怨魂.webp',
     hp: 34,
     desc: '由未被選擇者的遺恨凝聚而成的深淵隨從，撕扯生者的靈魂。',
     attack: 5,
@@ -1467,7 +1545,7 @@ export const ABYSS_MINIONS = [
   {
     id: 'abyss_watcher',
     name: '深淵侵蝕凝視者',
-    avatar: '/MONSTER/Corrosive Slime.webp',
+    avatar: '/BOSS/酸蝕劇毒泥怪.webp',
     hp: 36,
     desc: '寄生於深淵裂隙的暗影眷屬，為深淵化的宿主提供掩護。',
     attack: 4,
@@ -1482,7 +1560,7 @@ export const SPECIAL_ELITES = {
   shady_merchant: {
     id: 'shady_merchant',
     name: '深淵黑市奸商・格里德',
-    avatar: '/BOSS/Blood Moon Sorcerer.webp',
+    avatar: '/BOSS/Blood Moon Sorcerer_fullbody.webp',
     hp: 110,
     desc: '撕下偽善面具的黑市商人，揮舞著鑲滿假寶石的沉重金庫法杖！',
     attack: 14,
@@ -1494,7 +1572,7 @@ export const SPECIAL_ELITES = {
   treasure_mimic: {
     id: 'treasure_mimic',
     name: '貪婪噬魂寶箱怪',
-    avatar: '/BOSS/Labyrinth Glutton Demon.webp',
+    avatar: '/BOSS/Labyrinth Glutton Demon_fullbody.webp',
     hp: 125,
     desc: '偽裝成華麗秘銀寶箱的擬態魔物，箱蓋張開時露出密密麻麻的利齒與血紅長舌！',
     attack: 15,
@@ -1828,13 +1906,6 @@ export function getExclusiveMinionForBoss(bossName) {
 // Module 3：雙層背包、裝備欄位與合成系統
 // ==========================================
 
-export const EQUIP_SLOTS = Object.freeze({
-  WEAPON: 'WEAPON',
-  ARMOR: 'ARMOR',
-  ACCESSORY: 'ACCESSORY',
-  CLASS_EXCLUSIVE: 'CLASS_EXCLUSIVE'
-});
-
 export function determineEquipSlot(item) {
   if (!item) return EQUIP_SLOTS.ACCESSORY;
   if (item.slot && EQUIP_SLOTS[item.slot]) return item.slot;
@@ -1851,163 +1922,65 @@ export function determineEquipSlot(item) {
 }
 
 export const TIER1_EQUIPMENTS = [
-  {
-    id: 'short_sword',
-    name: '精煉短劍',
-    slot: EQUIP_SLOTS.WEAPON,
-    tier: 1,
-    bonusAtk: 4,
-    cost: 50,
-    desc: '輕巧銳利的精鋼短劍，物理攻擊 +4。'
-  },
-  {
-    id: 'magic_crystal',
-    name: '魔力水晶',
-    slot: EQUIP_SLOTS.WEAPON,
-    tier: 1,
-    bonusAtk: 4,
-    isMagic: true,
-    cost: 50,
-    desc: '蘊含純淨以太能量的水晶，魔法攻擊 +4。'
-  },
-  {
-    id: 'leather_armor',
-    name: '探險者皮甲',
-    slot: EQUIP_SLOTS.ARMOR,
-    tier: 1,
-    bonusHp: 15,
-    cost: 50,
-    desc: '野獸厚皮縫製的防具，最大生命 +15。'
-  },
-  {
-    id: 'buckler',
-    name: '輕型圓盾',
-    slot: EQUIP_SLOTS.ARMOR,
-    tier: 1,
-    bonusHp: 10,
-    bonusDef: 2,
-    cost: 50,
-    desc: '輕巧靈活的青銅圓盾，最大生命 +10，防禦 +2。'
-  },
-  {
-    id: 'ruby',
-    name: '熾熱紅寶石',
-    slot: EQUIP_SLOTS.ACCESSORY,
-    tier: 1,
-    bonusHp: 10,
-    cost: 50,
-    desc: '溫暖脈動的赤紅晶石，最大生命 +10。'
-  },
-  {
-    id: 'regen_herb_ring',
-    name: '再生草環',
-    slot: EQUIP_SLOTS.ACCESSORY,
-    tier: 1,
-    bonusHp: 5,
-    regenPerRound: 3,
-    cost: 50,
-    desc: '以生命草根莖編織的指環，最大生命 +5，每回合初自動回復 3 點生命。'
-  },
-  {
-    id: 'bronze_ring',
-    name: '青銅指環',
-    slot: EQUIP_SLOTS.ACCESSORY,
-    tier: 1,
-    bonusAtk: 2,
-    bonusHp: 5,
-    cost: 50,
-    desc: '刻有古代銘文的指環，攻擊 +2，最大生命 +5。'
-  }
+  // 武器（7 件）
+  { id: 'short_sword', name: '精煉短劍', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusAtk: 4, cost: 50, icon: '/assets/Equipments/精煉短劍.webp', desc: '精煉短劍，物理攻擊 +4。' },
+  { id: 'hunter_bow', name: '獵人長弓', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusAtk: 5, cost: 60, icon: '/assets/Equipments/獵人長弓.webp', desc: '獵人長弓，物理攻擊 +5。' },
+  { id: 'armor_cleaver', name: '裂甲戰斧', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusAtk: 7, bonusHp: -10, cost: 70, icon: '/assets/Equipments/裂甲戰斧.webp', desc: '裂甲戰斧，物理攻擊 +7，最大 HP -10。' },
+  { id: 'magic_crystal', name: '魔力水晶', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusMagAtk: 4, isMagic: true, cost: 50, icon: '/assets/Equipments/魔力水晶.webp', desc: '蘊含純淨以太能量的水晶，魔法攻擊 +4。' },
+  { id: 'star_staff', name: '星紋法杖', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusMagAtk: 5, isMagic: true, cost: 60, icon: '/assets/Equipments/星紋法杖.webp', desc: '刻有繁星符文的法杖，魔法攻擊 +5。' },
+  { id: 'forbidden_tome', name: '禁忌魔典', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusMagAtk: 7, bonusHp: -10, isMagic: true, cost: 70, icon: '/assets/Equipments/禁忌魔典.webp', desc: '封印深淵知識的魔典，魔法攻擊 +7，最大 HP -10。' },
+  { id: 'arcane_dagger', name: '奧術短刃', slot: EQUIP_SLOTS.WEAPON, tier: 1, bonusAtk: 4, bonusMagAtk: 4, cost: 75, icon: '/assets/Equipments/奧術短刃.webp', desc: '同時蘊含鋒芒與奧術的短刃，物攻 +4、魔攻 +4。' },
+
+  // 衣服（6 件）
+  { id: 'ragged_robe', name: '破舊麻衣', slot: EQUIP_SLOTS.ARMOR, tier: 1, bonusHp: 10, cost: 40, icon: '/assets/Equipments/破舊麻衣.webp', desc: '粗糙透氣的麻布衣，最大 HP +10。' },
+  { id: 'leather_armor', name: '探險者皮甲', slot: EQUIP_SLOTS.ARMOR, tier: 1, bonusHp: 15, cost: 50, icon: '/assets/Equipments/探險者皮甲.webp', desc: '野獸厚皮縫製的防具，最大生命 +15。' },
+  { id: 'traveler_robe', name: '旅人長袍', slot: EQUIP_SLOTS.ARMOR, tier: 1, bonusHp: 20, cost: 65, icon: '/assets/Equipments/旅人長袍.webp', desc: '耐磨舒適的長袍，最大 HP +20。' },
+  { id: 'buckler', name: '輕型護胸', slot: EQUIP_SLOTS.ARMOR, tier: 1, bonusHp: 10, bonusDef: 2, cost: 60, icon: '/assets/Equipments/輕型護胸.webp', desc: '保護要害的輕巧護胸，最大 HP +10、防禦力 +2。' },
+  { id: 'copper_armor', name: '精銅護甲', slot: EQUIP_SLOTS.ARMOR, tier: 1, bonusHp: 14, bonusDef: 1, cost: 60, icon: '/assets/Equipments/精銅護甲.webp', desc: '精銅鍛造的堅實護甲，最大 HP +14、防禦力 +1。' },
+  { id: 'steel_armor', name: '鋼鐵護甲', slot: EQUIP_SLOTS.ARMOR, tier: 1, bonusHp: 6, bonusDef: 3, cost: 70, icon: '/assets/Equipments/鋼鐵護甲.webp', desc: '厚重牢固的鋼鐵重甲，最大 HP +6、防禦力 +3。' },
+
+  // 飾品（8 件）
+  { id: 'ruby', name: '熾熱紅寶石', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusHp: 10, cost: 45, icon: '/assets/Equipments/熾熱紅寶石.webp', desc: '溫暖脈動的赤紅晶石，最大生命 +10。' },
+  { id: 'bronze_ring', name: '青銅指環', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusAtk: 1, bonusMagAtk: 1, bonusHp: 5, cost: 50, icon: '/assets/Equipments/青銅指環.webp', desc: '古代青銅指環，物攻 +1、魔攻 +1、最大 HP +5。' },
+  { id: 'regen_herb_ring', name: '再生草環', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusHp: 5, regenPerRound: 3, cost: 65, icon: '/assets/Equipments/再生草環.webp', desc: '以生命草根莖編織的指環，最大 HP +5，每回合開始恢復 3 HP。' },
+  { id: 'guardian_amulet', name: '守衛吊墜', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusHp: 6, bonusDef: 1, battleStartShield: 6, cost: 70, icon: '/assets/Equipments/守衛吊墜.webp', desc: '刻劃防護符文的吊墜，最大 HP +6、防禦 +1，每場戰鬥開始獲得 6 點護盾。' },
+  { id: 'hawkeye_feather', name: '鷹眼羽飾', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusAtk: 3, bonusHp: 5, cost: 70, icon: '/assets/Equipments/鷹眼羽飾.webp', desc: '靈敏銳利的獵鷹羽飾，物攻 +3、最大 HP +5。' },
+  { id: 'starlight_earring', name: '星輝耳墜', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusMagAtk: 2, bonusHp: 3, healBonus: 0.05, cost: 70, icon: '/assets/Equipments/星輝耳墜.webp', desc: '閃耀微光的耳墜，魔攻 +2、最大 HP +3，自身施放的直接治療量 +5%。' },
+  { id: 'balance_talisman', name: '均衡護符', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusAtk: 1, bonusMagAtk: 1, bonusHp: 5, bonusDef: 1, cost: 75, icon: '/assets/Equipments/均衡護符.webp', desc: '均衡協調的守護護符，物攻 +1、魔攻 +1、最大 HP +5、防禦 +1。' },
+  { id: 'frost_ring', name: '霜紋戒指', slot: EQUIP_SLOTS.ACCESSORY, tier: 1, bonusMagAtk: 2, bonusDef: 1, magicShieldOnce: 5, cost: 70, icon: '/assets/Equipments/霜紋戒指.webp', desc: '散發淡淡寒霜的戒指，魔攻 +2、防禦 +1，每場戰鬥首次受到魔法直接傷害時，該次傷害減少 5 點。' }
 ];
 
 export const TIER2_EQUIPMENTS = [
-  {
-    id: 'rune_greatsword',
-    name: '符文長劍',
-    slot: EQUIP_SLOTS.WEAPON,
-    tier: 2,
-    bonusAtk: 12,
-    cost: 120,
-    desc: '融合鋒刃與奧術的附魔長劍，攻擊 +12，普通攻擊額外附帶 3 點魔法穿透傷害。'
-  },
-  {
-    id: 'ring_of_life',
-    name: '生命指環',
-    slot: EQUIP_SLOTS.ACCESSORY,
-    tier: 2,
-    bonusHp: 25,
-    regenPerRound: 8,
-    cost: 120,
-    desc: '蘊藏豐沛生命律動的翡翠指環，最大生命 +25，每回合開始自動回復 8 點生命。'
-  },
-  {
-    id: 'steel_plate_armor',
-    name: '堅韌精鋼鎧',
-    slot: EQUIP_SLOTS.ARMOR,
-    tier: 2,
-    bonusHp: 35,
-    bonusDef: 5,
-    cost: 120,
-    desc: '重型精鋼板甲，提供堅不可摧的防護，最大生命 +35，防禦 +5。'
-  },
-  {
-    id: 'assault_blade',
-    name: '破陣鋒刃',
-    slot: EQUIP_SLOTS.WEAPON,
-    tier: 2,
-    bonusAtk: 10,
-    bonusCrit: 0.10,
-    cost: 120,
-    desc: '專破厚甲的重破鋒刃，攻擊 +10，暴擊率 +10%。'
-  },
-  {
-    id: 'guardian_pendant',
-    name: '守護者吊墜',
-    slot: EQUIP_SLOTS.ACCESSORY,
-    tier: 2,
-    bonusHp: 25,
-    battleStartShield: 15,
-    cost: 120,
-    desc: '受聖光祝福的守護墜飾，最大生命 +25，每場戰鬥首回合獲得 15 點護盾。'
-  }
+  // 核心合成裝備（6 件）
+  { id: 'rune_greatsword', name: '符文長劍', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusAtk: 8, bonusMagAtk: 8, cost: 120, icon: '/assets/Equipments/符文長劍.webp', desc: '融合鋒刃與奧術的附魔長劍，物攻 +8、魔攻 +8。' },
+  { id: 'assault_blade', name: '破陣鋒刃', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusAtk: 11, bonusHp: 5, cost: 120, icon: '/assets/Equipments/破陣鋒刃.webp', desc: '破甲攻堅的重斬之刃，物攻 +11、最大 HP +5。' },
+  { id: 'steel_plate_armor', name: '精鋼鎧', slot: EQUIP_SLOTS.ARMOR, tier: 2, bonusHp: 30, bonusDef: 5, cost: 120, icon: '/assets/Equipments/精鋼鎧.webp', desc: '重型精鋼板甲，最大 HP +30、防禦 +5。' },
+  { id: 'ring_of_life', name: '生命指環', slot: EQUIP_SLOTS.ACCESSORY, tier: 2, bonusHp: 18, regenPerRound: 5, cost: 120, icon: '/assets/Equipments/生命指環.webp', desc: '蘊藏生命律動的翡翠指環，最大 HP +18，每回合開始恢復 5 HP。' },
+  { id: 'guardian_pendant', name: '守護者吊墜', slot: EQUIP_SLOTS.ACCESSORY, tier: 2, bonusHp: 20, bonusDef: 1, battleStartShield: 12, cost: 120, icon: '/assets/Equipments/守護者吊墜.webp', desc: '神聖守護墜飾，最大 HP +20、防禦 +1，每場戰鬥開始獲得 12 點護盾。' },
+  { id: 'hymn_scepter', name: '聖歌權杖', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusMagAtk: 9, healReceivedBonus: 0.08, cost: 120, icon: '/assets/Equipments/聖歌權杖.webp', desc: '傳頌聖詠的神聖權杖，魔攻 +9，自身受到的直接治療量 +8%。' },
+
+  // 擴充合成裝備（6 件）
+  { id: 'hunting_bow', name: '追獵長弓', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusAtk: 12, cost: 120, icon: '/assets/Equipments/追獵長弓.webp', desc: '百步穿楊的追獵神弓，物攻 +12。' },
+  { id: 'siege_axe', name: '破城巨斧', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusAtk: 13, bonusDef: 2, bonusHp: -10, cost: 120, icon: '/assets/Equipments/破城巨斧.webp', desc: '勢大力沉的重斧，物攻 +13、防禦 +2、最大 HP -10。' },
+  { id: 'frost_tome', name: '霜蝕秘典', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusMagAtk: 12, bonusDef: 2, bonusHp: -8, cost: 120, icon: '/assets/Equipments/霜蝕秘典.webp', desc: '極寒冰霜典籍，魔攻 +12、防禦 +2、最大 HP -8。' },
+  { id: 'dual_phase_dagger', name: '雙相短刃', slot: EQUIP_SLOTS.WEAPON, tier: 2, bonusAtk: 7, bonusMagAtk: 7, bonusHp: 8, cost: 120, icon: '/assets/Equipments/雙相短刃.webp', desc: '魔武雙修的雙相短刃，物攻 +7、魔攻 +7、最大 HP +8。' },
+  { id: 'ancient_robe', name: '古紋長袍', slot: EQUIP_SLOTS.ARMOR, tier: 2, bonusHp: 40, cost: 120, icon: '/assets/Equipments/古紋長袍.webp', desc: '古老咒文編織的長袍，最大 HP +40。' },
+  { id: 'city_guard_armor', name: '守城戰衣', slot: EQUIP_SLOTS.ARMOR, tier: 2, bonusHp: 22, bonusDef: 3, battleStartShield: 12, cost: 120, icon: '/assets/Equipments/守城戰衣.webp', desc: '堅毅的守衛防禦戰衣，最大 HP +22、防禦 +3，每場戰鬥開始獲得 12 點護盾。' }
 ];
 
 export const CRAFTING_RECIPES = [
-  {
-    id: 'craft_rune_greatsword',
-    ingredients: ['short_sword', 'magic_crystal'],
-    resultId: 'rune_greatsword',
-    name: '符文長劍',
-    desc: '短劍 ＋ 魔力水晶'
-  },
-  {
-    id: 'craft_ring_of_life',
-    ingredients: ['ruby', 'regen_herb_ring'],
-    resultId: 'ring_of_life',
-    name: '生命指環',
-    desc: '熾熱紅寶石 ＋ 再生草環'
-  },
-  {
-    id: 'craft_steel_plate_armor',
-    ingredients: ['leather_armor', 'buckler'],
-    resultId: 'steel_plate_armor',
-    name: '堅韌精鋼鎧',
-    desc: '探險者皮甲 ＋ 輕型圓盾'
-  },
-  {
-    id: 'craft_assault_blade',
-    ingredients: ['short_sword', 'bronze_ring'],
-    resultId: 'assault_blade',
-    name: '破陣鋒刃',
-    desc: '短劍 ＋ 青銅指環'
-  },
-  {
-    id: 'craft_guardian_pendant',
-    ingredients: ['buckler', 'ruby'],
-    resultId: 'guardian_pendant',
-    name: '守護者吊墜',
-    desc: '輕型圓盾 ＋ 熾熱紅寶石'
-  }
+  { id: 'craft_rune_greatsword', ingredients: ['short_sword', 'magic_crystal'], resultId: 'rune_greatsword', name: '符文長劍', desc: '精煉短劍 ＋ 魔力水晶' },
+  { id: 'craft_assault_blade', ingredients: ['short_sword', 'bronze_ring'], resultId: 'assault_blade', name: '破陣鋒刃', desc: '精煉短劍 ＋ 青銅指環' },
+  { id: 'craft_steel_plate_armor', ingredients: ['leather_armor', 'buckler'], resultId: 'steel_plate_armor', name: '精鋼鎧', desc: '探險者皮甲 ＋ 輕型護胸' },
+  { id: 'craft_ring_of_life', ingredients: ['ruby', 'regen_herb_ring'], resultId: 'ring_of_life', name: '生命指環', desc: '熾熱紅寶石 ＋ 再生草環' },
+  { id: 'craft_guardian_pendant', ingredients: ['buckler', 'ruby'], resultId: 'guardian_pendant', name: '守護者吊墜', desc: '輕型護胸 ＋ 熾熱紅寶石' },
+  { id: 'craft_hymn_scepter', ingredients: ['star_staff', 'starlight_earring'], resultId: 'hymn_scepter', name: '聖歌權杖', desc: '星紋法杖 ＋ 星輝耳墜' },
+  { id: 'craft_hunting_bow', ingredients: ['hunter_bow', 'hawkeye_feather'], resultId: 'hunting_bow', name: '追獵長弓', desc: '獵人長弓 ＋ 鷹眼羽飾' },
+  { id: 'craft_siege_axe', ingredients: ['armor_cleaver', 'steel_armor'], resultId: 'siege_axe', name: '破城巨斧', desc: '裂甲戰斧 ＋ 鋼鐵護甲' },
+  { id: 'craft_frost_tome', ingredients: ['forbidden_tome', 'frost_ring'], resultId: 'frost_tome', name: '霜蝕秘典', desc: '禁忌魔典 ＋ 霜紋戒指' },
+  { id: 'craft_dual_phase_dagger', ingredients: ['arcane_dagger', 'balance_talisman'], resultId: 'dual_phase_dagger', name: '雙相短刃', desc: '奧術短刃 ＋ 均衡護符' },
+  { id: 'craft_ancient_robe', ingredients: ['ragged_robe', 'traveler_robe'], resultId: 'ancient_robe', name: '古紋長袍', desc: '破舊麻衣 ＋ 旅人長袍' },
+  { id: 'craft_city_guard_armor', ingredients: ['copper_armor', 'guardian_amulet'], resultId: 'city_guard_armor', name: '守城戰衣', desc: '精銅護甲 ＋ 守衛吊墜' }
 ];
 
 export function getCraftingRecipe(item1Id, item2Id) {

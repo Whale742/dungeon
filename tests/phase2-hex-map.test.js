@@ -60,37 +60,37 @@ test('Phase 2.2: Fog of war defaults all nodes to isRevealed = false until stepp
   assert.deepEqual(room.currentHex, { col: steppedNode.col, row: steppedNode.row });
 });
 
-test('Phase 2.3: Forward-only adjacency restrictions across 7-layer grid (col + 1 adjacent rows only; no backward or same-col or >1 row jumps)', t => {
+test('Phase 2.3: Forward-only adjacency restrictions across 7-layer grid (honeycomb adjacent rightward nodes only; no backward or far-row jumps)', t => {
   const { room } = createRoom(t);
 
   // From (0, 3) -> can move to (1, 2), (1, 3), (1, 4)
-  assert.deepEqual(room.getAdjacentNextHexes(0, 3).map(n => n.id), ['hex_1_2', 'hex_1_3', 'hex_1_4']);
+  assert.deepEqual(room.getAdjacentNextHexes(0, 3).map(n => n.id).sort(), ['hex_1_2', 'hex_1_3', 'hex_1_4'].sort());
 
-  // From (1, 2) -> can move to (2, 1), (2, 2), (2, 3), NOT (2, 4) or (2, 5)
-  assert.deepEqual(room.getAdjacentNextHexes(1, 2).map(n => n.id), ['hex_2_1', 'hex_2_2', 'hex_2_3']);
+  // From (1, 2) -> can move to adjacent rightward nodes: (2, 1), (2, 2), and adjacent unchosen (1, 3)
+  assert.deepEqual(room.getAdjacentNextHexes(1, 2).map(n => n.id).sort(), ['hex_1_3', 'hex_2_1', 'hex_2_2'].sort());
 
-  // From (3, 0) [top edge of 7-layer col 3] -> can only move to (4, 0), (4, 1)
-  assert.deepEqual(room.getAdjacentNextHexes(3, 0).map(n => n.id), ['hex_4_0', 'hex_4_1']);
+  // From (3, 0) [top edge of 7-layer col 3] -> can move to adjacent rightward nodes
+  assert.deepEqual(room.getAdjacentNextHexes(3, 0).map(n => n.id).sort(), ['hex_3_1', 'hex_4_0'].sort());
 
-  // From (3, 6) [bottom edge of 7-layer col 3] -> can only move to (4, 5), (4, 6)
-  assert.deepEqual(room.getAdjacentNextHexes(3, 6).map(n => n.id), ['hex_4_5', 'hex_4_6']);
+  // From (3, 6) [bottom edge of 7-layer col 3] -> can move to adjacent rightward nodes
+  assert.deepEqual(room.getAdjacentNextHexes(3, 6).map(n => n.id).sort(), ['hex_3_5', 'hex_4_6'].sort());
 
   // From (8, 2), (8, 3), (8, 4) -> all converge to (9, 3)
   assert.deepEqual(room.getAdjacentNextHexes(8, 2).map(n => n.id), ['hex_9_3']);
   assert.deepEqual(room.getAdjacentNextHexes(8, 3).map(n => n.id), ['hex_9_3']);
   assert.deepEqual(room.getAdjacentNextHexes(8, 4).map(n => n.id), ['hex_9_3']);
 
-  // Voting validation: place squad at (1, 2) and start route selection for col = 2
+  // Voting validation: place squad at (1, 2) and start route selection
   room.currentHex = { col: 1, row: 2 };
   room.startRouteSelection({ skipIntro: true });
 
-  // Backward (col 0), same col (col 1), and non-adjacent row (hex_2_5) must be rejected
+  // Backward (col 0) and non-adjacent row (hex_2_5) must be rejected
   assert.equal(room.voteRoute('p1', 'hex_0_3').success, false);
-  assert.equal(room.voteRoute('p1', 'hex_1_3').success, false);
   assert.equal(room.voteRoute('p1', 'hex_2_5').success, false);
 
-  // Valid forward adjacent hex (hex_2_1) succeeds
+  // Adjacent rightward hexes (hex_2_1, and adjacent unchosen hex_1_3) succeed
   assert.equal(room.voteRoute('p1', 'hex_2_1').success, true);
+  assert.equal(room.voteRoute('p1', 'hex_1_3').success, true);
 });
 
 test('Phase 2.4: 40% pre-scouting at col = 3, 6, 8 reveals SHOP and CHEST as isScouted without leaking shady merchant or mimic', t => {
@@ -149,7 +149,7 @@ test('Phase 2.5: All player decision timers are removed (no time limit on route 
   assert.equal(room.getClientState().timerRemaining, null);
 
   // 3. Checkpoint has no timer
-  room.floor = 5;
+  room.currentHex = { col: 9, row: 3 };
   room.advanceToNextFloorOrCheckpoint();
   assert.equal(room.state, 'CHECKPOINT');
   assert.equal(room.turnTimer, null);
