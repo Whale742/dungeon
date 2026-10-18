@@ -64,11 +64,11 @@ test('Augur binding validates targets at lock and execution and never restores i
   }
 });
 
-test('Augur binding priority applies before bard backlash and all following damage bases',()=>{
-  const f=makeAugurFixture(['augur','warrior','bard']);Object.assign(f.room.players.p0,{action:'aug_bind',targetPlayerId:'p2'});f.room.players.p2.action='b_buff';
-  const queue=f.resolve(.1),buff=action(queue,'b_buff','p2');
-  assert.equal(buff.outcome.type,'normal');assert.equal(debt(f.room),20);
-  assert.equal(buff.augurReactions[0].outcome.reduction,25);
+test('Augur binding priority applies before 25% negative risk and all following damage bases',()=>{
+  const f=makeAugurFixture(['augur','mage','warrior']);Object.assign(f.room.players.p0,{action:'aug_bind',targetPlayerId:'p2'});f.room.players.p2.action='w_shield';
+  const queue=f.resolve(.1),shield=action(queue,'w_shield','p2');
+  assert.equal(shield.outcome.type,'normal');assert.equal(debt(f.room),20);
+  assert.equal(shield.augurReactions[0].outcome.reduction,25);
 });
 
 test('Augur alchemist basic gives negative interception priority over its positive effect',()=>{

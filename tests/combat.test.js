@@ -28,7 +28,7 @@ for (const [role, action, random, outcome, category] of [
   ['warrior', 'w_shield', .1, 'shield_crack', 'DEFENSE'],
   ['assassin', 's_stab', .1, 'critical', 'OFFENSIVE'],
   ['bard', 'b_heal', .1, 'off_key', 'HEAL'],
-  ['bard', 'b_buff', .1, 'overload', 'BUFF'],
+  ['bard', 'b_buff', .1, 'normal', 'BUFF'],
   ['alchemist', 'alc_acid', .1, 'alchemy_acid', 'OFFENSIVE'],
   ['alchemist', 'alc_flask', .1, 'alchemy_poison', 'OFFENSIVE'],
   ['alchemist', 'alc_fate', .1, 'alchemy_success', 'CLEANSE'],
@@ -274,7 +274,7 @@ test('alchemist alc_acid and alc_flask mechanics: acid splash vs 4 DoT statuses 
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_poison');
-    assert.equal(step.finalDamage, 15);
+    assert.equal(step.finalDamage, 35);
     assert.equal(room.currentMonster.poisonTurns, 2);
     assert.equal(room.currentMonster.poisonDmg, 8);
     assert.equal(room.players.p0.poisonTurns, 2);
@@ -293,7 +293,7 @@ test('alchemist alc_acid and alc_flask mechanics: acid splash vs 4 DoT statuses 
     const step = queue().queue.find(s => s.actionId === 'alc_flask');
     assert.ok(step);
     assert.equal(step.outcome.type, 'alchemy_burn');
-    assert.equal(step.finalDamage, 15);
+    assert.equal(step.finalDamage, 35);
     assert.equal(room.currentMonster.burnTurns, 1);
     assert.equal(room.currentMonster.burnDmg, 10);
     assert.equal(room.players.p0.burnTurns, 0);

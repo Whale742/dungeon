@@ -43,28 +43,29 @@ function resolveWith(room, rngValue = 0.5) {
   try { room.resolveTurnActions(); } finally { Math.random = old; }
 }
 
-test('Alchemist descriptions: skill descriptions do NOT explain status effects, passive explains all 5 statuses', () => {
-  // Skill descriptions must not explain status mechanics
+test('Alchemist descriptions: v2 skill and passive descriptions match canonical v2 spec', () => {
   const basicDesc = CLASSES.alchemist.skills[0].desc;
   const skill1Desc = CLASSES.alchemist.skills[1].desc;
-  assert.ok(basicDesc.includes('造成 10 點傷害'));
-  assert.ok(basicDesc.includes('70% 機率造成腐蝕效果持續一回合'));
-  assert.ok(basicDesc.includes('35% 機率使我方全體也觸發腐蝕效果'));
+  assert.ok(basicDesc.includes('round(5 + 50% × A魔)'));
+  assert.ok(basicDesc.includes('70%'));
+  assert.ok(basicDesc.includes('35%'));
   assert.ok(!basicDesc.includes('減少 5%'));
   assert.ok(!basicDesc.includes('減半'));
 
-  assert.ok(skill1Desc.includes('造成 15 點傷害'));
-  assert.ok(skill1Desc.includes('中毒、燃燒、骨折、寒冷'));
-  assert.ok(skill1Desc.includes('40% 機率對我方全體同步造成此次效果'));
-  assert.ok(!skill1Desc.includes('每回合開始時'));
+  assert.ok(skill1Desc.includes('round(10 + 250% × A魔)'));
+  assert.ok(skill1Desc.includes('初始 35 點'));
+  assert.ok(skill1Desc.includes('中毒'));
+  assert.ok(skill1Desc.includes('燃燒'));
+  assert.ok(skill1Desc.includes('骨折'));
+  assert.ok(skill1Desc.includes('寒冷'));
+  assert.ok(skill1Desc.includes('40%'));
 
-  // Passive descriptions in CLASSES and ROLE_DETAILS must contain all 5 status mechanics
-  for (const passive of [CLASSES.alchemist.desc, ROLE_DETAILS.alchemist.passive]) {
-    assert.ok(passive.includes('腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半'));
-    assert.ok(passive.includes('中毒：每回合開始時造成 8 點傷害，持續 2 回合'));
-    assert.ok(passive.includes('燃燒：每回合開始時造成 10 點傷害，持續 1 回合'));
-    assert.ok(passive.includes('骨折：每回合開始時造成 5 點傷害，持續 3 回合'));
-    assert.ok(passive.includes('寒冷：每回合開始時造成 6 點傷害，持續 2 回合'));
+  for (const passive of [CLASSES.alchemist.passive, ROLE_DETAILS.alchemist.passive]) {
+    assert.ok(passive.includes('腐蝕：Boss 最大生命與造成的傷害減少 5%'));
+    assert.ok(passive.includes('中毒：每回合開始受到 round(3 + 50% × A魔)'));
+    assert.ok(passive.includes('燃燒：每回合開始受到 round(5 + 50% × A魔)'));
+    assert.ok(passive.includes('骨折：每回合開始受到 round(2 + 30% × A魔)'));
+    assert.ok(passive.includes('寒冷：每回合開始受到 round(3 + 30% × A魔)'));
   }
 });
 
@@ -112,7 +113,7 @@ test('Alchemist basic attack: deals 10 damage, triggers corrosion (boss max HP &
   assert.equal(room.getEffectiveBonusAtk(war), 10 + (war.warriorStacks || 0));
 });
 
-test('Alchemist 1-skill: deals 15 damage, inflicts 4 DoTs on monster, and 40% syncs to team', t => {
+test('Alchemist 1-skill: deals 35 damage, inflicts 4 DoTs on monster, and 40% syncs to team', t => {
   // Test Poison: 8 dmg, 2 rounds
   {
     const { room } = fixture(t, ['alchemist', 'warrior']);
@@ -122,7 +123,7 @@ test('Alchemist 1-skill: deals 15 damage, inflicts 4 DoTs on monster, and 40% sy
     alc.rollTeamDot = true; // Force 40% team sync
     resolveWith(room, 0.1);
 
-    assert.equal(room.currentMonster.hp, 1000 - 15);
+    assert.equal(room.currentMonster.hp, 1000 - 35);
     assert.equal(room.currentMonster.poisonTurns, 2);
     assert.equal(room.currentMonster.poisonDmg, 8);
     assert.equal(room.players.p0.poisonTurns, 2);
@@ -337,10 +338,13 @@ test('Alchemist precision burette (精密滴管) reduces team DoT damage by 50%'
   assert.equal(war.chillDmg, 3);
 });
 
-test('Alchemist precision burette does NOT alter alc_fate failure chance (remains 50%)', t => {
+test('Alchemist precision burette does NOT alter alc_fate failure chance (remains 50%) and v2 alc_fate grants no DR shield', t => {
   const { room } = fixture(t, ['alchemist', 'warrior']);
   const alc = room.players.p0;
   alc.equips = [{ id: 'alc_burette', name: '精密滴管' }];
+  alc.hp = 20;
+  room.currentMonster.attack = 0;
+  room.currentMonster.atk = 0;
 
   // Give an abnormal status to trigger gamble branch
   alc.poisonTurns = 1;
@@ -350,6 +354,7 @@ test('Alchemist precision burette does NOT alter alc_fate failure chance (remain
   // With roll 0.45: previously burette made successRate 0.35, so 0.45 would fail!
   // Now successRate is 0.50, so 0.45 succeeds!
   resolveWith(room, 0.45);
-  assert.equal(room.alcShieldTurns, 1);
+  assert.equal(room.alcShieldTurns || 0, 0);
+  assert.equal(alc.hp, 60 - 4); // 20 + 40 heal - 4 minimum boss attack (after DEF 3) = 56
   assert.equal(room.alcVulnerableNextTurn, false);
 });

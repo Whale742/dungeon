@@ -67,8 +67,8 @@ export function buildAugurLabScenes() {
     ['augur_reverse','warrior','w_strike',.1,'成功攔截 20% 失衡；逆位翻牌，增加 20 命債。'],
     ['augur_negative_remains','mage','m_blast',.01,'仍落在剩餘 5% 走火區間；不翻牌、不產生命債。'],
     ['augur_negative_safe','mage','m_blast',.9,'原本即成功；維持空象，不產生命債。'],
-    ['augur_upright','assassin','basic',.7,'暴擊率 60% → 75%，成功；正位翻牌。'],
-    ['augur_upright_fail','assassin','basic',.95,'暴擊率 60% → 75%，仍失敗；照樣翻正位並消耗干涉額度。'],
+    ['augur_upright','assassin','basic',.6,'暴擊率 50% → 65%，成功；正位翻牌。'],
+    ['augur_upright_fail','assassin','basic',.95,'暴擊率 50% → 65%，仍失敗；照樣翻正位並消耗干涉額度。'],
     ['augur_alchemist_reverse','alchemist','basic',.25,'腐蝕普攻先攔截全隊腐蝕；只翻逆位，不再翻正位。'],
     ['augur_alchemist_upright','alchemist','basic',.8,'腐蝕率 70% → 85%；正位成功。'],
     ['augur_dream_upright','dreamweaver','basic',.6,'混淆總機率 50% → 65%；維持內部四種結果分配。']

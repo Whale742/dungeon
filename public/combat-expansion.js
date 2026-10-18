@@ -488,7 +488,7 @@ async function playMinionComboPresentation(step, context) {
     canvas.classList.add('presentation-minion-combo');
     if (context.reducedMotion) canvas.dataset.reducedMotion = 'true';
     const strip = document.createElement('div'); strip.className = 'presentation-combat-strip-wrap is-player enter-left';
-    strip.innerHTML = '<div class="presentation-combat-strip-skew"></div><div class="presentation-combat-strip-inner"><div class="presentation-combat-intent"><h2 class="presentation-combat-intent-title">僕從追擊</h2></div></div>';
+    strip.innerHTML = '<div class="presentation-combat-strip-skew"></div><div class="presentation-combat-strip-inner"><div class="presentation-combat-intent"><h2 class="presentation-combat-intent-title">夥伴追擊</h2></div></div>';
     canvas.appendChild(strip);
     const stack = document.createElement('div'); stack.className = 'presentation-minion-stack';
     const living = step.hpSnapshotBefore.players.find(p => p.id === step.sourceId)?.minions?.filter(m => m.hp > 0 && m.alive !== false).slice(0, 3) || [];

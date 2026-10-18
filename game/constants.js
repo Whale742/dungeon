@@ -1,3 +1,5 @@
+import {v2Copy, v2SkillCopy, v2SkillKey} from './v2-content.js';
+import { INITIAL_STATS, resolveStats } from './stats.js';
 import { NEW_CLASSES, NEW_LOOT, NEW_ROLE_DETAILS } from './phase8-config.js';
 // 遊戲常數與數值定義 (100% 完整移植自 index.js)
 
@@ -44,7 +46,7 @@ export const CLASSES = {
     emoji: '🗡️',
     avatar: '/photo/Assassin.webp',
     maxHp: 50,
-    critRate: 0.6,
+    critRate: 0.5,
     vulnerableMod: 1.25,
     desc: '【生命 50】60% 暴擊；每次暴擊獲得1層匿蹤，隱身可追擊；100% 避開陷阱，輕甲承傷 +25%。',
     skills: [
@@ -82,7 +84,7 @@ export const CLASSES = {
     emoji: '🌿',
     avatar: '/photo/Druid.webp',
     maxHp: 85,
-    desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚僕從（小樹精/幼狼）。',
+    desc: '【生命 85】自然之子。擅長形態轉變（狼人/樹精）與自然呼喚夥伴（小樹精/幼狼）。',
     forms: {
       werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
       treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
@@ -103,8 +105,8 @@ export const CLASSES = {
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '引導自然力量造成基礎自然打擊。' },
       { id: 'dru_transform', label: '1 技能: 形態轉變', cd: 0, tags: ['變身', '高風險'], desc: '有一半機率化身狼人/化身樹精' },
-      { id: 'dru_summon_treant', label: '2 技能 A: 召喚小樹精', cd: 0, tags: ['召喚', '護盾'], desc: '召喚肉盾型樹精僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' },
-      { id: 'dru_summon_wolf', label: '2 技能 B: 召喚幼狼', cd: 0, tags: ['召喚', '物理'], desc: '召喚敏捷型幼狼僕從，每回合自動攻擊並優先替隊伍承受分散傷害。' }
+      { id: 'dru_summon_treant', label: '2 技能 A: 召喚小樹精', cd: 0, tags: ['召喚', '護盾'], desc: '召喚肉盾型樹精夥伴，每回合自動攻擊並優先替隊伍承受分散傷害。' },
+      { id: 'dru_summon_wolf', label: '2 技能 B: 召喚幼狼', cd: 0, tags: ['召喚', '物理'], desc: '召喚敏捷型幼狼夥伴，每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
   },
   ...NEW_CLASSES
@@ -743,7 +745,8 @@ export function getRandomRoutes(count = 4) {
 // 裝備數值套用
 export function applyEquipStats(player, item) {
   if (!player || !item) return;
-  if (item.bonusAtk) player.bonusAtk += item.bonusAtk;
+  player.statsVersion = 2;
+  if (item.bonusAtk) player.bonusAtk = (player.bonusAtk || 0) + item.bonusAtk;
   if (item.bonusHp) {
     player.maxHp += item.bonusHp;
     if (item.bonusHp > 0) {
@@ -758,7 +761,7 @@ export function applyEquipStats(player, item) {
 // 卸除裝備數值扣減
 export function removeEquipStats(player, item) {
   if (!player || !item) return;
-  if (item.bonusAtk) player.bonusAtk -= item.bonusAtk;
+  if (item.bonusAtk) player.bonusAtk = (player.bonusAtk || 0) - item.bonusAtk;
   if (item.bonusHp) {
     player.maxHp -= item.bonusHp;
     player.hp = Math.min(player.hp, player.maxHp);
@@ -805,6 +808,7 @@ export function equipItemToPlayer(player, drop, replaceIndex = -1) {
   for (const eq of player.equips) {
     player.equipCounts[eq.name] = (player.equipCounts[eq.name] || 0) + 1;
   }
+  if (!player.equips.some(e=>e.id==='a_crossbow')) { player.ammo=[]; player.isCrouchedThisRound=false; }
   return replacedItem;
 }
 
@@ -819,6 +823,7 @@ export function unequipItemFromPlayer(player, index) {
       player.equipCounts[eq.name] = (player.equipCounts[eq.name] || 0) + 1;
     }
   }
+  if (!player.equips.some(e=>e.id==='a_crossbow')) { player.ammo=[]; player.isCrouchedThisRound=false; }
   return removed;
 }
 
@@ -835,14 +840,9 @@ export function formatPlayerEquips(player) {
 export function getPlayerSkills(player) {
   if (!player || !player.role || !CLASSES[player.role]) return [];
   const baseSkills = CLASSES[player.role].skills.map(s => ({ ...s }));
-  if (player.role === 'sage') for (const skill of baseSkills) {
-    const [common, stages] = skill.desc.split('【假設階段】');
-    const [hypothesis, solve] = stages.split('【求解階段】');
-    const solving = player.sagePhase === 'solve';
-    skill.desc = `${common.trim()}\n\n${solving ? '【求解階段】' : '【假設階段】'}\n${(solving ? solve : hypothesis).trim()}`;
-    skill.shortDesc = skill.desc;
-    skill.contextualCopy = true;
-    skill.phaseBlocked = solving && skill.id === player.sagePreviousAction;
+  if(player.role==='sage')for(const skill of baseSkills) {
+    skill.phaseBlocked=player.sagePhase==='solve'&&skill.id===player.sagePreviousAction;
+    skill.contextualCopy=true;
   }
   if (player.role === 'gladiator') {
     const sacrifice = baseSkills[1], arena = baseSkills[2];
@@ -940,6 +940,13 @@ export function getPlayerSkills(player) {
     }
   }
 
+  for(const skill of baseSkills) {
+    const key=v2SkillKey(player,skill),copy=v2SkillCopy(player.role,key);
+    if(copy) {
+      const keepLabel = skill.id === 'a_reload' || skill.id === 'a_frenzy_reload';
+      Object.assign(skill,{desc:copy.full_copy,shortDesc:copy.short_copy,copyKey:key,label:keepLabel ? skill.label : copy.display_name});
+    }
+  }
   return baseSkills;
 }
 
@@ -1179,7 +1186,7 @@ export const ROLE_DETAILS = {
     avatar: '/photo/Druid.webp',
     hp: 85,
     type: '物理 / 自然變形',
-    passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然夥伴召喚（小樹精/幼狼）。',
     forms: {
       werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
       treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
@@ -1217,14 +1224,14 @@ export const ROLE_DETAILS = {
         name: '召喚小樹精',
         dmgType: '【召喚】',
         cd: '無 CD (每位德魯伊上限3隻)',
-        desc: '召喚肉盾型樹精僕從（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
+        desc: '召喚肉盾型樹精夥伴（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
       },
       {
         type: '2 技能 B',
         name: '召喚幼狼',
         dmgType: '【召喚】',
         cd: '無 CD (每位德魯伊上限3隻)',
-        desc: '召喚敏捷型幼狼僕從（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
+        desc: '召喚敏捷型幼狼夥伴（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。'
       }
     ]
   }
@@ -1258,4 +1265,19 @@ export function getCrossbowAmmoIcon(ammo) {
   if (ammo === 'elemental') return '🔵';
   if (ammo === 'burst') return '💥';
   return '▫️';
+}
+
+// Canonical v2 defaults consumed by the lobby, skill buttons and Studio catalog.
+for(const [role,stats] of Object.entries(INITIAL_STATS)) {
+  Object.assign(CLASSES[role],stats,{ATK_base:stats.attack,DEF:stats.defense});
+  const text=v2Copy[role];
+  CLASSES[role].desc=text.intro; CLASSES[role].passive=text.skills.passive.full_copy;
+  for(const skill of CLASSES[role].skills) {
+    const copy=v2SkillCopy(role,skill.id);
+    if(copy)Object.assign(skill,{desc:copy.full_copy,shortDesc:copy.short_copy,label:copy.display_name});
+  }
+  if(ROLE_DETAILS[role]) {
+    ROLE_DETAILS[role].passive=text.skills.passive.full_copy;
+    ROLE_DETAILS[role].skills?.forEach((skill,i)=>{const copy=v2SkillCopy(role,CLASSES[role].skills[i]?.id);if(copy)skill.desc=copy.full_copy;});
+  }
 }
