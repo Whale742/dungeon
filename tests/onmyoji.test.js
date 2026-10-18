@@ -300,7 +300,7 @@ test('Onmyoji Equipment Cinnabar Spirit Brush (硃砂引靈筆) grants +5 ATK an
   assert.equal(onm.bonusAtk, 5, 'Brush should grant +5 ATK');
 
   // Case A: Basic attack without talisman proc (roll >= 0.25)
-  // Base 10 + 5 = 15 damage
+  // v2 formula: round(4 + 0.5 * (12 + 5)) = round(12.5) = 13 damage
   room.currentMonster.hp = 1000;
   room.currentMonster.attack = 0;
   room.currentMonster.talismans = [];
@@ -308,7 +308,7 @@ test('Onmyoji Equipment Cinnabar Spirit Brush (硃砂引靈筆) grants +5 ATK an
   onm.rollBrushTalisman = 0.50; // >= 0.25, does not attach
 
   const qA = resolve();
-  assert.equal(room.currentMonster.hp, 985, 'Deals 15 damage (10 + 5)');
+  assert.equal(room.currentMonster.hp, 987, 'Deals 13 damage (round(4 + 0.5 * 17))');
   assert.equal(room.currentMonster.talismans.length, 0, 'No talisman attached');
 
   // Case B: Basic attack with talisman proc (roll < 0.25), rolls 'corrode'
@@ -320,7 +320,7 @@ test('Onmyoji Equipment Cinnabar Spirit Brush (硃砂引靈筆) grants +5 ATK an
   onm.rolledTalisman = 'corrode';
 
   const qB = resolve();
-  assert.equal(room.currentMonster.hp, 985, 'Deals 15 damage');
+  assert.equal(room.currentMonster.hp, 987, 'Deals 13 damage');
   assert.equal(room.currentMonster.talismans.length, 1);
   assert.equal(room.currentMonster.talismans[0], 'corrode', 'Corrode talisman attached');
 
@@ -334,8 +334,8 @@ test('Onmyoji Equipment Cinnabar Spirit Brush (硃砂引靈筆) grants +5 ATK an
   onm.rolledTalisman = 'drain';
 
   const qC = resolve();
-  // 15 basic dmg + 20 drain dmg (2% of 1000) = 35 total damage -> HP = 965
-  assert.equal(room.currentMonster.hp, 965, '15 basic + 20 drain = 35 damage');
+  // 13 basic dmg + 20 drain dmg (2% of 1000) = 33 total damage -> HP = 967
+  assert.equal(room.currentMonster.hp, 967, '13 basic + 20 drain = 33 damage');
   assert.equal(room.currentMonster.talismans.length, 1);
   assert.equal(room.currentMonster.talismans[0], 'drain', 'Drain talisman attached');
 
@@ -357,19 +357,19 @@ test('Onmyoji Equipment Exorcism Mizuhiki Kariginu (退魔水引狩衣) grants +
   equip(onm, 'onm_kariginu');
   assert.equal(onm.maxHp, initialMaxHp + 20, 'Kariginu should grant +20 max HP');
 
-  // Case A: Without kariginu, roll 0.45 drops talisman (0.45 < 0.50)
+  // Case A: Without kariginu, roll 0.55 drops talisman (0.55 < 0.60)
   room.currentMonster.talismans = ['blind'];
-  room.currentMonster.talismanDropRng = () => 0.45;
+  room.currentMonster.talismanDropRng = () => 0.55;
   // Temporarily unequip
   onm.equips = [];
   room.executeRoundStart();
-  assert.equal(room.currentMonster.talismans.length, 0, 'Without kariginu, 0.45 roll drops talisman (50% rate)');
+  assert.equal(room.currentMonster.talismans.length, 0, 'Without kariginu, 0.55 roll drops talisman (60% rate)');
 
-  // Case B: Without kariginu, roll 0.55 keeps talisman (0.55 >= 0.50)
+  // Case B: Without kariginu, roll 0.65 keeps talisman (0.65 >= 0.60)
   room.currentMonster.talismans = ['blind'];
-  room.currentMonster.talismanDropRng = () => 0.55;
+  room.currentMonster.talismanDropRng = () => 0.65;
   room.executeRoundStart();
-  assert.equal(room.currentMonster.talismans.length, 1, 'Without kariginu, 0.55 roll keeps talisman (50% rate)');
+  assert.equal(room.currentMonster.talismans.length, 1, 'Without kariginu, 0.65 roll keeps talisman (60% rate)');
 
   // Case C: With kariginu, roll 0.40 KEEPS talisman (0.40 >= 0.35)
   equip(onm, 'onm_kariginu');

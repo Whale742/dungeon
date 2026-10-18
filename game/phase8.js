@@ -511,7 +511,6 @@ export const phase8Methods = {
     let n=raw;
     if(p.role==='assassin')n=Math.floor(n*1.25);
     if(p.warriorVulnerableTurns)n=Math.floor(n*1.2);
-    if(this.alcShieldTurns)n=Math.floor(n*.3);
     if(this.alcVulnerableTurns)n=Math.floor(n*1.2);
     if(p.isCrouchedThisRound)n=Math.floor(n*.8);
     if(['treant','tree'].includes(p.druidForm))n=Math.floor(n*.7);
@@ -545,7 +544,7 @@ export const phase8Methods = {
         hits.push({kind:'damage',targetId:treant.id,sharedFrom:p.id,value:result.actualDmg,finalDamage:result.actualDmg,hpDmg:result.hpDmg,tempAbsorbed:result.tempAbsorbed,absorbed:result.tempAbsorbed,
           targetBefore:rootBefore,targetAfter:snapshot.players.find(a=>a.id===treant.id),hpSnapshot:snapshot,outcome:{type:result.hpDmg===0?'block':'normal'},segment:'direct'});
       }
-      const result=this.applyDamageToPlayer(p,damage,{kind:'enemy_direct'});
+      const result=this.applyDamageToPlayer(p,damage,{kind:'enemy_direct',trueDamage:incoming.outcome==='nightmare'});
       if(incoming.outcome==='nightmare')this.p8NightmareHeal(p,incoming.ownerId);
       if(p.hp<=0)this.clearPlayerDebuffs(p);
       if(result.hpDmg>0 && this.currentMonster.baseHp<100)p.bleedTurns=2;
@@ -563,7 +562,8 @@ export const phase8Methods = {
     if(!P8_ROLES.includes(p.role))return null;
     this.p8Results=[];this.p8Visuals=visuals;this.p8LogBuffer=log;
     const damage=(n,type='phys',extra={})=>this.p8DamageMonster(p,n,type,resistance,extra);
-    const stat=this.getEffectiveBonusAtk(p),m=this.currentMonster;
+    const m=this.currentMonster;
+    const value=key=>this.applyFateBlessing(p,this.skillValue(p,key));
     const augurBefore=p.role==='augur'?this.getHpSnapshot():null;
     let outcome={type:'normal'},category=null,bloodHealApplied=false;
     const effect=(target,id,label,turns=1,extra={},resistanceChecked=false)=>{
@@ -574,7 +574,7 @@ export const phase8Methods = {
     if(p.role==='dreamweaver') {
       const turns=1+(countEquip(p,'dw_history')?1:0);
       if(p.action==='basic') {
-        damage(Math.floor((this.applyFateBlessing(p, 10)+stat)*bardMultiplier),'mag');
+        damage(Math.floor(value('basic')*bardMultiplier),'mag');
         const rate=countEquip(p,'dw_spindle')?.75:.5;
         if(m.hp>0 && this.intervenePositive(p,'恍惚編織・潛意識混淆',rate*100).success && this.monsterAllowsEffect('夢境混亂')) {
           const id=roll(['mirror','dissociate','nightmare_weak','frenzy_backfire']);
@@ -601,13 +601,13 @@ export const phase8Methods = {
         this.p8Log(`虛構的歷史覆蓋了戰場！魔物陷入【${label}】的幻覺之中！`);
       } else if(p.action==='dw_false_dream') outcome={type:'immune',label:'效果免疫'};
     } else if(p.role==='stargazer') {
-      if(p.action==='basic')damage(Math.floor((this.applyFateBlessing(p, 10)+stat)*bardMultiplier),'mag');
+      if(p.action==='basic')damage(Math.floor(value('basic')*bardMultiplier),'mag');
       else if(p.action==='sg_observe') {
         const enhanced=['sg_eyepiece','sg_tube','sg_mount'].every(id=>countEquip(p,id));const r=Math.random();
         const id=enhanced?['planet','galaxy','blackhole','boundary'][Math.min(3,Math.floor(r*4))]:r<.6?'star':r<.7?'planet':r<.8?'galaxy':r<.9?'blackhole':'boundary';
         outcome={type:id,label:{star:'發現星座',planet:'發現星球',galaxy:'發現星系',blackhole:'發現黑洞',boundary:'發現宇宙邊界'}[id],enhanced};
-        if(id==='star'||id==='planet') {damage(Math.floor(((id==='star'?this.applyFateBlessing(p, 15):this.applyFateBlessing(p, enhanced?35:25))+stat)*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
-        if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:5});
+        if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':'sg_planet')+(enhanced?10:0))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
+        if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:this.skillValue(p,'sg_bonus'),sourceId:p.id});
         if(id==='blackhole') {
           damage(enhanced?10:5,'true');
           if(!enhanced)for(const ally of alive(this)) {
@@ -623,15 +623,16 @@ export const phase8Methods = {
       } else if(p.action==='sg_clock') {
         const r=Math.random(),id=r<.7?'accelerate':r<.8?'reset':r<.9?'overload':'nothing';outcome={type:id,label:{accelerate:'軌道微調',reset:'超新星重啟',overload:'過載躍遷',nothing:'星軌虛耗'}[id]};
         // Deferred until the common cooldown owner has charged this round's casts.
-        (this.p8ClockEvents ||= []).push(id);if(id==='overload')for(const ally of alive(this))effect(ally,'overload','過載躍遷',1,{value:5});
+        (this.p8ClockEvents ||= []).push(id);if(id==='overload')for(const ally of alive(this))effect(ally,'overload','過載躍遷',1,{value:this.skillValue(p,'sg_bonus'),sourceId:p.id});
         this.p8Log(`${p.name}重塑時計：【${outcome.label}】。`);
       }
     } else if(p.role==='gladiator') {
       const inArena=this.arena?.playerId===p.id;
-      if(p.action==='basic')damage(Math.floor((this.applyFateBlessing(p, 10)+stat)*bardMultiplier));
+      const xiphosBonus=(p.bloodStacks||0)*2;
+      if(p.action==='basic')damage(Math.floor((value('basic')+xiphosBonus)*bardMultiplier));
       if(p.action==='g_sacrifice') {
         if(p.hp<=1){this.p8Log(`${p.name}生命不足，無法施放一技能。`);}
-        else if(inArena){category='OFFENSIVE';damage(Math.floor((this.applyFateBlessing(p, 15)+this.memberIds.length*10+(p.rage||0)*25+stat)*bardMultiplier));outcome={type:'arena_assault',label:'血殺重擊'};}
+        else if(inArena){category='OFFENSIVE';damage(Math.floor((this.applyFateBlessing(p,this.skillValue(p,'g_strike',{players:this.memberIds.length,stacks:p.rage||0}))+xiphosBonus)*bardMultiplier));outcome={type:'arena_assault',label:'血殺重擊'};}
         else {
           const before=this.getHpSnapshot();p.hp=Math.max(1,p.hp-Math.max(1,Math.round(p.maxHp*.2)));
           const paid=this.getHpSnapshot(),selfDamage=before.players.find(x=>x.id===p.id).hp-p.hp;
@@ -648,7 +649,7 @@ export const phase8Methods = {
           category='OFFENSIVE';const cost=p.hp;
           const before=this.getHpSnapshot();p.hp=0;p.noReviveFloor=this.floor;
           const after=this.getHpSnapshot();this.p8Results.push({kind:'damage',targetId:p.id,finalDamage:cost,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after,presentationBeat:'self_zero'});
-          damage(cost+(p.rage||0)*(countEquip(p,'g_cingulum')?15:10));outcome={type:'suicide',label:'同歸於盡'};this.p8Log(`${p.name}以全部 ${cost} 生命發動【同歸於盡】，本層不能甦生。`);
+          damage(cost+(p.rage||0)*(this.skillValue(p,'g_rage')+(countEquip(p,'g_cingulum')?3:0)));outcome={type:'suicide',label:'同歸於盡'};this.p8Log(`${p.name}以全部 ${cost} 生命發動【同歸於盡】，本層不能甦生。`);
         } else {this.arenaPending={playerId:p.id,round:this.battleRound+1};outcome={type:'challenge',label:'死鬥宣告'};this.p8Log(`${p.name}發出死鬥宣告，下回合進入競技場。`);effect(p,'arena_challenge','死鬥宣告');}
       }
     } else if(p.role==='samurai') {
@@ -656,20 +657,20 @@ export const phase8Methods = {
       const mult=1+.10*countEquip(p,'sa_oboro')*corrosion+(countEquip(p,'sa_murasame')?missing*.25*corrosion:0);
       if(p.action==='sa_tsubame') {
         if(soul<4){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
-        else {p.soul-=4;for(let i=0;i<4&&m.hp>0;i++)damage(Math.floor((this.applyFateBlessing(p, 10)+stat)*bardMultiplier*mult),'phys',{penetration:1});outcome={type:'tsubame',label:'秘劍・燕返'};}
+        else {p.soul-=4;for(let i=0;i<4&&m.hp>0;i++)damage(Math.floor(value('basic')*bardMultiplier*mult),'phys',{penetration:1});outcome={type:'tsubame',label:'秘劍・燕返'};}
       } else {
         const baseBurstChance = Math.min(.7, .3 + .05 * soul);
         const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
         const burst = p.action==='sa_cut'&&soul>0&&(augurs.length ? this.intervenePositive(p, '拔刀斬・一閃', Math.round(baseBurstChance * 100)).success : Math.random()<baseBurstChance);
         if(p.action==='sa_cut'&&soul===0)p.parryChance=.7;
-        const baseCutDmg = this.applyFateBlessing(p, p.action==='sa_cut'?15:10);
-        damage(Math.floor((baseCutDmg+stat)*bardMultiplier*mult*(burst?2:1)),'phys',{critical:burst});
+        const baseCutDmg = value(p.action==='sa_cut'?'sa_cut':'basic');
+        damage(Math.floor(baseCutDmg*bardMultiplier*mult*(burst?2:1)),'phys',{critical:burst});
         p.soul=Math.min(8,soul+1);outcome={type:burst?'soul_burst':'normal',label:burst?'武魂爆發':undefined};
       }
       this.p8Log(`${p.name}【${outcome.label||'居合攻擊'}】，武魂 ${p.soul||0}/8。`);
     } else if(p.role==='sage') {
       p.sageX ??=30;p.sageOperand ??=Math.floor(Math.random()*30)+1;p.sagePhase ||= 'hypothesis';
-      const actual=damage(Math.floor((this.applyFateBlessing(p, 10)+stat)*bardMultiplier),'phys',{penetration:p.action==='sge_deduce'?.5:0});
+      const actual=damage(Math.floor(value('basic')*bardMultiplier),'phys',{penetration:p.action==='sge_deduce'?.5:0});
       if(p.sagePhase==='hypothesis') {
         if(p.action==='basic')p.sageOperand=actual;
         else if(p.action==='sge_deduce')p.sageOperand+=actual;
@@ -684,8 +685,8 @@ export const phase8Methods = {
       p.sageLastAction=p.action;this.p8Log(`${p.name}【${p.sagePhase==='solve'?'求解':'假設'}】X=${p.sageX}，Operand=${p.sageOperand}。`);
     } else if(p.role==='augur') {
       if(p.action==='basic') {
-        const raw = this.applyFateBlessing(p, 10);
-        damage(Math.floor((raw+stat)*bardMultiplier), 'mag');
+        const raw = value('basic');
+        damage(Math.floor(raw*bardMultiplier), 'mag');
         if (this.p8Results.at(-1)?.kind==='damage' && this.p8Results.at(-1).damageType==='magic' && this.p8Results.at(-1).finalDamage>0) m.augurResistanceBreak = 2;
         let clearAmt = 8;
         const amethyst = countEquip(p, 'aug_amethyst');
@@ -709,8 +710,8 @@ export const phase8Methods = {
         outcome = { type: 'bind', label: '命運繫結', targetId: target.id, targetName: target.name };
         this.p8Log(`🤲🔮 **${p.name}** 施展【命運繫結】，將【觀測目標】重設為 **${target.name}**！本回合【命運加護】提升至 25%，正位加成提升至 20%，逆位上限提升至 25%！`, 'buff');
       } else if(p.action==='aug_reckon') {
-        const raw = this.applyFateBlessing(p, 15);
-        damage(Math.floor((raw+stat)*bardMultiplier), 'mag');
+        const raw = value('aug_reckon');
+        damage(Math.floor(raw*bardMultiplier), 'mag');
         if (m.hp > 0) {
           if (this.p8Results.at(-1)?.kind==='damage' && this.p8Results.at(-1).damageType==='magic' && this.p8Results.at(-1).finalDamage>0) m.augurResistanceBreak = 2;
           m.reversedOmenRemaining = 2;
@@ -723,7 +724,7 @@ export const phase8Methods = {
           bonusHeal = true;
           const heal=(ally)=>{
             const before=this.getHpSnapshot();
-            const actualHeal=this.applyHealWithOverheal(ally,this.applyFateBlessing(p,10),{directHp:true});
+            const actualHeal=this.applyHealWithOverheal(ally,value('aug_heal'),{directHp:true});
             const after=this.getHpSnapshot();
             this.p8Results.push({kind:'heal',targetId:ally.id,actualHeal,outcome:{type:'normal'},
               targetBefore:before.players.find(a=>a.id===ally.id),targetAfter:after.players.find(a=>a.id===ally.id),hpSnapshot:after});
@@ -896,7 +897,7 @@ export const phase8Methods = {
       if(m.hp>0&&p.role==='warrior'&&this.p8Has(p,'warrior_resolve')&&p.warriorRoundDamage>0)event(p,'堅定反擊','w_counter',()=>{this.p8DamageMonster(p,p.warriorRoundDamage,'phys',resistance);this.p8Log(`${p.name}【堅定反擊】返還本輪實受 ${p.warriorRoundDamage} 傷害。`);});
       p.warriorRoundDamage=0;
       if(m.hp>0&&p.role==='samurai'&&p.parriedCount>0) {
-        const n=countEquip(p,'sa_murasame')?20+p.parriedCount*2:countEquip(p,'sa_haori')?5:10+p.parriedCount;
+        const n=countEquip(p,'sa_murasame')?20+p.parriedCount*2:countEquip(p,'sa_haori')?5:this.skillValue(p,'sa_counter',{blocks:p.parriedCount});
         event(p,'狂刀反擊','sa_counter',()=>this.p8DamageMonster(p,n,'phys',resistance));this.p8Log(`${p.name}統一反擊 ${n}（招架 ${p.parriedCount} 次）。`);
       }
       if(p.role==='sage'&&!p.sageEquationResolved&&(p.sagePhase==='hypothesis'||p.sageSolvedThisRound))this.p8ResolveEquation(p,queue,log,resistance,bardMultiplier);

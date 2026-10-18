@@ -1150,7 +1150,7 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
   if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.'+form,'/photo/遠古樹精.webp'):'/photo/遠古樹精.webp', name: '遠古樹精', transformed: true };
   if (descriptor.entityType === 'minion' || descriptor.type === 'wolf' || descriptor.type === 'treant') {
     const index = descriptor.minionIndex || 1;
-    return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然僕從' };
+    return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然夥伴' };
   }
   if (descriptor.entityType === 'monster') {
     const fallback = descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp';

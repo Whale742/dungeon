@@ -124,7 +124,7 @@ const DEFAULT_ROLE_DETAILS = {
     avatar: '/photo/Druid.webp',
     hp: 85,
     type: '物理 / 自然變形',
-    passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然僕從召喚（小樹精/幼狼）。',
+    passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然夥伴召喚（小樹精/幼狼）。',
     forms: {
       werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
       treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
@@ -145,8 +145,8 @@ const DEFAULT_ROLE_DETAILS = {
     skills: [
       { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '引導自然力量造成基礎 10 點物理傷害。' },
       { type: '1 技能', name: '形態轉變', dmgType: '【變身】', cd: '無 CD (持續2回合)', desc: '持續 2 回合（結束後才可再次變身）：有一半機率化身狼人（降低 20% 最大生命、造成傷害提升至 35 點、立即造成 35 傷害強化普攻，變身結束恢復最大生命）；有一半機率化身遠古樹精（生命上限 +100、常駐減傷 30%、替全隊吸收 50% 受傷、致命傷免死化為樹木休眠 1 回合）。' },
-      { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚肉盾型樹精僕從（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
-      { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚敏捷型幼狼僕從（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' }
+      { type: '2 技能 A', name: '召喚小樹精', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚肉盾型樹精夥伴（HP = floor(10 + Max HP × 25%)，ATK = floor(有效攻擊 × 10%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' },
+      { type: '2 技能 B', name: '召喚幼狼', dmgType: '【召喚】', cd: '無 CD (每位德魯伊上限3隻)', desc: '召喚敏捷型幼狼夥伴（HP = floor(5 + Max HP × 10%)，ATK = floor(有效攻擊 × 80%)，最低 1），每回合自動攻擊並優先替隊伍承受分散傷害。' }
     ]
 
   },
@@ -2207,7 +2207,7 @@ function renderTeammatesGrid(me) {
       </div>
       <div class="teammate-stats-sub">
         <span>HP ${p.tempHp > 0 ? `${p.hp + p.tempHp}/${p.maxHp}` : `${p.hp}/${p.maxHp}`}${p.tempHp > 0 ? `<span class="teammate-overheal-badge">+${p.tempHp} 額外</span>` : ''}</span>
-        <span>+${p.bonusAtk} 攻</span>
+        <span>ATK ${p.ATK_base ?? 0} · 物 +${p.PAtk_gear ?? 0} · 魔 +${p.MAtk_gear ?? 0} · DEF ${p.DEF ?? 0}</span>
       </div>
       <div class="teammate-tags">${tags.join('')}</div>
       <div class="equip-list" title="${escapeHtml(equipNames)}">[裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
@@ -2219,13 +2219,13 @@ function renderTeammatesGrid(me) {
       syncPortraitStatusFx(p, avatarWrap, { scale: 0.28 });
     }
 
-    // 德魯伊召喚物暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
+    // 德魯伊夥伴暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
     if (p.minions && p.minions.length > 0) {
       const minionCard = document.createElement('div');
       minionCard.className = 'teammate-card teammate-card-minion';
       minionCard.setAttribute('data-player-id', p.id + '_minions');
       minionCard.setAttribute('data-minion-owner-id', p.id);
-      minionCard.setAttribute('title', '點擊展開僕從詳細資訊');
+      minionCard.setAttribute('title', '點擊展開夥伴詳細資訊');
 
       const totalHp = p.minions.reduce((sum, m) => sum + (m.hp || 0), 0);
       const totalMaxHp = p.minions.reduce((sum, m) => sum + (m.maxHp || 0), 0);
@@ -2244,8 +2244,8 @@ function renderTeammatesGrid(me) {
             <span class="minion-icon-wrap" style="display:inline-flex; align-items:center; gap: 3px;">
               ${minionPortraitsHtml}
             </span>
-            <span>${escapeHtml(p.name)}的僕從</span>
-            <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看僕從詳細資訊">(${p.minions.length}/3)</button>
+            <span>${escapeHtml(p.name)}的夥伴</span>
+            <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看夥伴詳細資訊">(${p.minions.length}/3)</button>
           </span>
         </div>
         <div class="teammate-hp-bg">
@@ -2270,7 +2270,7 @@ function renderTeammatesGrid(me) {
     }
   });
 
-  // 如果當前開啟的僕從視窗所屬玩家已無僕從，自動關閉小視窗
+  // 如果當前開啟的夥伴視窗所屬玩家已無夥伴，自動關閉小視窗
   if (activeViewingMinionOwnerId) {
     const owner = (roomState.players || []).find(x => x.id === activeViewingMinionOwnerId);
     if (!owner || !owner.minions || owner.minions.length === 0) {
@@ -2324,7 +2324,7 @@ function renderMyActionBar(me) {
   elements.myRoleEmoji.innerHTML = getPlayerAvatarHtml(me, 'my-role-avatar-img');
   elements.myRoleName.textContent = window.StudioContent?.find('role_profiles',me.role)?.name_zh||roleConfig.name;
 
-  // 狀態簡報（包含狼人/樹精/僕從狀態）
+  // 狀態簡報（包含狼人/樹精/夥伴狀態）
   let stanceHtml = '';
   if (me.druidForm === 'werewolf') {
     stanceHtml += ` <span class="badge-form-wolf">${getIconSvg('summon')} 狼人形態 (傷害35點，剩餘${me.druidFormTurns}R)</span>`;
@@ -2334,11 +2334,11 @@ function renderMyActionBar(me) {
     stanceHtml += ` <span class="badge-form-treant">${getIconSvg('cooldown')} 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
   }
   if (me.minion) {
-    stanceHtml += ` <span class="badge-minion">${getIconSvg('summon')} 僕從: ${escapeHtml(me.minion.name)} (HP ${me.minion.hp}/${me.minion.maxHp} | 攻 ${me.minion.atk})</span>`;
+    stanceHtml += ` <span class="badge-minion">${getIconSvg('summon')} 夥伴: ${escapeHtml(me.minion.name)} (HP ${me.minion.hp}/${me.minion.maxHp} | 攻 ${me.minion.atk})</span>`;
   }
 
   elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
-  elements.myAtkSummary.textContent = `+${me.bonusAtk} 攻`;
+  elements.myAtkSummary.textContent = `ATK ${me.ATK_base ?? 0} · 物 +${me.PAtk_gear ?? 0} · 魔 +${me.MAtk_gear ?? 0} · DEF ${me.DEF ?? 0}`;
   let compact=document.getElementById('compactRoleState');
   if(!compact){compact=document.createElement('div');compact.id='compactRoleState';compact.className='compact-role-state';elements.mySkillsRow.parentNode.insertBefore(compact,elements.mySkillsRow);}
   compact.replaceChildren();
@@ -2449,7 +2449,7 @@ function renderMyActionBar(me) {
       const minionCount = (me.minions || []).length;
       if (minionCount >= 3) {
         isCoolingDown = true;
-        cdBadgeText = '僕從已滿(3/3)';
+        cdBadgeText = '夥伴已滿(3/3)';
       }
     }
 
@@ -2818,7 +2818,7 @@ elements.btnCancelTarget.addEventListener('click', () => {
 });
 
 // ==========================================
-// 德魯伊僕從詳細資訊 Modal 邏輯
+// 德魯伊夥伴詳細資訊 Modal 邏輯
 // ==========================================
 let activeViewingMinionOwnerId = null;
 
@@ -2832,7 +2832,7 @@ function showMinionDetailModal(player) {
   const totalAtk = player.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
 
   if (elements.minionDetailTitle) {
-    elements.minionDetailTitle.innerHTML = `${getIconSvg('summon')} <span>${escapeHtml(player.name)} 的僕從隊伍 (${player.minions.length}/3)</span>`;
+    elements.minionDetailTitle.innerHTML = `${getIconSvg('summon')} <span>${escapeHtml(player.name)} 的夥伴隊伍 (${player.minions.length}/3)</span>`;
   }
   if (elements.minionDetailSubtitle) {
     elements.minionDetailSubtitle.textContent = `合計生命 ${totalHp}/${totalMaxHp} · 合計攻擊力 ${totalAtk} 點`;
@@ -2977,7 +2977,7 @@ function openRoleDetailModal(roleKey) {
       html += `
         <div class="role-detail-section">
           <div class="role-detail-section-title">
-            <span>${getIconSvg('paw')}</span> <span>德魯伊變身形態與自然僕從</span>
+            <span>${getIconSvg('paw')}</span> <span>德魯伊變身形態與自然夥伴</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 8px;">
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
@@ -2991,14 +2991,14 @@ function openRoleDetailModal(roleKey) {
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">護盾85%，減傷30%，分攤50%</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：小樹精">
-              <div style="font-weight: 700; font-size: 13px; color: #4ade80;">僕從：小樹精</div>
+              <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：小樹精">
+              <div style="font-weight: 700; font-size: 13px; color: #4ade80;">夥伴：小樹精</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">肉盾守護，替隊伍吸收彈射傷</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(249, 115, 22, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/幼狼1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="僕從：幼狼">
-              <div style="font-weight: 700; font-size: 13px; color: #fb923c;">僕從：幼狼</div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">敏捷撕咬，高攻擊僕從</div>
+              <img src="/photo/幼狼1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：幼狼">
+              <div style="font-weight: 700; font-size: 13px; color: #fb923c;">夥伴：幼狼</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">敏捷撕咬，高攻擊夥伴</div>
             </div>
           </div>
         </div>
@@ -4090,7 +4090,7 @@ function playSinglePlayerVisualEvent(ev) {
   } else if (ev.type === 'minion_hit') {
     const card = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${ev.ownerId}"]`) || document.querySelector(`.teammate-card[data-player-id="${ev.ownerId}"]`);
     if (card) {
-      spawnFloatingText(card.querySelector('.floating-text-container'), `僕從抵擋 -${ev.value}`, 'shield');
+      spawnFloatingText(card.querySelector('.floating-text-container'), `夥伴抵擋 -${ev.value}`, 'shield');
       playPixelFx(card, 'shield-flare');
     }
     playSound('shield_block');
@@ -4358,7 +4358,7 @@ function updateBattleHudFromSnapshot(snapshot) {
       }
     });
 
-    // 德魯伊僕從 HP 與縮圖更新
+    // 德魯伊夥伴 HP 與縮圖更新
     const druid = roomState.players.find(p => p.role === 'druid');
     if (druid && druid.minions) {
       const minionCard = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${druid.id}"]`);
@@ -5255,14 +5255,17 @@ function renderInventoryModal() {
   if (elements.invStatHp) {
     elements.invStatHp.textContent = me ? `${Math.round(me.hp)} / ${me.maxHp}` : '-- / --';
   }
+  const physVal = me?.PAtk_gear ?? (isPhys ? (me?.bonusAtk || 0) : (me?.bonusPhysAtk || 0));
+  const magVal = me?.MAtk_gear ?? (!isPhys ? (me?.bonusAtk || 0) : (me?.bonusMagAtk || 0));
+  const defVal = me?.DEF ?? (me?.bonusDef || 0);
   if (elements.invStatPhys) {
-    elements.invStatPhys.textContent = me ? `+${isPhys ? (me.bonusAtk || 0) : (me.bonusPhysAtk || 0)}` : '+0';
+    elements.invStatPhys.textContent = me ? `+${physVal}` : '+0';
   }
   if (elements.invStatMag) {
-    elements.invStatMag.textContent = me ? `+${!isPhys ? (me.bonusAtk || 0) : (me.bonusMagAtk || 0)}` : '+0';
+    elements.invStatMag.textContent = me ? `+${magVal}` : '+0';
   }
   if (elements.invStatDef) {
-    elements.invStatDef.textContent = me ? `${me.bonusDef || 0}` : '0';
+    elements.invStatDef.textContent = me ? `${defVal}` : '0';
   }
 
   // 1. 小隊背包 (3-4-5-4-3 蜂巢連體共 19 格)

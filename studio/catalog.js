@@ -1,3 +1,4 @@
+import {v2Copy,v2SkillCopy} from '../game/v2-content.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +38,7 @@ export function skillCopyKey(player, skill) {
 export function buildCatalog() {
   const roles = Object.entries(CLASSES).map(([id, c]) => {
     const p = profiles[id], d = ROLE_DETAILS[id];
-    return { role_id:id, name_zh:c.name, name_en:p.enName, short_intro:c.desc, full_intro:c.desc, position_label:d?.type || '', tags:[...p.tags], passive_short:p.passiveSummary, passive_full:d?.passive || c.passive || c.desc, ...Object.fromEntries(radarFields.map((f,i) => [f, grades[p.radar[i]] || p.radar[i]])) };
+    return { role_id:id, name_zh:c.name, name_en:p.enName, short_intro:c.desc, full_intro:c.desc, position_label:d?.type || '', tags:[...p.tags], passive_short:v2Copy[id].skills.passive.short_copy, passive_full:d?.passive || c.passive || c.desc, ...Object.fromEntries(radarFields.map((f,i) => [f, grades[p.radar[i]] || p.radar[i]])) };
   });
   const skills = new Map(), skillMeta = {}, stories = [], bindings = new Map(), assets = new Map(), usage = {};
   const addSkill = (role, s, key = s.id, variant = '') => {
@@ -47,6 +48,7 @@ export function buildCatalog() {
     const detail = !variant && base?.label === s.label ? ROLE_DETAILS[role]?.skills?.[idx]?.desc : null;
     const contextual=text=>role==='gladiator'&&key==='g_arena__arena'?text.replace('怒氣層數×10','怒氣層數×{rageMultiplier}'):text;
     skills.set(k, { role_id:role, skill_id:key, display_name:s.label, short_copy:contextual(s.shortDesc || s.desc || ''), full_copy:contextual(detail || s.desc || '') });
+    const canonical=v2SkillCopy(role,key);if(canonical)Object.assign(skills.get(k),canonical);
     skillMeta[k] = { actionId:s.id, variant, contextual:!!s.contextualCopy };
   };
   for (const [role, c] of Object.entries(CLASSES)) {

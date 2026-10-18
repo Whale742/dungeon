@@ -204,13 +204,13 @@ test('Room: crouch state reduces monster damage by 20% and disables dodge', () =
 
   // Attack was 40. AOE raw is Math.floor(40 * 0.5) = 20, remaining scatter is 20 (hits leader).
   // Total raw assigned = 40.
-  // With 20% DR: Math.floor(40 * 0.80) = 32 damage!
+  // With 20% DR: Math.floor(40 * 0.80) = 32, and Archer DEF 2 (50/52) reduces to Math.floor(32 * 50 / 52) = 30 damage!
   // If dodge worked, damage would be 0.
   assert.equal(player.isCrouchedThisRound, true);
-  assert.equal(player.hp, 100 - 32, `Player HP should be 68 (took 32 damage instead of 40), was ${player.hp}`);
+  assert.equal(player.hp, 100 - 30, `Player HP should be 70 (took 30 damage after crouch + DEF), was ${player.hp}`);
 });
 
-test('Room: basic attack volley calculation: 3 arrows (1 pierce, 1 elemental, 1 burst) -> 89 / 3 = 30 dmg split with equal self damage', () => {
+test('Room: basic attack volley calculation: 3 arrows (1 pierce, 1 elemental, 1 burst) -> 89 total (30 + 30 + 29) split with equal self damage', () => {
   const io = createMockIo();
   const leaderSocket = createMockSocket('leader_1');
   const room = new Room('TEST', leaderSocket, 'ArcherLeader', io);
@@ -226,8 +226,8 @@ test('Room: basic attack volley calculation: 3 arrows (1 pierce, 1 elemental, 1 
   room.selectionState = 'SELECTING';
   room.currentMonster = {
     name: '首領測試怪',
-    hp: 90,
-    maxHp: 90,
+    hp: 89,
+    maxHp: 89,
     attack: 0,
     resistance: 'none'
   };
@@ -235,23 +235,22 @@ test('Room: basic attack volley calculation: 3 arrows (1 pierce, 1 elemental, 1 
   room.lockAction('leader_1', 'basic');
   room.resolveTurnActions();
 
-  // Total pool for 3 arrows = 10 + 79 = 89.
-  // dmgPerArrow = Math.round(89 / 3) = 30.
+  // Total pool for 3 arrows = 19 + 5 * 14 = 89 (largest remainder: 30, 30, 29).
   // pierce: 30 phys dmg
   // elemental: 30 mag dmg
-  // burst: 30 true dmg to monster + 30 equal true dmg to archer
-  // Total damage to monster = 90. Monster killed (hp = 0).
-  // Archer HP = 100 - 30 = 70.
+  // burst: 29 true dmg to monster + 29 equal true dmg to archer
+  // Total damage to monster = 89. Monster killed (hp = 0).
+  // Archer HP = 100 - 29 = 71.
   assert.equal(room.currentMonster.hp, 0, `Monster HP should be 0, was ${room.currentMonster.hp}`);
-  assert.equal(player.hp, 70, `Archer HP should be 70, was ${player.hp}`);
+  assert.equal(player.hp, 71, `Archer HP should be 71, was ${player.hp}`);
   assert.equal(player.ammo.length, 0, 'Ammo should be completely consumed');
 
   // Verify battle log details
-  const volleyLog = room.logs.find(l => l.text.includes('【重弩齊射】'));
-  assert.ok(volleyLog, 'Volley log should be recorded');
-  assert.ok(volleyLog.text.includes('穿甲箭 ×1：造成 **30** 點【物理】傷害'));
-  assert.ok(volleyLog.text.includes('元素箭 ×1：造成 **30** 點【魔法】傷害'));
-  assert.ok(volleyLog.text.includes('爆裂箭 ×1：造成 **30** 點【真實】傷害，自身扣除等量 **30** 點真實生命！'));
+  const volleyLogs = room.logs.filter(l => l.text.includes('【重弩齊射'));
+  assert.equal(volleyLogs.length, 3, 'Should record 3 per-arrow volley logs');
+  assert.ok(volleyLogs[0].text.includes('穿甲箭】基礎 30，實際造成 **30** 傷害'));
+  assert.ok(volleyLogs[1].text.includes('元素箭】基礎 30，實際造成 **30** 傷害'));
+  assert.ok(volleyLogs[2].text.includes('爆裂箭】基礎 29，實際造成 **29** 傷害'));
 });
 
 test('Room: burst self damage can be lethal and correctly triggers death', () => {

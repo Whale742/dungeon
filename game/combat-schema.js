@@ -48,10 +48,9 @@ export function playerStatuses(player, room, balance) {
   if (player.hp > 0) {
     if ((room.roundModifiers?.acidFlaskCount||0)>0 || (room.roundModifiers?.equipmentEffectMultiplier??1)<1 || player.alcAcidStack>0) add('alchemy_corrosion','強酸腐蝕・裝備效果降低','debuff',1,{isNegative:true,category:'DEBUFF',stacks:(room.roundModifiers?.acidFlaskCount||0)+(player.alcAcidStack||0)});
     if (room.warriorShieldTurn) add('guard', 'GUARD', 'guard', room.warriorShieldTurn === 1 ? 2 : 1);
-    if (room.alcShieldTurns) add('alchemy_guard', 'DR 70%', 'guard', room.alcShieldTurns);
     if (room.alcVulnerableTurns || room.alcVulnerableNextTurn) add('alchemy_vulnerable', 'VULNERABLE', 'debuff', 1);
     if (room.frenzyTeamDrainNextTurn) add('frenzy', 'DMG +70% · 次回合代價', 'buff', 1);
-    if (room.bardBuffActive) add('frenzy_buff', 'DMG ↑ / DR ↑', 'buff', 1);
+    if (room.bardBuffActive) add('frenzy_buff', 'DMG +50%', 'buff', 1);
     if (player.tempHp > 0) add('temp_hp', 'TEMP HP', 'shield', 1, { value: player.tempHp });
     const sageShield=(player.p8Shields||[]).find(s=>s.kind==='sage'&&s.value>0&&s.until>=room.battleRound);
     if(sageShield)add('sage_shield','彈性碰撞護盾','shield',sageShield.until-room.battleRound+1,{value:sageShield.value});

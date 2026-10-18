@@ -99,18 +99,18 @@ test('Paladin basic attack deals 5 damage and grants 2x damage shield with no tu
   assert.equal(basicShield.initial, 10, 'Initial shield should be 2x damage = 10');
   assert.equal(basicShield.until, Infinity, 'Basic shield should have no round limit (Infinity)');
 
-  // Monster hits for 5 damage (min 5 effective attack), absorbing 5 shield -> 5 shield left
-  assert.equal(pal.tempHp, 5, 'Shield absorbed 5 damage, 5 remaining');
+  // Monster hits for 5 raw damage, reduced by Paladin DEF 10 (50/60) to 4 damage, absorbing 4 shield -> 6 shield left
+  assert.equal(pal.tempHp, 6, 'Shield absorbed 4 damage, 6 remaining');
 
   // Next round start -> shield does NOT expire
   room.battleRound = 2;
   room.p8RoundStart();
-  assert.equal(pal.tempHp, 5, 'Basic shield should persist across rounds');
+  assert.equal(pal.tempHp, 6, 'Basic shield should persist across rounds');
 
   // Round 3 start -> shield still persists
   room.battleRound = 3;
   room.p8RoundStart();
-  assert.equal(pal.tempHp, 5, 'Basic shield should continue to persist');
+  assert.equal(pal.tempHp, 6, 'Basic shield should continue to persist');
 });
 
 test('Paladin Skill 1 Glory Carol: self 50% max HP shield (2 rounds), deals 15 damage, tracks ally damage, next round converts 70% to party shield (2 rounds)', (t) => {
@@ -149,9 +149,9 @@ test('Paladin Skill 1 Glory Carol: self 50% max HP shield (2 rounds), deals 15 d
   });
 
   // Tracked damage = 25. 70% of 25 = 17 shield for all allies!
-  // Self 50% shield (until 2) absorbed 2 damage in round 1 (43 remaining) + 17 = 60!
+  // Self 50% shield (until 2) absorbed 1 damage (after DEF 10) in round 1 (44 remaining) + 17 = 61!
   assert.equal(mage.tempHp, 17);
-  assert.equal(pal.tempHp, 60);
+  assert.equal(pal.tempHp, 61);
 
   const palPartyShield = (pal.p8Shields || []).find(s => s.kind === 'paladin_glory');
   assert.ok(palPartyShield);
@@ -313,14 +313,14 @@ test('Paladin Equipment Oath Hammer grants +5 Physical ATK and +10 Max HP', (t) 
   assert.equal(pal.maxHp, initialMaxHp + 10, 'Oath Hammer should grant +10 max HP');
   assert.equal(pal.bonusAtk, 5, 'Oath Hammer should grant +5 bonus ATK');
 
-  // Basic attack: base 5 + 5 = 10 damage
+  // Basic attack: v2 formula round(1 + 0.5 * (8 + 5)) = round(7.5) = 8 damage
   pal.action = 'basic';
   room.currentMonster.hp = 1000;
   const q = resolve();
 
-  assert.equal(room.currentMonster.hp, 990, 'Basic attack should deal 10 damage');
+  assert.equal(room.currentMonster.hp, 992, 'Basic attack should deal 8 damage (round(1 + 0.5 * 13))');
   const palStep = q.find(s => s.actionId === 'basic');
-  assert.equal(palStep.hpSnapshot.players[0].tempHp, 20, 'Should gain 2x damage = 20 shield at time of attack');
+  assert.equal(palStep.hpSnapshot.players[0].tempHp, 16, 'Should gain 2x damage = 16 shield at time of attack');
   const basicShield = (pal.p8Shields || []).find(s => s.kind === 'paladin_basic');
-  assert.equal(basicShield.initial, 20);
+  assert.equal(basicShield.initial, 16);
 });

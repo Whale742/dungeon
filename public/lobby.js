@@ -6,7 +6,7 @@ const LOBBY_ROLE_PROFILES = Object.freeze(Object.fromEntries(Object.entries({
   assassin:{enName:'Assassin',tags:['DPS','物理','暴擊','匿蹤'],radar:['S','C','D','B','A'],passiveSummary:'運用匿蹤與暴擊形成爆發，抓住出手時機。'},
   bard:{enName:'Bard',tags:['SUPPORT','群療','增益'],radar:['C','B','S','B','B'],passiveSummary:'治療、增益與復活支援隊伍，演奏也可能出現走音。'},
   alchemist:{enName:'Alchemist',tags:['SUPPORT','魔法','調和'],radar:['A','C','A','D','A'],passiveSummary:'調和試劑帶來腐蝕、劇毒與淨化，結果充滿變數。'},
-  druid:{enName:'Druid',tags:['SUPPORT','自然','變身','召喚'],radar:['A','S','A','C','S'],passiveSummary:'切換狼人與樹精形態，運用自然僕從與全隊庇護。'},
+  druid:{enName:'Druid',tags:['SUPPORT','自然','變身','召喚'],radar:['A','S','A','C','S'],passiveSummary:'切換狼人與樹精形態，運用自然夥伴與全隊庇護。'},
   paladin:{enName:'Paladin',tags:['TANK','物理','護盾','援護'],radar:['C','S','S','A','B'],passiveSummary:'受到傷害機率提高 30%，以護盾與承擔傷害守護隊友。'},
   gladiator:{enName:'Gladiator',tags:['DPS','物理','怒氣'],radar:['S','A','D','B','A'],passiveSummary:'受傷積累怒氣，以鮮血獻祭與死亡角鬥場挑戰首領。'},
   stargazer:{enName:'Stargazer',tags:['SUPPORT','魔法','天象'],radar:['A','B','A','B','A'],passiveSummary:'觀測天象揭曉隨機結果，操控全隊技能冷卻與戰鬥節奏。'},
