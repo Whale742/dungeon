@@ -5717,15 +5717,23 @@ let selectedInvSlot = null;
 function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
   if (!item) return '';
   if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE') {
+    let svg = '';
+    let fallbackImg = '';
     if (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') {
-      return `<div class="consumable-svg-wrap ${iconClass}-svg"><svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="m9 15 2 2 4-4"/></svg></div>`;
+      svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="m9 15 2 2 4-4"/></svg>`;
+      fallbackImg = '/assets/Equipments/解毒劑.webp';
+    } else if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
+      svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="rgba(244,63,94,0.3)"/><path d="M12 7v6M9 10h6"/></svg>`;
+      fallbackImg = '/assets/Equipments/補血藥.webp';
+    } else if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') {
+      svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M3.5 21 12 3l8.5 18H3.5Z" fill="rgba(251,191,36,0.2)"/><path d="M12 3v18M8.5 21l3.5-7 3.5 7"/></svg>`;
+      fallbackImg = '/assets/Equipments/修整帳篷.webp';
     }
-    if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
-      return `<div class="consumable-svg-wrap ${iconClass}-svg"><svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="rgba(244,63,94,0.3)"/><path d="M12 7v6M9 10h6"/></svg></div>`;
-    }
-    if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') {
-      return `<div class="consumable-svg-wrap ${iconClass}-svg"><svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M3.5 21 12 3l8.5 18H3.5Z" fill="rgba(251,191,36,0.2)"/><path d="M12 3v18M8.5 21l3.5-7 3.5 7"/></svg></div>`;
-    }
+    const imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : (fallbackImg || `/assets/Equipments/${encodeURIComponent(item.name)}.webp`);
+    return `
+      <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name || '')}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
+      <div class="consumable-svg-wrap ${iconClass}-svg" style="display:none;">${svg}</div>
+    `;
   }
   const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
   if (isExclusive) {
@@ -6829,7 +6837,7 @@ function renderInteractiveEvent(ev) {
           <div class="shop-item-cost">🪙 ${item.price}G</div>
           <div class="shop-item-desc">${escapeHtml(item.desc || '')}</div>
         </div>
-        <button type="button" class="btn-shop-buy" data-index="${idx}" ${currentGold < item.price ? 'disabled' : ''}>
+        <button type="button" class="btn-shop-buy btn-shop-buy-equip" data-index="${idx}" ${currentGold < item.price ? 'disabled' : ''}>
           購買 (${item.price}G)
         </button>
       </div>
@@ -6852,7 +6860,7 @@ function renderInteractiveEvent(ev) {
           <div class="shop-item-cost">🪙 ${c.price}G</div>
           <div class="shop-item-desc">${escapeHtml(c.desc || '')}</div>
         </div>
-        <button type="button" class="btn-shop-buy-consumable" data-consumable-idx="${idx}" ${currentGold < c.price ? 'disabled' : ''}>
+        <button type="button" class="btn-shop-buy btn-shop-buy-consumable" data-consumable-idx="${idx}" ${currentGold < c.price ? 'disabled' : ''}>
           購買 (${c.price}G)
         </button>
       </div>
@@ -6880,8 +6888,8 @@ function renderInteractiveEvent(ev) {
                 <div class="shop-item-cost">🪙 原價: ${bb.soldPrice}G</div>
                 <div class="shop-item-desc">${escapeHtml(bb.desc || '')}</div>
               </div>
-              <button type="button" class="btn-shop-buyback" data-buyback-idx="${bIdx}" ${currentGold < bb.soldPrice ? 'disabled' : ''}>
-                原價買回 (${bb.soldPrice}G)
+              <button type="button" class="btn-shop-buy btn-shop-buyback" data-buyback-idx="${bIdx}" ${currentGold < bb.soldPrice ? 'disabled' : ''}>
+                買回 (${bb.soldPrice}G)
               </button>
             </div>
             `;
@@ -6926,7 +6934,7 @@ function renderInteractiveEvent(ev) {
       }
     });
 
-    elements.eventDetails.querySelectorAll('.btn-shop-buy').forEach(b => {
+    elements.eventDetails.querySelectorAll('.btn-shop-buy-equip, .btn-shop-buy:not(.btn-shop-buy-consumable):not(.btn-shop-buyback)').forEach(b => {
       b.onclick = (e) => {
         e.stopPropagation();
         hideItemTooltip(true);

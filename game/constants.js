@@ -2002,7 +2002,8 @@ export const CONSUMABLES = [
     cost: 30,
     basePrice: 30,
     desc: '使用後清除單一目標身上的所有負面狀態。',
-    effectType: 'ANTIDOTE'
+    effectType: 'ANTIDOTE',
+    icon: '/assets/Equipments/解毒劑.webp'
   },
   {
     id: 'consumable_healing_potion',
@@ -2013,7 +2014,8 @@ export const CONSUMABLES = [
     basePrice: 40,
     desc: '使用後恢復單一目標 40% 最大生命值。',
     effectType: 'HEALING_POTION',
-    healPercent: 0.40
+    healPercent: 0.40,
+    icon: '/assets/Equipments/補血藥.webp'
   },
   {
     id: 'consumable_rest_tent',
@@ -2024,7 +2026,8 @@ export const CONSUMABLES = [
     basePrice: 100,
     desc: '僅限在「選路階段」使用。強制在原地觸發一次休息回合，全隊恢復大量生命值並清除所有負面效果。',
     effectType: 'REST_TENT',
-    healPercent: 0.60
+    healPercent: 0.60,
+    icon: '/assets/Equipments/修整帳篷.webp'
   }
 ];
 
