@@ -316,16 +316,14 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .member-item:hover {
-  background: rgba(245, 230, 205, 0.85);
-  border-color: #7d4d20;
+  background: var(--ui-surface-raised, #2F3633);
+  border-color: var(--ui-border-accent, #A78B5D);
 }
 
 #viewLobby .member-item.is-me {
-  border: 2px solid #8f1d1d;
-  background: rgba(253, 245, 226, 0.92);
-  box-shadow: 
-    0 0 0 1px rgba(143, 29, 29, 0.3),
-    inset 0 2px 5px rgba(60, 30, 10, 0.15);
+  border: 1px solid var(--ui-primary, #914B43);
+  background: var(--ui-surface-raised, #2F3633);
+  box-shadow: none;
 }
 
 #viewLobby .member-item.can-transfer-leader {
@@ -1531,9 +1529,18 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   display: none !important;
 }
 
-.modal-card {
+.modal-card:not(.inventory-modal-card) {
   width: 100%;
   max-width: 520px;
+}
+.modal-card.inventory-modal-card {
+  width: min(1360px, calc(100vw - 48px));
+  max-width: 1360px;
+  height: min(860px, calc(100dvh - 48px));
+  max-height: min(860px, calc(100dvh - 48px));
+}
+.modal-card {
+  width: 100%;
   padding: 20px;
   box-shadow: none;
   background: var(--ui-surface, #242A29);
