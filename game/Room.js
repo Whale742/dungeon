@@ -47,8 +47,16 @@ import {
   CRAFTING_RECIPES,
   getCraftingRecipe,
   findItemTemplate,
+  CONSUMABLES,
+  getItemBasePrice,
   LEADER_SKILLS,
-  ABYSS_DIALOGUES
+  ABYSS_DIALOGUES,
+  BASE_GOLD_DROPS,
+  getGoldIncomeMultiplier,
+  getShopPriceMultiplier,
+  calculateBattleGold,
+  calculateShopBuyPrice,
+  calculateItemSellPrice
 } from './constants.js';
 
 export class Room {
@@ -631,6 +639,24 @@ export class Room {
       return [this.createEnemyInstance(options.specialElite, 0, { isWeakened, tier: options.specialElite.tier || 'ELITE', rng })];
     }
 
+    // Mimic Ambush: 寶箱怪伏擊小怪編隊（2~3 隻狂暴雜兵，傷害與血量提升 25%，擊敗後掉落較多金幣）
+    if (options.isMimicAmbush) {
+      const count = options.minionCount || (2 + (rng() < 0.5 ? 0 : 1));
+      const list = [];
+      for (let i = 0; i < count; i++) {
+        const pool = (clampedCol >= 4 && rng() < 0.5) ? EXCLUSIVE_MINIONS : GENERAL_MINIONS;
+        const tmpl = pickRandom(pool);
+        const minion = this.createEnemyInstance(tmpl, i, { isWeakened, tier: 'MINION', rng });
+        minion.name = `【狂暴】${minion.name}`;
+        minion.isMimicAmbush = true;
+        minion.hp = Math.round(minion.hp * 1.25);
+        minion.maxHp = minion.hp;
+        minion.attack = Math.round(minion.attack * 1.25);
+        list.push(minion);
+      }
+      return list;
+    }
+
     // col 1 ~ 3: 100% 遭遇 2~3 隻「泛用雜兵」
     if (clampedCol >= 1 && clampedCol <= 3) {
       const count = options.minionCount || (2 + (rng() < 0.5 ? 0 : 1));
@@ -1072,7 +1098,10 @@ export class Room {
     this.hexMap = this.generateHexMap();
     this.currentHex = { col: 0, row: 3 };
     this.scoutedCols = new Set();
-    this.gold = 0;
+    const playerCount = Math.max(1, Object.keys(this.players).length);
+    this.gold = playerCount * 45;
+    this.hasCompletedPrep = false;
+    if (options.skipPrepShop) this.skipPrepShop = true;
     this.squadInventory = [];
     this.lockedLeaderId = this.leaderId;
     this.lockedLeaderRole = this.players[this.leaderId]?.role;
@@ -1083,6 +1112,7 @@ export class Room {
       const roleName = CLASSES[this.lockedLeaderRole]?.name || this.lockedLeaderRole;
       this.addLog(`👑 【隊長技啟動】隊長 **${this.players[this.leaderId]?.name}**（${roleName}）的隊長技【${lSkill.name}】已就緒！`, 'info');
     }
+    this.addLog(`🪙 【出發備戰】冒險小隊獲得出發物資資金 ${this.gold} 金幣（每位成員 45 金幣）！`, 'loot');
     for (const p of Object.values(this.players)) {
       p.hasDealtFirstBattleCrit = false;
       if(p.role==='sage'){p.sageX=30;p.sageDebt=0;delete p.sageDebtScheduledRound;}
@@ -1110,6 +1140,18 @@ export class Room {
     return { success: true };
   }
 
+  startPreDeparturePrep() {
+    this.clearTimer();
+    this.hasCompletedPrep = true;
+    this.handleShopEvent({
+      id: 'prep_shop',
+      isPrepShop: true,
+      col: 1,
+      isShadyMerchant: false,
+      noExclusive: true
+    });
+  }
+
   skipPrologue(socketId) {
     if (this.state !== 'PROLOGUE') return { success: false, message: '目前不是開場階段' };
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能跳過開場' };
@@ -1119,7 +1161,11 @@ export class Room {
     }
     this.clearTimer();
     this.pendingPresentationAcks.clear();
-    this.startRouteSelection();
+    if (this.hasCompletedPrep || this.skipPrepShop) {
+      this.startRouteSelection();
+    } else {
+      this.startPreDeparturePrep();
+    }
     return { success: true };
   }
 
@@ -1146,7 +1192,13 @@ export class Room {
 
   finishPrologueIfReady() {
     if (this.state !== 'PROLOGUE' || this.pendingPresentationAcks.size > 0) return;
-    if (Object.values(this.players).some(p => p.connected)) this.startRouteSelection();
+    if (Object.values(this.players).some(p => p.connected)) {
+      if (this.hasCompletedPrep || this.skipPrepShop) {
+        this.startRouteSelection();
+      } else {
+        this.startPreDeparturePrep();
+      }
+    }
   }
 
   startRouteSelection(options = {}) {
@@ -1403,7 +1455,29 @@ export class Room {
     return this.voteRoute(socketId, routeId);
   }
 
+  decayDebuffsOnParty() {
+    for (const p of Object.values(this.players)) {
+      if (p.poisonTurns > 0) {
+        p.poisonTurns -= 1;
+        if (p.poisonTurns === 0) p.poisonDmg = 0;
+      }
+      if (p.burnTurns > 0) {
+        p.burnTurns -= 1;
+        if (p.burnTurns === 0) p.burnDmg = 0;
+      }
+      if (p.bleedTurns > 0) {
+        p.bleedTurns -= 1;
+        if (p.bleedTurns === 0) p.bleedDmg = 0;
+      }
+      if (p.fractureTurns > 0) p.fractureTurns -= 1;
+      if (p.chillTurns > 0) p.chillTurns -= 1;
+      if (p.corrosionTurns > 0) p.corrosionTurns -= 1;
+      if (p.alcAcidEquipHalvedTurns > 0) p.alcAcidEquipHalvedTurns -= 1;
+    }
+  }
+
   resolveRouteChoice(route) {
+    this.decayDebuffsOnParty();
     const hexNode = this.getHexNodeById(route?.hexId || route?.id);
     let outcomeType = 'battle';
     let isWeakenedBoss = false;
@@ -2784,9 +2858,12 @@ export class Room {
     const victoryBefore = this.getHpSnapshot();
     for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;}
     monster.hp = 0;
-    let goldGain = 40;
-    if (this.getEffectiveLeaderRole() === 'gladiator') {
-      goldGain = Math.round(goldGain * 1.30);
+    const col = this.currentHex?.col || this.floor || 1;
+    const isGladiatorCaptain = this.getEffectiveLeaderRole() === 'gladiator';
+    const defeatedList = (Array.isArray(this.enemies) && this.enemies.length > 0) ? this.enemies : [monster];
+    const goldGain = calculateBattleGold(defeatedList, col, isGladiatorCaptain);
+    const hasElite = defeatedList.some(e => e.isElite || e.isAbyssBoss || e.isEndElite);
+    if (hasElite && isGladiatorCaptain) {
       log.push({ text: `⚔️ 【榮耀號角】角鬥士隊長引領勝利，精英怪金幣掉落 +30%（獲得 ${goldGain} 金幣）！`, type: 'loot' });
     } else {
       log.push({ text: `💰 戰鬥勝利！小隊獲得了 ${goldGain} 金幣！`, type: 'loot' });
@@ -2796,8 +2873,6 @@ export class Room {
 
     for (const p of Object.values(this.players)) {
       p.stunnedNextTurn = false;
-      p.bleedTurns = 0;
-      p.poisonTurns = 0;
       p.isSurrendered = false;
       if (p.druidForm === 'treant' || p.druidForm === 'tree') {
         // Treant grants shield; maximum HP remains unchanged.
@@ -2825,8 +2900,6 @@ export class Room {
         p.bardHealGroupBonus = (p.bardHealGroupBonus || 0) + 2;
         p.bardHealSingleBonus = (p.bardHealSingleBonus || 0) + 2;
       }
-
-
     }
 
     this.alcVulnerableTurns = 0;
@@ -2839,12 +2912,8 @@ export class Room {
       p.bonusAtk += 5;
       p.victoryAtkBonus = (p.victoryAtkBonus || 0) + 5;
       if (p.hp > 0) {
-        const hpBeforeRecovery = p.hp;
-        // maxHp already increased
-        // bonusAtk already increased
-        const healAmt = Math.max(1, Math.round(p.maxHp * 0.2));
-        p.hp = Math.min(p.maxHp, p.hp + 10 + healAmt);
-        log.push({ text: `💪 **${p.name}** HP上限 +10、攻擊力 +5，並恢復了 ${p.hp - hpBeforeRecovery} 生命（❤️ ${p.hp}/${p.maxHp}）`, type: 'heal' });
+        p.hp = Math.min(p.maxHp, p.hp);
+        log.push({ text: `💪 **${p.name}** 獲得戰鬥歷練：HP上限 +10、攻擊力 +5（❤️ 當前生命: ${p.hp}/${p.maxHp}）`, type: 'info' });
       } else {
         p.hp = 0;
         log.push({ text: `💪 **${p.name}** 雖已倒下，仍獲得戰鬥歷練：HP上限 +10、攻擊力 +5（HP 維持 0，待後續甦生）`, type: 'info' });
@@ -2882,7 +2951,7 @@ export class Room {
       story: '巨獸倒下後，籠罩在四周的污染逐漸散去……',
       hpBefore: victoryBefore, hpAfter: victoryAfter, results,
       drop, discarded: false, ownerName: '小隊背包',
-      recoveryRule: 'HP 上限 +10、ATK +5；恢復 10 + 新 Max HP 的 20%' };
+      recoveryRule: 'HP 上限 +10、ATK +5' };
     this.victoryPendingDrop = null;
     this.pendingDrop = null;
     this.state = 'BATTLE_VICTORY';
@@ -2996,6 +3065,12 @@ export class Room {
 
   addItemPrioritySquad(item, preferredPlayerId = null) {
     if (!item) return false;
+    if (!item.droppedAtCol) {
+      item.droppedAtCol = this.currentHex?.col || this.floor || 1;
+    }
+    if (!item.basePrice) {
+      item.basePrice = getItemBasePrice(item);
+    }
     if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
     if (this.squadInventory.length < 19) {
       this.squadInventory.push(item);
@@ -3316,14 +3391,35 @@ export class Room {
     this.clearTimer();
     this.state = 'EVENT';
     const isShady = typeof hexNode === 'boolean' ? hexNode : Boolean(hexNode?.isShadyMerchant);
+    const isPrepShop = Boolean(hexNode?.isPrepShop);
+    const col = hexNode?.col ?? (isPrepShop ? 1 : (this.currentHex?.col ?? 1));
     const leaderRole = this.getEffectiveLeaderRole();
-    const discount = (leaderRole === 'assassin') ? 0.8 : 1.0;
+    const isAssassinCaptain = leaderRole === 'assassin';
 
+    // 回收率與售價倍率計算
+    // 一般商店：商品售價 100% basePrice，回收 50% ~ 60%
+    // 奸商模式：商品售價 150% ~ 200% basePrice，回收 10% ~ 20%
+    const recycleRate = isShady
+      ? (Math.round((0.10 + Math.random() * 0.10) * 100) / 100)
+      : (Math.round((0.50 + Math.random() * 0.10) * 100) / 100);
+    const priceMultiplier = isShady
+      ? (Math.round((1.50 + Math.random() * 0.50) * 100) / 100)
+      : 1.0;
+
+    const shopSession = {
+      isShady,
+      shadyBuyMult: priceMultiplier,
+      sellRatio: recycleRate,
+      isAssassinCaptain
+    };
+
+    const targetItemCount = 6;
     const items = [];
-    const hasExclusive = Math.random() < 0.50;
+    const allowExclusive = !isPrepShop && !hexNode?.noExclusive;
+    const hasExclusive = allowExclusive && (Math.random() < 0.50);
 
     if (hasExclusive) {
-      // 50% 機率出現職業專屬裝備，價格為 250G
+      // 50% 機率出現職業專屬裝備，基準價格為 250G
       const partyRoles = Object.values(this.players).map(p => p.role).filter(Boolean);
       const partyExclusives = LOOT_TABLE.filter(e => e.role && partyRoles.includes(e.role));
       const pool = (partyExclusives.length > 0 && Math.random() < 0.8)
@@ -3333,46 +3429,74 @@ export class Room {
       const exclusiveItem = structuredClone(chosen);
       exclusiveItem.slot = EQUIP_SLOTS.CLASS_EXCLUSIVE;
       exclusiveItem.tier = 'CLASS_EXCLUSIVE';
-      exclusiveItem.price = Math.round(250 * discount);
+      exclusiveItem.basePrice = 250;
+      exclusiveItem.droppedAtCol = col;
+      exclusiveItem.price = calculateShopBuyPrice(250, col, shopSession);
       items.push(exclusiveItem);
     }
 
-    // 填補其餘項目至 4 項（通用裝備，優先不重複）
+    // 填補其餘項目至 6 項（通用裝備，優先不重複）
     const generalPool = isShady
       ? [...TIER2_EQUIPMENTS]
-      : (this.floor >= 5 ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS]);
+      : (col >= 5 ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS]);
 
     const shuffledGeneral = [...generalPool].sort(() => Math.random() - 0.5);
-    while (items.length < 4 && shuffledGeneral.length > 0) {
+    while (items.length < targetItemCount && shuffledGeneral.length > 0) {
       const gItem = shuffledGeneral.pop();
       if (!items.some(it => it.name === gItem.name)) {
         const itemClone = structuredClone(gItem);
         const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
-        itemClone.price = Math.round((isShady ? Math.round(basePrice * 1.25) : basePrice) * discount);
+        itemClone.basePrice = basePrice;
+        itemClone.droppedAtCol = col;
+        itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
         items.push(itemClone);
       }
     }
-    while (items.length < 4) {
+    while (items.length < targetItemCount) {
       const gItem = generalPool[Math.floor(Math.random() * generalPool.length)];
       const itemClone = structuredClone(gItem);
       const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
-      itemClone.price = Math.round(basePrice * discount);
+      itemClone.basePrice = basePrice;
+      itemClone.droppedAtCol = col;
+      itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
       items.push(itemClone);
     }
+
+    // 商店三大消耗品
+    const consumables = CONSUMABLES.map(c => {
+      const clone = structuredClone(c);
+      const basePrice = clone.cost || clone.basePrice || 50;
+      clone.basePrice = basePrice;
+      clone.droppedAtCol = col;
+      clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+      return clone;
+    });
 
     this.currentEvent = {
       type: 'shop',
       isShady,
+      isPrepShop,
+      recycleRate,
+      sellRatio: recycleRate,
+      priceMultiplier,
+      shadyBuyMult: priceMultiplier,
+      isAssassinCaptain,
       hexId: hexNode?.id,
-      col: hexNode?.col ?? 1,
-      title: isShady ? '🛒 幽暗黑市・神秘奸商' : '🛒 迷宮行商據點',
-      story: isShady
-        ? '角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。'
-        : '迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。',
+      col,
+      title: isPrepShop
+        ? '🏕️ 出發備戰據點・後勤物資處'
+        : (isShady ? '🛒 幽暗黑市・神秘奸商' : '🛒 迷宮行商據點'),
+      story: isPrepShop
+        ? '在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！'
+        : (isShady
+          ? '角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。'
+          : '迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。'),
       items,
+      consumables,
+      buybackPool: [],
       restPrice: 30,
-      canRob: isShady,
-      canSteal: isShady && leaderRole === 'assassin',
+      canRob: isShady && !isPrepShop,
+      canSteal: isShady && !isPrepShop && leaderRole === 'assassin',
       canLeave: true
     };
     this.broadcastState();
@@ -3387,25 +3511,143 @@ export class Room {
     const action = String(rawAction || '').toLowerCase();
 
     if (action === 'buy') {
-      let idx = params.itemIndex;
-      if (idx === undefined && params.itemId) {
-        idx = this.currentEvent.items.findIndex(i => i.id === params.itemId);
+      let isConsumable = Boolean(params.isConsumable);
+      let idx = params.itemIndex ?? params.consumableIndex;
+      let item = null;
+
+      if (params.itemId) {
+        const eqIdx = (this.currentEvent.items || []).findIndex(i => i.id === params.itemId);
+        if (eqIdx !== -1) {
+          idx = eqIdx;
+          isConsumable = false;
+        } else {
+          const csIdx = (this.currentEvent.consumables || []).findIndex(i => i.id === params.itemId);
+          if (csIdx !== -1) {
+            idx = csIdx;
+            isConsumable = true;
+          }
+        }
       }
-      idx = Number(idx ?? 0);
-      const item = this.currentEvent.items[idx];
-      if (!item) return { success: false, message: '商品不存在' };
+
+      if (isConsumable) {
+        idx = Number(idx ?? 0);
+        item = this.currentEvent.consumables?.[idx];
+        if (!item) return { success: false, message: '消耗品不存在' };
+      } else {
+        idx = Number(idx ?? 0);
+        item = this.currentEvent.items?.[idx];
+        if (!item) return { success: false, message: '商品不存在' };
+      }
+
       if ((this.gold || 0) < item.price) return { success: false, message: '金幣不足！' };
       if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
       if (this.squadInventory.length >= 19) return { success: false, message: '小隊背包已滿（上限 19 格）！' };
 
       this.gold -= item.price;
-      this.currentEvent.items.splice(idx, 1);
+      if (isConsumable) {
+        this.currentEvent.consumables.splice(idx, 1);
+      } else {
+        this.currentEvent.items.splice(idx, 1);
+      }
       const boughtItem = structuredClone(item);
       delete boughtItem.price;
       this.squadInventory.push(boughtItem);
       this.addLog(`🛒 小隊花費 ${item.price} 金幣購買了【${boughtItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
       this.broadcastState();
       return { success: true, item: boughtItem };
+    }
+
+    if (action === 'sell') {
+      const fromArea = (params.fromArea || 'squad').toLowerCase();
+      let item = null;
+
+      if (fromArea === 'equip') {
+        const slotKey = params.slotKey || params.key;
+        if (!player.equipSlots || !player.equipSlots[slotKey]) {
+          return { success: false, message: '欲販賣之裝備不存在' };
+        }
+        item = player.equipSlots[slotKey];
+        player.equipSlots[slotKey] = null;
+        this.syncPlayerEquips(player);
+      } else {
+        const container = fromArea === 'personal' ? player.bag : this.squadInventory;
+        let idx = params.index;
+        if (idx === undefined && params.itemId) {
+          idx = (container || []).findIndex(i => i && i.id === params.itemId);
+        }
+        idx = Number(idx ?? -1);
+        if (!Array.isArray(container) || idx < 0 || idx >= container.length || !container[idx]) {
+          return { success: false, message: '欲販賣之物品不存在' };
+        }
+        item = container[idx];
+        container.splice(idx, 1);
+      }
+
+      const basePrice = item.basePrice || getItemBasePrice(item);
+      item.basePrice = basePrice;
+      if (!item.droppedAtCol) {
+        item.droppedAtCol = this.currentEvent?.col || 1;
+      }
+      const sellPrice = calculateItemSellPrice(item, this.currentEvent);
+
+      this.gold = (this.gold || 0) + sellPrice;
+
+      if (!Array.isArray(this.currentEvent.buybackPool)) {
+        this.currentEvent.buybackPool = [];
+      }
+
+      const buybackEntry = {
+        ...structuredClone(item),
+        buybackId: `bb_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        soldPrice: sellPrice,
+        basePrice,
+        droppedAtCol: item.droppedAtCol,
+        sellerId: socketId,
+        fromArea
+      };
+      this.currentEvent.buybackPool.push(buybackEntry);
+
+      this.addLog(`🛒 **${player.name}** 以 ${sellPrice} 金幣賣出了【${item.name}】！(剩餘金幣: ${this.gold})`, 'loot');
+      this.broadcastState();
+      return { success: true, soldPrice: sellPrice, item };
+    }
+
+    if (action === 'buyback') {
+      if (!Array.isArray(this.currentEvent.buybackPool) || this.currentEvent.buybackPool.length === 0) {
+        return { success: false, message: '暫無可買回之物品' };
+      }
+      let idx = params.buybackIndex;
+      if (idx === undefined && params.buybackId) {
+        idx = this.currentEvent.buybackPool.findIndex(b => b.buybackId === params.buybackId);
+      }
+      idx = Number(idx ?? -1);
+      if (idx < 0 || idx >= this.currentEvent.buybackPool.length) {
+        return { success: false, message: '買回物品不存在' };
+      }
+
+      const entry = this.currentEvent.buybackPool[idx];
+      const price = entry.soldPrice;
+      if ((this.gold || 0) < price) {
+        return { success: false, message: `金幣不足以買回此物品（需要 ${price}G）！` };
+      }
+      if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+      if (this.squadInventory.length >= 19) {
+        return { success: false, message: '小隊背包已滿（上限 19 格）！' };
+      }
+
+      this.gold -= price;
+      this.currentEvent.buybackPool.splice(idx, 1);
+
+      const restoredItem = structuredClone(entry);
+      delete restoredItem.soldPrice;
+      delete restoredItem.buybackId;
+      delete restoredItem.sellerId;
+      delete restoredItem.fromArea;
+      this.squadInventory.push(restoredItem);
+
+      this.addLog(`🛒 小隊以原價 ${price} 金幣買回了【${restoredItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
+      this.broadcastState();
+      return { success: true, item: restoredItem };
     }
 
     if (action === 'rest') {
@@ -3429,6 +3671,7 @@ export class Room {
         this.addLog('🛡️ 【堅守陣線】戰士隊長怒吼掀桌，黑市商人首回合陷入暈眩！', 'buff');
       }
       const col = this.currentEvent.col;
+      this.currentEvent.buybackPool = [];
       this.currentEvent = null;
       this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col });
       return { success: true };
@@ -3445,13 +3688,15 @@ export class Room {
         const stolenItem = structuredClone(stolen);
         delete stolenItem.price;
         this.addItemPrioritySquad(stolenItem, socketId);
-        this.addLog(`🗡️ 【無聲行軍】刺客隊長神不知鬼不覺偷走了【${stolenItem.name}】！小隊未被察覺安然離去！`, 'loot');
+        this.addLog(`🗡️ 【無聲行軍】刺客隊長神不知鬼不覺偷走了【${stolenItem.name}】！小隊未被察查安然離去！`, 'loot');
+        this.currentEvent.buybackPool = [];
         this.currentEvent = null;
         this.advanceToNextFloorOrCheckpoint();
         return { success: true, stolenItem };
       } else {
         this.addLog('🗡️ 【無聲行軍】行竊失風！奸商察覺後狂怒召喚護衛！戰鬥爆發！', 'warning');
         const col = this.currentEvent.col;
+        this.currentEvent.buybackPool = [];
         this.currentEvent = null;
         this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col });
         return { success: false, message: '行竊失敗，觸發戰鬥！' };
@@ -3459,13 +3704,99 @@ export class Room {
     }
 
     if (action === 'leave') {
-      this.addLog('🛒 小隊告別了商人，整頓行囊繼續前行。', 'info');
+      const wasPrepShop = Boolean(this.currentEvent?.isPrepShop);
+      this.addLog(wasPrepShop ? '🏕️ 小隊整備完畢，正式向深淵出發！' : '🛒 小隊告別了商人，整頓行囊繼續前行。', 'info');
+      if (this.currentEvent) {
+        this.currentEvent.buybackPool = [];
+      }
       this.currentEvent = null;
-      this.advanceToNextFloorOrCheckpoint();
+      if (wasPrepShop) {
+        this.startRouteSelection();
+      } else {
+        this.advanceToNextFloorOrCheckpoint();
+      }
       return { success: true };
     }
 
     return { success: false, message: '未知行動' };
+  }
+
+  useConsumableItem(socketId, params = {}) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const fromArea = (params.fromArea || 'squad').toLowerCase();
+    const container = fromArea === 'personal' ? player.bag : this.squadInventory;
+    let idx = Number(params.index ?? -1);
+    if (!Array.isArray(container) || idx < 0 || idx >= container.length || !container[idx]) {
+      return { success: false, message: '欲使用之物品不存在' };
+    }
+
+    const item = container[idx];
+    if (item.type !== 'CONSUMABLE' && item.slot !== 'CONSUMABLE') {
+      return { success: false, message: '該物品非消耗品，無法使用' };
+    }
+
+    const targetPlayerId = params.targetPlayerId || socketId;
+    const targetPlayer = this.players[targetPlayerId] || player;
+
+    if (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') {
+      targetPlayer.poisonTurns = 0;
+      targetPlayer.poisonDmg = 0;
+      targetPlayer.burnTurns = 0;
+      targetPlayer.burnDmg = 0;
+      targetPlayer.bleedTurns = 0;
+      targetPlayer.bleedDmg = 0;
+      targetPlayer.fractureTurns = 0;
+      targetPlayer.chillTurns = 0;
+      targetPlayer.corrosionTurns = 0;
+      targetPlayer.alcAcidEquipHalvedTurns = 0;
+      container.splice(idx, 1);
+      this.addLog(`🧪 **${player.name}** 對 **${targetPlayer.name}** 使用了【解毒藥】，身上的所有負面狀態已被徹底淨化！`, 'heal');
+      this.broadcastState();
+      return { success: true };
+    }
+
+    if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
+      if (targetPlayer.hp <= 0) {
+        return { success: false, message: '無法對已倒下的隊員使用治療藥！' };
+      }
+      const healAmt = Math.max(1, Math.round(targetPlayer.maxHp * (item.healPercent || 0.40)));
+      const prevHp = targetPlayer.hp;
+      targetPlayer.hp = Math.min(targetPlayer.maxHp, targetPlayer.hp + healAmt);
+      container.splice(idx, 1);
+      this.addLog(`🧪 **${player.name}** 對 **${targetPlayer.name}** 使用了【治療藥】，恢復了 ${targetPlayer.hp - prevHp} 生命（❤️ ${targetPlayer.hp}/${targetPlayer.maxHp}）！`, 'heal');
+      this.broadcastState();
+      return { success: true };
+    }
+
+    if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') {
+      if (this.state !== 'CHOOSING_ROUTE' && this.state !== 'MAP_ROUTING') {
+        return { success: false, message: '修整帳篷僅限在「選路階段」使用！' };
+      }
+      for (const p of Object.values(this.players)) {
+        if (p.hp > 0) {
+          const healAmt = Math.max(1, Math.round(p.maxHp * (item.healPercent || 0.60)));
+          p.hp = Math.min(p.maxHp, p.hp + healAmt);
+        }
+        p.poisonTurns = 0;
+        p.poisonDmg = 0;
+        p.burnTurns = 0;
+        p.burnDmg = 0;
+        p.bleedTurns = 0;
+        p.bleedDmg = 0;
+        p.fractureTurns = 0;
+        p.chillTurns = 0;
+        p.corrosionTurns = 0;
+        p.alcAcidEquipHalvedTurns = 0;
+      }
+      container.splice(idx, 1);
+      this.addLog(`⛺ **${player.name}** 搭建了【修整帳篷】，全隊在原地安營休整！全員恢復了大量生命值並清除了所有負面效果！`, 'heal');
+      this.broadcastState();
+      return { success: true };
+    }
+
+    return { success: false, message: '未知消耗品效果' };
   }
 
   // 寶箱事件 (Module 4)
@@ -3475,44 +3806,21 @@ export class Room {
     const isMimic = typeof hexNode === 'boolean' ? hexNode : Boolean(hexNode?.isMimic);
     const leaderRole = this.getEffectiveLeaderRole();
     const canPacify = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
+    const col = hexNode?.col ?? (this.currentHex?.col ?? 1);
 
-    if (isMimic) {
-      this.currentEvent = {
-        type: 'chest',
-        isMimic: true,
-        hexId: hexNode?.id,
-        col: hexNode?.col ?? 1,
-        title: '📦 異樣的秘銀寶箱',
-        story: '一具華麗的寶箱立在前方，箱縫邊緣卻隱隱滲出腥臭黏液與細微的呼吸聲……',
-        canPacify,
-        canOpen: true
-      };
-      this.broadcastState();
-      return;
-    }
-
-    // 常規寶箱
-    const goldGain = 30 + Math.floor(Math.random() * 21);
-    this.gold = (this.gold || 0) + goldGain;
-    const drop = structuredClone(TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)]);
-    this.addItemPrioritySquad(drop);
-
-    for (const p of Object.values(this.players)) {
-      if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
-    }
-
+    // 無論是否為寶箱怪，初次探索皆顯示為標準寶箱事件，保持未知與懸念
     this.currentEvent = {
       type: 'chest',
-      isMimic: false,
+      isMimic,
+      opened: false,
       hexId: hexNode?.id,
-      col: hexNode?.col ?? 1,
+      col,
       title: '🎁 發現古老寶箱！',
-      story: '小隊協力掀開寶箱，溫暖的聖光與豐厚戰利品映入眼簾！',
-      goldGain,
-      drop,
+      story: '在陰暗的地城角落，靜靜佇立著一具裝飾精美、未被開啟的神秘寶箱。',
+      canPacify,
+      canOpen: true,
       canLeave: true
     };
-    this.addLog(`🎁 開啟寶箱！全員回復 25 HP，獲得 ${goldGain} 金幣與【${drop.name}】！(當前金幣: ${this.gold})`, 'loot');
     this.broadcastState();
   }
 
@@ -3528,31 +3836,61 @@ export class Room {
       const leaderRole = this.getEffectiveLeaderRole();
       const hasDruid = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
       if (!hasDruid) return { success: false, message: '只有德魯伊隊長能安撫寶箱怪！' };
-      const goldGain = 40;
+      const col = this.currentEvent.col || (this.currentHex?.col ?? 1);
+      const goldGain = Math.round(40 * getGoldIncomeMultiplier(col));
       this.gold = (this.gold || 0) + goldGain;
-      const drop = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
+      const dropPool = (col >= 5) ? [...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS];
+      const drop = structuredClone(dropPool[Math.floor(Math.random() * dropPool.length)]);
+      drop.droppedAtCol = col;
+      drop.basePrice = getItemBasePrice(drop);
       this.addItemPrioritySquad(drop, socketId);
       for (const p of Object.values(this.players)) {
         if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
       }
-      this.addLog(`🐾 【群生號令】德魯伊隊長溫柔安撫了寶箱怪，寶箱怪主動吐出【${drop.name}】與 ${goldGain} 金幣後遁入地底！`, 'loot');
+      this.addLog(`🐾 【群生號令】德魯伊溫柔安撫了寶箱怪，寶箱怪主動吐出【${drop.name}】與 ${goldGain} 金幣後遁入地底！`, 'loot');
       this.currentEvent = null;
       this.advanceToNextFloorOrCheckpoint();
       return { success: true, drop, goldGain };
     }
 
     if (action === 'open') {
+      const col = this.currentEvent.col || (this.currentHex?.col ?? 1);
       if (this.currentEvent.isMimic) {
-        this.addLog('📦 寶箱猛然張開獠牙巨口！【貪婪噬魂寶箱怪】撲向了小隊！', 'warning');
-        const col = this.currentEvent.col;
+        // 寶箱怪觸發：沒拿到任何東西，而是出現狂暴小怪戰鬥事件
+        this.addLog('⚠️ 寶箱猛然張開獠牙巨口！暗藏其中的凶暴小怪破箱而出，撲向了小隊！', 'warning');
         this.currentEvent = null;
-        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.treasure_mimic, col });
-        return { success: true };
+        this.handleBattleEvent(null, false, { isMimicAmbush: true, col });
+        return { success: true, isMimic: true };
       } else {
-        this.currentEvent = null;
-        this.advanceToNextFloorOrCheckpoint();
-        return { success: true };
+        // 常規寶箱開啟成功
+        const goldGain = Math.round((30 + Math.floor(Math.random() * 21)) * getGoldIncomeMultiplier(col));
+        this.gold = (this.gold || 0) + goldGain;
+        const dropPool = (col >= 5) ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS];
+        const drop = structuredClone(dropPool[Math.floor(Math.random() * dropPool.length)]);
+        drop.droppedAtCol = col;
+        drop.basePrice = getItemBasePrice(drop);
+        this.addItemPrioritySquad(drop, socketId);
+
+        for (const p of Object.values(this.players)) {
+          if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
+        }
+
+        this.currentEvent.opened = true;
+        this.currentEvent.canOpen = false;
+        this.currentEvent.canLeave = true;
+        this.currentEvent.goldGain = goldGain;
+        this.currentEvent.drop = drop;
+        this.currentEvent.story = '小隊協力掀開寶箱，溫暖的聖光與豐厚戰利品映入眼簾！';
+        this.addLog(`🎁 開啟寶箱！全員回復 25 HP，獲得 ${goldGain} 金幣與【${drop.name}】！(當前金幣: ${this.gold})`, 'loot');
+        this.broadcastState();
+        return { success: true, opened: true, drop, goldGain };
       }
+    }
+
+    if (action === 'leave') {
+      this.currentEvent = null;
+      this.advanceToNextFloorOrCheckpoint();
+      return { success: true };
     }
 
     if (action === 'leave') {
@@ -3836,6 +4174,7 @@ export class Room {
   }
 
   getEffectiveLeaderRole() {
+    if (this.state === 'LOBBY' && !this.lockedLeaderRole) return null;
     return this.lockedLeaderRole || this.players[this.leaderId]?.role || null;
   }
 

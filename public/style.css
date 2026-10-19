@@ -2183,6 +2183,13 @@ input[type="text"]::placeholder {
   border: 3px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 0 #0c1220;
+  transition: max-width 0.2s ease;
+}
+
+.event-card.is-shop-event,
+.event-card:has(.shop-container) {
+  max-width: 980px !important;
+  width: 95% !important;
 }
 
 .event-icon {
@@ -6745,23 +6752,26 @@ body.presentation-opening .narrative-controls,
 
 /* 商店與事件卡片樣式 */
 .shop-goods-grid,
-.shop-items-grid {
+.shop-items-grid,
+.shop-consumables-grid,
+.shop-buyback-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
   margin: 14px 0;
 }
 
 .shop-item-card {
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(51, 65, 85, 0.8);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   transition: all 0.18s ease;
   cursor: pointer;
+  min-width: 0;
 }
 .shop-item-card:hover {
   background: rgba(30, 41, 59, 0.95);
@@ -6798,7 +6808,7 @@ body.presentation-opening .narrative-controls,
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .shop-item-title-row {
@@ -6806,16 +6816,19 @@ body.presentation-opening .narrative-controls,
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  flex-wrap: wrap;
   margin-bottom: 2px;
 }
 
 .shop-item-name {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 13.5px;
   color: #f1f5f9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .shop-item-tag {
@@ -6824,6 +6837,7 @@ body.presentation-opening .narrative-controls,
   padding: 1px 6px;
   border-radius: 4px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .shop-item-tag.tag-exclusive {
   background: rgba(234, 179, 8, 0.2);
@@ -6845,10 +6859,23 @@ body.presentation-opening .narrative-controls,
 .shop-item-desc {
   font-size: 0.78rem;
   color: #94a3b8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 170px;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+  line-height: 1.35;
+}
+
+.shop-sell-hint {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-top: 18px;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  letter-spacing: 0.5px;
 }
 
 /* 背包六角格與浮動面板內裝備圖示 */
@@ -7313,8 +7340,7 @@ body.presentation-opening .narrative-controls,
 }
 
 /* Floating Status Inspection Tooltip (Fixed position, Clamped to screen) */
-.floating-status-tooltip,
-.floating-item-tooltip {
+.floating-status-tooltip {
   position: fixed;
   z-index: 10000;
   width: 300px;
@@ -7333,11 +7359,173 @@ body.presentation-opening .narrative-controls,
   transition: opacity 0.12s ease, transform 0.12s ease;
   transform: scale(0.96);
 }
-.floating-status-tooltip.visible,
-.floating-item-tooltip.visible {
+.floating-status-tooltip.visible {
   opacity: 1;
   visibility: visible;
   transform: scale(1);
+}
+
+/* Floating Item Tooltip (固定寬度 240px，高度隨內容自動增加，背景與背包彈窗相同，滑鼠游標右側顯示) */
+.floating-item-tooltip {
+  position: fixed;
+  z-index: 10000;
+  width: 240px !important;
+  min-width: 240px !important;
+  max-width: 240px !important;
+  height: auto !important;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  background: radial-gradient(circle at 50% 15%, #111c35 0%, #070b16 75%, #03050a 100%) !important;
+  border: 1.5px solid #3b82f6 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 0 35px rgba(12, 33, 68, 0.9), 0 20px 40px rgba(0, 0, 0, 0.8) !important;
+  color: #f1f5f9 !important;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+.floating-item-tooltip.visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.item-tooltip-name {
+  font-size: 1.25rem !important;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.item-tooltip-name.tier-exclusive {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+}
+.item-tooltip-name.tier-t2 {
+  color: #c084fc;
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.4);
+}
+.item-tooltip-name.tier-t1 {
+  color: #38bdf8;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+.item-tooltip-name.tier-consumable {
+  color: #34d399;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+}
+.item-tooltip-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+.item-tooltip-slot-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+}
+.item-tooltip-effect-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.item-tooltip-effect-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  margin-bottom: 4px;
+}
+.item-tooltip-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #38bdf8;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+.item-tooltip-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #cbd5e1;
+  word-break: break-word;
+}
+
+/* 釘選常駐狀態樣式 (供商店販售互動使用) */
+.floating-item-tooltip.is-pinned {
+  pointer-events: auto !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 35px rgba(245, 158, 11, 0.45), 0 20px 40px rgba(0, 0, 0, 0.85) !important;
+}
+
+.item-tooltip-top-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.btn-tooltip-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+.btn-tooltip-close:hover {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.item-tooltip-sell-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(245, 158, 11, 0.4);
+}
+
+.btn-tooltip-sell {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+  transition: all 0.15s ease;
+}
+.btn-tooltip-sell:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
+}
+.btn-tooltip-sell:active {
+  transform: translateY(1px);
 }
 .floating-tooltip-title-row {
   display: flex;
@@ -7408,4 +7596,100 @@ body.presentation-opening .narrative-controls,
   border-color: #38bdf8 !important;
   background: rgba(56, 189, 248, 0.18) !important;
 }
+
+/* 消耗品圖示與卡片樣式 */
+.consumable-svg-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.consumable-svg-wrap svg {
+  width: 70%;
+  height: 70%;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.shop-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin: 14px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.shop-consumables-grid,
+.shop-buyback-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.shop-item-card.is-consumable {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(6, 78, 59, 0.25);
+}
+.shop-item-card.is-buyback {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(120, 53, 15, 0.25);
+}
+
+.tag-consumable {
+  background: rgba(52, 211, 153, 0.2);
+  border: 1px solid #34d399;
+  color: #6ee7b7;
+}
+
+.btn-shop-buyback {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #ffffff;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-shop-buyback:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6));
+}
+
+.btn-inv-use {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: #ffffff;
+  border: 1px solid #34d399;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-inv-use:hover {
+  background: linear-gradient(135deg, #10b981, #059669);
+  filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.6));
+}
+
+.btn-inv-sell {
+  background: linear-gradient(135deg, #d97706, #92400e);
+  color: #ffffff;
+  border: 1px solid #f59e0b;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-inv-sell:hover {
+  background: linear-gradient(135deg, #f59e0b, #b45309);
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.6));
+}
+
 

@@ -87,9 +87,10 @@ async function playVictoryPresentation(victory, context = {}) {
       '<br>Boss：' + escapeHtml(victory.monsterName) + '</p><p>' + escapeHtml(victory.recoveryRule || '') + '</p>';
     canvas.appendChild(summary);
     context.onTiming?.('victory_summary', {});
-    await wait(650);
-    await playCategoryPresentation({ type: 'support_action', category: 'HEAL', skillName: '戰後休整',
-      outcome: { type: 'normal' }, results: victory.results, hpSnapshot: victory.hpAfter }, { ...context, signal });
+    await wait(900);
+    summary.classList.add('exit');
+    await wait(400);
+    summary.remove();
     const reward = document.createElement('div');
     reward.className = 'presentation-reward-content hidden';
     reward.innerHTML = '<div class="presentation-reward-rarity"></div><h2 class="presentation-reward-title"></h2>' +

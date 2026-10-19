@@ -940,6 +940,10 @@ function switchView(viewName) {
     }
   });
 
+  if (viewName === 'battle' && !document.body.classList.contains('battle-intro-active')) {
+    revealDestinationView('battle');
+  }
+
   // 發起組隊登入頁面 (entry) 隱藏懸浮聊天按鈕與頂部房號/離開小隊，進入選角色 (lobby) 及後續頁面時顯示
   if (viewName === 'entry') {
     if (elements.roomBadge) elements.roomBadge.classList.add('hidden');
@@ -2056,15 +2060,22 @@ let battlePhasePromise = Promise.resolve();
 let battleControlsReadyKey = null;
 let battleControlsEntryPromise = null;
 function battleSceneKey(state = roomState) {
-  return `${state?.code}:${state?.floor}:${state?.currentMonster?.name}`;
+  return `${state?.code}:${state?.floor}:${state?.battleCount || state?.currentHex?.id || 1}`;
 }
 function battleRoundKey(state = roomState) { return `${battleSceneKey(state)}:${state?.battleRound}`; }
 function ensureBattlePhase(round, state = roomState) {
   const monster = state?.currentMonster;
-  if (!monster||state?.state!=='IN_BATTLE') return battlePhasePromise;
+  if (!monster||state?.state!=='IN_BATTLE') {
+    revealDestinationView('battle');
+    return battlePhasePromise;
+  }
   const bossIntroKey = `BOSS_INTRO_${battleSceneKey(state)}`;
-  const encounter = !presentationManager.hasPlayed(bossIntroKey);
-  if (!encounter && lastAnnouncedBattleRound === round) return battlePhasePromise;
+  // Boss Intro 僅限第 1 回合且未播放過時執行；戰鬥中途 (round > 1) 嚴禁再次觸發進場黑幕遮蔽！
+  const encounter = !presentationManager.hasPlayed(bossIntroKey) && round === 1;
+  if (!encounter && lastAnnouncedBattleRound === round) {
+    revealDestinationView('battle');
+    return battlePhasePromise;
+  }
   battlePhaseController?.abort();
   const controller = new AbortController();
   controller.battleKey = battleSceneKey(state);
@@ -2083,7 +2094,7 @@ function ensureBattlePhase(round, state = roomState) {
         routeId: state?.currentMonster?.routeId || state?.currentTransition?.routeId,
         revealHud() {
           revealDestinationView('battle');
-          elements.views.battle.classList.add('is-battle-hud-revealing');
+          elements.views.battle.classList.remove('is-battle-hud-revealing');
         }
       });
     } catch (error) {
@@ -2093,6 +2104,7 @@ function ensureBattlePhase(round, state = roomState) {
         battlePhaseController = null;
         document.body.classList.remove('battle-intro-active');renderLogs();
         elements.views.battle.classList.remove('is-battle-hud-revealing');
+        revealDestinationView('battle'); // 保證離開進場演出後戰鬥畫面絕對解除隱藏
         if (!isProcessingPresentationQueue) presentationManager.setBlocking(false);
         if (!controller.signal.aborted) void revealBattleControls();
       }
@@ -2336,6 +2348,10 @@ function renderBattle(me, isLeader) {
 
   elements.battleFloorNum.textContent = roomState.floor;
   elements.battleRoundNum.textContent = roomState.battleRound;
+
+  if (!document.body.classList.contains('battle-intro-active')) {
+    revealDestinationView('battle');
+  }
 
   // Boss Intro & Round 1 presentation (P2-R1 Section 23 & 24, P2-R1.1 Section 4 & 6)
   void ensureBattlePhase(roomState.battleRound);
@@ -2669,9 +2685,19 @@ function renderMyActionBar(me) {
       const itemsHtml = myEquips.map((e, idx) => {
         const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key===('equip.'+e.role+'.'+e.id));
         const name = override?.title || e.name;
-        return `<span class="equip-pill">${escapeHtml(name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`;
+        return `<span class="equip-pill" data-equip-index="${idx}" style="cursor:help;">${escapeHtml(name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`;
       }).join(', ');
       elements.myEquipsSummary.innerHTML = `[裝備 ${myEquipCount}/3]: ${itemsHtml}`;
+
+      elements.myEquipsSummary.querySelectorAll('.equip-pill').forEach(pill => {
+        const idx = parseInt(pill.getAttribute('data-equip-index'), 10);
+        const equipItem = myEquips[idx];
+        if (equipItem) {
+          pill.addEventListener('mouseenter', (ev) => showItemTooltip(equipItem, ev));
+          pill.addEventListener('mousemove', (ev) => positionItemTooltip(ev));
+          pill.addEventListener('mouseleave', () => hideItemTooltip());
+        }
+      });
 
       elements.myEquipsSummary.querySelectorAll('.unequip-btn').forEach(btn => {
         btn.addEventListener('click', (ev) => {
@@ -5534,6 +5560,17 @@ let selectedInvSlot = null;
 
 function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
   if (!item) return '';
+  if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE') {
+    if (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') {
+      return `<div class="consumable-svg-wrap ${iconClass}-svg"><svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="m9 15 2 2 4-4"/></svg></div>`;
+    }
+    if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
+      return `<div class="consumable-svg-wrap ${iconClass}-svg"><svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="rgba(244,63,94,0.3)"/><path d="M12 7v6M9 10h6"/></svg></div>`;
+    }
+    if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') {
+      return `<div class="consumable-svg-wrap ${iconClass}-svg"><svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M3.5 21 12 3l8.5 18H3.5Z" fill="rgba(251,191,36,0.2)"/><path d="M12 3v18M8.5 21l3.5-7 3.5 7"/></svg></div>`;
+    }
+  }
   const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
   if (isExclusive) {
     const meRole = (typeof roomState !== 'undefined' && roomState?.players?.[window.currentSocketId]?.role) || (typeof me !== 'undefined' && me?.role);
@@ -5586,7 +5623,7 @@ function openInventoryModal() {
 
 function closeInventoryModal() {
   if (!elements.inventoryModal) return;
-  hideItemTooltip();
+  hideItemTooltip(true);
   playSound('click');
   if (window.ModalMotion) {
     ModalMotion.hide(elements.inventoryModal);
@@ -5610,6 +5647,7 @@ const EQUIP_SLOTS = Object.freeze({
 
 function determineEquipSlot(item) {
   if (!item) return EQUIP_SLOTS.ACCESSORY;
+  if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE') return 'CONSUMABLE';
   if (item.slot && EQUIP_SLOTS[item.slot]) return item.slot;
   if (item.tier === 'CLASS_EXCLUSIVE' || (item.role && !item.slot)) {
     return EQUIP_SLOTS.CLASS_EXCLUSIVE;
@@ -5623,19 +5661,118 @@ function determineEquipSlot(item) {
   return EQUIP_SLOTS.ACCESSORY;
 }
 
+function getItemBasePrice(item) {
+  if (!item) return 50;
+  if (item.basePrice) return item.basePrice;
+  if (item.tier === 'CLASS_EXCLUSIVE' || item.slot === EQUIP_SLOTS.CLASS_EXCLUSIVE || item.role) return 250;
+  if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE') {
+    if (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') return 30;
+    if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') return 40;
+    if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') return 100;
+    return item.cost || 50;
+  }
+  if (item.tier === 2) return item.cost || 120;
+  if (item.tier === 1) return item.cost || 50;
+  return item.cost || 50;
+}
+
 let draggedInventorySlot = null;
+let pinnedTooltipInfo = null; // { item, area, index, key }
 
-function showItemTooltip(item, e, isShop = false) {
-  if (!elements.floatingItemTooltip || !item) return;
+function getGoldIncomeMultiplierClient(col) {
+  const step = Math.max(0, (col || 1) - 1);
+  return 1 + 0.18 * step;
+}
 
-  const slotType = determineEquipSlot(item);
-  const slotLabels = {
-    WEAPON: '武器',
-    ARMOR: '裝備(防具)',
-    ACCESSORY: '飾品',
-    CLASS_EXCLUSIVE: item.role ? `專屬(${item.role})` : '職業專屬'
-  };
-  const slotLabel = slotLabels[slotType] || '道具';
+function calculateItemSellPriceClient(item, shopSession = null) {
+  if (!item) return 1;
+  const shop = shopSession || (roomState?.currentEvent?.type === 'shop' ? roomState.currentEvent : {});
+  const originCol = item.droppedAtCol || shop.col || roomState?.floor || 1;
+  const basePrice = item.basePrice ?? getItemBasePrice(item);
+  const valuation = basePrice * getGoldIncomeMultiplierClient(originCol);
+  const ratio = shop.sellRatio ?? shop.recycleRate ?? (shop.isShady ? 0.15 : 0.55);
+  return Math.max(1, Math.round(valuation * ratio));
+}
+
+function isPlayerInShop() {
+  return (roomState?.state === 'EVENT' && roomState?.currentEvent?.type === 'shop') ||
+         Boolean(elements.eventCardBox && !elements.eventCardBox.classList.contains('hidden') && elements.eventDetails?.querySelector('.shop-container'));
+}
+
+function getFloatingItemTooltip() {
+  if (!elements.floatingItemTooltip) {
+    elements.floatingItemTooltip = document.getElementById('floatingItemTooltip');
+  }
+  return elements.floatingItemTooltip;
+}
+
+function positionItemTooltip(e, tooltip, force = false) {
+  if (pinnedTooltipInfo && !force) {
+    return;
+  }
+  tooltip = tooltip || getFloatingItemTooltip();
+  if (!tooltip || !e) return;
+  const tw = 240; // 固定寬度 240px
+  const th = tooltip.offsetHeight || 160;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const pad = 12;
+
+  // 滑鼠游標右側 clientX + 16px (超出右邊界時才翻轉至左側)
+  let left = e.clientX + 16;
+  if (left + tw > vw - pad) {
+    left = e.clientX - tw - 16;
+  }
+  if (left < pad) {
+    left = pad;
+  }
+
+  let top = e.clientY - 20;
+  if (top + th > vh - pad) {
+    top = Math.max(pad, vh - th - pad);
+  }
+  if (top < pad) top = pad;
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function showItemTooltip(item, e, isShop = false, options = {}) {
+  if (pinnedTooltipInfo && !options.isPinned) {
+    return;
+  }
+  const tooltip = getFloatingItemTooltip();
+  if (!tooltip || !item) return;
+
+  const isPinned = Boolean(options.isPinned);
+  const isConsumable = item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE';
+  const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
+  const isT2 = item.tier === 2;
+  const isT1 = item.tier === 1;
+
+  let tierClass = 'tier-common';
+  let slotLabel = '裝備';
+
+  if (isConsumable) {
+    tierClass = 'tier-consumable';
+    slotLabel = '消耗品 (冒險道具)';
+  } else if (isExclusive) {
+    tierClass = 'tier-exclusive';
+    const roleName = item.role ? (classesData[item.role]?.name || item.role) : '職業專屬';
+    slotLabel = `專屬裝備 (${roleName})`;
+  } else {
+    const slotKey = determineEquipSlot(item);
+    if (slotKey === 'WEAPON') {
+      slotLabel = isT2 ? '武器 (T2)' : (isT1 ? '武器 (T1)' : '武器');
+      tierClass = isT2 ? 'tier-t2' : 'tier-t1';
+    } else if (slotKey === 'ARMOR') {
+      slotLabel = isT2 ? '裝備 / 防具 (T2)' : (isT1 ? '裝備 / 防具 (T1)' : '裝備 / 防具');
+      tierClass = isT2 ? 'tier-t2' : 'tier-t1';
+    } else {
+      slotLabel = isT2 ? '飾品 (T2)' : (isT1 ? '飾品 (T1)' : '飾品');
+      tierClass = isT2 ? 'tier-t2' : 'tier-t1';
+    }
+  }
 
   const stats = [];
   if (item.bonusAtk) stats.push(`攻擊力 +${item.bonusAtk}`);
@@ -5647,37 +5784,102 @@ function showItemTooltip(item, e, isShop = false) {
   if (item.battleStartShield) stats.push(`開場護盾 +${item.battleStartShield}`);
   if (item.bonusCrit) stats.push(`暴擊率 +${Math.round(item.bonusCrit * 100)}%`);
 
-  let statsHtml = '';
-  if (stats.length > 0) {
-    statsHtml = `<div class="floating-tooltip-row"><span class="floating-tooltip-label">裝備加成</span><span class="floating-tooltip-val" style="color:#38bdf8;">${stats.join(' · ')}</span></div>`;
-  }
-
+  const passiveDesc = item.passive || item.desc || item.statDesc || '無特殊說明';
+  const statsHtml = stats.length > 0 ? `<div class="item-tooltip-stats">${stats.map(s => `<span>${s}</span>`).join('')}</div>` : '';
   const iconHtml = renderItemIconHtml(item, 'tooltip-item-icon');
 
-  elements.floatingItemTooltip.innerHTML = `
-    <div class="floating-tooltip-title-row">
-      <div style="display:flex;align-items:center;gap:6px;">
-        ${iconHtml}
-        <span class="floating-tooltip-name">${escapeHtml(item.name)}</span>
+  let bottomActionHtml = '';
+  if (isPinned && options.canSell) {
+    const sellPrice = calculateItemSellPriceClient(item);
+    bottomActionHtml = `
+      <div class="item-tooltip-sell-section">
+        <button type="button" class="btn-tooltip-sell" id="btnTooltipSell">
+          💰 販售裝備 (+${sellPrice}G)
+        </button>
       </div>
-      <span class="floating-tooltip-badge">${slotLabel}</span>
+    `;
+  } else if (isShop) {
+    bottomActionHtml = `
+      <div style="margin-top:8px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
+        ${item.soldPrice ? `🪙 原價買回: ${item.soldPrice} 金幣` : (item.price ? `🪙 售價: ${item.price} 金幣` : '💡 商店販售中')}
+      </div>
+    `;
+  }
+
+  tooltip.innerHTML = `
+    <div class="item-tooltip-top-bar">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+        <div style="width:28px;height:28px;flex-shrink:0;">${iconHtml}</div>
+        <div class="item-tooltip-name ${tierClass}">${escapeHtml(item.name)}</div>
+      </div>
+      ${isPinned ? `<button type="button" class="btn-tooltip-close" id="btnTooltipClose" title="關閉">✕</button>` : ''}
     </div>
-    ${statsHtml}
-    <div class="floating-tooltip-desc">${escapeHtml(item.desc || item.statDesc || '無特殊說明')}</div>
-    <div style="margin-top:6px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
-      ${isShop ? (item.price ? `🪙 售價: ${item.price} 金幣 · 點擊購買直接放入小隊背包` : '💡 滑鼠懸浮檢視裝備屬性') : `💡 可拖曳調整位置，或拖曳至【${slotLabel}】欄位穿戴`}
+    <div class="item-tooltip-slot-row">
+      <span class="tooltip-label">穿戴位子：</span>
+      <span class="item-tooltip-slot-badge">${escapeHtml(slotLabel)}</span>
     </div>
+    <div class="item-tooltip-effect-section">
+      <div class="item-tooltip-effect-title">被動：</div>
+      ${statsHtml}
+      <div class="item-tooltip-desc">${escapeHtml(passiveDesc)}</div>
+    </div>
+    ${bottomActionHtml}
   `;
 
-  elements.floatingItemTooltip.classList.add('visible');
-  positionFloatingTooltip(e, elements.floatingItemTooltip);
+  if (isPinned) {
+    tooltip.classList.add('is-pinned');
+    const closeBtn = tooltip.querySelector('#btnTooltipClose');
+    if (closeBtn) {
+      closeBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        hideItemTooltip(true);
+      };
+    }
+    const sellBtn = tooltip.querySelector('#btnTooltipSell');
+    if (sellBtn && options.slotMeta) {
+      sellBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        const meta = options.slotMeta;
+        hideItemTooltip(true);
+        socket.emit('event:shop_action', {
+          action: 'sell',
+          fromArea: meta.area ? meta.area.toLowerCase() : 'squad',
+          index: meta.index,
+          key: meta.key,
+          slotKey: meta.key
+        });
+      };
+    }
+  } else {
+    tooltip.classList.remove('is-pinned');
+  }
+
+  tooltip.classList.add('visible');
+  positionItemTooltip(e, tooltip, isPinned);
 }
 
-function hideItemTooltip() {
-  if (elements.floatingItemTooltip) {
-    elements.floatingItemTooltip.classList.remove('visible');
-  }
+function pinItemTooltip(item, e, slotMeta) {
+  if (!item) return;
+  pinnedTooltipInfo = { item, ...slotMeta };
+  showItemTooltip(item, e, false, { isPinned: true, canSell: true, slotMeta });
 }
+
+function hideItemTooltip(force = false) {
+  if (pinnedTooltipInfo && !force) return;
+  const tooltip = getFloatingItemTooltip();
+  if (tooltip) {
+    tooltip.classList.remove('visible', 'is-pinned');
+  }
+  pinnedTooltipInfo = null;
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if (!pinnedTooltipInfo) return;
+  const tooltip = getFloatingItemTooltip();
+  if (tooltip && tooltip.contains(e.target)) return;
+  if (e.target.closest('.hex-slot') || e.target.closest('.shop-item-card')) return;
+  hideItemTooltip(true);
+});
 
 function handleInventoryDrop(source, target) {
   if (!source || !target) return;
@@ -5783,15 +5985,24 @@ function handleInventoryDrop(source, target) {
 function attachSlotDragAndTooltip(slot, area, idx, key, item) {
   // 懸浮提示面板與拖曳起點
   if (item) {
-    slot.addEventListener('mouseenter', (e) => showItemTooltip(item, e));
-    slot.addEventListener('mousemove', (e) => positionFloatingTooltip(e, elements.floatingItemTooltip));
-    slot.addEventListener('mouseleave', () => hideItemTooltip());
+    slot.addEventListener('mouseenter', (e) => {
+      if (pinnedTooltipInfo) return;
+      showItemTooltip(item, e);
+    });
+    slot.addEventListener('mousemove', (e) => {
+      if (pinnedTooltipInfo) return;
+      positionItemTooltip(e, elements.floatingItemTooltip);
+    });
+    slot.addEventListener('mouseleave', () => {
+      if (pinnedTooltipInfo) return;
+      hideItemTooltip();
+    });
 
     slot.setAttribute('draggable', 'true');
     slot.addEventListener('dragstart', (e) => {
       draggedInventorySlot = { area, index: idx, key, item };
       slot.classList.add('is-dragging');
-      hideItemTooltip();
+      hideItemTooltip(true);
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', JSON.stringify({ area, index: idx, key }));
     });
@@ -5885,9 +6096,14 @@ function renderInventoryModal() {
       const idx = Number(slot.dataset.idx);
       const item = squad[idx];
       attachSlotDragAndTooltip(slot, 'SQUAD', idx, null, item);
-      slot.onclick = () => {
+      slot.onclick = (e) => {
         selectedInvSlot = { area: 'SQUAD', index: idx, item: squad[idx] };
         renderInventoryModal();
+        if (isPlayerInShop() && item) {
+          pinItemTooltip(item, e, { area: 'SQUAD', index: idx, key: null });
+        } else if (!item) {
+          hideItemTooltip(true);
+        }
       };
     });
   }
@@ -5918,9 +6134,14 @@ function renderInventoryModal() {
       const idx = Number(slot.dataset.idx);
       const item = me?.equipSlots?.[key];
       attachSlotDragAndTooltip(slot, 'EQUIP', idx, key, item);
-      slot.onclick = () => {
+      slot.onclick = (e) => {
         selectedInvSlot = { area: 'EQUIP', key, index: idx, item: me?.equipSlots?.[key] };
         renderInventoryModal();
+        if (isPlayerInShop() && item) {
+          pinItemTooltip(item, e, { area: 'EQUIP', index: idx, key });
+        } else if (!item) {
+          hideItemTooltip(true);
+        }
       };
     });
 
@@ -5951,9 +6172,14 @@ function renderInventoryModal() {
       const idx = Number(slot.dataset.idx);
       const item = bag[idx];
       attachSlotDragAndTooltip(slot, 'PERSONAL', idx, null, item);
-      slot.onclick = () => {
+      slot.onclick = (e) => {
         selectedInvSlot = { area: 'PERSONAL', index: idx, item: bag[idx] };
         renderInventoryModal();
+        if (isPlayerInShop() && item) {
+          pinItemTooltip(item, e, { area: 'PERSONAL', index: idx, key: null });
+        } else if (!item) {
+          hideItemTooltip(true);
+        }
       };
     });
   }
@@ -5962,20 +6188,28 @@ function renderInventoryModal() {
   if (elements.invInspectorContent) {
     if (selectedInvSlot && selectedInvSlot.item) {
       const item = selectedInvSlot.item;
+      const isConsumable = item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE';
+      const isInShop = isPlayerInShop();
       let actionButtons = '';
+
+      if (isConsumable) {
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-use" id="btnInspectUse">🧪 使用道具</button>`;
+      }
+
       if (selectedInvSlot.area === 'SQUAD') {
-        actionButtons = `
-          <button type="button" class="btn-inv-action btn-inv-transfer" id="btnInspectTransfer">領取至個人背包</button>
-        `;
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-transfer" id="btnInspectTransfer">領取至個人背包</button>`;
       } else if (selectedInvSlot.area === 'PERSONAL') {
-        actionButtons = `
-          <button type="button" class="btn-inv-action btn-inv-equip" id="btnInspectEquip">穿戴裝備</button>
-          <button type="button" class="btn-inv-action btn-inv-transfer" id="btnInspectToSquad">存入小隊背包</button>
-        `;
+        if (!isConsumable) {
+          actionButtons += `<button type="button" class="btn-inv-action btn-inv-equip" id="btnInspectEquip">穿戴裝備</button>`;
+        }
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-transfer" id="btnInspectToSquad">存入小隊背包</button>`;
       } else if (selectedInvSlot.area === 'EQUIP') {
-        actionButtons = `
-          <button type="button" class="btn-inv-action btn-inv-unequip" id="btnInspectUnequip">卸下裝備</button>
-        `;
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-unequip" id="btnInspectUnequip">卸下裝備</button>`;
+      }
+
+      if (isInShop) {
+        const sellPrice = calculateItemSellPriceClient(item);
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-sell" id="btnInspectSell">💰 賣給商人 (+${sellPrice}G)</button>`;
       }
 
       elements.invInspectorContent.innerHTML = `
@@ -5990,6 +6224,29 @@ function renderInventoryModal() {
         </div>
       `;
 
+      document.getElementById('btnInspectUse')?.addEventListener('click', () => {
+        socket.emit('inventory:use_item', {
+          fromArea: selectedInvSlot.area === 'SQUAD' ? 'squad' : 'personal',
+          index: selectedInvSlot.index
+        }, (res) => {
+          if (res && !res.success) alert(res.message);
+          selectedInvSlot = null;
+          renderInventoryModal();
+        });
+      });
+      document.getElementById('btnInspectSell')?.addEventListener('click', () => {
+        socket.emit('event:shop_action', {
+          action: 'sell',
+          fromArea: selectedInvSlot.area === 'SQUAD' ? 'squad' : (selectedInvSlot.area === 'EQUIP' ? 'equip' : 'personal'),
+          index: selectedInvSlot.index,
+          key: selectedInvSlot.key,
+          slotKey: selectedInvSlot.key
+        }, (res) => {
+          if (res && !res.success) alert(res.message);
+          selectedInvSlot = null;
+          renderInventoryModal();
+        });
+      });
       document.getElementById('btnInspectTransfer')?.addEventListener('click', () => {
         socket.emit('inventory:transfer_to_personal', { squadIndex: selectedInvSlot.index });
         selectedInvSlot = null;
@@ -6066,6 +6323,7 @@ function renderInteractiveEvent(ev) {
   if (evFooter) evFooter.style.display = 'none';
 
   if (ev.type === 'shop') {
+    elements.eventCardBox?.classList.add('is-shop-event');
     elements.eventIcon.innerHTML = '🛒';
     elements.eventTitle.textContent = ev.title || '🛒 迷宮行商據點';
     elements.eventStoryText.textContent = ev.story || '';
@@ -6095,9 +6353,67 @@ function renderInteractiveEvent(ev) {
       `;
     }).join('');
 
+    // 2. 冒險補給消耗品
+    const consumablesHtml = (ev.consumables || []).map((c, idx) => {
+      const iconHtml = renderItemIconHtml(c, 'shop-item-icon');
+      return `
+      <div class="shop-item-card is-consumable" data-consumable-idx="${idx}">
+        <div class="shop-item-icon-wrap">
+          ${iconHtml}
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-title-row">
+            <span class="shop-item-name" style="color:#34d399;">【${escapeHtml(c.name)}】</span>
+            <span class="shop-item-tag tag-consumable">消耗品</span>
+          </div>
+          <div class="shop-item-cost">🪙 ${c.price}G</div>
+          <div class="shop-item-desc">${escapeHtml(c.desc || '')}</div>
+        </div>
+        <button type="button" class="btn-shop-buy-consumable" data-consumable-idx="${idx}" ${currentGold < c.price ? 'disabled' : ''}>
+          購買 (${c.price}G)
+        </button>
+      </div>
+      `;
+    }).join('');
+
+    // 3. 防手滑原價買回區 (buybackPool)
+    const buybackList = ev.buybackPool || [];
+    const buybackHtml = buybackList.length > 0 ? `
+      <div class="shop-buyback-section">
+        <div class="shop-section-title">🔄 防手滑原價買回 (離開商店前可原價購回)</div>
+        <div class="shop-buyback-grid">
+          ${buybackList.map((bb, bIdx) => {
+            const iconHtml = renderItemIconHtml(bb, 'shop-item-icon');
+            return `
+            <div class="shop-item-card is-buyback" data-buyback-idx="${bIdx}">
+              <div class="shop-item-icon-wrap">
+                ${iconHtml}
+              </div>
+              <div class="shop-item-info">
+                <div class="shop-item-title-row">
+                  <span class="shop-item-name" style="color:#fbbf24;">【${escapeHtml(bb.name)}】</span>
+                  <span class="shop-item-tag tag-exclusive">買回區</span>
+                </div>
+                <div class="shop-item-cost">🪙 原價: ${bb.soldPrice}G</div>
+                <div class="shop-item-desc">${escapeHtml(bb.desc || '')}</div>
+              </div>
+              <button type="button" class="btn-shop-buyback" data-buyback-idx="${bIdx}" ${currentGold < bb.soldPrice ? 'disabled' : ''}>
+                原價買回 (${bb.soldPrice}G)
+              </button>
+            </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
     elements.eventDetails.innerHTML = `
       <div class="shop-container">
+        <div class="shop-section-title">⚔️ 精選裝備貨架</div>
         <div class="shop-items-grid">${itemsHtml}</div>
+        <div class="shop-section-title">🧪 冒險必備消耗品（購買後存入小隊背包）</div>
+        <div class="shop-consumables-grid">${consumablesHtml}</div>
+        ${buybackHtml}
         <div class="shop-special-actions">
           <button type="button" class="btn-shop-action btn-shop-rest" ${currentGold < (ev.restPrice || 30) ? 'disabled' : ''}>
             ⛺ 休憩整頓 (${ev.restPrice || 30}G / 全員回復 35% HP)
@@ -6106,16 +6422,23 @@ function renderInteractiveEvent(ev) {
           ${ev.canSteal ? `<button type="button" class="btn-shop-action btn-shop-steal">🗡️ 刺客暗中行竊 (50%免戰偷取)</button>` : ''}
           <button type="button" class="btn-shop-action btn-shop-leave">告別離開 ›</button>
         </div>
+        <div class="shop-sell-hint">可開啟背包販售裝備</div>
       </div>
     `;
 
     // 綁定 Hover 顯示浮動提示面板
     elements.eventDetails.querySelectorAll('.shop-item-card').forEach(card => {
-      const idx = Number(card.dataset.index);
-      const item = ev.items?.[idx];
+      let item = null;
+      if (card.dataset.index !== undefined) {
+        item = ev.items?.[Number(card.dataset.index)];
+      } else if (card.dataset.consumableIdx !== undefined) {
+        item = ev.consumables?.[Number(card.dataset.consumableIdx)];
+      } else if (card.dataset.buybackIdx !== undefined) {
+        item = ev.buybackPool?.[Number(card.dataset.buybackIdx)];
+      }
       if (item) {
         card.addEventListener('mouseenter', (e) => showItemTooltip(item, e, true));
-        card.addEventListener('mousemove', (e) => positionFloatingTooltip(e, elements.floatingItemTooltip));
+        card.addEventListener('mousemove', (e) => positionItemTooltip(e, elements.floatingItemTooltip));
         card.addEventListener('mouseleave', () => hideItemTooltip());
       }
     });
@@ -6123,9 +6446,25 @@ function renderInteractiveEvent(ev) {
     elements.eventDetails.querySelectorAll('.btn-shop-buy').forEach(b => {
       b.onclick = (e) => {
         e.stopPropagation();
-        hideItemTooltip();
+        hideItemTooltip(true);
         const itemIndex = Number(b.dataset.index);
         socket.emit('event:shop_action', { action: 'buy', itemIndex });
+      };
+    });
+    elements.eventDetails.querySelectorAll('.btn-shop-buy-consumable').forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        hideItemTooltip(true);
+        const consumableIndex = Number(b.dataset.consumableIdx);
+        socket.emit('event:shop_action', { action: 'buy', isConsumable: true, consumableIndex });
+      };
+    });
+    elements.eventDetails.querySelectorAll('.btn-shop-buyback').forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        hideItemTooltip(true);
+        const buybackIndex = Number(b.dataset.buybackIdx);
+        socket.emit('event:shop_action', { action: 'buyback', buybackIndex });
       };
     });
     elements.eventDetails.querySelector('.btn-shop-rest')?.addEventListener('click', () => {
@@ -6138,28 +6477,41 @@ function renderInteractiveEvent(ev) {
       socket.emit('event:shop_action', { action: 'steal' });
     });
     elements.eventDetails.querySelector('.btn-shop-leave')?.addEventListener('click', () => {
+      hideItemTooltip(true);
       socket.emit('event:shop_action', { action: 'leave' });
     });
   } else if (ev.type === 'chest') {
+    elements.eventCardBox?.classList.remove('is-shop-event');
     elements.eventIcon.innerHTML = '📦';
     elements.eventTitle.textContent = ev.title || '📦 發現寶箱！';
     elements.eventStoryText.textContent = ev.story || '';
 
-    if (ev.isMimic) {
+    if (!ev.opened) {
+      // 尚未開箱（一般寶箱與寶箱怪外觀相同，點擊開箱後揭曉結果）
       elements.eventDetails.innerHTML = `
-        <div class="mimic-container">
-          <div class="mimic-warning-banner">⚠️ 箱縫滲出黑血與粗重喘息……這是一具嗜血的寶箱怪！</div>
-          <div class="mimic-actions-row">
-            <button type="button" class="btn-chest-action btn-mimic-open">⚔️ 拔劍迎擊（強制開箱進入戰鬥）</button>
-            ${ev.canPacify ? `<button type="button" class="btn-chest-action btn-mimic-pacify">🐾 餵食安撫（德魯伊專屬免戰領取）</button>` : ''}
-            <button type="button" class="btn-chest-action btn-chest-leave">繞開避走 ›</button>
+        <div class="normal-chest-container" style="text-align:center;padding:20px 10px;">
+          <div style="font-size:42px;margin-bottom:12px;">📦</div>
+          <p style="color:#cbd5e1;font-size:14px;margin-bottom:20px;line-height:1.6;">
+            深淵角落中靜靜躺著一具精緻的封印寶箱，周遭瀰漫著神秘微光……
+          </p>
+          <div class="chest-actions-row" style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn-chest-action btn-chest-open" style="padding:10px 22px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;border-radius:10px;color:#fff;cursor:pointer;">
+              ✨ 【開啟寶箱】
+            </button>
+            ${ev.canPacify ? `
+            <button type="button" class="btn-chest-action btn-chest-pacify" style="padding:10px 18px;font-size:14px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;cursor:pointer;">
+              🐾 【謹慎安撫】(德魯伊)
+            </button>` : ''}
+            <button type="button" class="btn-chest-action btn-chest-leave" style="padding:10px 16px;font-size:14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:#cbd5e1;cursor:pointer;">
+              繞開避走 ›
+            </button>
           </div>
         </div>
       `;
-      elements.eventDetails.querySelector('.btn-mimic-open')?.addEventListener('click', () => {
+      elements.eventDetails.querySelector('.btn-chest-open')?.addEventListener('click', () => {
         socket.emit('event:chest_action', { action: 'open' });
       });
-      elements.eventDetails.querySelector('.btn-mimic-pacify')?.addEventListener('click', () => {
+      elements.eventDetails.querySelector('.btn-chest-pacify')?.addEventListener('click', () => {
         socket.emit('event:chest_action', { action: 'pacify' });
       });
       elements.eventDetails.querySelector('.btn-chest-leave')?.addEventListener('click', () => {
@@ -6181,6 +6533,7 @@ function renderInteractiveEvent(ev) {
       });
     }
   } else if (ev.type === 'random_event') {
+    elements.eventCardBox?.classList.remove('is-shop-event');
     elements.eventIcon.innerHTML = ev.subType === 'WANDERING_MERCHANT' ? '🏕️' : ev.subType === 'ALTAR' ? '⛩️' : ev.subType === 'GAMBLE' ? '🎲' : '⚒️';
     elements.eventTitle.textContent = ev.title;
     elements.eventStoryText.textContent = ev.story;

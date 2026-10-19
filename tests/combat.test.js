@@ -147,7 +147,7 @@ test('victory recovery preserves formula and equipment/continue wait for every p
   const { room } = fixture(t); const p = room.players.p0; p.hp = 30; const oldMax = p.maxHp, oldAtk = p.bonusAtk;
   room.currentMonster.hp = 0; room.handleMonsterVictory(); const id = room.currentVictory.presentationId;
   assert.equal(p.maxHp, oldMax + 10); assert.equal(p.bonusAtk, oldAtk + 5);
-  assert.equal(p.hp, Math.min(p.maxHp, 30 + 10 + Math.round(p.maxHp * .2))); assert.equal(room.pendingDrop, null);
+  assert.equal(p.hp, 30); assert.equal(room.pendingDrop, null);
   room.handleVictoryComplete('p0', id - 1); assert.equal(room.victoryInteractionReady, false);
   room.handleVictoryComplete('p0', id); assert.equal(room.victoryInteractionReady, false);
   room.continueAfterVictory('p0', id); assert.equal(room.state, 'BATTLE_VICTORY');

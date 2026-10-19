@@ -14,7 +14,7 @@ function opening(t) {
     if (room.routeNarrativeTimer) clearTimeout(room.routeNarrativeTimer);
     if (room.presentationSafetyTimer) clearTimeout(room.presentationSafetyTimer);
   });
-  assert.equal(room.startAdventure('leader').success, true);
+  assert.equal(room.startAdventure('leader', { skipPrepShop: true }).success, true);
   return room;
 }
 
@@ -69,7 +69,7 @@ test('restart discards old ACKs and requires a complete new opening', t => {
   room.restartToLobby('leader');
   assert.equal(room.pendingPresentationAcks.size, 0);
   assert.equal(room.handlePrologueComplete('member').success, false);
-  room.startAdventure('leader');
+  room.startAdventure('leader', { skipPrepShop: true });
   assert.deepEqual([...room.pendingPresentationAcks], ['leader', 'member']);
   room.handlePrologueComplete('member');
   assert.equal(room.state, 'PROLOGUE');

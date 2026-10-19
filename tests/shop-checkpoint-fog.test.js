@@ -76,8 +76,8 @@ test('Requirement 2: Shop generates exactly 4 items and contains 50% exclusive i
   const iterations = 200;
 
   for (let i = 0; i < iterations; i++) {
-    room.handleShopEvent({ id: 'hex_shop', col: 2, isShadyMerchant: false });
-    assert.equal(room.currentEvent.items.length, 4, 'Shop must always offer exactly 4 items');
+    room.handleShopEvent({ id: 'hex_shop', col: 1, isShadyMerchant: false });
+    assert.equal(room.currentEvent.items.length, 6, 'Shop must always offer exactly 6 items');
 
     const exclusiveItem = room.currentEvent.items.find(it => it.tier === 'CLASS_EXCLUSIVE' || it.slot === 'CLASS_EXCLUSIVE' || it.role);
     if (exclusiveItem) {
@@ -96,7 +96,7 @@ test('Requirement 2: Shop generates exactly 4 items and contains 50% exclusive i
   const origRandom = Math.random;
   Math.random = () => 0.1; // Force exclusive item
   try {
-    assassinRoom.handleShopEvent({ id: 'hex_shop', col: 2 });
+    assassinRoom.handleShopEvent({ id: 'hex_shop', col: 1 });
     const exclusiveItem = assassinRoom.currentEvent.items.find(it => it.tier === 'CLASS_EXCLUSIVE');
     assert.ok(exclusiveItem);
     assert.equal(exclusiveItem.price, 200, 'Assassin leader 20% discount should apply: 250 * 0.8 = 200');

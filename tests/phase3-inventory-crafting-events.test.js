@@ -185,7 +185,7 @@ test('Phase 3: Normal Shop event (Buy items & Rest service)', () => {
   assert.equal(room.state, 'EVENT');
   assert.equal(room.currentEvent.type, 'shop');
   assert.equal(room.currentEvent.isShady, false);
-  assert.equal(room.currentEvent.items.length, 4);
+  assert.equal(room.currentEvent.items.length, 6);
 
   const good = room.currentEvent.items[0];
   const originalGold = room.gold;

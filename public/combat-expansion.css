@@ -74,7 +74,7 @@
 .presentation-victory-story { width: min(700px, 80cqw); line-height: 2; font-size: 1.2rem; }
 .presentation-victory-summary { text-align: center; line-height: 1.8; }
 .presentation-victory-summary h2 { font-family: var(--font-stats); }
-.presentation-victory.exit, .presentation-victory-title.exit, .presentation-victory-story.exit { animation: supportExit 500ms ease-in both; }
+.presentation-victory.exit, .presentation-victory-title.exit, .presentation-victory-story.exit, .presentation-victory-summary.exit { animation: supportExit 500ms ease-in both; }
 .presentation-victory-continue { margin-top: 24px; padding: 14px 30px; color: #e8cf8e; border: 1px solid #847043; background: #111827; cursor: pointer; }
 .presentation-victory-continue:disabled { opacity: .5; cursor: default; }
 @keyframes supportReveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

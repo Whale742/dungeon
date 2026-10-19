@@ -1908,6 +1908,7 @@ export function getExclusiveMinionForBoss(bossName) {
 
 export function determineEquipSlot(item) {
   if (!item) return EQUIP_SLOTS.ACCESSORY;
+  if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE') return 'CONSUMABLE';
   if (item.slot && EQUIP_SLOTS[item.slot]) return item.slot;
   if (item.tier === 'CLASS_EXCLUSIVE' || (item.role && !item.slot)) {
     return EQUIP_SLOTS.CLASS_EXCLUSIVE;
@@ -1992,10 +1993,61 @@ export function getCraftingRecipe(item1Id, item2Id) {
   }) || null;
 }
 
+export const CONSUMABLES = [
+  {
+    id: 'consumable_antidote',
+    name: '解毒藥',
+    type: 'CONSUMABLE',
+    slot: 'CONSUMABLE',
+    cost: 30,
+    basePrice: 30,
+    desc: '使用後清除單一目標身上的所有負面狀態。',
+    effectType: 'ANTIDOTE'
+  },
+  {
+    id: 'consumable_healing_potion',
+    name: '治療藥',
+    type: 'CONSUMABLE',
+    slot: 'CONSUMABLE',
+    cost: 40,
+    basePrice: 40,
+    desc: '使用後恢復單一目標 40% 最大生命值。',
+    effectType: 'HEALING_POTION',
+    healPercent: 0.40
+  },
+  {
+    id: 'consumable_rest_tent',
+    name: '修整帳篷',
+    type: 'CONSUMABLE',
+    slot: 'CONSUMABLE',
+    cost: 100,
+    basePrice: 100,
+    desc: '僅限在「選路階段」使用。強制在原地觸發一次休息回合，全隊恢復大量生命值並清除所有負面效果。',
+    effectType: 'REST_TENT',
+    healPercent: 0.60
+  }
+];
+
+export function getItemBasePrice(item) {
+  if (!item) return 50;
+  if (item.basePrice) return item.basePrice;
+  if (item.tier === 'CLASS_EXCLUSIVE' || item.slot === EQUIP_SLOTS.CLASS_EXCLUSIVE || item.role) return 250;
+  if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE') {
+    if (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') return 30;
+    if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') return 40;
+    if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') return 100;
+    return item.cost || 50;
+  }
+  if (item.tier === 2) return item.cost || 120;
+  if (item.tier === 1) return item.cost || 50;
+  return item.cost || 50;
+}
+
 export function findItemTemplate(itemId) {
   if (!itemId) return null;
   return TIER1_EQUIPMENTS.find(e => e.id === itemId) ||
     TIER2_EQUIPMENTS.find(e => e.id === itemId) ||
+    CONSUMABLES.find(e => e.id === itemId) ||
     LOOT_TABLE.find(e => e.id === itemId) ||
     NEW_LOOT.find(e => e.id === itemId) ||
     null;
@@ -2283,3 +2335,94 @@ export const ABYSS_DIALOGUES = {
     }
   }
 };
+
+export const BASE_GOLD_DROPS = Object.freeze({
+  ELITE_BOSS: 40,
+  EXCLUSIVE_MINION: 20,
+  GENERAL_MINION: 15,
+  MIMIC_MINION: 25
+});
+
+/**
+ * 1. 金幣獲取倍率 (線性溫和成長，斜率 0.18)
+ * @param {number} col - 當前六角地圖列數 (1 ~ 9)
+ */
+export function getGoldIncomeMultiplier(col) {
+  const step = Math.max(0, (col || 1) - 1);
+  return 1 + 0.18 * step;
+}
+
+/**
+ * 2. 商店物價倍率 (線性 0.25 + 二次方加速 0.035，確保永遠大於金幣成長率)
+ * @param {number} col - 當前六角地圖列數 (1 ~ 9)
+ */
+export function getShopPriceMultiplier(col) {
+  const step = Math.max(0, (col || 1) - 1);
+  return 1 + (0.25 * step) + (0.035 * Math.pow(step, 2));
+}
+
+/**
+ * 3. 計算戰鬥掉落金幣
+ * @param {Array|Object} defeatedEnemies - 被擊敗的敵人陣列
+ * @param {number} col - 當前層數
+ * @param {boolean} isGladiatorCaptain - 隊長是否為角鬥士 (精英戰金幣 +30%)
+ */
+export function calculateBattleGold(defeatedEnemies, col, isGladiatorCaptain = false) {
+  const mult = getGoldIncomeMultiplier(col);
+  let totalBase = 0;
+  let hasElite = false;
+  const list = Array.isArray(defeatedEnemies) ? defeatedEnemies : (defeatedEnemies ? [defeatedEnemies] : []);
+
+  for (const enemy of list) {
+    if (enemy.isElite || enemy.isAbyssBoss || enemy.isEndElite) {
+      totalBase += BASE_GOLD_DROPS.ELITE_BOSS;
+      hasElite = true;
+    } else if (enemy.isExclusiveMinion) {
+      totalBase += BASE_GOLD_DROPS.EXCLUSIVE_MINION;
+    } else if (enemy.isMimicAmbush || enemy.isMimicMinion) {
+      totalBase += (BASE_GOLD_DROPS.MIMIC_MINION || 25);
+    } else {
+      totalBase += BASE_GOLD_DROPS.GENERAL_MINION;
+    }
+  }
+
+  // 隨機浮動 0.9 ~ 1.1
+  const variance = 0.9 + Math.random() * 0.2;
+  let finalGold = totalBase * mult * variance;
+
+  if (hasElite && isGladiatorCaptain) {
+    finalGold *= 1.3;
+  }
+
+  return Math.round(finalGold);
+}
+
+/**
+ * 4. 計算商店商品售價 與 裝備回收價
+ * @param {number} basePrice - 物品基礎價格
+ * @param {number} col - 當前商店所在層數
+ * @param {Object} shopSession - { isShady, shadyBuyMult, sellRatio, isAssassinCaptain }
+ */
+export function calculateShopBuyPrice(basePrice, col, shopSession = {}) {
+  const shopMult = getShopPriceMultiplier(col);
+  const merchantMult = shopSession.isShady ? (shopSession.shadyBuyMult || 1.5) : 1.0; // 奸商 1.5 ~ 2.0
+  const captainDiscount = (!shopSession.isShady && shopSession.isAssassinCaptain) ? 0.8 : 1.0;
+
+  return Math.round(basePrice * shopMult * merchantMult * captainDiscount);
+}
+
+/**
+ * 5. 計算玩家販賣裝備的回收價 (錨定裝備獲得時的層數金幣倍率，防止低買高賣套利)
+ * @param {Object} item - 裝備物件 (含 basePrice 與 droppedAtCol)
+ * @param {Object} shopSession - { isShady, sellRatio } 
+ *   - 一般商店 sellRatio 預設為 0.50 ~ 0.60
+ *   - 奸商 sellRatio 預設為 0.10 ~ 0.20
+ */
+export function calculateItemSellPrice(item, shopSession = {}) {
+  const originCol = item?.droppedAtCol || 1;
+  const basePrice = item?.basePrice ?? (typeof getItemBasePrice === 'function' ? getItemBasePrice(item) : (item?.cost || 50));
+  const valuation = basePrice * getGoldIncomeMultiplier(originCol);
+  const ratio = shopSession.sellRatio ?? shopSession.recycleRate ?? (shopSession.isShady ? 0.15 : 0.55);
+  return Math.max(1, Math.round(valuation * ratio));
+}
+
