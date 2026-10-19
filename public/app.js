@@ -1170,8 +1170,11 @@ function renderPendingDropModal(me) {
     return;
   }
 
-  const equipOverride = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key===('equip.'+drop.role+'.'+drop.id));
-  const dropName = equipOverride?.title || drop.name;
+  // A pending choice can arrive before its item payload on older servers.
+  // Keep the discard/recovery action available instead of throwing or trapping the owner.
+  const drop = dropInfo.drop || {};
+  const equipOverride = window.StudioContent?.rows('story_copies')?.find(s=>s.category==='equipment'&&s.story_key===('equip.'+drop.role+'.'+drop.id));
+  const dropName = equipOverride?.title || drop.name || '未命名裝備';
   const dropDesc = equipOverride?.body || drop.desc || drop.statDesc || '';
   elements.equipModalTitle.innerHTML = `${getIconSvg('chest')} <span>獲得戰利品裝備：【${escapeHtml(dropName)}】！</span>`;
   elements.equipModalSubtitle.textContent = `你在${dropInfo.source === 'battle' ? '擊敗怪物' : '探索寶箱'}後獲得了這件裝備！請抉擇是否穿戴（每位角色上限 3 件）：`;
@@ -1209,7 +1212,8 @@ function renderPendingDropModal(me) {
     elements.currentEquipsList.innerHTML = '<div style="color: var(--color-text-secondary); font-size: 13.5px; padding: 6px 0;">目前尚未穿戴任何裝備（空間 0/3）。可以直接穿上！</div>';
   } else {
     myEquips.forEach((eq, idx) => {
-      const itemEl = document.createElement('div');
+      const itemEl = document.createElement(isFull ? 'button' : 'div');
+      if (isFull) itemEl.type = 'button';
       itemEl.className = `current-equip-item ${selectedReplaceIndex === idx ? 'selected-to-replace' : ''}`;
       itemEl.innerHTML = `
         <div class="current-equip-info">
@@ -1248,6 +1252,7 @@ function renderPendingDropModal(me) {
     submitEquipmentChoice({action:'discard'});
   };
 
+  elements.btnEquipItem.disabled = alreadyOwnsUnique || !drop.id;
   ModalMotion.show(elements.equipDropModal);
 }
 
