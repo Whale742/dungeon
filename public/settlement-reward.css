@@ -1,0 +1,895 @@
+/* ==========================================================================
+   Dungeon Abyss — Azure Ruins (蒼藍遺跡)
+   Stage 5: Loot Presentation & Settlement Screens Stylesheet
+   - Radiant Ambient Beams & Celestial Rotating Halo Ring
+   - Floating Item Visual Showcase
+   - Equipment Drop Modal (Stone Slate & Replace Radio UI)
+   - Floor 5 Checkpoint Sanctuary Screen
+   - Victory & Defeat Abyss Settlement Screen
+   - Zero Emojis, Clean RPG Typography, KaTeX & Pixel Accents
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Radiant Beams & Celestial Halo Keyframes
+   -------------------------------------------------------------------------- */
+@keyframes reward-beam-fade {
+  0% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes reward-halo-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes reward-item-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes reward-card-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. Loot Presentation Overlay & Showcase Card
+   -------------------------------------------------------------------------- */
+.reward-presentation-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(8, 14, 20, 0.88) !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 12000 !important;
+  padding: 16px !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease !important;
+}
+
+.reward-presentation-overlay.is-open {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.reward-presentation-overlay.hidden {
+  display: none !important;
+}
+
+.reward-presentation-card {
+  position: relative !important;
+  width: min(560px, 92vw) !important;
+  min-height: 440px !important;
+  background: radial-gradient(ellipse at 50% 40%, rgba(22, 42, 58, 0.98), rgba(12, 22, 30, 0.98)) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85),
+              0 0 50px rgba(111, 183, 233, 0.15),
+              inset 0 0 40px rgba(14, 26, 36, 0.8) !important;
+  padding: 32px 28px 28px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  transform: scale(0.92);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.reward-presentation-overlay.is-open .reward-presentation-card {
+  transform: scale(1) !important;
+  animation: reward-card-appear 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+/* Ambient Radiant Beams behind loot */
+.reward-beams {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  overflow: hidden !important;
+}
+
+.reward-beam {
+  position: absolute !important;
+  bottom: 12% !important;
+  left: 50% !important;
+  height: 140% !important;
+  width: 22% !important;
+  background: linear-gradient(0deg, transparent, rgba(111, 183, 233, 0.20) 20%, rgba(178, 232, 254, 0.08) 60%, transparent) !important;
+  transform-origin: bottom center !important;
+  clip-path: polygon(35% 100%, 65% 100%, 100% 0, 0 0) !important;
+  filter: blur(5px) !important;
+  animation: reward-beam-fade 4.2s ease-in-out infinite alternate !important;
+}
+
+.reward-beam:nth-child(1) {
+  transform: translateX(-50%) rotate(-26deg) !important;
+}
+
+.reward-beam:nth-child(2) {
+  transform: translateX(-50%) rotate(0deg) !important;
+  width: 16% !important;
+  animation-delay: -2s !important;
+}
+
+.reward-beam:nth-child(3) {
+  transform: translateX(-50%) rotate(26deg) !important;
+  animation-delay: -1s !important;
+}
+
+/* Rotating Celestial Halo */
+.reward-halo {
+  position: absolute !important;
+  top: 36% !important;
+  left: 50% !important;
+  width: 210px !important;
+  height: 210px !important;
+  border: 1px solid rgba(111, 183, 233, 0.3) !important;
+  border-radius: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  box-shadow: 0 0 50px rgba(111, 183, 233, 0.16), inset 0 0 40px rgba(111, 183, 233, 0.1) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+.reward-halo::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 14px !important;
+  border-radius: 50% !important;
+  border: 1px dashed rgba(203, 185, 138, 0.35) !important;
+  animation: reward-halo-rotate 28s linear infinite !important;
+}
+
+/* Floating Visual Artwork */
+.reward-visual {
+  z-index: 2 !important;
+  width: 140px !important;
+  height: 140px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  margin: 6px auto 12px !important;
+  animation: reward-item-float 3.2s ease-in-out infinite !important;
+}
+
+.reward-visual img {
+  max-width: 110px !important;
+  max-height: 110px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 0 22px rgba(111, 183, 233, 0.6)) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.85)) !important;
+}
+
+.reward-visual svg {
+  width: 76px !important;
+  height: 76px !important;
+  color: var(--gold, #dfcf9e) !important;
+  filter: drop-shadow(0 0 22px rgba(111, 183, 233, 0.6)) !important;
+}
+
+.reward-visual .reward-fallback-svg {
+  color: var(--gold, #dfcf9e) !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.reward-visual .reward-fallback-svg[style*="display:none"],
+.reward-visual .reward-fallback-svg[style*="display: none"] {
+  display: none !important;
+}
+
+/* Skip / Replay Controls */
+.btn-skip-reward {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  z-index: 10 !important;
+  background: #162632 !important;
+  border: 1px solid #3c586a !important;
+  border-radius: 2px !important;
+  color: #92b0bf !important;
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
+  padding: 5px 12px !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+}
+
+.btn-skip-reward:hover {
+  background: #233e50 !important;
+  border-color: #6fb7e9 !important;
+  color: #fff !important;
+}
+
+/* Typography in Loot Showcase */
+.reward-rarity-badge {
+  z-index: 2 !important;
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
+  letter-spacing: 0.16em !important;
+  color: var(--gold, #dfcf9e) !important;
+  margin-bottom: 6px !important;
+  text-transform: uppercase !important;
+}
+
+.reward-rarity-badge.is-rare {
+  color: var(--gold, #dfcf9e) !important;
+  text-shadow: 0 0 10px rgba(223, 207, 158, 0.6) !important;
+}
+
+.reward-rarity-badge.is-common {
+  color: var(--azure, #6fb7e9) !important;
+}
+
+.reward-rarity-badge.is-gold {
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.reward-title {
+  z-index: 2 !important;
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  color: #f1eee4 !important;
+  margin: 0 0 8px !important;
+  text-shadow: 0 0 18px rgba(111, 183, 233, 0.35) !important;
+  line-height: 1.3 !important;
+}
+
+.reward-desc {
+  z-index: 2 !important;
+  font-size: 13px !important;
+  color: #b9c4ce !important;
+  line-height: 1.6 !important;
+  margin: 0 0 10px !important;
+  max-width: 440px !important;
+}
+
+.reward-meta {
+  z-index: 2 !important;
+  font: 700 10.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--azure, #6fb7e9) !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. In-Game Reward Reveal in Chests & Victory (presentation-reward-content)
+   -------------------------------------------------------------------------- */
+.presentation-reward-content {
+  position: relative !important;
+  margin: 18px auto !important;
+  padding: 24px 32px !important;
+  background: rgba(14, 26, 36, 0.96) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8),
+              0 0 35px rgba(111, 183, 233, 0.12) !important;
+  max-width: 520px !important;
+  width: 90% !important;
+  text-align: center !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.presentation-reward-rarity {
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
+  letter-spacing: 0.16em !important;
+  color: var(--gold, #dfcf9e) !important;
+  margin-bottom: 8px !important;
+}
+
+.presentation-reward-rarity.is-rare {
+  color: var(--gold, #dfcf9e) !important;
+  text-shadow: 0 0 10px rgba(223, 207, 158, 0.6) !important;
+}
+
+.presentation-reward-rarity.is-common {
+  color: var(--azure, #6fb7e9) !important;
+}
+
+.presentation-reward-title {
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  color: #f1eee4 !important;
+  margin: 0 0 8px !important;
+  text-shadow: 0 0 16px rgba(111, 183, 233, 0.3) !important;
+}
+
+.presentation-reward-desc {
+  font-size: 13px !important;
+  color: #b9c4ce !important;
+  line-height: 1.6 !important;
+  margin: 0 0 6px !important;
+}
+
+.presentation-reward-meta {
+  font: 700 10.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--azure, #6fb7e9) !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. Equipment Drop & Replacement Modal (#equipDropModal)
+   -------------------------------------------------------------------------- */
+#equipDropModal {
+  z-index: 1100 !important;
+}
+
+.equip-modal-card {
+  max-width: 540px !important;
+  width: min(540px, calc(100vw - 32px)) !important;
+  background: rgba(14, 26, 36, 0.98) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  padding: 24px 28px !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8),
+              0 0 40px rgba(111, 183, 233, 0.12) !important;
+  color: #e8edf2 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.equip-modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-bottom: 12px !important;
+}
+
+.equip-modal-icon {
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.equip-modal-header h3 {
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  color: #f1eee4 !important;
+  margin: 0 !important;
+}
+
+.equip-modal-subtitle {
+  font-size: 12px !important;
+  color: var(--secondary, #b9c4ce) !important;
+  margin-top: 4px !important;
+  line-height: 1.5 !important;
+}
+
+.drop-item-card {
+  background: #142431 !important;
+  border: 1px solid #4a687a !important;
+  border-radius: 2px !important;
+  padding: 16px 20px !important;
+  margin: 16px 0 !important;
+  text-align: left !important;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.drop-item-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 8px !important;
+}
+
+.drop-item-badge {
+  background: #1b3342 !important;
+  color: var(--gold, #dfcf9e) !important;
+  border: 1px solid #6b634d !important;
+  font: 700 10px var(--pixel, 'Silkscreen', monospace) !important;
+  padding: 3px 8px !important;
+  border-radius: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.drop-item-type {
+  font: 700 10.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--azure, #6fb7e9) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.drop-item-body {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  margin-top: 8px !important;
+}
+
+.drop-item-icon {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  background: #101c26 !important;
+  border: 1px solid #35546a !important;
+  border-radius: 2px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.drop-modal-icon-img {
+  max-width: 38px !important;
+  max-height: 38px !important;
+  object-fit: contain !important;
+}
+
+.drop-item-icon svg {
+  width: 28px !important;
+  height: 28px !important;
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.drop-item-icon .item-fallback-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.drop-item-icon .item-fallback-icon[style*="display:none"],
+.drop-item-icon .item-fallback-icon[style*="display: none"] {
+  display: none !important;
+}
+
+.drop-item-details {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.drop-item-name {
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  color: #f1eee4 !important;
+  margin-bottom: 4px !important;
+}
+
+.drop-item-desc {
+  font-size: 12.5px !important;
+  color: var(--secondary, #b9c4ce) !important;
+  line-height: 1.55 !important;
+}
+
+.current-equips-section {
+  text-align: left !important;
+  margin: 14px 0 !important;
+}
+
+.current-equips-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 12px !important;
+  color: var(--secondary, #b9c4ce) !important;
+  margin-bottom: 8px !important;
+  padding-bottom: 4px !important;
+  border-bottom: 1px solid #284457 !important;
+}
+
+.current-equips-header span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.equip-stack-hint {
+  font-size: 11px !important;
+  color: var(--muted, #7E8C96) !important;
+}
+
+.current-equips-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.current-equip-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 8px 12px !important;
+  background: #13222d !important;
+  border: 1px solid #2e4757 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  text-align: left !important;
+}
+
+.current-equip-item:hover {
+  background: #1a303f !important;
+  border-color: #6fb7e9 !important;
+}
+
+.current-equip-item.selected-to-replace {
+  background: #254054 !important;
+  border-color: var(--gold, #dfcf9e) !important;
+  box-shadow: 0 0 10px rgba(223, 207, 158, 0.25) !important;
+}
+
+.current-equip-name {
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  color: #f1eee4 !important;
+  display: block !important;
+}
+
+.current-equip-desc {
+  font-size: 11.5px !important;
+  color: var(--secondary, #b9c4ce) !important;
+  display: block !important;
+  margin-top: 2px !important;
+}
+
+.replace-radio-badge {
+  font: 700 9.5px var(--pixel, 'Silkscreen', monospace) !important;
+  padding: 3px 8px !important;
+  border-radius: 2px !important;
+  border: 1px solid #6b634d !important;
+  background: #192732 !important;
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.equip-replace-notice {
+  background: #2b1d24 !important;
+  border: 1px solid #7c3543 !important;
+  color: #f28b82 !important;
+  font-size: 12px !important;
+  padding: 8px 12px !important;
+  border-radius: 2px !important;
+  margin: 10px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.equip-modal-actions {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-top: 18px !important;
+}
+
+.equip-modal-actions .btn {
+  padding: 9px 24px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+}
+
+#btnEquipItem {
+  background: #1b4b52 !important;
+  border: 1px solid #49c2c1 !important;
+  color: #e8edf2 !important;
+}
+
+#btnEquipItem:hover:not(:disabled) {
+  background: #25656f !important;
+  box-shadow: 0 0 12px rgba(73, 194, 193, 0.4) !important;
+}
+
+#btnDiscardItem {
+  background: #182833 !important;
+  border: 1px solid #4F6674 !important;
+  color: #b9c4ce !important;
+}
+
+#btnDiscardItem:hover:not(:disabled) {
+  background: #223746 !important;
+  color: #fff !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. Checkpoint View (#viewCheckpoint)
+   -------------------------------------------------------------------------- */
+#viewCheckpoint:not(.active) {
+  display: none !important;
+}
+
+#viewCheckpoint.active {
+  min-height: calc(100vh - 84px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+.checkpoint-card {
+  max-width: 600px !important;
+  width: 100% !important;
+  background: rgba(14, 26, 36, 0.96) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8),
+              0 0 45px rgba(73, 194, 193, 0.14) !important;
+  padding: 28px 28px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.checkpoint-hero {
+  width: 56px !important;
+  height: 56px !important;
+  margin: 0 auto 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle, rgba(73, 194, 193, 0.25) 0%, transparent 70%) !important;
+  border: 1px solid rgba(73, 194, 193, 0.4) !important;
+  color: var(--teal, #49c2c1) !important;
+  box-shadow: 0 0 24px rgba(73, 194, 193, 0.3) !important;
+}
+
+.checkpoint-card h2 {
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  color: #f1eee4 !important;
+  margin: 0 0 10px !important;
+}
+
+.checkpoint-desc {
+  font-size: 13.5px !important;
+  color: var(--secondary, #b9c4ce) !important;
+  line-height: 1.65 !important;
+  margin: 0 auto 20px !important;
+  max-width: 480px !important;
+}
+
+.checkpoint-desc strong {
+  color: var(--teal, #49c2c1) !important;
+}
+
+.checkpoint-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  max-width: 400px !important;
+  margin: 0 auto !important;
+}
+
+#btnCpContinue {
+  background: #1b4b52 !important;
+  border: 1px solid #49c2c1 !important;
+  color: #e8edf2 !important;
+  padding: 10px 18px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: all 0.14s ease !important;
+}
+
+#btnCpContinue:hover {
+  background: #25656f !important;
+  box-shadow: 0 0 16px rgba(73, 194, 193, 0.4) !important;
+}
+
+#btnCpEnd {
+  background: #253325 !important;
+  border: 1px solid #cbb98a !important;
+  color: var(--gold, #dfcf9e) !important;
+  padding: 10px 18px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: all 0.14s ease !important;
+}
+
+#btnCpEnd:hover {
+  background: #354735 !important;
+  border-color: #dfcf9e !important;
+  box-shadow: 0 0 16px rgba(203, 185, 138, 0.3) !important;
+}
+
+.pulse-waiting {
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--azure, #6fb7e9) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. End View / Settlement (#viewEnd)
+   -------------------------------------------------------------------------- */
+#viewEnd:not(.active) {
+  display: none !important;
+}
+
+#viewEnd.active {
+  min-height: calc(100vh - 84px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+.end-card {
+  max-width: 620px !important;
+  width: 100% !important;
+  background: rgba(14, 26, 36, 0.96) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85),
+              0 0 50px rgba(111, 183, 233, 0.12) !important;
+  padding: 28px 28px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.end-icon {
+  width: 68px !important;
+  height: 68px !important;
+  margin: 0 auto 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle, rgba(111, 183, 233, 0.25) 0%, transparent 70%) !important;
+  border: 1px solid rgba(111, 183, 233, 0.4) !important;
+  color: var(--gold, #dfcf9e) !important;
+  box-shadow: 0 0 24px rgba(111, 183, 233, 0.3) !important;
+}
+
+.end-card h2 {
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  color: #f1eee4 !important;
+  margin: 0 0 8px !important;
+}
+
+.end-subtitle {
+  font-size: 13.5px !important;
+  color: var(--secondary, #b9c4ce) !important;
+  line-height: 1.6 !important;
+  margin: 0 auto 24px !important;
+  max-width: 500px !important;
+}
+
+/* Statistics Grid in Settlement */
+.end-stats {
+  background: #101c26 !important;
+  border: 1px solid #284457 !important;
+  border-radius: 2px !important;
+  padding: 16px 20px !important;
+  margin-bottom: 24px !important;
+  text-align: left !important;
+}
+
+.settlement-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 10px !important;
+}
+
+.settlement-stat-cell {
+  background: #142431 !important;
+  border: 1px solid #2e4757 !important;
+  padding: 12px 10px !important;
+  text-align: center !important;
+  border-radius: 2px !important;
+}
+
+.settlement-stat-label {
+  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--muted, #7E8C96) !important;
+  letter-spacing: 0.08em !important;
+  margin-bottom: 5px !important;
+}
+
+.settlement-stat-val {
+  font: 700 15px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--light, #e8edf2) !important;
+}
+
+.settlement-stat-val.text-amber {
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.settlement-stat-val.text-gold {
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.settlement-stat-val.text-teal {
+  color: var(--teal, #49c2c1) !important;
+}
+
+.end-actions {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 12px !important;
+}
+
+#btnRestartLobby {
+  background: #1e3a4e !important;
+  border: 1px solid #6fb7e9 !important;
+  color: #f1eee4 !important;
+  padding: 12px 28px !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: all 0.14s ease !important;
+}
+
+#btnRestartLobby:hover {
+  background: #274b65 !important;
+  box-shadow: 0 0 16px rgba(111, 183, 233, 0.4) !important;
+}
+
+/* --------------------------------------------------------------------------
+   7. Accessibility: Reduced Motion
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .reward-beam,
+  .reward-halo::after,
+  .reward-visual,
+  .reward-presentation-card {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Responsive Adapters */
+@media (max-width: 600px) {
+  .settlement-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

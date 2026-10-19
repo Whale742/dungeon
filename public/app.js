@@ -1239,19 +1239,21 @@ let selectedReplaceIndex = -1;
 function renderPendingDropModal(me) {
   if (!elements.equipDropModal) return;
 
-  const dropInfo = roomState?.pendingDrop;
-  if (roomState?.state === 'BATTLE_VICTORY' && !roomState.victoryInteractionReady) {
+  const state = (typeof roomState !== 'undefined' && roomState) || (typeof window !== 'undefined' && window.roomState) || {};
+  const dropInfo = state.pendingDrop;
+  if (state.state === 'BATTLE_VICTORY' && !state.victoryInteractionReady) {
     ModalMotion.hide(elements.equipDropModal); return;
   }
     // Phase 4: Gate equip modal until chest presentation and reward reveal have settled
-  if (roomState?.state === 'EVENT' && roomState.currentEvent?.type === 'treasure') {
-    if (chestRewardCompletedId !== roomState.currentEvent.presentationId) {
+  if (state.state === 'EVENT' && state.currentEvent?.type === 'treasure') {
+    if (chestRewardCompletedId !== state.currentEvent.presentationId) {
       ModalMotion.hide(elements.equipDropModal);
       return;
     }
   }
 
-  if (!dropInfo || !me || dropInfo.ownerId !== myId) {
+  const effectiveMyId = myId || me?.id || (state.players && state.players[0]?.id);
+  if (!dropInfo || !me || (dropInfo.ownerId && dropInfo.ownerId !== effectiveMyId)) {
     ModalMotion.hide(elements.equipDropModal);
     selectedReplaceIndex = -1;
     return;
@@ -1268,6 +1270,10 @@ function renderPendingDropModal(me) {
   elements.dropItemName.textContent = dropName;
   elements.dropItemType.innerHTML = drop.type === 'weapon' ? `${getIconSvg('sword')} 武器` : (drop.type === 'armor' ? `${getIconSvg('shield')} 防具` : `${getIconSvg('sparkle')} 飾品`);
   elements.dropItemDesc.textContent = dropDesc;
+  const dropItemIcon = elements?.dropItemIcon || (typeof document !== 'undefined' && typeof document.getElementById === 'function' ? document.getElementById('dropItemIcon') : null);
+  if (dropItemIcon && typeof renderItemIconHtml === 'function') {
+    dropItemIcon.innerHTML = renderItemIconHtml(drop, 'drop-modal-icon-img');
+  }
 
   const myEquips = me.equips || [];
   elements.currentEquipCount.textContent = myEquips.length;
@@ -1342,6 +1348,7 @@ function renderPendingDropModal(me) {
   elements.btnEquipItem.disabled = alreadyOwnsUnique || !drop.id;
   ModalMotion.show(elements.equipDropModal);
 }
+window.renderPendingDropModal = renderPendingDropModal;
 
 function submitEquipmentChoice(choice){
  elements.btnEquipItem.disabled=true;elements.btnDiscardItem.disabled=true;
@@ -3678,7 +3685,8 @@ if (elements.roleDetailModal) {
 
 // 5. 渲染深淵休息站
 function renderCheckpoint(me, isLeader) {
-  elements.cpFloorNum.textContent = roomState.floor;
+  const state = (typeof roomState !== 'undefined' && roomState) || (typeof window !== 'undefined' && window.roomState) || {};
+  elements.cpFloorNum.textContent = state.floor || 5;
   if (isLeader) {
     elements.cpLeaderControls.classList.remove('hidden');
     elements.cpMemberNotice.classList.add('hidden');
@@ -3690,24 +3698,59 @@ function renderCheckpoint(me, isLeader) {
 
 // 6. 渲染結算畫面
 function renderGameOver(isLeader) {
+  const state = (typeof roomState !== 'undefined' && roomState) || (typeof window !== 'undefined' && window.roomState) || {};
   elements.endTitle.textContent = '挑戰失敗';
-  if (roomState.gameOverReason === 'abandon') {
+  if (state.gameOverReason === 'abandon') {
     elements.endIcon.innerHTML = getIconSvg('flag', 'svg-hero-icon');
-    elements.endSubtitle.textContent = `小隊於深淵第 ${roomState.floor} 層中途結束，未能抵達第 5 層休息站，挑戰失敗！`;
+    elements.endSubtitle.textContent = `小隊於深淵第 ${state.floor || 1} 層中途結束，未能抵達第 5 層休息站，挑戰失敗！`;
   } else {
     elements.endIcon.innerHTML = getIconSvg('death', 'svg-hero-icon');
-    elements.endSubtitle.textContent = `小隊全員在深淵第 ${roomState.floor} 層壯烈倒下，未能成功突破，挑戰失敗！`;
+    elements.endSubtitle.textContent = `小隊全員在深淵第 ${state.floor || 1} 層壯烈倒下，未能成功突破，挑戰失敗！`;
   }
+  renderEndStats();
   elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
   if(typeof bgmManager!=='undefined')void bgmManager.battleDefeated().catch(error=>console.warn('[Defeat:BGM]',error));
 }
 
 function renderVictory(isLeader) {
+  const state = (typeof roomState !== 'undefined' && roomState) || (typeof window !== 'undefined' && window.roomState) || {};
   elements.endIcon.innerHTML = getIconSvg('sparkle', 'svg-hero-icon');
   elements.endTitle.textContent = '榮耀凱旋歸來！';
-  elements.endSubtitle.textContent = `小隊成功突破至深淵第 ${roomState.floor} 層並滿載而歸！勇者威名永垂不朽！`;
+  elements.endSubtitle.textContent = `小隊成功突破至深淵第 ${state.floor || 10} 層並滿載而歸！勇者威名永垂不朽！`;
+  renderEndStats();
   elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
   playSound('victory');
+}
+
+function renderEndStats() {
+  if (!elements.endStatsBox) return;
+  const state = (typeof roomState !== 'undefined' && roomState) || (typeof window !== 'undefined' && window.roomState) || {};
+  const floor = state.floor || 1;
+  const gold = state.gold || 0;
+  const turns = state.turn || 1;
+  const livingPlayers = (state.players || []).filter(p => p.hp > 0).length;
+  const totalPlayers = (state.players || []).length || 1;
+
+  elements.endStatsBox.innerHTML = `
+    <div class="settlement-stats-grid">
+      <div class="settlement-stat-cell">
+        <div class="settlement-stat-label">EXPLORED FLOOR</div>
+        <div class="settlement-stat-val text-amber">F${String(floor).padStart(2, '0')}</div>
+      </div>
+      <div class="settlement-stat-cell">
+        <div class="settlement-stat-label">COLLECTED GOLD</div>
+        <div class="settlement-stat-val text-gold">${gold} G</div>
+      </div>
+      <div class="settlement-stat-cell">
+        <div class="settlement-stat-label">TOTAL TURNS</div>
+        <div class="settlement-stat-val">${turns}</div>
+      </div>
+      <div class="settlement-stat-cell">
+        <div class="settlement-stat-label">SURVIVING TEAM</div>
+        <div class="settlement-stat-val text-teal">${livingPlayers} / ${totalPlayers}</div>
+      </div>
+    </div>
+  `;
 }
 
 // 7. 日誌渲染與自動滾動

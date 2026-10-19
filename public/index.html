@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="battle-phase.css">
   <link rel="stylesheet" href="exploration-immersive.css">
   <link rel="stylesheet" href="inventory-shop.css">
+  <link rel="stylesheet" href="settlement-reward.css">
   <link rel="stylesheet" href="audio-controls.css">
   <link rel="stylesheet" href="modal-motion.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -916,8 +917,13 @@
             <span class="drop-item-badge"><svg class="svg-icon"><use href="#icon-sparkle"></use></svg> 新獲得裝備</span>
             <span class="drop-item-type" id="dropItemType"><svg class="svg-icon"><use href="#icon-sword"></use></svg> 武器</span>
           </div>
-          <div class="drop-item-name" id="dropItemName">鋼鐵聖劍</div>
-          <div class="drop-item-desc" id="dropItemDesc">攻擊傷害 +5</div>
+          <div class="drop-item-body">
+            <div class="drop-item-icon" id="dropItemIcon"></div>
+            <div class="drop-item-details">
+              <div class="drop-item-name" id="dropItemName">鋼鐵聖劍</div>
+              <div class="drop-item-desc" id="dropItemDesc">攻擊傷害 +5</div>
+            </div>
+          </div>
         </div>
 
         <!-- 當前已裝備列表 (上限 3 件) -->
@@ -938,8 +944,8 @@
 
         <!-- 操作按鈕 -->
         <div class="equip-modal-actions">
-          <button id="btnEquipItem" class="btn btn-success btn-large">【穿上】</button>
-          <button id="btnDiscardItem" class="btn btn-secondary btn-large">【放棄】</button>
+          <button id="btnEquipItem" class="btn btn-success btn-large">【穿戴裝備】</button>
+          <button id="btnDiscardItem" class="btn btn-secondary btn-large">【放棄裝備】</button>
         </div>
       </div>
     </div>

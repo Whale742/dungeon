@@ -65,9 +65,16 @@
         overlay.className = 'reward-presentation-overlay hidden';
         overlay.innerHTML = `
           <div class="reward-presentation-card" role="dialog" aria-modal="true" aria-label="獲得獎勵">
+            <div class="reward-beams">
+              <span class="reward-beam"></span>
+              <span class="reward-beam"></span>
+              <span class="reward-beam"></span>
+            </div>
+            <div class="reward-halo"></div>
             <button type="button" class="btn-skip-reward" aria-label="跳過演出">跳過演出 ›</button>
+            <div class="reward-visual"></div>
             <div class="reward-rarity-badge"></div>
-            <div class="reward-title"></div>
+            <h2 class="reward-title"></h2>
             <div class="reward-desc"></div>
             <div class="reward-meta"></div>
           </div>
@@ -77,6 +84,7 @@
       }
 
       const card = overlay.querySelector('.reward-presentation-card');
+      const visualEl = overlay.querySelector('.reward-visual');
       const rarityBadge = overlay.querySelector('.reward-rarity-badge');
       const titleEl = overlay.querySelector('.reward-title');
       const descEl = overlay.querySelector('.reward-desc');
@@ -86,18 +94,31 @@
       const countSuffix = (reward.count && reward.count > 1) ? ` × ${reward.count}` : '';
 
       if (reward.type === 'gold') {
-        rarityBadge.textContent = '【冒險財富】';
+        if (visualEl) {
+          visualEl.innerHTML = `<svg class="svg-icon" style="width:72px;height:72px;color:var(--gold,#dfcf9e);"><use href="#icon-gold"></use></svg>`;
+        }
+        rarityBadge.textContent = '冒險財富';
         rarityBadge.className = 'reward-rarity-badge is-gold';
         titleEl.textContent = `+${reward.amount} G 金幣`;
         descEl.textContent = reward.desc || '獲得了戰利品金幣！';
-        metaEl.textContent = reward.meta || '';
+        metaEl.textContent = reward.meta || '已存入小隊金庫';
         if (typeof global.playSound === 'function') global.playSound('victory');
       } else {
-        rarityBadge.textContent = isRare ? '【稀有戰利品】' : '【獲得物品】';
+        const itemImgUrl = (reward.item?.icon && reward.item?.icon.startsWith('/'))
+          ? reward.item.icon.replace(/^\/?assets\/assets\//, '/assets/')
+          : `/assets/Equipments/${encodeURIComponent(reward.item?.name || '')}.webp`;
+        const fallbackSvg = reward.item?.slot === 'WEAPON' ? '#icon-sword' : (reward.item?.slot === 'ARMOR' ? '#icon-shield' : '#icon-chest');
+        if (visualEl) {
+          visualEl.innerHTML = `
+            <img src="${itemImgUrl}" alt="${reward.item?.name || ''}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline-flex';" />
+            <span class="reward-fallback-svg" style="display:none;"><svg class="svg-icon" style="width:68px;height:68px;color:var(--gold,#dfcf9e);"><use href="${fallbackSvg}"></use></svg></span>
+          `;
+        }
+        rarityBadge.textContent = isRare ? 'RARE LOOT ACQUIRED' : 'EQUIPMENT ACQUIRED';
         rarityBadge.className = `reward-rarity-badge ${isRare ? 'is-rare' : 'is-common'}`;
-        titleEl.textContent = `【${reward.item?.name || '神秘物品'}】${countSuffix}`;
+        titleEl.textContent = `${reward.item?.name || '神秘物品'}${countSuffix}`;
         descEl.textContent = reward.item?.desc || reward.desc || '';
-        metaEl.textContent = reward.meta || (reward.title || '戰利品已妥善存入背包！');
+        metaEl.textContent = reward.meta || (reward.title || '戰利品已妥善存入背包');
         if (typeof global.playSound === 'function') global.playSound(isRare ? 'reward_rare' : 'reward_common');
       }
 
