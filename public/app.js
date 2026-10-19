@@ -6962,7 +6962,21 @@ function renderInventoryModal() {
 
     elements.craftingRecipesList.querySelectorAll('.btn-craft-item').forEach(b => {
       b.onclick = () => {
-        socket.emit('inventory:craft', { item1Id: b.dataset.i1, item2Id: b.dataset.i2, fromSquad: true });
+        if (b.disabled) return;
+        b.disabled = true;
+        socket.emit('inventory:craft', { item1Id: b.dataset.i1, item2Id: b.dataset.i2, fromSquad: true }, (res) => {
+          b.disabled = false;
+          if (res && !res.success) {
+            alert(res.message || '合成失敗');
+          } else if (res?.success && res.item && window.RewardPresentation) {
+            RewardPresentation.enqueue({
+              type: 'item',
+              item: res.item,
+              title: '鍛造合成成功！',
+              meta: '全新神兵已妥善存入團隊行囊！'
+            });
+          }
+        });
       };
     });
   }
@@ -7241,6 +7255,8 @@ function renderInteractiveEvent(ev) {
           b.textContent = originalText;
           if (res && !res.success) {
             alert(res.message || '購回失敗');
+          } else if (res?.success && res.item && window.RewardPresentation) {
+            RewardPresentation.enqueue({ type: 'item', item: res.item, title: '購回成功' });
           }
         });
       };
@@ -7312,11 +7328,21 @@ function renderInteractiveEvent(ev) {
       `;
       elements.eventDetails.querySelector('.btn-chest-open')?.addEventListener('click', (e) => {
         e.currentTarget.disabled = true;
-        socket.emit('event:chest_action', { action: 'open' });
+        socket.emit('event:chest_action', { action: 'open' }, (res) => {
+          if (res?.success && window.RewardPresentation) {
+            if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
+            if (res.drop) RewardPresentation.enqueue({ type: 'item', item: res.drop, title: '寶箱戰利品' });
+          }
+        });
       });
       elements.eventDetails.querySelector('.btn-chest-pacify')?.addEventListener('click', (e) => {
         e.currentTarget.disabled = true;
-        socket.emit('event:chest_action', { action: 'pacify' });
+        socket.emit('event:chest_action', { action: 'pacify' }, (res) => {
+          if (res?.success && window.RewardPresentation) {
+            if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
+            if (res.drop) RewardPresentation.enqueue({ type: 'item', item: res.drop, title: '德魯伊安撫獎勵' });
+          }
+        });
       });
       elements.eventDetails.querySelector('.btn-chest-leave')?.addEventListener('click', () => {
         socket.emit('event:chest_action', { action: 'leave' });
@@ -7439,7 +7465,13 @@ function renderInteractiveEvent(ev) {
         const act = b.dataset.act;
         socket.emit('event:random_action', { action: act }, (res) => {
           b.disabled = false;
-          if (res && !res.success) alert(res.message);
+          if (res && !res.success) {
+            alert(res.message);
+          } else if (res?.success && window.RewardPresentation) {
+            const reward = res.item || res.rewardItem || res.drop;
+            if (reward) RewardPresentation.enqueue({ type: 'item', item: reward, title: '事件戰利品' });
+            if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
+          }
         });
       };
     });
@@ -7554,3 +7586,73 @@ window.addEventListener('resize', () => {
   if (typeof hideEnemyTooltip === 'function') hideEnemyTooltip();
   if (typeof hideItemTooltip === 'function') hideItemTooltip();
 }, { passive: true });
+
+// ============================================================================
+// 統一 Modal 與 Escape 關閉管理系統 (Modal Dismissal & Accessibility Manager)
+// ============================================================================
+function closeDiscardConfirmModal() {
+  pendingDiscardSlot = null;
+  if (elements.discardConfirmModal) {
+    if (window.ModalMotion) {
+      ModalMotion.hide(elements.discardConfirmModal);
+    } else {
+      elements.discardConfirmModal.classList.add('hidden');
+    }
+  }
+}
+window.closeDiscardConfirmModal = closeDiscardConfirmModal;
+
+function isModalVisible(modalEl) {
+  if (!modalEl) return false;
+  return !modalEl.classList.contains('hidden') && (modalEl.classList.contains('is-open') || modalEl.style.display !== 'none');
+}
+
+// 嚴格鎖定：必要流程 Modal (裝備領取 #equipDropModal, 戰鬥目標選擇 #targetModal) 禁止點擊背景關閉
+[elements.equipDropModal, elements.targetModal].forEach(modal => {
+  if (!modal) return;
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+});
+
+// 全域 Escape 鍵統一關閉管理
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+
+  // 1. 若獎勵佇列正在演出，按 Escape 可跳過演出
+  if (window.RewardPresentation?.isPlaying) {
+    window.RewardPresentation.skip();
+    return;
+  }
+
+  // 2. 關閉懸浮 Tooltip
+  if (typeof hideEnemyTooltip === 'function') hideEnemyTooltip();
+  if (typeof hideItemTooltip === 'function') hideItemTooltip(true);
+
+  // 3. 嚴格防護：若當前處於必要流程 Modal (裝備領取 / 戰鬥目標選擇)，不得按 ESC 關閉
+  if (isModalVisible(elements.equipDropModal) || isModalVisible(elements.targetModal)) {
+    return;
+  }
+
+  // 4. 依照層級依序關閉最上層的非必要 Modal
+  if (isModalVisible(elements.inventoryModal)) {
+    closeInventoryModal();
+  } else if (isModalVisible(elements.profileModal)) {
+    closeProfileModal();
+  } else if (isModalVisible(elements.directConnectModal)) {
+    closeDirectConnectModal();
+  } else if (isModalVisible(elements.roleDetailModal)) {
+    hideRoleDetailModal();
+  } else if (isModalVisible(elements.minionDetailModal)) {
+    hideMinionDetailModal();
+  } else if (isModalVisible(elements.transferLeaderModal)) {
+    closeTransferLeaderModal();
+  } else if (isModalVisible(elements.discardConfirmModal)) {
+    closeDiscardConfirmModal();
+  } else if (isModalVisible(elements.avatarModalOverlay)) {
+    closeAvatarModal();
+  }
+});

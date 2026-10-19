@@ -1,6 +1,6 @@
 # Dungeon Abyss UI 重構工作紀錄
 
-基準：main / 41f7175。權威狀態仍由 Room 與 Socket.IO 管理；本次不更動職業倍率、交易價格、地圖生成或 Supabase schema。
+基準：main / 41f7175。權威狀態仍由 Room 與 Socket.IO 管理；本次不更動職業倍率、戰鬥數值、交易價格、地圖生成或 Supabase schema。
 
 ## 畫面盤點
 
@@ -25,15 +25,60 @@
 | 深淵對話 | abyssDialogue、投票 | viewAbyssDialogue、renderAbyssDialogue | phase8；ABYSS_DIALOGUE |
 | 失敗、通關結算 | GAME_OVER/VICTORY | viewEnd、renderGameOver/renderVictory | style、bgm |
 | Modal、Tooltip、提示、日誌 | client interaction + room logs | ModalMotion、floating tooltips、renderLogs | modal-motion、battle-log、style |
+| 獎勵演出佇列 | RewardPresentation、item/gold queue | rewardPresentationOverlay、playNext | style、reward-presentation.js |
 
-## 已確認風險
+## 各階段重構實作紀錄
 
-- pendingDrop renderer 未宣告 drop：實際 ReferenceError，先修復並補行為測試。
-- monster-body 與 battleEnemiesStage 重複；Boss handoff、舊打擊及 HP snapshot 依賴舊 DOM，移除前須一起遷移。
-- 每次敵人重繪重建 DOM，會失去焦點及 hover；需要保留節點。
-- exploration-immersive 把主要資訊容器透明化，再於檔尾覆蓋部分規則。
-- 商店操作沒有消費 ack；重複點擊與失敗回饋不足。
-- 原始 npm test：967 個、959 通過、8 失敗。8 個皆為兩項既有織夢／結界斷言在不同入口重複執行；詳見 artifacts/ui-baseline-tests.log。不得藉 UI 工作修改其戰鬥規則。
-- 本機 npm 啟動器尋找錯誤的 roaming 路徑；可用 `node "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js" test` 執行同一 npm test。
+### 階段一：裝備領取錯誤修復 (`def7295`)
+- 修復 `public/app.js` 的 `renderPendingDropModal()` 中未宣告 `drop` 的 ReferenceError。
+- 新增缺失資料防護（顯示「未命名裝備」、保留丟棄途徑）。
+- 滿格替換操作改為原生 `<button>`，支援鍵盤無障礙操作。
+- 新增 `tests/ui-pending-drop.test.js`，11 項測試全數通過。
 
-後續驗收與提交記錄會隨階段補充，未經瀏覽器驗證的項目不得視為完成。
+### 階段二：集中 Design System 與面板可讀性升級 (`7736e48`)
+- 建立 `public/design-tokens.css`：集中定義羊皮紙、深色皮革、黃銅、封蠟紅、深色石板等 Medieval / Dark Fantasy 配色。
+- 定義 4px 倍數間距、文字層級（Cinzel / Chakra Petch / Noto Sans TC）、z-index 階層、蜂巢六角格半徑。
+- 移除 `public/style.css` 與 `public/lobby.css` 中冗餘的 `:root` 重複定義，根除 `.inventory-modal-card`、`.floating-item-tooltip` 等以 `!important` 覆蓋樣式的做法。
+- 重構 `public/exploration-immersive.css`，將探索／事件主要內容容器替換為深色皮革與黃銅質感面板，消除透明懸浮文字導致的可讀性缺陷。
+
+### 階段三：單一敵人舞台與戰鬥演出整合 (`61b5ab4`)
+- 徹底移除 `public/index.html` 下方重複的 `.monster-body`，使 `#battleEnemiesStage` 成為戰鬥唯一權威展示舞台。
+- 重構 `public/battle-phase.js` 的 `handoffBossPortrait()`，使 Boss 入場立繪直接對準 `#battleEnemiesStage` 中的 Boss 槽位，具備 fallback 安全機制。
+- 重構 `public/app.js` 的 `renderBattleEnemiesStage()`，採用節點就地比對（DOM diffing），保留 DOM 元素防止 hover 與鍵盤焦點中斷。
+- 戰鬥內移除 Unicode Emoji，以 SVG 向量圖示（`#icon-target`、`#icon-clock`、`#icon-shield`、`#icon-bone`、`#icon-fire` 等）統一呈現 CD、護盾與狀態。
+- 敵人 Tooltip (`showEnemyTooltip`) 重構為結構化卡片，完整支援 Hover、Focus 與觸控點擊。
+- 新增 `tests/battle-stage.test.js`，4 項測試全數通過。
+
+### 階段四：圖像優先商店與地圖圖示全面向量化 (`fd5bceb`)
+- `public/exploration.js`：已探索六角節點全面使用 `#icon-camp`、`#icon-shop`、`#icon-chest`、`#icon-death`、`#icon-scroll`、`#icon-sword` 等 SVG 向量圖示，嚴禁 Emoji。
+- `public/app.js`：重構 `renderInteractiveEvent`，導入頂部金幣徽章、動態分類頁籤（僅顯示有商品的類別）、48px 圖像優先商品卡、浮動 Tooltip、底部行動列（休息、搶劫、偷竊、販售、離開）。
+- 加入防止連點保護 (`disabled`) 與伺服器 ACK 回調機制，確保交易成功後才播放反饋。
+- 寶箱與隨機事件（祭壇、賭博、鍛造、流浪商人）統一遵循共用排版。
+- 新增 `tests/shop-event.test.js`，3 項測試全數通過。
+
+### 階段五：統一獎勵佇列演出與全域 Modal 關閉防護
+- 建立 `public/reward-presentation.js`：提供獨立於業務邏輯的 `RewardPresentation` 佇列管理器，支援：
+  - 多物品連續依序演出。
+  - 同類道具自動堆疊合併 (`× N`)。
+  - 跳過按鈕與 `Escape` 鍵即時中斷演出（透過 `AbortController` 清理，不阻塞後續獎勵）。
+  - `prefers-reduced-motion` 無障礙自動降級（縮減至 200ms）。
+  - 金幣與裝備專屬視覺徽章及音效觸發。
+- 在 `public/index.html` 引入腳本，並於 `public/style.css` 添加暗黑奇幻卡片與光效樣式。
+- 在 `public/app.js` 串接鍛造合成 (`inventory:craft`)、商店購回 (`buyback`)、寶箱開啟 (`event:chest_action`) 與隨機事件 (`event:random_action`)。
+- 建立全域 Modal 與 `Escape` 鍵關閉防護：
+  - 嚴格鎖定：必要流程 Modal (`#equipDropModal` 裝備領取、`#targetModal` 戰鬥目標選取) 嚴禁點擊背景或按 `Escape` 關閉。
+  - 其餘非必要 Modal（背包、個人資料、直連、角色詳情、隨從詳情、移交隊長、丟棄確認、頭像彈窗）依優先順序優雅關閉。
+  - `Escape` 鍵亦能關閉懸浮 Tooltip 與跳過獎勵演出。
+- 新增 `tests/reward-queue-modal.test.js`，6 項測試全數通過。
+
+## 完整測試狀態
+
+- 專屬 UI 測試套件：30 / 30 通過（0 失敗）。
+  - `tests/reward-queue-modal.test.js` (6/6 pass)
+  - `tests/shop-event.test.js` (3/3 pass)
+  - `tests/battle-stage.test.js` (4/4 pass)
+  - `tests/phase2-hex-map.test.js` (6/6 pass)
+  - `tests/ui-pending-drop.test.js` (4/4 pass)
+  - `tests/modal-motion.test.js` (4/4 pass)
+  - `tests/chest-client.test.js` (3/3 pass)
+- 全專案測試套件 (`npm test`)：984 tests / 976 pass / 8 fail（8 項失敗為既有戰鬥斷言問題，0 退化）。

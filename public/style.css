@@ -7912,3 +7912,139 @@ body.presentation-opening .narrative-controls,
   border-color: var(--color-border-subtle);
   color: var(--color-text-secondary);
 }
+
+/* ==========================================================================
+   Reward Presentation Queue System (暗黑奇幻獎勵佇列演出)
+   ========================================================================== */
+.reward-presentation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.82);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: var(--z-modal, 1000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reward-presentation-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reward-presentation-overlay.hidden {
+  display: none;
+}
+
+.reward-presentation-card {
+  position: relative;
+  background: linear-gradient(175deg, var(--surface-card, #1c232d) 0%, var(--surface-inset, #10141a) 100%);
+  border: 2px solid var(--color-brass, #A7834C);
+  border-radius: var(--radius-lg, 12px);
+  padding: 28px 36px 24px;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85),
+              0 0 30px rgba(167, 131, 76, 0.3),
+              inset 0 0 20px rgba(0, 0, 0, 0.6);
+  transform: scale(0.9);
+  transition: transform var(--duration-fast, 200ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reward-presentation-overlay.is-open .reward-presentation-card {
+  transform: scale(1);
+}
+
+.btn-skip-reward {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.15));
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-text-secondary, #B8C2CC);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) ease;
+}
+
+.btn-skip-reward:hover {
+  background: rgba(167, 131, 76, 0.2);
+  color: var(--color-brass, #A7834C);
+  border-color: var(--color-brass, #A7834C);
+}
+
+.reward-rarity-badge {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.reward-rarity-badge.is-rare {
+  color: #f6c86e;
+  text-shadow: 0 0 12px rgba(246, 200, 110, 0.65);
+}
+
+.reward-rarity-badge.is-common {
+  color: var(--color-brass, #A7834C);
+}
+
+.reward-rarity-badge.is-gold {
+  color: var(--color-loot-gold, #F59E0B);
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+}
+
+.reward-title {
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--color-warm-white, #F3E8D2);
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+}
+
+.reward-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary, #B8C2CC);
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+.reward-meta {
+  font-size: 12px;
+  color: var(--color-brass, #A7834C);
+  opacity: 0.9;
+  border-top: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.1));
+  padding-top: 10px;
+}
+
+@media (max-width: 600px) {
+  .reward-presentation-card {
+    padding: 20px 22px 18px;
+    width: 94%;
+  }
+  .reward-title {
+    font-size: 18px;
+  }
+  .reward-desc {
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reward-presentation-overlay,
+  .reward-presentation-card {
+    transition: none !important;
+    animation: none !important;
+  }
+}
