@@ -3160,14 +3160,14 @@ export class Room {
     };
 
     if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType) {
-      return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+      return { success: false, message: '裝備與欄位不符！消耗品無法穿戴至裝備欄位。' };
     }
 
     const requiredSlot = determineEquipSlot(item);
     if (preferredSlot && preferredSlot !== requiredSlot) {
       const reqName = slotNames[requiredSlot] || requiredSlot;
       const targetName = slotNames[preferredSlot] || preferredSlot;
-      return { success: false, message: `裝備欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+      return { success: false, message: `裝備與欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
     }
     const targetSlot = requiredSlot;
 
@@ -3189,10 +3189,7 @@ export class Room {
       player.bag[bagIndex] = oldItem;
       this.addLog(`🔄 **${player.name}** 換下了【${oldItem.name}】。`, 'loot');
     } else {
-      player.bag[bagIndex] = null;
-      while (player.bag.length > 0 && player.bag[player.bag.length - 1] === null) {
-        player.bag.pop();
-      }
+      player.bag.splice(bagIndex, 1);
     }
 
     player.equipSlots[targetSlot] = item;
@@ -3221,14 +3218,14 @@ export class Room {
     };
 
     if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType) {
-      return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+      return { success: false, message: '裝備與欄位不符！消耗品無法穿戴至裝備欄位。' };
     }
 
     const requiredSlot = determineEquipSlot(item);
     if (preferredSlot && preferredSlot !== requiredSlot) {
       const reqName = slotNames[requiredSlot] || requiredSlot;
       const targetName = slotNames[preferredSlot] || preferredSlot;
-      return { success: false, message: `裝備欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+      return { success: false, message: `裝備與欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
     }
     const targetSlot = requiredSlot;
 
@@ -3248,10 +3245,7 @@ export class Room {
       this.squadInventory[squadIndex] = oldItem;
       this.addLog(`🔄 **${player.name}** 換下了【${oldItem.name}】放回小隊背包。`, 'loot');
     } else {
-      this.squadInventory[squadIndex] = null;
-      while (this.squadInventory.length > 0 && this.squadInventory[this.squadInventory.length - 1] === null) {
-        this.squadInventory.pop();
-      }
+      this.squadInventory.splice(squadIndex, 1);
     }
     player.equipSlots[targetSlot] = item;
     applyEquipStats(player, item);
@@ -3269,7 +3263,7 @@ export class Room {
 
     // 0. 裝備欄與其他欄位交換
     if (fromArea === 'EQUIP' && toArea === 'EQUIP') {
-      return { success: false, message: '裝備欄位不符！無法在不同類型的裝備欄位之間交換。' };
+      return { success: false, message: '裝備與欄位不符！無法在不同類型的裝備欄位之間交換。' };
     }
     if (fromArea === 'EQUIP' && toArea === 'PERSONAL') {
       return this.unequipItemToBag(socketId, fromIndex, toIndex);
@@ -3370,13 +3364,13 @@ export class Room {
       const targetItem = player.bag[targetBagIndex];
       if (targetItem) {
         if (targetItem.type === 'CONSUMABLE' || targetItem.slot === 'CONSUMABLE' || targetItem.effectType) {
-          return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+          return { success: false, message: '裝備與欄位不符！消耗品無法穿戴至裝備欄位。' };
         }
         const reqSlot = determineEquipSlot(targetItem);
         if (reqSlot !== slotKey) {
           const reqName = slotNames[reqSlot] || reqSlot;
           const targetName = slotNames[slotKey] || slotKey;
-          return { success: false, message: `裝備欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+          return { success: false, message: `裝備與欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
         }
         if (slotKey === 'CLASS_EXCLUSIVE' && targetItem.role && player.role && targetItem.role !== player.role) {
           return { success: false, message: `此裝備為【${targetItem.role}】專屬裝備，非本職業（${player.role}）無法穿戴！` };
@@ -3447,13 +3441,13 @@ export class Room {
       const targetItem = this.squadInventory[targetSquadIndex];
       if (targetItem) {
         if (targetItem.type === 'CONSUMABLE' || targetItem.slot === 'CONSUMABLE' || targetItem.effectType) {
-          return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+          return { success: false, message: '裝備與欄位不符！消耗品無法穿戴至裝備欄位。' };
         }
         const reqSlot = determineEquipSlot(targetItem);
         if (reqSlot !== slotKey) {
           const reqName = slotNames[reqSlot] || reqSlot;
           const targetName = slotNames[slotKey] || slotKey;
-          return { success: false, message: `裝備欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+          return { success: false, message: `裝備與欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
         }
         if (slotKey === 'CLASS_EXCLUSIVE' && targetItem.role && player.role && targetItem.role !== player.role) {
           return { success: false, message: `此裝備為【${targetItem.role}】專屬裝備，非本職業（${player.role}）無法穿戴！` };

@@ -565,7 +565,7 @@ test('Feature 10: In-battle turn consumption for items and inventory drag-and-dr
   warrior.bag = [armor, null, null, null];
   const equipFailRes = room.equipItemFromBag('leader_sock', 0, 'WEAPON');
   assert.equal(equipFailRes.success, false);
-  assert.ok(equipFailRes.message.includes('裝備欄位不符'));
+  assert.ok(equipFailRes.message.includes('欄位不符'));
   assert.equal(warrior.equipSlots.WEAPON.id, 'sword_b', 'Equipped weapon untouched');
   assert.equal(warrior.bag[0].id, 'armor_a', 'Armor in bag untouched');
 
@@ -573,7 +573,7 @@ test('Feature 10: In-battle turn consumption for items and inventory drag-and-dr
   // Equipped: sword_b (WEAPON). Target bag slot 0 has: armor_a (ARMOR).
   const unequipIncompatibleRes = room.unequipItemToBag('leader_sock', 'WEAPON', 0);
   assert.equal(unequipIncompatibleRes.success, false);
-  assert.ok(unequipIncompatibleRes.message.includes('裝備欄位不符'));
+  assert.ok(unequipIncompatibleRes.message.includes('欄位不符'));
   assert.equal(warrior.equipSlots.WEAPON.id, 'sword_b', 'Weapon still equipped');
   assert.equal(warrior.bag[0].id, 'armor_a', 'Armor still in bag slot 0');
 
@@ -589,7 +589,7 @@ test('Feature 10: In-battle turn consumption for items and inventory drag-and-dr
   room.squadInventory = [armor]; // ARMOR at slot 0
   const unequipSquadFail = room.unequipItemToSquad('leader_sock', 'WEAPON', 0);
   assert.equal(unequipSquadFail.success, false);
-  assert.ok(unequipSquadFail.message.includes('裝備欄位不符'));
+  assert.ok(unequipSquadFail.message.includes('欄位不符'));
   assert.equal(warrior.equipSlots.WEAPON.id, 'sword_a', 'Equipped item unchanged');
   assert.equal(room.squadInventory[0].id, 'armor_a', 'Squad item unchanged');
 
@@ -602,7 +602,7 @@ test('Feature 10: In-battle turn consumption for items and inventory drag-and-dr
   // 10. Dragging between two different equip slots fails
   const equipToEquipFail = room.swapInventorySlots('leader_sock', { fromArea: 'EQUIP', fromIndex: 'WEAPON', toArea: 'EQUIP', toIndex: 'ARMOR' });
   assert.equal(equipToEquipFail.success, false);
-  assert.ok(equipToEquipFail.message.includes('裝備欄位不符'));
+  assert.ok(equipToEquipFail.message.includes('欄位不符'));
 });
 
 
