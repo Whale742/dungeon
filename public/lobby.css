@@ -1677,9 +1677,20 @@ input#inputPlayerName {
 
 .modal-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 520px;
   padding: 20px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.85);
+  box-shadow: none;
+  background: var(--ui-surface, #242A29);
+  border: 1px solid var(--ui-border, #59615A);
+  border-radius: var(--ui-radius, 2px);
+}
+#profileModal .modal-card,
+#directConnectModal .modal-card,
+#transferLeaderModal .modal-card,
+#discardConfirmModal .modal-card,
+#targetModal .modal-card,
+#endBattleModal .modal-card {
+  max-width: 440px;
 }
 
 .modal-header {
