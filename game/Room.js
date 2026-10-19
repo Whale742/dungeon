@@ -2732,7 +2732,7 @@ export class Room {
     if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
     if (player.druidForm === 'tree') return { success: false, message: '你化身為古樹休眠中，本回合無法行動！' };
 
-    if (actionId !== 'skip') {
+    if (actionId !== 'skip' && actionId !== 'use_item_healing_potion' && actionId !== 'use_item_antidote') {
       const availableSkills = getPlayerSkills(player);
       if (actionId === 'b_revive') {
         if(player.role!=='bard')return {success:false,message:'此職業不能使用甦生之歌'};
@@ -2757,6 +2757,14 @@ export class Room {
         if (skill.hpBlocked) return { success: false, message: '生命小於等於1時不可施放一技能' };
         if ((player.cooldowns[skill.cooldownKey || actionId] || 0) > 0) return { success: false, message: '該技能冷卻中' };
       }
+    } else if (actionId === 'use_item_healing_potion') {
+      const hasPotion = (player.bag || []).some(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion')) || (this.squadInventory || []).some(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion'));
+      if (!hasPotion) return { success: false, message: '背包中無治療藥！' };
+      if (!targetPlayerId) targetPlayerId = player.id;
+    } else if (actionId === 'use_item_antidote') {
+      const hasAntidote = (player.bag || []).some(i => i && (i.effectType === 'ANTIDOTE' || i.id === 'consumable_antidote')) || (this.squadInventory || []).some(i => i && (i.effectType === 'ANTIDOTE' || i.id === 'consumable_antidote'));
+      if (!hasAntidote) return { success: false, message: '背包中無解毒藥！' };
+      if (!targetPlayerId) targetPlayerId = player.id;
     }
 
     if (actionId === 'skip') {
@@ -3142,6 +3150,31 @@ export class Room {
       return { success: false, message: '無效的背包物品索引' };
     }
     const item = player.bag[bagIndex];
+    if (!item) return { success: false, message: '該格子無物品' };
+
+    const slotNames = {
+      WEAPON: '武器',
+      ARMOR: '裝備(防具)',
+      ACCESSORY: '飾品',
+      CLASS_EXCLUSIVE: '職業專屬'
+    };
+
+    if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType) {
+      return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+    }
+
+    const requiredSlot = determineEquipSlot(item);
+    if (preferredSlot && preferredSlot !== requiredSlot) {
+      const reqName = slotNames[requiredSlot] || requiredSlot;
+      const targetName = slotNames[preferredSlot] || preferredSlot;
+      return { success: false, message: `裝備欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+    }
+    const targetSlot = requiredSlot;
+
+    if (targetSlot === 'CLASS_EXCLUSIVE' && item.role && player.role && item.role !== player.role) {
+      return { success: false, message: `此裝備為【${item.role}】專屬裝備，非本職業（${player.role}）無法穿戴！` };
+    }
+
     if (!canPlayerEquipItem(player, item)) {
       return { success: false, message: '此特殊裝備不可重複穿戴！' };
     }
@@ -3149,26 +3182,24 @@ export class Room {
       player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
     }
 
-    const requiredSlot = determineEquipSlot(item);
-    if (preferredSlot && preferredSlot !== requiredSlot) {
-      return { success: false, message: `裝備與欄位不符！此裝備只能穿戴在【${requiredSlot}】欄位。` };
-    }
-    const targetSlot = requiredSlot;
     const oldItem = player.equipSlots[targetSlot];
 
     if (oldItem) {
       removeEquipStats(player, oldItem);
       player.bag[bagIndex] = oldItem;
-      this.addLog(`🔄 **${player.name}** 卸下了【${oldItem.name}】。`, 'loot');
+      this.addLog(`🔄 **${player.name}** 換下了【${oldItem.name}】。`, 'loot');
     } else {
-      player.bag.splice(bagIndex, 1);
+      player.bag[bagIndex] = null;
+      while (player.bag.length > 0 && player.bag[player.bag.length - 1] === null) {
+        player.bag.pop();
+      }
     }
 
     player.equipSlots[targetSlot] = item;
     applyEquipStats(player, item);
     this.syncPlayerEquips(player);
 
-    this.addLog(`🛡️ **${player.name}** 裝備了【${item.name}】於【${targetSlot}】欄位！`, 'loot');
+    this.addLog(`🛡️ **${player.name}** 裝備了【${item.name}】於【${slotNames[targetSlot] || targetSlot}】欄位！`, 'loot');
     this.broadcastState();
     return { success: true, equippedSlot: targetSlot, item };
   }
@@ -3181,14 +3212,33 @@ export class Room {
     }
     const item = this.squadInventory[squadIndex];
     if (!item) return { success: false, message: '格子無物品' };
+
+    const slotNames = {
+      WEAPON: '武器',
+      ARMOR: '裝備(防具)',
+      ACCESSORY: '飾品',
+      CLASS_EXCLUSIVE: '職業專屬'
+    };
+
+    if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType) {
+      return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+    }
+
+    const requiredSlot = determineEquipSlot(item);
+    if (preferredSlot && preferredSlot !== requiredSlot) {
+      const reqName = slotNames[requiredSlot] || requiredSlot;
+      const targetName = slotNames[preferredSlot] || preferredSlot;
+      return { success: false, message: `裝備欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+    }
+    const targetSlot = requiredSlot;
+
+    if (targetSlot === 'CLASS_EXCLUSIVE' && item.role && player.role && item.role !== player.role) {
+      return { success: false, message: `此裝備為【${item.role}】專屬裝備，非本職業（${player.role}）無法穿戴！` };
+    }
+
     if (!canPlayerEquipItem(player, item)) {
       return { success: false, message: '此特殊裝備不可重複穿戴！' };
     }
-    const requiredSlot = determineEquipSlot(item);
-    if (preferredSlot && preferredSlot !== requiredSlot) {
-      return { success: false, message: `裝備與欄位不符！此裝備只能穿戴在【${requiredSlot}】欄位。` };
-    }
-    const targetSlot = requiredSlot;
     if (!player.equipSlots) {
       player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
     }
@@ -3196,14 +3246,17 @@ export class Room {
     if (oldItem) {
       removeEquipStats(player, oldItem);
       this.squadInventory[squadIndex] = oldItem;
-      this.addLog(`🔄 **${player.name}** 卸下了【${oldItem.name}】放回小隊背包。`, 'loot');
+      this.addLog(`🔄 **${player.name}** 換下了【${oldItem.name}】放回小隊背包。`, 'loot');
     } else {
-      this.squadInventory.splice(squadIndex, 1);
+      this.squadInventory[squadIndex] = null;
+      while (this.squadInventory.length > 0 && this.squadInventory[this.squadInventory.length - 1] === null) {
+        this.squadInventory.pop();
+      }
     }
     player.equipSlots[targetSlot] = item;
     applyEquipStats(player, item);
     this.syncPlayerEquips(player);
-    this.addLog(`🛡️ **${player.name}** 從小隊背包裝備了【${item.name}】於【${targetSlot}】欄位！`, 'loot');
+    this.addLog(`🛡️ **${player.name}** 從小隊背包裝備了【${item.name}】於【${slotNames[targetSlot] || targetSlot}】欄位！`, 'loot');
     this.broadcastState();
     return { success: true, equippedSlot: targetSlot, item };
   }
@@ -3213,6 +3266,23 @@ export class Room {
     if (!player) return { success: false, message: '玩家不存在' };
     if (!Array.isArray(player.bag)) player.bag = [];
     if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+
+    // 0. 裝備欄與其他欄位交換
+    if (fromArea === 'EQUIP' && toArea === 'EQUIP') {
+      return { success: false, message: '裝備欄位不符！無法在不同類型的裝備欄位之間交換。' };
+    }
+    if (fromArea === 'EQUIP' && toArea === 'PERSONAL') {
+      return this.unequipItemToBag(socketId, fromIndex, toIndex);
+    }
+    if (fromArea === 'EQUIP' && toArea === 'SQUAD') {
+      return this.unequipItemToSquad(socketId, fromIndex, toIndex);
+    }
+    if (fromArea === 'PERSONAL' && toArea === 'EQUIP') {
+      return this.equipItemFromBag(socketId, fromIndex, toIndex);
+    }
+    if (fromArea === 'SQUAD' && toArea === 'EQUIP') {
+      return this.equipItemFromSquad(socketId, fromIndex, toIndex);
+    }
 
     // 1. 個人背包內拖曳重排
     if (fromArea === 'PERSONAL' && toArea === 'PERSONAL') {
@@ -3246,7 +3316,8 @@ export class Room {
     if (fromArea === 'PERSONAL' && toArea === 'SQUAD') {
       const item = player.bag[fromIndex];
       if (!item) return { success: false, message: '個人背包該位置無物品' };
-      if (this.squadInventory.length >= 19 && !this.squadInventory[toIndex]) {
+      const currentSquadCount = this.squadInventory.filter(Boolean).length;
+      if (currentSquadCount >= 19 && !this.squadInventory[toIndex]) {
         return { success: false, message: '小隊背包已滿！' };
       }
       const squadTargetItem = this.squadInventory[toIndex] || null;
@@ -3262,7 +3333,8 @@ export class Room {
     if (fromArea === 'SQUAD' && toArea === 'PERSONAL') {
       const item = this.squadInventory[fromIndex];
       if (!item) return { success: false, message: '小隊背包該位置無物品' };
-      if (player.bag.length >= 4 && !player.bag[toIndex]) {
+      const currentBagCount = player.bag.filter(Boolean).length;
+      if (currentBagCount >= 4 && !player.bag[toIndex]) {
         return { success: false, message: '個人隨身背包已滿！' };
       }
       const personalTargetItem = player.bag[toIndex] || null;
@@ -3284,11 +3356,54 @@ export class Room {
       return { success: false, message: '該欄位無裝備' };
     }
     const item = player.equipSlots[slotKey];
+    if (!Array.isArray(player.bag)) player.bag = [];
+
+    const slotNames = {
+      WEAPON: '武器',
+      ARMOR: '裝備(防具)',
+      ACCESSORY: '飾品',
+      CLASS_EXCLUSIVE: '職業專屬'
+    };
+
+    // 若指定了目標格子且格子內已有物品，執行安全交換 (Swap)
+    if (targetBagIndex !== null && targetBagIndex >= 0 && targetBagIndex < 4) {
+      const targetItem = player.bag[targetBagIndex];
+      if (targetItem) {
+        if (targetItem.type === 'CONSUMABLE' || targetItem.slot === 'CONSUMABLE' || targetItem.effectType) {
+          return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+        }
+        const reqSlot = determineEquipSlot(targetItem);
+        if (reqSlot !== slotKey) {
+          const reqName = slotNames[reqSlot] || reqSlot;
+          const targetName = slotNames[slotKey] || slotKey;
+          return { success: false, message: `裝備欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+        }
+        if (slotKey === 'CLASS_EXCLUSIVE' && targetItem.role && player.role && targetItem.role !== player.role) {
+          return { success: false, message: `此裝備為【${targetItem.role}】專屬裝備，非本職業（${player.role}）無法穿戴！` };
+        }
+        if (!canPlayerEquipItem(player, targetItem)) {
+          return { success: false, message: '此特殊裝備不可重複穿戴！' };
+        }
+
+        // 執行安全交換
+        removeEquipStats(player, item);
+        applyEquipStats(player, targetItem);
+        player.equipSlots[slotKey] = targetItem;
+        player.bag[targetBagIndex] = item;
+        this.syncPlayerEquips(player);
+
+        this.addLog(`🔄 **${player.name}** 交換了【${item.name}】與個人背包的【${targetItem.name}】！`, 'loot');
+        this.broadcastState();
+        return { success: true, item, swappedItem: targetItem };
+      }
+    }
+
+    // 目標格為空格或未指定時的正常卸下
     if (slotKey === 'CLASS_EXCLUSIVE' && (item.isClassExclusive || item.tier === 'CLASS_EXCLUSIVE')) {
       return { success: false, message: '專屬裝備無法卸下！' };
     }
-    if (!Array.isArray(player.bag)) player.bag = [];
-    if (player.bag.length >= 4 && (targetBagIndex === null || !player.bag[targetBagIndex])) {
+    const currentBagCount = player.bag.filter(Boolean).length;
+    if (currentBagCount >= 4 && (targetBagIndex === null || !player.bag[targetBagIndex])) {
       return { success: false, message: '個人背包已滿（上限 4 格）！' };
     }
 
@@ -3297,7 +3412,12 @@ export class Room {
     if (targetBagIndex !== null && targetBagIndex >= 0 && targetBagIndex < 4) {
       player.bag[targetBagIndex] = item;
     } else {
-      player.bag.push(item);
+      const emptyIdx = player.bag.findIndex(i => !i);
+      if (emptyIdx !== -1) {
+        player.bag[emptyIdx] = item;
+      } else {
+        player.bag.push(item);
+      }
     }
     this.syncPlayerEquips(player);
 
@@ -3313,11 +3433,54 @@ export class Room {
       return { success: false, message: '該欄位無裝備' };
     }
     const item = player.equipSlots[slotKey];
+    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+
+    const slotNames = {
+      WEAPON: '武器',
+      ARMOR: '裝備(防具)',
+      ACCESSORY: '飾品',
+      CLASS_EXCLUSIVE: '職業專屬'
+    };
+
+    // 若指定了目標小隊格子且格子內已有物品，執行安全交換 (Swap)
+    if (targetSquadIndex !== null && targetSquadIndex >= 0 && targetSquadIndex < 19) {
+      const targetItem = this.squadInventory[targetSquadIndex];
+      if (targetItem) {
+        if (targetItem.type === 'CONSUMABLE' || targetItem.slot === 'CONSUMABLE' || targetItem.effectType) {
+          return { success: false, message: '裝備欄位不符！消耗品無法穿戴至裝備欄位。' };
+        }
+        const reqSlot = determineEquipSlot(targetItem);
+        if (reqSlot !== slotKey) {
+          const reqName = slotNames[reqSlot] || reqSlot;
+          const targetName = slotNames[slotKey] || slotKey;
+          return { success: false, message: `裝備欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${targetName}】欄位。` };
+        }
+        if (slotKey === 'CLASS_EXCLUSIVE' && targetItem.role && player.role && targetItem.role !== player.role) {
+          return { success: false, message: `此裝備為【${targetItem.role}】專屬裝備，非本職業（${player.role}）無法穿戴！` };
+        }
+        if (!canPlayerEquipItem(player, targetItem)) {
+          return { success: false, message: '此特殊裝備不可重複穿戴！' };
+        }
+
+        // 執行安全交換
+        removeEquipStats(player, item);
+        applyEquipStats(player, targetItem);
+        player.equipSlots[slotKey] = targetItem;
+        this.squadInventory[targetSquadIndex] = item;
+        this.syncPlayerEquips(player);
+
+        this.addLog(`🔄 **${player.name}** 交換了【${item.name}】與小隊背包的【${targetItem.name}】！`, 'loot');
+        this.broadcastState();
+        return { success: true, item, swappedItem: targetItem };
+      }
+    }
+
+    // 目標格為空格或未指定時的正常卸下
     if (slotKey === 'CLASS_EXCLUSIVE' && (item.isClassExclusive || item.tier === 'CLASS_EXCLUSIVE')) {
       return { success: false, message: '專屬裝備無法卸下！' };
     }
-    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-    if (this.squadInventory.length >= 19 && (targetSquadIndex === null || !this.squadInventory[targetSquadIndex])) {
+    const currentSquadCount = this.squadInventory.filter(Boolean).length;
+    if (currentSquadCount >= 19 && (targetSquadIndex === null || !this.squadInventory[targetSquadIndex])) {
       return { success: false, message: '小隊背包已滿（上限 19 格）！' };
     }
 
@@ -3326,7 +3489,12 @@ export class Room {
     if (targetSquadIndex !== null && targetSquadIndex >= 0 && targetSquadIndex < 19) {
       this.squadInventory[targetSquadIndex] = item;
     } else {
-      this.squadInventory.push(item);
+      const emptyIdx = this.squadInventory.findIndex(i => !i);
+      if (emptyIdx !== -1) {
+        this.squadInventory[emptyIdx] = item;
+      } else {
+        this.squadInventory.push(item);
+      }
     }
     this.syncPlayerEquips(player);
 
@@ -3503,12 +3671,15 @@ export class Room {
   }
 
   handleShopAction(socketId, rawAction, params = {}) {
+    const action = String(rawAction || '').toLowerCase();
     if (this.state !== 'EVENT' || this.currentEvent?.type !== 'shop') {
+      if (action === 'sell') {
+        return { success: false, message: '非商店區域無法販售裝備，只能丟棄！' };
+      }
       return { success: false, message: '目前非商店事件' };
     }
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
-    const action = String(rawAction || '').toLowerCase();
 
     if (action === 'buy') {
       let isConsumable = Boolean(params.isConsumable);
@@ -3558,6 +3729,9 @@ export class Room {
     }
 
     if (action === 'sell') {
+      if (!this.currentEvent || this.currentEvent.type !== 'shop') {
+        return { success: false, message: '非商店區域無法販售裝備，只能丟棄！' };
+      }
       const fromArea = (params.fromArea || 'squad').toLowerCase();
       let item = null;
 
@@ -3567,6 +3741,9 @@ export class Room {
           return { success: false, message: '欲販賣之裝備不存在' };
         }
         item = player.equipSlots[slotKey];
+        if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT') {
+          return { success: false, message: '補血藥、解毒劑與修整帳篷只能丟棄，不能販售！' };
+        }
         player.equipSlots[slotKey] = null;
         this.syncPlayerEquips(player);
       } else {
@@ -3580,6 +3757,9 @@ export class Room {
           return { success: false, message: '欲販賣之物品不存在' };
         }
         item = container[idx];
+        if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT') {
+          return { success: false, message: '補血藥、解毒劑與修整帳篷只能丟棄，不能販售！' };
+        }
         container.splice(idx, 1);
       }
 
@@ -3721,9 +3901,46 @@ export class Room {
     return { success: false, message: '未知行動' };
   }
 
+  discardItem(socketId, params = {}) {
+    const player = this.players[socketId];
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const fromArea = (params.fromArea || 'squad').toLowerCase();
+    let item = null;
+
+    if (fromArea === 'equip') {
+      const slotKey = params.slotKey || params.key;
+      if (!player.equipSlots || !player.equipSlots[slotKey]) {
+        return { success: false, message: '欲丟棄之裝備不存在' };
+      }
+      item = player.equipSlots[slotKey];
+      player.equipSlots[slotKey] = null;
+      this.syncPlayerEquips(player);
+    } else {
+      const container = fromArea === 'personal' ? player.bag : this.squadInventory;
+      let idx = params.index;
+      if (idx === undefined && params.itemId) {
+        idx = (container || []).findIndex(i => i && i.id === params.itemId);
+      }
+      idx = Number(idx ?? -1);
+      if (!Array.isArray(container) || idx < 0 || idx >= container.length || !container[idx]) {
+        return { success: false, message: '欲丟棄之物品不存在' };
+      }
+      item = container[idx];
+      container.splice(idx, 1);
+    }
+
+    this.addLog(`🗑️ **${player.name}** 丟棄了【${item.name}】。`, 'info');
+    this.broadcastState();
+    return { success: true, item };
+  }
+
   useConsumableItem(socketId, params = {}) {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
+    if (this.state === 'IN_BATTLE') {
+      return { success: false, message: '戰鬥中消耗品需消耗回合行動，請在技能列或點擊道具鎖定為本回合行動！' };
+    }
 
     const fromArea = (params.fromArea || 'squad').toLowerCase();
     const container = fromArea === 'personal' ? player.bag : this.squadInventory;
@@ -4660,6 +4877,94 @@ export class Room {
         } else {
           log.push({ text: `⏭️ **${p.name}** 選擇了保留實力，跳過了本回合行動！`, type: 'info' });
         }
+        resolveMinionFollowUp(p);
+        continue;
+      }
+
+      if (p.action === 'use_item_healing_potion') {
+        let itemIdx = (p.bag || []).findIndex(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion'));
+        let fromSquad = false;
+        if (itemIdx === -1 && Array.isArray(this.squadInventory)) {
+          itemIdx = this.squadInventory.findIndex(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion'));
+          if (itemIdx !== -1) fromSquad = true;
+        }
+        const target = (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId] : p;
+        let actualHeal = 0;
+        if (itemIdx !== -1) {
+          const container = fromSquad ? this.squadInventory : p.bag;
+          const item = container[itemIdx];
+          container.splice(itemIdx, 1);
+          if (target.hp > 0) {
+            const healAmt = Math.max(1, Math.round(target.maxHp * (item.healPercent || 0.40)));
+            actualHeal = this.applyHealWithOverheal(target, healAmt);
+            log.push({ text: `🧪 **${p.name}** 對 **${target.name}** 使用了【治療藥】，恢復了 ${actualHeal} 點生命值！`, type: 'heal' });
+            visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: target.id, value: actualHeal, label: '治療藥' });
+          } else {
+            log.push({ text: `🧪 **${p.name}** 試圖對已倒下的 **${target.name}** 使用治療藥，但無濟於事！`, type: 'warning' });
+          }
+        } else {
+          log.push({ text: `🧪 **${p.name}** 翻找背包，但治療藥已經用盡！`, type: 'warning' });
+        }
+        presentationQueue.push({
+          sourceId: p.id,
+          sourceName: p.name,
+          sourceRole: p.role,
+          actionId: p.action,
+          skillName: '治療藥',
+          tags: ['道具', '治療'],
+          targetId: target.id,
+          targetName: target.name,
+          narrative: `**${p.name}** 從背包中取出應急治療藥，迅速為 **${target.name}** 注入治療藥劑！`,
+          detail: `恢復生命值`,
+          visualEvents: actualHeal > 0 ? [{ type: 'player_heal', sourceId: p.id, targetId: target.id, value: actualHeal, label: '治療藥' }] : [],
+          type: 'player_action',
+          hpSnapshots: this.getHpSnapshot()
+        });
+        resolveMinionFollowUp(p);
+        continue;
+      }
+
+      if (p.action === 'use_item_antidote') {
+        let itemIdx = (p.bag || []).findIndex(i => i && (i.effectType === 'ANTIDOTE' || i.id === 'consumable_antidote'));
+        let fromSquad = false;
+        if (itemIdx === -1 && Array.isArray(this.squadInventory)) {
+          itemIdx = this.squadInventory.findIndex(i => i && (i.effectType === 'ANTIDOTE' || i.id === 'consumable_antidote'));
+          if (itemIdx !== -1) fromSquad = true;
+        }
+        const target = (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId] : p;
+        if (itemIdx !== -1) {
+          const container = fromSquad ? this.squadInventory : p.bag;
+          container.splice(itemIdx, 1);
+          target.poisonTurns = 0;
+          target.poisonDmg = 0;
+          target.burnTurns = 0;
+          target.burnDmg = 0;
+          target.bleedTurns = 0;
+          target.bleedDmg = 0;
+          target.fractureTurns = 0;
+          target.chillTurns = 0;
+          target.corrosionTurns = 0;
+          target.alcAcidEquipHalvedTurns = 0;
+          log.push({ text: `🧪 **${p.name}** 對 **${target.name}** 使用了【解毒藥】，徹底清除了所有負面效果！`, type: 'heal' });
+          visualEvents.push({ type: 'player_buff', sourceId: p.id, targetId: target.id, label: '解毒藥淨化' });
+        } else {
+          log.push({ text: `🧪 **${p.name}** 翻找背包，但解毒藥已經用盡！`, type: 'warning' });
+        }
+        presentationQueue.push({
+          sourceId: p.id,
+          sourceName: p.name,
+          sourceRole: p.role,
+          actionId: p.action,
+          skillName: '解毒藥',
+          tags: ['道具', '淨化'],
+          targetId: target.id,
+          targetName: target.name,
+          narrative: `**${p.name}** 掏出特製解毒劑餵給 **${target.name}**，強效藥力迅速驅散了體內的毒素與負面狀態！`,
+          detail: `清除負面狀態`,
+          visualEvents: [{ type: 'player_buff', sourceId: p.id, targetId: target.id, label: '解毒藥淨化' }],
+          type: 'player_action',
+          hpSnapshots: this.getHpSnapshot()
+        });
         resolveMinionFollowUp(p);
         continue;
       }
@@ -5666,7 +5971,7 @@ export class Room {
         ammoBefore: [...(snapshotTarget(actionBefore, p.id)?.ammo || [])],
         ammoAfter: [...(p.ammo || [])],
         actionId: p.action,
-        skillName: usedSkill ? usedSkill.label : (p.action === 'b_revive' ? '甦生之歌' : p.action === 'skip' ? '跳過回合' : p.action),
+        skillName: usedSkill ? usedSkill.label : (p.action === 'use_item_healing_potion' ? '治療藥' : p.action === 'use_item_antidote' ? '解毒藥' : p.action === 'b_revive' ? '甦生之歌' : p.action === 'skip' ? '跳過回合' : p.action),
         tags: usedSkill ? (usedSkill.tags || []) : [],
         targetId: p.targetPlayerId || (monster.hp > 0 || isLethal ? 'monster' : null),
         targetName: (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId].name : monster.name,
@@ -6827,7 +7132,7 @@ export class Room {
       leaderSkill: this.getEffectiveLeaderSkill() || (this.players[this.leaderId]?.role ? LEADER_SKILLS[this.players[this.leaderId]?.role] : null),
       leaderSkillUsedThisBattle: Boolean(this.leaderSkillUsedThisBattle),
       gold: this.gold ?? 0,
-      squadInventory: (this.squadInventory || []).slice(),
+      squadInventory: (this.squadInventory || []).map(item => item ? ({ ...item }) : null),
       abyssState: this.abyssState ? structuredClone(this.abyssState) : null,
       abyssFlashRedEye: Boolean(this.abyssFlashRedEye),
       state: this.state,
@@ -6888,7 +7193,7 @@ export class Room {
         ...resolveStats(p,this.statMultiplier(p)),
         equips: (p.equips || []).map(e => ({ id: e.id, name: e.name, type: e.type, desc: e.desc, statDesc: e.statDesc })),
         equipCounts: p.equipCounts || {},
-        bag: (p.bag || []).map(item => ({ ...item })),
+        bag: (p.bag || []).map(item => item ? ({ ...item }) : null),
         equipSlots: p.equipSlots ? { ...p.equipSlots } : { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null },
         bonusDef: p.bonusDef || 0,
         regenPerRound: p.regenPerRound || 0,

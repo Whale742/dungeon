@@ -37,6 +37,7 @@ function createMockRoom(roles = ['warrior', 'mage', 'archer']) {
       bag: [],
       equips: [],
       equipSlots: { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null },
+      cooldowns: {},
       poisonTurns: 0,
       poisonDmg: 0,
       burnTurns: 0,
@@ -399,28 +400,211 @@ test('Feature 7: Treasure Mimic Ambush - Appears as normal chest, no loot on ope
   assert.ok(room.gold > goldBefore, 'Gold awarded on defeating mimic minions');
 });
 
-test('Feature 8: Shop UI Updates - Removed sell button & ratio, added bottom hint, fixed ellipsis and added pinned tooltip selling', () => {
+test('Feature 9: Discard system, non-shop sell restrictions, and in-battle personal consumable usage', () => {
+  const room = createMockRoom(['warrior', 'cleric']);
+  const warrior = room.players['leader_sock'];
+  const cleric = room.players['member_1'];
+  room.gold = 100;
+
+  const sword = { id: 'test_sword', name: '鐵劍', slot: 'WEAPON', type: 'WEAPON', basePrice: 50, bonusAtk: 10 };
+  const potion = CONSUMABLES.find(c => c.id === 'consumable_healing_potion');
+  const antidote = CONSUMABLES.find(c => c.id === 'consumable_antidote');
+
+  // 1. Selling outside shop is strictly rejected
+  room.state = 'MAP_ROUTING';
+  room.currentEvent = null;
+  warrior.bag.push(sword);
+  const rejectOutsideShop = room.handleShopAction('leader_sock', 'sell', { fromArea: 'personal', index: 0 });
+  assert.equal(rejectOutsideShop.success, false);
+  assert.ok(rejectOutsideShop.message.includes('非商店區域無法販售裝備'));
+
+  // 2. Selling consumables is strictly rejected even inside shop
+  room.state = 'EVENT';
+  room.handleShopEvent({ id: 'shop_test', col: 1, isShadyMerchant: false });
+  warrior.bag = [potion, antidote];
+  const rejectPotionSell = room.handleShopAction('leader_sock', 'sell', { fromArea: 'personal', index: 0 });
+  assert.equal(rejectPotionSell.success, false);
+  assert.ok(rejectPotionSell.message.includes('只能丟棄，不能販售'));
+
+  const rejectAntidoteSell = room.handleShopAction('leader_sock', 'sell', { fromArea: 'personal', index: 1 });
+  assert.equal(rejectAntidoteSell.success, false);
+  assert.ok(rejectAntidoteSell.message.includes('只能丟棄，不能販售'));
+
+  // 3. Discarding items (squad, personal, equip) does not grant gold
+  const goldBeforeDiscard = room.gold;
+  room.squadInventory = [sword];
+  const discardSquadRes = room.discardItem('leader_sock', { fromArea: 'squad', index: 0 });
+  assert.equal(discardSquadRes.success, true);
+  assert.equal(room.squadInventory.length, 0);
+  assert.equal(room.gold, goldBeforeDiscard, 'Discarding from squad grants 0 gold');
+
+  warrior.bag = [potion];
+  const discardPersonalRes = room.discardItem('leader_sock', { fromArea: 'personal', index: 0 });
+  assert.equal(discardPersonalRes.success, true);
+  assert.equal(warrior.bag.length, 0);
+  assert.equal(room.gold, goldBeforeDiscard, 'Discarding consumable grants 0 gold');
+
+  warrior.equipSlots.WEAPON = sword;
+  const discardEquipRes = room.discardItem('leader_sock', { fromArea: 'equip', slotKey: 'WEAPON' });
+  assert.equal(discardEquipRes.success, true);
+  assert.equal(warrior.equipSlots.WEAPON, null);
+  assert.equal(room.gold, goldBeforeDiscard, 'Discarding equipped weapon grants 0 gold');
+
+  // 4. In-battle consumable usage from personal bag
+  room.state = 'IN_BATTLE';
+  room.selectionState = 'SELECTING';
+  const monster = { id: 'm1', instanceId: 'm1', name: '哥布林', hp: 50, maxHp: 50, attack: 0, atk: 0 };
+  room.currentMonster = monster;
+  room.enemies = [monster];
+  warrior.hp = 30; // Injured
+  warrior.maxHp = 100;
+  warrior.bag = [potion, antidote];
+
+  // Lock battle action with healing potion
+  const lockPotion = room.lockAction('leader_sock', 'use_item_healing_potion', 'leader_sock');
+  assert.equal(lockPotion.success, true);
+  assert.equal(warrior.action, 'use_item_healing_potion');
+
+  // Lock cleric action
+  room.lockAction('member_1', 'basic');
+
+  // Execute turn
+  room.resolveTurnActions();
+  assert.ok(warrior.hp > 30, 'Warrior HP healed by healing potion');
+  assert.equal(warrior.bag.length, 1, '1 healing potion consumed from bag');
+  assert.equal(warrior.bag[0].id, 'consumable_antidote', 'Only antidote remains');
+
+  // Now apply debuffs to cleric and have warrior use antidote on cleric
+  cleric.poisonTurns = 3;
+  cleric.poisonDmg = 5;
+  cleric.burnTurns = 2;
+  cleric.burnDmg = 4;
+  warrior.isLocked = false;
+  cleric.isLocked = false;
+  room.selectionState = 'SELECTING';
+
+  const lockAntidote = room.lockAction('leader_sock', 'use_item_antidote', 'member_1');
+  assert.equal(lockAntidote.success, true);
+  room.lockAction('member_1', 'basic');
+
+  room.resolveTurnActions();
+  assert.equal(cleric.poisonTurns, 0, 'Cleric poison cleansed by antidote');
+  assert.equal(cleric.burnTurns, 0, 'Cleric burn cleansed by antidote');
+  assert.equal(warrior.bag.length, 0, 'Antidote consumed from warrior bag');
+
+  // Attempting to use item when not in bag is rejected
+  warrior.isLocked = false;
+  room.selectionState = 'SELECTING';
+  const rejectNoItem = room.lockAction('leader_sock', 'use_item_healing_potion', 'leader_sock');
+  assert.equal(rejectNoItem.success, false);
+  assert.ok(rejectNoItem.message.includes('無治療藥'));
+
+  // 5. Client UI checks
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const appJs = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf-8');
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf-8');
   const styleCss = fs.readFileSync(path.join(__dirname, '../public/style.css'), 'utf-8');
 
-  // 1. Old sell button and recycle rate removed from shop UI
-  assert.ok(!appJs.includes('btn-shop-open-sell'), 'btn-shop-open-sell button is removed from shop rendering');
-  assert.ok(!appJs.includes('(回收率:'), 'Recycle rate text is removed from shop rendering');
+  assert.ok(indexHtml.includes('id="discardConfirmModal"'), 'discardConfirmModal exists in index.html');
+  assert.ok(indexHtml.includes('id="btnConfirmDiscard"'), 'btnConfirmDiscard exists in index.html');
+  assert.ok(indexHtml.includes('id="btnCancelDiscard"'), 'btnCancelDiscard exists in index.html');
 
-  // 2. Bottom hint added
-  assert.ok(appJs.includes('<div class="shop-sell-hint">可開啟背包販售裝備</div>'), 'Shop bottom hint is present');
+  assert.ok(styleCss.includes('.btn-tooltip-use'), '.btn-tooltip-use styled in style.css');
+  assert.ok(styleCss.includes('.btn-tooltip-discard'), '.btn-tooltip-discard styled in style.css');
+  assert.ok(styleCss.includes('.skill-item-btn'), '.skill-item-btn styled in style.css');
 
-  // 3. Ellipsis removed from shop-item-name and shop-item-desc in style.css
-  assert.ok(styleCss.includes('.shop-item-name {'), 'shop-item-name defined');
-  assert.ok(styleCss.includes('word-break: break-word;'), 'word-break added to shop item name');
-  assert.ok(styleCss.includes('.shop-sell-hint {'), 'shop-sell-hint styled in CSS');
-
-  // 4. Pinned tooltip selling features
-  assert.ok(appJs.includes('function pinItemTooltip('), 'pinItemTooltip function exists');
-  assert.ok(appJs.includes('btn-tooltip-sell'), 'btn-tooltip-sell button rendered in tooltip');
-  assert.ok(styleCss.includes('.floating-item-tooltip.is-pinned'), 'is-pinned CSS class defined');
+  assert.ok(appJs.includes('openDiscardConfirmModal'), 'openDiscardConfirmModal defined in app.js');
+  assert.ok(appJs.includes('inventory:discard_item'), 'inventory:discard_item emitted in app.js');
+  assert.ok(appJs.includes('use_item_healing_potion'), 'use_item_healing_potion handled in app.js');
+  assert.ok(appJs.includes('use_item_antidote'), 'use_item_antidote handled in app.js');
 });
+
+test('Feature 10: In-battle turn consumption for items and inventory drag-and-drop slot validation & swap', () => {
+  const room = createMockRoom(['warrior', 'cleric']);
+  const warrior = room.players['leader_sock'];
+  const cleric = room.players['member_1'];
+
+  const swordA = { id: 'sword_a', name: '鐵劍', slot: 'WEAPON', type: 'WEAPON', bonusAtk: 5 };
+  const swordB = { id: 'sword_b', name: '鋼劍', slot: 'WEAPON', type: 'WEAPON', bonusAtk: 10 };
+  const armor = { id: 'armor_a', name: '鎖子甲', slot: 'ARMOR', type: 'ARMOR', bonusDef: 5 };
+  const ring = { id: 'ring_a', name: '守護戒指', slot: 'ACCESSORY', type: 'ACCESSORY', bonusDef: 2 };
+  const exclusivePaladin = { id: 'pal_shield', name: '聖光之盾', slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', role: 'paladin' };
+  const potion = CONSUMABLES.find(c => c.id === 'consumable_healing_potion');
+  const antidote = CONSUMABLES.find(c => c.id === 'consumable_antidote');
+
+  // 1. In-battle item usage requires turn action; direct useConsumableItem fails
+  room.state = 'IN_BATTLE';
+  warrior.bag = [potion];
+  const directUseRes = room.useConsumableItem('leader_sock', { fromArea: 'personal', index: 0 });
+  assert.equal(directUseRes.success, false);
+  assert.ok(directUseRes.message.includes('戰鬥中消耗品需消耗回合行動'));
+
+  // 2. Personal bag internal swap - items swap positions, neither disappears
+  warrior.bag = [swordA, armor, null, null];
+  const swapPersonalRes = room.swapInventorySlots('leader_sock', { fromArea: 'PERSONAL', fromIndex: 0, toArea: 'PERSONAL', toIndex: 1 });
+  assert.equal(swapPersonalRes.success, true);
+  assert.equal(warrior.bag[0].id, 'armor_a');
+  assert.equal(warrior.bag[1].id, 'sword_a');
+
+  // 3. Squad bag internal swap
+  room.squadInventory = [swordA, ring];
+  const swapSquadRes = room.swapInventorySlots('leader_sock', { fromArea: 'SQUAD', fromIndex: 0, toArea: 'SQUAD', toIndex: 1 });
+  assert.equal(swapSquadRes.success, true);
+  assert.equal(room.squadInventory[0].id, 'ring_a');
+  assert.equal(room.squadInventory[1].id, 'sword_a');
+
+  // 4. Equip from bag when slot already has an item -> Swaps items cleanly
+  warrior.equipSlots.WEAPON = swordA;
+  warrior.bag = [swordB, null, null, null];
+  const equipSwapRes = room.equipItemFromBag('leader_sock', 0, 'WEAPON');
+  assert.equal(equipSwapRes.success, true);
+  assert.equal(warrior.equipSlots.WEAPON.id, 'sword_b', 'New weapon equipped');
+  assert.equal(warrior.bag[0].id, 'sword_a', 'Old weapon swapped back to bag slot 0');
+
+  // 5. Dragging incompatible item to equip slot fails without losing items
+  warrior.bag = [armor, null, null, null];
+  const equipFailRes = room.equipItemFromBag('leader_sock', 0, 'WEAPON');
+  assert.equal(equipFailRes.success, false);
+  assert.ok(equipFailRes.message.includes('裝備欄位不符'));
+  assert.equal(warrior.equipSlots.WEAPON.id, 'sword_b', 'Equipped weapon untouched');
+  assert.equal(warrior.bag[0].id, 'armor_a', 'Armor in bag untouched');
+
+  // 6. Unequip to occupied bag slot when item type does NOT match -> Swap fails!
+  // Equipped: sword_b (WEAPON). Target bag slot 0 has: armor_a (ARMOR).
+  const unequipIncompatibleRes = room.unequipItemToBag('leader_sock', 'WEAPON', 0);
+  assert.equal(unequipIncompatibleRes.success, false);
+  assert.ok(unequipIncompatibleRes.message.includes('裝備欄位不符'));
+  assert.equal(warrior.equipSlots.WEAPON.id, 'sword_b', 'Weapon still equipped');
+  assert.equal(warrior.bag[0].id, 'armor_a', 'Armor still in bag slot 0');
+
+  // 7. Unequip to occupied bag slot when item type DOES match -> Swaps items!
+  // Target bag slot 0 has: sword_a (WEAPON).
+  warrior.bag[0] = swordA;
+  const unequipCompatibleRes = room.unequipItemToBag('leader_sock', 'WEAPON', 0);
+  assert.equal(unequipCompatibleRes.success, true);
+  assert.equal(warrior.equipSlots.WEAPON.id, 'sword_a', 'New weapon swapped into equip slot');
+  assert.equal(warrior.bag[0].id, 'sword_b', 'Previous weapon swapped into bag slot 0');
+
+  // 8. Unequip to occupied squad slot validation
+  room.squadInventory = [armor]; // ARMOR at slot 0
+  const unequipSquadFail = room.unequipItemToSquad('leader_sock', 'WEAPON', 0);
+  assert.equal(unequipSquadFail.success, false);
+  assert.ok(unequipSquadFail.message.includes('裝備欄位不符'));
+  assert.equal(warrior.equipSlots.WEAPON.id, 'sword_a', 'Equipped item unchanged');
+  assert.equal(room.squadInventory[0].id, 'armor_a', 'Squad item unchanged');
+
+  // 9. Class exclusive validation on swap
+  warrior.bag = [exclusivePaladin]; // Warrior trying to equip paladin exclusive
+  const equipExclusiveFail = room.equipItemFromBag('leader_sock', 0, 'CLASS_EXCLUSIVE');
+  assert.equal(equipExclusiveFail.success, false);
+  assert.ok(equipExclusiveFail.message.includes('專屬裝備'));
+
+  // 10. Dragging between two different equip slots fails
+  const equipToEquipFail = room.swapInventorySlots('leader_sock', { fromArea: 'EQUIP', fromIndex: 'WEAPON', toArea: 'EQUIP', toIndex: 'ARMOR' });
+  assert.equal(equipToEquipFail.success, false);
+  assert.ok(equipToEquipFail.message.includes('裝備欄位不符'));
+});
+
 
 
 

@@ -436,6 +436,13 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
+  socket.on('inventory:discard_item', ({ fromArea, index, key, slotKey, itemId }, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (!room) return;
+    const res = room.discardItem(socket.id, { fromArea, index, key, slotKey, itemId });
+    if (typeof callback === 'function') callback(res);
+  });
+
   // 6.6 事件互動（商店、寶箱、隨機事件） (Phase 3)
   socket.on('event:shop_action', (data, callback) => {
     const room = rooms.get(socketToRoom.get(socket.id));

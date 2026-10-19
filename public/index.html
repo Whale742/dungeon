@@ -930,6 +930,27 @@
       </div>
     </div>
 
+    <!-- 丟棄物品確認 Modal -->
+    <div id="discardConfirmModal" class="modal-overlay hidden" style="z-index: 2600;">
+      <div class="kraft-paper kraft-paper-rivets modal-card text-center" style="max-width: 420px;">
+        <div class="modal-header">
+          <h3 id="discardModalTitle" class="modal-title">🗑️ 丟棄確認</h3>
+        </div>
+        <div class="modal-body" style="padding: 16px 8px;">
+          <p id="discardModalDesc" style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">
+            確定要丟棄此物品嗎？
+          </p>
+          <p style="font-size: 13px; color: #ef4444; margin-bottom: 0;">
+            ⚠️ 丟棄後該物品將直接消失，無法取回且不會獲得任何金幣！
+          </p>
+        </div>
+        <div class="modal-actions" style="margin-top: 14px; display: flex; gap: 10px;">
+          <button type="button" class="parchment-btn flex-1" id="btnCancelDiscard">取消</button>
+          <button type="button" class="parchment-btn parchment-btn-crimson flex-1" id="btnConfirmDiscard" style="background:#dc2626 !important; border-color:#ef4444 !important; color:#fff !important;">確認丟棄</button>
+        </div>
+      </div>
+    </div>
+
 
 
   <!-- 右下角懸浮聊天室與訊息氣泡組件 -->

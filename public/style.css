@@ -7527,6 +7527,73 @@ body.presentation-opening .narrative-controls,
 .btn-tooltip-sell:active {
   transform: translateY(1px);
 }
+
+.item-tooltip-actions-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-tooltip-use {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  transition: all 0.15s ease;
+}
+.btn-tooltip-use:hover {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+.btn-tooltip-use:active {
+  transform: translateY(1px);
+}
+
+.btn-tooltip-discard {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-weight: 700;
+  font-size: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+.btn-tooltip-discard:hover {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.skill-item-btn {
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.45) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+}
+.skill-item-btn:hover {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.35) !important;
+}
+.skill-item-btn.selected {
+  border-color: #10b981 !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35) 0%, rgba(6, 78, 59, 0.85) 100%) !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.55) !important;
+}
 .floating-tooltip-title-row {
   display: flex;
   align-items: center;

@@ -728,6 +728,11 @@ const elements = {
   targetModalDesc: document.getElementById('targetModalDesc'),
   targetModalList: document.getElementById('targetModalList'),
   btnCancelTarget: document.getElementById('btnCancelTarget'),
+  discardConfirmModal: document.getElementById('discardConfirmModal'),
+  discardModalTitle: document.getElementById('discardModalTitle'),
+  discardModalDesc: document.getElementById('discardModalDesc'),
+  btnCancelDiscard: document.getElementById('btnCancelDiscard'),
+  btnConfirmDiscard: document.getElementById('btnConfirmDiscard'),
   minionDetailModal: document.getElementById('minionDetailModal'),
   minionDetailTitle: document.getElementById('minionDetailTitle'),
   minionDetailSubtitle: document.getElementById('minionDetailSubtitle'),
@@ -2898,6 +2903,113 @@ function renderMyActionBar(me) {
     }
   }
 
+  // 個人背包消耗品：補血藥 與 解毒劑 (放於個人隨身背包 me.bag 時於戰鬥技能列顯示)
+  const personalBag = me.bag || [];
+  const potionCount = personalBag.filter(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion')).length;
+  const antidoteCount = personalBag.filter(i => i && (i.effectType === 'ANTIDOTE' || i.id === 'consumable_antidote')).length;
+
+  if (potionCount > 0) {
+    const isPotionSelected = (currentPendingAction === 'use_item_healing_potion');
+    const potionBtn = document.createElement('div');
+    potionBtn.className = `skill-btn skill-item-btn ${isPotionSelected ? 'selected' : ''}`;
+    if (isNarrating || isResolving || isLocked) {
+      potionBtn.style.opacity = '0.6';
+      potionBtn.style.cursor = 'not-allowed';
+    }
+    potionBtn.innerHTML = `
+      <div class="skill-btn-title">
+        <span>🧪 治療藥 (${potionCount})</span>
+        <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
+      </div>
+      <div class="skill-tags-row">
+        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">消耗品</span>
+        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">回血40%</span>
+      </div>
+      <div class="skill-popover hidden">
+        <div class="skill-popover-title">
+          <span>治療藥</span>
+          <span style="font-size:10.5px;color:#34d399;">【個人背包】</span>
+        </div>
+        <div class="skill-popover-desc">消耗個人隨身背包中 1 瓶治療藥，為指定存活隊友或自己恢復 40% 最大生命值。</div>
+      </div>
+    `;
+
+    const detailBtn = potionBtn.querySelector('.skill-detail-trigger');
+    const popover = potionBtn.querySelector('.skill-popover');
+    detailBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const isClosed = popover.classList.contains('hidden');
+      document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
+      if (isClosed) popover.classList.remove('hidden');
+    });
+
+    potionBtn.addEventListener('click', () => {
+      if (isNarrating || isResolving || isLocked) return;
+      const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+      if (alivePlayers.length > 1) {
+        openTargetModal('item_potion', alivePlayers);
+      } else {
+        currentPendingAction = 'use_item_healing_potion';
+        currentPendingTarget = me.id;
+        playSound('heal');
+        renderMyActionBar(me);
+      }
+    });
+
+    elements.mySkillsRow.appendChild(potionBtn);
+  }
+
+  if (antidoteCount > 0) {
+    const isAntidoteSelected = (currentPendingAction === 'use_item_antidote');
+    const antidoteBtn = document.createElement('div');
+    antidoteBtn.className = `skill-btn skill-item-btn ${isAntidoteSelected ? 'selected' : ''}`;
+    if (isNarrating || isResolving || isLocked) {
+      antidoteBtn.style.opacity = '0.6';
+      antidoteBtn.style.cursor = 'not-allowed';
+    }
+    antidoteBtn.innerHTML = `
+      <div class="skill-btn-title">
+        <span>🧪 解毒藥 (${antidoteCount})</span>
+        <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
+      </div>
+      <div class="skill-tags-row">
+        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">消耗品</span>
+        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">全淨化</span>
+      </div>
+      <div class="skill-popover hidden">
+        <div class="skill-popover-title">
+          <span>解毒藥</span>
+          <span style="font-size:10.5px;color:#34d399;">【個人背包】</span>
+        </div>
+        <div class="skill-popover-desc">消耗個人隨身背包中 1 瓶解毒藥，徹底清除指定隊友身上的所有負面狀態。</div>
+      </div>
+    `;
+
+    const detailBtn = antidoteBtn.querySelector('.skill-detail-trigger');
+    const popover = antidoteBtn.querySelector('.skill-popover');
+    detailBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const isClosed = popover.classList.contains('hidden');
+      document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
+      if (isClosed) popover.classList.remove('hidden');
+    });
+
+    antidoteBtn.addEventListener('click', () => {
+      if (isNarrating || isResolving || isLocked) return;
+      const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+      if (alivePlayers.length > 1) {
+        openTargetModal('item_antidote', alivePlayers);
+      } else {
+        currentPendingAction = 'use_item_antidote';
+        currentPendingTarget = me.id;
+        playSound('heal');
+        renderMyActionBar(me);
+      }
+    });
+
+    elements.mySkillsRow.appendChild(antidoteBtn);
+  }
+
   // 跳過回合按鈕
   const isSkipSelected = (currentPendingAction === 'skip');
   const skipBtn = document.createElement('div');
@@ -2990,6 +3102,10 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     skillName = '跳過回合';
   } else if (currentPendingAction === 'b_revive') {
     skillName = '甦生之歌';
+  } else if (currentPendingAction === 'use_item_healing_potion') {
+    skillName = '🧪 治療藥';
+  } else if (currentPendingAction === 'use_item_antidote') {
+    skillName = '🧪 解毒藥';
   } else if (currentPendingAction) {
     const found = (activeSkills || []).find(s => s.id === currentPendingAction);
     skillName = found ? found.label : currentPendingAction;
@@ -3100,6 +3216,18 @@ function openTargetModal(type, targetList) {
   } else if (type === 'revive') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【甦生之歌】奇蹟喚醒</span>`;
     elements.targetModalDesc.textContent = '請選擇要喚醒歸隊的倒下隊友：(下回合雙方皆會脫力)';
+  } else if (type === 'item_potion') {
+    elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【使用治療藥】選擇目標</span>`;
+    elements.targetModalDesc.textContent = '請選擇要恢復 40% 最大生命的隊友（亦可對自己使用）：';
+  } else if (type === 'item_antidote') {
+    elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【使用解毒藥】選擇目標</span>`;
+    elements.targetModalDesc.textContent = '請選擇要清除所有負面狀態的隊友（亦可對自己使用）：';
+  } else if (type === 'inv_potion') {
+    elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【使用治療藥】選擇目標隊友</span>`;
+    elements.targetModalDesc.textContent = '請選擇要恢復 40% 生命的隊員：';
+  } else if (type === 'inv_antidote') {
+    elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【使用解毒藥】選擇目標隊友</span>`;
+    elements.targetModalDesc.textContent = '請選擇要清除所有負面狀態的隊員：';
   }
 
   targetList.forEach(p => {
@@ -3115,6 +3243,34 @@ function openTargetModal(type, targetList) {
 
     btn.addEventListener('click', () => {
       ModalMotion.hide(elements.targetModal);
+      if (type === 'item_potion' || type === 'item_antidote') {
+        playSound('heal');
+        currentPendingAction = type === 'item_potion' ? 'use_item_healing_potion' : 'use_item_antidote';
+        currentPendingTarget = p.id;
+        const me = getMyPlayer();
+        if (me) renderMyActionBar(me);
+        socket.emit('battle:lock', { actionId: currentPendingAction, targetPlayerId: p.id }, (res) => {
+          if (res && !res.success) alert(res.message);
+        });
+        return;
+      }
+      if (type === 'inv_potion' || type === 'inv_antidote') {
+        playSound('heal');
+        if (pendingInvUseItem) {
+          const invMeta = pendingInvUseItem;
+          pendingInvUseItem = null;
+          socket.emit('inventory:use_item', {
+            fromArea: invMeta.area === 'SQUAD' ? 'squad' : 'personal',
+            index: invMeta.index,
+            targetPlayerId: p.id
+          }, (res) => {
+            if (res && !res.success) alert(res.message);
+            selectedInvSlot = null;
+            renderInventoryModal();
+          });
+        }
+        return;
+      }
       playSound(type === 'heal' || type === 'grace' ? 'heal' : 'magic');
       currentPendingAction = type === 'dream' ? 'dw_butterfly' : type === 'heal' ? 'b_heal' : type === 'grace' ? 'pal_grace' : type === 'aug_bind' ? 'aug_bind' : 'b_revive';
       currentPendingTarget = p.id;
@@ -5678,6 +5834,21 @@ function getItemBasePrice(item) {
 
 let draggedInventorySlot = null;
 let pinnedTooltipInfo = null; // { item, area, index, key }
+let pendingDiscardSlot = null;
+let pendingInvUseItem = null;
+
+function openDiscardConfirmModal(meta) {
+  if (!meta || !meta.item) return;
+  pendingDiscardSlot = meta;
+  if (elements.discardModalDesc) {
+    elements.discardModalDesc.innerHTML = `確定要丟棄【<span style="color:var(--gold, #f59e0b);">${escapeHtml(meta.item.name)}</span>】嗎？`;
+  }
+  if (window.ModalMotion) {
+    ModalMotion.show(elements.discardConfirmModal);
+  } else {
+    elements.discardConfirmModal?.classList.remove('hidden');
+  }
+}
 
 function getGoldIncomeMultiplierClient(col) {
   const step = Math.max(0, (col || 1) - 1);
@@ -5745,7 +5916,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
   if (!tooltip || !item) return;
 
   const isPinned = Boolean(options.isPinned);
-  const isConsumable = item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE';
+  const isConsumable = item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT';
   const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
   const isT2 = item.tier === 2;
   const isT1 = item.tier === 1;
@@ -5789,15 +5960,41 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
   const iconHtml = renderItemIconHtml(item, 'tooltip-item-icon');
 
   let bottomActionHtml = '';
-  if (isPinned && options.canSell) {
-    const sellPrice = calculateItemSellPriceClient(item);
-    bottomActionHtml = `
-      <div class="item-tooltip-sell-section">
-        <button type="button" class="btn-tooltip-sell" id="btnTooltipSell">
-          💰 販售裝備 (+${sellPrice}G)
-        </button>
-      </div>
-    `;
+  if (isPinned) {
+    if (isConsumable) {
+      // 補血藥、解毒劑、修整帳篷只能使用或丟棄，不可販售！
+      const isRestTent = item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent';
+      const useBtnText = isRestTent ? '⛺ 搭建帳篷休整' : '🧪 使用道具';
+      bottomActionHtml = `
+        <div class="item-tooltip-actions-section">
+          <button type="button" class="btn-tooltip-use" id="btnTooltipUse">${useBtnText}</button>
+          <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard">🗑️ 丟棄物品</button>
+        </div>
+      `;
+    } else {
+      // 一般或專屬裝備：在商店可販賣或丟棄；非商店只能丟棄不可販賣
+      if (isPlayerInShop()) {
+        const sellPrice = calculateItemSellPriceClient(item);
+        bottomActionHtml = `
+          <div class="item-tooltip-actions-section">
+            <button type="button" class="btn-tooltip-sell" id="btnTooltipSell">
+              💰 販售裝備 (+${sellPrice}G)
+            </button>
+            <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard">
+              🗑️ 丟棄裝備
+            </button>
+          </div>
+        `;
+      } else {
+        bottomActionHtml = `
+          <div class="item-tooltip-actions-section">
+            <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard">
+              🗑️ 丟棄裝備
+            </button>
+          </div>
+        `;
+      }
+    }
   } else if (isShop) {
     bottomActionHtml = `
       <div style="margin-top:8px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
@@ -5847,7 +6044,93 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
           index: meta.index,
           key: meta.key,
           slotKey: meta.key
+        }, (res) => {
+          if (res && !res.success) alert(res.message);
         });
+      };
+    }
+    const discardBtn = tooltip.querySelector('#btnTooltipDiscard');
+    if (discardBtn && options.slotMeta) {
+      discardBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        hideItemTooltip(true);
+        openDiscardConfirmModal({ ...options.slotMeta, item });
+      };
+    }
+    const useBtn = tooltip.querySelector('#btnTooltipUse');
+    if (useBtn && options.slotMeta) {
+      useBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        const meta = options.slotMeta;
+        const isRestTent = item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent';
+        if (isRestTent) {
+          if (roomState?.state === 'IN_BATTLE') {
+            alert('修整帳篷僅限在「選路階段」使用！');
+            return;
+          }
+          hideItemTooltip(true);
+          socket.emit('inventory:use_item', {
+            fromArea: meta.area === 'SQUAD' ? 'squad' : 'personal',
+            index: meta.index
+          }, (res) => {
+            if (res && !res.success) alert(res.message);
+            selectedInvSlot = null;
+            renderInventoryModal();
+          });
+          return;
+        }
+
+        // 戰鬥中使用道具：消耗回合行動，視為施放技能，鎖定後不可再施放其他技能
+        if (roomState?.state === 'IN_BATTLE') {
+          const me = getMyPlayer();
+          if (!me) return;
+          if (me.isLocked) {
+            alert('本回合已鎖定行動，不可再施放其他技能或使用道具！');
+            return;
+          }
+          if (me.hp <= 0 || me.stunnedNextTurn || me.isSurrendered || me.druidForm === 'tree' || roomState?.selectionState !== 'SELECTING' || isNarrating || isPlayingBattleNarrative) {
+            alert('當前狀態本回合無法行動！');
+            return;
+          }
+
+          hideItemTooltip(true);
+          if (window.ModalMotion) ModalMotion.hide(elements.inventoryModal);
+          else elements.inventoryModal?.classList.add('hidden');
+
+          const actionId = (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') ? 'use_item_antidote' : 'use_item_healing_potion';
+          const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+          if (alivePlayers.length > 1) {
+            openTargetModal(actionId === 'use_item_antidote' ? 'item_antidote' : 'item_potion', alivePlayers);
+          } else {
+            currentPendingAction = actionId;
+            currentPendingTarget = me.id;
+            playSound('heal');
+            renderMyActionBar(me);
+            socket.emit('battle:lock', { actionId, targetPlayerId: me.id }, (res) => {
+              if (res && !res.success) alert(res.message);
+            });
+          }
+          return;
+        }
+
+        // 非戰鬥時：即時使用道具
+        const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+        if (alivePlayers.length > 1) {
+          hideItemTooltip(true);
+          pendingInvUseItem = { ...meta, item };
+          openTargetModal(item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote' ? 'inv_antidote' : 'inv_potion', alivePlayers);
+        } else {
+          hideItemTooltip(true);
+          socket.emit('inventory:use_item', {
+            fromArea: meta.area === 'SQUAD' ? 'squad' : 'personal',
+            index: meta.index,
+            targetPlayerId: myId
+          }, (res) => {
+            if (res && !res.success) alert(res.message);
+            selectedInvSlot = null;
+            renderInventoryModal();
+          });
+        }
       };
     }
   } else {
@@ -5861,7 +6144,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
 function pinItemTooltip(item, e, slotMeta) {
   if (!item) return;
   pinnedTooltipInfo = { item, ...slotMeta };
-  showItemTooltip(item, e, false, { isPinned: true, canSell: true, slotMeta });
+  showItemTooltip(item, e, false, { isPinned: true, slotMeta });
 }
 
 function hideItemTooltip(force = false) {
@@ -5881,20 +6164,105 @@ document.addEventListener('pointerdown', (e) => {
   hideItemTooltip(true);
 });
 
+// 丟棄確認彈窗按鈕事件監聽
+if (elements.btnCancelDiscard) {
+  elements.btnCancelDiscard.addEventListener('click', () => {
+    pendingDiscardSlot = null;
+    if (window.ModalMotion) {
+      ModalMotion.hide(elements.discardConfirmModal);
+    } else {
+      elements.discardConfirmModal?.classList.add('hidden');
+    }
+  });
+}
+
+if (elements.btnConfirmDiscard) {
+  elements.btnConfirmDiscard.addEventListener('click', () => {
+    if (!pendingDiscardSlot) {
+      if (window.ModalMotion) {
+        ModalMotion.hide(elements.discardConfirmModal);
+      } else {
+        elements.discardConfirmModal?.classList.add('hidden');
+      }
+      return;
+    }
+    const meta = pendingDiscardSlot;
+    pendingDiscardSlot = null;
+    if (window.ModalMotion) {
+      ModalMotion.hide(elements.discardConfirmModal);
+    } else {
+      elements.discardConfirmModal?.classList.add('hidden');
+    }
+    hideItemTooltip(true);
+    socket.emit('inventory:discard_item', {
+      fromArea: (meta.area || 'squad').toLowerCase(),
+      index: meta.index,
+      key: meta.key,
+      slotKey: meta.key,
+      itemId: meta.item?.id
+    }, (res) => {
+      if (res && !res.success) alert(res.message);
+      selectedInvSlot = null;
+      renderInventoryModal();
+    });
+  });
+}
+
+if (elements.discardConfirmModal) {
+  elements.discardConfirmModal.addEventListener('click', (e) => {
+    if (e.target === elements.discardConfirmModal) {
+      pendingDiscardSlot = null;
+      if (window.ModalMotion) {
+        ModalMotion.hide(elements.discardConfirmModal);
+      } else {
+        elements.discardConfirmModal.classList.add('hidden');
+      }
+    }
+  });
+}
+
+// 拖曳到空白非欄位區域丟棄物品
+document.addEventListener('dragover', (e) => {
+  if (draggedInventorySlot) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }
+});
+
+document.addEventListener('drop', (e) => {
+  if (!draggedInventorySlot) return;
+  if (e.target.closest('.hex-slot')) return; // 若落在六角格上則交由格子的 drop listener 處理
+  e.preventDefault();
+  const source = draggedInventorySlot;
+  draggedInventorySlot = null;
+  openDiscardConfirmModal(source);
+});
+
 function handleInventoryDrop(source, target) {
   if (!source || !target) return;
   if (!source.item) return;
 
+  const slotLabels = {
+    WEAPON: '武器',
+    ARMOR: '裝備(防具)',
+    ACCESSORY: '飾品',
+    CLASS_EXCLUSIVE: '職業專屬'
+  };
+
+  const me = getMyPlayer();
+
   // Case 1: 拖曳至裝備欄 (EQUIP) - 嚴格限制欄位
   if (target.area === 'EQUIP') {
+    if (source.area === 'EQUIP') {
+      alert('裝備欄位不符！無法在不同類型的裝備欄位之間交換。');
+      return;
+    }
+    if (source.item.type === 'CONSUMABLE' || source.item.slot === 'CONSUMABLE' || source.item.effectType) {
+      alert('裝備欄位不符！消耗品無法穿戴至裝備欄位。');
+      return;
+    }
     const requiredSlot = determineEquipSlot(source.item);
     if (requiredSlot !== target.key) {
-      const slotLabels = {
-        WEAPON: '武器',
-        ARMOR: '裝備(防具)',
-        ACCESSORY: '飾品',
-        CLASS_EXCLUSIVE: '職業專屬'
-      };
       const reqName = slotLabels[requiredSlot] || requiredSlot;
       const targetName = slotLabels[target.key] || target.key;
       alert(`裝備欄位不符！此裝備為【${reqName}】，無法穿戴在【${targetName}】欄位。`);
@@ -5919,6 +6287,34 @@ function handleInventoryDrop(source, target) {
 
   // Case 2: 拖曳至個人背包 (PERSONAL)
   if (target.area === 'PERSONAL') {
+    if (source.area === 'EQUIP') {
+      const targetItem = (me?.bag || [])[target.index];
+      if (targetItem) {
+        if (targetItem.type === 'CONSUMABLE' || targetItem.slot === 'CONSUMABLE' || targetItem.effectType) {
+          alert('裝備欄位不符！消耗品無法穿戴至裝備欄位。');
+          return;
+        }
+        const reqSlot = determineEquipSlot(targetItem);
+        if (reqSlot !== source.key) {
+          const reqName = slotLabels[reqSlot] || reqSlot;
+          const sourceName = slotLabels[source.key] || source.key;
+          alert(`裝備欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${sourceName}】欄位。`);
+          return;
+        }
+        if (source.key === 'CLASS_EXCLUSIVE' && targetItem.role && me?.role && targetItem.role !== me.role) {
+          alert(`此裝備為【${targetItem.role}】專屬裝備，非本職業（${me.role}）無法穿戴！`);
+          return;
+        }
+      }
+      socket.emit('inventory:unequip_to_bag', {
+        slotKey: source.key,
+        targetBagIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+      return;
+    }
+
     if (source.area === 'PERSONAL') {
       if (source.index === target.index) return;
       socket.emit('inventory:swap_slots', {
@@ -5938,19 +6334,40 @@ function handleInventoryDrop(source, target) {
       }, (res) => {
         if (res && !res.success) alert(res.message);
       });
-    } else if (source.area === 'EQUIP') {
-      socket.emit('inventory:unequip_to_bag', {
-        slotKey: source.key,
-        targetBagIndex: target.index
-      }, (res) => {
-        if (res && !res.success) alert(res.message);
-      });
     }
     return;
   }
 
   // Case 3: 拖曳至小隊背包 (SQUAD)
   if (target.area === 'SQUAD') {
+    if (source.area === 'EQUIP') {
+      const targetItem = (roomState?.squadInventory || [])[target.index];
+      if (targetItem) {
+        if (targetItem.type === 'CONSUMABLE' || targetItem.slot === 'CONSUMABLE' || targetItem.effectType) {
+          alert('裝備欄位不符！消耗品無法穿戴至裝備欄位。');
+          return;
+        }
+        const reqSlot = determineEquipSlot(targetItem);
+        if (reqSlot !== source.key) {
+          const reqName = slotLabels[reqSlot] || reqSlot;
+          const sourceName = slotLabels[source.key] || source.key;
+          alert(`裝備欄位不符！【${targetItem.name}】為【${reqName}】，無法穿戴在【${sourceName}】欄位。`);
+          return;
+        }
+        if (source.key === 'CLASS_EXCLUSIVE' && targetItem.role && me?.role && targetItem.role !== me.role) {
+          alert(`此裝備為【${targetItem.role}】專屬裝備，非本職業（${me.role}）無法穿戴！`);
+          return;
+        }
+      }
+      socket.emit('inventory:unequip_to_squad', {
+        slotKey: source.key,
+        targetSquadIndex: target.index
+      }, (res) => {
+        if (res && !res.success) alert(res.message);
+      });
+      return;
+    }
+
     if (source.area === 'SQUAD') {
       if (source.index === target.index) return;
       socket.emit('inventory:swap_slots', {
@@ -5967,13 +6384,6 @@ function handleInventoryDrop(source, target) {
         fromIndex: source.index,
         toArea: 'SQUAD',
         toIndex: target.index
-      }, (res) => {
-        if (res && !res.success) alert(res.message);
-      });
-    } else if (source.area === 'EQUIP') {
-      socket.emit('inventory:unequip_to_squad', {
-        slotKey: source.key,
-        targetSquadIndex: target.index
       }, (res) => {
         if (res && !res.success) alert(res.message);
       });
@@ -6096,12 +6506,12 @@ function renderInventoryModal() {
       const idx = Number(slot.dataset.idx);
       const item = squad[idx];
       attachSlotDragAndTooltip(slot, 'SQUAD', idx, null, item);
-      slot.onclick = (e) => {
+        slot.onclick = (e) => {
         selectedInvSlot = { area: 'SQUAD', index: idx, item: squad[idx] };
         renderInventoryModal();
-        if (isPlayerInShop() && item) {
+        if (item) {
           pinItemTooltip(item, e, { area: 'SQUAD', index: idx, key: null });
-        } else if (!item) {
+        } else {
           hideItemTooltip(true);
         }
       };
@@ -6137,9 +6547,9 @@ function renderInventoryModal() {
       slot.onclick = (e) => {
         selectedInvSlot = { area: 'EQUIP', key, index: idx, item: me?.equipSlots?.[key] };
         renderInventoryModal();
-        if (isPlayerInShop() && item) {
+        if (item) {
           pinItemTooltip(item, e, { area: 'EQUIP', index: idx, key });
-        } else if (!item) {
+        } else {
           hideItemTooltip(true);
         }
       };
@@ -6175,9 +6585,9 @@ function renderInventoryModal() {
       slot.onclick = (e) => {
         selectedInvSlot = { area: 'PERSONAL', index: idx, item: bag[idx] };
         renderInventoryModal();
-        if (isPlayerInShop() && item) {
+        if (item) {
           pinItemTooltip(item, e, { area: 'PERSONAL', index: idx, key: null });
-        } else if (!item) {
+        } else {
           hideItemTooltip(true);
         }
       };
@@ -6188,12 +6598,13 @@ function renderInventoryModal() {
   if (elements.invInspectorContent) {
     if (selectedInvSlot && selectedInvSlot.item) {
       const item = selectedInvSlot.item;
-      const isConsumable = item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE';
+      const isConsumable = item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT';
       const isInShop = isPlayerInShop();
       let actionButtons = '';
 
       if (isConsumable) {
-        actionButtons += `<button type="button" class="btn-inv-action btn-inv-use" id="btnInspectUse">🧪 使用道具</button>`;
+        const isRestTent = item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent';
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-use" id="btnInspectUse">${isRestTent ? '⛺ 搭建帳篷休整' : '🧪 使用道具'}</button>`;
       }
 
       if (selectedInvSlot.area === 'SQUAD') {
@@ -6207,10 +6618,12 @@ function renderInventoryModal() {
         actionButtons += `<button type="button" class="btn-inv-action btn-inv-unequip" id="btnInspectUnequip">卸下裝備</button>`;
       }
 
-      if (isInShop) {
+      if (isInShop && !isConsumable) {
         const sellPrice = calculateItemSellPriceClient(item);
         actionButtons += `<button type="button" class="btn-inv-action btn-inv-sell" id="btnInspectSell">💰 賣給商人 (+${sellPrice}G)</button>`;
       }
+
+      actionButtons += `<button type="button" class="btn-inv-action btn-inv-discard" id="btnInspectDiscard" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">🗑️ 丟棄${isConsumable ? '物品' : '裝備'}</button>`;
 
       elements.invInspectorContent.innerHTML = `
         <div class="inv-inspector-body">
@@ -6225,13 +6638,83 @@ function renderInventoryModal() {
       `;
 
       document.getElementById('btnInspectUse')?.addEventListener('click', () => {
-        socket.emit('inventory:use_item', {
-          fromArea: selectedInvSlot.area === 'SQUAD' ? 'squad' : 'personal',
-          index: selectedInvSlot.index
-        }, (res) => {
-          if (res && !res.success) alert(res.message);
-          selectedInvSlot = null;
-          renderInventoryModal();
+        const isRestTent = item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent';
+        if (isRestTent) {
+          if (roomState?.state === 'IN_BATTLE') {
+            alert('修整帳篷僅限在「選路階段」使用！');
+            return;
+          }
+          socket.emit('inventory:use_item', {
+            fromArea: selectedInvSlot.area === 'SQUAD' ? 'squad' : 'personal',
+            index: selectedInvSlot.index
+          }, (res) => {
+            if (res && !res.success) alert(res.message);
+            selectedInvSlot = null;
+            renderInventoryModal();
+          });
+          return;
+        }
+
+        // 戰鬥中使用道具：消耗回合行動，視為施放技能，鎖定後不可再施放其他技能
+        if (roomState?.state === 'IN_BATTLE') {
+          const me = getMyPlayer();
+          if (!me) return;
+          if (me.isLocked) {
+            alert('本回合已鎖定行動，不可再施放其他技能或使用道具！');
+            return;
+          }
+          if (me.hp <= 0 || me.stunnedNextTurn || me.isSurrendered || me.druidForm === 'tree' || roomState?.selectionState !== 'SELECTING' || isNarrating || isPlayingBattleNarrative) {
+            alert('當前狀態本回合無法行動！');
+            return;
+          }
+
+          hideItemTooltip(true);
+          if (window.ModalMotion) ModalMotion.hide(elements.inventoryModal);
+          else elements.inventoryModal?.classList.add('hidden');
+
+          const actionId = (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') ? 'use_item_antidote' : 'use_item_healing_potion';
+          const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+          if (alivePlayers.length > 1) {
+            openTargetModal(actionId === 'use_item_antidote' ? 'item_antidote' : 'item_potion', alivePlayers);
+          } else {
+            currentPendingAction = actionId;
+            currentPendingTarget = me.id;
+            playSound('heal');
+            renderMyActionBar(me);
+            socket.emit('battle:lock', { actionId, targetPlayerId: me.id }, (res) => {
+              if (res && !res.success) alert(res.message);
+            });
+          }
+          return;
+        }
+
+        // 非戰鬥時：即時使用道具
+        const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+        if (alivePlayers.length > 1) {
+          pendingInvUseItem = {
+            area: selectedInvSlot.area,
+            index: selectedInvSlot.index,
+            item
+          };
+          openTargetModal(item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote' ? 'inv_antidote' : 'inv_potion', alivePlayers);
+        } else {
+          socket.emit('inventory:use_item', {
+            fromArea: selectedInvSlot.area === 'SQUAD' ? 'squad' : 'personal',
+            index: selectedInvSlot.index,
+            targetPlayerId: myId
+          }, (res) => {
+            if (res && !res.success) alert(res.message);
+            selectedInvSlot = null;
+            renderInventoryModal();
+          });
+        }
+      });
+      document.getElementById('btnInspectDiscard')?.addEventListener('click', () => {
+        openDiscardConfirmModal({
+          area: selectedInvSlot.area,
+          index: selectedInvSlot.index,
+          key: selectedInvSlot.key,
+          item: selectedInvSlot.item
         });
       });
       document.getElementById('btnInspectSell')?.addEventListener('click', () => {
