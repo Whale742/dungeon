@@ -3841,10 +3841,10 @@ function renderServerSlots() {
 
   if (!serverPartyList || serverPartyList.length === 0) {
     container.innerHTML = `
-      <div style="text-align: center; padding: 40px 20px; color: #000000; font-family: 'Noto Serif TC', serif;">
+      <div style="text-align: center; padding: 40px 20px; color: var(--ui-text-primary, #F0E8D9); font-family: var(--font-display, 'Noto Serif TC', serif);">
         <div style="font-size: 32px; margin-bottom: 8px;">📜</div>
-        <div style="font-size: 16px; font-weight: 700;">目前尚無公開的深淵討伐隊伍</div>
-        <div style="font-size: 14px; margin-top: 6px; color: #111827;">您可以點擊「創建討伐房間」發起新隊伍，或使用代碼直接連線！</div>
+        <div style="font-size: 16px; font-weight: 700; color: var(--ui-text-primary, #F0E8D9);">目前尚無公開的深淵討伐隊伍</div>
+        <div style="font-size: 14px; margin-top: 6px; color: var(--ui-text-muted, #979D94);">您可以點擊「創建討伐房間」發起新隊伍，或使用代碼直接連線！</div>
       </div>
     `;
     const joinBtn = document.getElementById('btnJoinServer');

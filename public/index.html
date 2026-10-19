@@ -305,7 +305,7 @@
                 <svg class="svg-icon"><use href="#icon-log"></use></svg> <span data-recruit-name-label>請以羽毛筆簽署尊名 / 冒險者代號：</span>
               </label>
               
-              <div class="recruit-input-row" style="background: #ffffff !important; background-color: #ffffff !important;">
+              <div class="recruit-input-row">
                 <div class="entry-avatar-wrapper clickable-avatar" id="btnEntryAvatar" onclick="openAvatarModal()" title="點擊選擇或更換個人頭貼">
                   <div class="entry-avatar-preview" id="entryAvatarPreview"><svg class="svg-icon svg-large"><use href="#icon-user"></use></svg></div>
                   <span class="entry-avatar-badge" title="更換頭貼"><svg class="svg-icon"><use href="#icon-pen"></use></svg></span>
@@ -316,7 +316,7 @@
                   placeholder="請輸入稱號 (例: 破曉守望者)" 
                   maxlength="16"
                   class="recruit-name-input"
-                  style="background: #ffffff !important; background-color: #ffffff !important; color: #000000 !important; border: none !important; box-shadow: none !important;"
+
                 >
               </div>
 
@@ -1124,7 +1124,7 @@
             type="text" 
             maxlength="16" 
             class="modal-input" 
-            style="background: #ffffff !important; background-color: #ffffff !important; color: #000000 !important; border: 2px solid #825424 !important; outline: none !important; box-shadow: none !important;"
+
           >
         </div>
       </div>
@@ -1179,7 +1179,7 @@
         <!-- 職業頭像展開網格 -->
         <div id="heroAvatarGridContainer" class="kraft-sub-panel hidden" style="padding: 12px; margin-top: -4px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 13px; font-weight: 700; color: #000000;">點擊頭像即可直接選用：</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--ui-text-primary, #F0E8D9);">點擊頭像即可直接選用：</span>
             <button type="button" class="parchment-btn parchment-btn-crimson" onclick="selectClassAvatar(null)" style="padding: 3px 10px; font-size: 12px;">跟隨出戰職業</button>
           </div>
           <div id="heroAvatarOptionsGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 240px; overflow-y: auto; padding: 4px;">
