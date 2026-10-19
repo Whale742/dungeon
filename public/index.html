@@ -1011,14 +1011,14 @@
     <div id="discardConfirmModal" class="modal-overlay hidden" style="z-index: 2600;">
       <div class="kraft-paper kraft-paper-rivets modal-card text-center" style="max-width: 420px;">
         <div class="modal-header">
-          <h3 id="discardModalTitle" class="modal-title">🗑️ 丟棄確認</h3>
+          <h3 id="discardModalTitle" class="modal-title">丟棄確認</h3>
         </div>
         <div class="modal-body" style="padding: 16px 8px;">
           <p id="discardModalDesc" style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">
             確定要丟棄此物品嗎？
           </p>
           <p style="font-size: 13px; color: #ef4444; margin-bottom: 0;">
-            ⚠️ 丟棄後該物品將直接消失，無法取回且不會獲得任何金幣！
+            【警示】丟棄後該物品將直接消失，無法取回且不會獲得任何金幣！
           </p>
         </div>
         <div class="modal-actions" style="margin-top: 14px; display: flex; gap: 10px;">
@@ -1166,20 +1166,6 @@
               </button>
             </div>
           </div>
-          <!-- 快捷推薦 Emoji 一鍵套用 -->
-          <div class="profile-quick-emojis">
-            <span class="quick-emoji-label">快捷推薦圖示（點擊即套用）：</span>
-            <div class="quick-emoji-list" id="profileQuickEmojiList">
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🧙‍♂️')">🧙‍♂️</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🧝‍♀️')">🧝‍♀️</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🥷')">🥷</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🦸')">🦸</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🐺')">🐺</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🦁')">🦁</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('⚔️')">⚔️</button>
-              <button type="button" class="quick-emoji-btn" onclick="quickSelectProfileEmoji('🛡️')">🛡️</button>
-            </div>
-          </div>
         </div>
 
         <!-- 2. 尊名修改區 -->
@@ -1225,7 +1211,7 @@
             <div class="avatar-choice-title">上傳照片</div>
             <div class="avatar-choice-desc">從手機或電腦上傳相片，自動裁切為專屬頭像</div>
           </div>
-          <span class="avatar-choice-arrow">➔</span>
+          <span class="avatar-choice-arrow"><svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-arrow-down" style="transform: rotate(-90deg); transform-origin: center;"></use></svg></span>
         </div>
 
         <input type="file" id="profileDirectFileInput" accept="image/*" style="display: none;" onchange="handleProfileDirectFile(event)">
@@ -1386,7 +1372,7 @@
           <!-- 鍛造工坊折疊區塊 -->
           <div class="inv-crafting-accordion">
             <button type="button" id="btnToggleCraftingPanel" class="btn-toggle-crafting">
-              <span>⚒️ 裝備鍛造工坊 (5種合成配方)</span>
+              <span><svg class="svg-icon" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px;"><use href="#icon-sword"></use></svg>裝備鍛造工坊 (5種合成配方)</span>
               <span id="craftingToggleArrow">▼</span>
             </button>
             <div id="craftingPanelBody" class="crafting-panel-body hidden">

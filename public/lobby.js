@@ -123,8 +123,7 @@ function renderRolePortraitStrip() {
     button.className='role-portrait-choice'+(selected?' is-selected':'')+(others.length?' is-occupied':'')+(lobbyRoleUi.role===role?' is-previewed':'');
     button.disabled=others.length>0;
     button.setAttribute('aria-pressed',String(selected));button.setAttribute('aria-label',conf.name+(selected?'，已選擇':'')+(others.length?'，'+others.map(p=>p.name).join('、')+'已選擇，無法重複選擇':''));
-    button.title=button.getAttribute('aria-label');
-    button.innerHTML=`<img src="${escapeHtml(conf.avatar)}" alt="">`+(others.length?`<span class="role-choice-occupant">${escapeHtml(others.map(p=>p.name).join(' / '))}</span>`:'')+(selected?'<span class="role-choice-check" aria-hidden="true">✓</span>':'');
+    button.innerHTML=`<img src="${escapeHtml(conf.avatar)}" alt="">`+(others.length?`<span class="role-choice-occupant">${escapeHtml(others.map(p=>p.name).join(' / '))}</span>`:'')+(selected?'<span class="role-choice-check" aria-hidden="true"><svg class="svg-icon" style="width:12px;height:12px;"><use href="#icon-check"></use></svg></span>':'');
     button.addEventListener('click',()=>{lobbyRoleUi.role=role;renderRoleDetailPanel();container.querySelectorAll('[data-role]').forEach(n=>n.classList.toggle('is-previewed',n.dataset.role===role));onSelect(role);});
     container.appendChild(button);
   }

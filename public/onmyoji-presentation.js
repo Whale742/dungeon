@@ -602,7 +602,7 @@ class OnmyojiPresentationEngine {
       sealEmblem.style.animation = `sealStage4Flash calc(0.72s * var(--onm-speed-mult, 1)) cubic-bezier(0.16, 1, 0.3, 1) forwards`;
     }
 
-    this.showFloatingText(`✦ ${talisman.name}【${talisman.shortEffect}】`, talisman.color, isRepeat ? talisman.repeatDesc : '無回合限制印記已生效');
+    this.showFloatingText(`【${talisman.name}】${talisman.shortEffect}`, talisman.color, isRepeat ? talisman.repeatDesc : '無回合限制印記已生效');
 
     await this.waitMs(700);
     if (speech) speech.style.opacity = '0';

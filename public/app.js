@@ -20,13 +20,13 @@ function showToast(message, type = 'info', duration = 2500) {
   toast.className = 'ui-toast ui-toast--' + type;
   
   const iconMap = {
-    info: '📜',
-    success: '✨',
-    warning: '⚠️',
-    danger: '⛔'
+    info: '<svg class="svg-icon" style="width:16px;height:16px;"><use href="#icon-log"></use></svg>',
+    success: '<svg class="svg-icon" style="width:16px;height:16px;"><use href="#icon-sparkle"></use></svg>',
+    warning: '<svg class="svg-icon" style="width:16px;height:16px;"><use href="#icon-shield"></use></svg>',
+    danger: '<svg class="svg-icon" style="width:16px;height:16px;"><use href="#icon-close"></use></svg>'
   };
 
-  toast.innerHTML = '<span class="ui-toast-icon">' + (iconMap[type] || '📜') + '</span>' +
+  toast.innerHTML = '<span class="ui-toast-icon">' + (iconMap[type] || '') + '</span>' +
     '<span class="ui-toast-message">' + escapeHtml(message) + '</span>';
 
   container.appendChild(toast);
@@ -2845,7 +2845,7 @@ function renderSageEquationPreview(me) {
   if (phase === 'solve' && preview) {
     sagePreview.className = 'sage-preview-panel';
     const header = document.createElement('div');header.className = 'sage-preview-header';
-    header.innerHTML = '<span>📐 方程預覽（抗性前）</span><div class="sage-preview-vars"><span>X='+x+'</span><span>η(X)='+preview.eta.toFixed(3)+'</span><span>Op='+op+'</span></div>';
+    header.innerHTML = '<span><svg class="svg-icon" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"><use href="#icon-log"></use></svg> 方程預覽（抗性前）</span><div class="sage-preview-vars"><span>X='+x+'</span><span>η(X)='+preview.eta.toFixed(3)+'</span><span>Op='+op+'</span></div>';
     const table = document.createElement('table');table.className = 'sage-preview-table';
     const names={basic:'普通攻擊',sge_deduce:'向量定軌',sge_induce:'動量回授'};
     const labels={EVEN:'偶數',ODD:'奇數',PRIME:'質數',SQUARE:'平方'};
@@ -2857,7 +2857,7 @@ function renderSageEquationPreview(me) {
     sagePreview.append(header,table,note);
   } else {
     sagePreview.className = 'sage-hypothesis-notice';
-    sagePreview.innerHTML = `<span>💡 <b>目前為假設階段</b>：請先決定運算元建立方式，下回合進入求解階段並結算方程。（當前變量 X = <b>${x}</b>）</span>`;
+    sagePreview.innerHTML = `<span><svg class="svg-icon" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"><use href="#icon-sparkle"></use></svg> <b>目前為假設階段</b>：請先決定運算元建立方式，下回合進入求解階段並結算方程。（當前變量 X = <b>${x}</b>）</span>`;
   }
 }
 
@@ -3865,7 +3865,7 @@ function renderServerSlots() {
   if (!serverPartyList || serverPartyList.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 40px 20px; color: var(--ui-text-primary, #F0E8D9); font-family: var(--font-display, 'Noto Serif TC', serif);">
-        <div style="font-size: 32px; margin-bottom: 8px;">📜</div>
+        <div style="margin-bottom: 12px; color: var(--gold);"><svg class="svg-icon" style="width:36px;height:36px;"><use href="#icon-log"></use></svg></div>
         <div style="font-size: 16px; font-weight: 700; color: var(--ui-text-primary, #F0E8D9);">目前尚無公開的深淵討伐隊伍</div>
         <div style="font-size: 14px; margin-top: 6px; color: var(--ui-text-muted, #979D94);">您可以點擊「創建討伐房間」發起新隊伍，或使用代碼直接連線！</div>
       </div>
@@ -4370,8 +4370,7 @@ function renderChatMessage(chatData, scroll = true) {
   const row = document.createElement('div');
   row.className = `chat-msg-row ${isMe ? 'is-me' : 'is-other'}`;
 
-  const roleEmoji = chatData.senderEmoji || '👤';
-  const senderLabel = isMe ? '你' : `${roleEmoji} ${escapeHtml(chatData.senderName)}`;
+  const senderLabel = isMe ? '你' : escapeHtml(chatData.senderName);
   row.innerHTML = `
     <div class="chat-msg-meta">
       <span>${senderLabel}</span>
@@ -5722,9 +5721,9 @@ function saveCustomAvatar(avatar) {
 }
 
 function initAvatarModal() {
-  const adventureEmojis = ['🧙‍♂️', '🧝‍♀️', '🥷', '🦸', '🧑‍🚀', '👑', '💀', '🤠', '🤴', '👸', '🧙', '🧛', '🧌', '🧝', '🤺', '🏹'];
-  const creatureEmojis = ['🐺', '🦊', '🦁', '🐯', '🐉', '🦅', '🦉', '🦇', '🐱', '🐶', '🐻', '🐼', '🦄', '🐗', '🐍', '🐙'];
-  const weaponEmojis = ['⚔️', '🛡️', '🏹', '🔮', '⚡', '💎', '🗡️', '💣', '🧪', '📜', '🩸', '✨', '🪐', '🔥', '❄️', '🌟'];
+  const adventureEmojis = [];
+  const creatureEmojis = [];
+  const weaponEmojis = [];
 
   function populateEmojiGrid(container, emojis) {
     if (!container) return;
@@ -6273,7 +6272,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
         <div style="width:28px;height:28px;flex-shrink:0;">${iconHtml}</div>
         <div class="item-tooltip-name ${tierClass}">${escapeHtml(item.name)}</div>
       </div>
-      ${isPinned ? `<button type="button" class="btn-tooltip-close" id="btnTooltipClose" title="關閉">✕</button>` : ''}
+      ${isPinned ? `<button type="button" class="btn-tooltip-close" id="btnTooltipClose" title="關閉"><svg class="svg-icon" style="width:12px;height:12px;"><use href="#icon-close"></use></svg></button>` : ''}
     </div>
     <div class="item-tooltip-slot-row">
       <span class="tooltip-label">穿戴位子：</span>
@@ -7075,13 +7074,13 @@ function renderInventoryModal() {
         <div class="crafting-recipe-card ${canCraft ? 'can-craft' : ''}">
           <div class="recipe-header">
             <span class="recipe-title">【${r.name}】</span>
-            <span class="recipe-status ${canCraft ? 'ready' : 'missing'}">${canCraft ? '✅ 可鍛造' : '❌ 材料不足'}</span>
+            <span class="recipe-status ${canCraft ? 'ready' : 'missing'}">${canCraft ? '【可鍛造】' : '【材料不足】'}</span>
           </div>
           <div class="recipe-desc">${r.desc}</div>
           <div class="recipe-materials">
-            <span class="mat-badge ${has1 ? 'have' : 'lack'}">${r.item1} ${has1 ? '✓' : '✗'}</span>
+            <span class="mat-badge ${has1 ? 'have' : 'lack'}">${r.item1} ${has1 ? '[已備齊]' : '[缺少]'}</span>
             <span class="mat-plus">+</span>
-            <span class="mat-badge ${has2 ? 'have' : 'lack'}">${r.item2} ${has2 ? '✓' : '✗'}</span>
+            <span class="mat-badge ${has2 ? 'have' : 'lack'}">${r.item2} ${has2 ? '[已備齊]' : '[缺少]'}</span>
           </div>
           <button type="button" class="btn-craft-item" data-i1="${r.item1}" data-i2="${r.item2}" ${canCraft ? '' : 'disabled'}>
             立即鍛造 (CRAFT)

@@ -344,10 +344,10 @@ function getChestSvgMarkup() {
       </g>
     </svg>
     <div class="presentation-chest-particles" aria-hidden="true">
-      <span class="particle p1">✦</span>
-      <span class="particle p2">✦</span>
-      <span class="particle p3">✦</span>
-      <span class="particle p4">✦</span>
+      <span class="particle p1"><svg viewBox="0 0 10 10" style="width:10px;height:10px;fill:currentColor;"><polygon points="5,0 6,4 10,5 6,6 5,10 4,6 0,5 4,4"/></svg></span>
+      <span class="particle p2"><svg viewBox="0 0 10 10" style="width:10px;height:10px;fill:currentColor;"><polygon points="5,0 6,4 10,5 6,6 5,10 4,6 0,5 4,4"/></svg></span>
+      <span class="particle p3"><svg viewBox="0 0 10 10" style="width:10px;height:10px;fill:currentColor;"><polygon points="5,0 6,4 10,5 6,6 5,10 4,6 0,5 4,4"/></svg></span>
+      <span class="particle p4"><svg viewBox="0 0 10 10" style="width:10px;height:10px;fill:currentColor;"><polygon points="5,0 6,4 10,5 6,6 5,10 4,6 0,5 4,4"/></svg></span>
     </div>
   `;
 }
