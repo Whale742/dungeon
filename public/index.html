@@ -502,52 +502,70 @@
       <!-- 視圖 2.5：深淵啟程開場畫面 -->
       <section id="viewPrologue" class="view-panel" aria-label="開場演出"></section>
 
-      <!-- 視圖 3：路線分歧抉擇畫面 -->
+      <!-- 視圖 3：路線分歧抉擇畫面 (Azure Ruins 古代導航盤風格) -->
       <section id="viewRoute" class="view-panel exploration-section view-gated-hidden">
-        <div class="exploration-content">
-          <div class="route-header">
-            <div class="floor-badge">第 <span id="routeFloorNum">1</span> 層</div>
-            <h2 id="routeMainTitle">【第 <span id="routeFloorHeaderNum">1</span> 層・迷霧分歧點】</h2>
-            <div id="routeAtmosphereText" class="exploration-story"></div>
-            <div class="buff-highlight-wrap">
-              <span class="buff-highlight">本層敵方強度加成：+<span id="routeDiffPercent">0</span>%</span>
+        <div class="map-layout">
+          <!-- 左側：篇章故事、本層難度與隊員投票狀態 -->
+          <div class="map-story">
+            <span class="eyebrow" id="routeEyebrow">CHAPTER 01 / THE ANCIENT PASSAGE</span>
+            <h1 class="story-title" id="routeMainTitle">迷霧分歧點<span id="routeFloorHeaderNum" class="hidden">1</span></h1>
+            <div class="story-rule"></div>
+            <div id="routeAtmosphereText" class="map-prose"></div>
+            
+            <div class="map-meta-row">
+              <span class="soft-tag badge-amber">FLOOR <span id="routeFloorNum">1</span></span>
+              <span class="soft-tag">敵人強度加成 +<span id="routeDiffPercent">0</span>%</span>
+              <div id="routeTimerBar" class="timer-container hidden">
+                <div class="timer-bar" id="routeTimerProgress"></div>
+                <span class="timer-text" id="routeTimerText"></span>
+              </div>
             </div>
-            <div id="routeTimerBar" class="timer-container hidden">
-              <div class="timer-bar" id="routeTimerProgress"></div>
-              <span class="timer-text" id="routeTimerText"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 無時間限制</span>
-            </div>
+
+            <!-- 全體隊員投票狀態標籤欄 -->
+            <div id="routeVotersStatusList" class="route-voters-status-list hidden"></div>
           </div>
 
-          <div id="routeStatusText" class="route-prompt hidden"></div>
+          <!-- 右側：古代導航盤六角蜂巢地圖與確認列 -->
+          <div class="map-side glass-panel">
+            <div class="section-topline" style="width:100%">
+              <h2 class="section-title">
+                <svg class="ico"><use href="#icon-map"/></svg>
+                遺跡路線
+              </h2>
+              <span class="eyebrow">ROUTE SELECTION</span>
+            </div>
 
-          <!-- 全體隊員投票狀態標籤欄 -->
-          <div id="routeVotersStatusList" class="route-voters-status-list hidden"></div>
+            <div id="routeStatusText" class="route-prompt-hint">請在蜂巢地圖點選相鄰格，並按下「確定投票」！</div>
 
-          <!-- 六角蜂巢迷霧地圖 (10 層 Odd-Q Offset Coordinates) -->
-          <div id="hexMapContainer" class="hex-map-container hidden" aria-label="六角蜂巢迷霧地圖"></div>
+            <!-- 六角蜂巢迷霧地圖容器 (由 exploration.js 動態渲染) -->
+            <div id="hexMapContainer" class="hex-map-container" aria-label="六角蜂巢迷霧地圖"></div>
 
-          <div id="routeOptionsGrid" class="route-grid hidden">
-            <!-- 相鄰六角格路線按鈕，每張按鈕即時顯示即時得票數與投票玩家 -->
+            <div id="routeOptionsGrid" class="route-grid hidden"></div>
           </div>
         </div>
       </section>
 
-      <!-- 視圖 3.5：踏入層數打字機轉場畫面 -->
+      <!-- 視圖 3.5：踏入層數打字機轉場畫面 (Azure Ruins 沉浸轉場) -->
       <section id="viewTransition" class="view-panel">
-        <div class="card transition-card">
-          <h1 id="transitionTypewriterTitle" class="typewriter-title">將進入第 1 層</h1>
-          <div class="transition-route-tag" id="transitionRouteTag"><svg class="svg-icon"><use href="#icon-arrow"></use></svg> 路線：羊腸小徑</div>
-          <div class="transition-story-box">
-            <div id="transitionStoryTitle" class="transition-story-title">【羊腸小徑】</div>
-            <p id="transitionStoryText" class="transition-story-text">正在撥開迷霧探索前路...</p>
-          </div>
-          <div class="transition-footer">
-            <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 正在深入深淵迷宮...</div>
+        <div class="story-view">
+          <div class="story-only transition-box">
+            <span class="overline" id="transitionRouteTag">
+              <svg class="ico sm"><use href="#icon-arrow"/></svg> 路線：羊腸小徑
+            </span>
+            <h1 id="transitionTypewriterTitle" class="typewriter-title">將進入第 1 層</h1>
+            <div class="story-divider"><i></i><span class="ornament-diamond"></span><i></i></div>
+            <div class="transition-story-box">
+              <div id="transitionStoryTitle" class="transition-story-title">【羊腸小徑】</div>
+              <p id="transitionStoryText" class="transition-story-text narrative">正在撥開迷霧探索前路...</p>
+            </div>
+            <div class="transition-footer">
+              <span class="soft-tag"><svg class="ico sm"><use href="#icon-timer"/></svg> 正在深入深淵迷宮...</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- 視圖 4：事件卡片 (寶箱 / 陷阱) -->
+      <!-- 視圖 4：事件卡片 (寶箱 / 陷阱 / 遭遇) -->
       <section id="viewEvent" class="view-panel">
         <div id="trapDiscoverySection" class="exploration-trap hidden">
           <div id="trapDiscoveryStory" class="exploration-trap-story" aria-live="off"></div>
@@ -557,36 +575,36 @@
           <div id="chestInteractionArea" class="exploration-chest-stage hidden">
             <div id="chestWorldVisual" class="exploration-chest-visual" aria-hidden="true"></div>
             <div class="exploration-chest-actions">
-              <button id="btnOpenChest" class="presentation-chest-btn" type="button" disabled>
-                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chest"></use></svg>
+              <button id="btnOpenChest" class="btn gold" type="button" disabled>
+                <svg class="ico" aria-hidden="true"><use href="#icon-chest"></use></svg>
                 <span>開啟寶箱</span>
               </button>
             </div>
           </div>
         </div>
-        <div class="card event-card" id="eventCardBox">
+        <div class="glass-panel event-card" id="eventCardBox">
           <div class="event-icon" id="eventIcon"><svg class="svg-icon svg-hero-icon"><use href="#icon-chest"></use></svg></div>
-          <h2 id="eventTitle">發現遠古寶箱！</h2>
+          <h2 id="eventTitle" class="section-title">發現遠古寶箱！</h2>
           <div id="eventStoryText" class="event-story-text"></div>
           <div id="eventDetails" class="event-details">
             <!-- 動態事件內容 -->
           </div>
           <div class="event-footer">
-            <div class="pulse-waiting"><svg class="svg-icon"><use href="#icon-timer"></use></svg> 整理裝備中，即將前往下一層...</div>
+            <div class="pulse-waiting"><svg class="ico sm"><use href="#icon-timer"/></svg> 整理裝備中，即將前往下一層...</div>
           </div>
         </div>
       </section>
 
-      <!-- 視圖 4.5：深淵對話與抉擇 (Module 5) -->
+      <!-- 視圖 4.5：深淵對話與抉擇 (Azure Ruins 古代對話石板) -->
       <section id="viewAbyssDialogue" class="view-panel abyss-view-panel">
-        <div class="abyss-dialogue-card">
+        <div class="abyss-dialogue-card glass-panel">
           <div class="abyss-boss-portrait-wrap">
             <img id="abyssBossAvatar" src="/photo/Warrior.webp" alt="深淵化身" class="abyss-boss-avatar">
             <div id="abyssRedEyeOverlay" class="abyss-red-eye-overlay hidden"></div>
           </div>
           <div class="abyss-dialogue-content">
             <div class="abyss-stage-indicator">
-              <span id="abyssStageTag" class="abyss-stage-tag">階段 1/4 · 命運的相逢</span>
+              <span id="abyssStageTag" class="soft-tag badge-amber">階段 1/4 · 命運的相逢</span>
             </div>
             <h2 id="abyssBossName" class="abyss-boss-name">深淵化身</h2>
             <div id="abyssDialogueTextBox" class="abyss-dialogue-text-box"></div>
@@ -598,7 +616,7 @@
 
             <!-- 前進下一階段按鈕 -->
             <div id="abyssActionsContainer" class="abyss-actions-container">
-              <button id="btnAdvanceAbyss" class="btn-abyss-advance" type="button">
+              <button id="btnAdvanceAbyss" class="btn gold btn-abyss-advance" type="button">
                 繼續聆聽 (ADVANCE) ›
               </button>
             </div>

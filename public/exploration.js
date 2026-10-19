@@ -306,9 +306,24 @@ function renderHexGridMap(me, enabled, myVoteId) {
           'sword'
         );
         const eventSvg = '<svg class="ui-icon ui-icon--md hex-visited-svg" aria-hidden="true"><use href="#icon-' + iconName + '"></use></svg>';
-        centerContentHtml = '<span class="hex-visited-icon" title="已完成事件">' + eventSvg + '</span>';
+        centerContentHtml = '<span class="hex-node-icon hex-visited-icon" title="已完成事件">' + eventSvg + '</span>';
       } else if (inVision && votes > 0) {
         centerContentHtml = '<span class="hex-center-vote">' + votes + '</span>';
+      } else if (node.isCurrent) {
+        centerContentHtml = '<span class="hex-node-icon hex-current-icon" title="當前位置"><svg class="ui-icon ui-icon--md hex-current-svg" aria-hidden="true"><use href="#icon-camp"></use></svg></span>';
+      } else if (inVision && (node.isScouted || node.col === 9 || node.type === 'START')) {
+        const scoutIcon = (
+          node.type === 'START' ? 'camp' :
+          node.col === 9 || node.type === 'BOSS' || node.type === 'END_ELITE' ? 'death' :
+          node.type === 'SHOP' ? 'shop' :
+          node.type === 'CHEST' ? 'chest' :
+          node.type === 'EVENT' ? 'scroll' :
+          node.type === 'ELITE' ? 'death' :
+          ''
+        );
+        if (scoutIcon) {
+          centerContentHtml = '<span class="hex-node-icon hex-scouted-icon" title="探索標記"><svg class="ui-icon ui-icon--md hex-scouted-svg" aria-hidden="true"><use href="#icon-' + scoutIcon + '"></use></svg></span>';
+        }
       }
 
       html += '<button type="button" class="' + classes + '" ' + fogStyle + 'data-hex-id="' + escapeHtml(node.id) + '" ' +
@@ -335,8 +350,8 @@ function renderHexGridMap(me, enabled, myVoteId) {
   const confirmLabel = isAlreadyVotedSame
     ? '已確認投票'
     : pendingHexVoteId
-      ? '確定投票'
-      : '請點選六角格';
+      ? '確定投票 ›'
+      : '請點選相鄰節點';
 
   html += '<div class="hex-confirm-bar">' +
     '<button type="button" id="btnConfirmHexVote" class="btn-confirm-hex-vote' + (isAlreadyVotedSame ? ' confirmed' : '') + '" ' +
@@ -407,7 +422,11 @@ function renderRouteChoice(me) {
   }
 
   elements.routeFloorNum.textContent = roomState.floor;
-  elements.routeMainTitle.textContent = '【第 ' + roomState.floor + ' 層・迷霧分歧點】';
+  elements.routeMainTitle.textContent = '迷霧分歧點';
+  const eyebrowEl = document.getElementById('routeEyebrow');
+  if (eyebrowEl) {
+    eyebrowEl.textContent = `FLOOR 0${roomState.floor} / THE ANCIENT PASSAGE`;
+  }
   elements.routeDiffPercent.textContent = roomState.floorDifficultyPercent ?? 0;
   const myVoteId = roomState.routeVotes?.[myId];
   const locallyReady = routeInteractionReadyKey === key;

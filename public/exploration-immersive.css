@@ -1,36 +1,53 @@
-/* Scenery is transparent; readable content owns a brass-framed surface. */
-body.is-exploring { background-image: url('/icon/background.webp'); }
-body.is-exploring:not(.presentation-floor-active)::before { content: ''; position: fixed; inset: 0; background: #100e0c88; pointer-events: none; z-index: 0; }
-body.is-exploring .game-container { position: relative; z-index: 1; }
-body.is-exploring .main-content, #viewBattle .battle-layout { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
-/* Content uses localized flat surfaces without giant muddy brown slabs */
-#viewRoute .exploration-content,
-#viewTransition .transition-card {
+/* Azure Ruins — Exploration Immersive Scene Layer */
+body.is-exploring {
+  background-image: url('/icon/background.webp');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+body.is-exploring:not(.presentation-floor-active)::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(13, 19, 26, 0.72) 0%, rgba(9, 14, 20, 0.94) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.is-exploring .game-container {
+  position: relative;
+  z-index: 1;
+}
+
+body.is-exploring .main-content,
+#viewBattle .battle-layout {
   background: transparent;
   border: 0;
   box-shadow: none;
-  padding: 0;
+  backdrop-filter: none;
 }
+
+/* Event cards & stories using Azure Ruins stone slate surfaces */
 #viewEvent:not(:has(.is-shop-event)):not(:has(.shop-container)) .event-card,
-.exploration-trap-story, .exploration-chest-story {
-  background: rgba(36, 42, 41, 0.92);
-  border: 1px solid var(--ui-border, #59615A);
-  border-radius: var(--ui-radius, 2px);
-  color: var(--ui-text-primary, #F0E8D9);
-  padding: 28px 32px;
-  box-shadow: none;
+.exploration-trap-story,
+.exploration-chest-story {
+  background: rgba(22, 33, 43, 0.94);
+  border: 1px solid var(--border, #4F6674);
+  border-radius: 2px;
+  color: var(--light, #E8EDF2);
+  padding: 24px 28px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
   text-shadow: none;
 }
-#viewRoute .exploration-story, #viewTransition .transition-story-box, #viewEvent .event-details {
- color: var(--color-text-primary); line-height: 1.8; font-size: var(--text-body);
+
+#viewRoute .map-prose,
+#viewTransition .transition-story-box,
+#viewEvent .event-details {
+  color: var(--secondary, #B9C4CE);
+  line-height: 1.95;
+  font-size: 15px;
 }
-#viewRoute .route-item { background: var(--surface-raised); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm); color: var(--color-warm-white); padding: var(--space-4); }
-#viewRoute .route-item:hover:not(:disabled), #viewRoute .route-item.my-vote { background: #4b3923; border-color: var(--color-focus); }
-#viewRoute .route-item.my-vote .route-name { text-decoration: underline; text-underline-offset: .3em; }
-/* Pure cinematic layers retain their own backdrop and lifecycle. */
+
 .encounter-scene-snapshot { display: none; }
 .boss-encounter-stage { background: transparent; }
-@media (max-width: 600px) {
- #viewRoute .exploration-content, #viewTransition .transition-card, #viewEvent .event-card,
- .exploration-trap-story, .exploration-chest-story, .presentation-reward-content { padding: var(--space-4); }
-}

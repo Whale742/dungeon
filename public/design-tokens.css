@@ -245,3 +245,132 @@
     --hex-col-overlap: -1.5px;
   }
 }
+
+/* ==========================================================================
+   Global SVG Icons & UI Primitives
+   ========================================================================== */
+.ico,
+.svg-icon,
+.ui-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.ico.sm, .svg-icon.sm, .ui-icon--sm {
+  width: 14px;
+  height: 14px;
+}
+
+.ico.lg, .svg-icon.lg, .ui-icon--lg {
+  width: 24px;
+  height: 24px;
+}
+
+.ico.xl, .svg-icon.xl {
+  width: 32px;
+  height: 32px;
+}
+
+/* Glass Panel with Corner Brackets */
+.glass-panel {
+  background: rgba(16, 30, 41, 0.96);
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid #718e91;
+  border-top: 1px solid #718e91;
+  pointer-events: none;
+}
+
+.glass-panel::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid #718e91;
+  border-bottom: 1px solid #718e91;
+  pointer-events: none;
+}
+
+/* Section Topline */
+.section-topline {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line, #2B4252);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0;
+  color: var(--light, #E8EDF2);
+}
+
+.section-title .ico,
+.section-title svg {
+  color: var(--azure, #6FB7E9);
+  width: 18px;
+  height: 18px;
+}
+
+.ornament-diamond {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--gold);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+/* Soft Tags */
+.soft-tag {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--azure);
+  background: #1d3445;
+  border: 1px solid #416378;
+  padding: 4px 9px;
+  font: 700 10px var(--pixel);
+  border-radius: 2px;
+}
+
+.soft-tag.badge-amber {
+  color: var(--gold);
+  border-color: #776b4e;
+  background: #2b2b27;
+}
+
+.soft-tag.buff-tag {
+  color: var(--azure);
+  border-color: #385970;
+  background: #152c3c;
+}
+

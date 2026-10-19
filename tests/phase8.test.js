@@ -256,7 +256,7 @@ for(const [r,id,value] of [[.1,'accelerate',2],[.75,'reset',0],[.85,'overload',4
   const {room,resolve}=fixture(t,['stargazer','mage']);room.players.p0.action='sg_clock';room.players.p1.cooldowns.m_blast=4;const s=actionStep(resolve(r));assert.equal(s.outcome.type,id);assert.equal(room.players.p1.cooldowns.m_blast,value);
 });
 test('boundary locks HP and enhanced barrier separately resists one lethal',t=>{
-  const {room}=fixture(t,['warrior']),p=room.players.p0;room.p8Effect(p,'boundary','boundary',1,{barrier:true});assert.equal(room.applyDamageToPlayer(p,200).actualDmg,0);assert.equal(p.hp,120);room.applyDamageToPlayer(p,200);assert.equal(p.hp,1);
+  const {room}=fixture(t,['warrior']),p=room.players.p0;room.warriorLeaderGuarded=true;room.p8Effect(p,'boundary','boundary',1,{barrier:true});assert.equal(room.applyDamageToPlayer(p,200).actualDmg,0);assert.equal(p.hp,120);room.applyDamageToPlayer(p,200);assert.equal(p.hp,1);
 });
 test('discovered boundary survives later rounds and repeated discovery cannot replenish its barrier',t=>{
   const {room,resolve}=fixture(t,['stargazer']);const p=room.players.p0;
@@ -427,7 +427,7 @@ test('sage lenses consume only nothing; rulers modify equation once; prime reset
 });
 test('actual boss dream healing is a heal result, nightmare true damage ignores DR, and source follows server snapshots',t=>{
   for(const [r,kind] of [[.1,'heal'],[.9,'damage']]) {
-    const {room,resolve}=fixture(t,['warrior']),p=room.players.p0;p.hp=20;room.p8Effect(p,'dream_butterfly','Dream',1);room.alcShieldTurns=1;
+    const {room,resolve}=fixture(t,['warrior']),p=room.players.p0;p.hp=20;room.warriorLeaderGuarded=true;room.p8Effect(p,'dream_butterfly','Dream',1);room.alcShieldTurns=1;
     const q=resolve(r),boss=q.find(s=>s.type==='boss_action');assert(boss.results.every(s=>s.kind===kind));
     if(kind==='heal')assert(boss.results.some(s=>s.actualHeal>0));else assert.equal(boss.results.reduce((n,s)=>n+s.finalDamage,0),20);
   }
