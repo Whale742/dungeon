@@ -2,18 +2,7 @@
    1. UNIFIED KRAFT PARCHMENT (牛皮紙 / 羊皮紙) DESIGN TOKENS
    Adapted from temp/code_artifact.html for Dungeon Abyss Lobby
    ========================================================= */
-:root {
-  --parchment-light: #f7eed7;
-  --parchment-mid: #ebd6b3;
-  --parchment-dark: #d8ba8b;
-  --parchment-edge: #966b3b;
-  --ink-primary: #000000;
-  --ink-secondary: #111827;
-  --ink-muted: #1f2937;
-  --leather-bg: #2d180a;
-  --wax-red: #8f1d1d;
-  --gold-brass: #b8860b;
-}
+/* Palette is owned by design-tokens.css. */
 .game-container { position: relative; z-index: 1; }
 
 body:has(#viewLobby.active),
