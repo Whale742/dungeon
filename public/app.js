@@ -6412,7 +6412,7 @@ document.addEventListener('dragover', (e) => {
 
 document.addEventListener('drop', (e) => {
   if (!draggedInventorySlot) return;
-  if (e.target.closest('.hex-slot')) return; // 若落在六角格上則交由格子的 drop listener 處理
+  if (e.target.closest('.hex-slot') || e.target.closest('.inv-discard-dropzone') || e.target.closest('.shop-sell-dropzone')) return; // 若落在六角格上則交由格子的 drop listener 處理
   e.preventDefault();
   const source = draggedInventorySlot;
   draggedInventorySlot = null;
@@ -6628,7 +6628,39 @@ function attachSlotDragAndTooltip(slot, area, idx, key, item) {
   });
 }
 
+
+// 初始化背包專用丟棄熱區 (Drop Zone)
+function initDiscardDropzone() {
+  const dropzone = document.getElementById('invDiscardDropzone');
+  if (!dropzone || dropzone.dataset.initialized) return;
+  dropzone.dataset.initialized = 'true';
+
+  dropzone.addEventListener('dragover', (e) => {
+    if (draggedInventorySlot) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      dropzone.classList.add('drag-over');
+    }
+  });
+
+  dropzone.addEventListener('dragleave', (e) => {
+    if (!dropzone.contains(e.relatedTarget)) {
+      dropzone.classList.remove('drag-over');
+    }
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (!draggedInventorySlot) return;
+    const source = draggedInventorySlot;
+    draggedInventorySlot = null;
+    openDiscardConfirmModal(source);
+  });
+}
+
 function renderInventoryModal() {
+  initDiscardDropzone();
   if (!elements.inventoryModal) return;
 
   const me = (roomState?.players || []).find(p => p.id === myId) || (roomState?.players || [])[0] || null;
@@ -6806,10 +6838,17 @@ function renderInventoryModal() {
 
       actionButtons += `<button type="button" class="btn-inv-action btn-inv-discard" id="btnInspectDiscard" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">🗑️ 丟棄${isConsumable ? '物品' : '裝備'}</button>`;
 
+      const rarityClass = item.rarity ? 'rarity-' + item.rarity.toLowerCase() : '';
+      const rarityLabel = item.rarity === 'EXCLUSIVE' ? '專屬' : (item.rarity === 'RARE' ? '稀有' : (isConsumable ? '消耗品' : '普通'));
       elements.invInspectorContent.innerHTML = `
         <div class="inv-inspector-body">
           <div class="inv-inspector-info">
-            <div class="inv-inspector-title">${item.icon || '⚔️'} ${escapeHtml(item.name)} <span style="font-size: 0.75rem; color: #94a3b8;">[${item.slot || item.type || '裝備'}]</span></div>
+            <div class="inv-inspector-title">
+              <span class="inv-inspector-icon">${item.icon || '⚔️'}</span>
+              <span class="inv-inspector-name">${escapeHtml(item.name)}</span>
+              <span class="inv-inspector-rarity-badge ${rarityClass}">${rarityLabel}</span>
+              <span class="inv-inspector-slot-tag">[${item.slot || item.type || '裝備'}]</span>
+            </div>
             <div class="inv-inspector-desc">${escapeHtml(item.desc || item.statDesc || '無特殊說明')}</div>
           </div>
           <div class="inv-inspector-actions">

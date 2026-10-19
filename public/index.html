@@ -1248,75 +1248,84 @@
         </div>
       </div>
 
-      <div class="modal-body inventory-modal-body">
-        <!-- 1. 小隊背包 (19格，3-4-5-4-3 蜂巢連體) -->
-        <div class="squad-backpack-section">
-          <div class="inv-sub-header">
-            <div class="inv-sub-title">
-              <span class="pulse-dot"></span>
-              <span>小隊共用背包 (19格)</span>
-              <span class="inv-sub-hint">・取得道具優先自動存入此處</span>
-            </div>
-            <span id="squadCapacityText" class="inv-capacity-badge">0 / 19 格</span>
-          </div>
-          <div id="squadGrid" class="hex-grid-squad">
-            <!-- 由 JS 渲染 3-4-5-4-3 蜂巢六角格 -->
-          </div>
-        </div>
-
-        <!-- 2. 裝備欄與個人背包在小隊背包下方 -->
-        <div class="lower-backpack-grid">
-          <!-- 裝備欄 (4格連體，從左到右：武器、裝備、飾品、專屬裝備) -->
-          <div class="equipment-section">
+      <div class="modal-body inventory-modal-body inventory-dual-column">
+        <!-- 左欄 (約 55%): 小隊共用行囊 (19 格蜂巢) + 底部丟棄熱區 -->
+        <div class="inventory-left-col">
+          <div class="squad-backpack-section">
             <div class="inv-sub-header">
               <div class="inv-sub-title">
-                <span>角色裝備欄 (4格)</span>
+                <span class="pulse-dot"></span>
+                <span>小隊共用背包 (19格)</span>
+                <span class="inv-sub-hint">・取得道具優先自動存入此處</span>
               </div>
+              <span id="squadCapacityText" class="inv-capacity-badge">0 / 19 格</span>
             </div>
-            <div class="equip-hex-wrapper">
-              <div id="equippedSlotsGrid" class="hex-row">
-                <!-- 4 個連體六角格：武器、裝備、飾品、專屬裝備 -->
-              </div>
-              <div class="equip-slot-labels-row">
-                <span id="labelEquipWeapon" class="equip-label-item">武器</span>
-                <span id="labelEquipArmor" class="equip-label-item">裝備</span>
-                <span id="labelEquipAccessory" class="equip-label-item">飾品</span>
-                <span id="labelEquipExclusive" class="equip-label-item">專屬</span>
-              </div>
+            <div id="squadGrid" class="hex-grid-squad">
+              <!-- 由 JS 渲染 3-4-5-4-3 蜂巢六角格 -->
             </div>
           </div>
-
-          <!-- 個人隨身背包 (4格連體) -->
-          <div class="personal-backpack-section">
-            <div class="inv-sub-header">
-              <div class="inv-sub-title">
-                <span>個人隨身背包 (4格)</span>
-              </div>
-              <span id="personalBagCapacityText" class="inv-capacity-badge">0 / 4 格</span>
-            </div>
-            <div class="personal-hex-wrapper">
-              <div id="personalBagGrid" class="hex-row">
-                <!-- 4 個連體六角格 -->
-              </div>
-            </div>
+          <!-- 丟棄熱區 (Drop Zone) -->
+          <div id="invDiscardDropzone" class="inv-discard-dropzone" title="拖曳道具至此丟棄">
+            <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-trash"></use></svg>
+            <span>拖曳道具至此丟棄 (或點選道具後於右側檢視器執行)</span>
           </div>
         </div>
 
-        <!-- 3. 選中道具詳情與操作面板 (Inspector Panel) -->
-        <div id="invInspectorPanel" class="inv-inspector-card">
-          <div id="invInspectorContent" class="inv-inspector-empty">
-            點擊任一六角格可查看道具詳情，並可穿戴、卸下或在背包間轉移。
-          </div>
-        </div>
+        <!-- 右欄 (約 45%): 個人裝備 (4格)、個人行囊 (4格)、道具檢視器、合成 -->
+        <div class="inventory-right-col">
+          <div class="lower-backpack-grid">
+            <!-- 裝備欄 (4格連體，從左到右：武器、裝備、飾品、專屬裝備) -->
+            <div class="equipment-section">
+              <div class="inv-sub-header">
+                <div class="inv-sub-title">
+                  <span>角色裝備欄 (4格)</span>
+                </div>
+              </div>
+              <div class="equip-hex-wrapper">
+                <div id="equippedSlotsGrid" class="hex-row">
+                  <!-- 4 個連體六角格：武器、裝備、飾品、專屬裝備 -->
+                </div>
+                <div class="equip-slot-labels-row">
+                  <span id="labelEquipWeapon" class="equip-label-item">武器</span>
+                  <span id="labelEquipArmor" class="equip-label-item">裝備</span>
+                  <span id="labelEquipAccessory" class="equip-label-item">飾品</span>
+                  <span id="labelEquipExclusive" class="equip-label-item">專屬</span>
+                </div>
+              </div>
+            </div>
 
-        <!-- 4. 鍛造工坊折疊區塊 -->
-        <div class="inv-crafting-accordion">
-          <button type="button" id="btnToggleCraftingPanel" class="btn-toggle-crafting">
-            <span>⚒️ 裝備鍛造工坊 (5種合成配方)</span>
-            <span id="craftingToggleArrow">▼</span>
-          </button>
-          <div id="craftingPanelBody" class="crafting-panel-body hidden">
-            <div id="craftingRecipesList" class="crafting-recipes-list"></div>
+            <!-- 個人隨身背包 (4格連體) -->
+            <div class="personal-backpack-section">
+              <div class="inv-sub-header">
+                <div class="inv-sub-title">
+                  <span>個人隨身背包 (4格)</span>
+                </div>
+                <span id="personalBagCapacityText" class="inv-capacity-badge">0 / 4 格</span>
+              </div>
+              <div class="personal-hex-wrapper">
+                <div id="personalBagGrid" class="hex-row">
+                  <!-- 4 個連體六角格 -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 選中道具詳情與操作面板 (Inspector Panel) -->
+          <div id="invInspectorPanel" class="inv-inspector-card">
+            <div id="invInspectorContent" class="inv-inspector-empty">
+              點擊任一六角格可查看道具詳情，並可穿戴、卸下或在背包間轉移。
+            </div>
+          </div>
+
+          <!-- 鍛造工坊折疊區塊 -->
+          <div class="inv-crafting-accordion">
+            <button type="button" id="btnToggleCraftingPanel" class="btn-toggle-crafting">
+              <span>⚒️ 裝備鍛造工坊 (5種合成配方)</span>
+              <span id="craftingToggleArrow">▼</span>
+            </button>
+            <div id="craftingPanelBody" class="crafting-panel-body hidden">
+              <div id="craftingRecipesList" class="crafting-recipes-list"></div>
+            </div>
           </div>
         </div>
       </div>
