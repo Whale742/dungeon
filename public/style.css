@@ -6989,11 +6989,10 @@ body.presentation-opening .narrative-controls,
   min-height: 220px;
   padding: 16px 12px 14px;
   margin-bottom: 16px;
-  background: radial-gradient(circle at 50% 90%, rgba(30, 58, 138, 0.32) 0%, rgba(10, 15, 29, 0.9) 75%),
-              linear-gradient(180deg, rgba(8, 12, 22, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.35);
-  border-radius: var(--radius-md, 12px);
-  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4);
+  background: var(--surface-combat);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 2px 16px rgba(0, 0, 0, 0.7), var(--shadow-md);
   overflow: visible;
 }
 
@@ -7016,18 +7015,60 @@ body.presentation-opening .narrative-controls,
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
   user-select: none;
   flex: 0 1 auto;
+  border-radius: var(--radius-sm);
+  outline: none;
 }
-.battle-enemy-slot:hover {
+.battle-enemy-slot:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+.battle-enemy-slot:hover:not(.is-dead) {
   transform: translateY(-4px);
 }
 .battle-enemy-slot.is-target {
-  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.75));
+  filter: drop-shadow(0 0 12px rgba(228, 188, 117, 0.85));
 }
 .battle-enemy-slot.is-dead {
   opacity: 0.35;
   filter: grayscale(80%);
   cursor: not-allowed;
   pointer-events: none;
+}
+.battle-enemy-slot .pixel-fx-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+.battle-enemy-slot .floating-text-container {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+.battle-enemy-slot .enemy-status-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 3px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.battle-enemy-slot .enemy-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--surface-inset);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-warm-white);
 }
 
 /* CD Indicator floating above monster */
@@ -7065,13 +7106,21 @@ body.presentation-opening .narrative-controls,
 /* Target Reticle Indicator */
 .enemy-target-reticle {
   position: absolute;
-  top: 10px;
-  font-size: 20px;
-  color: #f59e0b;
-  text-shadow: 0 0 10px #f59e0b;
+  top: -6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-focus);
+  filter: drop-shadow(0 0 8px rgba(228, 188, 117, 0.9));
   animation: targetBounce 1s infinite alternate ease-in-out;
   pointer-events: none;
   z-index: 6;
+}
+.enemy-target-reticle svg {
+  width: 100%;
+  height: 100%;
 }
 
 @keyframes targetBounce {

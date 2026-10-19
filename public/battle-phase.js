@@ -309,7 +309,8 @@ async function playBattlePhaseOpening(monster, round, context = {}) {
 async function handoffBossPortrait(stage,art,context){
  const source=art.querySelector('img'),from=source?.getBoundingClientRect();
  await context.revealHud?.();
- const target=document.getElementById('monsterAvatar'),to=target?.getBoundingClientRect();
+ const target=document.querySelector('#battleEnemiesStage .battle-enemy-slot.is-boss-slot .enemy-sprite-img, #battleEnemiesStage .battle-enemy-slot.is-target .enemy-sprite-img, #battleEnemiesStage .battle-enemy-slot.is-single-slot .enemy-sprite-img, #battleEnemiesStage .battle-enemy-slot .enemy-sprite-img') || document.getElementById('monsterAvatar') || document.getElementById('battleEnemiesStage');
+ const to=target?.getBoundingClientRect();
  const animations=[];let flight;const visibility=target?.style.visibility;
  const duration=(stage.dataset.reducedMotion==='true'?300:1000)/(context.speed||1);
  const animate=(node,frames)=>{if(node)animations.push(node.animate(frames,{duration,easing:'cubic-bezier(.22,.61,.36,1)',fill:'forwards'}));};
@@ -320,8 +321,9 @@ async function handoffBossPortrait(stage,art,context){
   if(source&&from?.width&&to?.width&&stage.dataset.reducedMotion!=='true'){
    flight=document.createElement('div');flight.className='boss-portrait-flight';
    flight.appendChild(source.cloneNode(true));stage.appendChild(flight);
-   art.style.visibility='hidden';target.style.visibility='hidden';
-   animate(flight,[{left:from.left+'px',top:from.top+'px',width:from.width+'px',height:from.height+'px',borderRadius:'0px'},{left:to.left+'px',top:to.top+'px',width:to.width+'px',height:to.height+'px',borderRadius:getComputedStyle(target).borderRadius}]);
+   art.style.visibility='hidden';if(target)target.style.visibility='hidden';
+   const targetRadius=target?getComputedStyle(target).borderRadius:'0px';
+   animate(flight,[{left:from.left+'px',top:from.top+'px',width:from.width+'px',height:from.height+'px',borderRadius:'0px'},{left:to.left+'px',top:to.top+'px',width:to.width+'px',height:to.height+'px',borderRadius:targetRadius}]);
   }
   animate(stage,[{backgroundColor:getComputedStyle(stage).backgroundColor},{backgroundColor:'transparent'}]);
   animate(stage.querySelector('.boss-encounter-backdrop'),[{opacity:1},{opacity:0}]);

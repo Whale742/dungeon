@@ -2147,7 +2147,7 @@ async function revealBattleControls() {
 // ============================================================================
 
 // 通用浮動懸浮面板視窗邊界限制定位 (確保絕不超出畫面邊界)
-function positionFloatingTooltip(e, tooltip) {
+function positionFloatingTooltip(eOrTarget, tooltip) {
   if (!tooltip) return;
   const tw = tooltip.offsetWidth || 300;
   const th = tooltip.offsetHeight || 220;
@@ -2155,27 +2155,45 @@ function positionFloatingTooltip(e, tooltip) {
   const vh = window.innerHeight;
   const pad = 14;
 
-  let left = e.clientX + 16;
-  if (left + tw > vw - pad) {
-    left = e.clientX - tw - 16;
+  let left, top;
+  if (eOrTarget && typeof eOrTarget.clientX === 'number') {
+    left = eOrTarget.clientX + 16;
+    if (left + tw > vw - pad) {
+      left = eOrTarget.clientX - tw - 16;
+    }
+    top = eOrTarget.clientY - 20;
+    if (top + th > vh - pad) {
+      top = vh - th - pad;
+    }
+  } else if (eOrTarget) {
+    const rect = (typeof eOrTarget.getBoundingClientRect === 'function')
+      ? eOrTarget.getBoundingClientRect()
+      : eOrTarget;
+    left = rect.left + (rect.width / 2) - (tw / 2);
+    top = rect.top - th - 12;
+    if (top < pad) {
+      top = rect.bottom + 12;
+    }
+  } else {
+    left = (vw - tw) / 2;
+    top = (vh - th) / 2;
   }
-  if (left < pad) left = pad;
 
-  let top = e.clientY - 20;
-  if (top + th > vh - pad) {
-    top = vh - th - pad;
-  }
+  if (left + tw > vw - pad) left = vw - pad - tw;
+  if (left < pad) left = pad;
+  if (top + th > vh - pad) top = vh - th - pad;
   if (top < pad) top = pad;
 
-  tooltip.style.left = `${left}px`;
-  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(top)}px`;
 }
 
-function showEnemyTooltip(en, e) {
+function showEnemyTooltip(en, eOrTarget) {
   if (!elements.floatingEnemyTooltip || !en) return;
 
   const hpPct = Math.max(0, Math.min(100, Math.round((en.hp / Math.max(1, en.maxHp)) * 100)));
   const tierName = en.tier === 'ABYSS' ? '深淵' : en.tier === 'ELITE' ? '精英' : (en.isBoss ? '首領' : '小怪');
+  const tierClass = en.tier === 'ABYSS' ? 'tier-exclusive' : en.tier === 'ELITE' ? 'tier-t2' : (en.isBoss ? 'tier-t2' : 'tier-t1');
 
   const resistances = en.resistances || { physical: en.resistance === 'phys' ? 70 : 0, magic: en.resistance === 'mag' ? 70 : 0, effect: 0 };
   const mirrored = en.p8Effects?.mirror?.until >= (roomState?.battleRound || 0);
@@ -2186,29 +2204,32 @@ function showEnemyTooltip(en, e) {
   const ultAtk = Math.floor((en.attack || 10) * 1.35);
 
   const buffs = [];
-  if (en.isWeakened) buffs.push('⚠️ 削弱 (傷害/血量 75%)');
-  if (en.poisonTurns > 0) buffs.push(`🟢 中毒 (${en.poisonTurns} 回合 / -${en.poisonDmg || 5})`);
-  if (en.burnTurns > 0) buffs.push(`🔥 燃燒 (${en.burnTurns} 回合 / -${en.burnDmg || 7})`);
-  if (en.fractureTurns > 0) buffs.push(`🦴 骨折 (${en.fractureTurns} 回合 / -${en.fractureDmg || 2})`);
-  if (en.chillTurns > 0) buffs.push(`❄️ 寒冷 (${en.chillTurns} 回合 / -${en.chillDmg || 3})`);
-  if (en.corrosionTurns > 0) buffs.push(`🧪 腐蝕 (${en.corrosionTurns} 回合)`);
-  if (en.tempHp > 0) buffs.push(`🛡️ 護盾 (+${en.tempHp})`);
+  if (en.isWeakened) buffs.push({ icon: 'status', label: '削弱', desc: '傷害/血量 75%' });
+  if (en.poisonTurns > 0) buffs.push({ icon: 'poison', label: '中毒', desc: `${en.poisonTurns} 回合 / -${en.poisonDmg || 5}` });
+  if (en.burnTurns > 0) buffs.push({ icon: 'fire', label: '燃燒', desc: `${en.burnTurns} 回合 / -${en.burnDmg || 7}` });
+  if (en.fractureTurns > 0) buffs.push({ icon: 'bone', label: '骨折', desc: `${en.fractureTurns} 回合 / -${en.fractureDmg || 2}` });
+  if (en.chillTurns > 0) buffs.push({ icon: 'snowflake', label: '寒冷', desc: `${en.chillTurns} 回合 / -${en.chillDmg || 3}` });
+  if (en.corrosionTurns > 0) buffs.push({ icon: 'flask', label: '腐蝕', desc: `${en.corrosionTurns} 回合` });
+  if (en.tempHp > 0) buffs.push({ icon: 'shield', label: '護盾', desc: `+${en.tempHp}` });
 
   let buffsHtml = '';
   if (buffs.length > 0) {
-    buffsHtml = `<div class="floating-tooltip-buffs">${buffs.map(b => `<span class="buff-badge" style="font-size:11px;padding:2px 6px;">${escapeHtml(b)}</span>`).join('')}</div>`;
+    buffsHtml = `<div class="floating-tooltip-buffs">${buffs.map(b => `
+      <span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
+        ${getIconSvg(b.icon, 'ui-icon--sm')} ${escapeHtml(b.label)} (${escapeHtml(b.desc)})
+      </span>`).join('')}</div>`;
   } else {
-    buffsHtml = `<div class="floating-tooltip-row"><span class="floating-tooltip-label">當前狀態</span><span class="floating-tooltip-val" style="color:#94a3b8;">正常</span></div>`;
+    buffsHtml = `<div class="floating-tooltip-row"><span class="floating-tooltip-label">當前狀態</span><span class="floating-tooltip-val" style="color:var(--color-text-muted);">正常</span></div>`;
   }
 
   elements.floatingEnemyTooltip.innerHTML = `
     <div class="floating-tooltip-title-row">
-      <span class="floating-tooltip-name">${escapeHtml(en.name)}</span>
+      <span class="floating-tooltip-name ${tierClass}">${escapeHtml(en.name)}</span>
       <span class="floating-tooltip-badge">${tierName}</span>
     </div>
     <div class="floating-tooltip-row">
       <span class="floating-tooltip-label">生命值</span>
-      <span class="floating-tooltip-val" style="color:${hpPct < 25 ? '#ef4444' : hpPct < 50 ? '#f59e0b' : '#10b981'};">${en.hp} / ${en.maxHp} (${hpPct}%)</span>
+      <span class="floating-tooltip-val" style="color:${hpPct < 25 ? '#ef4444' : hpPct < 50 ? '#f59e0b' : '#10b981'}; font-weight:800;">${en.hp} / ${en.maxHp} (${hpPct}%)</span>
     </div>
     <div class="floating-tooltip-row">
       <span class="floating-tooltip-label">反擊攻擊力</span>
@@ -2216,7 +2237,7 @@ function showEnemyTooltip(en, e) {
     </div>
     <div class="floating-tooltip-row">
       <span class="floating-tooltip-label">蓄力必殺</span>
-      <span class="floating-tooltip-val" style="color:#fbbf24;">${escapeHtml(en.ultName || '狂暴重擊')}</span>
+      <span class="floating-tooltip-val" style="color:var(--color-focus);">${escapeHtml(en.ultName || '狂暴重擊')}</span>
     </div>
     <div class="floating-tooltip-row">
       <span class="floating-tooltip-label">抗性體質</span>
@@ -2227,7 +2248,7 @@ function showEnemyTooltip(en, e) {
   `;
 
   elements.floatingEnemyTooltip.classList.add('visible');
-  positionFloatingTooltip(e, elements.floatingEnemyTooltip);
+  positionFloatingTooltip(eOrTarget, elements.floatingEnemyTooltip);
 }
 
 function hideEnemyTooltip() {
@@ -2236,7 +2257,7 @@ function hideEnemyTooltip() {
   }
 }
 
-// 神魔之塔風格敵方排佈舞台渲染
+// 神魔之塔風格敵方排佈舞台渲染（保留 DOM 節點 diffing，無中斷 hover/focus/animations）
 function renderBattleEnemiesStage(enemies, monster, me) {
   if (!elements.battleEnemiesStage) return;
   if (!enemies || enemies.length === 0) {
@@ -2244,15 +2265,13 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     return;
   }
 
-  // 判定是否為 1 首領/精英 + 小怪陣容
   const bosses = enemies.filter(e => e.isBoss || e.tier === 'ELITE' || e.tier === 'ABYSS');
   const minions = enemies.filter(e => !bosses.includes(e));
 
   let displayOrder = [];
-  let isOneBossMultiMinions = (bosses.length === 1 && minions.length > 0);
+  const isOneBossMultiMinions = (bosses.length === 1 && minions.length > 0);
 
   if (isOneBossMultiMinions) {
-    // 依神魔之塔風格配置：首領/精英放較大置中，小怪放較小置兩側
     if (minions.length === 1) {
       displayOrder = [minions[0], bosses[0]];
     } else if (minions.length === 2) {
@@ -2262,15 +2281,22 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       displayOrder = [...minions.slice(0, half), bosses[0], ...minions.slice(half)];
     }
   } else {
-    // 全小怪或全 Boss 或單一目標
     displayOrder = [...enemies];
   }
 
   const isUltRound = (roomState.battleRound % 3 === 0);
+  const activeIds = new Set(displayOrder.map((en, idx) => String(en.instanceId || en.id || `enemy_${idx}`)));
 
-  let html = '';
+  // 移除不存在之敵人節點
+  Array.from(elements.battleEnemiesStage.querySelectorAll('.battle-enemy-slot')).forEach(slot => {
+    const id = slot.getAttribute('data-enemy-id');
+    if (!activeIds.has(id)) {
+      slot.remove();
+    }
+  });
+
   displayOrder.forEach((en, idx) => {
-    const eid = en.instanceId || en.id || `enemy_${idx}`;
+    const eid = String(en.instanceId || en.id || `enemy_${idx}`);
     const isTarget = eid === (monster?.instanceId || monster?.id) || eid === currentSelectedEnemyId;
     const isDead = en.hp <= 0;
     const hpPct = Math.max(0, Math.min(100, Math.round((en.hp / Math.max(1, en.maxHp)) * 100)));
@@ -2284,63 +2310,142 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     }
 
     const cdTurns = en.cd ?? (isUltRound ? 1 : ((3 - (roomState.battleRound % 3)) % 3 || 3));
-    const cdClass = (cdTurns === 1 || isUltRound) ? 'enemy-cd-badge ult-ready' : 'enemy-cd-badge';
-    const cdText = (cdTurns === 1 || isUltRound) ? 'CD 1 💥' : `CD ${cdTurns}`;
+    const isReady = (cdTurns === 1 || isUltRound);
+    const cdClass = isReady ? 'enemy-cd-badge ult-ready' : 'enemy-cd-badge';
+    const cdIcon = isReady ? getIconSvg('crit', 'ui-icon--sm') : getIconSvg('cooldown', 'ui-icon--sm');
+    const cdText = isReady ? 'CD 1' : `CD ${cdTurns}`;
 
-    const avatarSrc = en.avatar || '';
-    const avatarImg = avatarSrc
-      ? `<img src="${avatarSrc}" class="enemy-sprite-img" alt="${escapeHtml(en.name)}" loading="lazy" />`
-      : `<svg class="svg-icon svg-hero-icon" style="width:60%;height:60%;"><use href="#icon-sword"></use></svg>`;
+    let slot = elements.battleEnemiesStage.querySelector(`.battle-enemy-slot[data-enemy-id="${eid}"]`);
+    if (!slot) {
+      slot = document.createElement('div');
+      slot.className = `battle-enemy-slot ${sizeClass}`;
+      slot.setAttribute('data-enemy-id', eid);
+      slot.setAttribute('role', 'button');
 
-    html += `
-      <div class="battle-enemy-slot ${sizeClass} ${isTarget ? 'is-target' : ''} ${isDead ? 'is-dead' : ''}"
-           data-enemy-id="${escapeHtml(eid)}"
-           role="button"
-           tabindex="${isDead ? -1 : 0}"
-           aria-label="${escapeHtml(en.name)} HP ${en.hp}/${en.maxHp}">
-        <div class="${cdClass}">${cdText}</div>
-        ${isTarget && !isDead ? '<div class="enemy-target-reticle">🎯</div>' : ''}
+      const avatarSrc = en.avatar || '';
+      const avatarImg = avatarSrc
+        ? `<img src="${avatarSrc}" class="enemy-sprite-img portrait-image" alt="${escapeHtml(en.name)}" loading="lazy" />`
+        : getIconSvg('sword', 'svg-hero-icon');
+
+      slot.innerHTML = `
+        <div class="${cdClass}">
+          ${cdIcon}
+          <span class="cd-val">${cdText}</span>
+        </div>
+        <div class="enemy-target-reticle" style="${isTarget && !isDead ? '' : 'display:none;'}">
+          ${getIconSvg('target', 'ui-icon--md')}
+        </div>
         <div class="enemy-sprite-wrap">
           <div class="enemy-pedestal"></div>
           ${avatarImg}
+          <div class="pixel-fx-container"></div>
+          <div class="floating-text-container"></div>
         </div>
         <div class="tos-enemy-hp-bar">
           <div class="tos-hp-fill ${fillClass}" style="width: ${hpPct}%;"></div>
         </div>
-        <div class="tos-enemy-hp-text">${en.hp} / ${en.maxHp}${en.tempHp > 0 ? ` (+🛡️${en.tempHp})` : ''}</div>
+        <div class="tos-enemy-hp-text">
+          <span class="hp-num">${en.hp} / ${en.maxHp}</span>
+          <span class="temp-shield"${en.tempHp > 0 ? '' : ' style="display:none;"'}>
+            ${getIconSvg('shield', 'ui-icon--sm')} +${en.tempHp}
+          </span>
+        </div>
         <div class="tos-enemy-name">${escapeHtml(en.name)}</div>
-      </div>
-    `;
-  });
+        <div class="enemy-status-row"></div>
+      `;
 
-  elements.battleEnemiesStage.innerHTML = html;
+      const selectAction = () => {
+        if (en.hp <= 0) return;
+        currentSelectedEnemyId = eid;
+        socket.emit('battle:select_target', { targetEnemyId: eid });
+        renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
+      };
 
-  // 綁定點擊目標切換與懸浮提示面板
-  elements.battleEnemiesStage.querySelectorAll('.battle-enemy-slot').forEach(slot => {
-    const eid = slot.getAttribute('data-enemy-id');
-    const en = enemies.find(e => (e.instanceId || e.id || '') === eid);
-    if (!en) return;
+      slot.addEventListener('click', () => {
+        selectAction();
+        showEnemyTooltip(en, slot);
+      });
 
-    slot.addEventListener('click', () => {
-      if (en.hp <= 0) return;
-      currentSelectedEnemyId = eid;
-      socket.emit('battle:select_target', { targetEnemyId: eid });
-      renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
-    });
+      slot.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectAction();
+          showEnemyTooltip(en, slot);
+        }
+      });
 
-    slot.addEventListener('mouseenter', (e) => {
-      showEnemyTooltip(en, e);
-    });
-    slot.addEventListener('mousemove', (e) => {
-      positionFloatingTooltip(e, elements.floatingEnemyTooltip);
-    });
-    slot.addEventListener('mouseleave', () => {
-      hideEnemyTooltip();
-    });
+      slot.addEventListener('mouseenter', (e) => {
+        showEnemyTooltip(en, e);
+      });
+      slot.addEventListener('mousemove', (e) => {
+        positionFloatingTooltip(e, elements.floatingEnemyTooltip);
+      });
+      slot.addEventListener('mouseleave', () => {
+        hideEnemyTooltip();
+      });
+      slot.addEventListener('focus', () => {
+        showEnemyTooltip(en, slot);
+      });
+      slot.addEventListener('blur', () => {
+        hideEnemyTooltip();
+      });
+
+      elements.battleEnemiesStage.appendChild(slot);
+    } else {
+      // 保留原有節點，依序 appendChild 更新順序
+      elements.battleEnemiesStage.appendChild(slot);
+
+      slot.className = `battle-enemy-slot ${sizeClass} ${isTarget ? 'is-target' : ''} ${isDead ? 'is-dead' : ''}`;
+
+      const cdBadge = slot.querySelector('.enemy-cd-badge');
+      if (cdBadge) {
+        cdBadge.className = cdClass;
+        cdBadge.innerHTML = `${cdIcon} <span class="cd-val">${cdText}</span>`;
+      }
+
+      const reticle = slot.querySelector('.enemy-target-reticle');
+      if (reticle) {
+        reticle.style.display = (isTarget && !isDead) ? '' : 'none';
+      }
+
+      const fill = slot.querySelector('.tos-hp-fill');
+      if (fill) {
+        fill.className = `tos-hp-fill ${fillClass}`;
+        fill.style.width = `${hpPct}%`;
+      }
+
+      const hpNum = slot.querySelector('.hp-num');
+      if (hpNum) hpNum.textContent = `${en.hp} / ${en.maxHp}`;
+
+      const tempShield = slot.querySelector('.temp-shield');
+      if (tempShield) {
+        tempShield.style.display = en.tempHp > 0 ? '' : 'none';
+        tempShield.innerHTML = `${getIconSvg('shield', 'ui-icon--sm')} +${en.tempHp}`;
+      }
+
+      const nameEl = slot.querySelector('.tos-enemy-name');
+      if (nameEl) nameEl.textContent = en.name;
+    }
+
+    slot.tabIndex = isDead ? -1 : 0;
+    slot.setAttribute('aria-label', `${en.name} HP ${en.hp}/${en.maxHp}`);
+
+    // 狀態小標籤更新
+    const statusRow = slot.querySelector('.enemy-status-row');
+    if (statusRow) {
+      const activeBadges = [];
+      if (en.poisonTurns > 0) activeBadges.push(getIconSvg('poison', 'ui-icon--sm'));
+      if (en.burnTurns > 0) activeBadges.push(getIconSvg('fire', 'ui-icon--sm'));
+      if (en.fractureTurns > 0) activeBadges.push(getIconSvg('bone', 'ui-icon--sm'));
+      if (en.chillTurns > 0) activeBadges.push(getIconSvg('snowflake', 'ui-icon--sm'));
+      if (en.corrosionTurns > 0) activeBadges.push(getIconSvg('flask', 'ui-icon--sm'));
+      if (en.isWeakened) activeBadges.push(getIconSvg('status', 'ui-icon--sm'));
+      statusRow.innerHTML = activeBadges.map(svg => `<span class="enemy-status-badge">${svg}</span>`).join('');
+    }
   });
 }
 
-// 4. 渲染戰鬥畫面 (P2-R1 Section 23, 24: 首領進場與回合橫幅走 Presentation Root)
+// 4. 渲染戰鬥畫面
 let currentSelectedEnemyId = null;
 function renderBattle(me, isLeader) {
   const enemies = Array.isArray(roomState.enemies) && roomState.enemies.length > 0 ? roomState.enemies : (roomState.currentMonster ? [roomState.currentMonster] : []);
@@ -2353,7 +2458,7 @@ function renderBattle(me, isLeader) {
   const monster = enemies.find(e => (e.instanceId || e.id) === currentSelectedEnemyId) || roomState.currentMonster;
   if (!monster) return;
 
-  // 神魔之塔風格敵方戰場編隊排佈舞台與血條渲染
+  // 神魔之塔風格敵方戰場編隊排佈舞台與血條渲染（唯一舞台）
   renderBattleEnemiesStage(enemies, monster, me);
 
   elements.battleFloorNum.textContent = roomState.floor;
@@ -2379,45 +2484,47 @@ function renderBattle(me, isLeader) {
     elements.battleTimerCount.textContent = roomState.timerRemaining;
   }
 
-  // 怪物卡
-  elements.monsterName.textContent = monster.name;
-  elements.monsterDesc.textContent = monster.desc;
-  elements.monsterHpText.textContent = `${monster.hp} / ${monster.maxHp}${monster.tempHp > 0 ? ` (+🛡️${monster.tempHp})` : ''}`;
+  // 舊版怪物卡元件安全回退（若存在於測試環境）
+  if (elements.monsterName) elements.monsterName.textContent = monster.name;
+  if (elements.monsterDesc) elements.monsterDesc.textContent = monster.desc;
+  if (elements.monsterHpText) elements.monsterHpText.textContent = `${monster.hp} / ${monster.maxHp}${monster.tempHp > 0 ? ` (+${monster.tempHp})` : ''}`;
   const monsterHpPercent = Math.max(0, Math.min(100, (monster.hp / monster.maxHp) * 100));
-  elements.monsterHpFill.style.width = `${monsterHpPercent}%`;
+  if (elements.monsterHpFill) elements.monsterHpFill.style.width = `${monsterHpPercent}%`;
 
-  // 怪物頭像
-  if (monster.avatar) {
-    elements.monsterAvatar.innerHTML = `<img src="${monster.avatar}" class="monster-avatar-img portrait-image" alt="${escapeHtml(monster.name)}">`;
-  if (typeof syncPortraitStatusFx === 'function') {
-    syncPortraitStatusFx(monster, elements.monsterAvatarWrap || elements.monsterAvatar, { scale: 1.1 });
-  }
-  } else {
-    elements.monsterAvatar.innerHTML = getIconSvg('sword', 'svg-hero-icon');
+  if (elements.monsterAvatar) {
+    if (monster.avatar) {
+      elements.monsterAvatar.innerHTML = `<img src="${monster.avatar}" class="monster-avatar-img portrait-image" alt="${escapeHtml(monster.name)}">`;
+      if (typeof syncPortraitStatusFx === 'function') {
+        syncPortraitStatusFx(monster, elements.monsterAvatarWrap || elements.monsterAvatar, { scale: 1.1 });
+      }
+    } else {
+      elements.monsterAvatar.innerHTML = getIconSvg('sword', 'svg-hero-icon');
+    }
   }
 
-  // 每場戰鬥固定的三抗；鏡像夢境交換物魔抗性。
   const resistances = monster.resistances || { physical: monster.resistance === 'phys' ? 70 : 0, magic: monster.resistance === 'mag' ? 70 : 0, effect: 0 };
   const mirrored = monster.p8Effects?.mirror?.until >= roomState.battleRound;
   const physical = mirrored ? resistances.magic : resistances.physical;
   const magic = mirrored ? resistances.physical : resistances.magic;
-  elements.monsterResTag.className = 'res-tag res-none';
-  elements.monsterResTag.textContent = `物抗 ${physical}% · 魔抗 ${magic}% · 效果抗性 ${resistances.effect}%`;
-  elements.monsterResTag.title = '效果抗性：免疫負面狀態的機率。額外三抗於開戰時分別抽取 0～50%（每次以 5% 為單位），樓層越深越容易抽到高值。';
-
-  // 怪物威脅度與必殺警告
-  const isUltRound = (roomState.battleRound % 3 === 0);
-  const ultAtk = Math.floor(monster.attack * 1.35);
-  elements.monsterAtkText.textContent = `${isUltRound ? ultAtk : monster.attack} 點`;
-  if (isUltRound) {
-    elements.monsterUltName.textContent = `${monster.ultName} (1.35x 必殺爆發！)`;
-    elements.monsterUltName.classList.add('ult-alert');
-  } else {
-    elements.monsterUltName.textContent = `${monster.ultName} (每3回合發動)`;
-    elements.monsterUltName.classList.remove('ult-alert');
+  if (elements.monsterResTag) {
+    elements.monsterResTag.className = 'res-tag res-none';
+    elements.monsterResTag.textContent = `物抗 ${physical}% · 魔抗 ${magic}% · 效果抗性 ${resistances.effect}%`;
+    elements.monsterResTag.title = '效果抗性：免疫負面狀態的機率。';
   }
 
-  // 怪物劇毒與削弱狀態提示 + 多目標敵方編隊選擇列
+  const isUltRoundMonster = (roomState.battleRound % 3 === 0);
+  const ultAtk = Math.floor(monster.attack * 1.35);
+  if (elements.monsterAtkText) elements.monsterAtkText.textContent = `${isUltRoundMonster ? ultAtk : monster.attack} 點`;
+  if (elements.monsterUltName) {
+    if (isUltRoundMonster) {
+      elements.monsterUltName.textContent = `${monster.ultName} (1.35x 必殺爆發！)`;
+      elements.monsterUltName.classList.add('ult-alert');
+    } else {
+      elements.monsterUltName.textContent = `${monster.ultName} (每3回合發動)`;
+      elements.monsterUltName.classList.remove('ult-alert');
+    }
+  }
+
   if (elements.monsterBuffsRow) {
     let buffHtml = '';
     if (enemies.length > 1) {
@@ -2432,7 +2539,7 @@ function renderBattle(me, isLeader) {
           <span style="font-weight:700;color:${en.tier === 'ABYSS' ? '#c084fc' : en.tier === 'ELITE' ? '#fbbf24' : '#94a3b8'};">[${tierLabel}]</span>
           <span>${escapeHtml(en.name)}</span>
           <span style="font-family:monospace;color:${isDead ? '#ef4444' : '#cbd5e1'};">${en.hp}/${en.maxHp} (${hpPct}%)</span>
-          ${isTarget && !isDead ? '<span style="color:#f59e0b;">🎯</span>' : ''}
+          ${isTarget && !isDead ? getIconSvg('target', 'ui-icon--sm') : ''}
         </button>`;
       });
       buffHtml += `</div>`;
@@ -2444,16 +2551,16 @@ function renderBattle(me, isLeader) {
       buffHtml += `<span class="buff-badge tag-poison">${getIconSvg('poison')} 中毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
     }
     if (monster.burnTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;">🔥 燃燒 (${monster.burnTurns} 回合 / 每回合-${monster.burnDmg || 7})</span>`;
+      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;">${getIconSvg('fire')} 燃燒 (${monster.burnTurns} 回合 / 每回合-${monster.burnDmg || 7})</span>`;
     }
     if (monster.fractureTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;">🦴 骨折 (${monster.fractureTurns} 回合 / 每回合-${monster.fractureDmg || 2})</span>`;
+      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;">${getIconSvg('bone')} 骨折 (${monster.fractureTurns} 回合 / 每回合-${monster.fractureDmg || 2})</span>`;
     }
     if (monster.chillTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;">❄️ 寒冷 (${monster.chillTurns} 回合 / 每回合-${monster.chillDmg || 3})</span>`;
+      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;">${getIconSvg('snowflake')} 寒冷 (${monster.chillTurns} 回合 / 每回合-${monster.chillDmg || 3})</span>`;
     }
     if (monster.corrosionTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;">🧪 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
+      buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;">${getIconSvg('flask')} 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
     elements.monsterBuffsRow.querySelectorAll('.enemy-target-chip').forEach(btn => {
@@ -4365,23 +4472,36 @@ function playPixelFx(container, fxType) {
 }
 
 // 首領受擊演出 (帶有 x+8, y+3 之右後方向性位移 + Pixel FX)
-function triggerHitOnMonster(isCrit = false, fxType = 'slash', value = 0) {
-  if (elements.monsterCard) {
-    elements.monsterCard.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
-    void elements.monsterCard.offsetWidth;
-    elements.monsterCard.classList.add('hit-displace-boss');
+function triggerHitOnMonster(isCrit = false, fxType = 'slash', value = 0, targetEnemyId = null) {
+  const targetSlot = (targetEnemyId ? document.querySelector(`.battle-enemy-slot[data-enemy-id="${targetEnemyId}"]`) : null)
+    || document.querySelector('.battle-enemy-slot.is-target')
+    || document.querySelector('.battle-enemy-slot.is-boss-slot')
+    || document.querySelector('.battle-enemy-slot:not(.is-dead)')
+    || document.querySelector('.battle-enemy-slot')
+    || elements.monsterCard;
+
+  if (targetSlot) {
+    targetSlot.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
+    void targetSlot.offsetWidth;
+    targetSlot.classList.add('hit-displace-boss');
     if (isCrit) {
-      elements.monsterCard.classList.add('crit-frame-flash');
+      targetSlot.classList.add('crit-frame-flash');
     }
     setTimeout(() => {
-      if (elements.monsterCard) {
-        elements.monsterCard.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
-      }
+      targetSlot.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
     }, 420);
+
+    const fxContainer = targetSlot.querySelector('.pixel-fx-container') || elements.monsterPixelFx;
+    if (fxContainer) {
+      playPixelFx(fxContainer, fxType);
+    }
   }
 
-  if (elements.monsterPixelFx) {
-    playPixelFx(elements.monsterPixelFx, fxType);
+  if (elements.monsterCard && elements.monsterCard !== targetSlot) {
+    if (isCrit) {
+      elements.monsterCard.classList.add('crit-frame-flash');
+      setTimeout(() => elements.monsterCard.classList.remove('crit-frame-flash'), 250);
+    }
   }
 }
 
@@ -4489,13 +4609,17 @@ function playSinglePlayerVisualEvent(ev) {
       }
     }
 
-    triggerHitOnMonster(ev.isCrit, fxType, ev.value);
+    triggerHitOnMonster(ev.isCrit, fxType, ev.value, ev.targetEnemyId);
     playSound(sfxName);
 
+    const floatTarget = (ev.targetEnemyId ? document.querySelector(`.battle-enemy-slot[data-enemy-id="${ev.targetEnemyId}"] .floating-text-container`) : null)
+      || document.querySelector('.battle-enemy-slot.is-target .floating-text-container')
+      || document.querySelector('.battle-enemy-slot .floating-text-container')
+      || elements.monsterFloatingContainer;
     if (ev.isCrit) {
-      spawnFloatingText(elements.monsterFloatingContainer, `CRIT -${ev.value}!`, 'crit');
+      spawnFloatingText(floatTarget, `CRIT -${ev.value}!`, 'crit');
     } else {
-      spawnFloatingText(elements.monsterFloatingContainer, `-${ev.value}`, 'damage');
+      spawnFloatingText(floatTarget, `-${ev.value}`, 'damage');
     }
   } else if (ev.type === 'shield_cast') {
     triggerShieldOnTeam('築起壁壘守護！');
@@ -4708,16 +4832,38 @@ function hideCombatActionBanner() {
   elements.combatActionBanner.classList.add('hidden');
 }
 
-function updateMonsterHpDisplay(hp, maxHp) {
-  if (!elements.monsterHpText || !elements.monsterHpFill) return;
+function updateMonsterHpDisplay(hp, maxHp, enemyId = null) {
   const safeHp = Math.max(0, hp);
-  elements.monsterHpText.textContent = `${safeHp} / ${maxHp}`;
-  const pct = Math.max(0, Math.min(100, (safeHp / maxHp) * 100));
-  elements.monsterHpFill.style.width = `${pct}%`;
+  const pct = Math.max(0, Math.min(100, (safeHp / Math.max(1, maxHp)) * 100));
+  if (elements.monsterHpText) elements.monsterHpText.textContent = `${safeHp} / ${maxHp}`;
+  if (elements.monsterHpFill) elements.monsterHpFill.style.width = `${pct}%`;
+
+  const slot = (enemyId ? document.querySelector(`.battle-enemy-slot[data-enemy-id="${enemyId}"]`) : null)
+    || document.querySelector('.battle-enemy-slot.is-target')
+    || document.querySelector('.battle-enemy-slot.is-boss-slot')
+    || document.querySelector('.battle-enemy-slot');
+
+  if (slot) {
+    const fill = slot.querySelector('.tos-hp-fill');
+    if (fill) {
+      fill.style.width = `${pct}%`;
+      fill.className = `tos-hp-fill ${pct < 25 ? 'hp-crit' : (pct < 50 ? 'hp-warn' : '')}`;
+    }
+    const hpNum = slot.querySelector('.hp-num');
+    if (hpNum) {
+      hpNum.textContent = `${safeHp} / ${maxHp}`;
+    }
+    if (safeHp <= 0) {
+      slot.classList.add('is-dead');
+      slot.tabIndex = -1;
+    } else {
+      slot.classList.remove('is-dead');
+      slot.tabIndex = 0;
+    }
+  }
 }
 
 // 專用非破壞性 HUD 增量更新 (P2-R1.1 Section 1)
-// 僅更新血條、數值、護盾與死亡視覺，嚴禁呼叫 renderTeammatesGrid 或重建任何主要 DOM
 function updateBattleHudFromSnapshot(snapshot) {
   if (!snapshot) return;
 
@@ -4733,7 +4879,7 @@ function updateBattleHudFromSnapshot(snapshot) {
         roomState.currentMonster.maxHp = snapshot.monster.maxHp;
       }
     }
-    updateMonsterHpDisplay(snapshot.monster.hp, snapshot.monster.maxHp);
+    updateMonsterHpDisplay(snapshot.monster.hp, snapshot.monster.maxHp, snapshot.monster.instanceId || snapshot.monster.id);
     if (elements.monsterAvatar) {
       if (snapshot.monster.hp <= 0) {
         elements.monsterAvatar.classList.add('is-dead');
@@ -4744,6 +4890,16 @@ function updateBattleHudFromSnapshot(snapshot) {
         syncPortraitStatusFx(snapshot.monster, elements.monsterAvatarWrap || elements.monsterAvatar, { scale: 1.1 });
       }
     }
+  }
+
+  // 多目標編隊敵方血條更新
+  if (Array.isArray(snapshot.enemies)) {
+    snapshot.enemies.forEach(en => {
+      const eid = en.instanceId || en.id;
+      if (eid) {
+        updateMonsterHpDisplay(en.hp, en.maxHp, eid);
+      }
+    });
   }
 
   // 2. 隊友 HP、額外生命、死亡狀態增量更新 (無重繪)
@@ -5079,10 +5235,16 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
           if (monsterAction) playMonsterVisualEvent(monsterAction);
         } else if (nar.type === 'kill') {
           playSound('victory');
-          spawnFloatingText(elements.monsterFloatingContainer, '擊殺！VICTORY', 'crit');
-          if (elements.monsterAvatar) {
-            elements.monsterAvatar.classList.add('shaking');
-            setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
+          const killTarget1 = document.querySelector('.battle-enemy-slot.is-target .floating-text-container')
+            || document.querySelector('.battle-enemy-slot .floating-text-container')
+            || elements.monsterFloatingContainer;
+          spawnFloatingText(killTarget1, '擊殺！VICTORY', 'crit');
+          const activeSprite1 = document.querySelector('.battle-enemy-slot.is-target .enemy-sprite-wrap')
+            || document.querySelector('.battle-enemy-slot .enemy-sprite-wrap')
+            || elements.monsterAvatar;
+          if (activeSprite1) {
+            activeSprite1.classList.add('shaking');
+            setTimeout(() => activeSprite1.classList.remove('shaking'), 500);
           }
         }
       }, idx * stepMs);
@@ -5105,10 +5267,16 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
     setTimeout(() => {
       if (monsterKilled) {
         playSound('victory');
-        spawnFloatingText(elements.monsterFloatingContainer, '擊殺！VICTORY', 'crit');
-        if (elements.monsterAvatar) {
-          elements.monsterAvatar.classList.add('shaking');
-          setTimeout(() => elements.monsterAvatar.classList.remove('shaking'), 500);
+        const killTarget2 = document.querySelector('.battle-enemy-slot.is-target .floating-text-container')
+          || document.querySelector('.battle-enemy-slot .floating-text-container')
+          || elements.monsterFloatingContainer;
+        spawnFloatingText(killTarget2, '擊殺！VICTORY', 'crit');
+        const activeSprite2 = document.querySelector('.battle-enemy-slot.is-target .enemy-sprite-wrap')
+          || document.querySelector('.battle-enemy-slot .enemy-sprite-wrap')
+          || elements.monsterAvatar;
+        if (activeSprite2) {
+          activeSprite2.classList.add('shaking');
+          setTimeout(() => activeSprite2.classList.remove('shaking'), 500);
         }
         return;
       }
