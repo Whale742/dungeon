@@ -6971,6 +6971,8 @@ function renderInventoryModal() {
 // ==========================================
 // Phase 3: 商店、寶箱與隨機事件互動渲染
 // ==========================================
+let currentShopCategoryTab = 'all';
+
 function renderInteractiveEvent(ev) {
   if (!elements.eventCardBox) return;
   elements.eventCardBox.classList.remove('hidden');
@@ -6980,109 +6982,185 @@ function renderInteractiveEvent(ev) {
 
   if (ev.type === 'shop') {
     elements.eventCardBox?.classList.add('is-shop-event');
-    elements.eventIcon.innerHTML = '🛒';
-    elements.eventTitle.textContent = ev.title || '🛒 迷宮行商據點';
+    elements.eventIcon.innerHTML = getIconSvg('shop', 'svg-hero-icon');
+    elements.eventTitle.textContent = (ev.title || '迷宮行商據點').replace(/^[🛒🏕️\s]+/, '');
     elements.eventStoryText.textContent = ev.story || '';
 
     const currentGold = roomState.gold || 0;
-    const itemsHtml = (ev.items || []).map((item, idx) => {
-      const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
-      const iconHtml = renderItemIconHtml(item, 'shop-item-icon');
-      const tagLabel = isExclusive ? `專屬(${item.role || '職業'})` : (item.tier === 2 ? 'T2 通用' : 'T1 通用');
-      return `
-      <div class="shop-item-card" data-index="${idx}">
-        <div class="shop-item-icon-wrap">
-          ${iconHtml}
-        </div>
-        <div class="shop-item-info">
-          <div class="shop-item-title-row">
-            <span class="shop-item-name">【${escapeHtml(item.name)}】</span>
-            <span class="shop-item-tag ${isExclusive ? 'tag-exclusive' : 'tag-general'}">${tagLabel}</span>
-          </div>
-          <div class="shop-item-cost">🪙 ${item.price}G</div>
-          <div class="shop-item-desc">${escapeHtml(item.desc || '')}</div>
-        </div>
-        <button type="button" class="btn-shop-buy" data-index="${idx}" ${currentGold < item.price ? 'disabled' : ''}>
-          購買 (${item.price}G)
-        </button>
-      </div>
-      `;
-    }).join('');
+    const hasEquipment = (ev.items || []).length > 0;
+    const hasConsumables = (ev.consumables || []).length > 0;
+    const hasBuyback = (ev.buybackPool || []).length > 0;
 
-    // 2. 冒險補給消耗品
-    const consumablesHtml = (ev.consumables || []).map((c, idx) => {
-      const iconHtml = renderItemIconHtml(c, 'shop-item-icon');
-      return `
-      <div class="shop-item-card is-consumable" data-consumable-idx="${idx}">
-        <div class="shop-item-icon-wrap">
-          ${iconHtml}
-        </div>
-        <div class="shop-item-info">
-          <div class="shop-item-title-row">
-            <span class="shop-item-name" style="color:#34d399;">【${escapeHtml(c.name)}】</span>
-            <span class="shop-item-tag tag-consumable">消耗品</span>
-          </div>
-          <div class="shop-item-cost">🪙 ${c.price}G</div>
-          <div class="shop-item-desc">${escapeHtml(c.desc || '')}</div>
-        </div>
-        <button type="button" class="btn-shop-buy-consumable" data-consumable-idx="${idx}" ${currentGold < c.price ? 'disabled' : ''}>
-          購買 (${c.price}G)
-        </button>
-      </div>
-      `;
-    }).join('');
+    const availableTabs = [
+      { id: 'all', label: '全部商品', count: (ev.items?.length || 0) + (ev.consumables?.length || 0) + (ev.buybackPool?.length || 0) }
+    ];
+    if (hasEquipment) availableTabs.push({ id: 'equipment', label: '精選裝備', count: ev.items.length, icon: 'sword' });
+    if (hasConsumables) availableTabs.push({ id: 'consumables', label: '冒險補給', count: ev.consumables.length, icon: 'potion' });
+    if (hasBuyback) availableTabs.push({ id: 'buyback', label: '原價購回', count: ev.buybackPool.length, icon: 'cooldown' });
 
-    // 3. 防手滑原價買回區 (buybackPool)
-    const buybackList = ev.buybackPool || [];
-    const buybackHtml = buybackList.length > 0 ? `
-      <div class="shop-buyback-section">
-        <div class="shop-section-title">🔄 防手滑原價買回 (離開商店前可原價購回)</div>
-        <div class="shop-buyback-grid">
-          ${buybackList.map((bb, bIdx) => {
-            const iconHtml = renderItemIconHtml(bb, 'shop-item-icon');
-            return `
-            <div class="shop-item-card is-buyback" data-buyback-idx="${bIdx}">
-              <div class="shop-item-icon-wrap">
-                ${iconHtml}
-              </div>
-              <div class="shop-item-info">
-                <div class="shop-item-title-row">
-                  <span class="shop-item-name" style="color:#fbbf24;">【${escapeHtml(bb.name)}】</span>
-                  <span class="shop-item-tag tag-exclusive">買回區</span>
-                </div>
-                <div class="shop-item-cost">🪙 原價: ${bb.soldPrice}G</div>
-                <div class="shop-item-desc">${escapeHtml(bb.desc || '')}</div>
-              </div>
-              <button type="button" class="btn-shop-buyback" data-buyback-idx="${bIdx}" ${currentGold < bb.soldPrice ? 'disabled' : ''}>
-                原價買回 (${bb.soldPrice}G)
-              </button>
-            </div>
-            `;
-          }).join('')}
-        </div>
+    if (!availableTabs.some(t => t.id === currentShopCategoryTab)) {
+      currentShopCategoryTab = 'all';
+    }
+
+    const tabsNavHtml = availableTabs.length > 2 ? `
+      <div class="shop-tabs-nav">
+        ${availableTabs.map(t => `
+          <button type="button" class="shop-tab-btn ${currentShopCategoryTab === t.id ? 'active' : ''}" data-tab="${t.id}">
+            ${t.icon ? getIconSvg(t.icon, 'ui-icon--sm') : ''}
+            <span>${t.label} (${t.count})</span>
+          </button>
+        `).join('')}
       </div>
     ` : '';
 
+    const showEquip = currentShopCategoryTab === 'all' || currentShopCategoryTab === 'equipment';
+    const showCons = currentShopCategoryTab === 'all' || currentShopCategoryTab === 'consumables';
+    const showBb = currentShopCategoryTab === 'all' || currentShopCategoryTab === 'buyback';
+
+    const equipCards = showEquip ? (ev.items || []).map((item, idx) => {
+      const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
+      const isRare = item.tier === 2;
+      const rarityClass = isExclusive ? 'is-exclusive' : (isRare ? 'is-rare' : '');
+      const iconHtml = renderItemIconHtml(item, 'shop-item-icon');
+      const tagLabel = isExclusive ? `專屬(${item.role || '職業'})` : (isRare ? 'T2 珍品' : 'T1 通用');
+
+      return `
+        <div class="shop-item-card ${rarityClass}" data-type="equip" data-index="${idx}" tabindex="0" role="button" aria-label="${escapeHtml(item.name)} ${item.price} 金幣">
+          <div class="shop-item-icon-wrap">
+            ${iconHtml}
+          </div>
+          <div class="shop-item-info">
+            <div class="shop-item-title-row">
+              <span class="shop-item-name" style="color: ${isExclusive ? 'var(--rarity-exclusive)' : (isRare ? 'var(--rarity-rare)' : 'var(--color-physical)')};">
+                【${escapeHtml(item.name)}】
+              </span>
+              <span class="shop-item-tag ${isExclusive ? 'tag-exclusive' : 'tag-general'}">${tagLabel}</span>
+            </div>
+            <div class="shop-item-cost">
+              ${getIconSvg('gold', 'ui-icon--sm')} ${item.price} G
+            </div>
+            <div class="shop-item-desc">${escapeHtml(item.desc || '')}</div>
+          </div>
+          <button type="button" class="btn-shop-buy" data-index="${idx}" ${currentGold < item.price ? 'disabled' : ''}>
+            購買 (${item.price}G)
+          </button>
+        </div>
+      `;
+    }).join('') : '';
+
+    const consCards = showCons ? (ev.consumables || []).map((c, idx) => {
+      const iconHtml = renderItemIconHtml(c, 'shop-item-icon');
+      return `
+        <div class="shop-item-card is-consumable" data-type="consumable" data-consumable-idx="${idx}" tabindex="0" role="button" aria-label="${escapeHtml(c.name)} ${c.price} 金幣">
+          <div class="shop-item-icon-wrap">
+            ${iconHtml}
+          </div>
+          <div class="shop-item-info">
+            <div class="shop-item-title-row">
+              <span class="shop-item-name" style="color:var(--rarity-consumable);">【${escapeHtml(c.name)}】</span>
+              <span class="shop-item-tag tag-consumable">消耗品</span>
+            </div>
+            <div class="shop-item-cost">
+              ${getIconSvg('gold', 'ui-icon--sm')} ${c.price} G
+            </div>
+            <div class="shop-item-desc">${escapeHtml(c.desc || '')}</div>
+          </div>
+          <button type="button" class="btn-shop-buy-consumable" data-consumable-idx="${idx}" ${currentGold < c.price ? 'disabled' : ''}>
+            購買 (${c.price}G)
+          </button>
+        </div>
+      `;
+    }).join('') : '';
+
+    const buybackCards = showBb ? (ev.buybackPool || []).map((bb, bIdx) => {
+      const iconHtml = renderItemIconHtml(bb, 'shop-item-icon');
+      return `
+        <div class="shop-item-card is-buyback" data-type="buyback" data-buyback-idx="${bIdx}" tabindex="0" role="button" aria-label="${escapeHtml(bb.name)} 原價 ${bb.soldPrice} 金幣">
+          <div class="shop-item-icon-wrap">
+            ${iconHtml}
+          </div>
+          <div class="shop-item-info">
+            <div class="shop-item-title-row">
+              <span class="shop-item-name" style="color:var(--color-focus);">【${escapeHtml(bb.name)}】</span>
+              <span class="shop-item-tag tag-exclusive">購回區</span>
+            </div>
+            <div class="shop-item-cost">
+              ${getIconSvg('gold', 'ui-icon--sm')} 原價: ${bb.soldPrice} G
+            </div>
+            <div class="shop-item-desc">${escapeHtml(bb.desc || '')}</div>
+          </div>
+          <button type="button" class="btn-shop-buyback" data-buyback-idx="${bIdx}" ${currentGold < bb.soldPrice ? 'disabled' : ''}>
+            購回 (${bb.soldPrice}G)
+          </button>
+        </div>
+      `;
+    }).join('') : '';
+
     elements.eventDetails.innerHTML = `
       <div class="shop-container">
-        <div class="shop-section-title">⚔️ 精選裝備貨架</div>
-        <div class="shop-items-grid">${itemsHtml}</div>
-        <div class="shop-section-title">🧪 冒險必備消耗品（購買後存入小隊背包）</div>
-        <div class="shop-consumables-grid">${consumablesHtml}</div>
-        ${buybackHtml}
+        <div class="shop-header-row">
+          <div class="shop-gold-badge">
+            ${getIconSvg('gold', 'ui-icon--sm')}
+            <span>小隊金幣：<b>${currentGold}</b> G</span>
+          </div>
+          <div style="font-size:13px;color:var(--color-text-muted);">
+            ${ev.isShady ? '※ 黑市奸商物品售價昂貴，但可強取或暗行行竊' : '※ 商隊信譽優良，提供充足休整與物資'}
+          </div>
+        </div>
+
+        ${tabsNavHtml}
+
+        <div class="shop-goods-grid">
+          ${equipCards}
+          ${consCards}
+          ${buybackCards}
+        </div>
+
         <div class="shop-special-actions">
           <button type="button" class="btn-shop-action btn-shop-rest" ${currentGold < (ev.restPrice || 30) ? 'disabled' : ''}>
-            ⛺ 休憩整頓 (${ev.restPrice || 30}G / 全員回復 35% HP)
+            ${getIconSvg('camp', 'ui-icon--sm')}
+            <span>休憩營地 (${ev.restPrice || 30}G / 全員回復 35% HP)</span>
           </button>
-          ${ev.canRob ? `<button type="button" class="btn-shop-action btn-shop-rob">⚔️ 翻臉搶劫奸商！</button>` : ''}
-          ${ev.canSteal ? `<button type="button" class="btn-shop-action btn-shop-steal">🗡️ 刺客暗中行竊 (50%免戰偷取)</button>` : ''}
-          <button type="button" class="btn-shop-action btn-shop-leave">告別離開 ›</button>
+          ${ev.canRob ? `
+            <button type="button" class="btn-shop-action btn-shop-rob">
+              ${getIconSvg('sword', 'ui-icon--sm')}
+              <span>翻臉洗劫奸商！</span>
+            </button>
+          ` : ''}
+          ${ev.canSteal ? `
+            <button type="button" class="btn-shop-action btn-shop-steal">
+              ${getIconSvg('lock', 'ui-icon--sm')}
+              <span>刺客暗中行竊 (50%免戰偷取)</span>
+            </button>
+          ` : ''}
+          <button type="button" class="btn-shop-action btn-shop-sell">
+            ${getIconSvg('chest', 'ui-icon--sm')}
+            <span>開啟行囊販售</span>
+          </button>
+          <button type="button" class="btn-shop-action btn-shop-leave">
+            ${getIconSvg('leave', 'ui-icon--sm')}
+            <span>告別離開 ›</span>
+          </button>
         </div>
-        <div class="shop-sell-hint">可開啟背包販售裝備</div>
       </div>
     `;
 
-    // 綁定 Hover 顯示浮動提示面板
+    // 類別標籤切換
+    elements.eventDetails.querySelectorAll('.shop-tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        currentShopCategoryTab = btn.getAttribute('data-tab') || 'all';
+        renderInteractiveEvent(ev);
+      };
+    });
+
+    // 點擊販售按鈕開啟背包
+    elements.eventDetails.querySelector('.btn-shop-sell')?.addEventListener('click', () => {
+      renderInventoryModal();
+      if (window.ModalMotion) ModalMotion.show(elements.inventoryModal);
+      else elements.inventoryModal?.classList.remove('hidden');
+    });
+
+    // 物品卡片 Hover / Focus / Tap 浮動提示
     elements.eventDetails.querySelectorAll('.shop-item-card').forEach(card => {
       let item = null;
       if (card.dataset.index !== undefined) {
@@ -7096,78 +7174,148 @@ function renderInteractiveEvent(ev) {
         card.addEventListener('mouseenter', (e) => showItemTooltip(item, e, true));
         card.addEventListener('mousemove', (e) => positionItemTooltip(e, elements.floatingItemTooltip));
         card.addEventListener('mouseleave', () => hideItemTooltip());
+        card.addEventListener('focus', () => showItemTooltip(item, card, true));
+        card.addEventListener('blur', () => hideItemTooltip());
+        card.addEventListener('click', (e) => {
+          if (!e.target.closest('button')) {
+            showItemTooltip(item, card, true);
+          }
+        });
       }
     });
 
+    // 防重複點擊與伺服器回執 (Server-confirmed buy action)
     elements.eventDetails.querySelectorAll('.btn-shop-buy').forEach(b => {
       b.onclick = (e) => {
         e.stopPropagation();
         hideItemTooltip(true);
+        if (b.disabled) return;
+        b.disabled = true;
+        const originalText = b.textContent;
+        b.textContent = '購買中...';
         const itemIndex = Number(b.dataset.index);
-        socket.emit('event:shop_action', { action: 'buy', itemIndex });
+        socket.emit('event:shop_action', { action: 'buy', itemIndex }, (res) => {
+          b.disabled = false;
+          b.textContent = originalText;
+          if (res && !res.success) {
+            alert(res.message || '購買失敗');
+          } else if (res?.success && res.item && window.RewardPresentation) {
+            RewardPresentation.enqueue({ type: 'item', item: res.item, title: '購買成功' });
+          }
+        });
       };
     });
+
     elements.eventDetails.querySelectorAll('.btn-shop-buy-consumable').forEach(b => {
       b.onclick = (e) => {
         e.stopPropagation();
         hideItemTooltip(true);
+        if (b.disabled) return;
+        b.disabled = true;
+        const originalText = b.textContent;
+        b.textContent = '購買中...';
         const consumableIndex = Number(b.dataset.consumableIdx);
-        socket.emit('event:shop_action', { action: 'buy', isConsumable: true, consumableIndex });
+        socket.emit('event:shop_action', { action: 'buy', isConsumable: true, consumableIndex }, (res) => {
+          b.disabled = false;
+          b.textContent = originalText;
+          if (res && !res.success) {
+            alert(res.message || '購買失敗');
+          } else if (res?.success && res.item && window.RewardPresentation) {
+            RewardPresentation.enqueue({ type: 'item', item: res.item, title: '購買成功' });
+          }
+        });
       };
     });
+
     elements.eventDetails.querySelectorAll('.btn-shop-buyback').forEach(b => {
       b.onclick = (e) => {
         e.stopPropagation();
         hideItemTooltip(true);
+        if (b.disabled) return;
+        b.disabled = true;
+        const originalText = b.textContent;
+        b.textContent = '購回中...';
         const buybackIndex = Number(b.dataset.buybackIdx);
-        socket.emit('event:shop_action', { action: 'buyback', buybackIndex });
+        socket.emit('event:shop_action', { action: 'buyback', buybackIndex }, (res) => {
+          b.disabled = false;
+          b.textContent = originalText;
+          if (res && !res.success) {
+            alert(res.message || '購回失敗');
+          }
+        });
       };
     });
-    elements.eventDetails.querySelector('.btn-shop-rest')?.addEventListener('click', () => {
-      socket.emit('event:shop_action', { action: 'rest' });
+
+    elements.eventDetails.querySelector('.btn-shop-rest')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      socket.emit('event:shop_action', { action: 'rest' }, (res) => {
+        btn.disabled = false;
+        if (res && !res.success) alert(res.message);
+      });
     });
-    elements.eventDetails.querySelector('.btn-shop-rob')?.addEventListener('click', () => {
-      socket.emit('event:shop_action', { action: 'rob' });
+
+    elements.eventDetails.querySelector('.btn-shop-rob')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      socket.emit('event:shop_action', { action: 'rob' }, (res) => {
+        btn.disabled = false;
+        if (res && !res.success) alert(res.message);
+      });
     });
-    elements.eventDetails.querySelector('.btn-shop-steal')?.addEventListener('click', () => {
-      socket.emit('event:shop_action', { action: 'steal' });
+
+    elements.eventDetails.querySelector('.btn-shop-steal')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      socket.emit('event:shop_action', { action: 'steal' }, (res) => {
+        btn.disabled = false;
+        if (res && !res.success) alert(res.message);
+      });
     });
+
     elements.eventDetails.querySelector('.btn-shop-leave')?.addEventListener('click', () => {
       hideItemTooltip(true);
       socket.emit('event:shop_action', { action: 'leave' });
     });
+
   } else if (ev.type === 'chest') {
     elements.eventCardBox?.classList.remove('is-shop-event');
-    elements.eventIcon.innerHTML = '📦';
-    elements.eventTitle.textContent = ev.title || '📦 發現寶箱！';
+    elements.eventIcon.innerHTML = getIconSvg('chest', 'svg-hero-icon');
+    elements.eventTitle.textContent = (ev.title || '發現寶箱！').replace(/^[📦🎁\s]+/, '');
     elements.eventStoryText.textContent = ev.story || '';
 
     if (!ev.opened) {
-      // 尚未開箱（一般寶箱與寶箱怪外觀相同，點擊開箱後揭曉結果）
       elements.eventDetails.innerHTML = `
         <div class="normal-chest-container" style="text-align:center;padding:20px 10px;">
-          <div style="font-size:42px;margin-bottom:12px;">📦</div>
-          <p style="color:#cbd5e1;font-size:14px;margin-bottom:20px;line-height:1.6;">
+          <div style="margin-bottom:14px;color:var(--color-brass-bright);">
+            ${getIconSvg('chest', 'svg-large')}
+          </div>
+          <p style="color:var(--color-text-secondary);font-size:14px;margin-bottom:20px;line-height:1.7;">
             深淵角落中靜靜躺著一具精緻的封印寶箱，周遭瀰漫著神秘微光……
           </p>
           <div class="chest-actions-row" style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
-            <button type="button" class="btn-chest-action btn-chest-open" style="padding:10px 22px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;border-radius:10px;color:#fff;cursor:pointer;">
-              ✨ 【開啟寶箱】
+            <button type="button" class="btn btn-primary btn-chest-action btn-chest-open">
+              ${getIconSvg('sparkle', 'ui-icon--sm')}
+              <span>開啟寶箱</span>
             </button>
             ${ev.canPacify ? `
-            <button type="button" class="btn-chest-action btn-chest-pacify" style="padding:10px 18px;font-size:14px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;cursor:pointer;">
-              🐾 【謹慎安撫】(德魯伊)
+            <button type="button" class="btn btn-success btn-chest-action btn-chest-pacify">
+              ${getIconSvg('status', 'ui-icon--sm')}
+              <span>謹慎安撫 (德魯伊)</span>
             </button>` : ''}
-            <button type="button" class="btn-chest-action btn-chest-leave" style="padding:10px 16px;font-size:14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:#cbd5e1;cursor:pointer;">
-              繞開避走 ›
+            <button type="button" class="btn btn-ghost btn-chest-action btn-chest-leave">
+              ${getIconSvg('leave', 'ui-icon--sm')}
+              <span>繞開避走 ›</span>
             </button>
           </div>
         </div>
       `;
-      elements.eventDetails.querySelector('.btn-chest-open')?.addEventListener('click', () => {
+      elements.eventDetails.querySelector('.btn-chest-open')?.addEventListener('click', (e) => {
+        e.currentTarget.disabled = true;
         socket.emit('event:chest_action', { action: 'open' });
       });
-      elements.eventDetails.querySelector('.btn-chest-pacify')?.addEventListener('click', () => {
+      elements.eventDetails.querySelector('.btn-chest-pacify')?.addEventListener('click', (e) => {
+        e.currentTarget.disabled = true;
         socket.emit('event:chest_action', { action: 'pacify' });
       });
       elements.eventDetails.querySelector('.btn-chest-leave')?.addEventListener('click', () => {
@@ -7175,13 +7323,24 @@ function renderInteractiveEvent(ev) {
       });
     } else {
       elements.eventDetails.innerHTML = `
-        <div class="normal-chest-container">
-          <div class="normal-chest-loot">
-            <p>🪙 金幣獎勵：<b>+${ev.goldGain || 30}G</b></p>
-            ${ev.drop ? `<p>🛡️ 獲得裝備：<b>【${escapeHtml(ev.drop.name)}】</b>（${escapeHtml(ev.drop.desc || '')}）</p>` : ''}
-            <p>❤️ 探險療癒：全員生命回復 <b>+25 HP</b></p>
+        <div class="normal-chest-container" style="text-align:center;padding:16px;">
+          <div class="normal-chest-loot" style="background:var(--surface-inset);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px;margin-bottom:16px;">
+            <p style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--color-loot-gold);font-weight:700;margin-bottom:8px;">
+              ${getIconSvg('gold', 'ui-icon--sm')} 金幣獎勵：<b>+${ev.goldGain || 30} G</b>
+            </p>
+            ${ev.drop ? `
+              <p style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--color-warm-white);font-weight:700;margin-bottom:8px;">
+                ${getIconSvg('chest', 'ui-icon--sm')} 獲得裝備：<b>【${escapeHtml(ev.drop.name)}】</b>
+              </p>
+            ` : ''}
+            <p style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--color-success);font-weight:700;">
+              ${getIconSvg('heal', 'ui-icon--sm')} 探險療癒：全員生命回復 <b>+25 HP</b>
+            </p>
           </div>
-          <button type="button" class="btn-chest-action btn-chest-leave">收下戰利品前進 ›</button>
+          <button type="button" class="btn btn-primary btn-chest-action btn-chest-leave">
+            ${getIconSvg('leave', 'ui-icon--sm')}
+            <span>收下戰利品前進 ›</span>
+          </button>
         </div>
       `;
       elements.eventDetails.querySelector('.btn-chest-leave')?.addEventListener('click', () => {
@@ -7190,8 +7349,9 @@ function renderInteractiveEvent(ev) {
     }
   } else if (ev.type === 'random_event') {
     elements.eventCardBox?.classList.remove('is-shop-event');
-    elements.eventIcon.innerHTML = ev.subType === 'WANDERING_MERCHANT' ? '🏕️' : ev.subType === 'ALTAR' ? '⛩️' : ev.subType === 'GAMBLE' ? '🎲' : '⚒️';
-    elements.eventTitle.textContent = ev.title;
+    const subTypeIcon = ev.subType === 'WANDERING_MERCHANT' ? 'camp' : (ev.subType === 'ALTAR' ? 'torii' : (ev.subType === 'GAMBLE' ? 'dice' : 'anvil'));
+    elements.eventIcon.innerHTML = getIconSvg(subTypeIcon, 'svg-hero-icon');
+    elements.eventTitle.textContent = (ev.title || '神秘據點').replace(/^[🏕️⛩️🎲⚒️\s]+/, '');
     elements.eventStoryText.textContent = ev.story;
 
     let actionsHtml = '';
@@ -7199,40 +7359,88 @@ function renderInteractiveEvent(ev) {
 
     if (ev.subType === 'WANDERING_MERCHANT') {
       actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="info">🏕️ 打探路況情報 (${leaderRole === 'bard' ? '免費' : '15G'})</button>
-        <button type="button" class="btn-rand-action" data-act="barter">🏕️ 以物易物 (隨機交換小隊背包首件物品)</button>
-        ${leaderRole === 'dreamweaver' ? `<button type="button" class="btn-rand-action" data-act="reshape">🌙 幻象重塑 (織夢術士專屬重塑配飾)</button>` : ''}
+        <button type="button" class="btn-rand-action" data-act="info">
+          ${getIconSvg('camp', 'ui-icon--sm')}
+          <span>打探路況情報 (${leaderRole === 'bard' ? '免費' : '15G'})</span>
+        </button>
+        <button type="button" class="btn-rand-action" data-act="barter">
+          ${getIconSvg('chest', 'ui-icon--sm')}
+          <span>以物易物 (隨機交換小隊背包首件物品)</span>
+        </button>
+        ${leaderRole === 'dreamweaver' ? `
+          <button type="button" class="btn-rand-action" data-act="reshape">
+            ${getIconSvg('sparkle', 'ui-icon--sm')}
+            <span>幻象重塑 (織夢術士專屬重塑配飾)</span>
+          </button>
+        ` : ''}
       `;
     } else if (ev.subType === 'ALTAR') {
       actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="sacrifice">⛩️ 鮮血獻祭 (${leaderRole === 'warrior' ? '扣10%HP' : '扣20%HP'}，全員永久+3攻擊 & T2裝備)</button>
-        <button type="button" class="btn-rand-action" data-act="desecrate">⛩️ 搜刮祭壇 (+60G & T1裝備${leaderRole === 'onmyoji' ? '，陰陽師免除詛咒' : '，受減防詛咒'})</button>
-        ${leaderRole === 'paladin' ? `<button type="button" class="btn-rand-action" data-act="purify">🛡️ 聖光淨化 (聖騎士專屬免代價回復30%HP與15護盾)</button>` : ''}
+        <button type="button" class="btn-rand-action" data-act="sacrifice">
+          ${getIconSvg('torii', 'ui-icon--sm')}
+          <span>鮮血獻祭 (${leaderRole === 'warrior' ? '扣10%HP' : '扣20%HP'}，全員永久+3攻擊 & T2裝備)</span>
+        </button>
+        <button type="button" class="btn-rand-action" data-act="desecrate">
+          ${getIconSvg('gold', 'ui-icon--sm')}
+          <span>搜刮祭壇 (+60G & T1裝備${leaderRole === 'onmyoji' ? '，陰陽師免除詛咒' : '，受減防詛咒'})</span>
+        </button>
+        ${leaderRole === 'paladin' ? `
+          <button type="button" class="btn-rand-action" data-act="purify">
+            ${getIconSvg('shield', 'ui-icon--sm')}
+            <span>聖光淨化 (聖騎士專屬免代價回復30%HP與15護盾)</span>
+          </button>
+        ` : ''}
       `;
     } else if (ev.subType === 'GAMBLE') {
       actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="coin">🎲 擲硬幣押注 (押注30G 贏取60G，${leaderRole === 'sage' ? '智者勝率70%' : '勝率50%'})</button>
-        <button type="button" class="btn-rand-action" data-act="box">🎲 購買神秘盲盒 (50G 抽取T2裝備，${leaderRole === 'sage' ? '智者免碎裂' : '50%碎裂'})</button>
-        ${leaderRole === 'gladiator' ? `<button type="button" class="btn-rand-action" data-act="hp_gamble">⚔️ 豪賭生命 (角鬥士專屬扣20%HP換80G與T2裝備)</button>` : ''}
+        <button type="button" class="btn-rand-action" data-act="coin">
+          ${getIconSvg('dice', 'ui-icon--sm')}
+          <span>擲硬幣押注 (押注30G 贏取60G，${leaderRole === 'sage' ? '智者勝率70%' : '勝率50%'})</span>
+        </button>
+        <button type="button" class="btn-rand-action" data-act="box">
+          ${getIconSvg('chest', 'ui-icon--sm')}
+          <span>購買神秘盲盒 (50G 抽取T2裝備，${leaderRole === 'sage' ? '智者免碎裂' : '50%碎裂'})</span>
+        </button>
+        ${leaderRole === 'gladiator' ? `
+          <button type="button" class="btn-rand-action" data-act="hp_gamble">
+            ${getIconSvg('sword', 'ui-icon--sm')}
+            <span>豪賭生命 (角鬥士專屬扣20%HP換80G與T2裝備)</span>
+          </button>
+        ` : ''}
       `;
     } else if (ev.subType === 'REFORGE') {
       actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="reforge">⚒️ 重鑄武器 (${leaderRole === 'mage' ? '15G' : '30G'} / ${leaderRole === 'samurai' ? '武士增幅+40%' : '攻擊力提升'})</button>
-        ${leaderRole === 'mage' ? `<button type="button" class="btn-rand-action" data-act="convert_magic">🪄 奧術附魔 (法師專屬武器轉為魔法屬性)</button>` : ''}
+        <button type="button" class="btn-rand-action" data-act="reforge">
+          ${getIconSvg('anvil', 'ui-icon--sm')}
+          <span>重鑄武器 (${leaderRole === 'mage' ? '15G' : '30G'} / ${leaderRole === 'samurai' ? '武士增幅+40%' : '攻擊力提升'})</span>
+        </button>
+        ${leaderRole === 'mage' ? `
+          <button type="button" class="btn-rand-action" data-act="convert_magic">
+            ${getIconSvg('magic', 'ui-icon--sm')}
+            <span>奧術附魔 (法師專屬武器轉為魔法屬性)</span>
+          </button>
+        ` : ''}
       `;
     }
 
     elements.eventDetails.innerHTML = `
       <div class="rand-event-container">
         <div class="rand-event-actions">${actionsHtml}</div>
-        <button type="button" class="btn-rand-action btn-rand-leave" data-act="leave">離開據點 ›</button>
+        <button type="button" class="btn btn-ghost btn-rand-action btn-rand-leave" data-act="leave">
+          ${getIconSvg('leave', 'ui-icon--sm')}
+          <span>離開據點 ›</span>
+        </button>
       </div>
     `;
 
     elements.eventDetails.querySelectorAll('.btn-rand-action').forEach(b => {
       b.onclick = () => {
+        b.disabled = true;
         const act = b.dataset.act;
-        socket.emit('event:random_action', { action: act });
+        socket.emit('event:random_action', { action: act }, (res) => {
+          b.disabled = false;
+          if (res && !res.success) alert(res.message);
+        });
       };
     });
   }

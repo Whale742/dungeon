@@ -7669,3 +7669,246 @@ body.presentation-opening .narrative-controls,
 }
 
 
+
+
+/* ==========================================================================
+   Shop UI Refactor (Icon-First & Category Tabs)
+   ========================================================================== */
+.shop-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+.shop-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.shop-gold-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-inset);
+  border: 1px solid var(--color-brass-bright);
+  color: var(--color-loot-gold);
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.shop-tabs-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: 8px;
+}
+.shop-tab-btn {
+  background: var(--surface-inset);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+.shop-tab-btn:hover {
+  border-color: var(--color-brass);
+  color: var(--color-warm-white);
+}
+.shop-tab-btn.active {
+  background: var(--surface-raised);
+  border-color: var(--color-brass-bright);
+  color: var(--color-focus);
+  box-shadow: var(--shadow-sm);
+}
+.shop-goods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+.shop-item-card {
+  background: var(--surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform var(--duration-fast) var(--ease-press), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  cursor: pointer;
+  position: relative;
+  outline: none;
+}
+.shop-item-card:hover, .shop-item-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--color-brass-bright);
+  box-shadow: var(--shadow-floating);
+}
+.shop-item-card:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.shop-item-card.is-exclusive {
+  border-color: rgba(184, 166, 223, 0.5);
+}
+.shop-item-card.is-rare {
+  border-color: rgba(212, 172, 99, 0.5);
+}
+.shop-item-card.is-consumable {
+  border-color: rgba(95, 179, 142, 0.5);
+}
+.shop-item-icon-wrap {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  border: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.shop-item-icon-wrap img, .shop-item-icon-wrap svg {
+  max-width: 36px;
+  max-height: 36px;
+  object-fit: contain;
+}
+.shop-item-cost {
+  color: var(--color-loot-gold);
+  font-weight: 800;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-shop-buy, .btn-shop-buy-consumable, .btn-shop-buyback {
+  background: var(--color-guild-blue);
+  background-image: linear-gradient(180deg, var(--color-guild-blue-hover) 0%, var(--color-guild-blue-dark) 100%);
+  color: #fff;
+  border: 1px solid #1e3a8a;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-press);
+}
+.btn-shop-buy:hover:not(:disabled), .btn-shop-buy-consumable:hover:not(:disabled), .btn-shop-buyback:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.1);
+}
+.btn-shop-buy:disabled, .btn-shop-buy-consumable:disabled, .btn-shop-buyback:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+.shop-special-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.btn-shop-action {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-press);
+}
+.btn-shop-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.btn-shop-action:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-shop-rest {
+  background: linear-gradient(180deg, #3d3226, #2a2219);
+  border-color: var(--color-brass);
+  color: var(--color-warm-white);
+}
+.btn-shop-sell {
+  background: linear-gradient(180deg, #473828, #30261b);
+  border-color: var(--color-brass-bright);
+  color: var(--color-focus);
+}
+.btn-shop-rob {
+  background: linear-gradient(180deg, #8f302e, #5c1b1a);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+.btn-shop-steal {
+  background: linear-gradient(180deg, #234e38, #143324);
+  border-color: var(--color-success);
+  color: #fff;
+}
+.btn-shop-leave {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+.rand-event-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+.rand-event-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 540px;
+}
+.btn-rand-action {
+  padding: 10px 16px;
+  background: var(--surface-card);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-warm-white);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-press);
+}
+.btn-rand-action:hover:not(:disabled) {
+  background: var(--surface-raised);
+  border-color: var(--color-brass);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.btn-rand-leave {
+  align-self: center;
+  background: transparent;
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}

@@ -294,18 +294,19 @@ function renderHexGridMap(me, enabled, myVoteId) {
         isMyVote ? 'my-vote' : ''
       ].filter(Boolean).join(' ');
 
-      // 已走過的節點顯示遇到的事件圖示；未走過節點有票數時顯示純數字票數
+      // 已走過的節點顯示遇到的事件圖示（全面 SVG 向量化，嚴禁使用 Emoji）
       let centerContentHtml = '';
       if (node.isVisited) {
-        const eventIcon = (
-          node.type === 'START' ? '🏕️' :
-          node.type === 'SHOP' ? '🛒' :
-          node.type === 'CHEST' ? '📦' :
-          (node.type === 'END_ELITE' || node.type === 'BOSS' || node.type === 'ELITE') ? '👑' :
-          node.type === 'EVENT' ? '📜' :
-          node.icon || '⚔️'
+        const iconName = (
+          node.type === 'START' ? 'camp' :
+          node.type === 'SHOP' ? 'shop' :
+          node.type === 'CHEST' ? 'chest' :
+          (node.type === 'END_ELITE' || node.type === 'BOSS' || node.type === 'ELITE') ? 'death' :
+          node.type === 'EVENT' ? 'scroll' :
+          'sword'
         );
-        centerContentHtml = '<span class="hex-visited-icon" title="已完成事件">' + eventIcon + '</span>';
+        const eventSvg = '<svg class="ui-icon ui-icon--md hex-visited-svg" aria-hidden="true"><use href="#icon-' + iconName + '"></use></svg>';
+        centerContentHtml = '<span class="hex-visited-icon" title="已完成事件">' + eventSvg + '</span>';
       } else if (inVision && votes > 0) {
         centerContentHtml = '<span class="hex-center-vote">' + votes + '</span>';
       }
