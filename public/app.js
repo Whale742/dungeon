@@ -2550,6 +2550,14 @@ function renderBattle(me, isLeader) {
 
   elements.battleFloorNum.textContent = roomState.floor;
   elements.battleRoundNum.textContent = roomState.battleRound;
+  const targetTextEl = document.getElementById('selectedTargetText');
+  if (targetTextEl && monster) {
+    targetTextEl.textContent = monster.name;
+  }
+  const encounterTitleEl = document.getElementById('battleEncounterTitle');
+  if (encounterTitleEl && monster) {
+    encounterTitleEl.textContent = `ENCOUNTER / ${monster.name.toUpperCase()}`;
+  }
 
   if (!document.body.classList.contains('battle-intro-active')) {
     revealDestinationView('battle');
@@ -3003,28 +3011,25 @@ function renderMyActionBar(me) {
 
     let displayLabel = skill.label;
     if (skill.id === 'basic' && me.ammo && me.ammo.length > 0) {
-      const ammoIcons = me.ammo.map(a => a === 'pierce' ? '🔴' : a === 'elemental' ? '🔵' : '💥').join('');
-      displayLabel = `普攻: 重弩齊射 [${ammoIcons}]`;
+      const ammoLabels = me.ammo.map(a => a === 'pierce' ? '貫穿' : a === 'elemental' ? '元素' : '爆裂').join('/');
+      displayLabel = `普攻: 重弩齊射 [${ammoLabels}]`;
     }
 
     const isSelected = (currentPendingAction === skill.id);
     const tags = skill.tags || [skill.dmgType ? skill.dmgType.replace(/【|】/g, '') : '物理', '單體'];
 
     const btn = document.createElement('div');
-    btn.className = `skill-btn ${isSelected ? 'selected' : ''}`;
+    btn.className = `skill-btn skill ${isSelected ? 'selected' : ''}`;
     if (isCoolingDown || isNarrating || isResolving || isLocked) {
       btn.style.opacity = '0.6';
       btn.style.cursor = 'not-allowed';
     }
 
     btn.innerHTML = `
-      <div class="skill-btn-title">
-        <span>${escapeHtml(displayLabel)}</span>
-        ${isCoolingDown ? `<span class="skill-cd-badge">${cdBadgeText}</span>` : ''}
-        <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
-      </div>
-      <div class="skill-tags-row">
-        ${tags.map(t => `<span class="skill-tag" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}
+      <span class="skill-name">${escapeHtml(displayLabel)}</span>
+      <div class="skill-bottom">
+        <span class="skill-kind">${escapeHtml(tags[0] || 'ACTION')}</span>
+        ${isCoolingDown ? `<span class="skill-cd">${cdBadgeText}</span>` : `<span class="skill-cd">READY</span>`}
       </div>
       <div class="skill-popover hidden">
         <div class="skill-popover-title">
@@ -3034,16 +3039,6 @@ function renderMyActionBar(me) {
         <div class="skill-popover-desc">${escapeHtml(getSkillDescription(me.role,skill))}</div>
       </div>
     `;
-
-    // 詳情 Popover 切換 (小型 non-blocking 浮層)
-    const detailBtn = btn.querySelector('.skill-detail-trigger');
-    const popover = btn.querySelector('.skill-popover');
-    detailBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const isClosed = popover.classList.contains('hidden');
-      document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
-      if (isClosed) popover.classList.remove('hidden');
-    });
 
     btn.addEventListener('click', () => {
       if (isCoolingDown || isNarrating || isResolving || isLocked) return;
@@ -3059,39 +3054,18 @@ function renderMyActionBar(me) {
     if (deadPlayers.length > 0) {
       const isSelected = (currentPendingAction === 'b_revive');
       const reviveBtn = document.createElement('div');
-      reviveBtn.className = `skill-btn skill-revive-btn ${isSelected ? 'selected' : ''}`;
+      reviveBtn.className = `skill-btn skill skill-revive-btn ${isSelected ? 'selected' : ''}`;
       if (isNarrating || isResolving || isLocked) {
         reviveBtn.style.opacity = '0.6';
         reviveBtn.style.cursor = 'not-allowed';
       }
       reviveBtn.innerHTML = `
-        <div class="skill-btn-title">
-          <span>甦生之歌 (復活)</span>
-          <span style="color:#b45309; font-weight:700; font-size:0.75rem;">奇蹟</span>
-          <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
-        </div>
-        <div class="skill-tags-row">
-          <span class="skill-tag" data-tag="復活">復活</span>
-          <span class="skill-tag" data-tag="治療">治療</span>
-          <span class="skill-tag" data-tag="高風險">代價脫力</span>
-        </div>
-        <div class="skill-popover hidden">
-          <div class="skill-popover-title">
-            <span>甦生之歌</span>
-            <span style="font-size:10.5px;color:#94a3b8;">【奇蹟/治療】</span>
-          </div>
-          <div class="skill-popover-desc">喚醒一名倒地隊友(恢復35%生命)，下回合雙方脫力無法行動！</div>
+        <span class="skill-name">甦生之歌</span>
+        <div class="skill-bottom">
+          <span class="skill-kind">奇蹟 / 復活</span>
+          <span class="skill-cd">REVIVE</span>
         </div>
       `;
-
-      const detailBtn = reviveBtn.querySelector('.skill-detail-trigger');
-      const popover = reviveBtn.querySelector('.skill-popover');
-      detailBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const isClosed = popover.classList.contains('hidden');
-        document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
-        if (isClosed) popover.classList.remove('hidden');
-      });
 
       reviveBtn.addEventListener('click', () => {
         if (isNarrating || isResolving || isLocked) return;
@@ -3110,37 +3084,18 @@ function renderMyActionBar(me) {
   if (potionCount > 0) {
     const isPotionSelected = (currentPendingAction === 'use_item_healing_potion');
     const potionBtn = document.createElement('div');
-    potionBtn.className = `skill-btn skill-item-btn ${isPotionSelected ? 'selected' : ''}`;
+    potionBtn.className = `skill-btn skill skill-item-btn ${isPotionSelected ? 'selected' : ''}`;
     if (isNarrating || isResolving || isLocked) {
       potionBtn.style.opacity = '0.6';
       potionBtn.style.cursor = 'not-allowed';
     }
     potionBtn.innerHTML = `
-      <div class="skill-btn-title">
-        <span>🧪 治療藥 (${potionCount})</span>
-        <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
-      </div>
-      <div class="skill-tags-row">
-        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">消耗品</span>
-        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">回血40%</span>
-      </div>
-      <div class="skill-popover hidden">
-        <div class="skill-popover-title">
-          <span>治療藥</span>
-          <span style="font-size:10.5px;color:#34d399;">【個人背包】</span>
-        </div>
-        <div class="skill-popover-desc">消耗個人隨身背包中 1 瓶治療藥，為指定存活隊友或自己恢復 40% 最大生命值。</div>
+      <span class="skill-name">治療藥 (${potionCount})</span>
+      <div class="skill-bottom">
+        <span class="skill-kind">補給 / 恢復</span>
+        <span class="skill-cd">HEAL 40%</span>
       </div>
     `;
-
-    const detailBtn = potionBtn.querySelector('.skill-detail-trigger');
-    const popover = potionBtn.querySelector('.skill-popover');
-    detailBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const isClosed = popover.classList.contains('hidden');
-      document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
-      if (isClosed) popover.classList.remove('hidden');
-    });
 
     potionBtn.addEventListener('click', () => {
       if (isNarrating || isResolving || isLocked) return;
@@ -3161,37 +3116,18 @@ function renderMyActionBar(me) {
   if (antidoteCount > 0) {
     const isAntidoteSelected = (currentPendingAction === 'use_item_antidote');
     const antidoteBtn = document.createElement('div');
-    antidoteBtn.className = `skill-btn skill-item-btn ${isAntidoteSelected ? 'selected' : ''}`;
+    antidoteBtn.className = `skill-btn skill skill-item-btn ${isAntidoteSelected ? 'selected' : ''}`;
     if (isNarrating || isResolving || isLocked) {
       antidoteBtn.style.opacity = '0.6';
       antidoteBtn.style.cursor = 'not-allowed';
     }
     antidoteBtn.innerHTML = `
-      <div class="skill-btn-title">
-        <span>🧪 解毒藥 (${antidoteCount})</span>
-        <button type="button" class="skill-detail-trigger" title="點擊查看詳細說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
-      </div>
-      <div class="skill-tags-row">
-        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">消耗品</span>
-        <span class="skill-tag" style="background:rgba(16,185,129,0.2);color:#34d399;border-color:rgba(16,185,129,0.4);">全淨化</span>
-      </div>
-      <div class="skill-popover hidden">
-        <div class="skill-popover-title">
-          <span>解毒藥</span>
-          <span style="font-size:10.5px;color:#34d399;">【個人背包】</span>
-        </div>
-        <div class="skill-popover-desc">消耗個人隨身背包中 1 瓶解毒藥，徹底清除指定隊友身上的所有負面狀態。</div>
+      <span class="skill-name">解毒藥 (${antidoteCount})</span>
+      <div class="skill-bottom">
+        <span class="skill-kind">補給 / 淨化</span>
+        <span class="skill-cd">CLEANSE</span>
       </div>
     `;
-
-    const detailBtn = antidoteBtn.querySelector('.skill-detail-trigger');
-    const popover = antidoteBtn.querySelector('.skill-popover');
-    detailBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const isClosed = popover.classList.contains('hidden');
-      document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
-      if (isClosed) popover.classList.remove('hidden');
-    });
 
     antidoteBtn.addEventListener('click', () => {
       if (isNarrating || isResolving || isLocked) return;
@@ -3212,40 +3148,21 @@ function renderMyActionBar(me) {
   // 跳過回合按鈕
   const isSkipSelected = (currentPendingAction === 'skip');
   const skipBtn = document.createElement('div');
-  skipBtn.className = `skill-btn ${isSkipSelected ? 'selected' : ''}`;
+  skipBtn.className = `skill-btn skill ${isSkipSelected ? 'selected' : ''}`;
   if (isNarrating || isResolving || isLocked) {
     skipBtn.style.opacity = '0.6';
     skipBtn.style.cursor = 'not-allowed';
   }
   const hasCrossbow = (me.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
-  const skipDesc = (me.role === 'archer' && hasCrossbow)
-    ? '本回合放棄行動，保留技能冷卻，並卸除清空已裝備的弩箭。'
-    : '本回合放棄行動，保留技能冷卻。';
   const skipTag = (me.role === 'archer' && hasCrossbow) ? '清空弩箭' : '蓄力';
 
   skipBtn.innerHTML = `
-    <div class="skill-btn-title">
-      <span>跳過回合</span>
-      <button type="button" class="skill-detail-trigger" title="點擊查看說明">${getIconSvg('info', 'ui-icon--sm')} 詳情</button>
-    </div>
-    <div class="skill-tags-row">
-      <span class="skill-tag">防守</span>
-      <span class="skill-tag">${skipTag}</span>
-    </div>
-    <div class="skill-popover hidden">
-      <div class="skill-popover-title"><span>跳過回合</span></div>
-      <div class="skill-popover-desc">${skipDesc}</div>
+    <span class="skill-name">跳過回合</span>
+    <div class="skill-bottom">
+      <span class="skill-kind">防守 / ${skipTag}</span>
+      <span class="skill-cd">GUARD</span>
     </div>
   `;
-
-  const skipDetail = skipBtn.querySelector('.skill-detail-trigger');
-  const skipPopover = skipBtn.querySelector('.skill-popover');
-  skipDetail.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const isClosed = skipPopover.classList.contains('hidden');
-    document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
-    if (isClosed) skipPopover.classList.remove('hidden');
-  });
 
   skipBtn.addEventListener('click', () => {
     if (isNarrating || isResolving || isLocked) return;
@@ -3302,9 +3219,9 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
   } else if (currentPendingAction === 'b_revive') {
     skillName = '甦生之歌';
   } else if (currentPendingAction === 'use_item_healing_potion') {
-    skillName = '🧪 治療藥';
+    skillName = '治療藥';
   } else if (currentPendingAction === 'use_item_antidote') {
-    skillName = '🧪 解毒藥';
+    skillName = '解毒藥';
   } else if (currentPendingAction) {
     const found = (activeSkills || []).find(s => s.id === currentPendingAction);
     skillName = found ? found.label : currentPendingAction;
@@ -3316,22 +3233,47 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     if (tp) targetName = tp.name;
   }
 
+  const descEl = document.getElementById('skillDetailDesc');
+  if (descEl) {
+    if (currentPendingAction === 'skip') {
+      const hasCrossbow = (me.equips || []).some(e => e.id === 'a_crossbow' || e.name === '改良型重弩');
+      descEl.textContent = (me.role === 'archer' && hasCrossbow)
+        ? '本回合放棄行動，保留技能冷卻，並卸除清空已裝備的弩箭。'
+        : '本回合放棄行動，保留技能冷卻。';
+    } else if (currentPendingAction === 'b_revive') {
+      descEl.textContent = '喚醒一名倒地隊友(恢復35%生命)，下回合雙方脫力無法行動！';
+    } else if (currentPendingAction === 'use_item_healing_potion') {
+      descEl.textContent = '消耗隨身背包中 1 瓶治療藥，為目標恢復 40% 最大生命值。';
+    } else if (currentPendingAction === 'use_item_antidote') {
+      descEl.textContent = '消耗隨身背包中 1 瓶解毒藥，徹底清除目標身上的所有負面狀態。';
+    } else if (currentPendingAction) {
+      const found = (activeSkills || []).find(s => s.id === currentPendingAction);
+      descEl.textContent = found ? getSkillDescription(me.role, found) : '';
+    } else {
+      descEl.textContent = '請點選上方技能卡片，檢視技能效果並下達行動指令。';
+    }
+  }
+
   if (isLocked) {
-    bar.className = 'skill-selection-bar state-locked';
+    bar.className = 'skill-selection-bar command-details state-locked';
     prompt.textContent = `已鎖定行動：【${skillName}】${targetName ? `(目標: ${targetName})` : ''}，等待其他隊友確認...`;
     targetTxt.classList.add('hidden');
     btnLock.disabled = true;
+    btnLock.innerHTML = '<svg class="ico sm"><use href="#icon-check"></use></svg> 已鎖定 (LOCKED)';
     btnUnlock.classList.remove('hidden');
   } else if (currentPendingAction) {
-    bar.className = 'skill-selection-bar';
+    bar.className = 'skill-selection-bar command-details state-selected';
     prompt.textContent = `目前選擇：【${skillName}】${targetName ? `(目標: ${targetName})` : ''}`;
     targetTxt.classList.add('hidden');
     btnLock.disabled = false;
+    btnLock.innerHTML = '<svg class="ico sm"><use href="#icon-check"></use></svg> 確定鎖定 (CONFIRM)';
     btnUnlock.classList.add('hidden');
   } else {
-    bar.className = 'skill-selection-bar';
+    bar.className = 'skill-selection-bar command-details';
     prompt.textContent = '請點選上方技能進行選擇';
     targetTxt.classList.add('hidden');
+    btnLock.disabled = true;
+    btnLock.innerHTML = '<svg class="ico sm"><use href="#icon-check"></use></svg> 確定鎖定';
     btnUnlock.classList.add('hidden');
   }
 
@@ -3343,7 +3285,7 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     const canUse = isEffectiveLeader && skill?.type === 'ACTIVE' && !roomState?.leaderSkillUsedThisBattle && !isLocked && !isResolving && !isNarrating && !isDead;
     if (canUse) {
       btnLeader.classList.remove('hidden');
-      btnLeader.textContent = `👑 隊長技：【${skill.name}】`;
+      btnLeader.innerHTML = `<svg class="ico sm"><use href="#icon-crown"></use></svg> 隊長技：【${escapeHtml(skill.name)}】`;
       btnLeader.title = skill.combatDesc || '點擊使用本場戰鬥專屬隊長主動技';
       btnLeader.onclick = () => {
         socket.emit('leader:use_skill', { targetPlayerId: myId });
@@ -5865,11 +5807,15 @@ updateEntryAvatarPreview();
 updateSoundIcon();
 
 document.getElementById('logDrawerHandle')?.addEventListener('click',()=>{
-    const card=elements.battleLogCard,open=card.classList.toggle('is-open');
-    const handle=document.getElementById('logDrawerHandle');handle.textContent=open?'‹':'›';handle.setAttribute('aria-expanded',String(open));
+    const card=elements.battleLogCard;
+    if (!card) return;
+    const open=card.classList.toggle('is-open');
+    const handle=document.getElementById('logDrawerHandle');
+    if (handle) {
+      handle.setAttribute('aria-expanded',String(open));
+      handle.innerHTML = open ? '收合紀錄 <svg class="ico sm"><use href="#icon-arrow-up"></use></svg>' : '完整紀錄 <svg class="ico sm"><use href="#icon-arrow-down"></use></svg>';
+    }
   });
-// Fixed drawers belong to the viewport, outside animated view containers.
-if(elements.battleLogCard)document.body.appendChild(elements.battleLogCard);
 ['equipDropModal', 'targetModal', 'endBattleModal', 'avatarModalOverlay', 'minionDetailModal', 'roleDetailModal', 'transferLeaderModal', 'inventoryModal'].forEach(id => {
   const el = document.getElementById(id);
   if (el && el.parentElement !== document.body) document.body.appendChild(el);

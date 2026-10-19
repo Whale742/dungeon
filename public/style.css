@@ -3518,22 +3518,9 @@ input[type="text"]::placeholder {
    15. Floating Battle Log Card (Left Tactical Terminal)
    -------------------------------------------------------------------------- */
 .floating-log-card {
-  position: fixed;
-  top: 76px;
-  bottom: 24px;
-  right: calc(50vw + 580px + 16px);
-  width: 340px;
-  max-width: calc(50vw - 580px - 32px);
-  z-index: var(--z-battle-log, 25);
-  background: var(--color-surface);
-  border: 2.5px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 6px 0 #050811, 0 14px 28px rgba(0, 0, 0, 0.45);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
+  position: static;
+  width: auto;
   box-sizing: border-box;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .floating-log-card.collapsed {
@@ -3577,41 +3564,6 @@ input[type="text"]::placeholder {
 .battle-log-window::-webkit-scrollbar-thumb {
   background: #2563eb;
   border-radius: 2px;
-}
-
-@media (max-width: 1650px) {
-  .floating-log-card {
-    right: auto;
-    left: 20px;
-    bottom: 24px;
-    top: auto;
-    width: 320px;
-    height: 440px;
-    max-height: calc(100vh - 120px);
-  }
-
-  .floating-log-card.collapsed {
-    height: 48px !important;
-    top: auto !important;
-    bottom: 24px !important;
-  }
-}
-
-@media (max-width: 600px) {
-  .floating-log-card {
-    left: 12px;
-    right: auto;
-    bottom: 86px;
-    top: auto;
-    width: min(320px, calc(100vw - 24px));
-    height: 280px;
-  }
-
-  .floating-log-card.collapsed {
-    height: 48px !important;
-    top: auto !important;
-    bottom: 86px !important;
-  }
 }
 
 .log-line {

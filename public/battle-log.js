@@ -18,9 +18,22 @@ function renderRecentBattleLogs(container, history = []) {
   recent.forEach((log,i)=>{
     const id=String(log.id??`${log.time}-${log.text}-${i}`);
     let line=Array.from(container.children).find(n=>n.dataset.logId===id);
-    if(!line){line=document.createElement('div');line.className=`log-line ${log.type||'info'} log-new`;line.dataset.logId=id;
-      line.textContent=`[${log.time||''}] ${String(log.text||'').replace(/\*\*/g,'')}`;line.title=String(log.text||'').replace(/\*\*/g,'');container.appendChild(line);
-      line.addEventListener('animationend',()=>line.classList.remove('log-new'),{once:true});}
+    if(!line){
+      line=document.createElement('div');
+      const type = log.type || 'info';
+      let tagClass = '';
+      if (type === 'damage') tagClass = ' is-hit';
+      else if (type === 'buff') tagClass = ' is-effect';
+      else if (type === 'loot' || type === 'reward') tagClass = ' is-reward';
+      line.className=`log-line feed-item ${type}${tagClass} log-new`;
+      line.dataset.logId=id;
+      const timeStr = log.time ? (String(log.time).startsWith('TURN') ? log.time : `TURN ${log.time}`) : 'TURN --';
+      const cleanText = String(log.text || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      line.innerHTML = `<span class="feed-time">${timeStr}</span><div class="feed-msg">${cleanText}</div>`;
+      line.title = String(log.text||'').replace(/\*\*/g,'');
+      container.appendChild(line);
+      line.addEventListener('animationend',()=>line.classList.remove('log-new'),{once:true});
+    }
   });
   container.scrollTop=container.scrollHeight;
   updateBattleLogFade(container);
