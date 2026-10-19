@@ -1,40 +1,72 @@
-/* Dungeon Abyss — Dark Pixel Fantasy UI Design Tokens */
+/* Dungeon Abyss — Azure Ruins (蒼藍遺跡) UI Design Tokens */
 :root {
   /* =========================================================
-     1. Dark Pixel Fantasy Base Tokens
+     1. Azure Ruins Palette Base Tokens
      ========================================================= */
-  /* Background */
-  --ui-bg: #121515;
-  --ui-bg-secondary: #1B2020;
+  --abyss: #0D131A;            /* 深淵背景 */
+  --deep: #16212B;             /* 遺跡深板 */
+  --panel: #1D2C36;            /* 石板 Surface */
+  --panel2: #243743;           /* 次級 Surface */
+  --panel3: #2A4050;           /* 第三級 Surface */
+  --border: #4F6674;           /* 冷灰藍邊框 */
+  --border-subtle: #344B59;    /* 冷灰藍結構線/微邊框 */
+  --line: #344B59;             /* 分隔線 */
+  --ornament: #CBB98A;         /* 淡金飾線 */
+  --light: #E8EDF2;            /* 主文字 (高對比冷白) */
+  --secondary: #B9C4CE;        /* 次文字 (冷灰次要文字) */
+  --muted: #7E8C96;            /* 弱文字 (冷藍灰輔助文字) */
+  --azure: #6FB7E9;            /* 遺跡藍光 (微光/強調) */
+  --bright: #9CDBF9;           /* 遺跡亮藍 (焦點/光暈) */
+  --selection: #285878;        /* 選取藍 */
+  --selection-bright: #3E88D6; /* 高亮選取藍 */
+  --teal: #49C2C1;             /* 魔力青綠 (治療/護盾/MP) */
+  --danger: #D46B6B;           /* 危險紅 (警告/扣血/放棄) */
+  --gold: #D7B86E;             /* 戰利品金 (金幣/傳奇/重點) */
 
-  /* Surface */
-  --ui-surface: #242A29;
-  --ui-surface-raised: #2F3633;
-  --ui-surface-inset: #191E1D;
+  /* Aliases for UI components */
+  --ui-bg: var(--abyss);
+  --ui-bg-secondary: var(--deep);
+  --ui-surface: var(--panel);
+  --ui-surface-raised: var(--panel2);
+  --ui-surface-inset: #121C24;
 
-  /* Border */
-  --ui-border: #59615A;
-  --ui-border-subtle: #414845;
-  --ui-border-accent: #A78B5D;
+  --ui-border: var(--border);
+  --ui-border-subtle: var(--border-subtle);
+  --ui-border-accent: var(--ornament);
 
-  /* Text */
-  --ui-text-primary: #F0E8D9;
-  --ui-text-secondary: #C4C1B3;
-  --ui-text-muted: #979D94;
+  --ui-text-primary: var(--light);
+  --ui-text-secondary: var(--secondary);
+  --ui-text-muted: var(--muted);
 
-  /* Accent */
-  --ui-accent: #C5A573;
-  --ui-primary: #914B43;
-  --ui-primary-hover: #AD6256;
+  --ui-accent: var(--azure);
+  --ui-accent-bright: var(--bright);
+  --ui-primary: #336C91;
+  --ui-primary-hover: #4380A7;
 
-  /* Semantic */
-  --ui-success: #79A083;
-  --ui-warning: #C4A067;
-  --ui-danger: #BF6D63;
+  --ui-success: var(--teal);
+  --ui-warning: var(--gold);
+  --ui-danger: var(--danger);
 
-  /* Geometry */
+  /* Geometry (Azure Ruins: 0-4px rounded, 1-2px border, clean bevel/chamfer) */
   --ui-radius: 2px;
   --ui-border-width: 1px;
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-window: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-pill: 2px;
+
+  /* Ambient Depth (No arcade push shadows or harsh offset block shadows) */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-window: 0 12px 36px rgba(0, 0, 0, 0.55);
+  --shadow-pressed: none;
 
   /* Spacing */
   --space-1: 4px;
@@ -48,87 +80,72 @@
   --space-12: 48px;
 
   /* Typography */
-  --font-display: "Cinzel", "Syne", "Noto Serif TC", serif;
-  --font-body: "Noto Sans TC", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-stats: "Chakra Petch", Consolas, monospace;
+  --font-display: "Cinzel", serif;
+  --font-body: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-stats: "Silkscreen", monospace;
+  --font-pixel: "Silkscreen", monospace;
+  --pixel: var(--font-pixel);
+  --font: var(--font-body);
 
-  --text-page: clamp(24px, 3vw, 36px);
-  --text-section: 22px;
-  --text-card: 18px;
-  --text-body: 16px;
-  --text-small: 14px;
-  --text-label: 13px;
-
-  /* Geometry Aliases (Flat Pixel UI: 0-2px radius) */
-  --radius-xs: 2px;
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-window: 2px;
-  --radius-xl: 2px;
-  --radius-2xl: 2px;
-  --radius-pill: 2px;
-
-  /* Flat UI Shadows (Hard offset arcade push shadows removed; subtle ambient depth only) */
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-window: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-pressed: none;
+  --text-page: clamp(22px, 2.5vw, 32px);
+  --text-section: 18px;
+  --text-card: 16px;
+  --text-body: 14px;
+  --text-small: 12px;
+  --text-label: 11px;
 
   /* =========================================================
-     2. Legacy Token Mappings & Aliases
+     2. Component & Legacy Mappings
      ========================================================= */
   --color-env-bg: var(--ui-bg);
   --color-app-shell: var(--ui-bg);
   --color-canvas: var(--ui-bg-secondary);
   --color-surface: var(--ui-surface);
   --color-surface-secondary: var(--ui-surface-inset);
-  --color-surface-translucent: rgba(36, 42, 41, 0.95);
+  --color-surface-translucent: rgba(29, 44, 54, 0.96);
   --color-bone-white: var(--ui-surface);
   --color-bone-white-alt: var(--ui-surface-inset);
   --color-bone-white-card: var(--ui-surface);
 
-  /* Guild Hall & Parchment Aliases */
-  --color-outer-chamber: rgba(18, 21, 21, 0.88);
-  --color-outer-border: var(--ui-border-subtle);
+  /* Outer chamber & panel aliases */
+  --color-outer-chamber: rgba(13, 19, 26, 0.94);
+  --color-outer-border: var(--ui-border);
   --color-parchment-base: var(--ui-surface);
   --color-parchment-light: var(--ui-surface-raised);
   --color-parchment-dark: var(--ui-bg-secondary);
   --color-parchment-inset: var(--ui-surface-inset);
   --color-parchment-border: var(--ui-border);
-  --color-parchment-stitch: rgba(148, 163, 184, 0.15);
+  --color-parchment-stitch: transparent;
   --color-guild-ink: var(--ui-text-primary);
   --color-guild-ink-secondary: var(--ui-text-secondary);
   --color-guild-ink-muted: var(--ui-text-muted);
   --color-guild-blue: var(--ui-primary);
-  --color-guild-blue-dark: #6e3630;
+  --color-guild-blue-dark: #224357;
   --color-guild-blue-hover: var(--ui-primary-hover);
 
-  /* Navy HUD (Console & Status) */
-  --color-hud-navy: #141818;
-  --color-hud-navy-surface: #1B2020;
-  --color-hud-navy-border: #414845;
+  /* HUD & Status Bar */
+  --color-hud-navy: rgba(13, 24, 33, 0.96);
+  --color-hud-navy-surface: var(--panel);
+  --color-hud-navy-border: var(--border);
   --color-hud-text: var(--ui-text-primary);
   --color-hud-text-muted: var(--ui-text-muted);
 
-  /* Brand & Combat Semantic */
+  /* Semantic */
   --color-primary: var(--ui-primary);
   --color-primary-hover: var(--ui-primary-hover);
-  --color-primary-soft: rgba(145, 75, 67, 0.2);
-  --color-loot-gold: var(--ui-accent);
-  --color-loot-gold-hover: #d8b783;
-  --color-danger: var(--ui-danger);
-  --color-danger-hover: #a8584f;
-  --color-success: var(--ui-success);
-  --color-success-hover: #638c6d;
-  --color-warning: var(--ui-warning);
+  --color-primary-soft: rgba(111, 183, 233, 0.18);
+  --color-loot-gold: var(--gold);
+  --color-loot-gold-hover: #E8D196;
+  --color-danger: var(--danger);
+  --color-danger-hover: #E28888;
+  --color-success: var(--teal);
+  --color-success-hover: #65D9D8;
+  --color-warning: var(--gold);
 
   /* HP Semantic */
-  --hp-green: var(--ui-success);
-  --hp-yellow: var(--ui-warning);
-  --hp-red: var(--ui-danger);
+  --hp-green: var(--teal);
+  --hp-yellow: var(--gold);
+  --hp-red: var(--danger);
 
   /* Text & Ink */
   --color-text-primary: var(--ui-text-primary);
@@ -143,31 +160,31 @@
   --color-border: var(--ui-border);
   --color-border-subtle: var(--ui-border-subtle);
   --border-weight: 1px;
-  --border-weight-thick: 2px;
+  --border-weight-thick: 1.5px;
 
-  /* Shared fantasy palette & surfaces */
+  /* Ruins Surfaces & Rarity */
   --color-parchment: var(--ui-surface);
   --color-stone: var(--ui-surface);
-  --color-brass: var(--ui-border-accent);
-  --color-brass-bright: var(--ui-accent);
-  --color-brass-muted: #59615A;
-  --color-wax-red: var(--ui-primary);
-  --color-warm-white: var(--ui-text-primary);
+  --color-brass: var(--ornament);
+  --color-brass-bright: var(--gold);
+  --color-brass-muted: var(--border);
+  --color-wax-red: var(--danger);
+  --color-warm-white: var(--light);
   --surface-exploration: var(--ui-surface);
   --surface-combat: var(--ui-surface);
-  --surface-modal: var(--ui-surface);
-  --surface-tooltip: var(--ui-surface-raised);
+  --surface-modal: var(--deep);
+  --surface-tooltip: #101F2B;
   --surface-inset: var(--ui-surface-inset);
   --surface-raised: var(--ui-surface-raised);
   --surface-overlay: var(--ui-bg-secondary);
-  --color-focus: var(--ui-accent);
-  --color-physical: #d9b68a;
-  --color-magical: #b8a6df;
-  --color-status: #91bbba;
-  --rarity-common: #b8aa94;
-  --rarity-rare: #d4ac63;
-  --rarity-exclusive: #b8a6df;
-  --rarity-consumable: #79A083;
+  --color-focus: var(--bright);
+  --color-physical: #D7B86E;
+  --color-magical: #6FB7E9;
+  --color-status: #49C2C1;
+  --rarity-common: var(--border);
+  --rarity-rare: var(--azure);
+  --rarity-exclusive: var(--gold);
+  --rarity-consumable: var(--teal);
 
   --parchment-light: var(--ui-surface-raised);
   --parchment-mid: var(--ui-surface);
@@ -177,42 +194,44 @@
   --ink-secondary: var(--ui-text-secondary);
   --ink-muted: var(--ui-text-muted);
   --leather-bg: var(--ui-bg-secondary);
-  --wax-red: var(--ui-primary);
-  --gold-brass: var(--ui-accent);
+  --wax-red: var(--danger);
+  --gold-brass: var(--gold);
 
-  /* Layer Architecture Tokens */
+  /* =========================================================
+     3. Strict Layer Architecture (Z-Index System)
+     ========================================================= */
   --z-world: 0;
   --z-atmosphere: 5;
-  --z-hud: 10;
-  --z-interaction: 20;
-  --z-battle-log: 25;
-  --z-battle-fx: 30;
-  --z-presentation: 100;
-  --z-curtain: 150;
-  --z-cinematic: 920;
-  --z-feedback: 980;
-  --z-system-modal: 1000;
-  --z-chat: 1010;
-  --z-tooltip: 1200;
+  --z-hud: 100;
+  --z-narrative-controls: 200;
+  --z-interaction: 300;
+  --z-battle-log: 350;
+  --z-battle-fx: 400;
+  --z-cinematic: 1000;
+  --z-modal: 2400;
+  --z-modal-top: 2600;
+  --z-tooltip: 2800;
+  --z-toast: 3000;
+  --z-system-overlay: 9999;
 
-  /* Honeycomb Hex Tokens */
-  --hex-w: 64px;
-  --hex-h: 73.9px;
-  --hex-row-overlap: -17px;
+  /* Honeycomb Hex Geometry */
+  --hex-w: 68px;
+  --hex-h: 78.5px;
+  --hex-row-overlap: -14px;
   --hex-col-overlap: -2px;
-  --hex-bg: var(--ui-surface-inset);
-  --hex-bg-hover: var(--ui-surface-raised);
-  --hex-bg-active: var(--ui-surface);
-  --hex-border: var(--ui-border-accent);
+  --hex-bg: #122633;
+  --hex-bg-hover: #1c394b;
+  --hex-bg-active: #23475d;
+  --hex-border: #4F6674;
 
-  /* Motion Tokens */
+  /* Motion */
   --motion-fast: 120ms;
-  --motion-normal: 200ms;
-  --motion-medium: 350ms;
-  --motion-cinematic: 800ms;
+  --motion-normal: 180ms;
+  --motion-medium: 300ms;
+  --motion-cinematic: 600ms;
   --duration-fast: 120ms;
-  --duration-normal: 200ms;
-  --duration-surface: 250ms;
+  --duration-normal: 180ms;
+  --duration-surface: 220ms;
   --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
   --ease-press: cubic-bezier(0.1, 0.9, 0.2, 1);
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
@@ -220,9 +239,9 @@
 
 @media (max-width: 640px) {
   :root {
-    --hex-w: 48px;
-    --hex-h: 55.4px;
-    --hex-row-overlap: -13px;
+    --hex-w: 52px;
+    --hex-h: 60px;
+    --hex-row-overlap: -11px;
     --hex-col-overlap: -1.5px;
   }
 }

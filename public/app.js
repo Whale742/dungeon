@@ -1104,7 +1104,45 @@ function renderApp() {
     }
   }
   if (elements.headerGoldDisplay) {
-    elements.headerGoldDisplay.textContent = `🪙 ${roomState.gold ?? 0}G`;
+    elements.headerGoldDisplay.textContent = `${roomState.gold ?? 0} G`;
+  }
+  const goldPill = document.getElementById('headerGoldPill');
+  if (goldPill) {
+    if (!roomState || roomState.state === 'ENTRY' || roomState.state === 'GAME_OVER') {
+      goldPill.classList.add('hidden');
+    } else {
+      goldPill.classList.remove('hidden');
+    }
+  }
+  const centerInfo = document.getElementById('headerCenterInfo');
+  if (centerInfo) {
+    if (!roomState || roomState.state === 'ENTRY') {
+      centerInfo.style.opacity = '0';
+      centerInfo.style.pointerEvents = 'none';
+    } else {
+      centerInfo.style.opacity = '1';
+      centerInfo.style.pointerEvents = 'auto';
+      const floorDisp = document.getElementById('hudFloorDisplay');
+      const turnDisp = document.getElementById('hudTurnDisplay');
+      const phaseDisp = document.getElementById('hudPhaseDisplay');
+      if (floorDisp) floorDisp.textContent = `FLOOR ${String(roomState.floor || 1).padStart(2, '0')}`;
+      if (turnDisp) turnDisp.textContent = `TURN ${String(roomState.battleRound || roomState.turn || 1).padStart(2, '0')}`;
+      if (phaseDisp) {
+        const pMap = {
+          'LOBBY': 'LOBBY',
+          'PROLOGUE': 'PROLOGUE',
+          'ROUTE': 'EXPLORATION',
+          'TRANSITION': 'EXPLORATION',
+          'IN_BATTLE': 'BATTLE',
+          'BATTLE_VICTORY': 'REWARD',
+          'CHECKPOINT': 'REST',
+          'EVENT': 'EVENT',
+          'GAME_OVER': 'DEFEAT',
+          'VICTORY': 'VICTORY'
+        };
+        phaseDisp.textContent = pMap[roomState.state] || roomState.state;
+      }
+    }
   }
   if (elements.inventoryModal && !elements.inventoryModal.classList.contains('hidden')) {
     renderInventoryModal();
@@ -6715,10 +6753,10 @@ function renderInventoryModal() {
   const me = (roomState?.players || []).find(p => p.id === myId) || (roomState?.players || [])[0] || null;
   const gold = roomState?.gold ?? 0;
   if (elements.inventoryGoldCount) {
-    elements.inventoryGoldCount.textContent = `🪙 ${gold} 金幣`;
+    elements.inventoryGoldCount.innerHTML = `<svg class="svg-icon" style="width:14px;height:14px;"><use href="#icon-gold"></use></svg> <span>${gold} G</span>`;
   }
   if (elements.headerGoldDisplay) {
-    elements.headerGoldDisplay.textContent = `🪙 ${gold}`;
+    elements.headerGoldDisplay.textContent = `${gold} G`;
   }
 
   // 頂部即時屬性列 (HP 物攻+ 魔攻+ 防禦力)

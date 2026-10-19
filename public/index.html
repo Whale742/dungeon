@@ -220,32 +220,50 @@
   </svg>
 
   <div id="app" class="game-container">
-    <!-- 頂部導航欄 -->
-    <header class="app-header">
-      <div class="logo">
-        <span class="icon"><img src="/icon/icon.webp" alt="Dungeon Abyss" class="logo-img"></span>
+    <!-- 頂部導航欄 (Azure Ruins Top Header) -->
+    <header class="app-header top-header">
+      <div class="logo brand">
+        <span class="icon brandmark"><img src="/icon/icon.webp" alt="Dungeon Abyss" class="logo-img"></span>
         <div class="title-group">
-          <h1>地城深淵 <span class="en-sub">DUNGEON ABYSS</span></h1>
-          <p class="subtitle">多人連線回合制地城探險 RPG</p>
+          <h1 class="brand-name">地城深淵 <span class="en-sub">DUNGEON ABYSS</span></h1>
+          <p class="subtitle brand-caption">AZURE RUINS · 深淵探索</p>
         </div>
       </div>
-      <div class="header-status">
-        <div id="roomBadge" class="room-code-display hidden">
-          <span class="room-code-label">房號：</span>
-          <span id="roomCodeText" class="room-code-clickable" title="點擊直接複製房號">-----</span>
-          <span id="roomCopyToast" class="room-copy-toast hidden">已複製！</span>
+      <div class="header-center" id="headerCenterInfo" style="opacity: 0;">
+        <div class="header-info">
+          <span>當前深度</span>
+          <strong id="hudFloorDisplay">FLOOR 01</strong>
         </div>
+        <div class="header-info">
+          <span>回合</span>
+          <strong id="hudTurnDisplay">TURN 01</strong>
+        </div>
+        <div class="header-info">
+          <span>遺跡階段</span>
+          <strong id="hudPhaseDisplay">LOBBY</strong>
+        </div>
+      </div>
+      <div class="header-status header-actions">
+        <div id="roomBadge" class="room-code-display hidden">
+          <span class="room-code-label">房號</span>
+          <span id="roomCodeText" class="room-code-clickable" title="點擊直接複製房號">-----</span>
+          <span id="roomCopyToast" class="room-copy-toast hidden">已複製</span>
+        </div>
+        <div id="headerGoldPill" class="gold-pill hidden">
+          <svg class="svg-icon" style="width:14px;height:14px;"><use href="#icon-gold"></use></svg>
+          <span id="headerGoldDisplay">0 G</span>
+        </div>
+        <button id="btnOpenInventory" class="btn-icon hidden" title="查看行囊與裝備鍛造">
+          <svg class="svg-icon"><use href="#icon-chest"></use></svg> <span>行囊</span>
+        </button>
         <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">
-          <svg class="svg-icon"><use href="#icon-pause"></use></svg> 暫停
+          <svg class="svg-icon"><use href="#icon-pause"></use></svg> <span>暫停</span>
         </button>
         <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">
-          <svg class="svg-icon"><use href="#icon-flag"></use></svg> 放棄挑戰
-        </button>
-        <button id="btnOpenInventory" class="btn-icon hidden" title="查看行囊與裝備鍛造">
-          <svg class="svg-icon"><use href="#icon-chest"></use></svg> 行囊 <span id="headerGoldDisplay" class="header-gold-pill">🪙 0</span>
+          <svg class="svg-icon"><use href="#icon-flag"></use></svg> <span>放棄挑戰</span>
         </button>
         <button id="btnLeaveParty" onclick="exitRoomToLobbyMenu()" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
-          <svg class="svg-icon"><use href="#icon-close"></use></svg> 離開隊伍
+          <svg class="svg-icon"><use href="#icon-close"></use></svg> <span>離開隊伍</span>
         </button>
         <div class="bgm-control">
           <button id="bgmVolumeBtn" class="btn-icon" aria-expanded="false" aria-controls="bgmVolumePanel" title="調整背景音樂音量"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/></svg><span>BGM</span></button>

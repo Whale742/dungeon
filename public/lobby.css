@@ -1,13 +1,13 @@
 /* =========================================================
-   1. UNIFIED KRAFT PARCHMENT (牛皮紙 / 羊皮紙) DESIGN TOKENS
-   Adapted from temp/code_artifact.html for Dungeon Abyss Lobby
+   Dungeon Abyss — Azure Ruins (蒼藍遺跡)
+   Lobby, Entry & Hero Archive Stylesheet
    ========================================================= */
-/* Palette is owned by design-tokens.css. */
+
 .game-container { position: relative; z-index: 1; }
 
 body:has(#viewLobby.active),
 body:has(#viewEntry.active) {
-  font-family: var(--font-body);
+  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
 }
 
 body:has(#viewLobby.active) .game-container,
@@ -27,22 +27,25 @@ body:has(#viewEntry.active) .main-content {
   -webkit-backdrop-filter: none;
 }
 
-/* 深色原木地城背景 */
+/* 蒼藍遺跡背景 (Ancient Abyss Ruins Background) */
 .dungeon-wood-bg {
   position: fixed;
   inset: 0;
-  background: linear-gradient(rgba(5, 8, 15, .52), rgba(5, 8, 15, .65)),
+  background: 
+    linear-gradient(180deg, rgba(13, 19, 26, 0.78) 0%, rgba(9, 15, 22, 0.65) 45%, rgba(6, 11, 18, 0.88) 100%),
     var(--studio-game-background, url('/icon/background.webp')) center / cover no-repeat;
   z-index: 0;
   pointer-events: none;
+  filter: saturate(0.85);
 }
+
 .dungeon-wood-bg::before {
-  content: none;
+  content: '';
   position: absolute;
   inset: 0;
   background: 
-    radial-gradient(ellipse at 15% 50%, rgba(15, 23, 42, 0.8) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 50%, rgba(15, 23, 42, 0.8) 0%, transparent 55%);
+    radial-gradient(ellipse at 50% 30%, rgba(111, 183, 233, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 90%, rgba(5, 10, 16, 0.8) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -55,168 +58,185 @@ body:has(#viewEntry.active) .main-content {
 }
 
 /* =========================================================
-   2. 核心牛皮紙 / 羊皮紙容器樣式 (.kraft-paper)
+   2. 遺跡石板容器樣式 (.kraft-paper / .glass-panel)
    ========================================================= */
 #viewLobby .team-card,
 #viewLobby .role-command-panel,
-.kraft-paper {
-  background: var(--ui-surface, #242A29);
-  color: var(--ui-text-primary, #F0E8D9);
-  border: 1px solid var(--ui-border, #59615A);
+.kraft-paper,
+.glass-panel {
+  background: rgba(22, 33, 43, 0.98);
+  color: var(--light, #E8EDF2);
+  border: 1px solid var(--border, #4F6674);
   border-radius: var(--ui-radius, 2px);
-  box-shadow: none;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   position: relative;
   isolation: isolate;
 }
 
-body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header {
-  background: rgba(18, 21, 21, 0.9);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--ui-border-subtle, #414845);
-  border-radius: var(--ui-radius, 2px);
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
-  box-shadow: none;
-}
-body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .title-group h1 {
-  color: var(--ui-text-primary, #F0E8D9);
-  text-shadow: none;
-  font-family: var(--font-display, 'Cinzel', serif);
-  letter-spacing: 1px;
-}
-body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .en-sub {
-  color: var(--ui-accent, #C5A573);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-}
-body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .subtitle {
-  color: var(--ui-text-muted, #979D94);
-  font-size: 13px;
-}
-body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img {
-  border-color: var(--ui-border-accent, #A78B5D);
-  border-radius: var(--ui-radius, 2px);
-  box-shadow: none;
-}
-
-/* Dark Pixel Fantasy: Rivets removed */
+/* Corner ticks for Azure Ruins panels */
 #viewLobby .team-card::before,
-#viewLobby .team-card::after,
 #viewLobby .role-command-panel::before,
-#viewLobby .role-command-panel::after,
-.kraft-paper-rivets::before,
-.kraft-paper-rivets::after {
-  display: none !important;
+.recruit-card::before,
+.lobby-menu-card::before,
+.server-list-card::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-left: 1px solid #718e91;
+  border-top: 1px solid #718e91;
+  pointer-events: none;
+  z-index: 2;
 }
 
 #viewLobby .team-card::after,
 #viewLobby .role-command-panel::after,
-.kraft-paper-rivets::after {
-  top: 8px;
-  right: 8px;
-  border: none;
+.recruit-card::after,
+.lobby-menu-card::after,
+.server-list-card::after {
+  content: '';
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid #718e91;
+  border-bottom: 1px solid #718e91;
+  pointer-events: none;
+  z-index: 2;
 }
 
-/* 內嵌深色墨水紙板 */
+/* 內嵌深板 (Surface Inset) */
 .kraft-sub-panel {
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845);
+  background: #121C24;
+  border: 1px solid var(--border-subtle, #344B59);
   border-radius: var(--ui-radius, 2px);
   box-shadow: none;
-  color: var(--ui-text-primary, #F0E8D9);
+  color: var(--light, #E8EDF2);
 }
 
 /* =========================================================
-   3. 統一 Flat Pixel Button 體系 (.parchment-btn)
+   3. 統一 Azure Ruins 按鈕體系 (.parchment-btn / .btn)
    ========================================================= */
 .parchment-btn,
+.btn,
 #viewLobby .btn,
 #viewLobby .role-skill-tabs button {
   position: relative;
-  background: var(--ui-surface-raised, #2F3633);
-  border: 1px solid var(--ui-border, #59615A);
+  background: #243e50;
+  border: 1px solid #59748a;
   border-radius: var(--ui-radius, 2px);
-  color: var(--ui-text-primary, #F0E8D9);
+  color: var(--light, #E8EDF2);
   font-family: var(--font-body, 'Noto Sans TC', sans-serif);
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 13px;
   text-shadow: none;
   box-shadow: none !important;
-  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   cursor: pointer;
   text-decoration: none;
   transform: none !important;
+  padding: 8px 16px;
+  min-height: 38px;
+  white-space: nowrap;
 }
 
 .parchment-btn:hover:not(:disabled),
+.btn:hover:not(:disabled),
 #viewLobby .btn:hover:not(:disabled),
 #viewLobby .role-skill-tabs button:hover:not(:disabled) {
-  background: #3B4440;
-  border-color: var(--ui-border-accent, #A78B5D);
-  color: var(--ui-text-primary, #F0E8D9);
+  background: #2e5367;
+  border-color: var(--azure, #6FB7E9);
+  color: #ffffff;
   transform: none !important;
   box-shadow: none !important;
 }
 
 .parchment-btn:active:not(:disabled),
+.btn:active:not(:disabled),
 #viewLobby .btn:active:not(:disabled),
 #viewLobby .role-skill-tabs button:active:not(:disabled) {
-  background: #323936;
+  background: #1d3445;
   transform: none !important;
   box-shadow: none !important;
 }
 
 .parchment-btn:disabled,
+.btn:disabled,
 #viewLobby .btn:disabled,
 #viewLobby .role-skill-tabs button:disabled {
-  background: var(--ui-surface-inset, #191E1D) !important;
-  color: var(--ui-text-muted, #979D94) !important;
-  border-color: var(--ui-border-subtle, #414845) !important;
+  background: #14222c !important;
+  color: var(--muted, #7E8C96) !important;
+  border-color: #2a3c48 !important;
   box-shadow: none !important;
   cursor: not-allowed !important;
-  opacity: 0.5 !important;
+  opacity: 0.48 !important;
   transform: none !important;
 }
 
-/* 紅色重點按鈕變體 */
+/* 藍色重點按鈕 (Primary) */
 .parchment-btn-crimson,
-#viewLobby #btnStartGame,
-#viewLobby #btnToggleReady,
-#viewLobby .btn-danger,
-#viewLobby .role-skill-tabs button[aria-selected="true"] {
-  background: var(--ui-primary, #914B43) !important;
-  border: 1px solid #A3574E !important;
+.btn.primary,
+#viewLobby #btnToggleReady {
+  background: var(--ui-primary, #336C91) !important;
+  border: 1px solid #81C7EB !important;
   border-radius: var(--ui-radius, 2px) !important;
   color: #ffffff !important;
   text-shadow: none !important;
   box-shadow: none !important;
-  font-weight: 700;
+  font-weight: 800;
   transform: none !important;
 }
 
 .parchment-btn-crimson:hover:not(:disabled),
-#viewLobby #btnStartGame:hover:not(:disabled),
-#viewLobby #btnToggleReady:hover:not(:disabled),
-#viewLobby .btn-danger:hover:not(:disabled),
-#viewLobby .role-skill-tabs button[aria-selected="true"]:hover:not(:disabled) {
-  background: var(--ui-primary-hover, #AD6256) !important;
-  border-color: var(--ui-accent, #C5A573) !important;
+.btn.primary:hover:not(:disabled),
+#viewLobby #btnToggleReady:hover:not(:disabled) {
+  background: #4380A7 !important;
+  border-color: #9CDBF9 !important;
   color: #ffffff !important;
-  box-shadow: none !important;
-  transform: none !important;
 }
 
-.parchment-btn-crimson:active:not(:disabled),
-#viewLobby #btnStartGame:active:not(:disabled),
-#viewLobby #btnToggleReady:active:not(:disabled),
-#viewLobby .btn-danger:active:not(:disabled),
-#viewLobby .role-skill-tabs button[aria-selected="true"]:active:not(:disabled) {
-  background: #7A3B34 !important;
-  transform: none !important;
-  box-shadow: none !important;
+/* 金色高光按鈕 (Gold / Hero action) */
+.btn-gold,
+.btn.gold,
+.recruit-btn-submit,
+#viewLobby #btnStartGame {
+  background: #DFCF9E !important;
+  border: 1px solid #F8E9B7 !important;
+  color: #112530 !important;
+  font-weight: 900 !important;
+}
+
+.btn-gold:hover:not(:disabled),
+.btn.gold:hover:not(:disabled),
+.recruit-btn-submit:hover:not(:disabled),
+#viewLobby #btnStartGame:hover:not(:disabled) {
+  background: #EEE0B7 !important;
+  border-color: #FFFFFF !important;
+  color: #0b1820 !important;
+}
+
+/* 危險/退出按鈕 (Danger) */
+.btn-danger,
+#btnExitToRecruit,
+#btnLobbyExitRoom {
+  background: #51313C !important;
+  border: 1px solid #9B6870 !important;
+  color: #F7D5D6 !important;
+}
+
+.btn-danger:hover:not(:disabled),
+#btnExitToRecruit:hover:not(:disabled),
+#btnLobbyExitRoom:hover:not(:disabled) {
+  background: #6A3C48 !important;
+  border-color: #D46B6B !important;
+  color: #FFFFFF !important;
 }
 
 /* =========================================================
@@ -234,7 +254,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 
 #viewLobby .team-card .card-header {
   padding: 0 0 10px;
-  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
+  border-bottom: 1px solid var(--border-subtle, #344B59);
   margin-bottom: 10px;
 }
 
@@ -246,316 +266,203 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .team-card h3 {
-  font-family: 'Noto Serif TC', serif;
-  font-size: 17px;
-  font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--light, #E8EDF2);
+  margin: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0;
+  gap: 8px;
 }
 
-#viewLobby .team-card h3 svg {
-  color: #871919;
-  width: 16px;
-  height: 16px;
+#viewLobby .team-card h3 .svg-icon {
+  color: var(--azure, #6FB7E9);
+  width: 18px;
+  height: 18px;
 }
 
 #viewLobby #lobbyMemberCount {
-  color: #871919;
-  font-weight: 900;
-}
-
-#viewLobby .lobby-exit-btn {
-  padding: 4px 12px;
-  font-size: 13px;
+  font-family: var(--pixel, 'Silkscreen', monospace);
+  color: var(--gold, #D7B86E);
   font-weight: 700;
-  letter-spacing: 0.5px;
-  gap: 5px;
-  white-space: nowrap;
-  border-radius: 6px;
 }
 
-#viewLobby.archive-mode #btnLobbyExitRoom {
-  display: none !important;
+#viewLobby .card-tip {
+  font-size: 11px;
+  color: var(--muted, #7E8C96);
+  margin-top: 4px;
+  display: block;
 }
 
-#viewLobby .team-card .card-tip {
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--ui-text-muted, #979D94);
-  margin-top: 6px;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-/* 成員名單捲軸區塊 */
 #viewLobby .member-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  margin: 8px 0 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: #855325 #d3b487;
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0;
+  margin-bottom: 12px;
 }
 
-#viewLobby .member-list::-webkit-scrollbar {
-  width: 6px;
-}
-#viewLobby .member-list::-webkit-scrollbar-track {
-  background: #d3b487;
-  border-radius: 3px;
-}
-#viewLobby .member-list::-webkit-scrollbar-thumb {
-  background: #855325;
-  border-radius: 3px;
-}
-
-/* 成員卡片 (kraft-sub-panel 風格) */
 #viewLobby .member-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 10px;
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
-  border-radius: 8px;
-  box-shadow: none;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  padding: 10px 12px;
+  background: #162936;
+  border: 1px solid var(--border-subtle, #344B59);
+  border-radius: var(--ui-radius, 2px);
+  gap: 10px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 #viewLobby .member-item:hover {
-  background: var(--ui-surface-raised, #2F3633);
-  border-color: var(--ui-border-accent, #A78B5D);
+  background: #1D3445;
+  border-color: var(--border, #4F6674);
 }
 
 #viewLobby .member-item.is-me {
-  border: 1px solid var(--ui-primary, #914B43);
-  background: var(--ui-surface-raised, #2F3633);
-  box-shadow: none;
+  border-color: #598da5;
+  background: #1A3242;
 }
 
-#viewLobby .member-item.can-transfer-leader {
-  cursor: pointer;
-}
-
-#viewLobby .member-info-col {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
-}
-
-/* 頭像外框 (做舊牛皮/原木鑲邊) */
-#viewLobby .member-avatar-wrapper {
+#viewLobby .member-avatar-box {
   width: 38px;
   height: 38px;
-  border-radius: 6px;
-  background: #3b1f0e;
-  border: 1.5px solid #783e18;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  border: 1px solid #4F6674;
+  background: #102533;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   flex-shrink: 0;
 }
 
-#viewLobby .member-role-avatar {
+#viewLobby .member-avatar-box img {
   width: 100%;
   height: 100%;
-  border-radius: 4px;
   object-fit: cover;
-  display: block;
 }
 
-#viewLobby .member-avatar-role-badge {
-  display: none !important;
+#viewLobby .member-avatar-box .svg-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--azure, #6FB7E9);
 }
 
-#viewLobby .member-name-group {
-  min-width: 0;
+#viewLobby .member-info-col {
   flex: 1;
+  min-width: 0;
 }
 
 #viewLobby .member-name-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 #viewLobby .member-name {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
-#viewLobby .member-name-text {
-  font-size: 15px;
-  font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--light, #E8EDF2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#viewLobby .me-tag {
-  font-size: 13px;
-  font-weight: 700;
-  color: #8f1d1d;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-#viewLobby .crown-tag {
-  color: #b45309;
-  font-size: 13px;
-  font-weight: 700;
+#viewLobby .member-leader-badge {
+  color: var(--gold, #D7B86E);
   display: inline-flex;
   align-items: center;
-  gap: 2px;
 }
 
-#viewLobby .crown-tag svg {
-  width: 13px;
-  height: 13px;
-}
-
-#viewLobby .btn-icon-rename {
-  background: transparent;
-  border: none;
-  color: var(--ui-text-muted, #979D94);
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
-  align-items: center;
-}
-
-#viewLobby .btn-icon-rename:hover {
-  color: #8f1d1d;
-}
-
-#viewLobby .member-inline-rename-form {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-#viewLobby .inline-rename-input {
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border, #59615A);
-  color: var(--ui-text-primary, #F0E8D9);
-  border-radius: var(--ui-radius, 2px);
-  padding: 3px 8px;
-  font-size: 14px;
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
-  outline: none;
+#viewLobby .member-leader-badge .svg-icon {
+  width: 14px;
+  height: 14px;
 }
 
 #viewLobby .member-sub-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 5px;
+  margin-top: 3px;
   flex-wrap: wrap;
 }
 
 #viewLobby .member-role-tag {
-  font-size: 12px;
+  font-family: var(--pixel, 'Silkscreen', monospace);
+  font-size: 10px;
   font-weight: 700;
-  background: var(--ui-surface-raised, #2F3633);
-  color: var(--ui-accent, #C5A573);
-  border: 1px solid var(--ui-border, #59615A);
-  border-radius: var(--ui-radius, 2px);
-  padding: 1px 6px;
-  line-height: 1.3;
-}
-
-#viewLobby .member-role-tag .role-unselected {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
-  border-radius: 3px;
-  padding: 1px 4px;
+  background: #122633;
+  color: var(--azure, #6FB7E9);
+  border: 1px solid #344B59;
+  border-radius: 2px;
+  padding: 1px 5px;
 }
 
 #viewLobby .member-tag-badge {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  background: var(--ui-surface-raised, #2F3633);
-  color: var(--ui-text-secondary, #C4C1B3);
-  border: 1px solid var(--ui-border, #59615A);
-  border-radius: var(--ui-radius, 2px);
-  padding: 1px 6px;
-  line-height: 1.3;
+  background: #122633;
+  color: var(--secondary, #B9C4CE);
+  border: 1px solid #344B59;
+  border-radius: 2px;
+  padding: 1px 5px;
 }
 
-/* 狀態欄標籤 */
 #viewLobby .member-status-col {
   flex-shrink: 0;
-  margin-left: 6px;
 }
 
-#viewLobby .member-status-icon {font-size: 12.5px;
+#viewLobby .member-status-icon {
+  font-family: var(--pixel, 'Silkscreen', monospace);
+  font-size: 10px;
   font-weight: 700;
-  font-family: 'Noto Sans TC', sans-serif;
+  padding: 3px 8px;
+  border-radius: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 #viewLobby .member-status-icon.ready {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #86efac;
+  background: rgba(73, 194, 193, 0.16);
+  color: #49C2C1;
+  border: 1px solid #49C2C1;
 }
 
 #viewLobby .member-status-icon.waiting {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
+  background: rgba(212, 107, 107, 0.16);
+  color: #D46B6B;
+  border: 1px solid #D46B6B;
 }
 
-#viewLobby .member-status-icon svg {
-  width: 11px;
-  height: 11px;
-}
-
-/* 隊伍底部控制項 */
 #viewLobby .lobby-footer {
   margin-top: auto;
-  border-top: 2px solid rgba(150, 107, 59, 0.4);
+  border-top: 1px solid var(--border-subtle, #344B59);
   padding-top: 12px;
 }
 
-#viewLobby .lobby-footer .full-width {
-  width: 100%;
-}
-
 #viewLobby .start-tip {
-  color: #991b1b;
+  color: var(--danger, #D46B6B);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   text-align: center;
   margin-top: 6px;
-  font-family: 'Noto Sans TC', sans-serif;
 }
 
 #viewLobby .pulse-waiting {
-  color: var(--ui-text-primary, #F0E8D9);
+  color: var(--secondary, #B9C4CE);
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: 12px;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  font-family: 'Noto Sans TC', sans-serif;
+  gap: 6px;
 }
 
 /* =========================================================
@@ -565,68 +472,62 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 18px 22px;
   min-width: 0;
 }
 
-/* 頂部副標題列 */
 #viewLobby .role-panel-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 0 10px;
-  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
-  margin-bottom: 12px;
-  background: transparent;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border-subtle, #344B59);
+  margin-bottom: 14px;
 }
 
 #viewLobby .role-heading-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 #viewLobby .parchment-wax-mark {
   width: 4px;
-  height: 16px;
-  background: #8f1d1d;
-  border-radius: 2px;
+  height: 18px;
+  background: var(--azure, #6FB7E9);
+  border-radius: 1px;
   display: inline-block;
 }
 
-#viewLobby .role-panel-heading span {
-  font-size: 18px;
-  font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'Noto Serif TC', serif;
+#viewLobby .role-heading-group span {
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--light, #E8EDF2);
   display: flex;
   align-items: center;
 }
 
-#viewLobby .role-panel-heading small {
+#viewLobby .role-heading-group small {
   margin-left: 8px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--ui-accent, #C5A573);
-  font-family: 'Cinzel', serif;
+  color: var(--ornament, #CBB98A);
   letter-spacing: 1.5px;
 }
 
 #viewLobby #roleSelectionStatus {
-  color: var(--ui-text-secondary, #C4C1B3);
-  font-size: 14px;
+  color: var(--secondary, #B9C4CE);
+  font-size: 13px;
   font-weight: 700;
-  font-family: 'Noto Sans TC', sans-serif;
 }
 
-/* 主面板內容 */
 #viewLobby .role-panel-main {
   display: flex;
   flex-direction: column;
   gap: 12px;
   flex: 1;
   min-height: 0;
-  padding: 0;
 }
 
 #viewLobby .role-overview {
@@ -637,7 +538,6 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   min-width: 0;
 }
 
-/* 肖像與詳細資料 */
 #viewLobby .role-identity {
   display: flex;
   align-items: flex-start;
@@ -646,23 +546,24 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-hero-portrait {
-  width: 105px;
-  height: 105px;
-  flex: 0 0 105px;
+  width: 104px;
+  height: 104px;
+  flex: 0 0 104px;
   aspect-ratio: 1 / 1;
-  box-sizing: border-box;
-  border-radius: 8px;
-  background: #3b1f0e;
-  border: 2px solid #7a481e;
-  overflow: hidden;
-  box-shadow: 
-    0 4px 10px rgba(0, 0, 0, 0.4),
-    inset 0 2px 4px rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 2px;
+  background: #102533;
+  border: 1px solid var(--ornament, #CBB98A);
   position: relative;
+  overflow: hidden;
   padding: 4px;
+}
+
+#viewLobby .role-hero-portrait::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid #456b79;
+  pointer-events: none;
 }
 
 #viewLobby .role-hero-portrait img {
@@ -670,8 +571,6 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   height: 100%;
   object-fit: contain;
   display: block;
-  border-radius: 4px;
-
 }
 
 #viewLobby .role-identity-copy {
@@ -680,30 +579,27 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-eyebrow {
-  color: var(--ui-accent, #C5A573);
-  font-size: 12.5px;
-  font-weight: 700;
-  font-family: 'VT323', monospace, 'Cinzel', serif;
-  letter-spacing: 1.5px;
+  color: var(--ornament, #CBB98A);
+  font: 700 10px var(--pixel, 'Silkscreen', monospace);
+  letter-spacing: .12em;
   display: block;
 }
 
 #viewLobby .role-identity h2 {
-  margin: 3px 0 1px;
-  font-size: 28px;
+  margin: 2px 0 1px;
+  font-size: 26px;
   line-height: 1.2;
   font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'Noto Serif TC', serif;
-  letter-spacing: 1px;
+  color: var(--light, #E8EDF2);
+  letter-spacing: .04em;
 }
 
 #viewLobby .role-english {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
-  color: var(--ui-text-muted, #979D94);
-  font-family: 'Cinzel', serif;
+  color: var(--muted, #7E8C96);
+  font-family: var(--font-display, 'Cinzel', serif);
   margin-bottom: 6px;
 }
 
@@ -715,46 +611,29 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-profile-tags span {
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.4;
   padding: 2px 8px;
   border-radius: var(--ui-radius, 2px);
   font-weight: 700;
-  border: 1px solid var(--ui-border, #59615A);
-  background: var(--ui-surface-raised, #2F3633);
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  border: 1px solid var(--border-subtle, #344B59);
+  background: #14222C;
+  color: var(--secondary, #B9C4CE);
 }
 
 #viewLobby .role-profile-tags .is-primary {
-  background: #fee2e2;
-  color: #8f1d1d;
-  border-color: #e9a3a3;
-}
-#viewLobby .member-tag-badge.is-primary {
-  background: #fee2e2;
-  color: #8f1d1d;
-  border-color: #e9a3a3;
-}
-
-#viewLobby .role-intro-desc,
-#viewLobby #lobbyRoleIntro {
-  font-size: 14.5px;
-  color: var(--ui-text-secondary, #C4C1B3);
-  line-height: 1.5;
-  font-family: 'Noto Sans TC', sans-serif;
-  margin: 4px 0 6px;
+  background: rgba(73, 194, 193, 0.16);
+  color: #49C2C1;
+  border-color: #49C2C1;
 }
 
 #viewLobby .role-hp-meta {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'VT323', monospace, 'Cinzel', serif;
+  font: 700 12px var(--pixel, 'Silkscreen', monospace);
+  color: var(--teal, #49C2C1);
   letter-spacing: 0.5px;
 }
 
-/* 五角雷達圖 (保留原有數值計算，套用羊皮紙赤墨風格) */
+/* Radar Chart (Azure Ruins Theme) */
 #viewLobby .role-radar {
   margin: 0;
   display: flex;
@@ -772,56 +651,55 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-radar figcaption {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--ui-text-muted, #979D94);
-  font-family: 'Noto Sans TC', sans-serif;
+  color: var(--muted, #7E8C96);
   margin-top: 4px;
   white-space: nowrap;
 }
 
 #viewLobby .radar-outer {
-  stroke: #a17548;
+  stroke: #4F6674;
   stroke-width: 1.2;
-  fill: rgba(230, 206, 168, 0.2);
+  fill: rgba(36, 55, 67, 0.3);
   stroke-dasharray: 2, 2;
 }
 
 #viewLobby .radar-ring {
-  stroke: #a17548;
+  stroke: #344B59;
   stroke-width: 0.8;
   fill: none;
   stroke-dasharray: 2, 2;
 }
 
 #viewLobby .radar-axis {
-  stroke: #916436;
+  stroke: #4F6674;
   stroke-width: 1.2;
 }
 
 #viewLobby .radar-shape {
-  fill: rgba(143, 29, 29, 0.28);
-  stroke: #8f1d1d;
+  fill: rgba(111, 183, 233, 0.28);
+  stroke: #6FB7E9;
   stroke-width: 2.2;
   stroke-linejoin: round;
 }
 
-#viewLobby .radar-vertices {
-  fill: #8f1d1d;
+#viewLobby .radar-vertices circle {
+  fill: #9CDBF9;
 }
 
 #viewLobby .radar-label {
-  fill: #000000;
-  font-size: 14px;
+  fill: #E8EDF2 !important;
+  font-size: 13px;
   font-weight: 700;
-  font-family: 'Noto Sans TC', sans-serif;
+  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
 }
 
 #viewLobby .radar-grade {
-  fill: #8f1d1d;
-  font-size: 16px;
+  fill: #D7B86E !important;
+  font-size: 14px;
   font-weight: 900;
-  font-family: 'Cinzel', serif;
+  font-family: var(--pixel, 'Silkscreen', monospace);
 }
 
 /* 技能切換頁籤欄 */
@@ -830,7 +708,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   gap: 12px;
   align-items: center;
   justify-content: space-between;
-  border-top: 2px solid rgba(150, 107, 59, 0.4);
+  border-top: 1px solid var(--border-subtle, #344B59);
   padding-top: 10px;
   margin-top: 4px;
 }
@@ -843,22 +721,37 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-skill-tabs button {
-  font-size: 14px;
-  padding: 6px 12px;
-  border-radius: 6px;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: var(--ui-radius, 2px);
   white-space: nowrap;
+  background: #1B303E;
+  border: 1px solid #4F6674;
+  color: var(--secondary, #B9C4CE);
+}
+
+#viewLobby .role-skill-tabs button:hover:not(:disabled) {
+  background: #284458;
+  border-color: var(--azure, #6FB7E9);
+  color: #ffffff;
+}
+
+#viewLobby .role-skill-tabs button[aria-selected="true"] {
+  background: #285878 !important;
+  border-color: #81C7EB !important;
+  color: #F9FFFF !important;
+  box-shadow: inset 0 0 0 1px #3E88D6 !important;
 }
 
 #viewLobby .role-copy-toggle {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
+  color: var(--secondary, #B9C4CE);
   cursor: pointer;
   white-space: nowrap;
-  font-family: 'Noto Sans TC', sans-serif;
 }
 
 #viewLobby .role-copy-toggle input {
@@ -871,9 +764,9 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby .role-switch-track {
   width: 28px;
   height: 16px;
-  background: #ebd6b3;
-  border: 1.5px solid #8f5824;
-  border-radius: 10px;
+  background: #14222C;
+  border: 1px solid #4F6674;
+  border-radius: 8px;
   position: relative;
   transition: all 0.15s ease;
 }
@@ -883,37 +776,36 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   position: absolute;
   left: 2px;
   top: 2px;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #825835;
-  transform: translateX(11px);
+  background: #4F6674;
+  transform: translateX(12px);
   transition: transform 150ms;
 }
 
 #viewLobby .role-copy-toggle input:checked + .role-switch-track {
-  background: #f7eed7;
-  border-color: #8f1d1d;
+  background: #1B303E;
+  border-color: var(--azure, #6FB7E9);
 }
 
 #viewLobby .role-copy-toggle input:checked + .role-switch-track::before {
   transform: translateX(0);
-  background: #8f1d1d;
+  background: var(--azure, #6FB7E9);
 }
 
-/* 技能詳細說明框 (kraft-sub-panel) */
+/* 技能詳細說明框 */
 #viewLobby .role-description {
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
-  border-radius: 10px;
-  box-shadow: none;
-  padding: 11px 14px;
+  background: #121C24;
+  border: 1px solid var(--border-subtle, #344B59);
+  border-radius: var(--ui-radius, 2px);
+  padding: 12px 16px;
   min-height: 82px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   scrollbar-width: thin;
-  scrollbar-color: #855325 #d3b487;
+  scrollbar-color: #4F6674 #122633;
   margin-top: 4px;
 }
 
@@ -927,37 +819,31 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 
 #viewLobby .role-description h3,
 #viewLobby #lobbySkillName {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.3;
-  font-weight: 900;
-  color: #8f1d1d;
-  font-family: 'Noto Serif TC', serif;
+  font-weight: 800;
+  color: var(--gold, #D7B86E);
   margin: 0;
 }
 
 #viewLobby #lobbySkillMeta {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ui-accent, #C5A573);
-  font-family: 'VT323', monospace, 'Cinzel', serif;
+  font: 700 11px var(--pixel, 'Silkscreen', monospace);
+  color: var(--azure, #6FB7E9);
 }
 
 #viewLobby .role-description p,
 #viewLobby #lobbySkillCopy {
   margin: 0;
-  color: var(--ui-text-secondary, #C4C1B3);
-  font-size: 14.5px;
+  color: var(--light, #E8EDF2);
+  font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: 'Noto Sans TC', sans-serif;
 }
 
-/* =========================================================
-   6. 底部全 13 個職業牛皮紙選擇列 (SELECT YOUR HERO)
-   ========================================================= */
+/* 底部全 13 個職業選擇列 */
 #viewLobby .role-portrait-deck {
-  border-top: 2px solid rgba(150, 107, 59, 0.4);
+  border-top: 1px solid var(--border-subtle, #344B59);
   padding-top: 8px;
   margin-top: 8px;
   background: transparent;
@@ -970,17 +856,16 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'Noto Sans TC', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
+  color: var(--light, #E8EDF2);
 }
 
 #viewLobby .role-deck-caption small {
-  font-family: 'Cinzel', serif;
-  font-size: 12.5px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 11px;
   font-weight: 700;
-  color: var(--ui-text-secondary, #C4C1B3);
+  color: var(--muted, #7E8C96);
   letter-spacing: 1.5px;
 }
 
@@ -991,205 +876,86 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   overflow-y: hidden;
   padding: 3px 2px 6px;
   scrollbar-width: thin;
-  scrollbar-color: #855325 #d3b487;
+  scrollbar-color: #4F6674 #122633;
 }
 
 #viewLobby .role-portrait-strip::-webkit-scrollbar {
   height: 6px;
 }
+
 #viewLobby .role-portrait-strip::-webkit-scrollbar-track {
-  background: #d3b487;
-  border-radius: 3px;
+  background: #122633;
 }
+
 #viewLobby .role-portrait-strip::-webkit-scrollbar-thumb {
-  background: #855325;
-  border-radius: 3px;
+  background: #4F6674;
 }
 
-/* 職業底欄小方卡 (牛皮紙版 .kraft-class-card) */
 #viewLobby .role-portrait-choice {
-  width: 58px;
-  min-width: 58px;
-  height: 72px;
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845);
+  width: 90px;
+  height: 90px;
+  flex: 0 0 90px;
   border-radius: var(--ui-radius, 2px);
+  border: 1px solid var(--border, #4F6674);
+  background: #142B3B;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  padding: 3px;
   position: relative;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
-  box-shadow: none;
-  padding: 3px 2px 17px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-#viewLobby .role-portrait-choice img {
-  width: 38px;
-  height: 38px;
-  object-fit: contain;
-  transition: transform 0.15s ease;
-  display: block;
-}
-
-#viewLobby .role-choice-name {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: var(--font-body);
-  text-align: center;
-  background: var(--ui-surface-raised, #2F3633);
-  border-top: 1px solid var(--ui-border-subtle, #414845);
-  padding: 1px 0;
-  line-height: 1.3;
+  transition: border-color 0.15s ease, filter 0.15s ease;
+  transform: none !important;
 }
 
 #viewLobby .role-portrait-choice:hover {
-  background: var(--ui-surface-raised, #2F3633);
-  border-color: var(--ui-border-accent, #A78B5D);
-  transform: none;
-  box-shadow: none;
+  border-color: var(--azure, #6FB7E9);
+  filter: brightness(1.15);
+  transform: none !important;
 }
 
-#viewLobby .role-portrait-choice.is-occupied {
-  border-color: #b45309;
+#viewLobby .role-portrait-choice.active,
+#viewLobby .role-portrait-choice[aria-pressed="true"] {
+  border-color: var(--azure, #6FB7E9);
+  box-shadow: 0 0 10px rgba(111, 183, 233, 0.45);
 }
 
-#viewLobby .role-choice-occupant {font-size: 11px;
-  font-weight: 700;
-  color: #fff8eb;
-  background: rgba(133, 83, 37, 0.95);
-  text-align: center;
-  padding: 1px 0;
-  line-height: 1.2;
-  border-bottom: 1px solid #6b3e14;
+#viewLobby .role-portrait-choice.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold, #D7B86E);
 }
 
-#viewLobby .role-portrait-choice.is-previewed {
-  border-color: #8f5824;
-}
-
-#viewLobby .role-portrait-choice.is-selected {
-  border: 1.5px solid var(--ui-accent, #C5A573);
-  background: var(--ui-surface-raised, #2F3633);
-  box-shadow: none;
-  transform: none;
-}
-
-#viewLobby .role-choice-check {font-size: 11px;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  padding: 0;
+#viewLobby .role-portrait-choice img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* =========================================================
-   7. 響應式佈局支援
+   6. 招募令 SCREEN 1 (.recruit-card)
    ========================================================= */
-@media (max-width: 1100px) {
-  #viewLobby .lobby-layout {
-    grid-template-columns: 280px minmax(0, 1fr);
-    gap: 14px;
-  }
-}
-
-@media (max-width: 900px) {
-  #viewLobby .lobby-layout {
-    grid-template-columns: 1fr;
-  }
-  #viewLobby .team-card {
-    min-height: auto;
-  }
-  #viewLobby .member-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    max-height: 220px;
-  }
-  #viewLobby .role-overview {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  #viewLobby .role-radar svg {
-    max-width: 180px;
-    height: 150px;
-  }
-}
-
-/* =========================================================
-   8. 公會告示板登入與大廳選單體系 (Entry Flow & Sub-screens)
-   Adapted from temp/code_artifact.html
-   ========================================================= */
-.fade-in {
-  animation: fadeIn 0.25s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.99); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.text-crimson { color: #8f1d1d !important; }
-.text-gold { color: #d97706 !important; }
-.text-ink { color: #000000 !important; }
-.text-success { color: #15803d !important; }
-.text-primary { color: #1d4ed8 !important; }
-.text-warning { color: #9a3412 !important; }
-.flex-1 { flex: 1 1 0% !important; }
-
-#viewEntry {
-  display: none;
-  width: 100%;
-}
-
-#viewEntry.active {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 130px);
-}
-
-.entry-sub-screen {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.entry-sub-screen.hidden {
-  display: none !important;
-}
-
-/* --- Screen 1: 招募令 (Recruit Card) --- */
 .recruit-card {
-  width: min(100%, 640px);
-  max-width: 640px;
-  padding: 32px 36px;
+  width: min(100%, 720px);
+  max-width: 720px;
+  padding: 32px 38px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background: var(--ui-surface, #242A29);
-  border: 1px solid var(--ui-border, #59615A);
+  background: rgba(22, 33, 43, 0.98);
+  border: 1px solid var(--border, #4F6674);
   border-radius: var(--ui-radius, 2px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
 .recruit-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  border-bottom: 1px solid var(--ui-border-subtle, #414845);
+  border-bottom: 1px solid var(--border-subtle, #344B59);
   padding-bottom: 16px;
-  margin-bottom: 0;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -1200,42 +966,22 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   gap: 14px;
 }
 
-.guild-seal-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--ui-radius, 2px);
-  background: var(--ui-primary, #914B43);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-text-primary, #F0E8D9);
-  border: 1px solid var(--ui-border-accent, #A78B5D);
-  box-shadow: none;
-}
-
-.guild-seal-icon .svg-seal {
-  width: 22px;
-  height: 22px;
-}
-
 .recruit-sub-title {
-  font-size: 11px;
-  font-family: var(--font-display, 'Cinzel', serif);
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--ui-accent, #C5A573);
+  font: 700 10px var(--pixel, 'Silkscreen', monospace);
+  letter-spacing: .14em;
+  color: var(--ornament, #CBB98A);
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .recruit-main-title {
-  font-family: var(--font-display, 'Noto Serif TC', serif);
+  font-family: var(--font-display, 'Cinzel', serif);
   font-weight: 900;
   font-size: 24px;
-  color: var(--ui-text-primary, #F0E8D9);
+  color: var(--light, #E8EDF2);
   margin: 0;
   line-height: 1.2;
-  letter-spacing: 1px;
+  letter-spacing: .04em;
 }
 
 .recruit-header-right {
@@ -1244,90 +990,44 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 
 .recruit-code {
   display: block;
-  overflow-wrap: anywhere;
-  font-family: 'VT323', monospace;
-  color: var(--ui-accent, #C5A573);
-  font-size: 16px;
+  font-family: var(--pixel, 'Silkscreen', monospace);
+  color: var(--azure, #6FB7E9);
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 1px;
 }
 
 .recruit-badge-text {
-  font-size: 12px;
-  color: var(--ui-text-muted, #979D94);
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  font-size: 11px;
+  color: var(--muted, #7E8C96);
 }
 
 .recruit-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  font-size: 14.5px;
-  color: var(--ui-text-primary, #F0E8D9);
+  font-size: 14px;
+  color: var(--light, #E8EDF2);
   line-height: 1.7;
 }
 
-.recruit-body-lead {
-  font-weight: 600;
-  color: var(--ui-text-primary, #F0E8D9);
-  margin: 0;
-}
-
 .recruit-body-highlight {
-  font-weight: 400;
-  font-size: 14px;
-  color: var(--ui-text-primary, #F0E8D9);
+  font-size: 13.5px;
+  color: var(--light, #E8EDF2);
   white-space: pre-line;
-  padding: 14px 16px;
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845);
+  padding: 14px 18px;
+  background: #121C24;
+  border: 1px solid var(--border-subtle, #344B59);
   border-radius: var(--ui-radius, 2px);
   margin: 0;
   line-height: 1.8;
-  letter-spacing: 0.3px;
 }
 
 .recruit-body-desc {
-  font-size: 13.5px;
-  color: var(--ui-text-secondary, #C4C1B3);
+  font-size: 12.5px;
+  color: var(--secondary, #B9C4CE);
   padding: 0 2px;
   margin: 0;
   line-height: 1.6;
-}
-
-.hero-roster-tray {
-  padding: 10px 14px;
-  border-radius: var(--ui-radius, 2px);
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845);
-  margin-top: 4px;
-}
-
-.hero-roster-label {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--ui-text-secondary, #C4C1B3);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.hero-avatars-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.hero-intro-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--ui-radius, 2px);
-  border: 1px solid var(--ui-border, #59615A);
-  object-fit: cover;
-  background: var(--ui-surface-raised, #2F3633);
 }
 
 .recruit-form {
@@ -1340,34 +1040,32 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 .recruit-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: 8px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  color: var(--light, #E8EDF2);
 }
 
 .recruit-label .svg-icon {
-  color: var(--ui-accent, #C5A573);
+  color: var(--azure, #6FB7E9);
   width: 16px;
   height: 16px;
 }
 
-/* 冒險者取名輸入列 (Dark Pixel Fantasy Inset) */
 .recruit-input-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--ui-surface-inset, #191E1D) !important;
-  border: 1px solid var(--ui-border, #59615A) !important;
+  background: #122633 !important;
+  border: 1px solid var(--border, #4F6674) !important;
   border-radius: var(--ui-radius, 2px) !important;
   padding: 6px 12px;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .recruit-input-row:focus-within {
-  border-color: var(--ui-border-accent, #A78B5D) !important;
-  background: #141818 !important;
+  border-color: var(--azure, #6FB7E9) !important;
+  box-shadow: 0 0 0 2px rgba(111, 183, 233, 0.25) !important;
 }
 
 .recruit-input-row .entry-avatar-wrapper {
@@ -1376,21 +1074,19 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
-  border-radius: var(--ui-radius, 2px);
-  transform: none !important;
+  border-radius: 2px;
 }
 
 .recruit-input-row .entry-avatar-preview {
   width: 100%;
   height: 100%;
-  border-radius: var(--ui-radius, 2px);
-  background: var(--ui-surface-raised, #2F3633);
-  border: 1px solid var(--ui-border, #59615A);
+  border-radius: 2px;
+  background: #192b38;
+  border: 1px solid #4F6674;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ui-text-primary, #F0E8D9);
-  box-shadow: none;
+  color: var(--azure, #6FB7E9);
 }
 
 .recruit-input-row .entry-avatar-badge {
@@ -1399,15 +1095,14 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   right: -3px;
   width: 18px;
   height: 18px;
-  background: var(--ui-primary, #914B43);
-  border: 1px solid #A3574E;
-  border-radius: var(--ui-radius, 2px);
+  background: var(--ui-primary, #336C91);
+  border: 1px solid #81C7EB;
+  border-radius: 2px;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  box-shadow: none;
 }
 
 .recruit-name-input {
@@ -1417,74 +1112,99 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-  color: var(--ui-text-primary, #F0E8D9) !important;
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  color: var(--light, #E8EDF2) !important;
   font-size: 15px;
   font-weight: 700;
   padding: 8px 4px;
 }
 
 .recruit-name-input::placeholder {
-  color: var(--ui-text-muted, #979D94);
+  color: var(--muted, #7E8C96);
   font-weight: 400;
 }
 
 .recruit-btn-submit {
   width: 100%;
-  min-height: 46px;
+  min-height: 44px;
   padding: 10px 20px;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 900;
   letter-spacing: 0.5px;
 }
 
-.pulse-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #16a34a;
-  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
-  animation: pulseDot 1.5s infinite;
-}
-
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
-}
-
+/* =========================================================
+   7. 大廳選單 SCREEN 2 (.lobby-menu-card)
+   ========================================================= */
 .lobby-menu-card {
-  width: min(100%, 480px);
-  max-width: 480px;
+  width: min(100%, 520px);
+  max-width: 520px;
   padding: 28px 32px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  gap: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.lobby-menu-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle, #344B59);
+}
+
+.lobby-menu-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 2px;
+  background: #162936;
+  border: 1px solid var(--border-subtle, #344B59);
+  font-size: 13px;
+  color: var(--light, #E8EDF2);
 }
 
 .menu-player-name {
-  color: var(--ui-accent, #C5A573);
+  color: var(--gold, #D7B86E);
   font-weight: 800;
 }
 
 .lobby-menu-subtitle {
-  font-size: 14px;
-  color: var(--ui-text-muted, #979D94);
-  margin-top: 4px;
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  font-size: 12px;
+  color: var(--muted, #7E8C96);
 }
 
 .lobby-menu-btn {
   width: 100%;
-  padding: 15px 20px;
-  font-size: 16px;
-  font-weight: 900;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 800;
   letter-spacing: 0.5px;
   gap: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #1B303E !important;
+  border: 1px solid #4F6674 !important;
+  color: var(--light, #E8EDF2) !important;
 }
+
+.lobby-menu-btn:hover:not(:disabled) {
+  background: #284458 !important;
+  border-color: var(--azure, #6FB7E9) !important;
+  color: #ffffff !important;
+}
+
+.lobby-menu-btn .svg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.lobby-menu-btn .svg-icon.text-success { color: #49C2C1; }
+.lobby-menu-btn .svg-icon.text-primary { color: #6FB7E9; }
+.lobby-menu-btn .svg-icon.text-warning { color: #D7B86E; }
 
 .lobby-menu-bottom-grid {
   display: grid;
@@ -1495,749 +1215,230 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 
 .lobby-menu-subbtn {
   width: 100%;
-  padding: 11px 14px;
-  font-size: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
   gap: 6px;
 }
 
-/* --- Screen 3: 伺服器名冊 (Server List Card) --- */
+/* =========================================================
+   8. 伺服器列表 SCREEN 3 (.server-list-card)
+   ========================================================= */
 .server-list-card {
-  width: 100%;
-  max-width: 860px;
-  padding: 16px 20px;
+  width: min(100%, 640px);
+  max-width: 640px;
+  padding: 28px 32px;
   display: flex;
   flex-direction: column;
-  min-height: 520px;
-  max-height: 640px;
-  margin: 0 auto;
+  gap: 16px;
 }
 
 .server-list-header {
-  text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
+  border-bottom: 1px solid var(--border-subtle, #344B59);
+  padding-bottom: 12px;
 }
 
 .server-list-title {
-  font-size: 22px;
-  font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'Noto Serif TC', serif;
-  letter-spacing: 2px;
-  margin: 0;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--light, #E8EDF2);
+  margin: 0 0 4px;
 }
 
 .server-list-subtitle {
-  font-size: 14px;
-  color: var(--ui-text-muted, #979D94);
-  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--muted, #7E8C96);
+  margin: 0;
 }
 
 .server-slots-scroll {
-  flex: 1;
-  padding: 10px;
+  max-height: 280px;
   overflow-y: auto;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 12px 0;
-  min-height: 260px;
-  max-height: 380px;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #4F6674 #122633;
 }
 
-.kraft-server-slot {
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845);
-  border-radius: var(--ui-radius, 2px);
-  padding: 10px 14px;
-  cursor: pointer;
+.server-slot-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
-  box-shadow: none;
+  padding: 10px 14px;
+  background: #1B303E;
+  border: 1px solid var(--border-subtle, #344B59);
+  border-radius: var(--ui-radius, 2px);
+  cursor: pointer;
+  transition: all .15s ease;
 }
 
-.kraft-server-slot:hover {
-  background: var(--ui-surface-raised, #2F3633);
-  border-color: var(--ui-border-accent, #A78B5D);
-  transform: none;
-  box-shadow: none;
-}
-
-.kraft-server-slot.selected {
-  background: var(--ui-surface-raised, #2F3633);
-  border: 1.5px solid var(--ui-accent, #C5A573);
-  box-shadow: none;
-}
-
-.server-slot-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  overflow: hidden;
-}
-
-.server-slot-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 6px;
-  background: #3b1f0e;
-  border: 2px solid #7a481e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  color: #d97706;
-  font-size: 20px;
-}
-
-.server-slot-info {
-  text-align: left;
-  line-height: 1.3;
-  overflow: hidden;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-.server-slot-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-}
-
-.server-slot-code-badge {
-  font-size: 13px;
-  color: #8f1d1d;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  padding: 1px 4px;
-  border-radius: 4px;
-  font-family: 'VT323', monospace;
-  font-weight: 700;
-}
-
-.server-slot-motd1 {
-  font-size: 14px;
-  color: var(--ui-accent, #C5A573);
-  font-weight: 700;
-  margin-top: 2px;
-}
-
-.server-slot-motd2 {
-  font-size: 13px;
-  color: var(--ui-text-secondary, #C4C1B3);
-}
-
-.server-slot-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  font-family: 'VT323', monospace;
-}
-
-.server-slot-count {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-}
-
-.server-ping-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
-}
-
-.server-ping-bar {
-  width: 3px;
-  background: #15803d;
-  border-radius: 1px;
+.server-slot-item:hover,
+.server-slot-item.selected {
+  background: #284458;
+  border-color: var(--azure, #6FB7E9);
 }
 
 .server-list-footer {
-  padding-top: 8px;
-  border-top: 1px solid rgba(150, 107, 59, 0.4);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle, #344B59);
 }
 
 .server-list-btn-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* =========================================================
-   9. 通用牛皮紙彈窗與 Toast 系統
+   9. 通用 Modal 彈窗樣式 (Azure Ruins Modals)
    ========================================================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(6, 11, 18, 0.78);
   backdrop-filter: blur(4px);
+  z-index: var(--z-modal, 2400);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
 }
 
-.modal-overlay.hidden {
-  display: none !important;
-}
-
-.modal-card:not(.inventory-modal-card) {
-  width: 100%;
-  max-width: 520px;
-}
-.modal-card.inventory-modal-card {
-  width: min(1360px, calc(100vw - 48px));
-  max-width: 1360px;
-  height: min(860px, calc(100dvh - 48px));
-  max-height: min(860px, calc(100dvh - 48px));
-}
 .modal-card {
-  width: 100%;
-  padding: 20px;
-  box-shadow: none;
-  background: var(--ui-surface, #242A29);
-  border: 1px solid var(--ui-border, #59615A);
+  background: rgba(22, 33, 43, 0.98);
+  border: 1px solid var(--border, #4F6674);
   border-radius: var(--ui-radius, 2px);
-}
-#profileModal .modal-card,
-#directConnectModal .modal-card,
-#transferLeaderModal .modal-card,
-#discardConfirmModal .modal-card,
-#targetModal .modal-card,
-#endBattleModal .modal-card {
-  max-width: 440px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  color: var(--light, #E8EDF2);
+  width: min(100%, 540px);
+  padding: 24px 28px;
+  position: relative;
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid rgba(150, 107, 59, 0.5);
-  padding-bottom: 8px;
-  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, #344B59);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .modal-title {
-  font-size: 17px;
-  font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--light, #E8EDF2);
+  margin: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-family: 'Noto Serif TC', serif;
-  margin: 0;
+  gap: 8px;
 }
 
-.modal-title.center-title {font-size: 19px;
-  justify-content: center;
-  width: 100%;
+.modal-title .svg-icon {
+  color: var(--azure, #6FB7E9);
+  width: 18px;
+  height: 18px;
 }
 
 .modal-subtitle {
-  font-size: 14.5px;
-  color: var(--ui-text-muted, #979D94);
-  margin: 4px 0 14px 0;
-  text-align: center;
-  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 12px;
+  color: var(--muted, #7E8C96);
+  margin: 4px 0 0;
 }
 
-.modal-close-btn {
-  background: none;
-  border: none;
-  color: var(--ui-text-secondary, #C4C1B3);
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-close-btn:hover { color: #8f1d1d; }
-
-.profile-avatar-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 8px 12px;
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border-subtle, #414845);
-  border-radius: var(--ui-radius, 2px);
-  margin-bottom: 12px;
-}
-
-.profile-avatar-tip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.profile-avatar-tip-title {
-  font-size: 14.5px;
-  font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'Noto Serif TC', serif;
-}
-
-.profile-avatar-tip-sub {
-  font-size: 13px;
-  color: var(--ui-text-muted, #979D94);
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-.profile-quick-btn {
-  padding: 5px 12px;
-  font-size: 13.5px;
-  margin-top: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.profile-quick-emojis {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: var(--ui-surface-inset, #191E1D);
-  border-radius: var(--ui-radius, 2px);
-  border: 1px dashed var(--ui-border-accent, #A78B5D);
-}
-
-.quick-emoji-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ui-text-secondary, #C4C1B3);
-  display: block;
-  margin-bottom: 4px;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-.quick-emoji-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.quick-emoji-btn {
+.modal-close-btn,
+.btn-close-modal {
   width: 32px;
   height: 32px;
-  font-size: 18px;
-  display: flex;
+  background: transparent;
+  border: 1px solid var(--border-subtle, #344B59);
+  color: var(--secondary, #B9C4CE);
+  border-radius: 2px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #fffdf7;
-  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
-  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all .15s ease;
 }
 
-.quick-emoji-btn:hover {
-  background: #fef08a;
-  border-color: #991b1b;
-  transform: scale(1.15);
-}
-
-.modal-label {
-  display: block;
-  color: var(--ui-text-secondary, #C4C1B3);
-  font-weight: 700;
-  margin-bottom: 4px;
-  font-size: 14.5px;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-.modal-input,
-#profileNewNameInput,
-input#profileNewNameInput {
-  width: 100%;
-  background: var(--ui-surface-inset, #191E1D) !important;
-  background-color: var(--ui-surface-inset, #191E1D) !important;
-  border: 1px solid var(--ui-border, #59615A) !important;
-  border-radius: var(--ui-radius, 2px);
-  padding: 9px 12px;
-  color: var(--ui-text-primary, #F0E8D9) !important;
-  font-weight: 700;
-  outline: none;
-  font-size: 15px;
-  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
-  box-sizing: border-box;
-}
-
-.modal-input:focus {
-  border-color: #991b1b;
-}
-
-.profile-stats-panel {
-  padding: 12px;
-  font-size: 14px;
-  color: var(--ui-text-secondary, #C4C1B3);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 10px;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-#directConnectModal .direct-connect-input {
-  width: 100%;
-  background: #fffdf7;
-  border: 2px solid #825424;
-  border-radius: 8px;
-  padding: 10px;
-  text-align: center;
-  font-family: 'VT323', monospace;
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: 6px;
-  color: #8f1d1d;
-  text-transform: uppercase;
-  outline: none;
-  margin-bottom: 14px;
-  box-sizing: border-box;
-}
-
-#directConnectModal .direct-connect-input:focus { border-color: #8f1d1d; box-shadow: 0 0 0 3px #8f1d1d22; }
-
-/* Parchment surfaces own their text colors, including inherited dark-theme tokens. */
-.kraft-paper {
-  --color-text-primary: var(--ui-text-primary, #F0E8D9);
-  --color-text-secondary: var(--ui-text-secondary, #C4C1B3);
-  --color-text-muted: var(--ui-text-muted, #979D94);
-  --color-guild-ink: var(--ui-text-primary, #F0E8D9);
-  --color-guild-ink-secondary: var(--ui-text-secondary, #C4C1B3);
-  --color-guild-ink-muted: var(--ui-text-muted, #979D94);
-}
-.kraft-paper .modal-title,
-.kraft-paper .modal-label { color: var(--ui-text-primary, #F0E8D9); }
-.kraft-paper .parchment-btn:not(.parchment-btn-crimson) { color: var(--ui-text-primary, #F0E8D9); }
-#viewLobby .role-panel-heading .lobby-exit-btn,
-#viewLobby .role-panel-heading .lobby-exit-btn span,
-.kraft-paper .parchment-btn-crimson { color: #fff4ea; }
-#viewLobby .lobby-exit-btn { text-align: center; justify-content: center; }
-#viewLobby .lobby-exit-btn svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: block;
-  margin-right: 0;
-  color: inherit;
-}
-#directConnectModal .direct-connect-input::placeholder { color: var(--ui-text-muted, #979D94); opacity: 1; }
-.modal-overlay .modal-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
-.kraft-paper .modal-actions .parchment-btn,
-.server-list-btn-row .parchment-btn {
-  padding: 10px 16px;
-  min-height: 40px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-.kraft-paper .entry-avatar-preview { background: var(--ui-surface-inset, #191E1D); border-color: var(--ui-border, #59615A); color: var(--ui-text-primary, #F0E8D9); }
-.kraft-paper .entry-avatar-badge { background: var(--ui-primary, #914B43); border-color: #A3574E; }
-
-body:has(#viewEntry.active) .bgm-control,
-body:has(#viewEntry.active) #soundToggleBtn,
-body:has(#viewLobby.active) .bgm-control,
-body:has(#viewLobby.active) #soundToggleBtn { display: none; }
-body:has(#viewLobby.active) .room-code-display {
-  background: var(--ui-surface-inset, #191E1D);
-  border: 1px solid var(--ui-border, #59615A);
-  border-radius: var(--ui-radius, 2px);
-  box-shadow: none;
-  color: var(--ui-text-primary, #F0E8D9);
-}
-body:has(#viewLobby.active) .room-code-label { color: var(--ui-text-secondary, #C4C1B3); }
-body:has(#viewLobby.active) .room-code-clickable { color: var(--ui-accent, #C5A573); text-shadow: none; }
-body:has(#viewLobby.active) .room-code-clickable:hover { color: #ffffff; background: var(--ui-surface-raised, #2F3633); }
-body:has(#viewLobby.active) .room-copy-toast { color: #493527; }
-
-/* Fill the remaining viewport; content scrolls inside stable panel boundaries. */
-body:has(#viewLobby.active) { padding: 12px 12px 16px; }
-body:has(#viewLobby.active) .game-container { height: calc(100dvh - 28px); min-height: 0; }
-body:has(#viewLobby.active) .app-header { flex-shrink: 0; }
-body:has(#viewLobby.active) .main-content { padding: 0; min-height: 0; backdrop-filter: none; }
-#viewLobby.active { flex: 1; min-height: 0; }
-#viewLobby .lobby-layout { height: 100%; min-height: 0; }
-#viewLobby .team-card,
-#viewLobby .role-command-panel { height: 100%; min-height: 0; overflow: hidden; }
-#viewLobby .team-card .card-header,
-#viewLobby .lobby-footer,
-#viewLobby .role-panel-heading,
-#viewLobby .role-portrait-deck { flex-shrink: 0; }
-#viewLobby .member-list { max-height: none; }
-#viewLobby .role-panel-heading { gap: 12px; }
-#viewLobby .role-heading-actions { justify-content: flex-end; flex-wrap: wrap; }
-#viewLobby .role-panel-main {
-  display: grid;
-  grid-template-rows: 210px auto minmax(96px, 1fr);
-  overflow-y: auto;
-}
-#viewLobby .role-overview { min-height: 0; overflow-y: auto; }
-#viewLobby .role-tab-toolbar { margin-top: 0; }
-#viewLobby .role-description {
-  min-height: 0;
-  margin-top: 0;
-  overflow-y: auto;
-  justify-content: flex-start;
-}
-#viewLobby .role-description-heading { flex-shrink: 0; }
-#viewLobby .role-portrait-strip { padding: 4px 2px 8px; }
-#viewLobby .role-portrait-choice,
-#viewLobby .role-portrait-choice.is-selected {
-  width: 100px;
-  min-width: 100px;
-  height: 100px;
-  padding: 0;
-  border: 4px solid #9b7245;
-  border-radius: 0;
-  display: block;
-}
-#viewLobby .role-portrait-choice img { width: 100%; height: 100%; object-fit: cover; }
-#viewLobby .role-portrait-choice.is-previewed { border-color: #8f5824; }
-#viewLobby .role-portrait-choice:disabled {
-  cursor: not-allowed;
-  filter: saturate(.45);
-  transform: none;
-}
-#viewLobby .role-portrait-choice.is-selected { border-color: #8f1d1d; }
-#viewLobby .role-choice-check,
-#viewLobby .role-choice-occupant {
-  position: absolute;
-  right: 0;
-  top: 0;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  border: 0;
-}
-#viewLobby .role-choice-check { width: 24px; height: 24px; color: #fff4ea; background: #8f1d1d; }
-#viewLobby .role-choice-occupant {
-  max-width: 100%;
-  max-height: 55%;
-  overflow-y: auto;
-  padding: 3px 5px;
-  overflow-wrap: anywhere;
-}
-#viewLobby .is-selected .role-choice-occupant { top: 24px; }
-#viewLobby .role-portrait-choice:focus-visible { outline: 3px solid #8f1d1d; outline-offset: 2px; }
-
-@media (max-width: 900px) {
-  #viewLobby .lobby-layout { grid-template-rows: 160px minmax(0, 1fr); gap: 12px; }
-  #viewLobby.archive-mode .lobby-layout { grid-template-rows: minmax(0, 1fr); }
-  #viewLobby .team-card { padding: 12px; }
-  #viewLobby .team-card .card-header { padding-bottom: 4px; }
-  #viewLobby .team-card .card-tip { display: none; }
-  #viewLobby .member-list { display: flex; flex-direction: row; overflow-x: auto; margin: 4px 0; }
-  #viewLobby .member-item { min-width: 220px; padding: 4px 8px; }
-  #viewLobby .lobby-footer { padding-top: 4px; }
-  #viewLobby .lobby-footer .btn { padding: 4px 8px; font-size: 13px; }
-  #viewLobby .start-tip { margin-top: 2px; }
-  #viewLobby .role-command-panel { padding: 12px; }
-  #viewLobby .role-panel-main { grid-template-rows: 130px auto minmax(96px, 1fr); gap: 8px; }
-  #viewLobby .role-overview { grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; }
-  #viewLobby .role-radar svg { height: 115px; }
-  #viewLobby .role-radar figcaption { display: none; }
-  #viewLobby .role-hero-portrait { width: 72px; height: 90px; flex-basis: 72px; }
-  #viewLobby .role-heading-group small { display: none; }
-  #viewLobby .role-panel-heading span { font-size: 15px; }
-  #viewLobby .role-tab-toolbar { flex-wrap: wrap; gap: 6px; }
-  #viewLobby .role-skill-tabs button { padding: 4px 8px; font-size: 12px; }
-}
-@media (max-width: 560px) {
-  #viewLobby .role-portrait-choice,
-  #viewLobby .role-portrait-choice.is-selected { width: 70px; min-width: 70px; height: 70px; }
-  body:has(#viewEntry.active) .app-header,
-  body:has(#viewLobby.active) .app-header { padding: 10px 12px; gap: 10px; }
-  body:has(#viewEntry.active) .logo,
-  body:has(#viewLobby.active) .logo { gap: 8px; min-width: 0; }
-  body:has(#viewEntry.active) .logo .icon,
-  body:has(#viewLobby.active) .logo .icon { width: 32px; height: 32px; flex: 0 0 32px; }
-  body:has(#viewEntry.active) .logo-img,
-  body:has(#viewLobby.active) .logo-img { width: 32px; height: 32px; }
-  body:has(#viewEntry.active) .title-group h1,
-  body:has(#viewLobby.active) .title-group h1 { font-size: 18px; white-space: nowrap; }
-  body:has(#viewEntry.active) .title-group .en-sub,
-  body:has(#viewEntry.active) .title-group .subtitle,
-  body:has(#viewLobby.active) .title-group .en-sub,
-  body:has(#viewLobby.active) .title-group .subtitle { display: none; }
-  body:has(#viewLobby.active) .room-code-display { padding: 6px 8px; gap: 4px; white-space: nowrap; }
-  body:has(#viewLobby.active) .room-code-clickable { font-size: 16px; letter-spacing: 2px; }
-  #viewLobby .team-card .card-header { margin-bottom: 4px; }
-  #viewLobby .lobby-footer .start-tip { display: none; }
-  #viewLobby .member-item { min-height: 54px; }
-  .recruit-header { align-items: flex-end; flex-wrap: wrap; gap: 12px; }
-  .recruit-header-right { width: 100%; text-align: right; }
-  .recruit-main-title { font-size: 24px; }
-  #viewLobby .role-panel-heading { align-items: flex-start; }
-  #viewLobby .role-heading-actions { gap: 6px; }
-  #viewLobby .role-overview { grid-template-columns: minmax(0, 1fr); }
-  #viewLobby .role-radar { display: none; }
-  #viewLobby .role-identity { gap: 10px; }
+.modal-close-btn:hover,
+.btn-close-modal:hover {
+  background: #243e50;
+  border-color: var(--azure, #6FB7E9);
+  color: #ffffff;
 }
 
 .modal-actions {
   display: flex;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 18px;
 }
 
-/* --- Toast Badge --- */
-.toast-badge {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  z-index: 3000;
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+/* Modals: Inset Inputs (No white flash) */
+.direct-connect-input,
+.modal-input,
+#inputRoomCode,
+#profileNewNameInput {
+  width: 100%;
+  background: #122633 !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--ui-radius, 2px) !important;
+  color: var(--light, #E8EDF2) !important;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
+  outline: none;
+  box-shadow: none;
 }
 
-.toast-badge.show {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
+.direct-connect-input:focus,
+.modal-input:focus,
+#inputRoomCode:focus,
+#profileNewNameInput:focus {
+  border-color: var(--azure, #6FB7E9) !important;
+  box-shadow: 0 0 0 2px rgba(111, 183, 233, 0.25) !important;
 }
 
-.toast-content {font-size: 14px;
-  font-weight: 700;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-/* =========================================================
-   10. 獨立圖鑑模式 (Standalone Class Archive)
-   ========================================================= */
-#viewLobby.archive-mode .lobby-layout {
-  grid-template-columns: 1fr;
-}
-
-.role-heading-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* =========================================================
-   11. 頭像選擇彈窗樣式 (.avatar-choice-card)
-   ========================================================= */
 .avatar-choice-card {
-  padding: 14px 16px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 14px;
-  border-radius: 8px;
-  transition: all 0.15s ease;
+  padding: 12px 16px;
+  background: #1B303E;
+  border: 1px solid var(--border-subtle, #344B59);
+  border-radius: var(--ui-radius, 2px);
+  cursor: pointer;
+  transition: all .15s ease;
 }
 
 .avatar-choice-card:hover {
-  background: rgba(245, 230, 205, 0.95);
-  border-color: #8f1d1d;
-  transform: translateY(-1.5px);
-  box-shadow: 0 4px 10px rgba(60, 30, 10, 0.2);
-}
-
-.avatar-choice-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.avatar-choice-icon-wrap.upload-icon-bg {
-  background: linear-gradient(135deg, #a82424, #691111);
-  color: #fff4ea;
-  border: 1px solid #c93a3a;
-}
-
-.avatar-choice-icon-wrap.hero-icon-bg {
-  background: linear-gradient(135deg, #b8860b, #784318);
-  color: #fff4ea;
-  border: 1px solid #d97706;
-}
-
-.avatar-choice-info {
-  flex: 1;
-  text-align: left;
+  background: #284458;
+  border-color: var(--azure, #6FB7E9);
 }
 
 .avatar-choice-title {
-  font-size: 16px;
-  font-weight: 900;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--light, #E8EDF2);
 }
 
 .avatar-choice-desc {
-  font-size: 13px;
-  color: var(--ui-text-muted, #979D94);
+  font-size: 11px;
+  color: var(--muted, #7E8C96);
   margin-top: 2px;
-  font-family: 'Noto Sans TC', sans-serif;
 }
 
-.avatar-choice-arrow {
-  font-size: 18px;
-  color: #8f1d1d;
-  font-weight: 900;
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #49C2C1;
+  box-shadow: 0 0 6px rgba(73, 194, 193, 0.7);
 }
-
-.avatar-choice-chevron {
-  font-size: 16px;
-  color: var(--ui-text-primary, #F0E8D9);
-  font-weight: 900;
-  transition: transform 0.2s ease;
-}
-
-.hero-avatar-choice-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 4px;
-  background: var(--ui-surface-raised, #2F3633);
-  border: 1px solid var(--ui-border, #59615A);
-  border-radius: var(--ui-radius, 2px);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.hero-avatar-choice-item:hover {
-  background: #3B4440;
-  border-color: var(--ui-border-accent, #A78B5D);
-  transform: scale(1.05);
-}
-
-.hero-avatar-choice-item img {
-  width: 42px;
-  height: 42px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #7a481e;
-}
-
-.hero-avatar-choice-item span {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ui-text-primary, #F0E8D9);
-  white-space: nowrap;
-}
-
-
