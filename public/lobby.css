@@ -62,16 +62,11 @@ body:has(#viewEntry.active) .main-content {
 body:has(#viewEntry.active) .app-header,
 body:has(#viewLobby.active) .app-header,
 .kraft-paper {
-  background: 
-    radial-gradient(circle at 50% 40%, rgba(255, 248, 235, 0.96) 0%, rgba(240, 221, 190, 0.96) 65%),
-    linear-gradient(135deg, #dfc296 0%, #ebd3ad 45%, #cca56d 100%);
-  color: var(--ink-primary);
-  border: 3px solid #7d4d20;
-  border-radius: 14px;
-  box-shadow: 
-    0 20px 50px -10px rgba(0, 0, 0, 0.85),
-    0 0 0 1px #422108,
-    inset 0 0 45px rgba(112, 66, 20, 0.28);
+  background: var(--ui-surface, #242A29);
+  color: var(--ui-text-primary, #F0E8D9);
+  border: 1px solid var(--ui-border, #59615A);
+  border-radius: var(--ui-radius, 2px);
+  box-shadow: none;
   position: relative;
   isolation: isolate;
 }
@@ -89,33 +84,17 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .en-sub { 
 body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .subtitle { color: #493527; }
 body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img {
   border-color: #7d4d20;
-  box-shadow: 0 3px 0 #42210866;
+  box-shadow: none;
 }
 
-/* 牛皮紙做舊四角裝飾五金與鉚釘 */
+/* Dark Pixel Fantasy: Rivets removed */
 #viewLobby .team-card::before,
 #viewLobby .team-card::after,
 #viewLobby .role-command-panel::before,
 #viewLobby .role-command-panel::after,
 .kraft-paper-rivets::before,
 .kraft-paper-rivets::after {
-  content: '';
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #ecd09b 20%, #7c4c1a 90%);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-  z-index: 5;
-  pointer-events: none;
-}
-
-#viewLobby .team-card::before,
-#viewLobby .role-command-panel::before,
-.kraft-paper-rivets::before {
-  top: 8px;
-  left: 8px;
-  border: none;
+  display: none !important;
 }
 
 #viewLobby .team-card::after,
@@ -128,94 +107,81 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 
 /* 內嵌深色墨水紙板 */
 .kraft-sub-panel {
-  background: rgba(230, 206, 168, 0.7);
-  border: 1.5px solid #a37845;
-  border-radius: 10px;
-  box-shadow: inset 0 2px 5px rgba(60, 30, 10, 0.15);
+  background: var(--ui-surface-inset, #191E1D);
+  border: 1px solid var(--ui-border-subtle, #414845);
+  border-radius: var(--ui-radius, 2px);
+  box-shadow: none;
+  color: var(--ui-text-primary, #F0E8D9);
 }
 
 /* =========================================================
-   3. 統一牛皮紙冒險風格按鈕體系 (.parchment-btn)
+   3. 統一 Flat Pixel Button 體系 (.parchment-btn)
    ========================================================= */
 .parchment-btn,
 #viewLobby .btn,
 #viewLobby .role-skill-tabs button {
   position: relative;
-  background: linear-gradient(180deg, #ecd6b2 0%, #d8ba88 50%, #c49e65 100%);
-  border: 2px solid #6b3e14;
-  border-top-color: #8f5824;
-  border-left-color: #8f5824;
-  border-bottom-color: #442306;
-  border-right-color: #442306;
-  border-radius: 8px;
-  color: #000000;
-  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--ui-surface-raised, #2F3633);
+  border: 1px solid var(--ui-border, #59615A);
+  border-radius: var(--ui-radius, 2px);
+  color: var(--ui-text-primary, #F0E8D9);
+  font-family: var(--font-body, 'Noto Sans TC', sans-serif);
   font-weight: 700;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  box-shadow: 
-    0 4px 6px -1px rgba(25, 12, 4, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transition: all 0.15s ease-in-out;
+  text-shadow: none;
+  box-shadow: none !important;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   text-decoration: none;
+  transform: none !important;
 }
 
 .parchment-btn:hover:not(:disabled),
 #viewLobby .btn:hover:not(:disabled),
 #viewLobby .role-skill-tabs button:hover:not(:disabled) {
-  background: linear-gradient(180deg, #f7e6ca 0%, #e5cb9c 50%, #d4b079 100%);
-  border-color: #552d0b;
-  transform: translateY(-1.5px);
-  box-shadow: 
-    0 6px 12px -2px rgba(25, 12, 4, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  color: #000000;
+  background: #3B4440;
+  border-color: var(--ui-border-accent, #A78B5D);
+  color: var(--ui-text-primary, #F0E8D9);
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .parchment-btn:active:not(:disabled),
 #viewLobby .btn:active:not(:disabled),
 #viewLobby .role-skill-tabs button:active:not(:disabled) {
-  transform: translateY(1px);
-  background: linear-gradient(180deg, #caa36b 0%, #dfbf8d 100%);
-  border-top-color: #442306;
-  border-left-color: #442306;
-  border-bottom-color: #8f5824;
-  border-right-color: #8f5824;
-  box-shadow: inset 0 2px 4px rgba(40, 20, 5, 0.4);
+  background: #323936;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .parchment-btn:disabled,
 #viewLobby .btn:disabled,
 #viewLobby .role-skill-tabs button:disabled {
-  background: #bfa580 !important;
-  color: #4b5563 !important;
-  border-color: #7d6447 !important;
+  background: var(--ui-surface-inset, #191E1D) !important;
+  color: var(--ui-text-muted, #979D94) !important;
+  border-color: var(--ui-border-subtle, #414845) !important;
   box-shadow: none !important;
   cursor: not-allowed !important;
-  opacity: 0.7 !important;
+  opacity: 0.5 !important;
   transform: none !important;
 }
 
-/* 紅色火漆印章重點按鈕變體 */
+/* 紅色重點按鈕變體 */
 .parchment-btn-crimson,
 #viewLobby #btnStartGame,
 #viewLobby #btnToggleReady,
 #viewLobby .btn-danger,
 #viewLobby .role-skill-tabs button[aria-selected="true"] {
-  background: linear-gradient(180deg, #a82424 0%, #871919 50%, #691111 100%);
-  border: 2px solid #4a0c0c;
-  border-top-color: #c93a3a;
-  border-left-color: #c93a3a;
-  border-bottom-color: #380808;
-  border-right-color: #380808;
-  color: #fff4ea;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-  box-shadow: 
-    0 4px 10px rgba(70, 10, 10, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: var(--ui-primary, #914B43) !important;
+  border: 1px solid #A3574E !important;
+  border-radius: var(--ui-radius, 2px) !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  font-weight: 700;
+  transform: none !important;
 }
 
 .parchment-btn-crimson:hover:not(:disabled),
@@ -223,13 +189,11 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby #btnToggleReady:hover:not(:disabled),
 #viewLobby .btn-danger:hover:not(:disabled),
 #viewLobby .role-skill-tabs button[aria-selected="true"]:hover:not(:disabled) {
-  background: linear-gradient(180deg, #bf2d2d 0%, #991c1c 50%, #751414 100%);
-  border-color: #3f0909;
-  color: #ffffff;
-  box-shadow: 
-    0 6px 14px rgba(90, 15, 15, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transform: translateY(-1.5px);
+  background: var(--ui-primary-hover, #AD6256) !important;
+  border-color: var(--ui-accent, #C5A573) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .parchment-btn-crimson:active:not(:disabled),
@@ -237,8 +201,9 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby #btnToggleReady:active:not(:disabled),
 #viewLobby .btn-danger:active:not(:disabled),
 #viewLobby .role-skill-tabs button[aria-selected="true"]:active:not(:disabled) {
-  background: linear-gradient(180deg, #6b1212 0%, #8f1d1d 100%);
-  transform: translateY(1px);
+  background: #7A3B34 !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* =========================================================
@@ -271,7 +236,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   font-family: 'Noto Serif TC', serif;
   font-size: 17px;
   font-weight: 900;
-  color: #000000;
+  color: var(--ui-text-primary, #F0E8D9);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -342,10 +307,10 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   align-items: center;
   justify-content: space-between;
   padding: 10px 10px;
-  background: rgba(230, 206, 168, 0.7);
-  border: 1.5px solid #a37845;
+  background: var(--ui-surface-inset, #191E1D);
+  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
   border-radius: 8px;
-  box-shadow: inset 0 2px 5px rgba(60, 30, 10, 0.15);
+  box-shadow: none;
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
@@ -425,7 +390,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby .member-name-text {
   font-size: 15px;
   font-weight: 900;
-  color: #000000;
+  color: var(--ui-text-primary, #F0E8D9);
   font-family: 'Noto Sans TC', sans-serif;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -621,7 +586,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby .role-panel-heading span {
   font-size: 18px;
   font-weight: 900;
-  color: #000000;
+  color: var(--ui-text-primary, #F0E8D9);
   font-family: 'Noto Serif TC', serif;
   display: flex;
   align-items: center;
@@ -704,7 +669,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-eyebrow {
-  color: #000000;
+  color: var(--ui-accent, #C5A573);
   font-size: 12.5px;
   font-weight: 700;
   font-family: 'VT323', monospace, 'Cinzel', serif;
@@ -717,7 +682,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   font-size: 28px;
   line-height: 1.2;
   font-weight: 900;
-  color: #000000;
+  color: var(--ui-text-primary, #F0E8D9);
   font-family: 'Noto Serif TC', serif;
   letter-spacing: 1px;
 }
@@ -726,7 +691,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 2px;
-  color: #111827;
+  color: var(--ui-text-muted, #979D94);
   font-family: 'Cinzel', serif;
   margin-bottom: 6px;
 }
@@ -764,7 +729,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby .role-intro-desc,
 #viewLobby #lobbyRoleIntro {
   font-size: 14.5px;
-  color: #111827;
+  color: var(--ui-text-secondary, #C4C1B3);
   line-height: 1.5;
   font-family: 'Noto Sans TC', sans-serif;
   margin: 4px 0 6px;
@@ -927,10 +892,10 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 
 /* 技能詳細說明框 (kraft-sub-panel) */
 #viewLobby .role-description {
-  background: rgba(230, 206, 168, 0.7);
-  border: 1.5px solid #a37845;
+  background: var(--ui-surface-inset, #191E1D);
+  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
   border-radius: 10px;
-  box-shadow: inset 0 2px 5px rgba(60, 30, 10, 0.15);
+  box-shadow: none;
   padding: 11px 14px;
   min-height: 82px;
   display: flex;
@@ -969,7 +934,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 #viewLobby .role-description p,
 #viewLobby #lobbySkillCopy {
   margin: 0;
-  color: #111827;
+  color: var(--ui-text-secondary, #C4C1B3);
   font-size: 14.5px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -997,14 +962,14 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   font-family: 'Noto Sans TC', sans-serif;
   font-size: 14px;
   font-weight: 700;
-  color: #000000;
+  color: var(--ui-text-primary, #F0E8D9);
 }
 
 #viewLobby .role-deck-caption small {
   font-family: 'Cinzel', serif;
   font-size: 12.5px;
   font-weight: 700;
-  color: #111827;
+  color: var(--ui-text-secondary, #C4C1B3);
   letter-spacing: 1.5px;
 }
 
@@ -1035,17 +1000,17 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   width: 58px;
   min-width: 58px;
   height: 72px;
-  background: rgba(235, 214, 180, 0.9);
-  border: 1.5px solid #9b7245;
-  border-radius: 6px;
+  background: var(--ui-surface-inset, #191E1D);
+  border: 1px solid var(--ui-border-subtle, #414845);
+  border-radius: var(--ui-radius, 2px);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 4px rgba(60, 30, 10, 0.15);
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+  box-shadow: none;
   padding: 3px 2px 17px;
   overflow: hidden;
   flex-shrink: 0;
@@ -1065,21 +1030,21 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   left: 0;
   right: 0;
   font-size: 12px;
-  font-weight: 900;
-  color: #000000;
-  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 700;
+  color: var(--ui-text-primary, #F0E8D9);
+  font-family: var(--font-body);
   text-align: center;
-  background: rgba(245, 230, 205, 0.95);
-  border-top: 1px solid #c4a275;
+  background: var(--ui-surface-raised, #2F3633);
+  border-top: 1px solid var(--ui-border-subtle, #414845);
   padding: 1px 0;
   line-height: 1.3;
 }
 
 #viewLobby .role-portrait-choice:hover {
-  background: #fff6e4;
-  border-color: #6a3e15;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(60, 30, 10, 0.25);
+  background: var(--ui-surface-raised, #2F3633);
+  border-color: var(--ui-border-accent, #A78B5D);
+  transform: none;
+  box-shadow: none;
 }
 
 #viewLobby .role-portrait-choice.is-occupied {
@@ -1101,10 +1066,10 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
 }
 
 #viewLobby .role-portrait-choice.is-selected {
-  border: 2px solid #8f1d1d;
-  background: #fff0d6;
-  box-shadow: 0 0 8px rgba(143, 29, 29, 0.45);
-  transform: translateY(-2px);
+  border: 1.5px solid var(--ui-accent, #C5A573);
+  background: var(--ui-surface-raised, #2F3633);
+  box-shadow: none;
+  transform: none;
 }
 
 #viewLobby .role-choice-check {font-size: 11px;
@@ -1238,31 +1203,9 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   height: 24px;
 }
 
-.recruit-sub-title {
-  font-size: 13px;
-  font-family: 'Cinzel', serif;
-  font-weight: 900;
-  letter-spacing: 2px;
-  color: #000000;
-}
+.recruit-sub-title { font-size: 13px; font-family: var(--font-display); font-weight: 700; letter-spacing: 2px; color: var(--ui-accent, #C5A573); }
 
-.recruit-main-title {
-  font-size: 28px;
-  font-family: 'Noto Serif TC', serif;
-  font-weight: 900;
-  color: #000000;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.recruit-header-right {
-  text-align: right;
-  margin-left: auto;
-  white-space: nowrap;
-  font-family: 'Noto Sans TC', sans-serif;
-  font-size: 14px;
-  color: #000000;
-}
+.recruit-main-title { font-family: var(--font-display); font-weight: 700; color: var(--ui-text-primary, #F0E8D9); margin: 0; line-height: 1.2; }
 
 .recruit-code {
   display: block;
@@ -1273,10 +1216,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   font-weight: 700;
 }
 
-.recruit-badge-text {
-  font-size: 13px;
-  color: #000000;
-}
+.recruit-badge-text { font-size: 13px; color: var(--ui-text-muted, #979D94); }
 
 .recruit-body {
   margin-bottom: 18px;
@@ -1344,92 +1284,7 @@ body:is(:has(#viewEntry.active), :has(#viewLobby.active)) .app-header .logo-img 
   gap: 10px;
 }
 
-.recruit-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 900;
-  color: #000000;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-.recruit-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #ffffff !important;
-  background-color: #ffffff !important;
-  border: 2px solid #825424;
-  border-radius: 8px;
-  padding: 6px 10px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-.recruit-input-row:focus-within {
-  border-color: #991b1b;
-}
-
-.recruit-input-row input,
-.recruit-input-row input[type="text"],
-.recruit-name-input,
-#inputPlayerName,
-input#inputPlayerName {
-  flex: 1;
-  min-width: 0;
-  background: #ffffff !important;
-  background-color: #ffffff !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  font-size: 16px;
-  font-weight: 900;
-  color: #000000 !important;
-  font-family: 'Noto Sans TC', sans-serif;
-}
-
-.recruit-btn-random {
-  padding: 5px 14px;
-  font-size: 14px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.recruit-btn-submit {
-  width: 100%;
-  padding: 14px;
-  font-size: 16px;
-  letter-spacing: 1px;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-/* --- Screen 2: 大廳選單 (Lobby Menu Card) --- */
-.lobby-menu-card {
-  width: 100%;
-  max-width: 380px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin: 0 auto;
-}
-
-.lobby-menu-status {
-  text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(156, 111, 61, 0.4);
-}
-
-.lobby-menu-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 16px;
-  border-radius: 20px;
-  font-size: 15px;
-  color: #000000;
-}
+.recruit-label { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--ui-text-primary, #F0E8D9); font-family: var(--font-body); }
 
 .pulse-dot {
   width: 8px;
@@ -1529,29 +1384,30 @@ input#inputPlayerName {
 }
 
 .kraft-server-slot {
-  background: rgba(250, 241, 224, 0.88);
-  border: 2px solid #9c7348;
-  border-radius: 8px;
+  background: var(--ui-surface-inset, #191E1D);
+  border: 1px solid var(--ui-border-subtle, #414845);
+  border-radius: var(--ui-radius, 2px);
   padding: 10px 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+  box-shadow: none;
 }
 
 .kraft-server-slot:hover {
-  background: #fff8eb;
-  border-color: #6b3f18;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(60, 30, 10, 0.25);
+  background: var(--ui-surface-raised, #2F3633);
+  border-color: var(--ui-border-accent, #A78B5D);
+  transform: none;
+  box-shadow: none;
 }
 
 .kraft-server-slot.selected {
-  background: #fdf5e2;
-  border: 2.5px solid #851c1c;
-  box-shadow: 0 0 0 2px rgba(133, 28, 28, 0.3), 0 4px 10px rgba(60, 30, 10, 0.3);
+  background: var(--ui-surface-raised, #2F3633);
+  border: 1.5px solid var(--ui-accent, #C5A573);
+  box-shadow: none;
 }
 
 .server-slot-left {
@@ -1588,8 +1444,8 @@ input#inputPlayerName {
   align-items: center;
   gap: 8px;
   font-size: 16px;
-  font-weight: 900;
-  color: #000000;
+  font-weight: 700;
+  color: var(--ui-text-primary, #F0E8D9);
 }
 
 .server-slot-code-badge {
@@ -1612,7 +1468,7 @@ input#inputPlayerName {
 
 .server-slot-motd2 {
   font-size: 13px;
-  color: #111827;
+  color: var(--ui-text-secondary, #C4C1B3);
 }
 
 .server-slot-meta {
@@ -1625,8 +1481,8 @@ input#inputPlayerName {
 
 .server-slot-count {
   font-size: 16px;
-  font-weight: 900;
-  color: #000000;
+  font-weight: 700;
+  color: var(--ui-text-primary, #F0E8D9);
 }
 
 .server-ping-bars {
@@ -1745,7 +1601,7 @@ input#inputPlayerName {
   gap: 14px;
   padding: 8px 12px;
   background: rgba(230, 206, 168, 0.4);
-  border: 1.5px solid #a37845;
+  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
   border-radius: 10px;
   margin-bottom: 12px;
 }
@@ -1810,7 +1666,7 @@ input#inputPlayerName {
   align-items: center;
   justify-content: center;
   background: #fffdf7;
-  border: 1.5px solid #a37845;
+  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1885,16 +1741,16 @@ input#profileNewNameInput {
 
 /* Parchment surfaces own their text colors, including inherited dark-theme tokens. */
 .kraft-paper {
-  --color-text-primary: #24170f;
-  --color-text-secondary: #493527;
-  --color-text-muted: #65503d;
-  --color-guild-ink: #24170f;
-  --color-guild-ink-secondary: #493527;
-  --color-guild-ink-muted: #65503d;
+  --color-text-primary: var(--ui-text-primary, #F0E8D9);
+  --color-text-secondary: var(--ui-text-secondary, #C4C1B3);
+  --color-text-muted: var(--ui-text-muted, #979D94);
+  --color-guild-ink: var(--ui-text-primary, #F0E8D9);
+  --color-guild-ink-secondary: var(--ui-text-secondary, #C4C1B3);
+  --color-guild-ink-muted: var(--ui-text-muted, #979D94);
 }
 .kraft-paper .modal-title,
-.kraft-paper .modal-label { color: #24170f; }
-.kraft-paper .parchment-btn:not(.parchment-btn-crimson) { color: #24170f; }
+.kraft-paper .modal-label { color: var(--ui-text-primary, #F0E8D9); }
+.kraft-paper .parchment-btn:not(.parchment-btn-crimson) { color: var(--ui-text-primary, #F0E8D9); }
 #viewLobby .role-panel-heading .lobby-exit-btn,
 #viewLobby .role-panel-heading .lobby-exit-btn span,
 .kraft-paper .parchment-btn-crimson { color: #fff4ea; }
@@ -1907,32 +1763,32 @@ input#profileNewNameInput {
   margin-right: 0;
   color: inherit;
 }
-#directConnectModal .direct-connect-input::placeholder { color: #806550; opacity: 1; }
+#directConnectModal .direct-connect-input::placeholder { color: var(--ui-text-muted, #979D94); opacity: 1; }
 .modal-overlay .modal-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .kraft-paper .modal-actions .parchment-btn,
 .server-list-btn-row .parchment-btn {
-  padding: 12px 16px;
-  min-height: 46px;
+  padding: 10px 16px;
+  min-height: 40px;
   font-size: 14px;
   line-height: 1.4;
 }
-.kraft-paper .entry-avatar-preview { background: #ebd6b3; border-color: #7d4d20; color: #493527; }
-.kraft-paper .entry-avatar-badge { background: #8f1d1d; border-color: #4a0c0c; }
+.kraft-paper .entry-avatar-preview { background: var(--ui-surface-inset, #191E1D); border-color: var(--ui-border, #59615A); color: var(--ui-text-primary, #F0E8D9); }
+.kraft-paper .entry-avatar-badge { background: var(--ui-primary, #914B43); border-color: #A3574E; }
 
 body:has(#viewEntry.active) .bgm-control,
 body:has(#viewEntry.active) #soundToggleBtn,
 body:has(#viewLobby.active) .bgm-control,
 body:has(#viewLobby.active) #soundToggleBtn { display: none; }
 body:has(#viewLobby.active) .room-code-display {
-  background: linear-gradient(#f7eed7, #ebd6b3);
-  border: 2px solid #7d4d20;
-  border-radius: 8px;
-  box-shadow: 0 3px 6px #190c0466;
-  color: #24170f;
+  background: var(--ui-surface-inset, #191E1D);
+  border: 1px solid var(--ui-border, #59615A);
+  border-radius: var(--ui-radius, 2px);
+  box-shadow: none;
+  color: var(--ui-text-primary, #F0E8D9);
 }
-body:has(#viewLobby.active) .room-code-label { color: #493527; }
-body:has(#viewLobby.active) .room-code-clickable { color: #8f1d1d; text-shadow: none; }
-body:has(#viewLobby.active) .room-code-clickable:hover { color: #691111; background: #fee2e2; }
+body:has(#viewLobby.active) .room-code-label { color: var(--ui-text-secondary, #C4C1B3); }
+body:has(#viewLobby.active) .room-code-clickable { color: var(--ui-accent, #C5A573); text-shadow: none; }
+body:has(#viewLobby.active) .room-code-clickable:hover { color: #ffffff; background: var(--ui-surface-raised, #2F3633); }
 body:has(#viewLobby.active) .room-copy-toast { color: #493527; }
 
 /* Fill the remaining viewport; content scrolls inside stable panel boundaries. */
@@ -2155,7 +2011,7 @@ body:has(#viewLobby.active) .main-content { padding: 0; min-height: 0; backdrop-
 .avatar-choice-title {
   font-size: 16px;
   font-weight: 900;
-  color: #000000;
+  color: var(--ui-text-primary, #F0E8D9);
   font-family: 'Noto Sans TC', sans-serif;
 }
 
@@ -2186,7 +2042,7 @@ body:has(#viewLobby.active) .main-content { padding: 0; min-height: 0; backdrop-
   gap: 4px;
   padding: 6px 4px;
   background: rgba(240, 221, 190, 0.7);
-  border: 1.5px solid #a37845;
+  border: 1px solid var(--ui-border-subtle, #414845); border-radius: var(--ui-radius, 2px);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
