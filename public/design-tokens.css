@@ -1,172 +1,221 @@
-/* Dungeon Abyss — shared exploration and combat design tokens. */
+/* Dungeon Abyss — Dark Pixel Fantasy UI Design Tokens */
 :root {
-  /* Surfaces & Environment (P2 Dark Fantasy Dungeon Immersion) */
-  --color-env-bg: #100e0c;
-  --color-app-shell: #100e0c;
-  --color-canvas: #181714;           /* Deep dark dungeon window canvas */
-  --color-surface: #252b31;          /* Dark slate dungeon panel */
-  --color-surface-secondary: #1c2024;/* Inset secondary dark panel */
-  --color-surface-translucent: #252b31f5;
-  --color-bone-white: #252b31;
-  --color-bone-white-alt: #1c2024;
-  --color-bone-white-card: #252b31;
+  /* =========================================================
+     1. Dark Pixel Fantasy Base Tokens
+     ========================================================= */
+  /* Background */
+  --ui-bg: #121515;
+  --ui-bg-secondary: #1B2020;
 
-  /* Guild Hall & Ancient Dark Parchment Tokens */
-  --color-outer-chamber: rgba(5, 8, 17, 0.85);
-  --color-outer-border: rgba(255, 255, 255, 0.1);
-  --color-parchment-base: #30281f;
-  --color-parchment-light: #40352a;
-  --color-parchment-dark: #211d18;
-  --color-parchment-inset: #201b16;
-  --color-parchment-border: #735d3d;
-  --color-parchment-stitch: rgba(148, 163, 184, 0.25);
-  --color-guild-ink: #f3e8d2;
-  --color-guild-ink-secondary: #d2c2a8;
-  --color-guild-ink-muted: #b8aa94;
-  --color-guild-blue: #2563eb;
-  --color-guild-blue-dark: #1d4ed8;
-  --color-guild-blue-hover: #3b82f6;
+  /* Surface */
+  --ui-surface: #242A29;
+  --ui-surface-raised: #2F3633;
+  --ui-surface-inset: #191E1D;
 
-  /* Navy HUD (Console & Status) */
-  --color-hud-navy: #070d1a;
-  --color-hud-navy-surface: #0d172c;
-  --color-hud-navy-border: #1e2e4f;
-  --color-hud-text: #f8fafc;
-  --color-hud-text-muted: #94a3b8;
+  /* Border */
+  --ui-border: #59615A;
+  --ui-border-subtle: #414845;
+  --ui-border-accent: #A78B5D;
 
-  /* Arcade Brand & Combat Semantic */
-  --color-primary: #8f302e;          /* Wax Red Primary */
-  --color-primary-hover: #a73e3b;
-  --color-primary-soft: #8f302e33;
-  --color-loot-gold: #f59e0b;        /* Loot Gold */
-  --color-loot-gold-hover: #d97706;
-  --color-danger: #dc2626;           /* Danger Red */
-  --color-danger-hover: #b91c1c;
-  --color-success: #16a34a;          /* Nature Green */
-  --color-success-hover: #15803d;
-  --color-warning: #f59e0b;
+  /* Text */
+  --ui-text-primary: #F0E8D9;
+  --ui-text-secondary: #C4C1B3;
+  --ui-text-muted: #979D94;
 
-  /* HP Semantic (Arcade Bars) */
-  --hp-green: #16a34a;
-  --hp-yellow: #f59e0b;
-  --hp-red: #dc2626;
+  /* Accent */
+  --ui-accent: #C5A573;
+  --ui-primary: #914B43;
+  --ui-primary-hover: #AD6256;
 
-  /* Text & Ink */
-  --color-text-primary: #f3e8d2;
-  --color-text-secondary: #d2c2a8;
-  --color-text-muted: #b8aa94;
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
-  --text-accent: var(--color-loot-gold);
+  /* Semantic */
+  --ui-success: #79A083;
+  --ui-warning: #C4A067;
+  --ui-danger: #BF6D63;
 
-  /* Borders (Thick Visual Weight) */
-  --color-border: #725d40;           /* Strong Dark Arcade Border */
-  --color-border-subtle: #514638;
-  --border-weight: 2px;
-  --border-weight-thick: 3px;
+  /* Geometry */
+  --ui-radius: 2px;
+  --ui-border-width: 1px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 
   /* Typography */
   --font-display: "Cinzel", "Syne", "Noto Serif TC", serif;
   --font-body: "Noto Sans TC", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-stats: "Chakra Petch", Consolas, monospace;
 
-  /* Shape: 6–12px Rounded Corners, Avoid excessive pills */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-window: 8px;
-  --radius-xl: 8px;
-  --radius-2xl: 8px;
-  --radius-pill: 6px;
+  --text-page: clamp(24px, 3vw, 36px);
+  --text-section: 22px;
+  --text-card: 18px;
+  --text-body: 16px;
+  --text-small: 14px;
+  --text-label: 13px;
 
-  /* Hard Offset Shadows & Pressed Depths */
-  --shadow-sm: 0 3px 0 #03050a;
-  --shadow-md: 0 5px 0 #03050a;
-  --shadow-lg: 0 8px 0 #03050a;
-  --shadow-floating: 0 8px 0 #03050a, 0 16px 28px rgba(0, 0, 0, 0.7);
-  --shadow-window: 0 10px 0 #03050a, 0 18px 36px rgba(0, 0, 0, 0.75);
-  --shadow-pressed: 0 1px 0 #03050a;
+  /* Geometry Aliases (Flat Pixel UI: 0-2px radius) */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-window: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-pill: 2px;
 
-  /* P2 Motion Tokens */
-  --motion-fast: 140ms;
-  --motion-normal: 240ms;
-  --motion-medium: 420ms;
-  --motion-cinematic: 950ms;
+  /* Flat UI Shadows (Hard offset arcade push shadows removed; subtle ambient depth only) */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-window: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-pressed: none;
 
-  --duration-fast: 140ms;
-  --duration-normal: 240ms;
-  --duration-surface: 320ms;
+  /* =========================================================
+     2. Legacy Token Mappings & Aliases
+     ========================================================= */
+  --color-env-bg: var(--ui-bg);
+  --color-app-shell: var(--ui-bg);
+  --color-canvas: var(--ui-bg-secondary);
+  --color-surface: var(--ui-surface);
+  --color-surface-secondary: var(--ui-surface-inset);
+  --color-surface-translucent: rgba(36, 42, 41, 0.95);
+  --color-bone-white: var(--ui-surface);
+  --color-bone-white-alt: var(--ui-surface-inset);
+  --color-bone-white-card: var(--ui-surface);
 
-  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
-  --ease-arcade: cubic-bezier(0.2, 0.9, 0.3, 1.25);
-  --ease-press: cubic-bezier(0.1, 0.9, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-sharp: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Guild Hall & Parchment Aliases */
+  --color-outer-chamber: rgba(18, 21, 21, 0.88);
+  --color-outer-border: var(--ui-border-subtle);
+  --color-parchment-base: var(--ui-surface);
+  --color-parchment-light: var(--ui-surface-raised);
+  --color-parchment-dark: var(--ui-bg-secondary);
+  --color-parchment-inset: var(--ui-surface-inset);
+  --color-parchment-border: var(--ui-border);
+  --color-parchment-stitch: rgba(148, 163, 184, 0.15);
+  --color-guild-ink: var(--ui-text-primary);
+  --color-guild-ink-secondary: var(--ui-text-secondary);
+  --color-guild-ink-muted: var(--ui-text-muted);
+  --color-guild-blue: var(--ui-primary);
+  --color-guild-blue-dark: #6e3630;
+  --color-guild-blue-hover: var(--ui-primary-hover);
 
-  /* Layer Architecture Tokens (P2-R1 Section 3 & 72) */
-  --z-world: 0;
-  --z-atmosphere: 5;
-  --z-hud: 10;
-  --z-interaction: 20;
-  --z-battle-log: 25;
-  --z-presentation: 100;
-  --z-curtain: 150;
-  --z-system-modal: 1000;
-  --z-chat: 1010;
+  /* Navy HUD (Console & Status) */
+  --color-hud-navy: #141818;
+  --color-hud-navy-surface: #1B2020;
+  --color-hud-navy-border: #414845;
+  --color-hud-text: var(--ui-text-primary);
+  --color-hud-text-muted: var(--ui-text-muted);
 
-  /* Shared fantasy palette, scale and presentation ownership */
-  --color-parchment: #e9d9b6;
-  --color-stone: #252b31;
-  --color-brass: #a7834c;
-  --color-brass-bright: #d0aa67;
-  --color-brass-muted: #6e5735;
-  --color-wax-red: #8f302e;
-  --color-warm-white: #f3e8d2;
-  --surface-exploration: #30281f;
-  --surface-combat: var(--color-stone);
-  --surface-modal: #262019f5;
-  --surface-tooltip: #1c1813f7;
-  --surface-inset: #191511d9;
-  --surface-raised: #36332d;
-  --surface-overlay: #1c1a17;
-  --color-focus: #e4bc75;
+  /* Brand & Combat Semantic */
+  --color-primary: var(--ui-primary);
+  --color-primary-hover: var(--ui-primary-hover);
+  --color-primary-soft: rgba(145, 75, 67, 0.2);
+  --color-loot-gold: var(--ui-accent);
+  --color-loot-gold-hover: #d8b783;
+  --color-danger: var(--ui-danger);
+  --color-danger-hover: #a8584f;
+  --color-success: var(--ui-success);
+  --color-success-hover: #638c6d;
+  --color-warning: var(--ui-warning);
+
+  /* HP Semantic */
+  --hp-green: var(--ui-success);
+  --hp-yellow: var(--ui-warning);
+  --hp-red: var(--ui-danger);
+
+  /* Text & Ink */
+  --color-text-primary: var(--ui-text-primary);
+  --color-text-secondary: var(--ui-text-secondary);
+  --color-text-muted: var(--ui-text-muted);
+  --text-primary: var(--ui-text-primary);
+  --text-secondary: var(--ui-text-secondary);
+  --text-muted: var(--ui-text-muted);
+  --text-accent: var(--ui-accent);
+
+  /* Borders */
+  --color-border: var(--ui-border);
+  --color-border-subtle: var(--ui-border-subtle);
+  --border-weight: 1px;
+  --border-weight-thick: 2px;
+
+  /* Shared fantasy palette & surfaces */
+  --color-parchment: var(--ui-surface);
+  --color-stone: var(--ui-surface);
+  --color-brass: var(--ui-border-accent);
+  --color-brass-bright: var(--ui-accent);
+  --color-brass-muted: #59615A;
+  --color-wax-red: var(--ui-primary);
+  --color-warm-white: var(--ui-text-primary);
+  --surface-exploration: var(--ui-surface);
+  --surface-combat: var(--ui-surface);
+  --surface-modal: var(--ui-surface);
+  --surface-tooltip: var(--ui-surface-raised);
+  --surface-inset: var(--ui-surface-inset);
+  --surface-raised: var(--ui-surface-raised);
+  --surface-overlay: var(--ui-bg-secondary);
+  --color-focus: var(--ui-accent);
   --color-physical: #d9b68a;
   --color-magical: #b8a6df;
   --color-status: #91bbba;
   --rarity-common: #b8aa94;
   --rarity-rare: #d4ac63;
   --rarity-exclusive: #b8a6df;
-  --rarity-consumable: #5fb38e;
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
-  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
-  --text-page: clamp(24px, 3vw, 36px); --text-section: 22px; --text-card: 18px;
-  --text-body: 16px; --text-small: 14px; --text-label: 13px;
-  --z-battle-fx: 30; --z-cinematic: 920; --z-feedback: 980; --z-tooltip: 1200;
+  --rarity-consumable: #79A083;
 
-  /* Honeycomb Inventory Hex Tokens */
+  --parchment-light: var(--ui-surface-raised);
+  --parchment-mid: var(--ui-surface);
+  --parchment-dark: var(--ui-bg-secondary);
+  --parchment-edge: var(--ui-border);
+  --ink-primary: var(--ui-text-primary);
+  --ink-secondary: var(--ui-text-secondary);
+  --ink-muted: var(--ui-text-muted);
+  --leather-bg: var(--ui-bg-secondary);
+  --wax-red: var(--ui-primary);
+  --gold-brass: var(--ui-accent);
+
+  /* Layer Architecture Tokens */
+  --z-world: 0;
+  --z-atmosphere: 5;
+  --z-hud: 10;
+  --z-interaction: 20;
+  --z-battle-log: 25;
+  --z-battle-fx: 30;
+  --z-presentation: 100;
+  --z-curtain: 150;
+  --z-cinematic: 920;
+  --z-feedback: 980;
+  --z-system-modal: 1000;
+  --z-chat: 1010;
+  --z-tooltip: 1200;
+
+  /* Honeycomb Hex Tokens */
   --hex-w: 64px;
   --hex-h: 73.9px;
   --hex-row-overlap: -17px;
   --hex-col-overlap: -2px;
-  --hex-bg: #221c16;
-  --hex-bg-hover: #352b22;
-  --hex-bg-active: #473828;
-  --hex-border: #a7834c;
+  --hex-bg: var(--ui-surface-inset);
+  --hex-bg-hover: var(--ui-surface-raised);
+  --hex-bg-active: var(--ui-surface);
+  --hex-border: var(--ui-border-accent);
 
-  --parchment-light: #f7eed7;
-  --parchment-mid: #ebd6b3;
-  --parchment-dark: #d8ba8b;
-  --parchment-edge: #966b3b;
-  --ink-primary: #000000;
-  --ink-secondary: #111827;
-  --ink-muted: #1f2937;
-  --leather-bg: #2d180a;
-  --wax-red: #8f1d1d;
-  --gold-brass: #b8860b;
+  /* Motion Tokens */
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --motion-medium: 350ms;
+  --motion-cinematic: 800ms;
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-surface: 250ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-press: cubic-bezier(0.1, 0.9, 0.2, 1);
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (max-width: 640px) {
