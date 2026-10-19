@@ -5935,7 +5935,8 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
       svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M3.5 21 12 3l8.5 18H3.5Z" fill="rgba(251,191,36,0.2)"/><path d="M12 3v18M8.5 21l3.5-7 3.5 7"/></svg>`;
       fallbackImg = '/assets/Equipments/修整帳篷.webp';
     }
-    const imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : (fallbackImg || `/assets/Equipments/${encodeURIComponent(item.name)}.webp`);
+    let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : (fallbackImg || `/assets/Equipments/${encodeURIComponent(item.name)}.webp`);
+    imgUrl = imgUrl.replace(/^\/?assets\/assets\//, '/assets/');
     return `
       <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name || '')}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
       <div class="consumable-svg-wrap ${iconClass}-svg" style="display:none;">${svg}</div>
@@ -5948,11 +5949,12 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
     const svg = CLASS_EXCLUSIVE_SVGS[roleKey] || CLASS_EXCLUSIVE_SVGS.warrior || '';
     return `<div class="exclusive-equip-svg-wrap ${iconClass}-svg">${svg}</div>`;
   }
-  const imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`;
-  const fallbackEmoji = item.fallbackIcon || (item.slot === 'WEAPON' ? '⚔️' : item.slot === 'ARMOR' ? '🛡️' : '💍');
+  let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`;
+  imgUrl = imgUrl.replace(/^\/?assets\/assets\//, '/assets/');
+  const fallbackSvgId = item.slot === 'WEAPON' ? '#icon-sword' : (item.slot === 'ARMOR' ? '#icon-shield' : '#icon-chest');
   return `
-    <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline-block';" />
-    <span class="item-fallback-icon" style="display:none;">${fallbackEmoji}</span>
+    <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline-flex';" />
+    <span class="item-fallback-icon" style="display:none;"><svg class="svg-icon" style="width:24px;height:24px;"><use href="${fallbackSvgId}"></use></svg></span>
   `;
 }
 
@@ -5965,17 +5967,21 @@ function createHexBgSvg() {
 }
 
 function renderHexSlotContent(item, badgeText, watermarkSvg = '') {
-  return `
-    ${createHexBgSvg()}
-    ${watermarkSvg ? `<div class="equip-watermark">${watermarkSvg}</div>` : ''}
-    ${item ? `
+  if (item) {
+    return `
+      ${createHexBgSvg()}
       <div class="item-layer">
         <div class="item-layer-icon-box">
           ${renderItemIconHtml(item, 'item-equipment-img')}
         </div>
         <span class="item-layer-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
       </div>
-    ` : (badgeText ? `<span class="slot-index-badge">${badgeText}</span>` : '')}
+    `;
+  }
+  return `
+    ${createHexBgSvg()}
+    ${watermarkSvg ? `<div class="equip-watermark">${watermarkSvg}</div>` : ''}
+    ${(!watermarkSvg && badgeText) ? `<span class="slot-index-badge">${badgeText}</span>` : ''}
   `;
 }
 
@@ -6178,11 +6184,11 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
     if (isConsumable) {
       // 補血藥、解毒劑、修整帳篷只能使用或丟棄，不可販售！
       const isRestTent = item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent';
-      const useBtnText = isRestTent ? '⛺ 搭建帳篷休整' : '🧪 使用道具';
+      const useBtnText = isRestTent ? '<svg class="svg-icon sm"><use href="#icon-camp"></use></svg> 搭建帳篷休整' : '<svg class="svg-icon sm"><use href="#icon-potion"></use></svg> 使用道具';
       bottomActionHtml = `
         <div class="item-tooltip-actions-section">
           <button type="button" class="btn-tooltip-use" id="btnTooltipUse">${useBtnText}</button>
-          <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard">🗑️ 丟棄物品</button>
+          <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard"><svg class="svg-icon sm"><use href="#icon-trash"></use></svg> 丟棄物品</button>
         </div>
       `;
     } else {
@@ -6192,10 +6198,10 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
         bottomActionHtml = `
           <div class="item-tooltip-actions-section">
             <button type="button" class="btn-tooltip-sell" id="btnTooltipSell">
-              💰 販售裝備 (+${sellPrice}G)
+              <svg class="svg-icon sm"><use href="#icon-gold"></use></svg> 販售裝備 (+${sellPrice}G)
             </button>
             <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard">
-              🗑️ 丟棄裝備
+              <svg class="svg-icon sm"><use href="#icon-trash"></use></svg> 丟棄裝備
             </button>
           </div>
         `;
@@ -6203,7 +6209,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
         bottomActionHtml = `
           <div class="item-tooltip-actions-section">
             <button type="button" class="btn-tooltip-discard" id="btnTooltipDiscard">
-              🗑️ 丟棄裝備
+              <svg class="svg-icon sm"><use href="#icon-trash"></use></svg> 丟棄裝備
             </button>
           </div>
         `;
@@ -6211,8 +6217,9 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
     }
   } else if (isShop) {
     bottomActionHtml = `
-      <div style="margin-top:8px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
-        ${item.soldPrice ? `🪙 原價買回: ${item.soldPrice} 金幣` : (item.price ? `🪙 售價: ${item.price} 金幣` : '💡 商店販售中')}
+      <div style="margin-top:8px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;display:flex;align-items:center;gap:4px;">
+        <svg class="svg-icon sm" style="color:var(--gold);"><use href="#icon-gold"></use></svg>
+        <span>${item.soldPrice ? `原價買回: ${item.soldPrice} G` : (item.price ? `售價: ${item.price} G` : '商店販售中')}</span>
       </div>
     `;
   }
@@ -6699,7 +6706,7 @@ function renderInventoryModal() {
   const me = (roomState?.players || []).find(p => p.id === myId) || (roomState?.players || [])[0] || null;
   const gold = roomState?.gold ?? 0;
   if (elements.inventoryGoldCount) {
-    elements.inventoryGoldCount.innerHTML = `<svg class="svg-icon" style="width:14px;height:14px;"><use href="#icon-gold"></use></svg> <span>${gold} G</span>`;
+    elements.inventoryGoldCount.textContent = `${gold} G`;
   }
   if (elements.headerGoldDisplay) {
     elements.headerGoldDisplay.textContent = `${gold} G`;
@@ -6850,7 +6857,7 @@ function renderInventoryModal() {
 
       if (isConsumable) {
         const isRestTent = item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent';
-        actionButtons += `<button type="button" class="btn-inv-action btn-inv-use" id="btnInspectUse">${isRestTent ? '⛺ 搭建帳篷休整' : '🧪 使用道具'}</button>`;
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-use" id="btnInspectUse">${isRestTent ? '<svg class="svg-icon sm"><use href="#icon-camp"></use></svg> 搭建帳篷休整' : '<svg class="svg-icon sm"><use href="#icon-potion"></use></svg> 使用道具'}</button>`;
       }
 
       if (selectedInvSlot.area === 'SQUAD') {
@@ -6866,10 +6873,10 @@ function renderInventoryModal() {
 
       if (isInShop && !isConsumable) {
         const sellPrice = calculateItemSellPriceClient(item);
-        actionButtons += `<button type="button" class="btn-inv-action btn-inv-sell" id="btnInspectSell">💰 賣給商人 (+${sellPrice}G)</button>`;
+        actionButtons += `<button type="button" class="btn-inv-action btn-inv-sell" id="btnInspectSell"><svg class="svg-icon sm"><use href="#icon-gold"></use></svg> 賣給商人 (+${sellPrice}G)</button>`;
       }
 
-      actionButtons += `<button type="button" class="btn-inv-action btn-inv-discard" id="btnInspectDiscard" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">🗑️ 丟棄${isConsumable ? '物品' : '裝備'}</button>`;
+      actionButtons += `<button type="button" class="btn-inv-action btn-inv-discard" id="btnInspectDiscard" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;"><svg class="svg-icon sm"><use href="#icon-trash"></use></svg> 丟棄${isConsumable ? '物品' : '裝備'}</button>`;
 
       const rarityClass = item.rarity ? 'rarity-' + item.rarity.toLowerCase() : '';
       const rarityLabel = item.rarity === 'EXCLUSIVE' ? '專屬' : (item.rarity === 'RARE' ? '稀有' : (isConsumable ? '消耗品' : '普通'));
@@ -6877,7 +6884,7 @@ function renderInventoryModal() {
         <div class="inv-inspector-body">
           <div class="inv-inspector-info">
             <div class="inv-inspector-title">
-              <span class="inv-inspector-icon">${item.icon || '⚔️'}</span>
+              <div class="inv-inspector-icon-box">${renderItemIconHtml(item, 'item-equipment-img')}</div>
               <span class="inv-inspector-name">${escapeHtml(item.name)}</span>
               <span class="inv-inspector-rarity-badge ${rarityClass}">${rarityLabel}</span>
               <span class="inv-inspector-slot-tag">[${item.slot || item.type || '裝備'}]</span>
@@ -7006,7 +7013,7 @@ function renderInventoryModal() {
       `;
     } else {
       elements.invInspectorContent.innerHTML = `
-        <div class="inv-inspector-empty">點擊任一六角格可查看道具詳情，並可穿戴、卸下或在背包間轉移。</div>
+        <div class="inv-inspector-empty">請選取格位查看物品資訊。</div>
       `;
     }
   }
@@ -7159,7 +7166,9 @@ function renderInteractiveEvent(ev) {
                     </svg>
                     ${priceTag}
                     <div class="item-layer">
-                      <div class="item-layer-icon">${item.icon || (isMerchant ? '📦' : '⚔️')}</div>
+                      <div class="item-layer-icon-box">
+                        ${renderItemIconHtml(item, 'item-equipment-img')}
+                      </div>
                       <div class="item-layer-name">${escapeHtml(item.name)}</div>
                     </div>
                   </div>
@@ -7172,7 +7181,7 @@ function renderInteractiveEvent(ev) {
                     <svg class="hex-bg-svg" viewBox="0 0 100 115.47">
                       <polygon class="hex-polygon" points="50 0, 100 28.87, 100 86.6, 50 115.47, 0 86.6, 0 28.87" style="opacity: ${isMerchant ? 0.4 : 0.8};" />
                     </svg>
-                    ${isMerchant ? '<span style="font-size:12px;opacity:0.25;">🔒</span>' : ''}
+                    ${isMerchant ? '<svg class="svg-icon" style="width:14px;height:14px;opacity:0.25;"><use href="#icon-lock"></use></svg>' : ''}
                   </div>
                 `);
               }
@@ -7206,20 +7215,21 @@ function renderInteractiveEvent(ev) {
           <!-- 左欄：小隊行囊 (19 格) + 出售熱區 -->
           <div class="shop-squad-col">
             <div class="shop-col-header">
-              <span>🎒 小隊背包 (19格)</span>
+              <span class="shop-col-title">${getIconSvg('chest', 'ui-icon--sm')} 小隊背包 (19格)</span>
               <small>${squadItems.length} / 19 格</small>
             </div>
             ${buildHexGrid(squadItems, false)}
-            <div id="shopSellDropzone" class="shop-sell-dropzone" title="拖曳小隊道具至此出售">
-              <span>💰 拖曳至此出售 (或點選道具後於下方檢視器出售)</span>
+            <div id="shopSellDropzone" class="shop-sell-dropzone" title="點選或拖曳道具至此出售">
+              ${getIconSvg('gold', 'ui-icon--sm')}
+              <span>出售物資 (+金幣)</span>
             </div>
           </div>
 
           <!-- 右欄：商人貨架 (19 格) -->
           <div class="shop-goods-col">
             <div class="shop-col-header">
-              <span>🏪 商人貨架 (${allGoods.length}件上架)</span>
-              <small>拖曳至左側背包或點選購買</small>
+              <span class="shop-col-title">${getIconSvg('shop', 'ui-icon--sm')} 商人貨架 (${allGoods.length}件上架)</span>
+              <small>點選查看並購買</small>
             </div>
             ${buildHexGrid(allGoods, true)}
           </div>
@@ -7228,8 +7238,8 @@ function renderInteractiveEvent(ev) {
         <!-- 交易與檢視區 (Trade Inspector) -->
         <div id="shopTradeInspector" class="shop-trade-inspector">
           <div class="shop-trade-info">
-            <div class="shop-trade-title" id="shopTradeTitle">點擊任一商品或小隊背包道具查看詳情</div>
-            <div class="shop-trade-desc" id="shopTradeDesc">支援直接點擊按鈕買賣，亦可從小隊背包拖曳至出售區，或將貨架商品拖曳至小隊空格購買。</div>
+            <div class="shop-trade-title" id="shopTradeTitle">選取商品或背包物品進行交易</div>
+            <div class="shop-trade-desc" id="shopTradeDesc">點選或拖曳交換以完成交易。</div>
           </div>
           <div class="shop-trade-actions" id="shopTradeActions"></div>
         </div>
@@ -7276,8 +7286,8 @@ function renderInteractiveEvent(ev) {
       if (!tradeTitle || !tradeDesc || !tradeActions) return;
 
       if (!item) {
-        tradeTitle.textContent = '點擊任一商品或小隊背包道具查看詳情';
-        tradeDesc.textContent = '支援直接點擊按鈕買賣，亦可從小隊背包拖曳至出售區，或將貨架商品拖曳至小隊空格購買。';
+        tradeTitle.textContent = '選取商品或背包物品進行交易';
+        tradeDesc.textContent = '點選或拖曳交換以完成交易。';
         tradeActions.innerHTML = '';
         return;
       }
@@ -7287,7 +7297,7 @@ function renderInteractiveEvent(ev) {
       const tagLabel = isExclusive ? `專屬(${item.role || '職業'})` : (isRare ? 'T2 珍品' : (item._type === 'consumable' ? '消耗品' : (item._type === 'buyback' ? '購回' : '通用')));
 
       tradeTitle.innerHTML = `
-        <span>${item.icon || '⚔️'}</span>
+        <div class="shop-trade-item-icon">${renderItemIconHtml(item, 'item-equipment-img')}</div>
         <span>【${escapeHtml(item.name)}】</span>
         <span class="shop-item-tag" style="font-size:12px;padding:1px 6px;">${tagLabel}</span>
       `;
@@ -7312,7 +7322,7 @@ function renderInteractiveEvent(ev) {
         tradeActions.innerHTML = `
           <span style="font-weight:700;color:var(--ui-accent);">賣出價值：+${sellPrice} G</span>
           <button type="button" class="ui-button ui-button--danger" id="btnShopInspectorSell">
-            💰 出售給商人 (+${sellPrice}G)
+            ${getIconSvg('gold', 'ui-icon--sm')} 出售給商人 (+${sellPrice}G)
           </button>
         `;
         document.getElementById('btnShopInspectorSell')?.addEventListener('click', () => {

@@ -1,0 +1,792 @@
+/* ==========================================================================
+   Dungeon Abyss — Azure Ruins (蒼藍遺跡)
+   Stage 4: Backpack & Dual-Column Shop Stylesheet
+   Preserving Pointy-Top Hexagons, Zero Emojis, No Scale Hover, Clean RPG Layout
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Shared 19-Slot Pointy-Top Honeycomb Geometry
+   -------------------------------------------------------------------------- */
+.hex-grid-squad {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 0 !important;
+  min-height: 0 !important;
+}
+
+.hex-row {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin: 0 !important;
+}
+
+.hex-row + .hex-row {
+  margin-top: -12px !important;
+}
+
+.hex-slot {
+  position: relative !important;
+  width: 66px !important;
+  height: 74px !important;
+  margin: 0 -1.5px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform: none !important; /* Strict Azure Ruins rule: No scale on hover */
+  transition: filter 0.15s ease !important;
+  outline: none !important;
+  flex-shrink: 0 !important;
+  user-select: none;
+}
+
+.hex-slot:hover {
+  transform: none !important;
+  z-index: 10 !important;
+}
+
+.hex-slot.selected-slot,
+.hex-slot.selected {
+  transform: none !important;
+  z-index: 15 !important;
+}
+
+.hex-bg-svg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+}
+
+.hex-polygon {
+  fill: #122633 !important;
+  stroke: #35546a !important;
+  stroke-width: 2.2 !important;
+  stroke-linejoin: round !important;
+  transition: fill 0.14s ease, stroke 0.14s ease !important;
+}
+
+.hex-slot.has-item .hex-polygon {
+  fill: #162c3b !important;
+  stroke: #4f6674 !important;
+}
+
+.hex-slot:hover .hex-polygon {
+  fill: #1e3749 !important;
+  stroke: #72b9e8 !important;
+}
+
+.hex-slot.selected-slot .hex-polygon,
+.hex-slot.selected .hex-polygon {
+  fill: #25475c !important;
+  stroke: #dfcf9e !important;
+  stroke-width: 2.8 !important;
+}
+
+.hex-slot.drag-over .hex-polygon {
+  stroke: #49c2c1 !important;
+  fill: #1e454d !important;
+}
+
+/* Slot Index Badge (when empty) */
+.slot-index-badge {
+  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: #5b7586 !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+
+/* Watermark: Only visible when empty */
+.equip-watermark {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 32px !important;
+  height: 32px !important;
+  opacity: 0.35 !important;
+  color: #648698 !important;
+  fill: #648698 !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.equip-watermark svg,
+.equip-watermark img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Item Layer inside Hexagon */
+.item-layer {
+  position: relative !important;
+  z-index: 5 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 82% !important;
+  height: 82% !important;
+  text-align: center !important;
+  pointer-events: none !important;
+  gap: 2px !important;
+}
+
+.item-layer-icon-box {
+  width: 32px !important;
+  height: 32px !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.item-equipment-img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) !important;
+}
+
+.item-fallback-icon {
+  color: #dfcf9e;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-fallback-icon[style*="display:none"],
+.item-fallback-icon[style*="display: none"] {
+  display: none !important;
+}
+
+.item-layer-name {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  color: #e8edf2 !important;
+  white-space: nowrap !important;
+  max-width: 58px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. Backpack Modal (探險行囊與裝備系統)
+   -------------------------------------------------------------------------- */
+.inventory-modal-card {
+  width: min(1280px, calc(100vw - 32px)) !important;
+  max-width: 1280px !important;
+  height: min(780px, calc(100vh - 32px)) !important;
+  max-height: min(780px, calc(100vh - 32px)) !important;
+  background: rgba(14, 26, 36, 0.98) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+  color: var(--light, #E8EDF2) !important;
+  padding: 16px 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.inventory-modal-card .modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid var(--line, #284457) !important;
+}
+
+.inventory-modal-card .modal-title {
+  font-family: var(--font-display, 'Cinzel', serif) !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #f1eee4 !important;
+  letter-spacing: 0.05em !important;
+  margin: 0 !important;
+}
+
+.inventory-header-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.inventory-gold-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--gold, #dfcf9e) !important;
+  border: 1px solid #6b634d !important;
+  background: #192732 !important;
+  padding: 4px 10px !important;
+  border-radius: 2px !important;
+}
+
+.inventory-modal-card .modal-close-btn {
+  background: #172a37 !important;
+  border: 1px solid #3c586a !important;
+  color: #92b0bf !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  border-radius: 2px !important;
+  transition: all 0.14s ease !important;
+}
+
+.inventory-modal-card .modal-close-btn:hover {
+  background: #233e50 !important;
+  border-color: #6fb7e9 !important;
+  color: #fff !important;
+}
+
+/* Top Player Stats Bar */
+.inv-player-stats-bar {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 0 !important;
+  border: 1px solid #284457 !important;
+  background: #132531 !important;
+  border-radius: 2px !important;
+  margin: 10px 0 !important;
+  padding: 0 !important;
+}
+
+.inv-stat-pill {
+  padding: 7px 12px !important;
+  text-align: center !important;
+  border-right: 1px solid #284457 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.inv-stat-pill:last-child {
+  border-right: none !important;
+}
+
+.inv-stat-label {
+  font: 700 9px var(--pixel, 'Silkscreen', monospace) !important;
+  color: #7e8c96 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.inv-stat-val {
+  font: 700 13px var(--pixel, 'Silkscreen', monospace) !important;
+}
+
+.inv-stat-hp { color: var(--teal, #49c2c1) !important; }
+.inv-stat-phys { color: var(--danger, #d46b6b) !important; }
+.inv-stat-mag { color: var(--azure, #6fb7e9) !important; }
+.inv-stat-def { color: var(--gold, #dfcf9e) !important; }
+
+/* Modal Body Layout */
+.inventory-modal-body.inventory-dual-column {
+  display: grid !important;
+  grid-template-columns: 1.1fr 0.9fr !important;
+  gap: 16px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.inventory-left-col,
+.inventory-right-col {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+}
+
+.squad-backpack-section {
+  background: rgba(16, 30, 41, 0.85) !important;
+  border: 1px solid var(--border, #35546a) !important;
+  border-radius: 2px !important;
+  padding: 10px 14px 6px !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+.inv-sub-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 6px !important;
+}
+
+.inv-sub-title {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: var(--light, #e8edf2) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.inv-sub-hint {
+  font-size: 10px !important;
+  color: #648698 !important;
+  font-weight: normal !important;
+}
+
+.inv-capacity-badge {
+  font: 700 9px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--azure, #6fb7e9) !important;
+  border: 1px solid #35546a !important;
+  background: #122432 !important;
+  padding: 1px 7px !important;
+  border-radius: 2px !important;
+}
+
+.inv-discard-dropzone {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 36px !important;
+  padding: 6px 14px !important;
+  background: rgba(33, 44, 53, 0.7) !important;
+  border: 1px dashed #527482 !important;
+  border-radius: 2px !important;
+  color: #9ec3d4 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  user-select: none !important;
+}
+
+.inv-discard-dropzone:hover,
+.inv-discard-dropzone.drag-over {
+  background: rgba(43, 64, 79, 0.9) !important;
+  border-color: #72b9e8 !important;
+  color: #fff !important;
+}
+
+/* Equipment and Personal Backpacks in Right Column */
+.lower-backpack-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.equipment-section,
+.personal-backpack-section {
+  background: rgba(16, 30, 41, 0.85) !important;
+  border: 1px solid var(--border, #35546a) !important;
+  border-radius: 2px !important;
+  padding: 8px 12px !important;
+}
+
+.equip-hex-wrapper,
+.personal-hex-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 4px 0 !important;
+}
+
+.equip-slot-labels-row {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 22px !important;
+  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: #7e8c96 !important;
+  margin-top: 2px !important;
+}
+
+/* Inspector Panel */
+.inv-inspector-card {
+  background: rgba(14, 25, 35, 0.95) !important;
+  border: 1px solid var(--border, #35546a) !important;
+  border-radius: 2px !important;
+  padding: 10px 14px !important;
+  flex: 1 !important;
+  min-height: 110px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+.inv-inspector-empty {
+  color: #648698 !important;
+  font-size: 12px !important;
+  text-align: center !important;
+  padding: 14px 0 !important;
+}
+
+.inv-inspector-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.inv-inspector-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #f1eee4 !important;
+  flex-wrap: wrap !important;
+}
+
+.inv-inspector-icon-box {
+  width: 28px !important;
+  height: 28px !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.inv-inspector-rarity-badge {
+  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  padding: 1px 6px !important;
+  border-radius: 2px !important;
+  border: 1px solid #416378 !important;
+  background: #182e3d !important;
+  color: var(--azure, #6fb7e9) !important;
+}
+
+.inv-inspector-rarity-badge.rarity-exclusive {
+  border-color: #6d5b36 !important;
+  background: #2b2718 !important;
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.inv-inspector-rarity-badge.rarity-rare {
+  border-color: #276263 !important;
+  background: #122e31 !important;
+  color: var(--teal, #49c2c1) !important;
+}
+
+.inv-inspector-slot-tag {
+  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: #7e8c96 !important;
+}
+
+.inv-inspector-desc {
+  font-size: 11.5px !important;
+  line-height: 1.55 !important;
+  color: var(--secondary, #b9c4ce) !important;
+}
+
+.inv-inspector-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  margin-top: 4px !important;
+}
+
+.btn-inv-action {
+  border: 1px solid #496778 !important;
+  background: #1a303f !important;
+  color: var(--light, #e8edf2) !important;
+  padding: 5px 12px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  border-radius: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+}
+
+.btn-inv-action:hover {
+  background: #27475d !important;
+  border-color: #72b9e8 !important;
+}
+
+.btn-inv-action.btn-inv-equip {
+  border-color: #72b9e8 !important;
+  color: #d6f2ff !important;
+}
+
+.btn-inv-action.btn-inv-sell {
+  border-color: #6b634d !important;
+  color: var(--gold, #dfcf9e) !important;
+}
+
+.btn-inv-action.btn-inv-discard {
+  border-color: rgba(212, 107, 107, 0.45) !important;
+  color: #f7b2b2 !important;
+}
+
+.btn-inv-action.btn-inv-discard:hover {
+  background: #462529 !important;
+  border-color: #e57373 !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. Dual-Column Honeycomb Shop (雙欄對開商店)
+   -------------------------------------------------------------------------- */
+#viewEvent:has(.shop-container) .event-card,
+.event-card.is-shop-event {
+  max-width: 1320px !important;
+  width: 98% !important;
+  background: rgba(14, 26, 36, 0.98) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--radius-sm, 2px) !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5) !important;
+}
+
+.shop-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.shop-header-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid var(--line, #284457) !important;
+}
+
+.shop-gold-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--gold, #dfcf9e) !important;
+  border: 1px solid #6b634d !important;
+  background: #192732 !important;
+  padding: 5px 12px !important;
+  border-radius: 2px !important;
+}
+
+.shop-tabs-nav {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+}
+
+.shop-tab-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px !important;
+  min-height: 28px !important;
+  background: #172a38 !important;
+  border: 1px solid #35546a !important;
+  border-radius: 2px !important;
+  color: #92b0bf !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+}
+
+.shop-tab-btn:hover {
+  background: #233e50 !important;
+  border-color: #6fb7e9 !important;
+  color: #fff !important;
+}
+
+.shop-tab-btn.active {
+  background: #234357 !important;
+  border-color: #72b9e8 !important;
+  color: #f0f8fa !important;
+}
+
+/* Dual Column Layout */
+.shop-dual-column {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+.shop-squad-col,
+.shop-goods-col {
+  background: rgba(16, 30, 41, 0.92) !important;
+  border: 1px solid var(--border, #35546a) !important;
+  border-radius: 2px !important;
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+.shop-col-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  margin-bottom: 8px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: var(--light, #e8edf2) !important;
+}
+
+.shop-col-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.shop-col-header small {
+  font-size: 10.5px !important;
+  color: #7e8c96 !important;
+}
+
+.shop-sell-dropzone {
+  width: 100% !important;
+  margin-top: 8px !important;
+  min-height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: rgba(33, 44, 53, 0.7) !important;
+  border: 1px dashed #527482 !important;
+  border-radius: 2px !important;
+  color: #9ec3d4 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  user-select: none !important;
+}
+
+.shop-sell-dropzone:hover,
+.shop-sell-dropzone.drag-over {
+  background: rgba(43, 64, 79, 0.9) !important;
+  border-color: #72b9e8 !important;
+  color: #fff !important;
+}
+
+.shop-slot-price-tag {
+  position: absolute !important;
+  top: 5% !important;
+  right: 8% !important;
+  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  color: var(--gold, #dfcf9e) !important;
+  background: rgba(13, 22, 30, 0.92) !important;
+  border: 1px solid #574d35 !important;
+  padding: 0 4px !important;
+  border-radius: 2px !important;
+  z-index: 6 !important;
+  pointer-events: none !important;
+}
+
+/* Shop Trade Inspector */
+.shop-trade-inspector {
+  background: rgba(14, 25, 35, 0.96) !important;
+  border: 1px solid var(--border, #35546a) !important;
+  border-radius: 2px !important;
+  padding: 10px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  min-height: 52px !important;
+  flex-wrap: wrap !important;
+}
+
+.shop-trade-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  text-align: left !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+
+.shop-trade-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: var(--light, #e8edf2) !important;
+  flex-wrap: wrap !important;
+}
+
+.shop-trade-item-icon {
+  width: 26px !important;
+  height: 26px !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.shop-trade-desc {
+  font-size: 11.5px !important;
+  color: var(--secondary, #b9c4ce) !important;
+}
+
+.shop-trade-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.shop-special-actions {
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  margin-top: 6px !important;
+}
+
+.btn-shop-action {
+  border: 1px solid #4a687a !important;
+  background: #1b3242 !important;
+  color: var(--light, #e8edf2) !important;
+  padding: 6px 14px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  border-radius: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+}
+
+.btn-shop-action:hover:not(:disabled) {
+  background: #27485e !important;
+  border-color: #72b9e8 !important;
+}
+
+.btn-shop-buy {
+  background: var(--gold, #dfcf9e) !important;
+  color: #112530 !important;
+  border: 1px solid #f8e9b7 !important;
+  font-weight: 800 !important;
+  padding: 6px 16px !important;
+}
+
+.btn-shop-buy:hover:not(:disabled) {
+  background: #eee0b7 !important;
+}
+
+/* Responsive Adapters */
+@media (max-width: 960px) {
+  .inventory-modal-body.inventory-dual-column,
+  .shop-dual-column {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}

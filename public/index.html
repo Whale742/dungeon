@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="portrait-status-fx.css">
   <link rel="stylesheet" href="battle-phase.css">
   <link rel="stylesheet" href="exploration-immersive.css">
+  <link rel="stylesheet" href="inventory-shop.css">
   <link rel="stylesheet" href="audio-controls.css">
   <link rel="stylesheet" href="modal-motion.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1280,7 +1281,7 @@
       <div class="modal-header">
         <div class="inventory-header-info">
           <h3 class="modal-title">探險行囊與裝備系統</h3>
-          <span id="inventoryGoldCount" class="inventory-gold-badge">🪙 0 金幣</span>
+          <span class="inventory-gold-badge"><svg class="svg-icon" style="width:14px;height:14px;"><use href="#icon-gold"></use></svg> <span id="inventoryGoldCount">0 G</span></span>
         </div>
         <button type="button" id="btnCloseInventoryModal" class="modal-close-btn" title="關閉">
           <svg class="svg-icon"><use href="#icon-close"></use></svg>
@@ -1324,9 +1325,9 @@
             </div>
           </div>
           <!-- 丟棄熱區 (Drop Zone) -->
-          <div id="invDiscardDropzone" class="inv-discard-dropzone" title="拖曳道具至此丟棄">
+          <div id="invDiscardDropzone" class="inv-discard-dropzone" title="點選或拖曳道具至此丟棄">
             <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-trash"></use></svg>
-            <span>拖曳道具至此丟棄 (或點選道具後於右側檢視器執行)</span>
+            <span>丟棄物資</span>
           </div>
         </div>
 
@@ -1372,7 +1373,7 @@
           <!-- 選中道具詳情與操作面板 (Inspector Panel) -->
           <div id="invInspectorPanel" class="inv-inspector-card">
             <div id="invInspectorContent" class="inv-inspector-empty">
-              點擊任一六角格可查看道具詳情，並可穿戴、卸下或在背包間轉移。
+              請選取格位查看物品資訊。
             </div>
           </div>
 
