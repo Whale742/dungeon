@@ -1647,9 +1647,9 @@ export class Room {
       this.selectEquipOwner(Object.values(this.players).filter(p => p.hp > 0), drop) ||
       this.selectEquipOwner(Object.values(this.players), drop);
 
-    const details = equipOwner
-      ? [`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，等待 **${equipOwner.name}** 抉擇是否穿戴！`]
-      : [`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`];
+    const deposit = this.autoDepositLoot(drop, equipOwner?.id);
+    const targetName = deposit?.target === 'squad' ? '小隊背包' : (equipOwner ? equipOwner.name : '個人行囊');
+    const details = [`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，已自動收納入${targetName}！`];
 
     this.currentEvent = {
       type: 'treasure',
@@ -1658,24 +1658,16 @@ export class Room {
       healAmt: healAmt,
       drop: drop,
       discardedDrop: null,
-      ownerName: equipOwner ? equipOwner.name : '未知',
+      ownerName: targetName,
       ownerId: equipOwner ? equipOwner.id : null,
+      depositTarget: deposit?.target || 'squad',
       presentationId: this.chestPresentationId,
       hpBefore,
       hpAfter,
       details
     };
 
-    if (equipOwner) {
-      this.pendingDrop = {
-        drop: drop,
-        ownerId: equipOwner.id,
-        ownerName: equipOwner.name,
-        source: 'treasure'
-      };
-    } else {
-      this.pendingDrop = null;
-    }
+    this.pendingDrop = null;
 
     this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
     this.broadcastState();
@@ -2935,13 +2927,9 @@ export class Room {
     const drop = structuredClone(smallEquipPool[Math.floor(Math.random() * smallEquipPool.length)]);
 
     // 裝備直接進入小隊背包，不再需要裝備抉擇
-    if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-    if (this.squadInventory.length < 19) {
-      this.squadInventory.push(drop);
-      log.push({ text: `🎁 **【戰利品掉落】獲得小裝備：【${drop.name}】**（${drop.desc}），已直接放入小隊背包！`, type: 'loot' });
-    } else {
-      log.push({ text: `📦 小隊背包已滿（19格），戰利品【${drop.name}】未能放入小隊背包！`, type: 'warning' });
-    }
+    const deposit = this.autoDepositLoot(drop);
+    const targetDesc = deposit?.target === 'squad' ? '小隊背包' : (deposit?.target === 'personal' ? '個人行囊' : '溢出暫存區');
+    log.push({ text: `🎁 **【戰利品掉落】獲得小裝備：【${drop.name}】**（${drop.desc}），已自動收納入${targetDesc}！`, type: 'loot' });
 
     this.pendingDrop = null;
     this.victoryPendingDrop = null;
@@ -2958,7 +2946,7 @@ export class Room {
       survivors: alivePlayers.length, partySize: Object.keys(this.players).length,
       story: '巨獸倒下後，籠罩在四周的污染逐漸散去……',
       hpBefore: victoryBefore, hpAfter: victoryAfter, results,
-      drop, discarded: false, ownerName: '小隊背包',
+      drop, discarded: false, ownerName: targetDesc,
       recoveryRule: 'HP 上限 +10、ATK +5' };
     this.victoryPendingDrop = null;
     this.pendingDrop = null;
@@ -2973,14 +2961,14 @@ export class Room {
     this.pendingPresentationAcks.delete(socketId);
     if (this.pendingPresentationAcks.size) return;
     this.victoryInteractionReady = true;
-    this.pendingDrop = this.victoryPendingDrop;
+    this.pendingDrop = null;
     this.victoryPendingDrop = null;
     this.broadcastState();
   }
 
   continueAfterVictory(socketId, presentationId) {
     if (this.state !== 'BATTLE_VICTORY' || socketId !== this.leaderId ||
-        presentationId !== this.currentVictory?.presentationId || !this.victoryInteractionReady || this.pendingDrop) return;
+        presentationId !== this.currentVictory?.presentationId || !this.victoryInteractionReady) return;
     this.currentVictory = null;
     this.advanceToNextFloorOrCheckpoint();
   }
@@ -3101,6 +3089,17 @@ export class Room {
       }
     }
     return false;
+  }
+
+  autoDepositLoot(item, preferredPlayerId = null) {
+    if (!item) return null;
+    let res = this.addItemPrioritySquad(item, preferredPlayerId);
+    if (!res) {
+      if (!Array.isArray(this.overflowItems)) this.overflowItems = [];
+      this.overflowItems.push(item);
+      res = { target: 'overflow', index: this.overflowItems.length - 1 };
+    }
+    return res;
   }
 
   transferToSquad(socketId, bagIndex) {
@@ -7127,6 +7126,7 @@ export class Room {
       leaderSkillUsedThisBattle: Boolean(this.leaderSkillUsedThisBattle),
       gold: this.gold ?? 0,
       squadInventory: (this.squadInventory || []).map(item => item ? ({ ...item }) : null),
+      overflowItems: (this.overflowItems || []).map(item => item ? ({ ...item }) : null),
       abyssState: this.abyssState ? structuredClone(this.abyssState) : null,
       abyssFlashRedEye: Boolean(this.abyssFlashRedEye),
       state: this.state,

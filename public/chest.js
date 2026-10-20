@@ -14,9 +14,7 @@ async function playRewardReveal(ev, context = {}) {
         rewardElements.presentationRewardRarity.textContent = isRare ? '【稀有裝備】' : '【戰利品裝備】';
         rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity ' + (isRare ? 'is-rare' : 'is-common');
         rewardElements.presentationRewardTitle.textContent = `【${ev.drop.name}】`;
-        rewardElements.presentationRewardMeta.textContent = (ev.ownerName === '小隊背包' || ev.recoveryRule)
-          ? '戰利品已直接放入小隊背包！'
-          : `獲得者：${ev.ownerName || '冒險者'} 正在抉擇是否穿戴`;
+        rewardElements.presentationRewardMeta.textContent = `戰利品已自動放入${ev.ownerName || '小隊背包'}！`;
       } else if (ev.discardedDrop) {
         rewardElements.presentationRewardRarity.textContent = '【遺棄戰利品】';
         rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';
@@ -41,6 +39,19 @@ async function playRewardReveal(ev, context = {}) {
       await wait(timing.commonReveal + timing.commonHold);
     }
     context.onTiming?.('reward_hold', {});
+
+    // 整合 bag1.webp 與 bag2.webp 自動收納演出
+    const bagPresentation = (typeof window !== 'undefined' ? window.BagPresentation : null) || (typeof globalThis !== 'undefined' ? globalThis.BagPresentation : null);
+    if (ev.drop && bagPresentation && typeof bagPresentation.playLootCollection === 'function') {
+      await bagPresentation.playLootCollection({
+        items: [ev.drop],
+        sourceElement: rewardContent,
+        signal: context.signal || context.controller?.signal,
+        speed: context.speed || 1.0,
+        pillText: `已收納入${ev.ownerName || '小隊背包'}`,
+        onStep: beat => context.onTiming?.('bag_' + beat, {})
+      });
+    }
 
   return { isRare };
 }
