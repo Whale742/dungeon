@@ -48,8 +48,17 @@
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+#viewRoute.is-narrating .map-layout {
+  gap: 0;
+}
+
+#viewRoute.is-narrating .map-story {
+  margin-inline: auto;
+}
+
 #viewRoute.is-narrating .map-side {
   max-width: 0;
+  width: 0;
   opacity: 0;
   overflow: hidden;
   padding: 0;
