@@ -2360,8 +2360,8 @@ export function getGoldIncomeMultiplier(col) {
  * @param {number} col - 當前六角地圖列數 (1 ~ 9)
  */
 export function getShopPriceMultiplier(col) {
-  const step = Math.max(0, (col || 1) - 1);
-  return 1 + (0.25 * step) + (0.035 * Math.pow(step, 2));
+  // 商店不再有隨層數漲價的系統，商品價格維持原本倍率 1.0
+  return 1.0;
 }
 
 /**
@@ -2407,7 +2407,7 @@ export function calculateBattleGold(defeatedEnemies, col, isGladiatorCaptain = f
  * @param {Object} shopSession - { isShady, shadyBuyMult, sellRatio, isAssassinCaptain }
  */
 export function calculateShopBuyPrice(basePrice, col, shopSession = {}) {
-  const shopMult = getShopPriceMultiplier(col);
+  const shopMult = 1.0; // 商店商品價格維持原本，不再有漲價系統
   const merchantMult = shopSession.isShady ? (shopSession.shadyBuyMult || 1.5) : 1.0; // 奸商 1.5 ~ 2.0
   const captainDiscount = (!shopSession.isShady && shopSession.isAssassinCaptain) ? 0.8 : 1.0;
 
@@ -2422,9 +2422,8 @@ export function calculateShopBuyPrice(basePrice, col, shopSession = {}) {
  *   - 奸商 sellRatio 預設為 0.10 ~ 0.20
  */
 export function calculateItemSellPrice(item, shopSession = {}) {
-  const originCol = item?.droppedAtCol || 1;
   const basePrice = item?.basePrice ?? (typeof getItemBasePrice === 'function' ? getItemBasePrice(item) : (item?.cost || 50));
-  const valuation = basePrice * getGoldIncomeMultiplier(originCol);
+  const valuation = basePrice; // 商品與裝備維持原本價值基準
   const ratio = shopSession.sellRatio ?? shopSession.recycleRate ?? (shopSession.isShady ? 0.15 : 0.55);
   return Math.max(1, Math.round(valuation * ratio));
 }

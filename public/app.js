@@ -1240,13 +1240,13 @@ function renderApp() {
   // 更新日誌
   renderLogs();
 
-  // 檢查並渲染戰利品裝備抉擇彈窗 (上限 3 件與手動替換)
+  // 檢查並渲染戰利品裝備抉擇彈窗 (上限 4 件與手動替換)
   renderPendingDropModal(me);
 }
 
 let selectedReplaceIndex = -1;
 
-// 渲染戰利品裝備抉擇 / 替換 Modal (上限 3 件)
+// 渲染戰利品裝備抉擇 / 替換 Modal (上限 4 件)
 function renderPendingDropModal(me) {
   if (!elements.equipDropModal) return;
 
@@ -1277,7 +1277,7 @@ function renderPendingDropModal(me) {
   const dropName = equipOverride?.title || drop.name || '未命名裝備';
   const dropDesc = equipOverride?.body || drop.desc || drop.statDesc || '';
   elements.equipModalTitle.innerHTML = `${getIconSvg('chest')} <span>獲得戰利品裝備：【${escapeHtml(dropName)}】！</span>`;
-  elements.equipModalSubtitle.textContent = `你在${dropInfo.source === 'battle' ? '擊敗怪物' : '探索寶箱'}後獲得了這件裝備！請抉擇是否穿戴（每位角色上限 3 件）：`;
+  elements.equipModalSubtitle.textContent = `你在${dropInfo.source === 'battle' ? '擊敗怪物' : '探索寶箱'}後獲得了這件裝備！請抉擇是否穿戴（每位角色上限 4 件）：`;
   elements.dropItemName.textContent = dropName;
   elements.dropItemType.innerHTML = drop.type === 'weapon' ? `${getIconSvg('sword')} 武器` : (drop.type === 'armor' ? `${getIconSvg('shield')} 防具` : `${getIconSvg('sparkle')} 飾品`);
   elements.dropItemDesc.textContent = dropDesc;
@@ -1304,7 +1304,7 @@ function renderPendingDropModal(me) {
     elements.btnEquipItem.style.opacity = '';
     elements.btnEquipItem.style.cursor = '';
     if (isFull) {
-      elements.equipReplaceNotice.textContent = '裝備已滿 3 件，請從下方點選一件舊裝備進行替換：';
+      elements.equipReplaceNotice.textContent = '裝備已滿 4 件，請從下方點選一件舊裝備進行替換：';
       elements.equipReplaceNotice.classList.remove('hidden');
     } else {
       elements.equipReplaceNotice.classList.add('hidden');
@@ -1313,7 +1313,7 @@ function renderPendingDropModal(me) {
 
   elements.currentEquipsList.innerHTML = '';
   if (myEquips.length === 0) {
-    elements.currentEquipsList.innerHTML = '<div style="color: var(--color-text-secondary); font-size: 13.5px; padding: 6px 0;">目前尚未穿戴任何裝備（空間 0/3）。可以直接穿上！</div>';
+    elements.currentEquipsList.innerHTML = '<div style="color: var(--color-text-secondary); font-size: 13.5px; padding: 6px 0;">目前尚未穿戴任何裝備（空間 0/4）。可以直接穿上！</div>';
   } else {
     myEquips.forEach((eq, idx) => {
       const itemEl = document.createElement(isFull ? 'button' : 'div');
@@ -1344,7 +1344,7 @@ function renderPendingDropModal(me) {
       return;
     }
     if (isFull && (selectedReplaceIndex < 0 || selectedReplaceIndex >= myEquips.length)) {
-      alert('裝備欄已滿 3 件！請先點選上方欲替換卸下的既有裝備。');
+      alert('裝備欄已滿 4 件！請先點選上方欲替換卸下的既有裝備。');
       return;
     }
     playSound('heal');
@@ -2436,13 +2436,14 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const cdText = isReady ? 'CD 1' : `CD ${cdTurns}`;
 
     let slot = elements.battleEnemiesStage.querySelector(`.battle-enemy-slot[data-enemy-id="${eid}"]`);
+    const avatarSrc = en.avatar || '';
     if (!slot) {
       slot = document.createElement('div');
       slot.className = `battle-enemy-slot ${sizeClass}`;
       slot.setAttribute('data-enemy-id', eid);
       slot.setAttribute('role', 'button');
+      slot._currentEnemy = en;
 
-      const avatarSrc = en.avatar || '';
       const avatarImg = avatarSrc
         ? `<img src="${avatarSrc}" class="enemy-sprite-img portrait-image" alt="${escapeHtml(en.name)}" loading="lazy" />`
         : getIconSvg('sword', 'svg-hero-icon');
@@ -2475,7 +2476,8 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       `;
 
       const selectAction = () => {
-        if (en.hp <= 0) return;
+        const cur = slot._currentEnemy || en;
+        if (cur.hp <= 0) return;
         currentSelectedEnemyId = eid;
         socket.emit('battle:select_target', { targetEnemyId: eid });
         renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
@@ -2483,19 +2485,19 @@ function renderBattleEnemiesStage(enemies, monster, me) {
 
       slot.addEventListener('click', () => {
         selectAction();
-        showEnemyTooltip(en, slot);
+        showEnemyTooltip(slot._currentEnemy || en, slot);
       });
 
       slot.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           selectAction();
-          showEnemyTooltip(en, slot);
+          showEnemyTooltip(slot._currentEnemy || en, slot);
         }
       });
 
       slot.addEventListener('mouseenter', (e) => {
-        showEnemyTooltip(en, e);
+        showEnemyTooltip(slot._currentEnemy || en, e);
       });
       slot.addEventListener('mousemove', (e) => {
         positionFloatingTooltip(e, elements.floatingEnemyTooltip);
@@ -2504,7 +2506,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
         hideEnemyTooltip();
       });
       slot.addEventListener('focus', () => {
-        showEnemyTooltip(en, slot);
+        showEnemyTooltip(slot._currentEnemy || en, slot);
       });
       slot.addEventListener('blur', () => {
         hideEnemyTooltip();
@@ -2514,8 +2516,28 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     } else {
       // 保留原有節點，依序 appendChild 更新順序
       elements.battleEnemiesStage.appendChild(slot);
+      slot._currentEnemy = en;
 
       slot.className = `battle-enemy-slot ${sizeClass} ${isTarget ? 'is-target' : ''} ${isDead ? 'is-dead' : ''}`;
+
+      // 同步更新敵人頭像與圖片，嚴格保證圖文一致
+      const spriteWrap = slot.querySelector('.enemy-sprite-wrap');
+      let spriteImg = slot.querySelector('.enemy-sprite-img');
+      if (avatarSrc) {
+        if (spriteImg) {
+          if (spriteImg.getAttribute('src') !== avatarSrc) {
+            spriteImg.src = avatarSrc;
+          }
+          spriteImg.alt = en.name || '';
+        } else if (spriteWrap) {
+          const newImg = document.createElement('img');
+          newImg.className = 'enemy-sprite-img portrait-image';
+          newImg.src = avatarSrc;
+          newImg.alt = en.name || '';
+          newImg.loading = 'lazy';
+          spriteWrap.appendChild(newImg);
+        }
+      }
 
       const cdBadge = slot.querySelector('.enemy-cd-badge');
       if (cdBadge) {
@@ -2567,7 +2589,16 @@ function renderBattleEnemiesStage(enemies, monster, me) {
 
 // 4. 渲染戰鬥畫面
 let currentSelectedEnemyId = null;
+let lastBattleEncounterKey = null;
 function renderBattle(me, isLeader) {
+  // 檢測是否切換不同敵方編隊／層數，若切換則重置舞台避免殘留舊敵人圖示
+  const currentEncounterKey = `${roomState.floor}_${roomState.currentMonster?.name || ''}_${(roomState.enemies || []).map(e => e.name || e.instanceId).join(',')}`;
+  if (lastBattleEncounterKey !== currentEncounterKey) {
+    lastBattleEncounterKey = currentEncounterKey;
+    if (elements.battleEnemiesStage) {
+      elements.battleEnemiesStage.innerHTML = '';
+    }
+  }
   const enemies = Array.isArray(roomState.enemies) && roomState.enemies.length > 0 ? roomState.enemies : (roomState.currentMonster ? [roomState.currentMonster] : []);
   if (me?.targetEnemyId && enemies.some(e => (e.instanceId || e.id) === me.targetEnemyId && e.hp > 0)) {
     currentSelectedEnemyId = me.targetEnemyId;
@@ -2816,10 +2847,55 @@ function getBuffIconUrl(status) {
   return '/buff icon/方程特性.webp';
 }
 
-// 隊友卡片 buff/debuff 圖示渲染 (只顯示圖片，不要寫文字，最多5個圖片)
+// 判斷是否為職業特殊機制/疊層（已於第3行特殊疊層呈現，不在第4行 buff 欄重複顯示）
+function isSpecialStackStatus(s) {
+  if (!s) return false;
+  const id = String(s.id || '').toLowerCase();
+  const label = String(s.label || '');
+
+  const specialIds = [
+    'soul',
+    'kyoutou',
+    'rage',
+    'blood_stacks',
+    'blood_stack',
+    'sage_equation',
+    'sage_debt',
+    'augur_card',
+    'fate_debt',
+    'warrior_stack',
+    'warrior_stacks',
+    'crossbow_ammo',
+    'follow_up'
+  ];
+  if (specialIds.includes(id)) return true;
+
+  if (
+    label.includes('武魂') ||
+    label.includes('狂刀') ||
+    label.includes('怒氣') ||
+    label.includes('血祭') ||
+    label.includes('命債') ||
+    label.includes('諭示牌') ||
+    label.includes('變量透支') ||
+    label.includes('假設') ||
+    label.includes('求解') ||
+    label.includes('受傷攻擊') ||
+    label.includes('弩箭') ||
+    label.includes('追擊')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+// 隊友卡片 buff/debuff 圖示渲染 (如果是特殊疊層則不在此重複顯示，只顯示圖片，不要寫文字，最多5個圖片)
 function renderTeammateBuffIcons(statuses = []) {
   if (!Array.isArray(statuses) || statuses.length === 0) return '';
-  const displayStatuses = statuses.slice(0, 5);
+  // 過濾掉特殊機制疊層，僅保留純粹之 buff 與 debuff
+  const realBuffs = statuses.filter(s => !isSpecialStackStatus(s));
+  const displayStatuses = realBuffs.slice(0, 5);
   return displayStatuses.map(s => {
     const iconUrl = getBuffIconUrl(s);
     if (!iconUrl) return '';
@@ -2850,7 +2926,8 @@ function showPlayerTooltip(p, eOrTarget) {
     return override?.title || e.name;
   }).join(', ') : '無';
 
-  const statuses = liveP.statuses || [];
+  // 彈窗狀態欄過濾掉已於「特殊機制」顯示的特殊疊層
+  const statuses = (liveP.statuses || []).filter(s => !isSpecialStackStatus(s));
   let buffsHtml = '';
   if (statuses.length > 0) {
     buffsHtml = `<div class="floating-tooltip-buffs">${statuses.map(s => {
@@ -2887,7 +2964,7 @@ function showPlayerTooltip(p, eOrTarget) {
       <span class="floating-tooltip-val" style="color:var(--color-focus);">${escapeHtml(resourceText)}</span>
     </div>` : ''}
     <div class="floating-tooltip-row">
-      <span class="floating-tooltip-label">配戴裝備 (${equipCount}/3)</span>
+      <span class="floating-tooltip-label">配戴裝備 (${equipCount}/4)</span>
       <span class="floating-tooltip-val">${escapeHtml(equipNames)}</span>
     </div>
     ${buffsHtml}
@@ -3089,14 +3166,14 @@ function renderMyActionBar(me) {
   const myEquipCount = myEquips.length;
   if (elements.myEquipsSummary) {
     if (myEquipCount === 0) {
-      elements.myEquipsSummary.innerHTML = `[裝備 0/3]: 無`;
+      elements.myEquipsSummary.innerHTML = `[裝備 0/4]: 無`;
     } else {
       const itemsHtml = myEquips.map((e, idx) => {
         const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key===('equip.'+e.role+'.'+e.id));
         const name = override?.title || e.name;
         return `<span class="equip-pill" data-equip-index="${idx}" style="cursor:help;">${escapeHtml(name)}<button type="button" class="unequip-btn" data-equip-index="${idx}" title="卸下裝備">卸下</button></span>`;
       }).join(', ');
-      elements.myEquipsSummary.innerHTML = `[裝備 ${myEquipCount}/3]: ${itemsHtml}`;
+      elements.myEquipsSummary.innerHTML = `[裝備 ${myEquipCount}/4]: ${itemsHtml}`;
 
       elements.myEquipsSummary.querySelectorAll('.equip-pill').forEach(pill => {
         const idx = parseInt(pill.getAttribute('data-equip-index'), 10);
@@ -6432,9 +6509,8 @@ function getGoldIncomeMultiplierClient(col) {
 function calculateItemSellPriceClient(item, shopSession = null) {
   if (!item) return 1;
   const shop = shopSession || (roomState?.currentEvent?.type === 'shop' ? roomState.currentEvent : {});
-  const originCol = item.droppedAtCol || shop.col || roomState?.floor || 1;
   const basePrice = item.basePrice ?? getItemBasePrice(item);
-  const valuation = basePrice * getGoldIncomeMultiplierClient(originCol);
+  const valuation = basePrice;
   const ratio = shop.sellRatio ?? shop.recycleRate ?? (shop.isShady ? 0.15 : 0.55);
   return Math.max(1, Math.round(valuation * ratio));
 }
@@ -7445,8 +7521,8 @@ function renderInteractiveEvent(ev) {
   }
 
   if (ev.type === 'shop') {
-    elements.eventIcon.innerHTML = getIconSvg('shop', 'svg-hero-icon');
-    elements.eventTitle.textContent = (ev.title || '迷宮行商據點').replace(/^[🛒🏕️\s]+/, '');
+    elements.eventIcon.innerHTML = getIconSvg(ev.isWanderingMerchant ? 'camp' : 'shop', 'svg-hero-icon');
+    elements.eventTitle.textContent = (ev.title || (ev.isWanderingMerchant ? '迷途流浪商人' : '迷宮行商據點')).replace(/^[🛒🏕️\s]+/, '');
 
     const currentGold = roomState.gold || 0;
     const squadItems = roomState.squadInventory || [];
@@ -7561,7 +7637,7 @@ function renderInteractiveEvent(ev) {
             <span>小隊金幣：<b>${currentGold}</b> G</span>
           </div>
           <div style="font-size:13px;color:var(--ui-text-muted);">
-            ${ev.isShady ? '※ 黑市奸商物品售價昂貴，但可強取或暗行行竊' : '※ 商隊信譽優良，提供充足休整與物資'}
+            ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : (ev.isShady ? '※ 黑市奸商物品售價昂貴，但可強取或暗行行竊' : '※ 商隊信譽優良，提供充足休整與物資')}
           </div>
           <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary">
             ${getIconSvg('leave', 'ui-icon--sm')}
@@ -7607,22 +7683,39 @@ function renderInteractiveEvent(ev) {
 
         <!-- 特殊操作列 -->
         <div class="shop-special-actions">
-          <button type="button" class="btn-shop-action btn-shop-rest ui-button ui-button--secondary" ${currentGold < (ev.restPrice || 30) ? 'disabled' : ''}>
-            ${getIconSvg('camp', 'ui-icon--sm')}
-            <span>休憩營地 (${ev.restPrice || 30}G / 全員回復 35% HP)</span>
-          </button>
-          ${ev.canRob ? `
-            <button type="button" class="btn-shop-action btn-shop-rob ui-button ui-button--danger">
-              ${getIconSvg('sword', 'ui-icon--sm')}
-              <span>翻臉洗劫奸商！</span>
+          ${ev.isWanderingMerchant ? `
+            <button type="button" class="btn-shop-action btn-wm-info ui-button ui-button--secondary" ${ev.infoUsed || (currentGold < (roomState.lockedLeaderRole === 'bard' ? 0 : 15)) ? 'disabled' : ''}>
+              ${getIconSvg('camp', 'ui-icon--sm')}
+              <span>${ev.infoUsed ? '已購買情報 (只能使用一次)' : `購買情報 (${roomState.lockedLeaderRole === 'bard' ? '免費' : '15G'})`}</span>
             </button>
-          ` : ''}
-          ${ev.canSteal ? `
-            <button type="button" class="btn-shop-action btn-shop-steal ui-button ui-button--secondary">
-              ${getIconSvg('lock', 'ui-icon--sm')}
-              <span>刺客暗中行竊 (50%免戰偷取)</span>
+            <button type="button" class="btn-shop-action btn-wm-barter ui-button ui-button--secondary" ${ev.barterUsed ? 'disabled' : ''}>
+              ${getIconSvg('chest', 'ui-icon--sm')}
+              <span>${ev.barterUsed ? '以物易物 (只能使用一次)' : '以物易物 (隨機同階裝備)'}</span>
             </button>
-          ` : ''}
+            ${roomState.lockedLeaderRole === 'dreamweaver' ? `
+              <button type="button" class="btn-shop-action btn-wm-reshape ui-button ui-button--secondary">
+                ${getIconSvg('sparkle', 'ui-icon--sm')}
+                <span>幻象重塑 (織夢術士)</span>
+              </button>
+            ` : ''}
+          ` : `
+            <button type="button" class="btn-shop-action btn-shop-rest ui-button ui-button--secondary" ${currentGold < (ev.restPrice || 30) ? 'disabled' : ''}>
+              ${getIconSvg('camp', 'ui-icon--sm')}
+              <span>休憩營地 (${ev.restPrice || 30}G / 全員回復 35% HP)</span>
+            </button>
+            ${ev.canRob ? `
+              <button type="button" class="btn-shop-action btn-shop-rob ui-button ui-button--danger">
+                ${getIconSvg('sword', 'ui-icon--sm')}
+                <span>翻臉洗劫奸商！</span>
+              </button>
+            ` : ''}
+            ${ev.canSteal ? `
+              <button type="button" class="btn-shop-action btn-shop-steal ui-button ui-button--secondary">
+                ${getIconSvg('lock', 'ui-icon--sm')}
+                <span>刺客暗中行竊 (50%免戰偷取)</span>
+              </button>
+            ` : ''}
+          `}
           <button type="button" class="btn-shop-action btn-shop-sell ui-button ui-button--secondary" style="display:none;">
             ${getIconSvg('chest', 'ui-icon--sm')}
             <span>開啟行囊販售</span>
@@ -7850,6 +7943,61 @@ function renderInteractiveEvent(ev) {
         }
       });
     }
+
+    elements.eventDetails.querySelector('.btn-wm-info')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      socket.emit('event:shop_action', { action: 'info' }, (res) => {
+        if (res && !res.success) {
+          showToast(res.message || '購買情報失敗', 'danger');
+          btn.disabled = false;
+        } else {
+          showToast('成功購買情報！地圖上已標記出秘密事件據點！', 'success');
+        }
+      });
+    });
+
+    elements.eventDetails.querySelector('.btn-wm-barter')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      socket.emit('event:shop_action', { action: 'barter' }, (res) => {
+        if (res && !res.success) {
+          showToast(res.message || '以物易物失敗', 'danger');
+          btn.disabled = false;
+        } else if (res?.success && res.item) {
+          showToast(`以物易物成功！換得同階【${res.item.name}】`, 'success');
+          if (window.RewardPresentation) {
+            RewardPresentation.enqueue({
+              type: 'item',
+              item: res.item,
+              title: '以物易物交換成功！',
+              meta: `清除了【${res.removedItem?.name || '裝備'}】，獲得了同階【${res.item.name}】！`
+            });
+          }
+        }
+      });
+    });
+
+    elements.eventDetails.querySelector('.btn-wm-reshape')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      socket.emit('event:shop_action', { action: 'reshape' }, (res) => {
+        if (res && !res.success) {
+          showToast(res.message || '幻象重塑失敗', 'danger');
+          btn.disabled = false;
+        } else if (res?.success && res.item) {
+          showToast(`幻象重塑成功！換得同階【${res.item.name}】`, 'success');
+          if (window.RewardPresentation) {
+            RewardPresentation.enqueue({
+              type: 'item',
+              item: res.item,
+              title: '幻象重塑成功！',
+              meta: '獲得同階配飾！'
+            });
+          }
+        }
+      });
+    });
 
     elements.eventDetails.querySelector('.btn-shop-rest')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;

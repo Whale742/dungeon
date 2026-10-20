@@ -31,8 +31,15 @@ function minionPortraitSvg(type, avatar, descriptor = {}) {
 function resultTarget(result, before = true) { return before ? result.targetBefore : result.targetAfter; }
 function resultPortrait(result) {
   const target = resultTarget(result) || resultTarget(result, false) || {};
-  if (result.targetId === 'monster') {
-    return battlePortraitHtml({ entityType: 'monster', avatar: result.monsterAvatar, name: result.monsterName }, 'presentation-support-image');
+  const isEnemy = result.targetId === 'monster' ||
+    String(result.targetId || '').startsWith('enemy_') ||
+    String(target.instanceId || '').startsWith('enemy_') ||
+    target.entityType === 'monster' ||
+    Boolean(target.avatar && (target.avatar.startsWith('/BOSS/') || target.avatar.includes('BOSS')));
+  if (isEnemy) {
+    const avatar = target.avatar || result.monsterAvatar || (typeof roomState !== 'undefined' && roomState?.currentMonster?.avatar) || '/BOSS/Ancient Guardian Golem.webp';
+    const name = target.name || result.monsterName || (typeof roomState !== 'undefined' && roomState?.currentMonster?.name) || '魔物';
+    return battlePortraitHtml({ entityType: 'monster', avatar, name }, 'presentation-support-image');
   }
   if (result.kind === 'intercept' || target.type === 'wolf' || target.type === 'treant') {
     const minion = result.minion || target;

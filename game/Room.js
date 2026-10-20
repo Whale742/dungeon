@@ -394,30 +394,25 @@ export class Room {
         const inVision = Boolean(
           node.isVisited ||
           node.isRevealed ||
+          node.isScouted ||
           isCurrent ||
           selectableIds.has(node.id) ||
           (colDelta >= 1 && colDelta <= 2 && ((node.col === 9 && colDelta === 1) || rowDelta <= colDelta))
         );
-        const visibleType = node.isRevealed
+        const visibleType = (node.isRevealed || node.isScouted)
           ? node.type
           : isStartNode
             ? 'START'
-            : node.isScouted && (node.type === 'SHOP' || node.type === 'CHEST')
-              ? node.type
-              : node.col === 9
-                ? 'END_ELITE'
-                : 'UNKNOWN';
-        const visibleIcon = node.isRevealed
-          ? (node.type === 'SHOP' ? '🛒' : node.type === 'CHEST' ? '📦' : node.type === 'END_ELITE' ? '👑' : node.type === 'START' ? '🏕️' : node.icon || '⚔️')
+            : node.col === 9
+              ? 'END_ELITE'
+              : 'UNKNOWN';
+        const visibleIcon = (node.isRevealed || node.isScouted)
+          ? (node.type === 'SHOP' ? '🛒' : node.type === 'CHEST' ? '📦' : node.type === 'EVENT' ? '🎪' : node.type === 'END_ELITE' ? '👑' : node.type === 'START' ? '🏕️' : node.icon || '⚔️')
           : isStartNode
             ? '🏕️'
-            : node.isScouted && node.type === 'SHOP'
-              ? '🛒'
-              : node.isScouted && node.type === 'CHEST'
-                ? '📦'
-                : node.col === 9
-                  ? '👑'
-                  : '🌫️';
+            : node.col === 9
+              ? '👑'
+              : '🌫️';
         return {
           id: node.id,
           col: node.col,
@@ -430,9 +425,11 @@ export class Room {
               ? `【偵測：商店】${node.name}`
               : node.isScouted && node.type === 'CHEST'
                 ? `【偵測：寶箱】${node.name}`
-                : node.col === 9
-                  ? node.name
-                  : node.name,
+                : node.isScouted && node.type === 'EVENT'
+                  ? `【情報：隨機事件】${node.name}`
+                  : node.col === 9
+                    ? node.name
+                    : node.name,
           routeName: node.name,
           desc: node.isRevealed
             ? node.desc
@@ -440,7 +437,9 @@ export class Room {
               ? '斥候提前偵測到商隊蹤跡（未揭露是否為奸商）'
               : node.isScouted && node.type === 'CHEST'
                 ? '斥候提前偵測到寶箱輪廓（未揭露是否為寶箱怪）'
-                : '籠罩於深淵戰爭迷霧中的未知節點',
+                : node.isScouted && node.type === 'EVENT'
+                  ? '流浪商人提供之情報據點（隨機事件）'
+                  : '籠罩於深淵戰爭迷霧中的未知節點',
           icon: visibleIcon,
           isRevealed: Boolean(node.isRevealed),
           isVisited: Boolean(node.isVisited),
@@ -3638,6 +3637,95 @@ export class Room {
     this.broadcastState();
   }
 
+  // 流浪商人事件（顯示與商店相同，但裝備減為3個、不賣帳篷，補血藥或解毒劑隨機出現一樣，支援單次情報與以物易物）
+  handleWanderingMerchantEvent(hexNode) {
+    this.clearTimer();
+    this.state = 'EVENT';
+    const col = hexNode?.col ?? (this.currentHex?.col ?? 1);
+    const leaderRole = this.getEffectiveLeaderRole();
+    const isAssassinCaptain = leaderRole === 'assassin';
+
+    const recycleRate = Math.round((0.50 + Math.random() * 0.10) * 100) / 100;
+    const priceMultiplier = 1.0;
+
+    const shopSession = {
+      isShady: false,
+      isWanderingMerchant: true,
+      shadyBuyMult: 1.0,
+      sellRatio: recycleRate,
+      isAssassinCaptain
+    };
+
+    // 可賣裝備減少到3個
+    const targetItemCount = 3;
+    const items = [];
+    const generalPool = col >= 5 ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS];
+    const shuffledGeneral = [...generalPool].sort(() => Math.random() - 0.5);
+
+    while (items.length < targetItemCount && shuffledGeneral.length > 0) {
+      const gItem = shuffledGeneral.pop();
+      if (!items.some(it => it.name === gItem.name)) {
+        const itemClone = structuredClone(gItem);
+        const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
+        itemClone.basePrice = basePrice;
+        itemClone.droppedAtCol = col;
+        itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        items.push(itemClone);
+      }
+    }
+    while (items.length < targetItemCount) {
+      const gItem = generalPool[Math.floor(Math.random() * generalPool.length)];
+      const itemClone = structuredClone(gItem);
+      const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
+      itemClone.basePrice = basePrice;
+      itemClone.droppedAtCol = col;
+      itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+      items.push(itemClone);
+    }
+
+    // 且不賣帳篷，然後補血藥或是解毒劑隨機出現一樣
+    const potionChoices = CONSUMABLES.filter(c => c.effectType === 'HEALING_POTION' || c.effectType === 'ANTIDOTE');
+    const selectedPotion = potionChoices.length > 0
+      ? potionChoices[Math.floor(Math.random() * potionChoices.length)]
+      : CONSUMABLES[0];
+    const consumableClone = structuredClone(selectedPotion);
+    const cBasePrice = consumableClone.cost || consumableClone.basePrice || 50;
+    consumableClone.basePrice = cBasePrice;
+    consumableClone.droppedAtCol = col;
+    consumableClone.price = calculateShopBuyPrice(cBasePrice, col, shopSession);
+    const consumables = [consumableClone];
+
+    this.currentEvent = {
+      type: 'shop',
+      isWanderingMerchant: true,
+      subType: 'WANDERING_MERCHANT',
+      isShady: false,
+      isPrepShop: false,
+      recycleRate,
+      sellRatio: recycleRate,
+      priceMultiplier,
+      shadyBuyMult: priceMultiplier,
+      isAssassinCaptain,
+      hexId: hexNode?.id,
+      col,
+      title: this.studioContent.title('event.random.wandering_merchant', '🏕️ 迷途流浪商人'),
+      story: this.studioContent.text('event.random.wandering_merchant', '一名背負巨大行囊的流浪行者向你們招手，販售著少量精選物資，並願意以物易物或分享前方情報。'),
+      items,
+      consumables,
+      buybackPool: [],
+      restPrice: 30,
+      canRob: false,
+      canSteal: false,
+      canBarter: true,
+      canInfo: true,
+      barterUsed: false,
+      infoUsed: false,
+      canLeave: true
+    };
+    this.broadcastState();
+  }
+
+
   handleShopAction(socketId, rawAction, params = {}) {
     const action = String(rawAction || '').toLowerCase();
     if (this.state !== 'EVENT' || this.currentEvent?.type !== 'shop') {
@@ -3648,6 +3736,126 @@ export class Room {
     }
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
+    const leaderRole = this.getEffectiveLeaderRole();
+
+    // 購買情報（只能使用一次：在地圖上玩家未經過的任意位子出現事件圖示）
+    if (action === 'info') {
+      if (this.currentEvent?.infoUsed) {
+        return { success: false, message: '購買情報功能只能使用一次！' };
+      }
+      const cost = (leaderRole === 'bard') ? 0 : 15;
+      if ((this.gold || 0) < cost) return { success: false, message: '金幣不足！' };
+      this.gold -= cost;
+
+      const currentCol = this.currentEvent?.col ?? this.currentHex?.col ?? 1;
+      const unvisitedNodes = [];
+      if (Array.isArray(this.hexMap)) {
+        for (let c = currentCol + 1; c <= 8; c++) {
+          for (const node of (this.hexMap[c] || [])) {
+            if (node && !node.isVisited && !node.isRevealed) {
+              unvisitedNodes.push(node);
+            }
+          }
+        }
+        if (unvisitedNodes.length === 0) {
+          for (let c = 1; c <= 8; c++) {
+            for (const node of (this.hexMap[c] || [])) {
+              if (node && !node.isVisited) {
+                unvisitedNodes.push(node);
+              }
+            }
+          }
+        }
+      }
+
+      if (unvisitedNodes.length > 0) {
+        const targetNode = unvisitedNodes[Math.floor(Math.random() * unvisitedNodes.length)];
+        targetNode.type = 'EVENT';
+        targetNode.icon = '🎪';
+        targetNode.isRevealed = true;
+        targetNode.isScouted = true;
+        targetNode.name = '【情報揭露：隨機事件】' + String(targetNode.name || '未知節點').replace(/^【.*?】/, '');
+        targetNode.desc = '流浪商人提供之秘密情報據點（隨機事件）';
+        this.addLog(`🏕️ 小隊${cost > 0 ? `花費 ${cost} 金幣` : '透過詩人隊長'}向流浪商人打探到了情報，前方第 ${targetNode.col} 層未經過的位置出現了事件圖示【🎪】！`, 'info');
+      } else {
+        this.addLog('🏕️ 流浪商人探查了地圖，前方已無更多未探索的事件區域。', 'info');
+      }
+
+      if (this.currentEvent) this.currentEvent.infoUsed = true;
+      this.broadcastState();
+      return { success: true };
+    }
+
+    // 以物易物（只能使用一次：隨機清除小隊背包內一件裝備，並隨機給一件同階的裝備）
+    if (action === 'barter') {
+      if (this.currentEvent?.barterUsed) {
+        return { success: false, message: '以物易物功能只能使用一次！' };
+      }
+      if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+        return { success: false, message: '小隊背包中沒有裝備可供交換！' };
+      }
+
+      const isEquipmentItem = (item) => {
+        if (!item) return false;
+        if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.slot === 'potion' || item.slot === 'tent') return false;
+        if (item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT') return false;
+        if (item.id === 'consumable_healing_potion' || item.id === 'consumable_antidote' || item.id === 'consumable_rest_tent' || item.id === 'potion_heal' || item.id === 'potion_cure' || item.id === 'campsite_tent') return false;
+        return true;
+      };
+
+      const equipIndices = [];
+      this.squadInventory.forEach((it, idx) => {
+        if (isEquipmentItem(it)) equipIndices.push(idx);
+      });
+      if (equipIndices.length === 0) {
+        return { success: false, message: '小隊背包中沒有可供交換的裝備（消耗品不可交換）！' };
+      }
+
+      const chosenIdx = equipIndices[Math.floor(Math.random() * equipIndices.length)];
+      const removed = this.squadInventory.splice(chosenIdx, 1)[0];
+
+      const isT2 = (removed.tier === 2 || removed.tier === 'T2');
+      const isExclusive = (removed.tier === 'CLASS_EXCLUSIVE' || removed.slot === EQUIP_SLOTS.CLASS_EXCLUSIVE || Boolean(removed.role));
+
+      let gainedItem;
+      if (isExclusive) {
+        const partyRoles = Object.values(this.players).map(p => p.role).filter(Boolean);
+        const pool = LOOT_TABLE.filter(e => e.role && (partyRoles.length === 0 || partyRoles.includes(e.role)));
+        const tmpl = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : LOOT_TABLE[0];
+        gainedItem = structuredClone(tmpl);
+        gainedItem.slot = EQUIP_SLOTS.CLASS_EXCLUSIVE;
+        gainedItem.tier = 'CLASS_EXCLUSIVE';
+      } else if (isT2) {
+        const pool = TIER2_EQUIPMENTS.filter(e => e.name !== removed.name);
+        const tmpl = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : TIER2_EQUIPMENTS[0];
+        gainedItem = structuredClone(tmpl);
+      } else {
+        const pool = TIER1_EQUIPMENTS.filter(e => e.name !== removed.name);
+        const tmpl = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : TIER1_EQUIPMENTS[0];
+        gainedItem = structuredClone(tmpl);
+      }
+
+      if (this.currentEvent) this.currentEvent.barterUsed = true;
+      this.squadInventory.push(gainedItem);
+      this.addLog(`🏕️ 小隊隨機清除了背包內的【${removed.name}】，並向流浪商人交換獲得了同階裝備【${gainedItem.name}】！`, 'loot');
+      this.broadcastState();
+      return { success: true, item: gainedItem, removedItem: removed };
+    }
+
+    // 幻象重塑 (織夢術士)
+    if (action === 'reshape') {
+      if (leaderRole !== 'dreamweaver') return { success: false, message: '只有織夢術士隊長能重塑配飾！' };
+      if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+        return { success: false, message: '小隊背包中沒有可供重塑的裝備！' };
+      }
+      const removed = this.squadInventory.shift();
+      const accPool = TIER2_EQUIPMENTS.filter(e => e.slot === EQUIP_SLOTS.ACCESSORY);
+      const gainedAcc = structuredClone(accPool[Math.floor(Math.random() * accPool.length)] || TIER2_EQUIPMENTS[1]);
+      this.squadInventory.push(gainedAcc);
+      this.addLog(`🌙 【共夢契約】織夢術士隊長編織幻象，將【${removed.name}】重塑為同階配飾【${gainedAcc.name}】！`, 'loot');
+      this.broadcastState();
+      return { success: true, item: gainedAcc };
+    }
 
     if (action === 'buy') {
       let isConsumable = Boolean(params.isConsumable);
@@ -4103,6 +4311,9 @@ export class Room {
     this.state = 'EVENT';
     const subTypes = ['WANDERING_MERCHANT', 'ALTAR', 'GAMBLE', 'REFORGE'];
     const subType = typeof hexNode === 'string' ? hexNode : subTypes[((hexNode?.col ?? 1) * 3 + (hexNode?.row ?? 1)) % subTypes.length];
+    if (subType === 'WANDERING_MERCHANT') {
+      return this.handleWanderingMerchantEvent(hexNode);
+    }
     const leaderRole = this.getEffectiveLeaderRole();
 
     this.currentEvent = {
