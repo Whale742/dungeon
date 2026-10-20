@@ -958,7 +958,7 @@ export class Room {
       if (this.state === 'EVENT') {
         if (this.currentEvent?.type === 'trap') {
           this.finishTrapPresentationIfReady();
-        } else if (this.currentEvent?.type === 'treasure') {
+        } else if (['treasure', 'chest'].includes(this.currentEvent?.type)) {
           this.finishChestPresentationIfReady();
         }
       }
@@ -1674,14 +1674,15 @@ export class Room {
   }
 
   handleChestPresentationComplete(socketId, presentationId) {
-    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'treasure' ||
+    if (this.state !== 'EVENT' || !['treasure', 'chest'].includes(this.currentEvent?.type) ||
+        (this.currentEvent.type === 'chest' && !this.currentEvent.opened) ||
         presentationId !== this.currentEvent.presentationId || !this.players[socketId]?.connected) return;
     this.pendingPresentationAcks.delete(socketId);
     this.finishChestPresentationIfReady();
   }
 
   finishChestPresentationIfReady() {
-    if (this.state !== 'EVENT' || this.currentEvent?.type !== 'treasure' || this.pendingPresentationAcks.size) return;
+    if (this.state !== 'EVENT' || !['treasure', 'chest'].includes(this.currentEvent?.type) || (this.currentEvent.type === 'chest' && !this.currentEvent.opened) || this.pendingPresentationAcks.size) return;
     if (!Object.values(this.players).some(p => p.connected)) return;
     if (!this.pendingDrop) {
       if (this.currentEvent?.details) {
@@ -2946,7 +2947,7 @@ export class Room {
       survivors: alivePlayers.length, partySize: Object.keys(this.players).length,
       story: '巨獸倒下後，籠罩在四周的污染逐漸散去……',
       hpBefore: victoryBefore, hpAfter: victoryAfter, results,
-      drop, discarded: false, ownerName: targetDesc,
+      drop, depositTarget: deposit.target, discarded: false, ownerName: targetDesc,
       recoveryRule: 'HP 上限 +10、ATK +5' };
     this.victoryPendingDrop = null;
     this.pendingDrop = null;
@@ -4021,6 +4022,7 @@ export class Room {
     // 無論是否為寶箱怪，初次探索皆顯示為標準寶箱事件，保持未知與懸念
     this.currentEvent = {
       type: 'chest',
+      presentationId: ++this.chestPresentationId,
       isMimic,
       opened: false,
       hexId: hexNode?.id,
@@ -4042,6 +4044,10 @@ export class Room {
     if (!player) return { success: false, message: '玩家不存在' };
     const action = String(rawAction || '').toLowerCase();
 
+    if (this.currentEvent.opened) return { success: false, message: '寶箱已開啟，等待收納完成' };
+    if (params.presentationId !== undefined && params.presentationId !== this.currentEvent.presentationId)
+      return { success:false, message:'寶箱已變更' };
+
     if (action === 'pacify') {
       const leaderRole = this.getEffectiveLeaderRole();
       const hasDruid = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
@@ -4053,14 +4059,16 @@ export class Room {
       const drop = structuredClone(dropPool[Math.floor(Math.random() * dropPool.length)]);
       drop.droppedAtCol = col;
       drop.basePrice = getItemBasePrice(drop);
-      this.addItemPrioritySquad(drop, socketId);
+      const deposit = this.autoDepositLoot(drop, socketId);
       for (const p of Object.values(this.players)) {
         if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
       }
       this.addLog(`🐾 【群生號令】德魯伊溫柔安撫了寶箱怪，寶箱怪主動吐出【${drop.name}】與 ${goldGain} 金幣後遁入地底！`, 'loot');
-      this.currentEvent = null;
-      this.advanceToNextFloorOrCheckpoint();
-      return { success: true, drop, goldGain };
+      Object.assign(this.currentEvent, { opened:true, canOpen:false, canPacify:false, canLeave:false,
+        drop, goldGain, depositTarget:deposit.target });
+      this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p=>p.connected).map(p=>p.id));
+      this.broadcastState();
+      return { success:true, opened:true, drop, goldGain, depositTarget:deposit.target };
     }
 
     if (action === 'open') {
@@ -4079,7 +4087,7 @@ export class Room {
         const drop = structuredClone(dropPool[Math.floor(Math.random() * dropPool.length)]);
         drop.droppedAtCol = col;
         drop.basePrice = getItemBasePrice(drop);
-        this.addItemPrioritySquad(drop, socketId);
+        const deposit = this.autoDepositLoot(drop, socketId);
 
         for (const p of Object.values(this.players)) {
           if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
@@ -4087,13 +4095,16 @@ export class Room {
 
         this.currentEvent.opened = true;
         this.currentEvent.canOpen = false;
-        this.currentEvent.canLeave = true;
+        this.currentEvent.canLeave = false;
+        this.currentEvent.canPacify = false;
+        this.currentEvent.depositTarget = deposit.target;
+        this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p=>p.connected).map(p=>p.id));
         this.currentEvent.goldGain = goldGain;
         this.currentEvent.drop = drop;
         this.currentEvent.story = '小隊協力掀開寶箱，溫暖的聖光與豐厚戰利品映入眼簾！';
         this.addLog(`🎁 開啟寶箱！全員回復 25 HP，獲得 ${goldGain} 金幣與【${drop.name}】！(當前金幣: ${this.gold})`, 'loot');
         this.broadcastState();
-        return { success: true, opened: true, drop, goldGain };
+        return { success: true, opened: true, drop, goldGain, depositTarget:deposit.target };
       }
     }
 
@@ -7273,6 +7284,11 @@ export class Room {
   }
 
   broadcastState() {
+    // Retain full-backpack rewards until an actual slot becomes available.
+    while (this.overflowItems?.length) {
+      if (!this.addItemPrioritySquad(this.overflowItems[0])) break;
+      this.overflowItems.shift();
+    }
     this.io.to(this.code).emit('room:update', this.getClientState());
   }
 }

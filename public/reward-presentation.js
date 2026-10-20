@@ -10,50 +10,38 @@
     }
 
     enqueue(rewardData) {
-      if (!rewardData) return;
-      // Item merging: identical items in queue are grouped with count
-      const existing = this.queue.find(r => (
-        r.type === 'item' &&
-        rewardData.type === 'item' &&
-        ((r.item?.id && r.item?.id === rewardData.item?.id) || (r.item?.name && r.item?.name === rewardData.item?.name))
-      ));
-
-      if (existing) {
-        existing.count = (existing.count || 1) + (rewardData.count || 1);
-      } else {
-        this.queue.push({ ...rewardData, count: rewardData.count || 1 });
-      }
-
-      if (!this.isPlaying) {
-        this.playNext();
-      }
+      if (!rewardData) return Promise.resolve();
+      return new Promise(resolve => {
+        this.queue.push({ ...rewardData, complete: resolve });
+        if (!this.isPlaying) void this.playNext();
+      });
     }
-
-    skip() {
-      this.skipRequested = true;
-      if (this.currentController) {
-        this.currentController.abort();
-      }
+    skip() { this.currentController?.abort(); }
+    cancel() {
+      this.queue.splice(0).forEach(reward => reward.complete());
+      this.skip();
     }
-
     async playNext() {
-      if (this.queue.length === 0) {
-        this.isPlaying = false;
-        return;
-      }
+      if (this.isPlaying) return;
       this.isPlaying = true;
-      const current = this.queue.shift();
-      this.currentController = new AbortController();
-      this.skipRequested = false;
-
       try {
-        await this.present(current, this.currentController.signal);
-      } catch (err) {
-        if (err.name !== 'AbortError') console.error('RewardPresentation error:', err);
-      } finally {
-        this.currentController = null;
-        this.playNext();
-      }
+        while (this.queue.length) {
+          const reward = this.queue.shift();
+          const controller = new AbortController();
+          this.currentController = controller;
+          const abort = () => controller.abort();
+          reward.signal?.addEventListener('abort', abort, {once:true});
+          try {
+            if (!reward.signal?.aborted) await this.present(reward, controller.signal);
+          } catch (error) {
+            if (error.name !== 'AbortError') console.error('RewardPresentation:', error);
+          } finally {
+            reward.signal?.removeEventListener('abort', abort);
+            reward.complete();
+            this.currentController = null;
+          }
+        }
+      } finally { this.isPlaying = false; }
     }
 
     async present(reward, signal) {
@@ -102,43 +90,43 @@
         titleEl.textContent = `+${reward.amount} G 金幣`;
         descEl.textContent = reward.desc || '獲得了戰利品金幣！';
         metaEl.textContent = reward.meta || '已存入小隊金庫';
-        if (typeof global.playSound === 'function') global.playSound('victory');
+        if (typeof global.playSound === 'function') global.playSound('reward_common');
       } else {
-        const itemImgUrl = (reward.item?.icon && reward.item?.icon.startsWith('/'))
+        const fallback = reward.item?.icon?.startsWith('/')
           ? reward.item.icon.replace(/^\/?assets\/assets\//, '/assets/')
-          : `/assets/Equipments/${encodeURIComponent(reward.item?.name || '')}.webp`;
-        const fallbackSvg = reward.item?.slot === 'WEAPON' ? '#icon-sword' : (reward.item?.slot === 'ARMOR' ? '#icon-shield' : '#icon-chest');
-        if (visualEl) {
-          visualEl.innerHTML = `
-            <img src="${itemImgUrl}" alt="${reward.item?.name || ''}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline-flex';" />
-            <span class="reward-fallback-svg" style="display:none;"><svg class="svg-icon" style="width:68px;height:68px;color:var(--gold,#dfcf9e);"><use href="${fallbackSvg}"></use></svg></span>
-          `;
+          : '/assets/Equipments/' + encodeURIComponent(reward.item?.name || '') + '.webp';
+        const url = global.assetRegistry?.resolvePath(fallback) || fallback;
+        const loaded = await global.BagPresentation.preload(url, fallback, signal);
+        visualEl.replaceChildren();
+        if (loaded) {
+          const image = new Image(); image.src = loaded; image.alt = reward.item?.name || '';
+          visualEl.append(image);
+        } else {
+          visualEl.innerHTML = '<svg class="svg-icon"><use href="#icon-chest"></use></svg>';
         }
         rarityBadge.textContent = isRare ? 'RARE LOOT ACQUIRED' : 'EQUIPMENT ACQUIRED';
         rarityBadge.className = `reward-rarity-badge ${isRare ? 'is-rare' : 'is-common'}`;
         titleEl.textContent = `${reward.item?.name || '神秘物品'}${countSuffix}`;
         descEl.textContent = reward.item?.desc || reward.desc || '';
-        metaEl.textContent = reward.meta || (reward.title || '戰利品已妥善存入背包');
+        metaEl.textContent = reward.depositTarget === 'overflow' ? '背包已滿，待整理' : (reward.meta || reward.title || '獲得戰利品');
         if (typeof global.playSound === 'function') global.playSound(isRare ? 'reward_rare' : 'reward_common');
       }
 
+      if (signal.aborted) return;
       overlay.classList.remove('hidden');
       overlay.classList.add('is-open');
+      const wait = ms => global.BagPresentation.wait(ms / (reward.speed || 1), signal);
+      try {
+        reward.onStep?.('reward_reveal');
+        await wait(reducedMotion ? 200 : (isRare ? 1600 : 1100));
+        if (!signal.aborted && reward.type !== 'gold' && ['squad','personal'].includes(reward.depositTarget)) {
+          await global.BagPresentation.playLootCollection({ sourceElement:visualEl, container:overlay,
+            signal, speed:reward.speed, onStep:reward.onStep });
+        }
+      } finally {
+        overlay.remove();
+      }
 
-      const duration = reducedMotion ? 200 : (isRare ? 1600 : 1100);
-
-      const wait = (ms) => new Promise((resolve) => {
-        const timer = setTimeout(resolve, ms);
-        signal?.addEventListener('abort', () => {
-          clearTimeout(timer);
-          resolve();
-        }, { once: true });
-      });
-
-      await wait(duration);
-
-      overlay.classList.remove('is-open');
-      overlay.classList.add('hidden');
     }
   }
 

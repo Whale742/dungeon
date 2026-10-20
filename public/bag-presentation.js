@@ -1,224 +1,92 @@
-/**
- * Dungeon Abyss — Bag Loot Collection Presentation
- * Integrates bag1.webp and bag2.webp for reward collection animation.
- */
 (function(global) {
   'use strict';
-
   function getBagUrls() {
-    const closed = (global.assetRegistry && typeof global.assetRegistry.resolve === 'function')
-      ? global.assetRegistry.resolve('ui.bag.closed', '/assets/bag1.webp')
-      : '/assets/bag1.webp';
-    const open = (global.assetRegistry && typeof global.assetRegistry.resolve === 'function')
-      ? global.assetRegistry.resolve('ui.bag.open', '/assets/bag2.webp')
-      : '/assets/bag2.webp';
-    return { closed, open };
+    return {
+      closed: global.assetRegistry?.resolve('ui.bag.closed', '/assets/bag1.webp') || '/assets/bag1.webp',
+      open: global.assetRegistry?.resolve('ui.bag.open', '/assets/bag2.webp') || '/assets/bag2.webp'
+    };
   }
-
-  function waitMs(ms, signal) {
-    if (!signal) return new Promise(resolve => setTimeout(resolve, ms));
-    return new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(new DOMException('Aborted', 'AbortError'));
-      const timer = setTimeout(() => {
-        signal.removeEventListener('abort', onAbort);
-        resolve();
-      }, ms);
-      const onAbort = () => {
-        clearTimeout(timer);
-        reject(new DOMException('Aborted', 'AbortError'));
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
+  function wait(ms, signal) {
+    return new Promise(resolve => {
+      const finish = () => { clearTimeout(timer); signal?.removeEventListener('abort', finish); resolve(); };
+      const timer = setTimeout(finish, ms);
+      signal?.addEventListener('abort', finish, { once: true });
+      if (signal?.aborted) finish();
     });
   }
-
-  function playBagSfx(key) {
-    if (typeof global.playSound === 'function') {
-      try { global.playSound(key); } catch {}
+  async function preload(url, fallback, signal) {
+    for (const candidate of [...new Set([url, fallback].filter(Boolean))]) {
+      if (signal?.aborted) return null;
+      const loaded = await new Promise(resolve => {
+        const img = new Image();
+        const finish = ok => { clearTimeout(timer); img.onload = img.onerror = null; signal?.removeEventListener('abort', abort); resolve(ok); };
+        const abort = () => finish(false);
+        const timer = setTimeout(abort, 5000);
+        img.onload = () => finish(true);
+        img.onerror = abort;
+        signal?.addEventListener('abort', abort, { once: true });
+        img.src = candidate;
+      });
+      if (loaded) return candidate;
     }
+    return null;
   }
-
-  function createFlyingProxy(item, sourceRect) {
-    const proxy = document.createElement('div');
-    proxy.className = 'bag-flying-proxy';
-    
-    const itemName = item?.name || (typeof item === 'string' ? item : '戰利品');
-    const itemIcon = item?.icon || (typeof global.renderItemIconHtml === 'function' ? global.renderItemIconHtml(item) : '');
-    
-    proxy.innerHTML = `
-      <div class="flying-card-inner">
-        ${itemIcon ? `<span class="flying-card-icon">${itemIcon}</span>` : ''}
-        <span>【${itemName}】</span>
-      </div>
-    `;
-
-    const startX = sourceRect ? (sourceRect.left + sourceRect.width / 2) : (window.innerWidth / 2);
-    const startY = sourceRect ? (sourceRect.top + sourceRect.height / 2) : (window.innerHeight / 2 - 50);
-
-    proxy.style.left = `${startX}px`;
-    proxy.style.top = `${startY}px`;
-    proxy.style.transform = 'translate(-50%, -50%)';
-
-    return { proxy, startX, startY };
-  }
-
-  async function playLootCollection(options = {}) {
-    const {
-      items = [],
-      sourceElement = null,
-      container = document.body,
-      signal = null,
-      speed = 1.0,
-      pillText = '已收納入行囊',
-      onStep = null
-    } = options;
-
-    if (signal?.aborted) return;
-
-    const normalizedItems = Array.isArray(items)
-      ? items.filter(Boolean)
-      : (items ? [items] : []);
-
-    if (normalizedItems.length === 0) return;
-
-    const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const { closed: closedUrl, open: openUrl } = getBagUrls();
-
-    // 預載兩張圖片確保無白塊延遲
-    [closedUrl, openUrl].forEach(url => {
-      const img = new Image();
-      img.src = url;
-    });
-
+  async function playLootCollection({ sourceElement, container = document.body, signal, speed = 1, onStep } = {}) {
+    const source = sourceElement?.matches('img,svg') ? sourceElement : sourceElement?.querySelector('img,svg');
+    if (!source || signal?.aborted) return;
+    const urls = getBagUrls();
+    const [closed, open] = await Promise.all([
+      preload(urls.closed, '/assets/bag1.webp', signal), preload(urls.open, '/assets/bag2.webp', signal)
+    ]);
+    if (!closed || !open || signal?.aborted) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pause = ms => wait((reduced ? Math.min(ms, 160) : ms) / Math.max(.1, speed), signal);
     const stage = document.createElement('div');
     stage.className = 'bag-collection-stage';
     stage.setAttribute('aria-hidden', 'true');
-
     const actor = document.createElement('div');
     actor.className = 'bag-collection-actor';
-
-    const aura = document.createElement('div');
-    aura.className = 'bag-collection-aura';
-
-    const bagImg = document.createElement('img');
-    bagImg.className = 'bag-collection-img';
-    bagImg.src = closedUrl;
-    bagImg.alt = '';
-
-    const pill = document.createElement('div');
-    pill.className = 'bag-storage-pill';
-    pill.textContent = pillText;
-
-    actor.appendChild(aura);
-    actor.appendChild(bagImg);
-    actor.appendChild(pill);
-    stage.appendChild(actor);
-    container.appendChild(stage);
-
-    const cleanup = () => {
-      stage.remove();
-    };
-
-    if (signal) {
-      signal.addEventListener('abort', cleanup, { once: true });
-    }
-
-    const wait = ms => waitMs(Math.round(ms / speed), signal);
-
+    const bag = new Image(); bag.className = 'bag-collection-img'; bag.src = closed; bag.alt = '';
+    actor.append(bag); stage.append(actor); container.append(stage);
+    let animation, placeholder, oldStyle;
+    const cancel = () => animation?.cancel();
+    signal?.addEventListener('abort', cancel, { once: true });
+    const beat = name => { stage.dataset.phase = name; onStep?.(name); };
     try {
-      onStep?.('bag_appearing');
-      // STEP 1: 背包從下方平滑滑入 (bag1.webp 關閉狀態)
-      await wait(30);
-      actor.classList.add('is-visible');
-      await wait(380);
-
+      beat('bag_appearing');
+      await pause(30); actor.classList.add('is-visible'); await pause(450);
       if (signal?.aborted) return;
-
-      onStep?.('bag_opening');
-      // STEP 2: 背包開啟 (切換為 bag2.webp，光暈與彈跳)
-      bagImg.src = openUrl;
-      actor.classList.add('is-open');
-      playBagSfx('swoosh');
-      await wait(240);
-
+      bag.src = open; actor.classList.add('is-open'); beat('bag_opening'); await pause(280);
       if (signal?.aborted) return;
-
-      // STEP 3: 物品飛入背包
-      onStep?.('items_flying');
-      const actorRect = actor.getBoundingClientRect();
-      const targetX = actorRect.left + actorRect.width / 2;
-      const targetY = actorRect.top + actorRect.height * 0.35; // 開口中心位置
-
-      let sourceRect = null;
-      if (sourceElement && typeof sourceElement.getBoundingClientRect === 'function') {
-        sourceRect = sourceElement.getBoundingClientRect();
-      }
-
-      for (let i = 0; i < normalizedItems.length; i++) {
-        if (signal?.aborted) break;
-        const item = normalizedItems[i];
-        const { proxy, startX, startY } = createFlyingProxy(item, sourceRect);
-        stage.appendChild(proxy);
-
-        playBagSfx('reward_common');
-
-        const deltaX = targetX - startX;
-        const deltaY = targetY - startY;
-        const midX = deltaX * 0.5;
-        const midY = deltaY * 0.3 - 60; // 拋物線向上拱弧
-
-        if (!isReducedMotion && typeof proxy.animate === 'function') {
-          const anim = proxy.animate([
-            { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
-            { transform: `translate(calc(-50% + ${midX}px), calc(-50% + ${midY}px)) scale(0.85) rotate(-6deg)`, opacity: 0.95, offset: 0.45 },
-            { transform: `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px)) scale(0.12) rotate(12deg)`, opacity: 0 }
-          ], {
-            duration: Math.round(520 / speed),
-            easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)',
-            fill: 'forwards'
-          });
-          await anim.finished.catch(() => {});
-        } else {
-          await wait(220);
-        }
-
-        proxy.remove();
-        if (i < normalizedItems.length - 1) {
-          await wait(120);
-        }
-      }
-
+      const start = source.getBoundingClientRect(), target = bag.getBoundingClientRect();
+      // Coordinates are within the contained artwork, including its transparent padding.
+      const scale = Math.min(target.width / bag.naturalWidth, target.height / bag.naturalHeight);
+      const width = bag.naturalWidth * scale, height = bag.naturalHeight * scale;
+      const dx = target.left + (target.width - width) / 2 + width * .52 - (start.left + start.width / 2);
+      const dy = target.top + (target.height - height) / 2 + height * .38 - (start.top + start.height / 2);
+      placeholder = document.createComment('reward artwork'); source.before(placeholder);
+      oldStyle = source.getAttribute('style'); stage.append(source);
+      source.classList.add('bag-flying-item');
+      Object.assign(source.style, {position:'fixed', left:start.left+'px', top:start.top+'px', width:start.width+'px', height:start.height+'px', margin:'0', objectFit:'contain'});
+      beat('items_flying');
+      animation = source.animate(reduced ? [{opacity:1},{opacity:0}] : [
+        {transform:'translate(0,0) scale(1)', opacity:1},
+        {transform:`translate(${dx*.45}px,${dy*.25-35}px) scale(.75)`, opacity:1, offset:.42},
+        {transform:`translate(${dx}px,${dy}px) scale(.15)`, opacity:1, offset:.86},
+        {transform:`translate(${dx}px,${dy+height*.06}px) scale(.02)`, opacity:0}
+      ], {duration:(reduced?160:850)/Math.max(.1,speed), easing:'cubic-bezier(.3,.05,.35,1)',fill:'forwards'});
+      await animation.finished.catch(()=>{});
       if (signal?.aborted) return;
-
-      onStep?.('bag_closing');
-      // STEP 4: 飛入完成，背包關閉 (切換回 bag1.webp，搖晃/收納完成反饋)
-      actor.classList.remove('is-open');
-      bagImg.src = closedUrl;
-      actor.classList.add('is-wobble');
-      pill.classList.add('is-visible');
-      playBagSfx('click');
-      await wait(380);
-
-      if (signal?.aborted) return;
-
-      onStep?.('bag_disappearing');
-      // STEP 5: 背包淡出縮回底部
-      actor.classList.remove('is-visible', 'is-wobble');
-      actor.classList.add('is-exiting');
-      pill.classList.remove('is-visible');
-      await wait(360);
-
-      onStep?.('complete');
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('[BagPresentation] Error:', err);
-      }
+      beat('items_stored'); await pause(180);
+      bag.src = closed; actor.classList.remove('is-open'); beat('bag_closing'); await pause(420);
+      actor.classList.remove('is-visible'); beat('bag_disappearing'); await pause(380);
+      beat('complete');
     } finally {
-      cleanup();
+      signal?.removeEventListener('abort', cancel);
+      animation?.cancel();
+      if (placeholder) { placeholder.replaceWith(source); source.classList.remove('bag-flying-item'); if(oldStyle===null)source.removeAttribute('style');else source.setAttribute('style',oldStyle); source.style.visibility='hidden'; }
+      stage.remove();
     }
   }
-
-  global.BagPresentation = {
-    playLootCollection,
-    getBagUrls
-  };
+  global.BagPresentation = { playLootCollection, getBagUrls, preload, wait };
 })(window);

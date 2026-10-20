@@ -1,5 +1,11 @@
 // Shared Phase 4 reward beat, consumed by Chest, Victory and Lab.
 async function playRewardReveal(ev, context = {}) {
+  if (ev.drop && window.RewardPresentation) {
+    await window.RewardPresentation.enqueue({type:'item', item:ev.drop, depositTarget:ev.depositTarget,
+      signal:context.signal || context.controller?.signal, speed:context.speed,
+      onStep:beat=>context.onTiming?.(beat,{}) });
+    return {isRare:!!(ev.drop.isSpecial || ev.drop.rarity === 'rare' || ev.drop.tier === 2)};
+  }
   const timing = typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.chest : CHEST_TIMING;
   const rewardElements = context.rewardElements || elements;
   const rewardContent = context.rewardContent || rewardElements.presentationRewardContent;
@@ -40,18 +46,6 @@ async function playRewardReveal(ev, context = {}) {
     }
     context.onTiming?.('reward_hold', {});
 
-    // 整合 bag1.webp 與 bag2.webp 自動收納演出
-    const bagPresentation = (typeof window !== 'undefined' ? window.BagPresentation : null) || (typeof globalThis !== 'undefined' ? globalThis.BagPresentation : null);
-    if (ev.drop && bagPresentation && typeof bagPresentation.playLootCollection === 'function') {
-      await bagPresentation.playLootCollection({
-        items: [ev.drop],
-        sourceElement: rewardContent,
-        signal: context.signal || context.controller?.signal,
-        speed: context.speed || 1.0,
-        pillText: `已收納入${ev.ownerName || '小隊背包'}`,
-        onStep: beat => context.onTiming?.('bag_' + beat, {})
-      });
-    }
 
   return { isRare };
 }
