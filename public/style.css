@@ -8625,3 +8625,35 @@ body.presentation-opening .narrative-controls,
 .shop-ready-notice .shop-ready-text {
   letter-spacing: 0.5px;
 }
+
+
+/* ==========================================================================
+   Shop Sold-out & Drag-to-Sell Goods Column Styles
+   ========================================================================== */
+.hex-slot.is-sold-out {
+  opacity: 0.55;
+  filter: grayscale(0.95);
+  cursor: not-allowed !important;
+}
+
+.hex-slot.is-sold-out .item-layer-icon-box,
+.hex-slot.is-sold-out .item-equipment-img,
+.hex-slot.is-sold-out .item-layer-name {
+  filter: grayscale(1);
+}
+
+.hex-slot.is-sold-out .shop-slot-price-tag {
+  background: rgba(30, 30, 30, 0.9);
+  color: #94a3b8;
+  border: 1px solid #475569;
+}
+
+.shop-goods-col {
+  transition: outline 0.2s ease, background 0.2s ease;
+}
+
+.shop-goods-col.drag-over-sell {
+  outline: 2px dashed var(--color-loot-gold, #D4AF37) !important;
+  background: rgba(212, 175, 55, 0.08) !important;
+  border-radius: 6px;
+}

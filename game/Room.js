@@ -3566,6 +3566,30 @@ export class Room {
   }
 
   // 商店事件 (Module 4)
+  grantAlchemistPotion(p, log, visualEvents, sourceActionName = '技能') {
+    if (p.role !== 'alchemist') return;
+    if (Math.random() >= 0.15) return;
+    const potion = structuredClone(findItemTemplate('consumable_healing_potion') || CONSUMABLES.find(c => c.id === 'consumable_healing_potion'));
+    if (!potion) return;
+    if (!Array.isArray(p.bag)) p.bag = [];
+    const emptyIdx = p.bag.findIndex(i => !i);
+    if (emptyIdx !== -1) {
+      p.bag[emptyIdx] = potion;
+      log.push({ text: `⚗️✨ **${p.name}** 施展【${sourceActionName}】時催化出精純藥液，隨身背包獲得了一瓶【治療藥】！`, type: 'loot' });
+      visualEvents.push({ type: 'player_buff', sourceId: p.id, targetId: p.id, label: '調配治療藥' });
+    } else if (p.bag.length < 4) {
+      p.bag.push(potion);
+      log.push({ text: `⚗️✨ **${p.name}** 施展【${sourceActionName}】時催化出精純藥液，隨身背包獲得了一瓶【治療藥】！`, type: 'loot' });
+      visualEvents.push({ type: 'player_buff', sourceId: p.id, targetId: p.id, label: '調配治療藥' });
+    } else if (Array.isArray(this.squadInventory) && this.squadInventory.filter(Boolean).length < 19) {
+      this.addItemPrioritySquad(potion, p.id);
+      log.push({ text: `⚗️✨ **${p.name}** 施展【${sourceActionName}】調配出【治療藥】，因隨身背包已滿轉存至小隊背包！`, type: 'loot' });
+      visualEvents.push({ type: 'player_buff', sourceId: p.id, targetId: p.id, label: '調配治療藥' });
+    } else {
+      log.push({ text: `⚗️ **${p.name}** 調配出了一瓶【治療藥】，但背包空間已滿！`, type: 'warning' });
+    }
+  }
+
   handleShopEvent(hexNode) {
     this.clearTimer();
     this.state = 'EVENT';
@@ -3641,15 +3665,48 @@ export class Room {
       items.push(itemClone);
     }
 
-    // 商店三大消耗品
-    const consumables = CONSUMABLES.map(c => {
-      const clone = structuredClone(c);
+    // 商店消耗品：恢復藥隨機 1~3 瓶，解毒劑隨機 1~3 瓶，修整帳篷 1 頂
+    const consumables = [];
+    const potionTmpl = CONSUMABLES.find(c => c.id === 'consumable_healing_potion' || c.effectType === 'HEALING_POTION');
+    const antidoteTmpl = CONSUMABLES.find(c => c.id === 'consumable_antidote' || c.effectType === 'ANTIDOTE');
+    const tentTmpl = CONSUMABLES.find(c => c.id === 'consumable_rest_tent' || c.effectType === 'REST_TENT');
+
+    const potionCount = Math.floor(Math.random() * 3) + 1;
+    const antidoteCount = Math.floor(Math.random() * 3) + 1;
+
+    for (let i = 0; i < potionCount; i++) {
+      if (potionTmpl) {
+        const clone = structuredClone(potionTmpl);
+        const basePrice = clone.cost || clone.basePrice || 40;
+        clone.basePrice = basePrice;
+        clone.droppedAtCol = col;
+        clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        clone.shopConsumableId = `potion_${i}_${Date.now()}`;
+        consumables.push(clone);
+      }
+    }
+
+    for (let i = 0; i < antidoteCount; i++) {
+      if (antidoteTmpl) {
+        const clone = structuredClone(antidoteTmpl);
+        const basePrice = clone.cost || clone.basePrice || 30;
+        clone.basePrice = basePrice;
+        clone.droppedAtCol = col;
+        clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        clone.shopConsumableId = `antidote_${i}_${Date.now()}`;
+        consumables.push(clone);
+      }
+    }
+
+    if (tentTmpl && !isPrepShop) {
+      const clone = structuredClone(tentTmpl);
       const basePrice = clone.cost || clone.basePrice || 50;
       clone.basePrice = basePrice;
       clone.droppedAtCol = col;
       clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
-      return clone;
-    });
+      clone.shopConsumableId = `tent_${Date.now()}`;
+      consumables.push(clone);
+    }
 
     this.currentEvent = {
       type: 'shop',
@@ -3913,12 +3970,12 @@ export class Room {
       let item = null;
 
       if (params.itemId) {
-        const eqIdx = (this.currentEvent.items || []).findIndex(i => i.id === params.itemId);
+        const eqIdx = (this.currentEvent.items || []).findIndex(i => i && i.id === params.itemId && !i.sold);
         if (eqIdx !== -1) {
           idx = eqIdx;
           isConsumable = false;
         } else {
-          const csIdx = (this.currentEvent.consumables || []).findIndex(i => i.id === params.itemId);
+          const csIdx = (this.currentEvent.consumables || []).findIndex(i => i && i.id === params.itemId && !i.sold);
           if (csIdx !== -1) {
             idx = csIdx;
             isConsumable = true;
@@ -3936,19 +3993,24 @@ export class Room {
         if (!item) return { success: false, message: '商品不存在' };
       }
 
+      if (item.sold) {
+        return { success: false, message: '該商品已售罄！' };
+      }
+
       if ((this.gold || 0) < item.price) return { success: false, message: '金幣不足！' };
       if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-      if (this.squadInventory.length >= 19) return { success: false, message: '小隊背包已滿（上限 19 格）！' };
+      if (this.squadInventory.filter(Boolean).length >= 19) return { success: false, message: '小隊背包已滿（上限 19 格）！' };
 
       this.gold -= item.price;
-      if (isConsumable) {
-        this.currentEvent.consumables.splice(idx, 1);
-      } else {
-        this.currentEvent.items.splice(idx, 1);
-      }
+      item.sold = true;
+
       const boughtItem = structuredClone(item);
       delete boughtItem.price;
-      this.squadInventory.push(boughtItem);
+      delete boughtItem.sold;
+      delete boughtItem.shopConsumableId;
+      delete boughtItem._type;
+      delete boughtItem._idx;
+      this.addItemPrioritySquad(boughtItem, socketId);
       this.addLog(`🛒 小隊花費 ${item.price} 金幣購買了【${boughtItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
       this.broadcastState();
       return { success: true, item: boughtItem };
@@ -4032,24 +4094,30 @@ export class Room {
       }
 
       const entry = this.currentEvent.buybackPool[idx];
+      if (entry.sold) {
+        return { success: false, message: '該物品已買回！' };
+      }
       const price = entry.soldPrice;
       if ((this.gold || 0) < price) {
         return { success: false, message: `金幣不足以買回此物品（需要 ${price}G）！` };
       }
       if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
-      if (this.squadInventory.length >= 19) {
+      if (this.squadInventory.filter(Boolean).length >= 19) {
         return { success: false, message: '小隊背包已滿（上限 19 格）！' };
       }
 
       this.gold -= price;
-      this.currentEvent.buybackPool.splice(idx, 1);
+      entry.sold = true;
 
       const restoredItem = structuredClone(entry);
       delete restoredItem.soldPrice;
       delete restoredItem.buybackId;
       delete restoredItem.sellerId;
       delete restoredItem.fromArea;
-      this.squadInventory.push(restoredItem);
+      delete restoredItem.sold;
+      delete restoredItem._type;
+      delete restoredItem._idx;
+      this.addItemPrioritySquad(restoredItem, socketId);
 
       this.addLog(`🛒 小隊以原價 ${price} 金幣買回了【${restoredItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
       this.broadcastState();
@@ -4242,7 +4310,7 @@ export class Room {
     }
 
     if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
-      if (player.role === 'bard') {
+      if (player.role === 'alchemist') {
         const selfHeal = Math.min(40, Math.max(0, player.maxHp - player.hp));
         player.hp = Math.min(player.maxHp, player.hp + 40);
         const allyHeals = [];
@@ -4255,7 +4323,7 @@ export class Room {
         }
         container.splice(idx, 1);
         const allyText = allyHeals.length > 0 ? `，隊友 ${allyHeals.join('、')} 獲得回復` : '';
-        this.addLog(`🧪🎶 **${player.name}** 使用了【治療藥】，觸發吟遊詩人專屬藥效：自身恢復 ${selfHeal} 點生命（❤️ ${player.hp}/${player.maxHp}）${allyText}！`, 'heal');
+        this.addLog(`🧪⚗️ **${player.name}** 使用了【治療藥】，觸發煉金術士專屬藥效：自身恢復 ${selfHeal} 點生命（❤️ ${player.hp}/${player.maxHp}）${allyText}！`, 'heal');
         this.broadcastState();
         return { success: true };
       }
@@ -5187,7 +5255,7 @@ export class Room {
           itemIdx = this.squadInventory.findIndex(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion'));
           if (itemIdx !== -1) fromSquad = true;
         }
-        const isBard = p.role === 'bard';
+        const isAlchemist = p.role === 'alchemist';
         const target = (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId] : p;
         const before = this.getHpSnapshot();
         const results = [];
@@ -5195,7 +5263,7 @@ export class Room {
         if (itemIdx !== -1) {
           const container = fromSquad ? this.squadInventory : p.bag;
           container.splice(itemIdx, 1);
-          if (isBard) {
+          if (isAlchemist) {
             const selfHeal = this.applyHealWithOverheal(p, 40);
             visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: p.id, value: selfHeal, label: '治療藥' });
             const selfBefore = snapshotTarget(before, p.id);
@@ -5228,7 +5296,7 @@ export class Room {
             }
             const allyText = allyLogs.length > 0 ? `，隊友 ${allyLogs.join('、')} 同步獲得回復` : '';
             log.push({
-              text: `🧪🎶 **${p.name}** 使用了【治療藥】，觸發吟遊詩人專屬藥效：自身恢復了 ${selfHeal} 點生命${allyText}！`,
+              text: `🧪⚗️ **${p.name}** 使用了【治療藥】，觸發煉金術士專屬藥效：自身恢復了 ${selfHeal} 點生命${allyText}！`,
               type: 'heal'
             });
           } else {
@@ -5263,13 +5331,13 @@ export class Room {
           category: 'HEAL',
           skillName: '治療藥',
           tags: ['道具', '治療'],
-          targetId: isBard ? p.id : target.id,
-          targetName: isBard ? p.name : target.name,
+          targetId: isAlchemist ? p.id : target.id,
+          targetName: isAlchemist ? p.name : target.name,
           outcome: { type: 'normal' },
-          narrative: isBard
+          narrative: isAlchemist
             ? `**${p.name}** 調配並飲用了特調應急治療藥，濃郁藥香與生機擴散至全隊！`
             : `**${p.name}** 從背包中取出應急治療藥，迅速為 **${target.name}** 注入治療藥劑！`,
-          detail: isBard ? `全隊恢復生命值` : `恢復生命值`,
+          detail: isAlchemist ? `全隊恢復生命值` : `恢復生命值`,
           visualEvents,
           results,
           type: 'player_action',
@@ -5437,6 +5505,8 @@ export class Room {
               actionOutcome = { type: 'alchemy_corrosion_trigger', label: '腐蝕觸發', secondary: teamCorroded ? '波及全隊' : '首領腐蝕' };
               visualEvents.push({ type: 'corrosion_trigger', sourceId: p.id, teamCorrosion: teamCorroded });
             }
+            // 普攻 15% 機率在個人背包獲得恢復藥
+            this.grantAlchemistPotion(p, log, visualEvents, '普通攻擊');
           }
           if (p.role === 'onmyoji') {
             const hasBrush = (p.equips || []).some(e => e.id === 'onm_brush');
@@ -5884,6 +5954,8 @@ export class Room {
               label: `不穩定試劑瓶(濺射)`
             });
           }
+          // 1技能 15% 機率在個人背包獲得恢復藥
+          this.grantAlchemistPotion(p, log, visualEvents, '不穩定試劑瓶');
           break;
         }
 

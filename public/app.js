@@ -3414,13 +3414,13 @@ function renderMyActionBar(me) {
       <span class="skill-name">治療藥 (${potionCount})</span>
       <div class="skill-bottom">
         <span class="skill-kind">補給 / 恢復</span>
-        <span class="skill-cd">${me.role === 'bard' ? '自身40/全隊25' : 'HEAL 35'}</span>
+        <span class="skill-cd">${me.role === 'alchemist' ? '自身40/全隊25' : 'HEAL 35'}</span>
       </div>
     `;
 
     potionBtn.addEventListener('click', () => {
       if (isNarrating || isResolving || isLocked) return;
-      if (me.role === 'bard') {
+      if (me.role === 'alchemist') {
         currentPendingAction = 'use_item_healing_potion';
         currentPendingTarget = me.id;
         playSound('heal');
@@ -3571,7 +3571,7 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     } else if (currentPendingAction === 'b_revive') {
       descEl.textContent = '喚醒一名倒地隊友(恢復35%生命)，下回合雙方脫力無法行動！';
     } else if (currentPendingAction === 'use_item_healing_potion') {
-      if (me.role === 'bard') {
+      if (me.role === 'alchemist') {
         descEl.textContent = '消耗隨身背包中 1 瓶治療藥，恢復自身40點生命，以及除自身外隊友25點生命。';
       } else {
         descEl.textContent = '消耗隨身背包中 1 瓶治療藥，為目標恢復 35 點生命值。';
@@ -3691,16 +3691,16 @@ function openTargetModal(type, targetList) {
     elements.targetModalDesc.textContent = '請選擇要喚醒歸隊的倒下隊友：(下回合雙方皆會脫力)';
   } else if (type === 'item_potion') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【使用治療藥】選擇目標</span>`;
-    elements.targetModalDesc.textContent = me?.role === 'bard'
-      ? '吟遊詩人專屬效果：恢復自身40點生命，以及除自身外隊友25點生命。'
+    elements.targetModalDesc.textContent = me?.role === 'alchemist'
+      ? '煉金術士專屬效果：恢復自身40點生命，以及除自身外隊友25點生命。'
       : '請選擇要恢復 35 點生命值的隊友（亦可對自己使用）：';
   } else if (type === 'item_antidote') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【使用解毒藥】選擇目標</span>`;
     elements.targetModalDesc.textContent = '請選擇要清除所有負面狀態的隊友（亦可對自己使用）：';
   } else if (type === 'inv_potion') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【使用治療藥】選擇目標隊友</span>`;
-    elements.targetModalDesc.textContent = me?.role === 'bard'
-      ? '吟遊詩人專屬效果：恢復自身40點生命，以及除自身外隊友25點生命。'
+    elements.targetModalDesc.textContent = me?.role === 'alchemist'
+      ? '煉金術士專屬效果：恢復自身40點生命，以及除自身外隊友25點生命。'
       : '請選擇要恢復 35 點生命的隊員：';
   } else if (type === 'inv_antidote') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【使用解毒藥】選擇目標隊友</span>`;
@@ -6675,8 +6675,8 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
   const isHealingPotion = item.id === 'consumable_healing_potion' || item.effectType === 'HEALING_POTION';
   let passiveDesc = item.passive || item.desc || item.statDesc || '無特殊說明';
   if (isHealingPotion) {
-    const isBardPersonalBag = (options?.area === 'PERSONAL' || options?.slotMeta?.area === 'PERSONAL') && (getMyPlayer()?.role === 'bard');
-    if (isBardPersonalBag) {
+    const isAlchemistPersonalBag = (options?.area === 'PERSONAL' || options?.slotMeta?.area === 'PERSONAL') && (getMyPlayer()?.role === 'alchemist');
+    if (isAlchemistPersonalBag) {
       passiveDesc = '恢復自身40點生命，以及除自身外隊友25點生命。';
     } else {
       passiveDesc = '使用後恢復單一目標 35 點生命值。';
@@ -6725,7 +6725,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
     bottomActionHtml = `
       <div style="margin-top:8px;font-size:11px;color:#94a3b8;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;display:flex;align-items:center;gap:4px;">
         <svg class="svg-icon sm" style="color:var(--gold);"><use href="#icon-gold"></use></svg>
-        <span>${item.soldPrice ? `原價買回: ${item.soldPrice} G` : (item.price ? `售價: ${item.price} G` : '商店販售中')}</span>
+        <span>${item.sold ? '已售罄' : (item.soldPrice ? `原價買回: ${item.soldPrice} G` : (item.price ? `售價: ${item.price} G` : '商店販售中'))}</span>
       </div>
     `;
   }
@@ -6734,7 +6734,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
     <div class="item-tooltip-top-bar">
       <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
         <div style="width:28px;height:28px;flex-shrink:0;">${iconHtml}</div>
-        <div class="item-tooltip-name ${tierClass}">${escapeHtml(item.name)}</div>
+        <div class="item-tooltip-name ${tierClass}">${escapeHtml(item.name)}${item.sold ? ' (售罄)' : ''}</div>
       </div>
       ${isPinned ? `<button type="button" class="btn-tooltip-close" id="btnTooltipClose" title="關閉"><svg class="svg-icon" style="width:12px;height:12px;"><use href="#icon-close"></use></svg></button>` : ''}
     </div>
@@ -7663,17 +7663,19 @@ function renderInteractiveEvent(ev) {
                 const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
                 const isRare = item.tier === 2;
                 const rarityStroke = isExclusive ? 'var(--rarity-exclusive)' : (isRare ? 'var(--rarity-rare)' : 'var(--hex-border)');
-                const priceTag = isMerchant && item.price ? `<span class="shop-slot-price-tag">${item.price}G</span>` : '';
+                const isSold = Boolean(item.sold);
+                const priceTag = isMerchant && (item.price || isSold) ? `<span class="shop-slot-price-tag ${isSold ? 'is-sold' : ''}">${isSold ? '已售罄' : `${item.price}G`}</span>` : '';
                 slotsInRow.push(`
-                  <div class="hex-slot has-item ${isMerchant ? 'shop-item-card' : 'squad-item-slot'}"
+                  <div class="hex-slot has-item ${isMerchant ? 'shop-item-card' : 'squad-item-slot'} ${isSold ? 'is-sold-out' : ''}"
                        data-is-merchant="${isMerchant}"
                        data-index="${curIdx}"
                        data-type="${item._type || 'item'}"
+                       data-sold="${isSold}"
                        ${item._type === 'consumable' ? `data-consumable-idx="${item._idx}"` : ''}
                        ${item._type === 'buyback' ? `data-buyback-idx="${item._idx}"` : ''}
                        tabindex="0"
                        role="button"
-                       aria-label="${escapeHtml(item.name)} ${item.price ? item.price + '金幣' : ''}">
+                       aria-label="${escapeHtml(item.name)}${isSold ? ' (售罄)' : (item.price ? ' ' + item.price + '金幣' : '')}">
                     <svg class="hex-bg-svg" viewBox="0 0 100 115.47">
                       <polygon class="hex-polygon" points="50 0, 100 28.87, 100 86.6, 50 115.47, 0 86.6, 0 28.87" style="stroke: ${rarityStroke};" />
                     </svg>
@@ -7682,7 +7684,7 @@ function renderInteractiveEvent(ev) {
                       <div class="item-layer-icon-box">
                         ${renderItemIconHtml(item, 'item-equipment-img')}
                       </div>
-                      <div class="item-layer-name">${escapeHtml(item.name)}</div>
+                      <div class="item-layer-name">${escapeHtml(item.name)}${isSold ? ' (售罄)' : ''}</div>
                     </div>
                   </div>
                 `);
@@ -7843,19 +7845,32 @@ function renderInteractiveEvent(ev) {
       tradeDesc.textContent = itemDesc;
 
       if (isMerchant) {
-        const canAfford = currentGold >= item.price;
-        tradeActions.innerHTML = `
-          <span style="font-weight:700;color:var(--ui-accent);">${getIconSvg('gold', 'ui-icon--sm')} ${item.price} G</span>
-          <button type="button" class="ui-button ui-button--primary btn-shop-buy btn-shop-buy-equip" id="btnShopInspectorBuy" ${!canAfford ? 'disabled' : ''}>
-            購買 (${item.price}G)
-          </button>
-        `;
-        document.getElementById('btnShopInspectorBuy')?.addEventListener('click', (e) => {
-          const b = e.currentTarget;
-          b.disabled = true;
-          b.textContent = '購買中...';
-          executeShopBuy(item, b);
-        });
+        if (item.sold) {
+          tradeTitle.innerHTML = `
+            <div class="shop-trade-item-icon" style="filter:grayscale(1);opacity:0.6;">${renderItemIconHtml(item, 'item-equipment-img')}</div>
+            <span>【${escapeHtml(item.name)}】(售罄)</span>
+            <span class="shop-item-tag" style="font-size:12px;padding:1px 6px;background:#475569;">已售罄</span>
+          `;
+          tradeActions.innerHTML = `
+            <button type="button" class="ui-button ui-button--secondary" disabled style="opacity:0.6;cursor:not-allowed;">
+              已售罄
+            </button>
+          `;
+        } else {
+          const canAfford = currentGold >= item.price;
+          tradeActions.innerHTML = `
+            <span style="font-weight:700;color:var(--ui-accent);">${getIconSvg('gold', 'ui-icon--sm')} ${item.price} G</span>
+            <button type="button" class="ui-button ui-button--primary btn-shop-buy btn-shop-buy-equip" id="btnShopInspectorBuy" ${!canAfford ? 'disabled' : ''}>
+              購買 (${item.price}G)
+            </button>
+          `;
+          document.getElementById('btnShopInspectorBuy')?.addEventListener('click', (e) => {
+            const b = e.currentTarget;
+            b.disabled = true;
+            b.textContent = '購買中...';
+            executeShopBuy(item, b);
+          });
+        }
       } else {
         const sellPrice = calculateItemSellPriceClient(item);
         tradeActions.innerHTML = `
@@ -7911,6 +7926,11 @@ function renderInteractiveEvent(ev) {
 
     // Selling logic with Toast
     function executeShopSell(item, index) {
+      if (!item) return;
+      if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT') {
+        showToast('補血藥、解毒劑與修整帳篷只能丟棄，不能販售！', 'warning');
+        return;
+      }
       const sellPrice = calculateItemSellPriceClient(item);
       socket.emit('event:shop_action', {
         action: 'sell',
@@ -7942,17 +7962,21 @@ function renderInteractiveEvent(ev) {
         slot.addEventListener('mouseleave', () => hideItemTooltip());
 
         // Drag from shop shelf to squad
-        slot.setAttribute('draggable', 'true');
-        slot.addEventListener('dragstart', (e) => {
-          draggedInventorySlot = { area: 'SHOP', index: idx, item };
-          slot.classList.add('is-dragging');
-          hideItemTooltip(true);
-          e.dataTransfer.effectAllowed = 'move';
-        });
-        slot.addEventListener('dragend', () => {
-          slot.classList.remove('is-dragging');
-          draggedInventorySlot = null;
-        });
+        if (!item.sold) {
+          slot.setAttribute('draggable', 'true');
+          slot.addEventListener('dragstart', (e) => {
+            draggedInventorySlot = { area: 'SHOP', index: idx, item };
+            slot.classList.add('is-dragging');
+            hideItemTooltip(true);
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          slot.addEventListener('dragend', () => {
+            slot.classList.remove('is-dragging');
+            draggedInventorySlot = null;
+          });
+        } else {
+          slot.setAttribute('draggable', 'false');
+        }
       }
     });
 
@@ -8002,6 +8026,32 @@ function renderInteractiveEvent(ev) {
         }
       });
     });
+
+    // 在商店的購買介面時，玩家可以將小隊背包內的物品拖曳到商品區，來觸發賣出效果
+    const shopGoodsCol = elements.eventDetails.querySelector('.shop-goods-col');
+    if (shopGoodsCol) {
+      shopGoodsCol.addEventListener('dragover', (e) => {
+        if (draggedInventorySlot && draggedInventorySlot.area === 'SQUAD') {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          shopGoodsCol.classList.add('drag-over-sell');
+        }
+      });
+      shopGoodsCol.addEventListener('dragleave', (e) => {
+        if (!shopGoodsCol.contains(e.relatedTarget)) {
+          shopGoodsCol.classList.remove('drag-over-sell');
+        }
+      });
+      shopGoodsCol.addEventListener('drop', (e) => {
+        shopGoodsCol.classList.remove('drag-over-sell');
+        if (draggedInventorySlot && draggedInventorySlot.area === 'SQUAD') {
+          e.preventDefault();
+          const source = draggedInventorySlot;
+          draggedInventorySlot = null;
+          executeShopSell(source.item, source.index);
+        }
+      });
+    }
 
     // Wire Sell Dropzone
     const sellDropzone = document.getElementById('shopSellDropzone');
