@@ -36,6 +36,8 @@ app.use('/BOSS', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/boss', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/icon', express.static(path.join(__dirname, 'public', 'icon')));
 app.use('/sound', express.static(path.join(__dirname, 'public', 'sound')));
+app.use('/buff icon', express.static(path.join(__dirname, 'buff icon')));
+app.use('/buff%20icon', express.static(path.join(__dirname, 'buff icon')));
 
 app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(CLASSES).map(([id,c])=>[id,{...c,skills:c.skills.map((skill,index)=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.[index]?.desc??skill.desc}))}]))));
 

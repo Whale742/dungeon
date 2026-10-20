@@ -488,6 +488,8 @@ const elements = {
   btnLeaveParty: document.getElementById('btnLeaveParty'),
   soundToggleBtn: document.getElementById('soundToggleBtn'),
   soundToggleIcon: document.getElementById('soundToggleIcon'),
+  btnHeaderBurger: document.getElementById('btnHeaderBurger'),
+  headerBurgerMenu: document.getElementById('headerBurgerMenu'),
 
   // Cinematic Banner & Transition Curtain
   screenTransitionCurtain: document.getElementById('screenTransitionCurtain'),
@@ -2730,6 +2732,172 @@ function renderBattle(me, isLeader) {
   renderMyActionBar(me);
 }
 
+// Buff / Debuff 圖示對應表 (使用 /buff icon 資料夾中的 webp 圖示)
+const BUFF_ICON_MAP = {
+  poison: '/buff icon/中毒.webp',
+  alc_poison: '/buff icon/中毒.webp',
+  burn: '/buff icon/燃燒.webp',
+  fire: '/buff icon/燃燒.webp',
+  bleed: '/buff icon/流血.webp',
+  fracture: '/buff icon/骨折.webp',
+  chill: '/buff icon/寒冷.webp',
+  freeze: '/buff icon/寒冷.webp',
+  corrosion: '/buff icon/腐蝕.webp',
+  alc_acid: '/buff icon/腐蝕.webp',
+  alchemy_corrosion: '/buff icon/腐蝕.webp',
+  corruption: '/buff icon/腐蝕.webp',
+  shield: '/buff icon/護盾.webp',
+  temp_hp: '/buff icon/護盾.webp',
+  sage_shield: '/buff icon/護盾.webp',
+  barrier: '/buff icon/護盾.webp',
+  guard: '/buff icon/減傷.webp',
+  treant_guard: '/buff icon/減傷.webp',
+  crouch: '/buff icon/減傷.webp',
+  vulnerable: '/buff icon/易傷.webp',
+  alchemy_vulnerable: '/buff icon/易傷.webp',
+  dodge: '/buff icon/閃避加成.webp',
+  dodge_bonus: '/buff icon/閃避加成.webp',
+  stealth: '/buff icon/隱身.webp',
+  stealth_stack: '/buff icon/隱身.webp',
+  hidden: '/buff icon/隱身.webp',
+  follow_up: '/buff icon/隱身.webp',
+  sleep: '/buff icon/休眠.webp',
+  exhausted: '/buff icon/休眠.webp',
+  downed: '/buff icon/休眠.webp',
+  frenzy: '/buff icon/狂熱.webp',
+  frenzy_buff: '/buff icon/狂熱.webp',
+  b_frenzy: '/buff icon/狂熱.webp',
+  galaxy: '/buff icon/星系追擊.webp',
+  astronomy: '/buff icon/星系追擊.webp',
+  boundary: '/buff icon/邊界鎖血.webp',
+  crit_lock: '/buff icon/邊界鎖血.webp',
+  surrender: '/buff icon/邊界鎖血.webp',
+  lock: '/buff icon/邊界鎖血.webp',
+  fate_blessing: '/buff icon/命運加護.webp',
+  fate_binding: '/buff icon/命運加護.webp',
+  blessing: '/buff icon/命運加護.webp',
+  fate_debt: '/buff icon/命債.webp',
+  sage_debt: '/buff icon/命債.webp',
+  talisman: '/buff icon/符咒.webp',
+  talismans: '/buff icon/符咒.webp',
+  equation: '/buff icon/方程特性.webp',
+  sage_equation: '/buff icon/方程特性.webp'
+};
+
+function getBuffIconUrl(status) {
+  if (!status) return null;
+  const id = String(status.id || '').toLowerCase();
+  const icon = String(status.icon || '').toLowerCase();
+  const label = String(status.label || '');
+
+  if (BUFF_ICON_MAP[id]) return BUFF_ICON_MAP[id];
+  if (BUFF_ICON_MAP[icon]) return BUFF_ICON_MAP[icon];
+
+  if (label.includes('中毒')) return '/buff icon/中毒.webp';
+  if (label.includes('燃燒')) return '/buff icon/燃燒.webp';
+  if (label.includes('流血')) return '/buff icon/流血.webp';
+  if (label.includes('骨折')) return '/buff icon/骨折.webp';
+  if (label.includes('寒冷') || label.includes('冰')) return '/buff icon/寒冷.webp';
+  if (label.includes('腐蝕') || label.includes('強酸') || label.includes('腐化')) return '/buff icon/腐蝕.webp';
+  if (label.includes('護盾') || label.includes('TEMP HP') || label.includes('壁壘')) return '/buff icon/護盾.webp';
+  if (label.includes('減傷') || label.includes('堅守') || label.includes('GUARD') || label.includes('DR ')) return '/buff icon/減傷.webp';
+  if (label.includes('易傷') || label.includes('VULNERABLE')) return '/buff icon/易傷.webp';
+  if (label.includes('閃避') || label.includes('DODGE')) return '/buff icon/閃避加成.webp';
+  if (label.includes('隱身') || label.includes('匿蹤') || label.includes('追擊')) return '/buff icon/隱身.webp';
+  if (label.includes('休眠') || label.includes('沉睡') || label.includes('虛弱') || label.includes('倒下')) return '/buff icon/休眠.webp';
+  if (label.includes('狂熱') || label.includes('DMG +')) return '/buff icon/狂熱.webp';
+  if (label.includes('星系')) return '/buff icon/星系追擊.webp';
+  if (label.includes('鎖血') || label.includes('臣服') || label.includes('LOCK')) return '/buff icon/邊界鎖血.webp';
+  if (label.includes('命運加護') || label.includes('命運繫結')) return '/buff icon/命運加護.webp';
+  if (label.includes('命債') || label.includes('透支')) return '/buff icon/命債.webp';
+  if (label.includes('符')) return '/buff icon/符咒.webp';
+  if (label.includes('方程') || label.includes('假設') || label.includes('求解')) return '/buff icon/方程特性.webp';
+
+  return '/buff icon/方程特性.webp';
+}
+
+// 隊友卡片 buff/debuff 圖示渲染 (只顯示圖片，不要寫文字，最多5個圖片)
+function renderTeammateBuffIcons(statuses = []) {
+  if (!Array.isArray(statuses) || statuses.length === 0) return '';
+  const displayStatuses = statuses.slice(0, 5);
+  return displayStatuses.map(s => {
+    const iconUrl = getBuffIconUrl(s);
+    if (!iconUrl) return '';
+    const titleParts = [
+      s.label || s.id,
+      s.value ? String(s.value) : '',
+      s.turns ? `${s.turns}回合` : '',
+      s.stacks ? `×${s.stacks}` : ''
+    ].filter(Boolean);
+    const title = titleParts.join(' ');
+    return `<span class="teammate-buff-item" title="${escapeHtml(title)}"><img src="${iconUrl}" class="teammate-buff-icon" alt="${escapeHtml(s.label || 'status')}" loading="lazy"></span>`;
+  }).join('');
+}
+
+// 角色頭像 Hover 彈窗 (類似敵人的小彈窗)
+function showPlayerTooltip(p, eOrTarget) {
+  if (!elements.floatingEnemyTooltip || !p) return;
+  const liveP = (roomState?.players || []).find(x => x.id === p.id) || p;
+  const roleConfig = classesData[liveP.role] || { name: '勇者' };
+  const roleNameZh = window.StudioContent?.find('role_profiles', liveP.role)?.name_zh || roleConfig.name || '勇者';
+  const roleDesc = window.StudioContent?.find('role_profiles', liveP.role)?.desc || roleConfig.desc || '';
+  const hpPct = Math.max(0, Math.min(100, Math.round((liveP.hp / Math.max(1, liveP.maxHp)) * 100)));
+
+  const pEquips = liveP.equips || [];
+  const equipCount = pEquips.length;
+  const equipNames = equipCount > 0 ? pEquips.map(e => {
+    const override = window.StudioContent?.rows('story_copies').find(s => s.category === 'equipment' && s.story_key === ('equip.' + liveP.role + '.' + e.id));
+    return override?.title || e.name;
+  }).join(', ') : '無';
+
+  const statuses = liveP.statuses || [];
+  let buffsHtml = '';
+  if (statuses.length > 0) {
+    buffsHtml = `<div class="floating-tooltip-buffs">${statuses.map(s => {
+      const iconUrl = getBuffIconUrl(s);
+      const iconTag = iconUrl ? `<img src="${iconUrl}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">` : '';
+      return `<span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
+        ${iconTag}${escapeHtml(s.label || s.id)}${s.value ? ' ' + escapeHtml(String(s.value)) : ''}${s.turns ? ' (' + s.turns + 'R)' : ''}${s.stacks ? ' ×' + s.stacks : ''}
+      </span>`;
+    }).join('')}</div>`;
+  } else {
+    buffsHtml = `<div class="floating-tooltip-row"><span class="floating-tooltip-label">當前狀態</span><span class="floating-tooltip-val" style="color:var(--color-text-muted);">正常</span></div>`;
+  }
+
+  const resourceText = liveP.resourceSummary || roleConfig.stateHint || '';
+
+  elements.floatingEnemyTooltip.innerHTML = `
+    <div class="floating-tooltip-title-row">
+      <span class="floating-tooltip-name tier-t1">${escapeHtml(liveP.name)}</span>
+      <span class="floating-tooltip-badge">${escapeHtml(roleNameZh)}</span>
+    </div>
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">生命值</span>
+      <span class="floating-tooltip-val" style="color:${hpPct < 25 ? '#ef4444' : hpPct < 50 ? '#f59e0b' : '#10b981'}; font-weight:800;">
+        ${liveP.hp} / ${liveP.maxHp} (${hpPct}%)${liveP.tempHp > 0 ? ` <span style="color:#60a5fa;font-size:11px;">+${liveP.tempHp} 護盾</span>` : ''}
+      </span>
+    </div>
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">戰鬥三圍</span>
+      <span class="floating-tooltip-val">ATK ${liveP.ATK_base ?? 0} · 物 +${liveP.PAtk_gear ?? 0} · 魔 +${liveP.MAtk_gear ?? 0} · DEF ${liveP.DEF ?? 0}</span>
+    </div>
+    ${resourceText ? `
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">職業機制</span>
+      <span class="floating-tooltip-val" style="color:var(--color-focus);">${escapeHtml(resourceText)}</span>
+    </div>` : ''}
+    <div class="floating-tooltip-row">
+      <span class="floating-tooltip-label">配戴裝備 (${equipCount}/3)</span>
+      <span class="floating-tooltip-val">${escapeHtml(equipNames)}</span>
+    </div>
+    ${buffsHtml}
+    ${roleDesc ? `<div class="floating-tooltip-desc">${escapeHtml(roleDesc)}</div>` : ''}
+  `;
+
+  elements.floatingEnemyTooltip.classList.add('visible');
+  positionFloatingTooltip(eOrTarget, elements.floatingEnemyTooltip);
+}
+
 // 隊友卡片網格
 function renderTeammatesGrid(me) {
   elements.battleTeammatesGrid.innerHTML = '';
@@ -2744,48 +2912,48 @@ function renderTeammatesGrid(me) {
     if (hpPct < 30) hpClass = 'low';
     else if (hpPct < 60) hpClass = 'mid';
 
-    // One authoritative status list; the queue updates this same container.
-    const tags = ['<div class="combat-status-list">' + renderCombatStatuses(p.statuses || []) + '</div>', '<div class="compact-role-state combat-resource-summary">'+escapeHtml(p.resourceSummary||'')+'</div>'];
-
-    // 裝備列表 (清晰呈現 [裝備 X/3]: 裝備1, 裝備2)
-    const pEquips = p.equips || [];
-    const equipCount = pEquips.length;
-    const equipNames = equipCount > 0 ? pEquips.map(e => e.name).join(', ') : '無';
-
     const card = document.createElement('div');
     card.className = `teammate-card ${p.isHiddenThisRound && !p.stealthBrokenThisRound ? 'is-assassin-hidden' : ''} ${isThisMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
     card.setAttribute('data-player-id', p.id);
     card.classList.toggle('arena-absent',!!p.arenaBlocked);
     card.innerHTML = `
       <div class="floating-text-container"></div>
+      <!-- 第1行：職業頭像 名字 選擇中 -->
       <div class="teammate-top">
         <span class="teammate-name-group">
-          <span class="teammate-avatar-wrap portrait-root">
+          <span class="teammate-avatar-wrap portrait-root" title="點擊或停留檢視詳細數值">
             ${getPlayerAvatarHtml(p, 'teammate-avatar-img portrait-image')}
           </span>
-          <span>${escapeHtml(p.name)}</span>
-          ${isThisMe ? '<span style="color:#2563eb; font-weight: 700;">(你)</span>' : ''}
+          <span class="teammate-name-text">${escapeHtml(p.name)}</span>
+          ${isThisMe ? '<span class="teammate-me-tag">(你)</span>' : ''}
         </span>
         <span class="action-status-dot ${p.isLocked || isDead || p.stunnedNextTurn || p.isSurrendered || p.druidForm === 'tree' ? 'ready' : 'waiting'}">
           ${isDead ? '倒下・本層無法行動' : (p.isSurrendered ? '臣服' : (p.druidForm === 'tree' ? '休眠' : (p.stunnedNextTurn ? '虛弱' : (p.isLocked ? `${getIconSvg('lock')} 已鎖定` : `${getIconSvg('timer')} 選擇中`))))}
         </span>
       </div>
-      <div class="teammate-hp-bg">
-        <div class="teammate-hp-fill ${hpClass}" style="width: ${hpPct}%;"></div>
-        ${(p.tempHp > 0) ? `<div class="hp-bar-overheal" style="width: ${Math.min(100, Math.round(((p.hp + p.tempHp) / (p.maxHp + p.tempHp)) * 100))}%;"></div>` : ''}
+      <!-- 第2行：血條 -->
+      <div class="teammate-hp-row">
+        <div class="teammate-hp-bg">
+          <div class="teammate-hp-fill ${hpClass}" style="width: ${hpPct}%;"></div>
+          ${(p.tempHp > 0) ? `<div class="hp-bar-overheal" style="width: ${Math.min(100, Math.round(((p.hp + p.tempHp) / (p.maxHp + p.tempHp)) * 100))}%;"></div>` : ''}
+          <div class="teammate-hp-number">HP ${p.tempHp > 0 ? `${p.hp + p.tempHp}/${p.maxHp}` : `${p.hp}/${p.maxHp}`}${p.tempHp > 0 ? ` (+${p.tempHp})` : ''}</div>
+        </div>
       </div>
-      <div class="teammate-stats-sub">
-        <span>HP ${p.tempHp > 0 ? `${p.hp + p.tempHp}/${p.maxHp}` : `${p.hp}/${p.maxHp}`}${p.tempHp > 0 ? `<span class="teammate-overheal-badge">+${p.tempHp} 額外</span>` : ''}</span>
-        <span>ATK ${p.ATK_base ?? 0} · 物 +${p.PAtk_gear ?? 0} · 魔 +${p.MAtk_gear ?? 0} · DEF ${p.DEF ?? 0}</span>
-      </div>
-      <div class="teammate-tags">${tags.join('')}</div>
-      <div class="equip-list" title="${escapeHtml(equipNames)}">[裝備 ${equipCount}/3]: ${escapeHtml(equipNames)}</div>
+      <!-- 第3行：特殊疊層 -->
+      <div class="teammate-resource-row combat-resource-summary">${escapeHtml(p.resourceSummary || roleInfo.stateHint || '')}</div>
+      <!-- 第4行：buff或debuff (最多5個圖片，只顯示圖片) -->
+      <div class="teammate-buffs-row combat-status-list">${renderTeammateBuffIcons(p.statuses || [])}</div>
     `;
     elements.battleTeammatesGrid.appendChild(card);
 
     const avatarWrap = card.querySelector('.teammate-avatar-wrap');
-    if (avatarWrap && typeof syncPortraitStatusFx === 'function') {
-      syncPortraitStatusFx(p, avatarWrap, { scale: 0.28 });
+    if (avatarWrap) {
+      if (typeof syncPortraitStatusFx === 'function') {
+        syncPortraitStatusFx(p, avatarWrap, { scale: 0.28 });
+      }
+      avatarWrap.addEventListener('mouseenter', (ev) => showPlayerTooltip(p, ev));
+      avatarWrap.addEventListener('mousemove', (ev) => positionFloatingTooltip(ev, elements.floatingEnemyTooltip));
+      avatarWrap.addEventListener('mouseleave', () => hideEnemyTooltip());
     }
 
     // 德魯伊夥伴暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
@@ -2890,8 +3058,8 @@ function renderMyActionBar(me) {
   if (!me || !me.role || !classesData[me.role]) return;
 
   const roleConfig = classesData[me.role];
-  elements.myRoleEmoji.innerHTML = getPlayerAvatarHtml(me, 'my-role-avatar-img');
-  elements.myRoleName.textContent = window.StudioContent?.find('role_profiles',me.role)?.name_zh||roleConfig.name;
+  if (elements.myRoleEmoji) elements.myRoleEmoji.innerHTML = getPlayerAvatarHtml(me, 'my-role-avatar-img');
+  if (elements.myRoleName) elements.myRoleName.textContent = window.StudioContent?.find('role_profiles',me.role)?.name_zh||roleConfig.name;
 
   // 狀態簡報（包含狼人/樹精/夥伴狀態）
   let stanceHtml = '';
@@ -2906,14 +3074,12 @@ function renderMyActionBar(me) {
     stanceHtml += ` <span class="badge-minion">${getIconSvg('summon')} 夥伴: ${escapeHtml(me.minion.name)} (HP ${me.minion.hp}/${me.minion.maxHp} | 攻 ${me.minion.atk})</span>`;
   }
 
-  elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
-  elements.myAtkSummary.textContent = `ATK ${me.ATK_base ?? 0} · 物 +${me.PAtk_gear ?? 0} · 魔 +${me.MAtk_gear ?? 0} · DEF ${me.DEF ?? 0}`;
+  if (elements.myHpSummary) elements.myHpSummary.innerHTML = `HP: ${me.hp}/${me.maxHp}${stanceHtml}`;
+  if (elements.myAtkSummary) elements.myAtkSummary.textContent = `ATK ${me.ATK_base ?? 0} · 物 +${me.PAtk_gear ?? 0} · 魔 +${me.MAtk_gear ?? 0} · DEF ${me.DEF ?? 0}`;
   let compact=document.getElementById('compactRoleState');
   if(!compact){compact=document.createElement('div');compact.id='compactRoleState';compact.className='compact-role-state';elements.mySkillsRow.parentNode.insertBefore(compact,elements.mySkillsRow);}
   compact.replaceChildren();
   if(me.resourceSummary||roleConfig.stateHint){const text=document.createElement('span');text.textContent=[me.resourceSummary,roleConfig.stateHint].filter(Boolean).join(' · ');compact.appendChild(text);}
-  const toggle=document.createElement('label');toggle.className='skill-copy-toggle';
-  const input=document.createElement('input');input.type='checkbox';input.checked=skillCopyDetailed;input.onchange=()=>{setSkillCopyDetailed(input.checked);renderMyActionBar(me);};toggle.append(input,document.createTextNode('詳細'));compact.appendChild(toggle);
   const detail=document.createElement('button');detail.className='btn btn-secondary btn-tiny';detail.textContent='職業詳情';detail.onclick=()=>openRoleDetailModal(me.role);compact.appendChild(detail);
   renderSageEquationPreview(me);
   if(me.arenaBlocked){elements.mySkillsRow.innerHTML='<div class="action-status-badge">死亡角鬥場進行中，本輪無法行動。</div>';elements.btnConfirmLock.disabled=true;return;}
@@ -4213,6 +4379,49 @@ if (elements.soundToggleBtn) {
 }
 updateSoundIcon();
 
+// 頂欄漢堡選單控制器 (Header Burger Menu Controller)
+const burgerBtn = document.getElementById('btnHeaderBurger');
+const burgerMenu = document.getElementById('headerBurgerMenu');
+
+function toggleBurgerMenu(forceOpen) {
+  if (!burgerBtn || !burgerMenu) return;
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : burgerMenu.hidden;
+  burgerMenu.hidden = !shouldOpen;
+  burgerBtn.setAttribute('aria-expanded', String(shouldOpen));
+  burgerBtn.classList.toggle('active', shouldOpen);
+}
+
+function closeBurgerMenu() {
+  toggleBurgerMenu(false);
+}
+
+if (burgerBtn && burgerMenu) {
+  burgerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (typeof playSound === 'function') playSound('click');
+    toggleBurgerMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!burgerBtn.contains(e.target) && !burgerMenu.contains(e.target)) {
+      closeBurgerMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeBurgerMenu();
+    }
+  });
+
+  if (elements.btnEndBattle) {
+    elements.btnEndBattle.addEventListener('click', closeBurgerMenu);
+  }
+  if (elements.btnLeaveParty) {
+    elements.btnLeaveParty.addEventListener('click', closeBurgerMenu);
+  }
+}
+
 // 隊長出發探險
 elements.btnStartGame.addEventListener('click', () => {
   playSound('victory');
@@ -5044,8 +5253,8 @@ function updateBattleHudFromSnapshot(snapshot) {
         const resource=card.querySelector('.combat-resource-summary');
         if(resource)resource.textContent=p.resourceSummary||'';
         let status = card.querySelector('.combat-status-list');
-        if (!status) { status = document.createElement('div'); status.className = 'combat-status-list'; card.appendChild(status); }
-        status.innerHTML = renderCombatStatuses(p.statuses || []);
+        if (!status) { status = document.createElement('div'); status.className = 'combat-status-list teammate-buffs-row'; card.appendChild(status); }
+        status.innerHTML = renderTeammateBuffIcons(p.statuses || []);
         card.classList.toggle('is-assassin-hidden', !!p.isHiddenThisRound && !p.stealthBrokenThisRound && p.hp > 0);
         const isDead = p.hp <= 0;
         if (isDead) {
@@ -5079,6 +5288,10 @@ function updateBattleHudFromSnapshot(snapshot) {
           overhealFill.remove();
         }
 
+        const hpNumber = card.querySelector('.teammate-hp-number');
+        if (hpNumber) {
+          hpNumber.textContent = `HP ${p.tempHp > 0 ? `${p.hp + p.tempHp}/${p.maxHp}` : `${p.hp}/${p.maxHp}`}${p.tempHp > 0 ? ` (+${p.tempHp})` : ''}`;
+        }
         const statsSub = card.querySelector('.teammate-stats-sub');
         if (statsSub) {
           const hpSpan = statsSub.querySelector('span:first-child');

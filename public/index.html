@@ -250,34 +250,66 @@
         </div>
       </div>
       <div class="header-status header-actions">
-        <div id="roomBadge" class="room-code-display hidden">
-          <span class="room-code-label">房號</span>
-          <span id="roomCodeText" class="room-code-clickable" title="點擊直接複製房號">-----</span>
-          <span id="roomCopyToast" class="room-copy-toast hidden">已複製</span>
-        </div>
-        <div id="headerGoldPill" class="gold-pill hidden">
-          <svg class="svg-icon" style="width:14px;height:14px;"><use href="#icon-gold"></use></svg>
-          <span id="headerGoldDisplay">0 G</span>
-        </div>
         <button id="btnOpenInventory" class="btn-icon btn-hud-bag hidden" title="查看行囊與裝備鍛造" aria-label="行囊" aria-expanded="false">
           <img id="hudBagIcon" class="hud-bag-icon" src="/assets/bag1.webp" alt="" width="20" height="24" /> <span>行囊</span>
         </button>
         <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">
           <svg class="svg-icon"><use href="#icon-pause"></use></svg> <span>暫停</span>
         </button>
-        <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden" title="中止冒險 / 放棄挑戰">
-          <svg class="svg-icon"><use href="#icon-flag"></use></svg> <span>放棄挑戰</span>
-        </button>
-        <button id="btnLeaveParty" onclick="exitRoomToLobbyMenu()" class="btn-icon btn-icon-danger hidden" title="離開隊伍">
-          <svg class="svg-icon"><use href="#icon-close"></use></svg> <span>離開隊伍</span>
-        </button>
-        <div class="bgm-control">
-          <button id="bgmVolumeBtn" class="btn-icon" aria-expanded="false" aria-controls="bgmVolumePanel" title="調整背景音樂音量"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/></svg><span>BGM</span></button>
-          <div id="bgmVolumePanel" hidden><label for="bgmVolumeSlider">背景音樂 <output id="bgmVolumeValue">50%</output></label><input id="bgmVolumeSlider" type="range" min="0" max="100" step="1" value="50" aria-label="背景音樂音量"></div>
+        <div class="header-burger-container">
+          <button id="btnHeaderBurger" class="btn-icon btn-header-burger" aria-label="選單" aria-expanded="false" aria-controls="headerBurgerMenu" title="選單">
+            <svg class="burger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div id="headerBurgerMenu" class="header-burger-menu" hidden>
+            <div class="burger-menu-header">
+              <span class="burger-menu-title">系統選單</span>
+            </div>
+            <div class="burger-menu-section burger-room-section">
+              <div id="roomBadge" class="room-code-display hidden">
+                <span class="room-code-label">房號</span>
+                <span id="roomCodeText" class="room-code-clickable" title="點擊直接複製房號">-----</span>
+                <span id="roomCopyToast" class="room-copy-toast hidden">已複製</span>
+              </div>
+            </div>
+            <div class="burger-menu-section burger-audio-section">
+              <div class="burger-section-label">音訊設定</div>
+              <button id="soundToggleBtn" class="btn-icon btn-sound-toggle burger-menu-btn" title="切換音效">
+                <svg id="soundToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
+                  <path class="sound-on" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>
+                  <path class="sound-off" d="m15 9 6 6m0-6-6 6" style="display:none"/>
+                </svg>
+                <span>切換音效</span>
+              </button>
+              <div class="bgm-control">
+                <button id="bgmVolumeBtn" class="btn-icon burger-menu-btn" aria-expanded="false" aria-controls="bgmVolumePanel" title="調整背景音樂音量">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M9 18V5l12-2v13M9 8l12-2"/>
+                    <ellipse cx="6" cy="18" rx="3" ry="2"/>
+                    <ellipse cx="18" cy="16" rx="3" ry="2"/>
+                  </svg>
+                  <span>背景音樂 (BGM)</span>
+                </button>
+                <div id="bgmVolumePanel" hidden>
+                  <label for="bgmVolumeSlider">背景音樂音量 <output id="bgmVolumeValue">50%</output></label>
+                  <input id="bgmVolumeSlider" type="range" min="0" max="100" step="1" value="50" aria-label="背景音樂音量">
+                </div>
+              </div>
+            </div>
+            <div class="burger-menu-section burger-danger-section">
+              <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="中止冒險 / 放棄挑戰">
+                <svg class="svg-icon"><use href="#icon-flag"></use></svg> <span>放棄挑戰</span>
+              </button>
+              <button id="btnLeaveParty" onclick="exitRoomToLobbyMenu()" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="離開隊伍">
+                <svg class="svg-icon"><use href="#icon-close"></use></svg> <span>離開隊伍</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <button id="soundToggleBtn" class="btn-sound-toggle" title="切換音效">
-          <svg id="soundToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path class="sound-on" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off" d="m15 9 6 6m0-6-6 6" style="display:none"/></svg>
-        </button>
       </div>
     </header>
 
@@ -699,9 +731,6 @@
               <div class="command-top">
                 <h2>指令選擇 <span>SELECT ACTION</span></h2>
                 <div class="command-player-tags">
-                  <span class="soft-tag"><span id="myRoleEmoji"></span> <b id="myRoleName">戰士</b> <span id="myHpSummary">HP: 120/120</span> <span id="myAtkSummary">+0 攻</span></span>
-                  <span class="soft-tag badge-amber" id="myEquipsSummaryBadge"><span id="myEquipsSummary">[裝備 0/3]: 無</span></span>
-                  <span class="soft-tag badge-amber" id="selectedTargetBadge"><svg class="ico sm"><use href="#icon-target"/></svg> <span id="selectedTargetText">魔物</span></span>
                   <span id="myActionStatus" class="action-status-badge">請指定本回合行動</span>
                 </div>
               </div>

@@ -479,6 +479,199 @@ h1, h2, h3, h4, h5, h6 {
   transform: none;
 }
 
+/* ==========================================================================
+   頂欄漢堡按鈕與二階選單 (Header Burger Button & Secondary Menu)
+   ========================================================================== */
+.header-burger-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-header-burger {
+  background: #192b38;
+  border: 1px solid var(--border, #4F6674);
+  border-radius: var(--ui-radius, 2px);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  color: var(--secondary, #B9C4CE);
+  box-shadow: none;
+  transition: background-color var(--duration-fast, 150ms) ease,
+              border-color var(--duration-fast, 150ms) ease,
+              color var(--duration-fast, 150ms) ease;
+  flex-shrink: 0;
+}
+
+.btn-header-burger:hover,
+.btn-header-burger.active {
+  background: #224255;
+  border-color: var(--azure, #6FB7E9);
+  color: var(--bright, #9CDBF9);
+}
+
+.btn-header-burger .burger-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  transition: transform var(--duration-fast, 150ms) ease;
+}
+
+.btn-header-burger.active .burger-icon {
+  transform: rotate(90deg);
+}
+
+/* 二階選單彈出面板 */
+.header-burger-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 240px;
+  max-width: 90vw;
+  background: rgba(16, 27, 36, 0.98);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border, #4F6674);
+  border-radius: var(--ui-radius, 4px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 1px rgba(111, 183, 233, 0.4);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  transform-origin: top right;
+  animation: burgerMenuEnter 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header-burger-menu[hidden] {
+  display: none !important;
+}
+
+@keyframes burgerMenuEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.burger-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle, #344B59);
+}
+
+.burger-menu-title {
+  font: 700 11px var(--pixel, 'Silkscreen', monospace);
+  color: var(--muted, #7E8C96);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.burger-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.burger-room-section:has(#roomBadge.hidden) {
+  display: none;
+}
+
+.burger-danger-section:has(#btnEndBattle.hidden):has(#btnLeaveParty.hidden) {
+  display: none;
+}
+
+.burger-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #7E8C96);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.header-burger-menu .burger-menu-btn {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.header-burger-menu .btn-sound-toggle {
+  width: 100%;
+  height: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  justify-content: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  color: var(--light, #E8EDF2);
+  box-sizing: border-box;
+}
+
+.header-burger-menu .btn-sound-toggle svg,
+.header-burger-menu .btn-icon svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.header-burger-menu .room-code-display {
+  width: 100%;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  background: #121f2b;
+}
+
+.header-burger-menu .bgm-control {
+  width: 100%;
+  position: relative;
+}
+
+#headerBurgerMenu #bgmVolumePanel {
+  position: static;
+  right: auto;
+  top: auto;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: #121f2b;
+  border: 1px solid var(--border-subtle, #344B59);
+  border-radius: var(--ui-radius, 2px);
+  box-shadow: none;
+}
+
+#headerBurgerMenu #bgmVolumePanel[hidden] {
+  display: none !important;
+}
+
+#headerBurgerMenu #bgmVolumePanel label {
+  font-size: 11px;
+  color: var(--secondary, #B9C4CE);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+#headerBurgerMenu #bgmVolumeSlider {
+  width: 100%;
+  accent-color: var(--gold, #D7B86E);
+  cursor: pointer;
+}
+
 /* 暫停提示橫幅 (Arcade Alert Plate) */
 .pause-banner {
   background: rgba(245, 158, 11, 0.15);
@@ -8260,4 +8453,115 @@ body.presentation-opening .narrative-controls,
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 10px;
+}
+
+/* Teammate Card 4-Line Layout & Buff Icons */
+.teammate-avatar-wrap {
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.teammate-avatar-wrap:hover {
+  transform: scale(1.1);
+  filter: brightness(1.2);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+}
+
+.teammate-me-tag {
+  color: #3b82f6;
+  font-weight: 700;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.teammate-hp-row {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.teammate-hp-row .teammate-hp-bg {
+  position: relative;
+  height: 16px;
+  background: #0b1325;
+  border: 1px solid #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.teammate-hp-number {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-stats);
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px #000;
+  pointer-events: none;
+  z-index: 3;
+  letter-spacing: 0.5px;
+}
+
+.teammate-resource-row {
+  font-family: var(--font-stats);
+  font-size: 11px;
+  font-weight: 700;
+  color: #93c5fd;
+  min-height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+
+.teammate-resource-row:empty::before {
+  content: "—";
+  color: var(--color-text-muted);
+  opacity: 0.3;
+}
+
+.teammate-buffs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px 0;
+  flex-wrap: wrap;
+}
+
+.teammate-buff-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.teammate-buff-item:hover {
+  transform: scale(1.15);
+  border-color: #60a5fa;
+}
+
+.teammate-buff-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
 }

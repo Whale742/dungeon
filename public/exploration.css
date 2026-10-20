@@ -57,6 +57,7 @@
 }
 
 #viewRoute.is-narrating .map-side {
+  transition: none;
   max-width: 0;
   width: 0;
   opacity: 0;
