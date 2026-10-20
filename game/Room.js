@@ -878,6 +878,50 @@ export class Room {
     const player = this.players[socketId];
     if (!player) return;
 
+    // 當如果有人有穿裝備退出戰鬥時(刷新或是關閉視窗)，他身上所穿的裝備會跑到小隊背包
+    if (this.state !== 'LOBBY') {
+      const recoveredItems = [];
+      if (player.equipSlots) {
+        for (const [k, eq] of Object.entries(player.equipSlots)) {
+          if (eq) recoveredItems.push(eq);
+        }
+      }
+      if (Array.isArray(player.equips)) {
+        for (const eq of player.equips) {
+          if (eq && !recoveredItems.some(it => it.id === eq.id || it.name === eq.name)) {
+            recoveredItems.push(eq);
+          }
+        }
+      }
+      if (Array.isArray(player.bag)) {
+        for (const item of player.bag) {
+          if (item) recoveredItems.push(item);
+        }
+      }
+      if (recoveredItems.length > 0) {
+        if (!Array.isArray(this.squadInventory)) this.squadInventory = [];
+        this.squadInventory.push(...recoveredItems);
+        const itemNames = recoveredItems.map(it => `【${it.name}】`).join('、');
+        this.addLog(`🎒 【裝備回收】**${player.name}** 離線，其身上的裝備與物資（${itemNames}）已全數移交至小隊背包！`, 'loot');
+      }
+
+      // 若在商店事件中離線，從已準備名單中移除，並檢查剩餘連線玩家是否全數準備完畢
+      if (this.state === 'EVENT' && this.currentEvent?.type === 'shop' && Array.isArray(this.currentEvent.readyToLeave)) {
+        this.currentEvent.readyToLeave = this.currentEvent.readyToLeave.filter(id => id !== socketId);
+        const remainingConnected = Object.values(this.players).filter(p => p.id !== socketId && p.connected !== false);
+        if (remainingConnected.length > 0 && remainingConnected.every(p => this.currentEvent.readyToLeave.includes(p.id))) {
+          const wasPrepShop = Boolean(this.currentEvent.isPrepShop);
+          this.currentEvent.buybackPool = [];
+          this.currentEvent = null;
+          if (this.io && this.code) {
+            this.io.to(this.code).emit('event:shop_closed');
+          }
+          if (wasPrepShop) this.startRouteSelection();
+          else this.advanceToNextFloorOrCheckpoint();
+        }
+      }
+    }
+
     delete this.players[socketId];
     this.memberIds = this.memberIds.filter(id => id !== socketId);
 
@@ -3479,8 +3523,8 @@ export class Room {
     const container = fromSquad ? this.squadInventory : player.bag;
     if (!Array.isArray(container)) return { success: false, message: '背包不存在' };
 
-    const idx1 = container.findIndex(e => e.id === item1Id);
-    const idx2 = container.findIndex((e, i) => e.id === item2Id && i !== idx1);
+    const idx1 = container.findIndex(e => e && e.id === item1Id);
+    const idx2 = container.findIndex((e, i) => e && e.id === item2Id && i !== idx1);
     if (idx1 === -1 || idx2 === -1) {
       return { success: false, message: '缺少合成材料！' };
     }
@@ -3632,6 +3676,7 @@ export class Room {
       restPrice: 30,
       canRob: isShady && !isPrepShop,
       canSteal: isShady && !isPrepShop && leaderRole === 'assassin',
+      readyToLeave: [],
       canLeave: true
     };
     this.broadcastState();
@@ -3720,6 +3765,7 @@ export class Room {
       canInfo: true,
       barterUsed: false,
       infoUsed: false,
+      readyToLeave: [],
       canLeave: true
     };
     this.broadcastState();
@@ -3727,6 +3773,10 @@ export class Room {
 
 
   handleShopAction(socketId, rawAction, params = {}) {
+    if (typeof rawAction === 'object' && rawAction !== null) {
+      params = rawAction;
+      rawAction = rawAction.action;
+    }
     const action = String(rawAction || '').toLowerCase();
     if (this.state !== 'EVENT' || this.currentEvent?.type !== 'shop') {
       if (action === 'sell') {
@@ -4060,18 +4110,59 @@ export class Room {
     }
 
     if (action === 'leave') {
+      if (!this.currentEvent || this.currentEvent.type !== 'shop') {
+        return { success: false, message: '目前非商店事件' };
+      }
+      if (!Array.isArray(this.currentEvent.readyToLeave)) {
+        this.currentEvent.readyToLeave = [];
+      }
+      if (!this.currentEvent.readyToLeave.includes(socketId)) {
+        this.currentEvent.readyToLeave.push(socketId);
+      }
+
+      const connectedPlayers = Object.values(this.players).filter(p => p.connected !== false);
+      const totalCount = connectedPlayers.length;
+      const readyCount = connectedPlayers.filter(p => this.currentEvent.readyToLeave.includes(p.id)).length;
+
+      // 廣播給所有玩家在視窗最右上角顯示「XXX已購買完成準備踏上旅程」
+      if (this.io && this.code) {
+        this.io.to(this.code).emit('event:shop_player_ready', {
+          playerId: player.id,
+          playerName: player.name,
+          message: `${player.name}已購買完成準備踏上旅程`,
+          readyCount,
+          totalCount,
+          readyPlayerIds: this.currentEvent.readyToLeave
+        });
+      }
+      this.addLog(`🧭 **${player.name}** 已購買完成準備踏上旅程。(${readyCount}/${totalCount})`, 'info');
+
+      // 必須每一位玩家都按離開商店按鈕才離開
+      const allReady = connectedPlayers.length > 0 && connectedPlayers.every(p => this.currentEvent.readyToLeave.includes(p.id));
+      if (!allReady) {
+        this.broadcastState();
+        return { success: true, allReady: false, readyCount, totalCount };
+      }
+
+      // 全員確認準備完畢，正式離開商店
       const wasPrepShop = Boolean(this.currentEvent?.isPrepShop);
-      this.addLog(wasPrepShop ? '🏕️ 小隊整備完畢，正式向深淵出發！' : '🛒 小隊告別了商人，整頓行囊繼續前行。', 'info');
+      this.addLog(wasPrepShop ? '🏕️ 小隊全員整備完畢，正式向深淵出發！' : '🛒 小隊全體整頓完畢告別了商人，繼續前行。', 'info');
       if (this.currentEvent) {
         this.currentEvent.buybackPool = [];
       }
       this.currentEvent = null;
+
+      // 廣播通知全體關閉彈窗，避免留在商店界面
+      if (this.io && this.code) {
+        this.io.to(this.code).emit('event:shop_closed');
+      }
+
       if (wasPrepShop) {
         this.startRouteSelection();
       } else {
         this.advanceToNextFloorOrCheckpoint();
       }
-      return { success: true };
+      return { success: true, allReady: true };
     }
 
     return { success: false, message: '未知行動' };
@@ -4151,10 +4242,27 @@ export class Room {
     }
 
     if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
+      if (player.role === 'bard') {
+        const selfHeal = Math.min(40, Math.max(0, player.maxHp - player.hp));
+        player.hp = Math.min(player.maxHp, player.hp + 40);
+        const allyHeals = [];
+        for (const ally of Object.values(this.players)) {
+          if (ally.id !== player.id && ally.hp > 0) {
+            const prev = ally.hp;
+            ally.hp = Math.min(ally.maxHp, ally.hp + 25);
+            allyHeals.push(`**${ally.name}**(+${ally.hp - prev})`);
+          }
+        }
+        container.splice(idx, 1);
+        const allyText = allyHeals.length > 0 ? `，隊友 ${allyHeals.join('、')} 獲得回復` : '';
+        this.addLog(`🧪🎶 **${player.name}** 使用了【治療藥】，觸發吟遊詩人專屬藥效：自身恢復 ${selfHeal} 點生命（❤️ ${player.hp}/${player.maxHp}）${allyText}！`, 'heal');
+        this.broadcastState();
+        return { success: true };
+      }
       if (targetPlayer.hp <= 0) {
         return { success: false, message: '無法對已倒下的隊員使用治療藥！' };
       }
-      const healAmt = Math.max(1, Math.round(targetPlayer.maxHp * (item.healPercent || 0.40)));
+      const healAmt = 35;
       const prevHp = targetPlayer.hp;
       targetPlayer.hp = Math.min(targetPlayer.maxHp, targetPlayer.hp + healAmt);
       container.splice(idx, 1);
@@ -4372,10 +4480,11 @@ export class Room {
       }
 
       if (action === 'barter') {
-        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+        const barterIdx = (this.squadInventory || []).findIndex(e => e && e.name);
+        if (barterIdx === -1) {
           return { success: false, message: '小隊背包中沒有可供交換的裝備！' };
         }
-        const removed = this.squadInventory.shift();
+        const removed = this.squadInventory.splice(barterIdx, 1)[0];
         let gainedItem;
         if (leaderRole === 'bard') {
           gainedItem = structuredClone(TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)]);
@@ -4391,10 +4500,11 @@ export class Room {
 
       if (action === 'reshape') {
         if (leaderRole !== 'dreamweaver') return { success: false, message: '只有織夢術士隊長能重塑配飾！' };
-        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+        const reshapeIdx = (this.squadInventory || []).findIndex(e => e && e.name);
+        if (reshapeIdx === -1) {
           return { success: false, message: '小隊背包中沒有可供重塑的裝備！' };
         }
-        const removed = this.squadInventory.shift();
+        const removed = this.squadInventory.splice(reshapeIdx, 1)[0];
         const accPool = TIER2_EQUIPMENTS.filter(e => e.slot === EQUIP_SLOTS.ACCESSORY);
         const gainedAcc = structuredClone(accPool[Math.floor(Math.random() * accPool.length)] || TIER2_EQUIPMENTS[1]);
         this.addItemPrioritySquad(gainedAcc, socketId);
@@ -4533,11 +4643,11 @@ export class Room {
       if (action === 'reforge_weapon' || action === 'reforge') {
         const cost = (leaderRole === 'mage') ? 15 : 30;
         if ((this.gold || 0) < cost) return { success: false, message: `金幣不足 ${cost}！` };
-        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+        const target = (this.squadInventory || []).find(e => e && e.name);
+        if (!target) {
           return { success: false, message: '小隊背包中沒有裝備可供重鑄！' };
         }
         this.gold -= cost;
-        const target = this.squadInventory[0];
         const boostMultiplier = (leaderRole === 'samurai') ? 0.40 : 0.25;
         const atkBoost = Math.max(3, Math.round((target.bonusAtk || 4) * boostMultiplier));
         target.bonusAtk = (target.bonusAtk || 0) + atkBoost;
@@ -4556,10 +4666,10 @@ export class Room {
 
       if (action === 'convert_magic') {
         if (leaderRole !== 'mage') return { success: false, message: '只有法師隊長能轉換武器屬性！' };
-        if (!Array.isArray(this.squadInventory) || this.squadInventory.length === 0) {
+        const target = (this.squadInventory || []).find(e => e && e.name);
+        if (!target) {
           return { success: false, message: '小隊背包中沒有裝備可供轉換！' };
         }
-        const target = this.squadInventory[0];
         target.isMagic = true;
         target.name = `附魔的 ${target.name}`;
         this.addLog(`🪄 【奧術共鳴】法師隊長注入奧術結晶，成功將【${target.name}】轉換為魔法武器！`, 'buff');
@@ -5077,37 +5187,94 @@ export class Room {
           itemIdx = this.squadInventory.findIndex(i => i && (i.effectType === 'HEALING_POTION' || i.id === 'consumable_healing_potion'));
           if (itemIdx !== -1) fromSquad = true;
         }
+        const isBard = p.role === 'bard';
         const target = (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId] : p;
-        let actualHeal = 0;
+        const before = this.getHpSnapshot();
+        const results = [];
+        const visualEvents = [];
         if (itemIdx !== -1) {
           const container = fromSquad ? this.squadInventory : p.bag;
-          const item = container[itemIdx];
           container.splice(itemIdx, 1);
-          if (target.hp > 0) {
-            const healAmt = Math.max(1, Math.round(target.maxHp * (item.healPercent || 0.40)));
-            actualHeal = this.applyHealWithOverheal(target, healAmt);
-            log.push({ text: `🧪 **${p.name}** 對 **${target.name}** 使用了【治療藥】，恢復了 ${actualHeal} 點生命值！`, type: 'heal' });
-            visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: target.id, value: actualHeal, label: '治療藥' });
+          if (isBard) {
+            const selfHeal = this.applyHealWithOverheal(p, 40);
+            visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: p.id, value: selfHeal, label: '治療藥' });
+            const selfBefore = snapshotTarget(before, p.id);
+            results.push({
+              kind: 'heal',
+              targetId: p.id,
+              actualHeal: selfHeal,
+              outcome: { type: 'normal' },
+              targetBefore: structuredClone(selfBefore),
+              targetAfter: structuredClone(p),
+              hpSnapshot: this.getHpSnapshot()
+            });
+            const allyLogs = [];
+            for (const ally of Object.values(this.players)) {
+              if (ally.id !== p.id && ally.hp > 0) {
+                const aHeal = this.applyHealWithOverheal(ally, 25);
+                visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: ally.id, value: aHeal, label: '治療藥' });
+                const aBefore = snapshotTarget(before, ally.id);
+                results.push({
+                  kind: 'heal',
+                  targetId: ally.id,
+                  actualHeal: aHeal,
+                  outcome: { type: 'normal' },
+                  targetBefore: structuredClone(aBefore),
+                  targetAfter: structuredClone(ally),
+                  hpSnapshot: this.getHpSnapshot()
+                });
+                allyLogs.push(`**${ally.name}**(+${aHeal})`);
+              }
+            }
+            const allyText = allyLogs.length > 0 ? `，隊友 ${allyLogs.join('、')} 同步獲得回復` : '';
+            log.push({
+              text: `🧪🎶 **${p.name}** 使用了【治療藥】，觸發吟遊詩人專屬藥效：自身恢復了 ${selfHeal} 點生命${allyText}！`,
+              type: 'heal'
+            });
           } else {
-            log.push({ text: `🧪 **${p.name}** 試圖對已倒下的 **${target.name}** 使用治療藥，但無濟於事！`, type: 'warning' });
+            if (target.hp > 0) {
+              const healAmt = 35;
+              const actualHeal = this.applyHealWithOverheal(target, healAmt);
+              log.push({ text: `🧪 **${p.name}** 對 **${target.name}** 使用了【治療藥】，恢復了 ${actualHeal} 點生命值！`, type: 'heal' });
+              visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: target.id, value: actualHeal, label: '治療藥' });
+              const tBefore = snapshotTarget(before, target.id);
+              results.push({
+                kind: 'heal',
+                targetId: target.id,
+                actualHeal,
+                outcome: { type: 'normal' },
+                targetBefore: structuredClone(tBefore),
+                targetAfter: structuredClone(target),
+                hpSnapshot: this.getHpSnapshot()
+              });
+            } else {
+              log.push({ text: `🧪 **${p.name}** 試圖對已倒下的 **${target.name}** 使用治療藥，但無濟於事！`, type: 'warning' });
+            }
           }
         } else {
           log.push({ text: `🧪 **${p.name}** 翻找背包，但治療藥已經用盡！`, type: 'warning' });
         }
+        const after = this.getHpSnapshot();
         presentationQueue.push({
           sourceId: p.id,
           sourceName: p.name,
           sourceRole: p.role,
           actionId: p.action,
+          category: 'HEAL',
           skillName: '治療藥',
           tags: ['道具', '治療'],
-          targetId: target.id,
-          targetName: target.name,
-          narrative: `**${p.name}** 從背包中取出應急治療藥，迅速為 **${target.name}** 注入治療藥劑！`,
-          detail: `恢復生命值`,
-          visualEvents: actualHeal > 0 ? [{ type: 'player_heal', sourceId: p.id, targetId: target.id, value: actualHeal, label: '治療藥' }] : [],
+          targetId: isBard ? p.id : target.id,
+          targetName: isBard ? p.name : target.name,
+          outcome: { type: 'normal' },
+          narrative: isBard
+            ? `**${p.name}** 調配並飲用了特調應急治療藥，濃郁藥香與生機擴散至全隊！`
+            : `**${p.name}** 從背包中取出應急治療藥，迅速為 **${target.name}** 注入治療藥劑！`,
+          detail: isBard ? `全隊恢復生命值` : `恢復生命值`,
+          visualEvents,
+          results,
           type: 'player_action',
-          hpSnapshots: this.getHpSnapshot()
+          hpSnapshotBefore: before,
+          hpSnapshot: after
         });
         resolveMinionFollowUp(p);
         continue;
@@ -5121,6 +5288,9 @@ export class Room {
           if (itemIdx !== -1) fromSquad = true;
         }
         const target = (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId] : p;
+        const before = this.getHpSnapshot();
+        const results = [];
+        const visualEvents = [];
         if (itemIdx !== -1) {
           const container = fromSquad ? this.squadInventory : p.bag;
           container.splice(itemIdx, 1);
@@ -5136,23 +5306,37 @@ export class Room {
           target.alcAcidEquipHalvedTurns = 0;
           log.push({ text: `🧪 **${p.name}** 對 **${target.name}** 使用了【解毒藥】，徹底清除了所有負面效果！`, type: 'heal' });
           visualEvents.push({ type: 'player_buff', sourceId: p.id, targetId: target.id, label: '解毒藥淨化' });
+          const tBefore = snapshotTarget(before, target.id);
+          results.push({
+            kind: 'cleanse',
+            targetId: target.id,
+            outcome: { type: 'normal' },
+            targetBefore: structuredClone(tBefore),
+            targetAfter: structuredClone(target),
+            hpSnapshot: this.getHpSnapshot()
+          });
         } else {
           log.push({ text: `🧪 **${p.name}** 翻找背包，但解毒藥已經用盡！`, type: 'warning' });
         }
+        const after = this.getHpSnapshot();
         presentationQueue.push({
           sourceId: p.id,
           sourceName: p.name,
           sourceRole: p.role,
           actionId: p.action,
+          category: 'CLEANSE',
           skillName: '解毒藥',
           tags: ['道具', '淨化'],
           targetId: target.id,
           targetName: target.name,
+          outcome: { type: 'normal' },
           narrative: `**${p.name}** 掏出特製解毒劑餵給 **${target.name}**，強效藥力迅速驅散了體內的毒素與負面狀態！`,
           detail: `清除負面狀態`,
-          visualEvents: [{ type: 'player_buff', sourceId: p.id, targetId: target.id, label: '解毒藥淨化' }],
+          visualEvents,
+          results,
           type: 'player_action',
-          hpSnapshots: this.getHpSnapshot()
+          hpSnapshotBefore: before,
+          hpSnapshot: after
         });
         resolveMinionFollowUp(p);
         continue;

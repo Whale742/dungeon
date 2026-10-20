@@ -7837,15 +7837,20 @@ body.presentation-opening .narrative-controls,
 .shop-gold-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   background: var(--surface-inset);
-  border: 1px solid var(--color-brass-bright);
+  border: 1.5px solid var(--color-brass-bright);
   color: var(--color-loot-gold);
-  padding: 4px 14px;
+  padding: 6px 22px;
   border-radius: var(--radius-pill);
   font-weight: 800;
-  font-size: 14px;
+  font-size: 21px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.shop-gold-badge svg,
+.shop-gold-badge .ui-icon {
+  width: 24px;
+  height: 24px;
 }
 .shop-tabs-nav {
   display: flex;
@@ -8565,4 +8570,58 @@ body.presentation-opening .narrative-controls,
   object-fit: contain;
   display: block;
   pointer-events: none;
+}
+
+/* ==========================================================================
+   Shop Ready Notice (Top Right Corner)
+   ========================================================================== */
+.shop-ready-notice-container {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 420px;
+}
+
+.shop-ready-notice {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: rgba(22, 28, 36, 0.96);
+  border: 1.5px solid var(--color-brass-bright, #D4AF37);
+  border-radius: 8px;
+  color: #F8F9FA;
+  font-size: 14.5px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(212, 175, 55, 0.35);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.shop-ready-notice.is-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.shop-ready-notice.is-leaving {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+
+.shop-ready-notice .shop-ready-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-loot-gold, #FFD700);
+}
+
+.shop-ready-notice .shop-ready-text {
+  letter-spacing: 0.5px;
 }

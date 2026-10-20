@@ -20,14 +20,17 @@
   function show(modal) {
     if(!modal)return;
     const state=stateFor(modal);
-    if(state.phase==='open'||state.phase==='opening')return;
+    if(modal.classList.contains('hidden')) {
+      state.phase='closed';
+    } else if(state.phase==='open'||state.phase==='opening') {
+      return;
+    }
     const reopening=state.phase==='closing';
     cancel(state);state.phase='opening';
     modal.classList.remove('hidden','is-closing');
     modal.inert=false;modal.setAttribute('aria-hidden','false');
     if(!reopening)modal.classList.remove('is-open');
     if(modal.id==='inventoryModal'&&typeof global.updateHudInventoryButtonState==='function')global.updateHudInventoryButtonState();
-    // Commit the initial blur/scale before the delayed transition starts.
     void modal.offsetWidth;
     state.trigger=setTimeout(()=>{
       modal.classList.add('is-open');state.phase='open';state.trigger=null;
@@ -37,7 +40,7 @@
   function hide(modal) {
     if(!modal)return;
     const state=stateFor(modal);
-    if(modal.classList.contains('hidden')||state.phase==='closing')return;
+    if(modal.classList.contains('hidden')&&state.phase==='closed')return;
     cancel(state);state.phase='closing';
     modal.classList.add('is-closing');
     modal.inert=true;modal.setAttribute('aria-hidden','true');
@@ -52,11 +55,10 @@
       };
       state.card=modal.querySelector('.modal-card');
       state.onEnd=event=>{
-        if(event.target===state.card&&event.propertyName==='scale')finish();
+        if(event.target===state.card&&(event.propertyName==='scale'||event.propertyName==='transform'||event.propertyName==='opacity'))finish();
       };
       state.card?.addEventListener('transitionend',state.onEnd);
       modal.classList.remove('is-open');state.trigger=null;
-      // No transition event fires when closed before opening, or when animations are disabled.
       state.finish=setTimeout(finish,duration(modal)+50);
     },delay);
   }

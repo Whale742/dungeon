@@ -2012,9 +2012,9 @@ export const CONSUMABLES = [
     slot: 'CONSUMABLE',
     cost: 40,
     basePrice: 40,
-    desc: '使用後恢復單一目標 40% 最大生命值。',
+    desc: '使用後恢復單一目標 35 點生命值。',
     effectType: 'HEALING_POTION',
-    healPercent: 0.40,
+    healAmt: 35,
     icon: '/assets/Equipments/補血藥.webp'
   },
   {

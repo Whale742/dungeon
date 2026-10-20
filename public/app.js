@@ -52,6 +52,41 @@ function showToast(message, type = 'info', duration = 2500) {
 }
 window.showToast = showToast;
 
+function showShopReadyNotice(message) {
+  let container = document.getElementById('shopReadyNoticeContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'shopReadyNoticeContainer';
+    container.className = 'shop-ready-notice-container';
+    document.body.appendChild(container);
+  }
+
+  const notice = document.createElement('div');
+  notice.className = 'shop-ready-notice';
+  notice.innerHTML = `
+    <span class="shop-ready-icon">${getIconSvg('camp', 'ui-icon--sm')}</span>
+    <span class="shop-ready-text">${escapeHtml(message)}</span>
+  `;
+  container.appendChild(notice);
+  playSound('gold');
+
+  requestAnimationFrame(() => {
+    notice.classList.add('is-visible');
+  });
+
+  setTimeout(() => {
+    notice.classList.remove('is-visible');
+    notice.classList.add('is-leaving');
+    setTimeout(() => {
+      notice.remove();
+      if (container && container.children.length === 0) {
+        container.remove();
+      }
+    }, 300);
+  }, 4500);
+}
+window.showShopReadyNotice = showShopReadyNotice;
+
 
 // 核心狀態
 let myId = null;
@@ -899,6 +934,18 @@ function showPrologueSkipNotice(message = '隊長已跳過開頭序章') {
   }, 3200);
 }
 if (typeof window !== 'undefined') window.showPrologueSkipNotice = showPrologueSkipNotice;
+
+socket.on('event:shop_player_ready', (data) => {
+  if (data?.message) {
+    showShopReadyNotice(data.message);
+  }
+});
+
+socket.on('event:shop_closed', () => {
+  closeInventoryModal();
+  forceCloseAllModals();
+  hideItemTooltip(true);
+});
 
 socket.on('prologue:skipped', (data) => {
   if (data?.leaderId && data.leaderId === myId) return;
@@ -3367,20 +3414,27 @@ function renderMyActionBar(me) {
       <span class="skill-name">治療藥 (${potionCount})</span>
       <div class="skill-bottom">
         <span class="skill-kind">補給 / 恢復</span>
-        <span class="skill-cd">HEAL 40%</span>
+        <span class="skill-cd">${me.role === 'bard' ? '自身40/全隊25' : 'HEAL 35'}</span>
       </div>
     `;
 
     potionBtn.addEventListener('click', () => {
       if (isNarrating || isResolving || isLocked) return;
-      const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
-      if (alivePlayers.length > 1) {
-        openTargetModal('item_potion', alivePlayers);
-      } else {
+      if (me.role === 'bard') {
         currentPendingAction = 'use_item_healing_potion';
         currentPendingTarget = me.id;
         playSound('heal');
         renderMyActionBar(me);
+      } else {
+        const alivePlayers = (roomState?.players || []).filter(p => p.hp > 0);
+        if (alivePlayers.length > 1) {
+          openTargetModal('item_potion', alivePlayers);
+        } else {
+          currentPendingAction = 'use_item_healing_potion';
+          currentPendingTarget = me.id;
+          playSound('heal');
+          renderMyActionBar(me);
+        }
       }
     });
 
@@ -3517,7 +3571,11 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     } else if (currentPendingAction === 'b_revive') {
       descEl.textContent = '喚醒一名倒地隊友(恢復35%生命)，下回合雙方脫力無法行動！';
     } else if (currentPendingAction === 'use_item_healing_potion') {
-      descEl.textContent = '消耗隨身背包中 1 瓶治療藥，為目標恢復 40% 最大生命值。';
+      if (me.role === 'bard') {
+        descEl.textContent = '消耗隨身背包中 1 瓶治療藥，恢復自身40點生命，以及除自身外隊友25點生命。';
+      } else {
+        descEl.textContent = '消耗隨身背包中 1 瓶治療藥，為目標恢復 35 點生命值。';
+      }
     } else if (currentPendingAction === 'use_item_antidote') {
       descEl.textContent = '消耗隨身背包中 1 瓶解毒藥，徹底清除目標身上的所有負面狀態。';
     } else if (currentPendingAction) {
@@ -3633,13 +3691,17 @@ function openTargetModal(type, targetList) {
     elements.targetModalDesc.textContent = '請選擇要喚醒歸隊的倒下隊友：(下回合雙方皆會脫力)';
   } else if (type === 'item_potion') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【使用治療藥】選擇目標</span>`;
-    elements.targetModalDesc.textContent = '請選擇要恢復 40% 最大生命的隊友（亦可對自己使用）：';
+    elements.targetModalDesc.textContent = me?.role === 'bard'
+      ? '吟遊詩人專屬效果：恢復自身40點生命，以及除自身外隊友25點生命。'
+      : '請選擇要恢復 35 點生命值的隊友（亦可對自己使用）：';
   } else if (type === 'item_antidote') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【使用解毒藥】選擇目標</span>`;
     elements.targetModalDesc.textContent = '請選擇要清除所有負面狀態的隊友（亦可對自己使用）：';
   } else if (type === 'inv_potion') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('heal')} <span>【使用治療藥】選擇目標隊友</span>`;
-    elements.targetModalDesc.textContent = '請選擇要恢復 40% 生命的隊員：';
+    elements.targetModalDesc.textContent = me?.role === 'bard'
+      ? '吟遊詩人專屬效果：恢復自身40點生命，以及除自身外隊友25點生命。'
+      : '請選擇要恢復 35 點生命的隊員：';
   } else if (type === 'inv_antidote') {
     elements.targetModalTitle.innerHTML = `${getIconSvg('sparkle')} <span>【使用解毒藥】選擇目標隊友</span>`;
     elements.targetModalDesc.textContent = '請選擇要清除所有負面狀態的隊員：';
@@ -6403,9 +6465,9 @@ window.preloadBagAssets = preloadBagAssets;
 
 function toggleInventoryModal() {
   if (!elements.inventoryModal) return;
-  const isClosing = elements.inventoryModal.classList.contains('is-closing');
   const isHidden = elements.inventoryModal.classList.contains('hidden');
-  const isOpen = !isHidden && !isClosing;
+  const isClosing = elements.inventoryModal.classList.contains('is-closing');
+  const isOpen = !isHidden && !isClosing && elements.inventoryModal.classList.contains('is-open');
   if (isOpen) {
     closeInventoryModal();
   } else {
@@ -6417,12 +6479,17 @@ window.toggleInventoryModal = toggleInventoryModal;
 function openInventoryModal() {
   if (!elements.inventoryModal) return;
   playSound('click');
-  renderInventoryModal();
+  try {
+    renderInventoryModal();
+  } catch (err) {
+    console.error('Error rendering inventory modal:', err);
+  }
+  elements.inventoryModal.inert = false;
+  elements.inventoryModal.setAttribute('aria-hidden', 'false');
+  elements.inventoryModal.classList.remove('hidden', 'is-closing');
+  elements.inventoryModal.classList.add('is-open');
   if (window.ModalMotion) {
     ModalMotion.show(elements.inventoryModal);
-  } else {
-    elements.inventoryModal.classList.remove('hidden');
-    elements.inventoryModal.classList.add('is-open');
   }
   updateHudInventoryButtonState();
 }
@@ -6605,7 +6672,16 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
   if (item.battleStartShield) stats.push(`開場護盾 +${item.battleStartShield}`);
   if (item.bonusCrit) stats.push(`暴擊率 +${Math.round(item.bonusCrit * 100)}%`);
 
-  const passiveDesc = item.passive || item.desc || item.statDesc || '無特殊說明';
+  const isHealingPotion = item.id === 'consumable_healing_potion' || item.effectType === 'HEALING_POTION';
+  let passiveDesc = item.passive || item.desc || item.statDesc || '無特殊說明';
+  if (isHealingPotion) {
+    const isBardPersonalBag = (options?.area === 'PERSONAL' || options?.slotMeta?.area === 'PERSONAL') && (getMyPlayer()?.role === 'bard');
+    if (isBardPersonalBag) {
+      passiveDesc = '恢復自身40點生命，以及除自身外隊友25點生命。';
+    } else {
+      passiveDesc = '使用後恢復單一目標 35 點生命值。';
+    }
+  }
   const statsHtml = stats.length > 0 ? `<div class="item-tooltip-stats">${stats.map(s => `<span>${s}</span>`).join('')}</div>` : '';
   const iconHtml = renderItemIconHtml(item, 'tooltip-item-icon');
 
@@ -6795,7 +6871,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
 function pinItemTooltip(item, e, slotMeta) {
   if (!item) return;
   pinnedTooltipInfo = { item, ...slotMeta };
-  showItemTooltip(item, e, false, { isPinned: true, slotMeta });
+  showItemTooltip(item, e, false, { isPinned: true, slotMeta, area: slotMeta?.area });
 }
 
 function hideItemTooltip(force = false) {
@@ -7048,7 +7124,7 @@ function attachSlotDragAndTooltip(slot, area, idx, key, item) {
   if (item) {
     slot.addEventListener('mouseenter', (e) => {
       if (pinnedTooltipInfo) return;
-      showItemTooltip(item, e);
+      showItemTooltip(item, e, false, { area, index: idx, key });
     });
     slot.addEventListener('mousemove', (e) => {
       if (pinnedTooltipInfo) return;
@@ -7450,7 +7526,7 @@ function renderInventoryModal() {
 
   // 5. 鍛造工坊
   if (elements.craftingRecipesList) {
-    const squadIds = squad.map(i => i.id);
+    const squadIds = squad.filter(i => i && i.id).map(i => i.id);
     elements.craftingRecipesList.innerHTML = CRAFTING_RECIPE_TEMPLATES.map(r => {
       const has1 = squadIds.includes(r.item1);
       const remainingIds = squadIds.slice();
@@ -7639,10 +7715,23 @@ function renderInteractiveEvent(ev) {
           <div style="font-size:13px;color:var(--ui-text-muted);">
             ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : (ev.isShady ? '※ 黑市奸商物品售價昂貴，但可強取或暗行行竊' : '※ 商隊信譽優良，提供充足休整與物資')}
           </div>
-          <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary">
-            ${getIconSvg('leave', 'ui-icon--sm')}
-            <span>告別離開 ›</span>
-          </button>
+          ${(() => {
+            const readyList = ev.readyToLeave || [];
+            const myPlayerId = getMyPlayer()?.id || myId;
+            const isMeReady = readyList.includes(myPlayerId);
+            const connectedList = (roomState?.players || []).filter(p => p.connected !== false);
+            const totalMembers = connectedList.length || 1;
+            const readyMembers = connectedList.filter(p => readyList.includes(p.id)).length;
+            const leaveBtnText = isMeReady
+              ? `已準備 (${readyMembers}/${totalMembers})`
+              : (readyMembers > 0 ? `告別離開 (${readyMembers}/${totalMembers}) ›` : '告別離開 ›');
+            return `
+              <button type="button" class="btn-shop-action btn-shop-leave ui-button ${isMeReady ? 'ui-button--secondary is-ready' : 'ui-button--secondary'}" ${isMeReady ? 'disabled style="opacity:0.8;cursor:default;"' : ''}>
+                ${getIconSvg(isMeReady ? 'check' : 'leave', 'ui-icon--sm')}
+                <span>${leaveBtnText}</span>
+              </button>
+            `;
+          })()}
         </div>
 
         ${tabsNavHtml}
@@ -7699,10 +7788,6 @@ function renderInteractiveEvent(ev) {
               </button>
             ` : ''}
           ` : `
-            <button type="button" class="btn-shop-action btn-shop-rest ui-button ui-button--secondary" ${currentGold < (ev.restPrice || 30) ? 'disabled' : ''}>
-              ${getIconSvg('camp', 'ui-icon--sm')}
-              <span>休憩營地 (${ev.restPrice || 30}G / 全員回復 35% HP)</span>
-            </button>
             ${ev.canRob ? `
               <button type="button" class="btn-shop-action btn-shop-rob ui-button ui-button--danger">
                 ${getIconSvg('sword', 'ui-icon--sm')}
@@ -7716,10 +7801,6 @@ function renderInteractiveEvent(ev) {
               </button>
             ` : ''}
           `}
-          <button type="button" class="btn-shop-action btn-shop-sell ui-button ui-button--secondary" style="display:none;">
-            ${getIconSvg('chest', 'ui-icon--sm')}
-            <span>開啟行囊販售</span>
-          </button>
         </div>
       </div>
     `;
@@ -7755,7 +7836,11 @@ function renderInteractiveEvent(ev) {
         <span>【${escapeHtml(item.name)}】</span>
         <span class="shop-item-tag" style="font-size:12px;padding:1px 6px;">${tagLabel}</span>
       `;
-      tradeDesc.textContent = item.desc || item.statDesc || '無特殊說明';
+      let itemDesc = item.desc || item.statDesc || '無特殊說明';
+      if (item.id === 'consumable_healing_potion' || item.effectType === 'HEALING_POTION') {
+        itemDesc = '使用後恢復單一目標 35 點生命值。';
+      }
+      tradeDesc.textContent = itemDesc;
 
       if (isMerchant) {
         const canAfford = currentGold >= item.price;
@@ -8027,9 +8112,17 @@ function renderInteractiveEvent(ev) {
       });
     });
 
-    elements.eventDetails.querySelector('.btn-shop-leave')?.addEventListener('click', () => {
+    elements.eventDetails.querySelector('.btn-shop-leave')?.addEventListener('click', (e) => {
       hideItemTooltip(true);
-      socket.emit('event:shop_action', { action: 'leave' });
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.innerHTML = `${getIconSvg('check', 'ui-icon--sm')} <span>已準備...</span>`;
+      socket.emit('event:shop_action', { action: 'leave' }, (res) => {
+        if (res && !res.success) {
+          showToast(res.message || '操作失敗', 'danger');
+          btn.disabled = false;
+        }
+      });
     });
 
   } else if (ev.type === 'chest') {
