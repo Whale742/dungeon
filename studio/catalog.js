@@ -84,6 +84,15 @@ export function buildCatalog() {
   addStory('event.floor','floor','樓層開始','【第 {floor} 層・深淵探索】');
   addStory('event.routeTransition','route','路線結算','小隊踏入【{route}】，正向第 {floor} 層深處探索前行……');
   addStory('event.bossWeakened','boss','受傷首領','（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）');
+  addStory('event.shop.normal','event','迷宮行商據點','迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。');
+  addStory('event.shop.shady','event','幽暗黑市・神秘奸商','角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。');
+  addStory('event.shop.prep','event','出發備戰據點・後勤物資處','在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！');
+  addStory('event.chest','event','發現古老寶箱！','在陰暗的地城角落，靜靜佇立著一具裝飾精美、未被開啟的神秘寶箱。');
+  addStory('event.trap','event','致命陷阱','地面傳來機關被觸發的清脆聲響，致命的尖刺與毒霧瞬間噴湧而出！');
+  addStory('event.random.wandering_merchant','event','迷途流浪商人','一名背負巨大行囊的流浪行者向你們招手，願意以物易物或分享前方情報。');
+  addStory('event.random.altar','event','古老深淵祭壇','一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。');
+  addStory('event.random.gamble','event','命運賭局','迷霧中擺著一張黑曜石牌桌，一名神秘的發牌人微笑著洗牌。');
+  addStory('event.random.reforge','event','黑鐵重鑄工坊','一座地底矮人廢棄的鍛造台，殘存的爐火依然熾熱。');
   for (const item of LOOT_TABLE) {
     addStory(storyKey('equip', item.role, item.id), 'equipment', item.name, item.desc || '');
   }
@@ -104,6 +113,10 @@ export function buildCatalog() {
   for(const minion of [...EXCLUSIVE_MINIONS, ...GENERAL_MINIONS, ...ABYSS_MINIONS])localAsset(minion.avatar,'bosses','minion.'+encodeURIComponent(minion.name)+'.avatar');
   for(const [key,p] of Object.entries(sfx.assets)){localAsset(p.src,'sfx','sfx.'+key);usage[assetKeyForPath(p.src)]=['sfx-assets.js','presentation-core.js'];}
   for(const [key,p] of Object.entries(bgm)){localAsset(p.src,'bgm','bgm.'+key);usage[assetKeyForPath(p.src)]=['bgm.js'];}
+  localAsset('/assets/bag1.webp','ui','ui.bag.closed');
+  localAsset('/assets/bag2.webp','ui','ui.bag.open');
+  (usage[assetKeyForPath('/assets/bag1.webp')] ||= []).push('index.html', 'app.js', 'bag-presentation.js');
+  (usage[assetKeyForPath('/assets/bag2.webp')] ||= []).push('index.html', 'app.js', 'bag-presentation.js');
   const files=fs.readdirSync(publicDir).filter(f=>/\.(js|css|html)$/.test(f));
   for(const name of files) {
     const source=read(name); const urls=[...source.matchAll(/["'`](\/(?:photo|BOSS|sound|assets|icon)\/[^"'`<>\r\n$]+?\.(?:webp|png|svg|jpg|jpeg|mp3|wav|ogg))["'`]/g)].map(m=>m[1]);

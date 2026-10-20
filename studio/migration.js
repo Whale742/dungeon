@@ -14,6 +14,7 @@ export const FOLDER_MAP = {
   bosses: 'images/bosses/',
   effects: 'images/effects/',
   backgrounds: 'images/backgrounds/',
+  ui: 'images/ui/',
   sfx: 'audio/sfx/',
   bgm: 'audio/bgm/'
 };
