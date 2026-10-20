@@ -16,14 +16,14 @@
   min-height: 0 !important;
 }
 
-.hex-row {
+.hex-grid-squad > .hex-row {
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
   margin: 0 !important;
 }
 
-.hex-row + .hex-row {
+.hex-grid-squad > .hex-row + .hex-row {
   margin-top: -12px !important;
 }
 
@@ -612,7 +612,7 @@
 /* Dual Column Layout */
 .shop-dual-column {
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
   gap: 14px !important;
   align-items: stretch !important;
 }
@@ -678,9 +678,9 @@
 
 .shop-slot-price-tag {
   position: absolute !important;
-  top: 5% !important;
-  right: 8% !important;
-  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  top: 8% !important;
+  right: 18% !important;
+  font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
   color: var(--gold, #dfcf9e) !important;
   background: rgba(13, 22, 30, 0.92) !important;
   border: 1px solid #574d35 !important;
@@ -689,6 +689,16 @@
   z-index: 6 !important;
   pointer-events: none !important;
 }
+
+/* Shop slots have their own readable geometry; inventory sizing stays unchanged. */
+.shop-container .hex-slot { width: 90px !important; height: 104px !important; padding: 0; border: 0; background: transparent; box-shadow: none; gap: 0; }
+.shop-container .hex-grid-squad > .hex-row + .hex-row { margin-top: -22px !important; }
+.shop-container .item-layer { width: 88% !important; height: auto !important; padding-top: 12px; }
+.shop-container .item-layer-name { white-space: normal !important; overflow: visible !important; max-width: 78px !important; font-size: 11px !important; line-height: 1.25 !important; overflow-wrap: anywhere; }
+.shop-container .item-layer-icon-box { height: 26px !important; width: 26px !important; }
+.shop-container .item-equipment-img { max-height: 26px !important; max-width: 26px !important; }
+.shop-container .shop-trade-desc { font-size: 14px !important; line-height: 1.6; overflow-wrap: anywhere; }
+.shop-container .shop-trade-title { font-size: 16px !important; }
 
 /* Shop Trade Inspector */
 .shop-trade-inspector {

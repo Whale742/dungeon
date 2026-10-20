@@ -27,6 +27,12 @@ body:has(#viewEntry.active) .main-content {
   -webkit-backdrop-filter: none;
 }
 
+.entry-sub-screen {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
 /* 蒼藍遺跡背景 (Ancient Abyss Ruins Background) */
 .dungeon-wood-bg {
   position: fixed;
@@ -55,6 +61,13 @@ body:has(#viewEntry.active) .main-content {
   gap: 20px;
   align-items: stretch;
   container-type: inline-size;
+}
+
+#viewLobby.archive-mode .lobby-layout { grid-template-columns: minmax(0, 1fr); }
+#viewLobby .role-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 900px) {
+  #viewLobby .lobby-layout { grid-template-columns: minmax(0, 1fr); }
+
 }
 
 /* =========================================================
@@ -538,6 +551,10 @@ body:has(#viewEntry.active) .main-content {
   min-width: 0;
 }
 
+@media (max-width: 900px) {
+  #viewLobby .role-overview { grid-template-columns: minmax(0, 1fr); }
+}
+
 #viewLobby .role-identity {
   display: flex;
   align-items: flex-start;
@@ -546,10 +563,10 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .role-hero-portrait {
-  width: 104px;
-  height: 104px;
-  flex: 0 0 104px;
-  aspect-ratio: 1 / 1;
+  width: 144px;
+  height: 180px;
+  flex: 0 0 144px;
+  aspect-ratio: 4 / 5;
   border-radius: 2px;
   background: #102533;
   border: 1px solid var(--ornament, #CBB98A);

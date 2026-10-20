@@ -163,7 +163,8 @@ test('Phase 2.6: UI renders 7 honeycomb layers and displays route selection arro
   room.startRouteSelection({ skipIntro: true });
   const clientState = room.getClientState();
 
-  const container = { innerHTML: '' };
+  const canvas = { scrollLeft: 125 };
+  const container = { innerHTML: '', querySelector: () => canvas };
   const sandbox = {
     roomState: clientState,
     elements: { hexMapContainer: container },
@@ -179,6 +180,7 @@ test('Phase 2.6: UI renders 7 honeycomb layers and displays route selection arro
 
   // 1. Select upper-right hex_1_2 from (0, 3) -> curved arrow with scaleY(1)
   sandbox.renderHexGridMap(me, true, 'hex_1_2');
+  assert.equal(canvas.scrollLeft, 125, 'rerender preserves horizontal map position');
   for (let r = 0; r <= 6; r++) {
     assert.equal(container.innerHTML.includes(`data-row="${r}"`), true, `should render row ${r}`);
   }

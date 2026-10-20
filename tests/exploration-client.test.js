@@ -50,6 +50,10 @@ test('narrative hold and last staggered choice finish before ACK', async () => {
   await f.advance(4766);
   assert.equal(f.elements.routeStatusText.classList.contains('hidden'), true);
   await f.advance(1);
+  assert.equal(f.elements.views.route.classList.contains('is-narrating'), false);
+  assert.equal(f.elements.views.route.classList.contains('is-settling'), true);
+  assert.equal(f.elements.routeStatusText.classList.contains('hidden'), true);
+  await f.advance(450);
   assert.equal(f.elements.routeStatusText.classList.contains('hidden'), false);
   assert.equal(f.elements.routeOptionsGrid.classList.contains('hidden'), true);
   await f.advance(250);

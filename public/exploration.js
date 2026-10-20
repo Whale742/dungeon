@@ -54,7 +54,7 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
       overlay.removeEventListener('click', handleFloorClick);
     }
     document.body.classList.remove('presentation-floor-active');
-    view.classList.remove('exploration-enter');
+    view.classList.remove('exploration-enter', 'is-narrating', 'is-settling');
     elements.routeOptionsGrid.classList.remove('exploration-choices-enter');
     elements.routeStatusText.classList.remove('exploration-prompt-enter');
     app.inert = previousInert;
@@ -96,13 +96,16 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
       presentationManager.setBlocking(true);
       app.inert = true; chat.inert = true;
     }
-    view.classList.add('exploration-enter');
+    view.classList.add('exploration-enter', 'is-narrating');
     revealDestinationView('route');
     await waitForPrologue(EXPLORATION_TIMING.sectionEnter, signal);
     await waitForPrologue(EXPLORATION_TIMING.narrativeDelay, signal);
     await typePrologueParagraphs(elements.routeAtmosphereText, paragraphs, signal, EXPLORATION_TIMING);
     await waitForPrologue(EXPLORATION_TIMING.narrativeHold, signal);
 
+    view.classList.remove('is-narrating');
+    view.classList.add('is-settling');
+    await waitForPrologue(450, signal);
     elements.routeStatusText.classList.add('exploration-prompt-enter');
     elements.routeStatusText.classList.remove('hidden');
     document.getElementById('routeDiffPercent')?.closest('.buff-highlight')?.classList.remove('hidden');
@@ -361,7 +364,9 @@ function renderHexGridMap(me, enabled, myVoteId) {
   '</div>';
 
   html += '</div>';
+  const scrollLeft = container.querySelector('.abyss-map-canvas')?.scrollLeft || 0;
   container.innerHTML = html;
+  container.querySelector('.abyss-map-canvas').scrollLeft = scrollLeft;
 
   if (typeof container.querySelectorAll === 'function') {
     container.querySelectorAll('.hex-cell.hex-selectable').forEach(btn => {

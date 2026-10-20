@@ -26,6 +26,25 @@
   min-height: 560px;
 }
 
+/* During narration the story owns the scene. Move the same DOM into its map column before enabling votes. */
+#viewRoute.is-narrating .map-layout { grid-template-columns: minmax(0, 1fr); }
+#viewRoute.is-narrating .map-story { width: min(720px, 100%); margin-inline: auto; }
+#viewRoute.is-narrating .map-side, #viewRoute.is-narrating .map-meta-row { display: none; }
+#viewRoute.is-settling .map-story { animation: story-settle 450ms ease-out both; }
+#viewRoute.is-settling .map-side { animation: map-reveal 450ms ease-out both; }
+@keyframes story-settle { from { opacity: .35; } to { opacity: 1; } }
+@keyframes map-reveal { from { opacity: 0; } to { opacity: 1; } }
+.presentation-floor { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; background: #000; display: grid; place-items: center; pointer-events: auto; opacity: 1; transition: opacity 600ms ease; }
+.presentation-floor.exit { opacity: 0; }
+body.presentation-floor-active .app-header,
+body.presentation-floor-active .narrative-controls,
+body.presentation-floor-active #floatingChatContainer { visibility: hidden !important; }
+.presentation-floor-content { text-align: center; padding: 24px; animation: floor-title-in 600ms 600ms both; }
+.presentation-floor-number { font-size: 20px; color: var(--gold); letter-spacing: .18em; }
+.presentation-floor-title { font-size: clamp(28px, 4vw, 48px); color: var(--light); margin: 18px 0; }
+@keyframes floor-title-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .presentation-floor { transition-duration: .01ms; } }
+
 /* Left Column: Atmospheric Chapter Story & Squad Status */
 .map-story {
   padding: 24px 28px;
@@ -215,7 +234,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   min-height: 380px;
 }
@@ -229,6 +248,8 @@
   justify-content: center;
   gap: 0;
   padding: 6px 10px;
+  flex: 0 0 auto;
+  margin-inline: auto;
 }
 
 .hex-row {
@@ -638,6 +659,8 @@
 }
 
 .transition-story-box {
+  border: 0;
+  box-shadow: none;
   background: transparent;
   padding: 10px 0;
 }

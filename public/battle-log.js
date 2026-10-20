@@ -1,13 +1,29 @@
-// Keep the latest three entries clear; older entries gradually fade and blur.
+// Full history remains readable when expanded.
 function updateBattleLogFade(container) {
- const lines=Array.from(container.children);
- lines.forEach((line,i)=>{
-  const depth=Math.max(0,lines.length-i-3);
-  line.style.setProperty('--log-opacity',String(Math.max(.025,1-depth*.16)));
-  line.style.setProperty('--log-blur',Math.min(5,depth*.65).toFixed(2)+'px');
- });
+ for (const line of container.children) { line.style.setProperty('--log-opacity','1'); line.style.setProperty('--log-blur','0px'); }
+}
+let battleSummaryCursor = { scene: null, round: null, start: 0 };
+function renderBattleRoundSummary(history = []) {
+ const target = document.getElementById('battleRoundSummary');
+ const state = (typeof roomState !== 'undefined' && roomState) || (typeof window !== 'undefined' && window.roomState);
+ if (!target || !state) return;
+ const scene = [state.code, state.floor, state.battleCount || state.currentHex?.id].join(':');
+ const round = state.battleRound || 1;
+ if (battleSummaryCursor.scene !== scene) {
+   battleSummaryCursor = { scene, round, start: round === 1 ? 0 : Math.max(0, history.length - 8) };
+ } else if (battleSummaryCursor.round !== round) {
+   battleSummaryCursor = { scene, round, start: history.length };
+ }
+ const entries = history.slice(battleSummaryCursor.start).filter(log => log.type !== 'chat');
+ const important = entries.filter(log => /damage|heal|buff|warning|combat|death/.test(log.type || ''));
+ const selected = (important.length ? important : entries).slice(-4);
+ target.replaceChildren();
+ const heading = document.createElement('h3'); heading.textContent = '第 ' + round + ' 回合摘要'; target.append(heading);
+ if (!selected.length) { const p = document.createElement('p'); p.textContent = '等待本回合戰況'; target.append(p); }
+ for (const log of selected) { const p = document.createElement('p'); p.textContent = String(log.text || '').replace(/\*\*/g, '').replace(/\p{Extended_Pictographic}|[\uFE0F\u200D]/gu, ''); target.append(p); }
 }
 function renderRecentBattleLogs(container, history = []) {
+  renderBattleRoundSummary(history);
   container.dataset.battleLogStream='true';
   if(!container._logScrollBound){
     container._logScrollBound=true;
@@ -38,8 +54,10 @@ function renderRecentBattleLogs(container, history = []) {
   container.scrollTop=container.scrollHeight;
   updateBattleLogFade(container);
 }
-window.addEventListener('resize',()=>{
-  document.querySelectorAll('[data-battle-log-stream]').forEach(container=>{
-    container.scrollTop=container.scrollHeight;updateBattleLogFade(container);
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('resize',()=>{
+    document.querySelectorAll('[data-battle-log-stream]').forEach(container=>{
+      container.scrollTop=container.scrollHeight;updateBattleLogFade(container);
+    });
   });
-});
+}

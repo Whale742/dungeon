@@ -2082,6 +2082,7 @@ function renderTransition() {
       elements.transitionStoryTitle.textContent = trans.storyTitle || `【${trans.routeName}】`;
     }
 
+    if (elements.transitionStoryText) elements.transitionStoryText.textContent = '';
     const titleSpeed = 60;
     const storySpeed = 20;
 

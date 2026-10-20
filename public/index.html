@@ -587,7 +587,7 @@
             </div>
           </div>
         </div>
-        <div class="glass-panel event-card" id="eventCardBox">
+        <div class="event-card" id="eventCardBox">
           <div class="event-icon" id="eventIcon"><svg class="svg-icon svg-hero-icon"><use href="#icon-chest"></use></svg></div>
           <h2 id="eventTitle" class="section-title">發現遠古寶箱！</h2>
           <div id="eventStoryText" class="event-story-text"></div>
@@ -641,12 +641,13 @@
               </h2>
               <span class="eyebrow">LIVE</span>
             </div>
+            <div id="battleRoundSummary" class="battle-round-summary" aria-live="polite"></div>
             <div id="combatLogWindow" class="feed-list log-window battle-log-window">
               <div class="feed-item log-line info"><span class="feed-time">TURN 01 / 01</span><div class="feed-msg">戰鬥開始！請全體隊員下達行動指令。</div></div>
             </div>
             <div class="feed-footer">
               <span class="feed-state">紀錄同步中</span>
-              <button class="btn ghost small log-drawer-handle" id="logDrawerHandle" title="展開/收合戰況日誌" aria-expanded="true">
+              <button class="btn ghost small log-drawer-handle" id="logDrawerHandle" title="展開/收合戰況日誌" aria-expanded="false" aria-controls="combatLogWindow">
                 完整紀錄 <svg class="ico sm"><use href="#icon-arrow-down"/></svg>
               </button>
             </div>

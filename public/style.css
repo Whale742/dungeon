@@ -2163,16 +2163,7 @@ input[type="text"]::placeholder {
   box-shadow: none;
 }
 
-.transition-story-box {
-  background: rgba(27, 32, 32, 0.88);
-  border: 1px solid var(--ui-border, #59615A);
-  border-radius: var(--ui-radius, 2px);
-  padding: 24px 30px;
-  text-align: left;
-  margin: 0 auto 24px auto;
-  max-width: 760px;
-  box-shadow: none;
-}
+/* Route story layout is owned by exploration.css. */
 
 .transition-story-title {
   font-family: var(--font-display);
@@ -6485,7 +6476,7 @@ body.presentation-opening .narrative-controls,
   margin: 14px 0;
 }
 
-.shop-item-card {
+.shop-item-card:not(.hex-slot) {
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(51, 65, 85, 0.8);
   border-radius: 12px;
@@ -6497,7 +6488,7 @@ body.presentation-opening .narrative-controls,
   cursor: pointer;
   min-width: 0;
 }
-.shop-item-card:hover {
+.shop-item-card:not(.hex-slot):hover {
   background: rgba(30, 41, 59, 0.95);
   border-color: #38bdf8;
   transform: translateY(-2px);
@@ -7531,11 +7522,11 @@ body.presentation-opening .narrative-controls,
   margin-bottom: 12px;
 }
 
-.shop-item-card.is-consumable {
+.shop-item-card:not(.hex-slot).is-consumable {
   border-color: rgba(52, 211, 153, 0.35);
   background: rgba(6, 78, 59, 0.25);
 }
-.shop-item-card.is-buyback {
+.shop-item-card:not(.hex-slot).is-buyback {
   border-color: rgba(251, 191, 36, 0.35);
   background: rgba(120, 53, 15, 0.25);
 }
@@ -7647,7 +7638,7 @@ body.presentation-opening .narrative-controls,
   gap: 12px;
   margin-top: 6px;
 }
-.shop-item-card {
+.shop-item-card:not(.hex-slot) {
   background: var(--surface-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -7660,22 +7651,22 @@ body.presentation-opening .narrative-controls,
   position: relative;
   outline: none;
 }
-.shop-item-card:hover, .shop-item-card:focus-visible {
+.shop-item-card:not(.hex-slot):hover, .shop-item-card:not(.hex-slot):focus-visible {
   transform: translateY(-2px);
   border-color: var(--color-brass-bright);
   box-shadow: var(--shadow-floating);
 }
-.shop-item-card:focus-visible {
+.shop-item-card:not(.hex-slot):focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
-.shop-item-card.is-exclusive {
+.shop-item-card:not(.hex-slot).is-exclusive {
   border-color: rgba(184, 166, 223, 0.5);
 }
-.shop-item-card.is-rare {
+.shop-item-card:not(.hex-slot).is-rare {
   border-color: rgba(212, 172, 99, 0.5);
 }
-.shop-item-card.is-consumable {
+.shop-item-card:not(.hex-slot).is-consumable {
   border-color: rgba(95, 179, 142, 0.5);
 }
 .shop-item-icon-wrap {

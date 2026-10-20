@@ -890,7 +890,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .battle-feed .section-title {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.04em;
   margin: 0;
@@ -906,6 +906,11 @@ body:has(#viewBattle.active) .main-content {
   height: 16px;
 }
 
+.battle-round-summary { overflow-y: auto; flex: 1; min-height: 0; font-size: 14px; line-height: 1.65; }
+.battle-round-summary h3 { font-size: 16px; color: var(--gold); margin: 0 0 14px; }
+.battle-round-summary p { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.battle-feed:not(.is-open) #combatLogWindow { display: none !important; }
+.battle-feed.is-open .battle-round-summary { display: none; }
 .battle-feed .feed-list,
 .battle-feed .battle-log-window {
   display: flex !important;
@@ -931,21 +936,21 @@ body:has(#viewBattle.active) .main-content {
   display: flex !important;
   flex-direction: column !important;
   gap: 3px !important;
-  font-size: 11.5px !important;
+  font-size: 14px !important;
   line-height: 1.5 !important;
   color: var(--secondary, #b9c4ce) !important;
   background: transparent !important;
 }
 
 .feed-item .feed-time {
-  font: 700 9px var(--pixel, 'Silkscreen', monospace) !important;
+  font: 700 12px var(--pixel, 'Silkscreen', monospace) !important;
   color: #66869b !important;
   letter-spacing: 0.05em;
 }
 
 .feed-item .feed-msg,
 .battle-feed .log-line {
-  font-size: 11.5px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--secondary, #b9c4ce);
   word-break: break-word;
@@ -970,13 +975,15 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .battle-feed .feed-footer {
+  flex-wrap: wrap;
+  gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--line, #284457);
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: #6a92a4;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: auto;
   flex-shrink: 0;
 }
@@ -985,7 +992,7 @@ body:has(#viewBattle.active) .main-content {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .feed-state:before {
@@ -998,11 +1005,14 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .battle-feed .log-drawer-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid #3a5667;
   background: transparent;
   color: #b7cad3;
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: 12px;
   min-height: 24px;
   cursor: pointer;
 }
@@ -1067,7 +1077,7 @@ body:has(#viewBattle.active) .main-content {
 
 .arena-top .eyebrow {
   color: #a8cbd4;
-  font: 700 10px var(--pixel, 'Silkscreen', monospace);
+  font: 700 12px var(--pixel, 'Silkscreen', monospace);
   letter-spacing: 0.12em;
 }
 
@@ -1076,7 +1086,7 @@ body:has(#viewBattle.active) .main-content {
   align-items: center;
   gap: 8px;
   color: #b5c9d2;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .round-count b {
@@ -1154,7 +1164,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .enemy-cd-badge {
-  font: 700 9px var(--pixel, 'Silkscreen', monospace) !important;
+  font: 700 12px var(--pixel, 'Silkscreen', monospace) !important;
   color: #eea4a1 !important;
   border: 1px solid #855567 !important;
   padding: 1px 6px !important;
@@ -1191,7 +1201,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .tos-enemy-hp-text {
-  font: 700 9px var(--pixel, 'Silkscreen', monospace) !important;
+  font: 700 12px var(--pixel, 'Silkscreen', monospace) !important;
   color: #a5c1ca !important;
   display: flex !important;
   gap: 4px !important;
@@ -1199,7 +1209,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .tos-enemy-name {
-  font-size: 11px !important;
+  font-size: 14px !important;
   color: #dce7eb !important;
   font-weight: 700 !important;
   text-align: center !important;
@@ -1230,7 +1240,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .section-title-mini {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.06em;
   margin: 0;
@@ -1290,7 +1300,7 @@ body:has(#viewBattle.active) .main-content {
   align-items: center;
   gap: 6px;
   font-weight: 800;
-  font-size: 11px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1314,7 +1324,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .action-status-dot {
-  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  font: 700 12px var(--pixel, 'Silkscreen', monospace) !important;
   padding: 1px 5px !important;
   border-radius: 2px !important;
   border: 1px solid #3a5b6d !important;
@@ -1350,15 +1360,16 @@ body:has(#viewBattle.active) .main-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font: 700 8.5px var(--pixel, 'Silkscreen', monospace) !important;
+  font: 700 12px var(--pixel, 'Silkscreen', monospace) !important;
   color: var(--azure, #6fb7e9) !important;
 }
 
+.teammate-tags .compact-role-state { height: auto; min-height: 24px; max-height: none; margin: 0; }
 .teammate-tags {
   display: flex;
   gap: 3px;
   flex-wrap: wrap;
-  font-size: 8.5px;
+  font-size: 12px;
 }
 
 .party-strip .equip-list {
@@ -1387,7 +1398,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .command-top h2 {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   margin: 0;
   letter-spacing: 0.04em;
@@ -1398,7 +1409,7 @@ body:has(#viewBattle.active) .main-content {
 
 .command-top h2 span {
   color: var(--muted, #7e8c96);
-  font: 700 9px var(--pixel, 'Silkscreen', monospace);
+  font: 700 12px var(--pixel, 'Silkscreen', monospace);
   margin-left: 6px;
 }
 
@@ -1457,7 +1468,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .skill-btn.skill .skill-name {
-  font-size: 11.5px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.25;
   white-space: nowrap;
@@ -1474,11 +1485,11 @@ body:has(#viewBattle.active) .main-content {
 
 .skill-btn.skill .skill-kind {
   color: #92b0bf;
-  font: 700 8.5px var(--pixel, 'Silkscreen', monospace);
+  font: 700 12px var(--pixel, 'Silkscreen', monospace);
 }
 
 .skill-btn.skill .skill-cd {
-  font: 700 8.5px var(--pixel, 'Silkscreen', monospace);
+  font: 700 12px var(--pixel, 'Silkscreen', monospace);
   color: var(--gold, #dfcf9e);
 }
 
@@ -1502,15 +1513,17 @@ body:has(#viewBattle.active) .main-content {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: #f0f6fa;
 }
 
 .selected-skill-desc {
+  max-height: 4.2em;
+  overflow-y: auto;
   color: var(--secondary, #b9c4ce);
   line-height: 1.35;
-  font-size: 11px;
+  font-size: 14px;
   margin-top: 1px;
 }
 
@@ -1519,12 +1532,13 @@ body:has(#viewBattle.active) .main-content {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding-right: 68px;
 }
 
 .confirm-action.btn-lock {
   min-width: 140px;
   padding: 8px 16px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
