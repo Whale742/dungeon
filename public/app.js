@@ -358,6 +358,7 @@ function forceCloseAllModals() {
   if (avatarModal) ModalMotion.hide(avatarModal);
   const chatPopup = document.getElementById('chatPopupCard');
   if (chatPopup) chatPopup.classList.add('hidden');
+  if (typeof updateHudInventoryButtonState === 'function') updateHudInventoryButtonState();
 }
 if (typeof window !== 'undefined') window.forceCloseAllModals = forceCloseAllModals;
 
@@ -6028,6 +6029,51 @@ function renderHexSlotContent(item, badgeText, watermarkSvg = '') {
   `;
 }
 
+function updateHudInventoryButtonState() {
+  const btn = elements?.btnOpenInventory || document.getElementById('btnOpenInventory');
+  const img = document.getElementById('hudBagIcon');
+  const modal = elements?.inventoryModal || document.getElementById('inventoryModal');
+  if (!btn || !img || !modal) return;
+  const isClosing = modal.classList.contains('is-closing');
+  const isHidden = modal.classList.contains('hidden');
+  const isOpen = !isHidden && !isClosing;
+
+  btn.classList.toggle('active', isOpen);
+  btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+  const targetKey = isOpen ? 'ui.bag.open' : 'ui.bag.closed';
+  const fallbackPath = isOpen ? '/assets/bag2.webp' : '/assets/bag1.webp';
+  const resolved = window.assetRegistry ? window.assetRegistry.resolve(targetKey, fallbackPath) : fallbackPath;
+  if (img.getAttribute('src') !== resolved) {
+    img.src = resolved;
+  }
+}
+window.updateHudInventoryButtonState = updateHudInventoryButtonState;
+
+function preloadBagAssets() {
+  const closedSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.closed', '/assets/bag1.webp') : '/assets/bag1.webp';
+  const openSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.open', '/assets/bag2.webp') : '/assets/bag2.webp';
+  [closedSrc, openSrc].forEach(src => {
+    if (!src) return;
+    const img = new Image();
+    img.src = src;
+  });
+}
+window.preloadBagAssets = preloadBagAssets;
+
+function toggleInventoryModal() {
+  if (!elements.inventoryModal) return;
+  const isClosing = elements.inventoryModal.classList.contains('is-closing');
+  const isHidden = elements.inventoryModal.classList.contains('hidden');
+  const isOpen = !isHidden && !isClosing;
+  if (isOpen) {
+    closeInventoryModal();
+  } else {
+    openInventoryModal();
+  }
+}
+window.toggleInventoryModal = toggleInventoryModal;
+
 function openInventoryModal() {
   if (!elements.inventoryModal) return;
   playSound('click');
@@ -6038,6 +6084,7 @@ function openInventoryModal() {
     elements.inventoryModal.classList.remove('hidden');
     elements.inventoryModal.classList.add('is-open');
   }
+  updateHudInventoryButtonState();
 }
 
 function closeInventoryModal() {
@@ -6050,6 +6097,7 @@ function closeInventoryModal() {
     elements.inventoryModal.classList.remove('is-open');
     elements.inventoryModal.classList.add('hidden');
   }
+  updateHudInventoryButtonState();
 }
 window.openInventoryModal = openInventoryModal;
 window.closeInventoryModal = closeInventoryModal;
@@ -7834,12 +7882,26 @@ socket.on('abyss:red_eye_flash', () => {
 });
 
 // 行囊視窗按鈕綁定
-elements.btnOpenInventory?.addEventListener('click', openInventoryModal);
+elements.btnOpenInventory?.addEventListener('click', toggleInventoryModal);
 elements.btnCloseInventoryModal?.addEventListener('click', closeInventoryModal);
 elements.inventoryModal?.addEventListener('click', (e) => {
   if (e.target === elements.inventoryModal) {
     closeInventoryModal();
   }
+});
+
+// 行囊開啟/關閉狀態即時同步 HUD 按鈕 (bag1.webp / bag2.webp)
+if (elements.inventoryModal) {
+  const invObserver = new MutationObserver(() => {
+    updateHudInventoryButtonState();
+  });
+  invObserver.observe(elements.inventoryModal, { attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
+}
+preloadBagAssets();
+updateHudInventoryButtonState();
+window.addEventListener('studio:content-ready', () => {
+  preloadBagAssets();
+  updateHudInventoryButtonState();
 });
 elements.btnToggleCraftingPanel?.addEventListener('click', () => {
   if (!elements.craftingPanelBody) return;

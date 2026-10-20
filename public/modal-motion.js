@@ -26,10 +26,12 @@
     modal.classList.remove('hidden','is-closing');
     modal.inert=false;modal.setAttribute('aria-hidden','false');
     if(!reopening)modal.classList.remove('is-open');
+    if(modal.id==='inventoryModal'&&typeof global.updateHudInventoryButtonState==='function')global.updateHudInventoryButtonState();
     // Commit the initial blur/scale before the delayed transition starts.
     void modal.offsetWidth;
     state.trigger=setTimeout(()=>{
       modal.classList.add('is-open');state.phase='open';state.trigger=null;
+      if(modal.id==='inventoryModal'&&typeof global.updateHudInventoryButtonState==='function')global.updateHudInventoryButtonState();
     },delay);
   }
   function hide(modal) {
@@ -39,12 +41,14 @@
     cancel(state);state.phase='closing';
     modal.classList.add('is-closing');
     modal.inert=true;modal.setAttribute('aria-hidden','true');
+    if(modal.id==='inventoryModal'&&typeof global.updateHudInventoryButtonState==='function')global.updateHudInventoryButtonState();
     void modal.offsetWidth;
     state.trigger=setTimeout(()=>{
       const finish=()=>{
         cancel(state);
         modal.classList.add('hidden');modal.classList.remove('is-closing');
         state.phase='closed';
+        if(modal.id==='inventoryModal'&&typeof global.updateHudInventoryButtonState==='function')global.updateHudInventoryButtonState();
       };
       state.card=modal.querySelector('.modal-card');
       state.onEnd=event=>{

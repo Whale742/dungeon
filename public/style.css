@@ -431,6 +431,37 @@ h1, h2, h3, h4, h5, h6 {
   transform: none;
 }
 
+/* 頂部 HUD 行囊按鈕 (Bag Button & Dynamic Open/Close) */
+.btn-hud-bag {
+  position: relative;
+  transition: background-color var(--duration-fast, 150ms) ease, border-color var(--duration-fast, 150ms) ease, box-shadow var(--duration-fast, 150ms) ease;
+}
+
+.btn-hud-bag.active {
+  background: #1a394d;
+  border-color: var(--azure, #6FB7E9);
+  color: var(--bright, #9CDBF9);
+  box-shadow: 0 0 10px rgba(111, 183, 233, 0.35);
+}
+
+.hud-bag-icon {
+  width: 20px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+  transition: transform var(--duration-fast, 150ms) ease, filter var(--duration-fast, 150ms) ease;
+}
+
+.btn-hud-bag:hover .hud-bag-icon {
+  filter: brightness(1.2) drop-shadow(0 0 4px rgba(111, 183, 233, 0.5));
+  transform: scale(1.08);
+}
+
+.btn-hud-bag:active .hud-bag-icon {
+  transform: scale(0.95);
+}
+
 .btn-icon-danger {
   background: #51313c;
   border-color: #9b6870;
