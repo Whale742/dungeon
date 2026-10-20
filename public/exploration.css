@@ -277,6 +277,7 @@ body.presentation-floor-active #floatingChatContainer { visibility: hidden !impo
   display: block;
   text-align: center;
   min-height: 380px;
+  scrollbar-width: none;
 }
 
 .hex-grid-board {

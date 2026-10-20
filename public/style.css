@@ -652,6 +652,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border-subtle, #344B59);
   border-radius: var(--ui-radius, 2px);
   box-shadow: none;
+  z-index: 9999;
 }
 
 #headerBurgerMenu #bgmVolumePanel[hidden] {
