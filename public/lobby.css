@@ -606,10 +606,9 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .role-hero-portrait {
-  width: 144px;
-  height: 180px;
+  height: auto;
   flex: 0 0 144px;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 1;
   border-radius: 2px;
   background: #102533;
   border: 1px solid var(--ornament, #CBB98A);

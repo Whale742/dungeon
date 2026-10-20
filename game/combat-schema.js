@@ -55,6 +55,39 @@ export function playerStatuses(player, room, balance) {
     const sageShield=(player.p8Shields||[]).find(s=>s.kind==='sage'&&s.value>0&&s.until>=room.battleRound);
     if(sageShield)add('sage_shield','彈性碰撞護盾','shield',sageShield.until-room.battleRound+1,{value:sageShield.value});
     if (player.corruption) add('corruption', '深淵腐化', 'corruption', 0, { locked: true, stacks: player.corruption });
+
+    // 被動隊長技 buff 顯示（使用職業專屬裝備圖示）
+    const leaderRole = room?.getEffectiveLeaderRole?.();
+    if (leaderRole) {
+      if (leaderRole === 'warrior') {
+        const hasWarriorShield = (player.p8Shields || []).some(s => s.kind === 'warrior' && s.value > 0);
+        if (hasWarriorShield) {
+          add('leader_warrior', '堅盾戰意', 'buff', 1, { isLeaderPassive: true, leaderRole: 'warrior', desc: '持有戰士護盾，攻擊力 +10%' });
+        }
+      } else if (leaderRole === 'mage') {
+        add('leader_mage', '魔力共鳴', 'buff', 0, { isLeaderPassive: true, leaderRole: 'mage', desc: '全隊共享 70% 治療效果' });
+      } else if (leaderRole === 'archer') {
+        add('leader_archer', '疾風步法', 'buff', 0, { isLeaderPassive: true, leaderRole: 'archer', desc: '隊友閃避機率 +20%' });
+      } else if (leaderRole === 'bard' && player.role === 'bard') {
+        add('leader_bard', '撫慰樂章', 'buff', 0, { isLeaderPassive: true, leaderRole: 'bard', desc: '1技能補血效果 +10%' });
+      } else if (leaderRole === 'dreamweaver' && player.role === 'dreamweaver') {
+        add('leader_dreamweaver', '美夢成真', 'buff', 0, { isLeaderPassive: true, leaderRole: 'dreamweaver', desc: '夢蝶必為正面效果' });
+      } else if (leaderRole === 'paladin') {
+        add('leader_paladin', '聖光庇護', 'buff', 0, { isLeaderPassive: true, leaderRole: 'paladin', desc: '全隊共享普攻護盾' });
+      } else if (leaderRole === 'gladiator' && player.role === 'gladiator' && room.arena && room.arena.playerId === player.id) {
+        add('leader_gladiator', '鬥技場之王', 'buff', 0, { isLeaderPassive: true, leaderRole: 'gladiator', desc: '角鬥場增傷 +10%' });
+      } else if (leaderRole === 'stargazer' && room.stargazerBoundaryScoutedNext) {
+        add('leader_stargazer', '界外星圖', 'buff', 0, { isLeaderPassive: true, leaderRole: 'stargazer', desc: '下次選路線全事件洞悉' });
+      } else if (leaderRole === 'augur') {
+        add('leader_augur', '洞悉虛妄', 'buff', 0, { isLeaderPassive: true, leaderRole: 'augur', desc: '看破寶箱怪與奸商' });
+      } else if (leaderRole === 'samurai') {
+        add('leader_samurai', '名刀鑑賞', 'buff', 0, { isLeaderPassive: true, leaderRole: 'samurai', desc: '商店武器 1階6折/2階9折' });
+      } else if (leaderRole === 'sage' && player.role === 'sage' && player.sagePhase === 'hypothesis') {
+        add('leader_sage', '守勢推演', 'buff', 0, { isLeaderPassive: true, leaderRole: 'sage', desc: '假設階段減傷 20%' });
+      } else if (leaderRole === 'alchemist' && player.role === 'alchemist') {
+        add('leader_alchemist', '高產萃取', 'buff', 0, { isLeaderPassive: true, leaderRole: 'alchemist', desc: '普攻/1技能獲藥率 40%' });
+      }
+    }
   }
   statuses.push(...p8State(player, room).phase8Statuses);
   return statuses;

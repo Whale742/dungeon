@@ -459,7 +459,14 @@ export const phase8Methods = {
   },
   p8DreamDamage(target,raw) {
     const effect=this.p8Has(target,'dream_butterfly');if(!effect||raw<=0)return null;
-    const dream = effect.dreamOutcome || (Math.random()<.6 ? 'dream_heal' : 'nightmare');
+    let dream = effect.dreamOutcome;
+    if (!dream) {
+      if (this.getEffectiveLeaderRole?.() === 'dreamweaver') {
+        dream = (target === this.currentMonster) ? 'nightmare' : 'dream_heal';
+      } else {
+        dream = (Math.random()<.6 ? 'dream_heal' : 'nightmare');
+      }
+    }
     if(dream==='dream_heal') {
       let healed;
       if(target===this.currentMonster) {
@@ -585,8 +592,12 @@ export const phase8Methods = {
           outcome={type:id,label:names[id]};this.p8Log(`織夢術士撥動夢境纖維，魔物陷入【${names[id]}】狀態！`);
         }
       } else if(p.action==='dw_butterfly') {
-        const dreamOutcome=Math.random()<.6?'dream_heal':'nightmare';
-        const applied=effect(this.players[p.targetPlayerId]||m,'dream_butterfly','夢蝶迷思',turns,{ownerId:p.id,dreamOutcome});
+        const targetEntity = this.players[p.targetPlayerId] || m;
+        let dreamOutcome = Math.random()<.6 ? 'dream_heal' : 'nightmare';
+        if (this.getEffectiveLeaderRole?.() === 'dreamweaver') {
+          dreamOutcome = (targetEntity === m) ? 'nightmare' : 'dream_heal';
+        }
+        const applied=effect(targetEntity,'dream_butterfly','夢蝶迷思',turns,{ownerId:p.id,dreamOutcome});
         outcome=applied?{type:dreamOutcome,label:dreamOutcome==='dream_heal'?'美夢化生':'夢魘成真'}:{type:'immune',label:'效果免疫'};
       }
       else if(p.action==='dw_false_dream' && this.monsterAllowsEffect('虛構歷史')) {
@@ -606,6 +617,10 @@ export const phase8Methods = {
         const enhanced=['sg_eyepiece','sg_tube','sg_mount'].every(id=>countEquip(p,id));const r=Math.random();
         const id=enhanced?['planet','galaxy','blackhole','boundary'][Math.min(3,Math.floor(r*4))]:r<.6?'star':r<.7?'planet':r<.8?'galaxy':r<.9?'blackhole':'boundary';
         outcome={type:id,label:{star:'發現星座',planet:'發現星球',galaxy:'發現星系',blackhole:'發現黑洞',boundary:'發現宇宙邊界'}[id],enhanced};
+        if (id === 'boundary' && this.getEffectiveLeaderRole?.() === 'stargazer') {
+          this.stargazerBoundaryScoutedNext = true;
+          this.p8Log('🌌 【界外星圖】觀星者隊長勘破宇宙邊界！次回合路線中的三條路事件全數洞悉揭曉！');
+        }
         if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':'sg_planet')+(enhanced?10:0))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
         if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:this.skillValue(p,'sg_bonus'),sourceId:p.id});
         if(id==='blackhole') {

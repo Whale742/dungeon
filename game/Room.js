@@ -444,7 +444,8 @@ export class Room {
           isRevealed: Boolean(node.isRevealed),
           isVisited: Boolean(node.isVisited),
           isScouted: Boolean(node.isScouted),
-          isKnownMimic: Boolean(this.getEffectiveLeaderRole() === 'archer' && node.isMimic && (node.isScouted || node.isRevealed)),
+          isKnownMimic: Boolean((this.getEffectiveLeaderRole() === 'archer' && node.isMimic && (node.isScouted || node.isRevealed)) || (this.getEffectiveLeaderRole() === 'augur' && node.isMimic)),
+          isKnownShady: Boolean(this.getEffectiveLeaderRole() === 'augur' && node.isShadyMerchant),
           inVision,
           isCurrent,
           isSelectable: selectableIds.has(node.id),
@@ -1279,19 +1280,32 @@ export class Room {
       this.tryScoutColumn(nextCol);
     }
     const adjHexes = this.getAdjacentNextHexes(this.currentHex?.col ?? 0, this.currentHex?.row ?? 3);
+    if (this.stargazerBoundaryScoutedNext) {
+      for (const hex of adjHexes) {
+        hex.isRevealed = true;
+      }
+      this.addLog('🌌 【界外星圖】觀星者隊長勘破宇宙邊界！次回合路線中的三條路事件全數洞悉揭曉！', 'buff');
+      this.stargazerBoundaryScoutedNext = false;
+    }
     this.currentRoutes = adjHexes.length > 0 ? adjHexes.map(hex => ({
       id: hex.id,
       hexId: hex.id,
       routeId: hex.routeId,
       col: hex.col,
       row: hex.row,
-      name: hex.isRevealed
-        ? hex.name
-        : hex.isScouted && hex.type === 'SHOP'
-          ? `【偵測：商店】${hex.name}`
-          : hex.isScouted && hex.type === 'CHEST'
-            ? `【偵測：寶箱】${hex.name}`
-            : hex.name,
+      name: (() => {
+        if (this.getEffectiveLeaderRole() === 'augur') {
+          if (hex.type === 'CHEST') return hex.isMimic ? `【洞悉：寶箱怪！】${hex.name}` : `【洞悉：真寶箱】${hex.name}`;
+          if (hex.type === 'SHOP') return hex.isShadyMerchant ? `【洞悉：黑市奸商！】${hex.name}` : `【洞悉：誠信商隊】${hex.name}`;
+        }
+        return hex.isRevealed
+          ? hex.name
+          : hex.isScouted && hex.type === 'SHOP'
+            ? `【偵測：商店】${hex.name}`
+            : hex.isScouted && hex.type === 'CHEST'
+              ? `【偵測：寶箱】${hex.name}`
+              : hex.name;
+      })(),
       desc: hex.isRevealed
         ? hex.desc
         : hex.isScouted && hex.type === 'SHOP'
@@ -1745,8 +1759,10 @@ export class Room {
         continue;
       }
 
-      if (p.role === 'archer' && this.checkDodge(p, CLASSES.archer.dodgeRate)) {
-        trapLogs.push(`🪶 弓箭手 **${p.name}** 憑藉超凡敏捷側身翻滾，無傷避開了陷阱！`);
+      const isArcherLeader = (this.getEffectiveLeaderRole() === 'archer');
+      const baseTrapDodge = (p.role === 'archer') ? CLASSES.archer.dodgeRate : 0;
+      if ((p.role === 'archer' || isArcherLeader) && this.checkDodge(p, baseTrapDodge)) {
+        trapLogs.push(`💨 **${p.name}** 發動疾風步法，敏捷閃避了陷阱傷害！`);
         hits.push({ targetId: p.id, role: p.role, dodged: true, damage: 0, hpSnapshot: this.getHpSnapshot() });
         continue;
       }
@@ -2033,6 +2049,17 @@ export class Room {
   // Overheal 超量治療計算 (不污染原始 normalMaxHp)
   applyHealWithOverheal(player, healAmount, options = {}) {
     if (player.hp <= 0 || healAmount <= 0) return 0;
+
+    // 法師隊長技【魔力共鳴】：回血效果同時對所有隊友觸發，但是只有原本的70%
+    if (!options.isResonance && this.getEffectiveLeaderRole() === 'mage') {
+      const resonanceAmount = Math.max(1, Math.round(healAmount * 0.70));
+      for (const ally of Object.values(this.players)) {
+        if (ally.id !== player.id && ally.hp > 0) {
+          this.applyHealWithOverheal(ally, resonanceAmount, { ...options, isResonance: true });
+        }
+      }
+      healAmount = resonanceAmount;
+    }
     if(this.p8Has(player,'blood_heal'))healAmount=Math.floor(healAmount*1.2);
     let absorbedDebt=0;
     if (!options.directHp && player.role === 'augur' && player.augurFateDebts && player.augurFateDebts.length > 0) {
@@ -2075,6 +2102,17 @@ export class Room {
   // 吸血治療（上限不高於原始最大生命，絕不溢出轉為 tempHp）
   applyHealCapped(player, healAmount, options = {}) {
     if (player.hp <= 0 || healAmount <= 0) return 0;
+
+    // 法師隊長技【魔力共鳴】：回血效果同時對所有隊友觸發，但是只有原本的70%
+    if (!options.isResonance && this.getEffectiveLeaderRole() === 'mage') {
+      const resonanceAmount = Math.max(1, Math.round(healAmount * 0.70));
+      for (const ally of Object.values(this.players)) {
+        if (ally.id !== player.id && ally.hp > 0) {
+          this.applyHealWithOverheal(ally, resonanceAmount, { ...options, isResonance: true });
+        }
+      }
+      healAmount = resonanceAmount;
+    }
     if(this.p8Has(player,'blood_heal'))healAmount=Math.floor(healAmount*1.2);
     let absorbedDebt=0;
     if (!options.directHp && player.role === 'augur' && player.augurFateDebts && player.augurFateDebts.length > 0) {
@@ -2127,11 +2165,10 @@ export class Room {
       remaining = Math.max(1, Math.floor(remaining * 0.85));
     }
 
-    // 戰士隊長技：每場戰鬥首次生命降至 30% 以下時，所受傷害降低 50%
-    if (this.getEffectiveLeaderRole() === 'warrior' && !this.warriorLeaderGuarded && (player.hp + (player.tempHp || 0) - remaining) < player.maxHp * 0.30) {
-      remaining = Math.max(1, Math.floor(remaining * 0.5));
-      this.warriorLeaderGuarded = true;
-      this.p8Log(`🛡️ 【堅守陣線】戰士隊長守護觸發，${player.name} 承受傷害降低 50%！`);
+    // 智者隊長技【守勢推演】：在假設階段獲得 20% 減傷
+    if (this.getEffectiveLeaderRole() === 'sage' && player.role === 'sage' && player.sagePhase === 'hypothesis') {
+      remaining = Math.max(1, Math.floor(remaining * 0.80));
+      this.p8Log(`📐 【守勢推演】智者隊長處於假設階段，獲得 20% 傷害減免！`);
     }
 
     // 織夢術士隊長技：50% 傷害延後至下一回合
@@ -2464,7 +2501,14 @@ export class Room {
             type: 'buff'
           });
         } else {
+          const permList = [...(targetMonster.permanentTalismans || [])];
           for (const talisman of targetMonster.talismans) {
+            const pIdx = permList.indexOf(talisman);
+            if (pIdx !== -1) {
+              permList.splice(pIdx, 1);
+              keptTalismans.push(talisman);
+              continue; // 萬符歸宗貼上的符咒永不脫落
+            }
             const dropRoll = typeof targetMonster.talismanDropRng === 'function' ? targetMonster.talismanDropRng() : Math.random();
             if (dropRoll < dropThreshold) {
               droppedTalismans.push(talisman);
@@ -2742,7 +2786,20 @@ export class Room {
     if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
     if (player.druidForm === 'tree') return { success: false, message: '你化身為古樹休眠中，本回合無法行動！' };
 
-    if (actionId !== 'skip' && actionId !== 'use_item_healing_potion' && actionId !== 'use_item_antidote') {
+    const isLeaderAction = ['leader_assassin_execute', 'onm_all_talismans', 'dru_form_wolf', 'dru_form_treant'].includes(actionId);
+    if (isLeaderAction) {
+      if (socketId !== this.getEffectiveLeaderId()) {
+        return { success: false, message: '只有當前具備資格的隊長能使用隊長技！' };
+      }
+      if (this.leaderSkillUsedThisBattle) {
+        return { success: false, message: '每場戰鬥隊長技只能使用一次！' };
+      }
+      if ((actionId === 'dru_form_wolf' || actionId === 'dru_form_treant') && player.druidFormTurns > 0) {
+        return { success: false, message: '當前形態轉變仍在持續中，結束後方可再次變身！' };
+      }
+    }
+
+    if (actionId !== 'skip' && actionId !== 'use_item_healing_potion' && actionId !== 'use_item_antidote' && !isLeaderAction) {
       const availableSkills = getPlayerSkills(player);
       if (actionId === 'b_revive') {
         if(player.role!=='bard')return {success:false,message:'此職業不能使用甦生之歌'};
@@ -2938,16 +2995,20 @@ export class Room {
       }
     }
 
-    // 戰鬥結束後不再能拿到職業專屬裝備，只能獲得小裝備
-    const smallEquipPool = (this.floor >= 5)
-      ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS]
-      : TIER1_EQUIPMENTS;
-    const drop = structuredClone(smallEquipPool[Math.floor(Math.random() * smallEquipPool.length)]);
-
-    // 裝備直接進入小隊背包，不再需要裝備抉擇
-    const deposit = this.autoDepositLoot(drop);
-    const targetDesc = deposit?.target === 'squad' ? '小隊背包' : (deposit?.target === 'personal' ? '個人行囊' : '溢出暫存區');
-    log.push({ text: `🎁 **【戰利品掉落】獲得小裝備：【${drop.name}】**（${drop.desc}），已自動收納入${targetDesc}！`, type: 'loot' });
+    // 戰鬥成功只會拿到一階裝備，有 50% 機率只拿到金幣
+    const onlyGold = Math.random() < 0.50;
+    let drop = null;
+    let deposit = null;
+    let targetDesc = '';
+    if (!onlyGold) {
+      const smallEquipPool = TIER1_EQUIPMENTS;
+      drop = structuredClone(smallEquipPool[Math.floor(Math.random() * smallEquipPool.length)]);
+      deposit = this.autoDepositLoot(drop);
+      targetDesc = deposit?.target === 'squad' ? '小隊背包' : (deposit?.target === 'personal' ? '個人行囊' : '溢出暫存區');
+      log.push({ text: `🎁 **【戰利品掉落】獲得一階裝備：【${drop.name}】**（${drop.desc}），已自動收納入${targetDesc}！`, type: 'loot' });
+    } else {
+      log.push({ text: `💰 本次戰鬥小隊搜刮完畢，僅獲得金幣，未發現額外裝備！`, type: 'loot' });
+    }
 
     this.pendingDrop = null;
     this.victoryPendingDrop = null;
@@ -2964,7 +3025,8 @@ export class Room {
       survivors: alivePlayers.length, partySize: Object.keys(this.players).length,
       story: '巨獸倒下後，籠罩在四周的污染逐漸散去……',
       hpBefore: victoryBefore, hpAfter: victoryAfter, results,
-      drop, depositTarget: deposit.target, discarded: false, ownerName: targetDesc,
+      drop, depositTarget: deposit?.target || null, discarded: false, ownerName: targetDesc,
+      goldGain,
       recoveryRule: 'HP 上限 +10、ATK +5' };
     this.victoryPendingDrop = null;
     this.pendingDrop = null;
@@ -3568,7 +3630,8 @@ export class Room {
   // 商店事件 (Module 4)
   grantAlchemistPotion(p, log, visualEvents, sourceActionName = '技能') {
     if (p.role !== 'alchemist') return;
-    if (Math.random() >= 0.15) return;
+    const procRate = (this.getEffectiveLeaderRole() === 'alchemist') ? 0.40 : 0.15;
+    if (Math.random() >= procRate) return;
     const potion = structuredClone(findItemTemplate('consumable_healing_potion') || CONSUMABLES.find(c => c.id === 'consumable_healing_potion'));
     if (!potion) return;
     if (!Array.isArray(p.bag)) p.bag = [];
@@ -3613,7 +3676,8 @@ export class Room {
       isShady,
       shadyBuyMult: priceMultiplier,
       sellRatio: recycleRate,
-      isAssassinCaptain
+      isAssassinCaptain,
+      isSamuraiCaptain: (leaderRole === 'samurai')
     };
 
     const targetItemCount = 6;
@@ -3634,7 +3698,7 @@ export class Room {
       exclusiveItem.tier = 'CLASS_EXCLUSIVE';
       exclusiveItem.basePrice = 250;
       exclusiveItem.droppedAtCol = col;
-      exclusiveItem.price = calculateShopBuyPrice(250, col, shopSession);
+      exclusiveItem.price = calculateShopBuyPrice(250, col, shopSession, exclusiveItem);
       items.push(exclusiveItem);
     }
 
@@ -3651,7 +3715,7 @@ export class Room {
         const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
         itemClone.basePrice = basePrice;
         itemClone.droppedAtCol = col;
-        itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
         items.push(itemClone);
       }
     }
@@ -3661,7 +3725,7 @@ export class Room {
       const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
       itemClone.basePrice = basePrice;
       itemClone.droppedAtCol = col;
-      itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+      itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
       items.push(itemClone);
     }
 
@@ -3680,7 +3744,7 @@ export class Room {
         const basePrice = clone.cost || clone.basePrice || 40;
         clone.basePrice = basePrice;
         clone.droppedAtCol = col;
-        clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        clone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
         clone.shopConsumableId = `potion_${i}_${Date.now()}`;
         consumables.push(clone);
       }
@@ -3692,7 +3756,7 @@ export class Room {
         const basePrice = clone.cost || clone.basePrice || 30;
         clone.basePrice = basePrice;
         clone.droppedAtCol = col;
-        clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        clone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
         clone.shopConsumableId = `antidote_${i}_${Date.now()}`;
         consumables.push(clone);
       }
@@ -3703,7 +3767,7 @@ export class Room {
       const basePrice = clone.cost || clone.basePrice || 50;
       clone.basePrice = basePrice;
       clone.droppedAtCol = col;
-      clone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+      clone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
       clone.shopConsumableId = `tent_${Date.now()}`;
       consumables.push(clone);
     }
@@ -3755,7 +3819,8 @@ export class Room {
       isWanderingMerchant: true,
       shadyBuyMult: 1.0,
       sellRatio: recycleRate,
-      isAssassinCaptain
+      isAssassinCaptain,
+      isSamuraiCaptain: (leaderRole === 'samurai')
     };
 
     // 可賣裝備減少到3個
@@ -3771,7 +3836,7 @@ export class Room {
         const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
         itemClone.basePrice = basePrice;
         itemClone.droppedAtCol = col;
-        itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+        itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
         items.push(itemClone);
       }
     }
@@ -3781,7 +3846,7 @@ export class Room {
       const basePrice = itemClone.tier === 2 ? 120 : (itemClone.cost || 50);
       itemClone.basePrice = basePrice;
       itemClone.droppedAtCol = col;
-      itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession);
+      itemClone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
       items.push(itemClone);
     }
 
@@ -5204,7 +5269,14 @@ export class Room {
       }
       if (!monster || monster.hp <= 0) break;
       const gloryBuff = (p.p8Shields || []).some(s => s.kind === 'paladin_glory' && s.value > 0 && s.until >= this.battleRound) ? 1.20 : 1.0;
-      bardDmgMultiplier = baseBardDmgMultiplier * gloryBuff;
+      let leaderDmgMultiplier = 1.0;
+      if (this.getEffectiveLeaderRole() === 'warrior' && (p.p8Shields || []).some(s => s.kind === 'warrior' && s.value > 0)) {
+        leaderDmgMultiplier *= 1.10;
+      }
+      if (this.getEffectiveLeaderRole() === 'gladiator' && p.role === 'gladiator' && this.arena && this.arena.playerId === p.id) {
+        leaderDmgMultiplier *= 1.10;
+      }
+      bardDmgMultiplier = baseBardDmgMultiplier * gloryBuff * leaderDmgMultiplier;
       phase8Actor=p; p.overloadAppliedThisAction=false; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
       const beforeVisualCount = visualEvents.length;
       const beforeLogCount = log.length;
@@ -5475,9 +5547,16 @@ export class Room {
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType, value: dmg, isCrit: basicCrit, label: '普通攻擊' });
           if (p.role === 'assassin' && p.cannotCrit) p.cannotCrit = false;
           if (p.role === 'paladin') {
-            const shieldGained = Math.min(monsterHpBefore,dmg) * 2;
-            this.p8GrantShield(p, shieldGained, Infinity, 'paladin_basic');
-            log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
+            const shieldGained = Math.min(monsterHpBefore, dmg) * 2;
+            if (this.getEffectiveLeaderRole() === 'paladin') {
+              for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
+                this.p8GrantShield(ally, shieldGained, Infinity, 'paladin_basic');
+              }
+              log.push({ text: `🛡️✨ **【聖光庇護】** 聖騎士隊長聖光普照！全體隊員皆獲得了基於普攻傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
+            } else {
+              this.p8GrantShield(p, shieldGained, Infinity, 'paladin_basic');
+              log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
+            }
           }
           if (p.role === 'alchemist') {
             // Reuse the enemy roll. When corrosion already procs at its base rate,
@@ -5813,8 +5892,9 @@ export class Room {
             log.push({ text: `🪕😖 **${p.name}** 撥弄琴弦時【刺耳走音】！刺耳噪音打亂了旋律，全體隊友僅能回復 **${groupHeal}** 點生命！`, type: 'warning' });
             visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: groupHeal, singleTargetId: null, singleValue: 0 });
           } else {
-            const groupHealAmt = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_heal')) * harpMult);
-            const singleHealAmt = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_single')) * harpMult);
+            const bardLeaderBonus = (this.getEffectiveLeaderRole() === 'bard') ? 1.10 : 1.0;
+            const groupHealAmt = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_heal')) * harpMult * bardLeaderBonus);
+            const singleHealAmt = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_single')) * harpMult * bardLeaderBonus);
 
             for (const ally of Object.values(this.players)) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, groupHealAmt);
@@ -6329,6 +6409,64 @@ export class Room {
           }
           break;
         }
+
+        case 'leader_assassin_execute': {
+          const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p, 's_stab', {}, 40) + getEffectiveBonusAtk(p))) * 2 * bardDmgMultiplier);
+          const { dmg } = applyResistanceDamage(raw, 'phys');
+          monster.hp -= dmg;
+          actionOutcome = { type: 'critical', label: 'CRITICAL', secondary: '絕命處決' };
+          log.push({ text: `🗡️💥 **${p.name}** 發動隊長技【絕命處決】！瞬身刺破死穴，必定爆擊造成了 **${dmg}** 點【致命】傷害！`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: true, label: '絕命處決' });
+          this.leaderSkillUsedThisBattle = true;
+          break;
+        }
+
+        case 'onm_all_talismans': {
+          monster.talismans = monster.talismans || [];
+          monster.permanentTalismans = monster.permanentTalismans || [];
+          const ALL_TYPES = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
+          for (const type of ALL_TYPES) {
+            monster.talismans.push(type, type);
+            monster.permanentTalismans.push(type, type);
+          }
+          log.push({ text: `📜✨ **${p.name}** 施展隊長技【萬符歸宗】！漫天靈符呼嘯而出，一次性向 **${monster.name}** 貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '萬符歸宗' });
+          const drainCount = monster.talismans.filter(t => t === 'drain').length;
+          const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.02));
+          const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);
+          monster.hp = Math.max(0, monster.hp - totalDrain);
+          log.push({ text: `📜💀 **【抽髓符】** 削血觸發！扣除目標最大生命值（共扣除 ${totalDrain} 點）！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
+          this.leaderSkillUsedThisBattle = true;
+          break;
+        }
+
+        case 'dru_form_wolf': {
+          actionOutcome = { type: 'transform_wolf', label: '狼人形態' };
+          p.druidFormTurns = 2;
+          p.druidForm = 'werewolf';
+          const deduct = p.maxHp - Math.max(1, Math.floor(p.maxHp * (1 - GAME_BALANCE.werewolfMaxHpReduction)));
+          p.werewolfMaxHpDeducted = (p.werewolfMaxHpDeducted || 0) + deduct;
+          p.maxHp -= deduct;
+          p.hp = Math.min(p.hp, p.maxHp);
+          log.push({ text: `🐺 **${p.name}** 發動隊長技【自在化形】—— 化身為 **【狼人】**（暫時扣除 ${deduct} 點最大生命值，造成傷害提升至 40 點，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+          visualEvents.push({ type: 'transform_wolf', sourceId: p.id });
+          const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'dru_claw'))) * bardDmgMultiplier);
+          pendingWerewolfAttack = applyResistanceDamage(raw, 'phys');
+          this.leaderSkillUsedThisBattle = true;
+          break;
+        }
+
+        case 'dru_form_treant': {
+          actionOutcome = { type: 'transform_treant', label: '遠古樹精形態' };
+          p.druidFormTurns = 2;
+          p.druidForm = 'treant';
+          this.p8GrantShield(p, this.applyFateBlessing(p, this.skillValue(p,'dru_shield')), 2, 'treant');
+          log.push({ text: `🌳 **${p.name}** 發動隊長技【自在化形】—— 化身為 **【樹精】**（獲得自身最大生命85%護盾，減傷30%，變身期間替全體隊友主動吸收50%受到傷害，持續2回合）！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+          visualEvents.push({ type: 'transform_treant', sourceId: p.id });
+          this.leaderSkillUsedThisBattle = true;
+          break;
+        }
       }
 
       const stepVisuals = visualEvents.slice(beforeVisualCount);
@@ -6416,7 +6554,16 @@ export class Room {
         ammoBefore: [...(snapshotTarget(actionBefore, p.id)?.ammo || [])],
         ammoAfter: [...(p.ammo || [])],
         actionId: p.action,
-        skillName: usedSkill ? usedSkill.label : (p.action === 'use_item_healing_potion' ? '治療藥' : p.action === 'use_item_antidote' ? '解毒藥' : p.action === 'b_revive' ? '甦生之歌' : p.action === 'skip' ? '跳過回合' : p.action),
+        skillName: usedSkill ? usedSkill.label : (
+          p.action === 'leader_assassin_execute' ? '絕命處決' :
+          p.action === 'onm_all_talismans' ? '萬符歸宗' :
+          p.action === 'dru_form_wolf' ? '自在化形 (狼人)' :
+          p.action === 'dru_form_treant' ? '自在化形 (樹精)' :
+          p.action === 'use_item_healing_potion' ? '治療藥' :
+          p.action === 'use_item_antidote' ? '解毒藥' :
+          p.action === 'b_revive' ? '甦生之歌' :
+          p.action === 'skip' ? '跳過回合' : p.action
+        ),
         tags: usedSkill ? (usedSkill.tags || []) : [],
         targetId: p.targetPlayerId || (monster.hp > 0 || isLethal ? 'monster' : null),
         targetName: (p.targetPlayerId && this.players[p.targetPlayerId]) ? this.players[p.targetPlayerId].name : monster.name,
@@ -6854,7 +7001,8 @@ export class Room {
             const angelBowCount = (p.equips || []).filter(e => e.id === 'a_archangel_bow' || e.id === 'a_bow' || e.name === '大天使重弓').length;
             dodgeRate = Math.max(0, CLASSES.archer.dodgeRate - 0.20 * angelBowCount);
           }
-          if (!p.isCrouchedThisRound && (dodgeRate > 0 || p.archerNextDodgeBonus > 0) && this.checkDodge(p, dodgeRate)) {
+          const isArcherLeader = (this.getEffectiveLeaderRole() === 'archer');
+          if (!p.isCrouchedThisRound && (dodgeRate > 0 || p.archerNextDodgeBonus > 0 || isArcherLeader) && this.checkDodge(p, dodgeRate)) {
             log.push({ text: `🪶 **${p.name}** 身手矯健，閃避了所有反擊！`, type: 'buff' });
             monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
             continue;
@@ -7207,8 +7355,11 @@ export class Room {
       player.archerNextDodgeBonus = 0;
       return false;
     }
-    const bonus = player.archerNextDodgeBonus || 0;
+    let bonus = player.archerNextDodgeBonus || 0;
     player.archerNextDodgeBonus = 0;
+    if (this.getEffectiveLeaderRole() === 'archer') {
+      bonus += 0.20;
+    }
     return Math.random() < Math.min(1, Math.max(0, baseRate + bonus));
   }
 

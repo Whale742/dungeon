@@ -98,6 +98,7 @@ async function playVictoryPresentation(victory, context = {}) {
     canvas.appendChild(reward);
     await playRewardReveal({ drop: victory.discarded ? null : victory.drop,
       discardedDrop: victory.discarded ? victory.drop : null,
+      goldGain: victory.goldGain,
       depositTarget: victory.depositTarget, ownerName: victory.ownerName, recoveryRule: victory.recoveryRule }, {
       ...context, signal, rewardContent: reward, rewardElements: {
         presentationRewardRarity: reward.children[0], presentationRewardTitle: reward.children[1],

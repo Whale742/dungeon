@@ -2064,122 +2064,122 @@ export const LEADER_SKILLS = Object.freeze({
   warrior: {
     id: 'leader_warrior',
     role: 'warrior',
-    name: '堅守陣線',
+    name: '堅盾戰意',
     type: 'PASSIVE',
-    combatDesc: '【戰鬥】被動；每場戰鬥首次有隊友生命降至 30% 以下時，該次所受傷害降低 50%。',
-    eventDesc: '【事件】翻臉搶劫奸商時使奸商首回合暈眩；祭壇鮮血獻祭扣血減半。'
+    desc: '如果隊友持有戰士提供的護盾時，攻擊力提高10%',
+    combatDesc: '如果隊友持有戰士提供的護盾時，攻擊力提高10%'
   },
   mage: {
     id: 'leader_mage',
     role: 'mage',
-    name: '奧術共鳴',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；指定隊友，下一次魔法攻擊無視敵方 50% 魔法抗性。',
-    eventDesc: '【事件】「重鑄」事件費用減半，且必定可將物理武器轉為魔法武器。'
+    name: '魔力共鳴',
+    type: 'PASSIVE',
+    desc: '回血效果同時對所有隊友觸發，但是只有原本的70%',
+    combatDesc: '回血效果同時對所有隊友觸發，但是只有原本的70%'
   },
   archer: {
     id: 'leader_archer',
     role: 'archer',
-    name: '獵殺標記',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；標記敵方目標，讓隊伍下一輪的首次攻擊更容易命中（無視閃避）。',
-    eventDesc: '【事件】六角地圖提前偵測「寶箱/商店」格機率提高 35%，並直接看穿寶箱怪偽裝。'
-  },
-  assassin: {
-    id: 'leader_assassin',
-    role: 'assassin',
-    name: '無聲行軍',
+    name: '疾風步法',
     type: 'PASSIVE',
-    combatDesc: '【戰鬥】被動；全隊本場首次攻擊獲得額外破綻效果（目標次回合承傷 +20%）。',
-    eventDesc: '【事件】一般商店 8 折；遇到奸商時解鎖專屬選項「暗中行竊」（50% 機率免戰偷走一件商品）。'
+    desc: '所有隊友閃避機率提高20%',
+    combatDesc: '所有隊友閃避機率提高20%'
   },
   bard: {
     id: 'leader_bard',
     role: 'bard',
-    name: '變奏指揮',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；調整本回合隊伍技能優先級，全隊攻擊於敵方行動前優先結算。',
-    eventDesc: '【事件】「流浪商人」免費提供路況情報，且以物易物必換出高一階裝備。'
-  },
-  alchemist: {
-    id: 'leader_alchemist',
-    role: 'alchemist',
-    name: '戰地調配',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；每場戰鬥選擇一次偏防禦（全隊獲得 20 護盾與 15% 減傷）或偏進攻（全隊攻擊 +8 且攻擊附加 DoT）藥劑。',
-    eventDesc: '【事件】背包「合成裝備」時，30% 機率保留其中一件小件材料或額外產出 20 金幣。'
-  },
-  druid: {
-    id: 'leader_druid',
-    role: 'druid',
-    name: '群生號令',
+    name: '撫慰樂章',
     type: 'PASSIVE',
-    combatDesc: '【戰鬥】被動；召喚物首次替隊友承受傷害時，為該隊友提供 10 點額外臨時護盾保護。',
-    eventDesc: '【事件】遇到「寶箱怪」時解鎖「餵食安撫」選項，可免戰直接領取寶箱獎勵。'
-  },
-  paladin: {
-    id: 'leader_paladin',
-    role: 'paladin',
-    name: '不屈誓約',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；指定隊友，抵擋一次致命傷害（受到致死打擊時生命保留 1 點）。',
-    eventDesc: '【事件】「祭壇」解鎖專屬選項「聖光淨化」，免代價為全隊回復 30% 生命並附加 15 護盾。'
-  },
-  gladiator: {
-    id: 'leader_gladiator',
-    role: 'gladiator',
-    name: '榮耀號角',
-    type: 'PASSIVE',
-    combatDesc: '【戰鬥】被動；成功存活離開角鬥場後，全隊獲得防守優勢（全隊防禦 +20%，持續 2 回合）。',
-    eventDesc: '【事件】「賭博」解鎖押注生命值換雙倍獎勵；擊敗精英怪金幣掉落 +30%。'
-  },
-  stargazer: {
-    id: 'leader_stargazer',
-    role: 'stargazer',
-    name: '星軌先見',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；預知下一次敵方特殊攻擊時機，並協助全體隊友技能冷卻減少 1 回合。',
-    eventDesc: '【事件】每通過 3 層六角格，自動揭露前方一整列（所有格點）的所有真實事件。'
+    desc: '1技能補血效果提高10%',
+    combatDesc: '1技能補血效果提高10%'
   },
   dreamweaver: {
     id: 'leader_dreamweaver',
     role: 'dreamweaver',
-    name: '共夢契約',
+    name: '美夢成真',
+    type: 'PASSIVE',
+    desc: '必定觸發正面效果',
+    combatDesc: '必定觸發正面效果'
+  },
+  druid: {
+    id: 'leader_druid',
+    role: 'druid',
+    name: '自在化形',
     type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；將一次指定隊友本回合受到的 50% 傷害延後至下一回合結算。',
-    eventDesc: '【事件】在「流浪商人」或「賭博盲盒」中，可將裝備重塑為隨機同階配飾（含被動）。'
+    desc: '可以自行選擇1技能變成的型態',
+    combatDesc: '可以自行選擇1技能變成的型態（每場戰鬥限使用一次）'
   },
-  samurai: {
-    id: 'leader_samurai',
-    role: 'samurai',
-    name: '拔刀號令',
+  paladin: {
+    id: 'leader_paladin',
+    role: 'paladin',
+    name: '聖光庇護',
     type: 'PASSIVE',
-    combatDesc: '【戰鬥】被動；隊伍本場首次成功反擊後，讓一名隊友獲得一次額外普攻追擊機會。',
-    eventDesc: '【事件】「重鑄」強化武器部位時，數值增幅從 +25% 提升至 +40%。'
+    desc: '普攻的護盾由自身獲得變成全隊',
+    combatDesc: '普攻的護盾由自身獲得變成全隊'
   },
-  sage: {
-    id: 'leader_sage',
-    role: 'sage',
-    name: '預設解',
+  gladiator: {
+    id: 'leader_gladiator',
+    role: 'gladiator',
+    name: '鬥技場之王',
     type: 'PASSIVE',
-    combatDesc: '【戰鬥】被動；每場戰鬥首次求解失利（未命中或思緒紊亂）時，自動重試一次演算判定。',
-    eventDesc: '【事件】「賭博」金幣勝率從 50% 提升至 70%，且裝備盲盒碎裂機率降為 0%。'
+    desc: '開啟角鬥場後，自身獲得10%增傷',
+    combatDesc: '開啟角鬥場後，自身獲得10%增傷'
+  },
+  stargazer: {
+    id: 'leader_stargazer',
+    role: 'stargazer',
+    name: '界外星圖',
+    type: 'PASSIVE',
+    desc: '觀星者在戰鬥時，如果有觸發"發現宇宙邊界"時，下次選路線可以得知三條路的事件為何',
+    combatDesc: '觀星者在戰鬥時，如果有觸發"發現宇宙邊界"時，下次選路線可以得知三條路的事件為何'
   },
   augur: {
     id: 'leader_augur',
     role: 'augur',
-    name: '命運宣告',
-    type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；一次性讓指定隊友的機率判定獲得絕對正面干涉（本回合免除命債代價）。',
-    eventDesc: '【事件】踏入「奸商、寶箱怪、深淵」格前觸發預警，允許隊長重選同層其他相鄰格。'
+    name: '洞悉虛妄',
+    type: 'PASSIVE',
+    desc: '在選路線時，可以直接得知是否為寶箱怪或是奸商',
+    combatDesc: '在選路線時，可以直接得知是否為寶箱怪或是奸商'
+  },
+  samurai: {
+    id: 'leader_samurai',
+    role: 'samurai',
+    name: '名刀鑑賞',
+    type: 'PASSIVE',
+    desc: '商店內"武器類"的商品，1階裝備40%off；二階裝備10%off；職業裝備不打折',
+    combatDesc: '商店內"武器類"的商品，1階裝備40%off；二階裝備10%off；職業裝備不打折'
   },
   onmyoji: {
     id: 'leader_onmyoji',
     role: 'onmyoji',
-    name: '百鬼敕令',
+    name: '萬符歸宗',
     type: 'ACTIVE',
-    combatDesc: '【戰鬥】主動；指定目標身上現存符咒，在下次自然脫落判定時全數保留。',
-    eventDesc: '【事件】「祭壇」選擇褻瀆祭壇時完全免疫減防詛咒；深淵戰中封印隨從小怪首回合行動。'
+    desc: '可以一次性貼上所有類型符咒各兩張，此方式貼上的符咒不會掉落。',
+    combatDesc: '可以一次性貼上所有類型符咒各兩張，此方式貼上的符咒不會掉落（每場戰鬥限使用一次）'
+  },
+  sage: {
+    id: 'leader_sage',
+    role: 'sage',
+    name: '守勢推演',
+    type: 'PASSIVE',
+    desc: '在假設階段，獲得20%減傷',
+    combatDesc: '在假設階段，獲得20%減傷'
+  },
+  alchemist: {
+    id: 'leader_alchemist',
+    role: 'alchemist',
+    name: '高產萃取',
+    type: 'PASSIVE',
+    desc: '普攻及1技能獲得治療藥機率提高到40%',
+    combatDesc: '普攻及1技能獲得治療藥機率提高到40%'
+  },
+  assassin: {
+    id: 'leader_assassin',
+    role: 'assassin',
+    name: '絕命處決',
+    type: 'ACTIVE',
+    desc: '打出一次必定爆擊的攻擊',
+    combatDesc: '打出一次必定爆擊的攻擊（每場戰鬥限使用一次）'
   }
 });
 
@@ -2406,12 +2406,23 @@ export function calculateBattleGold(defeatedEnemies, col, isGladiatorCaptain = f
  * @param {number} col - 當前商店所在層數
  * @param {Object} shopSession - { isShady, shadyBuyMult, sellRatio, isAssassinCaptain }
  */
-export function calculateShopBuyPrice(basePrice, col, shopSession = {}) {
+export function calculateShopBuyPrice(basePrice, col, shopSession = {}, item = null) {
   const shopMult = 1.0; // 商店商品價格維持原本，不再有漲價系統
   const merchantMult = shopSession.isShady ? (shopSession.shadyBuyMult || 1.5) : 1.0; // 奸商 1.5 ~ 2.0
-  const captainDiscount = (!shopSession.isShady && shopSession.isAssassinCaptain) ? 0.8 : 1.0;
+  const captainDiscount = 1.0;
+  let samuraiDiscount = 1.0;
+  if (shopSession.isSamuraiCaptain && item && (item.slot === "WEAPON" || item.slot === EQUIP_SLOTS?.WEAPON)) {
+    const isExclusive = Boolean(item.role || item.slot === "CLASS_EXCLUSIVE" || item.tier === "CLASS_EXCLUSIVE");
+    if (!isExclusive) {
+      if (item.tier === 2) {
+        samuraiDiscount = 0.90; // 二階裝備 10% off
+      } else {
+        samuraiDiscount = 0.60; // 1階裝備 40% off
+      }
+    }
+  }
 
-  return Math.round(basePrice * shopMult * merchantMult * captainDiscount);
+  return Math.round(basePrice * shopMult * merchantMult * captainDiscount * samuraiDiscount);
 }
 
 /**

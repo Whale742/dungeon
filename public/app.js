@@ -2208,6 +2208,9 @@ function renderEvent() {
     return;
   }
 
+  if (ev.type !== 'random_event') {
+    elements.eventCardBox?.querySelector('.event-bg-illustration')?.remove();
+  }
   if (ev.type === 'shop' || ev.type === 'chest' || ev.type === 'random_event') {
     renderInteractiveEvent(ev);
     return;
@@ -2944,6 +2947,17 @@ function renderTeammateBuffIcons(statuses = []) {
   const realBuffs = statuses.filter(s => !isSpecialStackStatus(s));
   const displayStatuses = realBuffs.slice(0, 5);
   return displayStatuses.map(s => {
+    const isLeaderPassive = s.isLeaderPassive || s.isLeaderSkill || (s.id && String(s.id).startsWith('leader_'));
+    if (isLeaderPassive) {
+      const leaderRole = s.leaderRole || s.role || roomState?.lockedLeaderRole;
+      const svg = (leaderRole && CLASS_EXCLUSIVE_SVGS[leaderRole]) || CLASS_EXCLUSIVE_SVGS.warrior;
+      const titleParts = [
+        `【隊長技】${s.label || s.id}`,
+        s.desc || s.value || ''
+      ].filter(Boolean);
+      const title = titleParts.join(' - ');
+      return `<span class="teammate-buff-item teammate-buff-exclusive" title="${escapeHtml(title)}"><div class="exclusive-buff-icon-svg">${svg}</div></span>`;
+    }
     const iconUrl = getBuffIconUrl(s);
     if (!iconUrl) return '';
     const titleParts = [
@@ -2978,10 +2992,18 @@ function showPlayerTooltip(p, eOrTarget) {
   let buffsHtml = '';
   if (statuses.length > 0) {
     buffsHtml = `<div class="floating-tooltip-buffs">${statuses.map(s => {
-      const iconUrl = getBuffIconUrl(s);
-      const iconTag = iconUrl ? `<img src="${iconUrl}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">` : '';
+      const isLeaderPassive = s.isLeaderPassive || s.isLeaderSkill || (s.id && String(s.id).startsWith('leader_'));
+      let iconTag = '';
+      if (isLeaderPassive) {
+        const leaderRole = s.leaderRole || s.role || roomState?.lockedLeaderRole;
+        const svg = (leaderRole && CLASS_EXCLUSIVE_SVGS[leaderRole]) || CLASS_EXCLUSIVE_SVGS.warrior;
+        iconTag = `<div class="exclusive-buff-icon-svg" style="width:14px;height:14px;display:inline-flex;vertical-align:middle;margin-right:4px;">${svg}</div>`;
+      } else {
+        const iconUrl = getBuffIconUrl(s);
+        iconTag = iconUrl ? `<img src="${iconUrl}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">` : '';
+      }
       return `<span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
-        ${iconTag}${escapeHtml(s.label || s.id)}${s.value ? ' ' + escapeHtml(String(s.value)) : ''}${s.turns ? ' (' + s.turns + 'R)' : ''}${s.stacks ? ' ×' + s.stacks : ''}
+        ${iconTag}${escapeHtml(s.label || s.id)}${s.value ? ' ' + escapeHtml(String(s.value)) : ''}${s.desc ? ' (' + escapeHtml(s.desc) + ')' : ''}${s.turns ? ' (' + s.turns + 'R)' : ''}${s.stacks ? ' ×' + s.stacks : ''}
       </span>`;
     }).join('')}</div>`;
   } else {
@@ -3473,6 +3495,58 @@ function renderMyActionBar(me) {
     elements.mySkillsRow.appendChild(antidoteBtn);
   }
 
+  // 隊長主動技 (如果是主動技，則加入技能列表，一次戰鬥只能使用一次)
+  const isEffectiveLeader = (roomState?.lockedLeaderId === myId || (!roomState?.lockedLeaderId && roomState?.leaderId === myId));
+  const leaderSkill = roomState?.leaderSkill;
+  if (isEffectiveLeader && leaderSkill && leaderSkill.type === 'ACTIVE') {
+    const isUsed = Boolean(roomState?.leaderSkillUsedThisBattle);
+    const isLeaderSelected = ['leader_assassin_execute', 'onm_all_talismans', 'dru_form_wolf', 'dru_form_treant'].includes(currentPendingAction);
+    const leaderBtn = document.createElement('div');
+    leaderBtn.className = `skill-btn skill skill-leader-btn ${isLeaderSelected ? 'selected' : ''}`;
+    if (isUsed || isNarrating || isResolving || isLocked) {
+      leaderBtn.style.opacity = '0.6';
+      leaderBtn.style.cursor = 'not-allowed';
+    }
+
+    let actionLabel = leaderSkill.name;
+    if (currentPendingAction === 'dru_form_wolf') actionLabel = '自在化形 (狼人)';
+    else if (currentPendingAction === 'dru_form_treant') actionLabel = '自在化形 (樹精)';
+
+    leaderBtn.innerHTML = `
+      <span class="skill-name">【隊長】${escapeHtml(actionLabel)}</span>
+      <div class="skill-bottom">
+        <span class="skill-kind">主動 / 隊長技</span>
+        <span class="skill-cd">${isUsed ? '已使用' : '1場1次'}</span>
+      </div>
+      <div class="skill-popover hidden">
+        <div class="skill-popover-title">
+          <span>${escapeHtml(leaderSkill.name)}</span>
+          <span style="font-size:10.5px;color:var(--rarity-exclusive,#ffd700);">主動隊長技</span>
+        </div>
+        <div class="skill-popover-desc">${escapeHtml(leaderSkill.desc || leaderSkill.combatDesc || '')}</div>
+      </div>
+    `;
+
+    leaderBtn.addEventListener('click', () => {
+      if (isUsed || isNarrating || isResolving || isLocked) return;
+      if (me.role === 'druid') {
+        openDruidTransformModal();
+      } else if (me.role === 'onmyoji') {
+        currentPendingAction = 'onm_all_talismans';
+        currentPendingTarget = null;
+        playSound('click');
+        renderMyActionBar(me);
+      } else if (me.role === 'assassin') {
+        currentPendingAction = 'leader_assassin_execute';
+        currentPendingTarget = null;
+        playSound('click');
+        renderMyActionBar(me);
+      }
+    });
+
+    elements.mySkillsRow.appendChild(leaderBtn);
+  }
+
   // 跳過回合按鈕
   const isSkipSelected = (currentPendingAction === 'skip');
   const skipBtn = document.createElement('div');
@@ -3550,6 +3624,14 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     skillName = '治療藥';
   } else if (currentPendingAction === 'use_item_antidote') {
     skillName = '解毒藥';
+  } else if (currentPendingAction === 'leader_assassin_execute') {
+    skillName = '隊長技: 絕命處決';
+  } else if (currentPendingAction === 'onm_all_talismans') {
+    skillName = '隊長技: 萬符歸宗';
+  } else if (currentPendingAction === 'dru_form_wolf') {
+    skillName = '隊長技: 自在化形 (狼人)';
+  } else if (currentPendingAction === 'dru_form_treant') {
+    skillName = '隊長技: 自在化形 (樹精)';
   } else if (currentPendingAction) {
     const found = (activeSkills || []).find(s => s.id === currentPendingAction);
     skillName = found ? found.label : currentPendingAction;
@@ -3578,6 +3660,14 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
       }
     } else if (currentPendingAction === 'use_item_antidote') {
       descEl.textContent = '消耗隨身背包中 1 瓶解毒藥，徹底清除目標身上的所有負面狀態。';
+    } else if (currentPendingAction === 'leader_assassin_execute') {
+      descEl.textContent = '【隊長技・絕命處決】瞬身刺破死穴，打出一次必定爆擊的致命打擊（每場戰鬥限使用一次）。';
+    } else if (currentPendingAction === 'onm_all_talismans') {
+      descEl.textContent = '【隊長技・萬符歸宗】一次性貼上所有類型符咒各 2 張（共 10 道符咒），且此方式貼上的符咒絕不脫落（每場戰鬥限使用一次）。';
+    } else if (currentPendingAction === 'dru_form_wolf') {
+      descEl.textContent = '【隊長技・自在化形】化身為狼人，造成傷害提升至 40 點，持續 2 回合（每場戰鬥限使用一次）。';
+    } else if (currentPendingAction === 'dru_form_treant') {
+      descEl.textContent = '【隊長技・自在化形】化身為遠古樹精，獲得自身最大生命 85% 護盾與 30% 減傷，替隊友承傷 50%，持續 2 回合（每場戰鬥限使用一次）。';
     } else if (currentPendingAction) {
       const found = (activeSkills || []).find(s => s.id === currentPendingAction);
       descEl.textContent = found ? getSkillDescription(me.role, found) : '';
@@ -3609,22 +3699,10 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     btnUnlock.classList.add('hidden');
   }
 
-  // 隊長技按鈕控制 (Module 6)
+  // 隊長技按鈕已內嵌至下方技能列中，隱藏浮動按鈕避免重複
   const btnLeader = elements.btnUseLeaderSkill;
   if (btnLeader) {
-    const isEffectiveLeader = (roomState?.lockedLeaderId === myId || (!roomState?.lockedLeaderId && roomState?.leaderId === myId));
-    const skill = roomState?.leaderSkill;
-    const canUse = isEffectiveLeader && skill?.type === 'ACTIVE' && !roomState?.leaderSkillUsedThisBattle && !isLocked && !isResolving && !isNarrating && !isDead;
-    if (canUse) {
-      btnLeader.classList.remove('hidden');
-      btnLeader.innerHTML = `<svg class="ico sm"><use href="#icon-crown"></use></svg> 隊長技：【${escapeHtml(skill.name)}】`;
-      btnLeader.title = skill.combatDesc || '點擊使用本場戰鬥專屬隊長主動技';
-      btnLeader.onclick = () => {
-        socket.emit('leader:use_skill', { targetPlayerId: myId });
-      };
-    } else {
-      btnLeader.classList.add('hidden');
-    }
+    btnLeader.classList.add('hidden');
   }
 }
 
@@ -7589,6 +7667,29 @@ function renderInteractiveEvent(ev) {
   const evFooter = document.querySelector('.event-footer');
   if (evFooter) evFooter.style.display = 'none';
 
+  // 隨機事件背景插圖（鑄造台、賭博、獻祭台）
+  const eventIllustrations = {
+    'REFORGE': '/assets/鑄造台.webp',
+    'GAMBLE': '/assets/賭博.webp',
+    'ALTAR': '/assets/獻祭台.webp'
+  };
+  const illustSrc = (ev.type === 'random_event' && eventIllustrations[ev.subType]) ? eventIllustrations[ev.subType] : null;
+  let bgImg = elements.eventCardBox.querySelector('.event-bg-illustration');
+  if (illustSrc) {
+    if (!bgImg) {
+      bgImg = document.createElement('img');
+      bgImg.className = 'event-bg-illustration';
+      bgImg.alt = '';
+      bgImg.setAttribute('aria-hidden', 'true');
+      elements.eventCardBox.prepend(bgImg);
+    }
+    if (bgImg.getAttribute('src') !== illustSrc) {
+      bgImg.src = illustSrc;
+    }
+  } else if (bgImg) {
+    bgImg.remove();
+  }
+
   const eventKey = `${roomState?.code || ''}:${roomState?.floor || 1}:${ev.hexId || (ev.type + '_' + (ev.subType || '') + '_' + (ev.title || ''))}`;
   const isNewEventInstance = (currentInteractiveEventKey !== eventKey);
   if (isNewEventInstance) {
@@ -8593,3 +8694,50 @@ document.addEventListener('keydown', (e) => {
     closeAvatarModal();
   }
 });
+
+// 德魯伊隊長主動技：自在化形選擇彈窗
+function openDruidTransformModal() {
+  const existing = document.getElementById('druidTransformModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'druidTransformModal';
+  modal.className = 'modal-backdrop is-active';
+  modal.style.zIndex = '99999';
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:440px;text-align:center;padding:24px;border:1.5px solid var(--rarity-exclusive,#ffd700);box-shadow:0 12px 36px rgba(0,0,0,0.7);">
+      <h3 style="font-size:18px;font-weight:700;color:var(--ui-text-primary);margin-bottom:10px;">👑【自在化形】選擇化身形態</h3>
+      <p style="font-size:13px;color:var(--ui-text-muted);margin-bottom:18px;line-height:1.5;">德魯伊隊長技：請自選本回合轉變的形態（每場戰鬥限使用一次）</p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button type="button" class="btn btn-primary btn-choose-wolf" style="padding:12px;font-size:14px;font-weight:700;display:flex;flex-direction:column;gap:4px;align-items:center;">
+          <span style="font-size:15px;">🐺 化身為【狼人形態】</span>
+          <span style="font-size:12px;opacity:0.85;">暫扣最大生命，本回合造成傷害提升至 40 點（持續2回合）</span>
+        </button>
+        <button type="button" class="btn btn-success btn-choose-treant" style="padding:12px;font-size:14px;font-weight:700;display:flex;flex-direction:column;gap:4px;align-items:center;">
+          <span style="font-size:15px;">🌳 化身為【遠古樹精】</span>
+          <span style="font-size:12px;opacity:0.85;">獲得85%生命護盾，減傷30%，替全體隊友承傷50%（持續2回合）</span>
+        </button>
+        <button type="button" class="btn btn-ghost btn-cancel-transform" style="margin-top:6px;">取消返回</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('.btn-choose-wolf').onclick = () => {
+    currentPendingAction = 'dru_form_wolf';
+    currentPendingTarget = null;
+    modal.remove();
+    playSound('click');
+    renderMyActionBar(getMyPlayer());
+  };
+  modal.querySelector('.btn-choose-treant').onclick = () => {
+    currentPendingAction = 'dru_form_treant';
+    currentPendingTarget = null;
+    modal.remove();
+    playSound('click');
+    renderMyActionBar(getMyPlayer());
+  };
+  modal.querySelector('.btn-cancel-transform').onclick = () => {
+    modal.remove();
+  };
+}

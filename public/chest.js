@@ -54,6 +54,12 @@ async function playRewardReveal(ev, context = {}) {
         rewardElements.presentationRewardTitle.textContent = `【${ev.discardedDrop.name}】`;
         rewardElements.presentationRewardDesc.textContent = ev.recoveryRule ? `無隊員專精此職業裝備，已妥善封存。` : `無隊員專精此職業裝備，已妥善封存。全隊回復 ${ev.healAmt || 25} 生命！`;
         rewardElements.presentationRewardMeta.textContent = '';
+      } else if (ev.goldGain) {
+        rewardElements.presentationRewardRarity.textContent = '【戰利品結算】';
+        rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';
+        rewardElements.presentationRewardTitle.textContent = `獲得 ${ev.goldGain} 金幣`;
+        rewardElements.presentationRewardDesc.textContent = '戰鬥搜刮完畢，全員平分戰利金幣！';
+        rewardElements.presentationRewardMeta.textContent = '';
       } else {
         rewardElements.presentationRewardRarity.textContent = '【地城恩澤】';
         rewardElements.presentationRewardRarity.className = 'presentation-reward-rarity is-common';

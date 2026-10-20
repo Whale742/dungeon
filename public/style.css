@@ -2421,6 +2421,8 @@ input[type="text"]::placeholder {
    11. View 4: Event Screen (Treasure & Trap)
    -------------------------------------------------------------------------- */
 .event-card {
+  position: relative;
+  overflow: hidden;
   max-width: 760px;
   margin: 20px auto;
   text-align: center;
@@ -2431,6 +2433,25 @@ input[type="text"]::placeholder {
   box-shadow: none;
   color: var(--ui-text-primary, #F0E8D9);
   transition: max-width 0.2s ease;
+}
+
+.event-bg-illustration {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+.event-card > *:not(.event-bg-illustration) {
+  position: relative;
+  z-index: 1;
 }
 
 .event-card.is-shop-event,
@@ -8656,4 +8677,35 @@ body.presentation-opening .narrative-controls,
   outline: 2px dashed var(--color-loot-gold, #D4AF37) !important;
   background: rgba(212, 175, 55, 0.08) !important;
   border-radius: 6px;
+}
+
+/* ==========================================================================
+   Leader Skill UI (Skill row button & Class Exclusive Buff Icon)
+   ========================================================================== */
+.teammate-buff-item.teammate-buff-exclusive {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid var(--rarity-exclusive, #ffd700);
+  box-shadow: 0 0 6px rgba(255, 215, 0, 0.3);
+}
+
+.exclusive-buff-icon-svg {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exclusive-buff-icon-svg svg {
+  width: 100%;
+  height: 100%;
+}
+
+.skill-btn.skill-leader-btn {
+  border-color: var(--rarity-exclusive, #ffd700);
+}
+
+.skill-btn.skill-leader-btn .skill-kind {
+  color: var(--rarity-exclusive, #ffd700);
+  font-weight: 700;
 }
