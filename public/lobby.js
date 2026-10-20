@@ -57,7 +57,7 @@ function updateRoleDescriptionPanel() {
   if(!classes?.[role])return;
   const detail=details?.[role],conf=classes[role],isPassive=lobbyRoleUi.tab==='passive',skill=isPassive?null:conf.skills[Number(lobbyRoleUi.tab)];
   const detailed=document.getElementById('lobbyRoleDetailed').checked;
-  document.querySelectorAll('[data-role-tab]').forEach(button=>{const active=button.dataset.roleTab===lobbyRoleUi.tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+  document.querySelectorAll('[data-role-tab]').forEach(button=>{const active=button.dataset.roleTab===lobbyRoleUi.tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;button.classList.toggle('parchment-btn-crimson',active);});
   document.getElementById('lobbySkillName').textContent=isPassive?'被動與特性':skill?.label||'普通攻擊';
   document.getElementById('lobbySkillMeta').textContent=isPassive?'核心機制':[(skill?.dmgType==='mag'?'魔法':skill?.dmgType==='phys'?'物理':'輔助'),skill?.cd!=null?'CD '+skill.cd+' 回合':''].filter(Boolean).join(' · ');
   const copy=isPassive?(detailed?(detail?.passive||conf.passive||conf.desc):getLobbyProfile(role).passiveSummary):getSkillDescription(role,skill||{},detailed);

@@ -19,21 +19,52 @@
 }
 
 .map-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(520px, 1.35fr);
-  gap: 20px;
+  display: flex;
+  justify-content: center;
   align-items: stretch;
+  gap: 20px;
   min-height: 560px;
+  width: 100%;
 }
 
 /* During narration the story owns the scene. Move the same DOM into its map column before enabling votes. */
-#viewRoute.is-narrating .map-layout { grid-template-columns: minmax(0, 1fr); }
-#viewRoute.is-narrating .map-story { width: min(720px, 100%); margin-inline: auto; }
-#viewRoute.is-narrating .map-side, #viewRoute.is-narrating .map-meta-row { display: none; }
-#viewRoute.is-settling .map-story { animation: story-settle 450ms ease-out both; }
-#viewRoute.is-settling .map-side { animation: map-reveal 450ms ease-out both; }
-@keyframes story-settle { from { opacity: .35; } to { opacity: 1; } }
-@keyframes map-reveal { from { opacity: 0; } to { opacity: 1; } }
+.map-story {
+  flex: 0 0 min(540px, 100%);
+  width: min(540px, 100%);
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 480px;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-side {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 820px;
+  opacity: 1;
+  overflow: visible;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#viewRoute.is-narrating .map-side {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  border-width: 0;
+  pointer-events: none;
+}
+
+#viewRoute.is-narrating .map-meta-row {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  margin: 0;
+  pointer-events: none;
+}
 .presentation-floor { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; background: #000; display: grid; place-items: center; pointer-events: auto; opacity: 1; transition: opacity 600ms ease; }
 .presentation-floor.exit { opacity: 0; }
 body.presentation-floor-active .app-header,
@@ -233,9 +264,8 @@ body.presentation-floor-active #floatingChatContainer { visibility: hidden !impo
   padding: 10px 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
+  display: block;
+  text-align: center;
   min-height: 380px;
 }
 
@@ -247,9 +277,9 @@ body.presentation-floor-active #floatingChatContainer { visibility: hidden !impo
   align-items: flex-start;
   justify-content: center;
   gap: 0;
-  padding: 6px 10px;
-  flex: 0 0 auto;
-  margin-inline: auto;
+  padding: 6px 24px;
+  text-align: left;
+  vertical-align: middle;
 }
 
 .hex-row {
