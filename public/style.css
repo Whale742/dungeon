@@ -7891,21 +7891,6 @@ body.presentation-opening .narrative-controls,
   display: none;
 }
 
-.reward-presentation-card {
-  position: relative;
-  background: linear-gradient(175deg, var(--surface-card, #1c232d) 0%, var(--surface-inset, #10141a) 100%);
-  border: 2px solid var(--color-brass, #A7834C);
-  border-radius: var(--radius-lg, 12px);
-  padding: 28px 36px 24px;
-  max-width: 440px;
-  width: 90%;
-  text-align: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85),
-              0 0 30px rgba(167, 131, 76, 0.3),
-              inset 0 0 20px rgba(0, 0, 0, 0.6);
-  transform: scale(0.9);
-  transition: transform var(--duration-fast, 200ms) cubic-bezier(0.16, 1, 0.3, 1);
-}
 
 .reward-presentation-overlay.is-open .reward-presentation-card {
   transform: scale(1);

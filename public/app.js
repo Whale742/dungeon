@@ -818,7 +818,10 @@ socket.on('connect', () => {
   window.RecruitCopy?.setPlayerId(myId);
   console.log('連線至伺服器，ID:', myId);
 });
-socket.on('disconnect', () => window.RecruitCopy?.setPlayerId(null));
+socket.on('disconnect', () => {
+  window.RecruitCopy?.setPlayerId(null);
+  if (window.RewardPresentation?.isPlaying) window.RewardPresentation.cancel();
+});
 
 socket.on('init:constants', (data) => {
   classesData = data.classes || {};
@@ -1056,11 +1059,11 @@ function renderApp() {
   }
 
   if (chestPresentationController && (roomState.state !== 'EVENT' ||
-      roomState.currentEvent?.type !== 'treasure' ||
+      !['treasure', 'chest'].includes(roomState.currentEvent?.type) ||
       roomState.currentEvent.presentationId !== chestPresentationController.presentationId)) {
     chestPresentationController.abort();
   }
-  if (roomState.state !== 'EVENT' || roomState.currentEvent?.type !== 'treasure') {
+  if (roomState.state !== 'EVENT' || !['treasure', 'chest'].includes(roomState.currentEvent?.type)) {
     chestDisplay = null;
     chestStartedId = null;
     chestRewardCompletedId = null;
@@ -2131,7 +2134,7 @@ function renderEvent() {
   if (!ev) return;
 
   const isTrap = ev.type === 'trap';
-  const isTreasure = ev.type === 'treasure';
+  const isTreasure = ['treasure', 'chest'].includes(ev.type);
 
   elements.eventCardBox.classList.toggle('hidden', isTrap || isTreasure);
   elements.trapDiscoverySection.classList.toggle('hidden', !isTrap);
@@ -2148,6 +2151,7 @@ function renderEvent() {
   }
 
   if (isTreasure) {
+    document.dispatchEvent(new CustomEvent('chest-state', {detail:ev}));
     if (chestStartedId !== ev.presentationId) {
       chestStartedId = ev.presentationId;
       void playChestPresentation(ev);

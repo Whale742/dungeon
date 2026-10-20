@@ -1,10 +1,37 @@
 // Shared Phase 4 reward beat, consumed by Chest, Victory and Lab.
 async function playRewardReveal(ev, context = {}) {
-  if (ev.drop && window.RewardPresentation) {
-    await window.RewardPresentation.enqueue({type:'item', item:ev.drop, depositTarget:ev.depositTarget,
-      signal:context.signal || context.controller?.signal, speed:context.speed,
-      onStep:beat=>context.onTiming?.(beat,{}) });
-    return {isRare:!!(ev.drop.isSpecial || ev.drop.rarity === 'rare' || ev.drop.tier === 2)};
+  if (window.RewardPresentation && (ev.drop || ev.goldGain || (Array.isArray(ev.drops) && ev.drops.length) || (Array.isArray(ev.items) && ev.items.length))) {
+    const signal = context.signal || context.controller?.signal;
+    const speed = context.speed;
+    const onTiming = context.onTiming;
+
+    if (ev.goldGain) {
+      await window.RewardPresentation.enqueue({
+        type: 'gold',
+        amount: ev.goldGain,
+        signal,
+        speed,
+        onStep: beat => onTiming?.(beat, {})
+      });
+    }
+
+    const items = Array.isArray(ev.drops) && ev.drops.length ? ev.drops
+      : (Array.isArray(ev.items) && ev.items.length ? ev.items
+      : (ev.drop ? [ev.drop] : []));
+
+    for (const item of items) {
+      await window.RewardPresentation.enqueue({
+        type: 'item',
+        item: item,
+        depositTarget: ev.depositTarget,
+        signal,
+        speed,
+        onStep: beat => onTiming?.(beat, {})
+      });
+    }
+
+    const mainItem = items[0] || ev.drop;
+    return { isRare: !!(mainItem && (mainItem.isSpecial || mainItem.rarity === 'rare' || mainItem.tier === 2 || mainItem.slot === 'CLASS_EXCLUSIVE')) };
   }
   const timing = typeof PRESENTATION_CONFIG !== 'undefined' ? PRESENTATION_CONFIG.chest : CHEST_TIMING;
   const rewardElements = context.rewardElements || elements;
@@ -543,22 +570,49 @@ async function playChestPresentation(ev, context = {}) {
     if (app) app.inert = false;
     if (chat) chat.inert = false;
 
-    // STEP 4: Await Player Click (or auto-open if specified in context)
-    if (context.autoOpen) {
+    if (typeof roomState !== 'undefined' && roomState?.currentEvent?.presentationId === ev.presentationId && roomState.currentEvent.opened) {
+      Object.assign(ev, roomState.currentEvent);
+    }
+    // Every client follows the same server-confirmed opening; only the first action grants loot.
+    if (context.autoOpen || ev.opened) {
       await wait(context.autoOpenDelay || 200);
     } else {
       await new Promise((resolve, reject) => {
-        const onAbort = () => {
+        const extraButtons = [];
+        const dispose = () => {
           btnOpenChest.removeEventListener('click', onClick);
-          reject(new DOMException('Presentation cancelled', 'AbortError'));
-        };
-        const onClick = () => {
+          document.removeEventListener('chest-state', onState);
           signal.removeEventListener('abort', onAbort);
-          btnOpenChest.removeEventListener('click', onClick);
-          resolve();
+          extraButtons.forEach(button=>button.remove());
         };
-        btnOpenChest.addEventListener('click', onClick, { once: true });
-        signal.addEventListener('abort', onAbort, { once: true });
+        const finish = () => { dispose(); resolve(); };
+        const onAbort = () => { dispose(); reject(new DOMException('Presentation cancelled','AbortError')); };
+        const onState = event => {
+          if (event.detail.presentationId === ev.presentationId && event.detail.opened) {
+            Object.assign(ev,event.detail); finish();
+          }
+        };
+        const act = action => {
+          if (ev.type !== 'chest' || context.onOpen) return finish();
+          btnOpenChest.disabled = true;
+          socket.emit('event:chest_action', {action,presentationId:ev.presentationId}, result => {
+            if (signal.aborted) return;
+            if (result?.success && result.opened) { Object.assign(ev,result); finish(); }
+            else if (!result?.success) btnOpenChest.disabled = false;
+          });
+        };
+        const onClick = () => act('open');
+        if (ev.type === 'chest' && !context.onOpen) {
+          for (const [action,label,allowed] of [['pacify','安撫寶箱',ev.canPacify],['leave','離開',ev.canLeave]]) {
+            if (!allowed) continue;
+            const button=document.createElement('button'); button.type='button'; button.className=btnOpenChest.className;
+            button.textContent=label; button.addEventListener('click',()=>act(action));
+            btnOpenChest.after(button); extraButtons.push(button);
+          }
+        }
+        btnOpenChest.addEventListener('click', onClick);
+        document.addEventListener('chest-state', onState);
+        signal.addEventListener('abort', onAbort, {once:true});
       });
     }
 
@@ -575,7 +629,7 @@ async function playChestPresentation(ev, context = {}) {
 
     if (typeof context.onOpen === 'function') {
       context.onOpen();
-    } else if (typeof socket !== 'undefined' && socket?.emit) {
+    } else if (ev.type !== 'chest' && typeof socket !== 'undefined' && socket?.emit) {
       socket.emit('chest:open', { presentationId: ev.presentationId });
     }
 
@@ -656,17 +710,7 @@ async function playChestPresentation(ev, context = {}) {
     context.onComplete({ completed, signal, ev });
   } else if (completed && !signal.aborted && typeof roomState !== 'undefined' && roomState?.state === 'EVENT' &&
       roomState.currentEvent?.presentationId === ev.presentationId) {
-    const me = (roomState.players || []).find(p => p.id === myId);
-    if (roomState.pendingDrop && me && roomState.pendingDrop.ownerId === me.id) {
-      if (typeof renderPendingDropModal === 'function') renderPendingDropModal(me);
-      if (typeof socket !== 'undefined' && socket?.emit) {
-        socket.emit('equipment:interaction_ready', { presentationId: ev.presentationId });
-      }
-    } else {
-      if (typeof socket !== 'undefined' && socket?.emit) {
-        socket.emit('chest:presentation_complete', { presentationId: ev.presentationId });
-      }
-    }
+    socket.emit('chest:presentation_complete', { presentationId: ev.presentationId });
   }
 }
 

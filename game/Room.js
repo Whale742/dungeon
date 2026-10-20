@@ -1613,34 +1613,8 @@ export class Room {
     // 寶箱及戰鬥成功後可能會有低機率(15%)出現沒有玩家玩的職業裝備
     const isUnplayedDrop = unplayedLoots.length > 0 && Math.random() < 0.15;
 
-    if (isUnplayedDrop) {
-      const drop = unplayedLoots[Math.floor(Math.random() * unplayedLoots.length)];
-      this.currentEvent = {
-        type: 'treasure',
-        title: outcomeData ? outcomeData.title : `🎁【第 ${this.floor} 層】發現遠古寶箱！`,
-        story: outcomeData ? outcomeData.story : '',
-        healAmt: healAmt,
-        drop: null,
-        discardedDrop: drop,
-        ownerName: '無',
-        ownerId: null,
-        presentationId: this.chestPresentationId,
-        hpBefore,
-        hpAfter,
-        details: [
-          `🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！`,
-          `💨 沒玩家玩這個職業，系統幫你們把【${drop.name}】丟掉嘍`
-        ]
-      };
-      this.pendingDrop = null;
-      this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
-      this.broadcastState();
-      return;
-    }
-
-    const drop = (playedLoots.length > 0)
-      ? playedLoots[Math.floor(Math.random() * playedLoots.length)]
-      : LOOT_TABLE[Math.floor(Math.random() * LOOT_TABLE.length)];
+    const pool = isUnplayedDrop ? unplayedLoots : (playedLoots.length ? playedLoots : LOOT_TABLE);
+    const drop = structuredClone(pool[Math.floor(Math.random() * pool.length)]);
 
     const matchingPlayers = Object.values(this.players).filter(p => p.role === drop.role);
     const equipOwner = this.selectEquipOwner(matchingPlayers, drop) ||
@@ -1648,7 +1622,7 @@ export class Room {
       this.selectEquipOwner(Object.values(this.players), drop);
 
     const deposit = this.autoDepositLoot(drop, equipOwner?.id);
-    const targetName = deposit?.target === 'squad' ? '小隊背包' : (equipOwner ? equipOwner.name : '個人行囊');
+    const targetName = deposit?.target === 'squad' ? '小隊背包' : (deposit?.target === 'personal' ? '個人行囊' : '待領取物品');
     const details = [`🎁 **幸運降臨！發現遠古寶箱！** 全員回復 ${healAmt} 生命！獲得裝備【${drop.name}】(${drop.desc})，已自動收納入${targetName}！`];
 
     this.currentEvent = {

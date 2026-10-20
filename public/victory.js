@@ -18,7 +18,7 @@ function projectExpandedDisplayState(state) {
   return { ...state, players: state.players.map(p => ({ ...p, ...map.get(p.id) })) };
 }
 function refreshVictoryControls() {
-  if (typeof roomState === 'undefined') return;
+  if (typeof roomState === 'undefined' || !roomState) return;
   if (victoryContinueButton) {
     victoryContinueButton.disabled = !roomState.victoryInteractionReady || Boolean(roomState.pendingDrop) || roomState.leaderId !== myId;
     victoryContinueButton.textContent = roomState.pendingDrop ? '等待裝備抉擇' : roomState.leaderId !== myId ? '等待隊長繼續深入' : '繼續深入';

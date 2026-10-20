@@ -118,8 +118,8 @@
       const wait = ms => global.BagPresentation.wait(ms / (reward.speed || 1), signal);
       try {
         reward.onStep?.('reward_reveal');
-        await wait(reducedMotion ? 200 : (isRare ? 1600 : 1100));
-        if (!signal.aborted && reward.type !== 'gold' && ['squad','personal'].includes(reward.depositTarget)) {
+        await wait(reducedMotion ? 200 : (reward.type === 'gold' ? 800 : (isRare ? 1600 : 1100)));
+        if (!signal.aborted && reward.type !== 'gold' && (['squad','personal'].includes(reward.depositTarget) || !reward.depositTarget)) {
           await global.BagPresentation.playLootCollection({ sourceElement:visualEl, container:overlay,
             signal, speed:reward.speed, onStep:reward.onStep });
         }

@@ -28,6 +28,9 @@
         img.src = candidate;
       });
       if (loaded) return candidate;
+      if (candidate === url && url !== fallback && global.assetRegistry?.markFailed) {
+        global.assetRegistry.markFailed(url);
+      }
     }
     return null;
   }
@@ -39,7 +42,7 @@
       preload(urls.closed, '/assets/bag1.webp', signal), preload(urls.open, '/assets/bag2.webp', signal)
     ]);
     if (!closed || !open || signal?.aborted) return;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)').matches : false;
     const pause = ms => wait((reduced ? Math.min(ms, 160) : ms) / Math.max(.1, speed), signal);
     const stage = document.createElement('div');
     stage.className = 'bag-collection-stage';
@@ -60,8 +63,10 @@
       if (signal?.aborted) return;
       const start = source.getBoundingClientRect(), target = bag.getBoundingClientRect();
       // Coordinates are within the contained artwork, including its transparent padding.
-      const scale = Math.min(target.width / bag.naturalWidth, target.height / bag.naturalHeight);
-      const width = bag.naturalWidth * scale, height = bag.naturalHeight * scale;
+      const natW = bag.naturalWidth || target.width || 1200;
+      const natH = bag.naturalHeight || target.height || 1536;
+      const scale = Math.min(target.width / natW, target.height / natH);
+      const width = natW * scale, height = natH * scale;
       const dx = target.left + (target.width - width) / 2 + width * .52 - (start.left + start.width / 2);
       const dy = target.top + (target.height - height) / 2 + height * .38 - (start.top + start.height / 2);
       placeholder = document.createComment('reward artwork'); source.before(placeholder);
@@ -88,5 +93,9 @@
       stage.remove();
     }
   }
-  global.BagPresentation = { playLootCollection, getBagUrls, preload, wait };
+  async function play(options = {}) {
+    const sourceElement = options.sourceElement || options.source;
+    return playLootCollection({ ...options, sourceElement });
+  }
+  global.BagPresentation = { play, playLootCollection, getBagUrls, preload, wait };
 })(window);
