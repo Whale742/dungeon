@@ -4,7 +4,7 @@
   const assets=new Map(),draftBindings=new Map(),selectedAssetKeys=new Set();
   let category='all',sourceFilter='all',selected=null,bindingKey='',unsaved=false,pendingUpload=null;
 
-  const categories={all:'全部',roles:'職業頭像',bosses:'BOSS 頭像',sfx:'SFX',bgm:'BGM',effects:'技能特效圖片',backgrounds:'背景圖片',other:'其他素材'};
+  const categories={all:'全部',roles:'職業頭像',bosses:'BOSS 頭像',ui:'UI 介面素材',sfx:'SFX',bgm:'BGM',effects:'技能特效圖片',backgrounds:'背景圖片',other:'其他素材'};
   const sourceLabels={local:'Local 本地',storage:'Supabase Storage',external:'External URL'};
 
   function assetUrl(asset){return assetRegistry.url(asset);}

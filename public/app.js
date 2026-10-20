@@ -7165,18 +7165,25 @@ function renderInventoryModal() {
 // ==========================================
 let currentShopCategoryTab = 'all';
 
+let currentInteractiveEventKey = null;
+let interactiveEventNarrativeDone = false;
+
 function renderInteractiveEvent(ev) {
   if (!elements.eventCardBox) return;
   elements.eventCardBox.classList.remove('hidden');
-  if (elements.eventDetails) elements.eventDetails.style.display = 'block';
   const evFooter = document.querySelector('.event-footer');
   if (evFooter) evFooter.style.display = 'none';
 
+  const eventKey = `${roomState?.code || ''}:${roomState?.floor || 1}:${ev.hexId || (ev.type + '_' + (ev.subType || '') + '_' + (ev.title || ''))}`;
+  const isNewEventInstance = (currentInteractiveEventKey !== eventKey);
+  if (isNewEventInstance) {
+    currentInteractiveEventKey = eventKey;
+    interactiveEventNarrativeDone = false;
+  }
+
   if (ev.type === 'shop') {
-    elements.eventCardBox?.classList.add('is-shop-event');
     elements.eventIcon.innerHTML = getIconSvg('shop', 'svg-hero-icon');
     elements.eventTitle.textContent = (ev.title || '迷宮行商據點').replace(/^[🛒🏕️\s]+/, '');
-    elements.eventStoryText.textContent = ev.story || '';
 
     const currentGold = roomState.gold || 0;
     const squadItems = roomState.squadInventory || [];
@@ -7618,7 +7625,6 @@ function renderInteractiveEvent(ev) {
     elements.eventCardBox?.classList.remove('is-shop-event');
     elements.eventIcon.innerHTML = getIconSvg('chest', 'svg-hero-icon');
     elements.eventTitle.textContent = (ev.title || '發現寶箱！').replace(/^[📦🎁\s]+/, '');
-    elements.eventStoryText.textContent = ev.story || '';
 
     if (!ev.opened) {
       elements.eventDetails.innerHTML = `
@@ -7698,7 +7704,6 @@ function renderInteractiveEvent(ev) {
     const subTypeIcon = ev.subType === 'WANDERING_MERCHANT' ? 'camp' : (ev.subType === 'ALTAR' ? 'torii' : (ev.subType === 'GAMBLE' ? 'dice' : 'anvil'));
     elements.eventIcon.innerHTML = getIconSvg(subTypeIcon, 'svg-hero-icon');
     elements.eventTitle.textContent = (ev.title || '神秘據點').replace(/^[🏕️⛩️🎲⚒️\s]+/, '');
-    elements.eventStoryText.textContent = ev.story;
 
     let actionsHtml = '';
     const leaderRole = roomState.lockedLeaderRole;
@@ -7795,6 +7800,50 @@ function renderInteractiveEvent(ev) {
         });
       };
     });
+  }
+
+  const storyText = ev.story || '';
+  const finishNarrative = () => {
+    if (interactiveEventNarrativeDone) return;
+    interactiveEventNarrativeDone = true;
+    currentTypewriterContext?.cancel?.();
+    if (elements.eventStoryText) elements.eventStoryText.textContent = storyText;
+    elements.eventCardBox?.classList.remove('event-narrative-playing');
+    if (ev.type === 'shop') {
+      elements.eventCardBox?.classList.add('is-shop-event');
+    }
+    if (elements.eventDetails) {
+      elements.eventDetails.style.display = 'block';
+      requestAnimationFrame(() => {
+        elements.eventDetails.classList.add('is-interactive-ready');
+      });
+    }
+  };
+
+  if (!interactiveEventNarrativeDone && storyText) {
+    elements.eventCardBox?.classList.remove('is-shop-event');
+    elements.eventCardBox?.classList.add('event-narrative-playing');
+    if (elements.eventDetails) {
+      elements.eventDetails.style.display = 'none';
+      elements.eventDetails.classList.remove('is-interactive-ready');
+    }
+    typeWriterEffect(elements.eventStoryText, storyText, 25, finishNarrative);
+
+    const skipHandler = () => {
+      elements.eventCardBox?.removeEventListener('click', skipHandler);
+      finishNarrative();
+    };
+    elements.eventCardBox?.addEventListener('click', skipHandler, { once: true });
+  } else {
+    elements.eventCardBox?.classList.remove('event-narrative-playing');
+    if (ev.type === 'shop') {
+      elements.eventCardBox?.classList.add('is-shop-event');
+    }
+    if (elements.eventStoryText) elements.eventStoryText.textContent = storyText;
+    if (elements.eventDetails) {
+      elements.eventDetails.style.display = 'block';
+      elements.eventDetails.classList.add('is-interactive-ready');
+    }
   }
 }
 

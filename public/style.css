@@ -2245,6 +2245,27 @@ input[type="text"]::placeholder {
   width: 95% !important;
 }
 
+.event-card.event-narrative-playing {
+  max-width: 680px !important;
+  background: rgba(11, 17, 24, 0.88) !important;
+  border: 1px solid var(--border, #4F6674) !important;
+  border-radius: var(--ui-radius, 2px) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5) !important;
+  cursor: pointer;
+  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+}
+
+.event-details {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.event-details.is-interactive-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .event-icon {
   font-size: 3.5rem;
   margin-bottom: 12px;

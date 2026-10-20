@@ -25,6 +25,7 @@ export function createRoomContent() {
   for(const [boss,actions]of Object.entries(monsters))for(const action of Object.keys(actions)){const row=rows.get(storyKey('battle','monster',boss,action));if(row)actions[action]=row.body;}
   return {storyTexts,routeStories,battleNarratives:{monsters,getPlayerSkillNarrative(p,id,extra={}){const row=rows.get(storyKey('battle','player',p.role,id,narrativeVariant(p,extra)));return row?renderTemplate(row.body,{player:p.name}):BATTLE_NARRATIVES.getPlayerSkillNarrative(p,id,extra);}},
     text(key,fallback,vars={}){return renderTemplate(rows.get(key)?.body??fallback,vars);},
+    title(key,fallback,vars={}){return renderTemplate(rows.get(key)?.title??fallback,vars);},
     getRouteBossStory(route,boss){const clean=String(boss).replace(/^【削弱】/,'');return rows.get(storyKey('boss',route,clean))?.body||getRouteBossStory(route,boss);},
     getEquipText(role,id,fallback={}){const row=rows.get(storyKey('equip',role,id));return row?{name:row.title,desc:row.body}:fallback;},
     // Once sent to a joining client; never included in repeated room:update.

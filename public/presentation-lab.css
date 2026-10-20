@@ -5,16 +5,16 @@
    ========================================================================== */
 
 :root {
-  --lab-bg-main: #090d16;
-  --lab-bg-panel: #111827;
-  --lab-bg-card: #1f2937;
-  --lab-border: #374151;
-  --lab-text: #f3f4f6;
-  --lab-text-muted: #9ca3af;
-  --lab-primary: #3b82f6;
-  --lab-accent: #f59e0b;
-  --lab-success: #10b981;
-  --lab-danger: #ef4444;
+  --lab-bg-main: #0B1118;
+  --lab-bg-panel: #16212B;
+  --lab-bg-card: #0E1720;
+  --lab-border: #4F6674;
+  --lab-text: #E8EDF2;
+  --lab-text-muted: #94A1B8;
+  --lab-primary: #6FB7E9;
+  --lab-accent: #DFCF9E;
+  --lab-success: #6DD5A8;
+  --lab-danger: #EF4444;
 }
 
 body.lab-body {

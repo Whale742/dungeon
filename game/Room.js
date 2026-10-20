@@ -3645,13 +3645,13 @@ export class Room {
       hexId: hexNode?.id,
       col,
       title: isPrepShop
-        ? '🏕️ 出發備戰據點・後勤物資處'
-        : (isShady ? '🛒 幽暗黑市・神秘奸商' : '🛒 迷宮行商據點'),
+        ? this.studioContent.title('event.shop.prep', '🏕️ 出發備戰據點・後勤物資處')
+        : (isShady ? this.studioContent.title('event.shop.shady', '🛒 幽暗黑市・神秘奸商') : this.studioContent.title('event.shop.normal', '🛒 迷宮行商據點')),
       story: isPrepShop
-        ? '在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！'
+        ? this.studioContent.text('event.shop.prep', '在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！')
         : (isShady
-          ? '角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。'
-          : '迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。'),
+          ? this.studioContent.text('event.shop.shady', '角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。')
+          : this.studioContent.text('event.shop.normal', '迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。')),
       items,
       consumables,
       buybackPool: [],
@@ -4125,14 +4125,14 @@ export class Room {
       subType,
       hexId: hexNode?.id,
       col: hexNode?.col ?? 1,
-      title: subType === 'WANDERING_MERCHANT' ? '🏕️ 迷途流浪商人'
-        : subType === 'ALTAR' ? '⛩️ 古老深淵祭壇'
-        : subType === 'GAMBLE' ? '🎲 命運賭局'
-        : '⚒️ 黑鐵重鑄工坊',
-      story: subType === 'WANDERING_MERCHANT' ? '一名背負巨大行囊的流浪行者向你們招手，願意以物易物或分享前方情報。'
-        : subType === 'ALTAR' ? '一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。'
-        : subType === 'GAMBLE' ? '迷霧中擺著一張黑曜石牌桌，一名神秘的發牌人微笑著洗牌。'
-        : '一座地底矮人廢棄的鍛造台，殘存的爐火依然熾熱。',
+      title: subType === 'WANDERING_MERCHANT' ? this.studioContent.title('event.random.wandering_merchant', '🏕️ 迷途流浪商人')
+        : subType === 'ALTAR' ? this.studioContent.title('event.random.altar', '⛩️ 古老深淵祭壇')
+        : subType === 'GAMBLE' ? this.studioContent.title('event.random.gamble', '🎲 命運賭局')
+        : this.studioContent.title('event.random.reforge', '⚒️ 黑鐵重鑄工坊'),
+      story: subType === 'WANDERING_MERCHANT' ? this.studioContent.text('event.random.wandering_merchant', '一名背負巨大行囊的流浪行者向你們招手，願意以物易物或分享前方情報。')
+        : subType === 'ALTAR' ? this.studioContent.text('event.random.altar', '一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。')
+        : subType === 'GAMBLE' ? this.studioContent.text('event.random.gamble', '迷霧中擺著一張黑曜石牌桌，一名神秘的發牌人微笑著洗牌。')
+        : this.studioContent.text('event.random.reforge', '一座地底矮人廢棄的鍛造台，殘存的爐火依然熾熱。'),
       canLeave: true
     };
     this.broadcastState();
