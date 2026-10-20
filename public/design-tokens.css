@@ -48,6 +48,7 @@
   --ui-danger: var(--danger);
 
   /* Geometry (Azure Ruins: 0-4px rounded, 1-2px border, clean bevel/chamfer) */
+  --header-height: 74px;
   --ui-radius: 2px;
   --ui-border-width: 1px;
   --radius-xs: 2px;

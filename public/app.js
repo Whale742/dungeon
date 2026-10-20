@@ -1157,12 +1157,17 @@ function renderApp() {
     case 'LOBBY':
       if (isClassArchiveMode) {
         isClassArchiveMode = false;
+        window.isClassArchiveMode = false;
         const teamCard = document.querySelector('.team-card');
         if (teamCard) teamCard.classList.remove('hidden');
         const viewLobby = document.getElementById('viewLobby');
         if (viewLobby) viewLobby.classList.remove('archive-mode');
         const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
         if (btnArchiveBack) btnArchiveBack.classList.add('hidden');
+        const exitBtn = document.getElementById('btnLobbyExitRoom');
+        if (exitBtn) exitBtn.classList.remove('hidden');
+        const titleEl = document.getElementById('rolePanelTitle');
+        if (titleEl) titleEl.innerHTML = '選擇職業 <small>SELECT CHARACTER</small>';
       }
       switchView('lobby');
       presentationManager.clear();
@@ -1387,6 +1392,19 @@ function renderMemberStatusBadge(p, isThisLeader) {
 
 // 1. 渲染大廳
 function renderLobby(me, isLeader) {
+  isClassArchiveMode = false;
+  window.isClassArchiveMode = false;
+  const teamCard = document.querySelector('.team-card');
+  if (teamCard) teamCard.classList.remove('hidden');
+  const viewLobby = document.getElementById('viewLobby');
+  if (viewLobby) viewLobby.classList.remove('archive-mode');
+  const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
+  if (btnArchiveBack) btnArchiveBack.classList.add('hidden');
+  const exitBtn = document.getElementById('btnLobbyExitRoom');
+  if (exitBtn) exitBtn.classList.remove('hidden');
+  const titleEl = document.getElementById('rolePanelTitle');
+  if (titleEl) titleEl.innerHTML = '選擇職業 <small>SELECT CHARACTER</small>';
+
   elements.lobbyMemberCount.textContent = roomState.players.length;
 
   // 渲染小隊成員
@@ -3833,6 +3851,7 @@ function submitRecruitPledge() {
 
 function openClassArchiveFromMenu() {
   isClassArchiveMode = true;
+  window.isClassArchiveMode = true;
   playSound('click');
   const teamCard = document.querySelector('.team-card');
   if (teamCard) teamCard.classList.add('hidden');
@@ -3840,6 +3859,12 @@ function openClassArchiveFromMenu() {
   if (viewLobby) viewLobby.classList.add('archive-mode');
   const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
   if (btnArchiveBack) btnArchiveBack.classList.remove('hidden');
+  const exitBtn = document.getElementById('btnLobbyExitRoom');
+  if (exitBtn) exitBtn.classList.add('hidden');
+  const titleEl = document.getElementById('rolePanelTitle');
+  if (titleEl) titleEl.innerHTML = '角色一覽 <small>CLASS ARCHIVE</small>';
+  const statusEl = document.getElementById('roleSelectionStatus');
+  if (statusEl) statusEl.textContent = '點擊頭像檢視檔案';
 
   switchView('lobby');
   renderRoleSelectionGrid();
@@ -3847,6 +3872,7 @@ function openClassArchiveFromMenu() {
 
 function closeClassArchiveToMenu() {
   isClassArchiveMode = false;
+  window.isClassArchiveMode = false;
   playSound('click');
   const teamCard = document.querySelector('.team-card');
   if (teamCard) teamCard.classList.remove('hidden');
@@ -3854,6 +3880,12 @@ function closeClassArchiveToMenu() {
   if (viewLobby) viewLobby.classList.remove('archive-mode');
   const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
   if (btnArchiveBack) btnArchiveBack.classList.add('hidden');
+  const exitBtn = document.getElementById('btnLobbyExitRoom');
+  if (exitBtn) exitBtn.classList.remove('hidden');
+  const titleEl = document.getElementById('rolePanelTitle');
+  if (titleEl) titleEl.innerHTML = '選擇職業 <small>SELECT CHARACTER</small>';
+  const statusEl = document.getElementById('roleSelectionStatus');
+  if (statusEl) statusEl.textContent = '點擊頭像選擇職業';
 
   switchView('entry');
   goToEntryScreen('screenLobbyMenu');
@@ -4245,6 +4277,20 @@ function exitRoomToLobbyMenu() {
   roomState = null;
   currentRoomCode = null;
   lobbyRoleUi.confirmedRole = null;
+  isClassArchiveMode = false;
+  window.isClassArchiveMode = false;
+  const teamCard = document.querySelector('.team-card');
+  if (teamCard) teamCard.classList.remove('hidden');
+  const viewLobby = document.getElementById('viewLobby');
+  if (viewLobby) viewLobby.classList.remove('archive-mode');
+  const btnArchiveBack = document.getElementById('btnArchiveBackToMenu');
+  if (btnArchiveBack) btnArchiveBack.classList.add('hidden');
+  const exitBtn = document.getElementById('btnLobbyExitRoom');
+  if (exitBtn) exitBtn.classList.remove('hidden');
+  const titleEl = document.getElementById('rolePanelTitle');
+  if (titleEl) titleEl.innerHTML = '選擇職業 <small>SELECT CHARACTER</small>';
+  const statusEl = document.getElementById('roleSelectionStatus');
+  if (statusEl) statusEl.textContent = '點擊頭像選擇職業';
   renderRoleSelectionGrid();
   currentActiveStage = 'NONE';
   if (typeof presentationManager !== 'undefined' && typeof presentationManager.clear === 'function') {

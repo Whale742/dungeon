@@ -74,7 +74,8 @@ function renderRoleDetailPanel() {
   let intro=document.getElementById('lobbyRoleIntro');if(!intro){intro=document.createElement('p');intro.id='lobbyRoleIntro';intro.className='role-intro-desc';document.getElementById('lobbyRoleTags').after(intro);}
   const published=window.StudioContent?.find('role_profiles',role);intro.textContent=published?.short_intro||conf.desc;intro.title=published?.full_intro||conf.desc;
   const me=players.find(p=>p.id===myId),others=players.filter(p=>p.role===role&&p.id!==myId);
-  document.getElementById('roleSelectionStatus').textContent=me?.role===role?'已選擇此職業':others.length?'隊友已選 · 請選擇其他職業':'點擊頭像選擇職業';
+  const isArchive=document.getElementById('viewLobby')?.classList.contains('archive-mode')||Boolean(window.isClassArchiveMode);
+  document.getElementById('roleSelectionStatus').textContent=isArchive?'點擊頭像檢視檔案':(me?.role===role?'已選擇此職業':others.length?'隊友已選 · 請選擇其他職業':'點擊頭像選擇職業');
   renderRadarChart(role);updateRoleDescriptionPanel();
 }
 function renderRolePortraitStrip() {

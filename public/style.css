@@ -157,7 +157,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  height: 74px;
+  height: var(--header-height, 74px);
   background: rgba(13, 24, 33, 0.96);
   border: 1px solid var(--border, #4F6674);
   border-radius: var(--ui-radius, 2px);
