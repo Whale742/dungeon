@@ -64,7 +64,7 @@ export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,b
     a_shot:6+Math.max(P,M),a_rain:5*P,a_rain_arrow:.5*P,a_trap:.25*P,a_friendly:3+.5*M,
     m_blast:15+2*M,m_secondary:6+.6*M,m_miss:4+.4*M,m_secondary_miss:1+.2*M,m_drain_max:5+3*M,
     b_heal:1+.3*H,b_single:.4*H,b_miss:.07*H,b_nocturne:6+M,b_frenzy:7+2*M,
-    alc_flask:10+2.5*M,poison:3+.5*M,burn:5+.5*M,fracture:2+.3*M,chill:3+.3*M,
+    alc_flask:5+M,poison:3+.5*M,burn:5+.5*M,fracture:2+.3*M,chill:3+.3*M,
     alc_success:20+2*M,alc_failure:5+.5*M,alc_stable:5+M,
     sg_star:4+M,sg_planet:3+2*M,sg_bonus:1+.35*M,
     aug_reckon:5+M,aug_heal:5+.5*M,onm_detonate:stacks?4+.5*M+stacks*.25*M:0,
