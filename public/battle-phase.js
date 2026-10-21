@@ -86,7 +86,7 @@ const BOSS_ENCOUNTER_STORIES = Object.freeze({
 });
 
 function resolveRouteBossStory(routeId, bossName) {
-  const cleanName = (bossName || '').replace(/^【削弱】/, '');
+  const cleanName = (bossName || '').replace(/^【(削弱|負傷)】/, '');
   const stories = BOSS_ENCOUNTER_STORIES[routeId] || BOSS_ENCOUNTER_STORIES['route_trail'];
   if (stories && stories[cleanName]) return stories[cleanName];
   for (const r of Object.values(BOSS_ENCOUNTER_STORIES)) {
@@ -174,7 +174,7 @@ async function playBossIntro(monster, context = {}) {
   const art = stage.querySelector('.boss-encounter-art');
   const name = stage.querySelector('.boss-encounter-name');
   name.querySelector('h1').textContent = monster.name || 'ABYSS LORD';
-  name.querySelector('span').textContent = monster.isWeakened ? 'WEAKENED' : 'ABYSS LORD';
+  name.querySelector('span').textContent = monster.isWeakened ? 'WOUNDED' : 'ABYSS LORD';
   const resistance = monster.resistances || {};
   stage.querySelector('.boss-encounter-resistances').textContent = '本次抗性 · 物理 ' + (resistance.physical ?? monster.physicalResistance ?? 0) + '% · 魔法 ' + (resistance.magic ?? monster.magicResistance ?? 0) + '% · 效果 ' + (resistance.effect ?? monster.effectResistance ?? 0) + '%';
   if (monster.avatar) {

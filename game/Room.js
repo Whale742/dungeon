@@ -582,7 +582,7 @@ export class Room {
 
     const routeId = this.currentTransition?.routeId || 'route_trail';
     const bossStory = this.studioContent.getRouteBossStory(routeId, baseTemplate.name);
-    const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該敵人在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
+    const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該敵人在先前的戰鬥中遭受重創，處於負傷狀態！）' : '';
     const encounterStory = (baseTemplate.encounterStory || bossStory) + weakenedSuffix;
     const resolvedTier = options.tier || baseTemplate.tier || 'ELITE';
     const rolledRes = createBossResistances(baseTemplate, this.floor, options.rng);
@@ -600,13 +600,13 @@ export class Room {
       kind: baseTemplate.kind || null,
       role: baseTemplate.role || null,
       bossName: baseTemplate.bossName || null,
-      name: isWeakened ? `【削弱】${baseTemplate.name}` : baseTemplate.name,
+      name: isWeakened ? `【負傷】${baseTemplate.name}` : baseTemplate.name,
       originalName: baseTemplate.name,
       routeId,
       encounterStory,
       isWeakened,
       avatar: baseTemplate.avatar,
-      desc: isWeakened ? `${baseTemplate.desc} (⚠️ 負傷削弱：傷害與血量為原本 75%)` : baseTemplate.desc,
+      desc: isWeakened ? `${baseTemplate.desc} (⚠️ 負傷)` : baseTemplate.desc,
       attack: scaledAtk,
       hp: scaledHp,
       maxHp: scaledHp,
@@ -1582,7 +1582,7 @@ export class Room {
       const battlesNeeded = Math.max(0, 2 - (this.battlesInCurrentCycle || 0));
 
       if (battlesNeeded >= floorsRemainingInCycle) {
-        // 每5層保底至少2次戰鬥事件觸發（50% 一般BOSS，50% 削弱BOSS）
+        // 每5層保底至少2次戰鬥事件觸發（50% 一般BOSS，50% 負傷BOSS）
         outcomeType = 'battle';
         isWeakenedBoss = Math.random() < 0.5;
       } else {
@@ -1611,8 +1611,8 @@ export class Room {
 
     if (isWeakenedBoss) {
       outcomeData = {
-        title: (outcomeData.title || `【${route.name}・魔物遭遇】`).replace('⚔️', '🥀⚔️') + ' (削弱BOSS)',
-        story: outcomeData.story + this.studioContent.text('event.bossWeakened','（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）')
+        title: (outcomeData.title || `【${route.name}・魔物遭遇】`).replace('⚔️', '🥀⚔️') + ' (負傷BOSS)',
+        story: outcomeData.story + this.studioContent.text('event.bossWeakened','（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，處於負傷狀態！）')
       };
     }
 
@@ -1965,20 +1965,20 @@ export class Room {
 
       const routeId = this.currentTransition?.routeId || 'route_trail';
       const bossStory = this.studioContent.getRouteBossStory(routeId, baseMonster.name);
-      const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
+      const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，處於負傷狀態！）' : '';
       encounterStory = bossStory + weakenedSuffix;
 
       this.currentMonster = {
         instanceId: 'enemy_0',
         id: baseMonster.id || 'enemy_0',
         tier: 'ELITE',
-        name: isWeakened ? `【削弱】${baseMonster.name}` : baseMonster.name,
+        name: isWeakened ? `【負傷】${baseMonster.name}` : baseMonster.name,
         originalName: baseMonster.name,
         routeId,
         encounterStory,
         isWeakened: Boolean(isWeakened),
         avatar: baseMonster.avatar,
-        desc: isWeakened ? `${baseMonster.desc} (⚠️ 負傷削弱：傷害與血量為原本 75%)` : baseMonster.desc,
+        desc: isWeakened ? `${baseMonster.desc} (⚠️ 負傷)` : baseMonster.desc,
         attack: scaledAtk,
         hp: scaledHp,
         maxHp: scaledHp,
@@ -2048,7 +2048,7 @@ export class Room {
       ? this.enemies.map(e => e.name).join('、')
       : (this.currentMonster?.name || '未知魔物');
     if (isWeakened) {
-      this.addLog(`⚔️🥀 **遭遇削弱BOSS！【${enemyNamesLabel}】（傷害及血量削弱為原本 75%）擋住了去路！**`, 'warning');
+      this.addLog(`⚔️🥀 **遭遇負傷BOSS！【${enemyNamesLabel}】（負傷）擋住了去路！**`, 'warning');
     } else {
       this.addLog(`⚔️ **遭遇強敵！【${enemyNamesLabel}】擋住了去路！**`, 'warning');
     }
@@ -4574,8 +4574,8 @@ export class Room {
       col: hexNode?.col ?? 1,
       title: subType === 'WANDERING_MERCHANT' ? this.studioContent.title('event.random.wandering_merchant', '🏕️ 迷途流浪商人')
         : subType === 'ALTAR' ? this.studioContent.title('event.random.altar', '⛩️ 古老深淵祭壇')
-        : subType === 'GAMBLE' ? this.studioContent.title('event.random.gamble', '🎲 命運賭局')
-        : this.studioContent.title('event.random.reforge', '⚒️ 黑鐵重鑄工坊'),
+        : subType === 'GAMBLE' ? this.studioContent.title('event.random.gamble', '命運賭局')
+        : this.studioContent.title('event.random.reforge', '黑鐵重鑄工坊'),
       story: subType === 'WANDERING_MERCHANT' ? this.studioContent.text('event.random.wandering_merchant', '一名背負巨大行囊的流浪行者向你們招手，願意以物易物或分享前方情報。')
         : subType === 'ALTAR' ? this.studioContent.text('event.random.altar', '一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。')
         : subType === 'GAMBLE' ? this.studioContent.text('event.random.gamble', '迷霧中擺著一張黑曜石牌桌，一名神秘的發牌人微笑著洗牌。')
@@ -4865,7 +4865,7 @@ export class Room {
 
         this.squadInventory[targetIndex] = newItem;
 
-        this.addLog(`⚒️ 鍛造熔爐烈焰呼嘯！消耗 10G 將【${oldItem.name}】重鑄為 ${poolName}【${newItem.name}】！`, 'loot');
+        this.addLog(`【黑鐵重鑄】鍛造熔爐烈焰呼嘯！消耗 10G 將【${oldItem.name}】重鑄為 ${poolName}【${newItem.name}】！`, 'loot');
         this.broadcastState();
         return { success: true, item: newItem, oldItem, itemIndex: targetIndex, poolName };
       }

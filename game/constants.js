@@ -646,7 +646,7 @@ export const ROUTE_BOSS_STORIES = {
 };
 
 export function getRouteBossStory(routeId, bossName) {
-  const cleanName = (bossName || '').replace(/^【削弱】/, '');
+  const cleanName = (bossName || '').replace(/^【(削弱|負傷)】/, '');
   const storiesForRoute = ROUTE_BOSS_STORIES[routeId] || ROUTE_BOSS_STORIES['route_trail'];
   if (storiesForRoute && storiesForRoute[cleanName]) {
     return storiesForRoute[cleanName];
@@ -1898,7 +1898,7 @@ export const ABYSS_AUGUR_EASTER_EGG = Object.freeze({
 
 export function getExclusiveMinionForBoss(bossName) {
   if (!bossName) return EXCLUSIVE_MINIONS[0];
-  const cleanName = String(bossName).replace(/^【削弱】/, '').trim();
+  const cleanName = String(bossName).replace(/^【(削弱|負傷)】/, '').trim();
   return EXCLUSIVE_MINIONS.find(m => m.bossName === cleanName || cleanName.includes(m.bossName)) || EXCLUSIVE_MINIONS[0];
 }
 

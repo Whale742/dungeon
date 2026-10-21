@@ -1426,7 +1426,15 @@ function initLabController() {
   // Combat Trigger Button
   document.getElementById('btnTriggerHitFx')?.addEventListener('click', triggerHitPreview);
 
-  // Clear Log Button
+  // Log Panel Controls (Collapse & Clear)
+  const btnToggleLabLog = document.getElementById('btnToggleLabLog');
+  const labBottomPanel = document.getElementById('labBottomPanel') || document.querySelector('.lab-bottom-panel');
+  btnToggleLabLog?.addEventListener('click', () => {
+    if (!labBottomPanel) return;
+    const isCollapsed = labBottomPanel.classList.toggle('is-collapsed');
+    btnToggleLabLog.textContent = isCollapsed ? '展開日誌 ▲' : '收合日誌 ▼';
+  });
+
   document.getElementById('btnClearLabLog')?.addEventListener('click', () => {
     const container = document.getElementById('labLogContainer');
     if (container) container.replaceChildren();

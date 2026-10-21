@@ -83,7 +83,7 @@ export function buildCatalog() {
   addStory('event.victory','battle','勝利','💀 **{boss}** 發出最後一聲悲鳴，龐大的身軀轟然倒下！冒險小隊取得勝利！');
   addStory('event.floor','floor','樓層開始','【第 {floor} 層・深淵探索】');
   addStory('event.routeTransition','route','路線結算','小隊踏入【{route}】，正向第 {floor} 層深處探索前行……');
-  addStory('event.bossWeakened','boss','受傷首領','（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）');
+  addStory('event.bossWeakened','boss','受傷首領','（⚠️ 遠處傳來粗重的喘息聲，該BOSS在先前的戰鬥中遭受重創，處於負傷狀態！）');
   addStory('event.shop.normal','event','迷宮行商據點','迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。');
   addStory('event.shop.shady','event','幽暗黑市・神秘奸商','角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。');
   addStory('event.shop.prep','event','出發備戰據點・後勤物資處','在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！');

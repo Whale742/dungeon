@@ -5,19 +5,19 @@
 
 const EVENT_LAB_SCENES = Object.freeze({
   event_gamble: {
-    label: "🎲 隨機事件：命運賭局 (20面骰下注、減速滾動與結算)",
+    label: "隨機事件：命運賭局 (20面骰下注、減速滾動與結算)",
     category: "EVENT",
     subType: "GAMBLE",
     tag: "GAMBLE"
   },
   event_reforge: {
-    label: "⚒️ 隨機事件：矮人鑄造工坊 (背包選擇、鐵砧重鑄槽、消耗10G重鑄)",
+    label: "隨機事件：矮人鑄造工坊 (背包選擇、鐵砧重鑄槽、消耗10G重鑄)",
     category: "EVENT",
     subType: "REFORGE",
     tag: "REFORGE"
   },
   event_altar: {
-    label: "⛩️ 隨機事件：古老深淵祭壇 (鮮血獻祭、搜刮、聖光淨化)",
+    label: "隨機事件：古老深淵祭壇 (鮮血獻祭、搜刮、聖光淨化)",
     category: "EVENT",
     subType: "ALTAR",
     tag: "ALTAR"
@@ -309,13 +309,30 @@ function playLabGambleScene(context) {
 
     eventDetails.innerHTML = `
       <div class="gamble-container">
+        <!-- 頂部資訊與金幣欄 (商店風格) -->
+        <div class="shop-header-row">
+          <div class="shop-gold-badge">
+            <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-gold"></use></svg>
+            <span>小隊金幣：<b>${currentGold}</b> G</span>
+          </div>
+          <div style="font-size:13px;color:var(--ui-text-muted,#7e8c96);">
+            ※ 矮人工程師幸運二十面骰：設定押注並決定押大或小，擲出幸運特賞點數可獲 3倍 獎金
+          </div>
+          <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary" onclick="logLab('INFO', '冒險小隊告別離開賭局據點。');">
+            <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-leave"></use></svg>
+            <span>告別離開 ›</span>
+          </button>
+        </div>
+
         <!-- 規則說明橫幅 -->
         <div class="gamble-rule-banner">
-          <div class="gamble-rule-icon">📜</div>
+          <div class="gamble-rule-icon">
+            <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24" style="width:20px;height:20px;"><use href="#icon-scroll"></use></svg>
+          </div>
           <div class="gamble-rule-content">
             <div class="gamble-rule-title">矮人幸運二十面骰・賭局規則</div>
             <div class="gamble-rule-text">
-              【賭大還是小，如果是小1～9贏；大是11～20。不管賭什麼10是平局，退回錢，贏金錢2倍，輸了沒錢。另外：如果賭小出現1；大出現20，則變成3倍。】
+              【押注大或小：小 (1～9) 贏 2倍；大 (11～20) 贏 2倍。擲出 10 為平局退還押注。若押小擲出 1 或押大擲出 20，觸發極限大獎 3倍回饋！】
             </div>
           </div>
         </div>
@@ -323,11 +340,11 @@ function playLabGambleScene(context) {
         <div class="gamble-arena">
           <!-- 頂部金幣 -->
           <div class="gamble-wallet-bar">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:20px;">🪙</span>
-              <span style="font-size:13px;color:#cbd5e1;font-weight:700;">小隊金幣：</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-gold"></use></svg>
+              <span>小隊金幣：</span>
               <span class="gamble-wallet-amount" id="labGambleWalletGold">${currentGold}</span>
-              <span style="font-size:13px;color:#fbbf24;font-weight:700;">G</span>
+              <span>G</span>
             </div>
           </div>
 
@@ -352,90 +369,53 @@ function playLabGambleScene(context) {
               <button type="button" id="labBtnChoiceSmall" class="gamble-choice-card is-small ${betChoice === 'SMALL' ? 'is-selected' : ''}">
                 <div class="gamble-choice-label">小</div>
                 <div class="gamble-choice-sub">1 ～ 9 (贏 2倍)</div>
-                <div class="gamble-choice-tag">1點特賞 3倍</div>
+                <div class="gamble-choice-tag">[1點特賞 3倍]</div>
               </button>
               <button type="button" id="labBtnChoiceBig" class="gamble-choice-card is-big ${betChoice === 'BIG' ? 'is-selected' : ''}">
                 <div class="gamble-choice-label">大</div>
                 <div class="gamble-choice-sub">11 ～ 20 (贏 2倍)</div>
-                <div class="gamble-choice-tag">20點特賞 3倍</div>
+                <div class="gamble-choice-tag">[20點特賞 3倍]</div>
               </button>
             </div>
 
             <!-- 測試快捷點數 -->
-            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-top:2px;">
-              <span>[測試指定點數]：</span>
-              <button type="button" class="lab-btn lab-btn-outline lab-btn-sm" id="btnForceRand">隨機</button>
-              <button type="button" class="lab-btn lab-btn-outline lab-btn-sm" id="btnForce1">必出 1 (3倍)</button>
-              <button type="button" class="lab-btn lab-btn-outline lab-btn-sm" id="btnForce10">必出 10 (平局)</button>
-              <button type="button" class="lab-btn lab-btn-outline lab-btn-sm" id="btnForce20">必出 20 (3倍)</button>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-top:2px;flex-wrap:wrap;justify-content:center;">
+              <span style="font-family:monospace;">[指定點數]：</span>
+              <button type="button" class="shop-tab-btn" id="btnForceRand" style="padding:3px 8px;min-height:24px;font-size:11px;">隨機</button>
+              <button type="button" class="shop-tab-btn" id="btnForce1" style="padding:3px 8px;min-height:24px;font-size:11px;">必出 1 (3倍)</button>
+              <button type="button" class="shop-tab-btn" id="btnForce10" style="padding:3px 8px;min-height:24px;font-size:11px;">必出 10 (平局)</button>
+              <button type="button" class="shop-tab-btn" id="btnForce20" style="padding:3px 8px;min-height:24px;font-size:11px;">必出 20 (3倍)</button>
             </div>
 
-            <button type="button" id="btnLabRollDice" class="btn-gamble-roll" ${currentGold <= 0 ? 'disabled' : ''}>
-              🎲 擲骰子
-            </button>
+            <div style="display:flex;justify-content:center;width:100%;max-width:440px;">
+              <button type="button" id="btnLabRollDice" class="btn-shop-action btn-gamble-roll ui-button ui-button--primary" ${currentGold <= 0 ? 'disabled' : ''} style="width:100%;">
+                <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-dice"></use></svg>
+                <span>擲骰子</span>
+              </button>
+            </div>
           </div>
 
-          <!-- 畫面 2：20面骰子滾動動畫舞台 -->
-          <div id="labGambleScreenRoll" class="gamble-screen hidden" style="position:relative;height:280px;justify-content:center;">
+          <!-- 畫面 2：20面骰子滾動動畫舞台與結算 -->
+          <div id="labGambleScreenRoll" class="gamble-screen hidden" style="position:relative;min-height:330px;justify-content:center;">
             <div id="labGambleArcaneRing" class="arcane-ring"></div>
             <div id="labGambleParticleBox" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
             <div class="d20-stage">
               <div id="labGambleD20Wrapper" class="d20-wrapper">
-                <svg viewBox="0 0 300 300" style="width:100%;height:100%;overflow:visible;">
-                  <defs>
-                    <linearGradient id="labSaphGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#1e4b8f" />
-                      <stop offset="55%" stop-color="#0f2952" />
-                      <stop offset="100%" stop-color="#09152b" />
-                    </linearGradient>
-                    <linearGradient id="labSaphBright" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stop-color="#2b6cb0" />
-                      <stop offset="60%" stop-color="#153e75" />
-                      <stop offset="100%" stop-color="#2c1638" />
-                    </linearGradient>
-                    <linearGradient id="labRubyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#be123c" />
-                      <stop offset="55%" stop-color="#881337" />
-                      <stop offset="100%" stop-color="#3b0718" />
-                    </linearGradient>
-                    <linearGradient id="labGoldFrame" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#fef08a" />
-                      <stop offset="30%" stop-color="#eab308" />
-                      <stop offset="70%" stop-color="#a16207" />
-                      <stop offset="100%" stop-color="#451a03" />
-                    </linearGradient>
-                    <filter id="labGoldGlow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.85"/>
-                      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#fbbf24" flood-opacity="0.6"/>
-                    </filter>
-                  </defs>
-                  <polygon points="150,15 268,82 268,218 150,285 32,218 32,82" fill="#1c1309" stroke="#090603" stroke-width="10" stroke-linejoin="round"/>
-                  <polygon points="150,20 38,84 115,78" fill="url(#labSaphGrad)" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <polygon points="150,20 115,78 212,102" fill="url(#labSaphBright)" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <polygon points="150,20 212,102 262,84" fill="url(#labRubyGrad)" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <polygon points="38,84 115,78 52,192 38,212" fill="url(#labSaphGrad)" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <polygon points="115,78 52,192 168,218" fill="url(#labSaphBright)" stroke="url(#labGoldFrame)" stroke-width="8" stroke-linejoin="round"/>
-                  <polygon points="115,78 212,102 168,218" fill="url(#labSaphGrad)" stroke="url(#labGoldFrame)" stroke-width="8" stroke-linejoin="round"/>
-                  <polygon points="212,102 262,212 168,218" fill="url(#labRubyGrad)" stroke="url(#labGoldFrame)" stroke-width="7.5" stroke-linejoin="round"/>
-                  <polygon points="212,102 262,84 262,212" fill="#5c0b22" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <polygon points="52,192 168,218 150,280 38,212" fill="url(#labSaphGrad)" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <polygon points="168,218 262,212 150,280" fill="url(#labRubyGrad)" stroke="url(#labGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
-                  <path d="M114,112 L117,122 L127,125 L117,128 L114,138 L111,128 L101,125 L111,122 Z" fill="#fef08a" filter="url(#labGoldGlow)" />
-                  <text x="114" y="172" text-anchor="middle" fill="url(#labGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="38" filter="url(#labGoldGlow)">20</text>
-                  <text x="164" y="146" text-anchor="middle" fill="url(#labGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="30" transform="rotate(-32 164 140)" filter="url(#labGoldGlow)">14</text>
-                  <text x="158" y="68" text-anchor="middle" fill="url(#labGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="23" transform="rotate(14 158 64)" filter="url(#labGoldGlow)">4</text>
-                </svg>
+                <img id="labGambleD20Img" class="d20-img" src="/assets/d20.webp" alt="二十面骰" />
               </div>
+              <div id="labGambleBigNumber" class="gamble-big-number font-cinzel hidden">20</div>
             </div>
-          </div>
 
-          <!-- 畫面 3：結算畫面 -->
-          <div id="labGambleScreenResult" class="gamble-screen-result hidden">
-            <div id="labGambleBigNumber" class="gamble-big-number font-cinzel">20</div>
-            <div id="labGambleOutcomeBadge" class="gamble-outcome-badge jackpot">贏 (3倍)</div>
-            <div id="labGambleGoldDelta" class="gamble-gold-delta">+150 G</div>
-            <div style="display:flex;gap:12px;margin-top:10px;">
-              <button type="button" id="btnLabGambleAgain" class="btn-gamble-again">再來一局</button>
+            <!-- 結算結果 (直接置於骰子原位下方) -->
+            <div id="labGambleScreenResult" class="gamble-screen-result hidden">
+              <div id="labGambleOutcomeBadge" class="gamble-outcome-badge jackpot">贏 (3倍)</div>
+              <div id="labGambleGoldDelta" class="gamble-gold-delta">+150 G</div>
+              <div style="display:flex;justify-content:center;margin-top:6px;width:100%;max-width:240px;">
+                <button type="button" id="btnLabGambleAgain" class="btn-shop-action btn-gamble-again ui-button ui-button--primary" style="width:100%;">
+                  <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-dice"></use></svg>
+                  <span>再來一局</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -497,15 +477,25 @@ function playLabGambleScene(context) {
 
       const screenBet = document.getElementById('labGambleScreenBet');
       const screenRoll = document.getElementById('labGambleScreenRoll');
+      const screenResult = document.getElementById('labGambleScreenResult');
       const d20Wrapper = document.getElementById('labGambleD20Wrapper');
       const arcaneRing = document.getElementById('labGambleArcaneRing');
       const particleBox = document.getElementById('labGambleParticleBox');
+      const bigNumber = document.getElementById('labGambleBigNumber');
 
-      screenBet.classList.add('hidden');
-      screenRoll.classList.remove('hidden');
-      d20Wrapper.classList.remove('d20-vanish');
-      d20Wrapper.style.opacity = '1';
-      arcaneRing.classList.add('active-roll');
+      if (screenBet) screenBet.classList.add('hidden');
+      if (screenResult) screenResult.classList.add('hidden');
+      if (bigNumber) {
+        bigNumber.classList.add('hidden');
+        bigNumber.classList.remove('number-pop');
+      }
+      if (screenRoll) screenRoll.classList.remove('hidden');
+      if (d20Wrapper) {
+        d20Wrapper.classList.remove('d20-vanish');
+        d20Wrapper.style.opacity = '1';
+        d20Wrapper.style.transform = 'translate3d(0, 0, 0) rotate(0deg) scale(1)';
+      }
+      if (arcaneRing) arcaneRing.classList.add('active-roll');
 
       const roll = (forcedRoll !== null) ? forcedRoll : (Math.floor(Math.random() * 20) + 1);
       let outcomeType = 'LOSE';
@@ -560,8 +550,7 @@ function playLabGambleScene(context) {
             for (let i = 0; i < 16; i++) spawnLabSpark(particleBox, 0, 0, i % 2 === 0 ? '#fde047' : '#ffffff');
 
             setTimeout(() => {
-              arcaneRing.classList.remove('active-roll');
-              screenRoll.classList.add('hidden');
+              if (arcaneRing) arcaneRing.classList.remove('active-roll');
               isRolling = false;
 
               labEventTeamState.gold += payout;
@@ -572,43 +561,59 @@ function playLabGambleScene(context) {
               const badgeEl = document.getElementById('labGambleOutcomeBadge');
               const deltaEl = document.getElementById('labGambleGoldDelta');
 
-              screenResult.classList.remove('hidden');
-              numEl.textContent = roll;
-              playLabOutcomeSound(outcomeType);
+              if (numEl) {
+                numEl.textContent = roll;
+                numEl.classList.remove('hidden');
+                numEl.classList.remove('number-pop');
+                void numEl.offsetWidth;
+                numEl.classList.add('number-pop');
 
-              if (outcomeType === 'JACKPOT') {
-                numEl.style.color = '#fbbf24';
-                numEl.style.textShadow = '0 0 35px rgba(251, 191, 36, 0.95)';
-                badgeEl.className = 'gamble-outcome-badge jackpot outcome-stamp';
-                badgeEl.textContent = '贏 (3倍)';
-                deltaEl.style.color = '#fbbf24';
-                deltaEl.textContent = `+${payout} G`;
-                logLab('WIN', `🎲 擲出極限【${roll}】點！3 倍大獎贏得 +${payout} G！`, 'success');
-              } else if (outcomeType === 'WIN') {
-                numEl.style.color = '#34d399';
-                numEl.style.textShadow = '0 0 25px rgba(52, 211, 153, 0.8)';
-                badgeEl.className = 'gamble-outcome-badge win outcome-stamp';
-                badgeEl.textContent = '贏 (2倍)';
-                deltaEl.style.color = '#34d399';
-                deltaEl.textContent = `+${payout} G`;
-                logLab('WIN', `🎲 擲出【${roll}】點！獲勝贏得 +${payout} G！`, 'success');
-              } else if (outcomeType === 'PUSH') {
-                numEl.style.color = '#38bdf8';
-                numEl.style.textShadow = '0 0 25px rgba(56, 189, 248, 0.8)';
-                badgeEl.className = 'gamble-outcome-badge push outcome-stamp';
-                badgeEl.textContent = '平局';
-                deltaEl.style.color = '#7dd3fc';
-                deltaEl.textContent = `退回 ${wager} G`;
-                logLab('PUSH', `🎲 擲出【10】點平局！退回押注 ${wager} G。`, 'info');
-              } else {
-                numEl.style.color = '#f43f5e';
-                numEl.style.textShadow = '0 0 25px rgba(244, 63, 94, 0.85)';
-                badgeEl.className = 'gamble-outcome-badge lose outcome-stamp';
-                badgeEl.textContent = '輸';
-                deltaEl.style.color = '#fb7185';
-                deltaEl.textContent = `-${wager} G`;
-                logLab('LOSE', `🎲 擲出【${roll}】點，押注失敗損失 ${wager} G……`, 'warning');
+                if (outcomeType === 'JACKPOT') {
+                  numEl.style.color = '#fbbf24';
+                  numEl.style.textShadow = '0 0 35px rgba(251, 191, 36, 0.95)';
+                } else if (outcomeType === 'WIN') {
+                  numEl.style.color = '#34d399';
+                  numEl.style.textShadow = '0 0 25px rgba(52, 211, 153, 0.8)';
+                } else if (outcomeType === 'PUSH') {
+                  numEl.style.color = '#38bdf8';
+                  numEl.style.textShadow = '0 0 25px rgba(56, 189, 248, 0.8)';
+                } else {
+                  numEl.style.color = '#f43f5e';
+                  numEl.style.textShadow = '0 0 25px rgba(244, 63, 94, 0.85)';
+                }
               }
+
+              if (screenResult && badgeEl && deltaEl) {
+                screenResult.classList.remove('hidden');
+
+                if (outcomeType === 'JACKPOT') {
+                  badgeEl.className = 'gamble-outcome-badge jackpot outcome-stamp';
+                  badgeEl.textContent = '贏 (3倍)';
+                  deltaEl.style.color = '#fbbf24';
+                  deltaEl.textContent = `+${payout} G`;
+                  logLab('WIN', `[D20] 擲出極限【${roll}】點！3 倍大獎贏得 +${payout} G！`, 'success');
+                } else if (outcomeType === 'WIN') {
+                  badgeEl.className = 'gamble-outcome-badge win outcome-stamp';
+                  badgeEl.textContent = '贏 (2倍)';
+                  deltaEl.style.color = '#34d399';
+                  deltaEl.textContent = `+${payout} G`;
+                  logLab('WIN', `[D20] 擲出【${roll}】點！獲勝贏得 +${payout} G！`, 'success');
+                } else if (outcomeType === 'PUSH') {
+                  badgeEl.className = 'gamble-outcome-badge push outcome-stamp';
+                  badgeEl.textContent = '平局';
+                  deltaEl.style.color = '#7dd3fc';
+                  deltaEl.textContent = `退回 ${wager} G`;
+                  logLab('PUSH', `[D20] 擲出【10】點平局！退回押注 ${wager} G。`, 'info');
+                } else {
+                  badgeEl.className = 'gamble-outcome-badge lose outcome-stamp';
+                  badgeEl.textContent = '輸';
+                  deltaEl.style.color = '#fb7185';
+                  deltaEl.textContent = `-${wager} G`;
+                  logLab('LOSE', `[D20] 擲出【${roll}】點，押注失敗損失 ${wager} G……`, 'warning');
+                }
+              }
+
+              playLabOutcomeSound(outcomeType);
             }, 380);
           }, 200);
         }
@@ -617,8 +622,20 @@ function playLabGambleScene(context) {
     });
 
     document.getElementById('btnLabGambleAgain')?.addEventListener('click', () => {
-      document.getElementById('labGambleScreenResult').classList.add('hidden');
-      document.getElementById('labGambleScreenBet').classList.remove('hidden');
+      const screenRoll = document.getElementById('labGambleScreenRoll');
+      const screenResult = document.getElementById('labGambleScreenResult');
+      const screenBet = document.getElementById('labGambleScreenBet');
+      const numEl = document.getElementById('labGambleBigNumber');
+      const d20Wrapper = document.getElementById('labGambleD20Wrapper');
+
+      if (screenRoll) screenRoll.classList.add('hidden');
+      if (screenResult) screenResult.classList.add('hidden');
+      if (numEl) numEl.classList.add('hidden');
+      if (screenBet) screenBet.classList.remove('hidden');
+      if (d20Wrapper) {
+        d20Wrapper.classList.remove('d20-vanish');
+        d20Wrapper.style.opacity = '1';
+      }
       renderGambleUI();
     });
   }
@@ -653,21 +670,42 @@ function playLabReforgeScene(context) {
 
     eventDetails.innerHTML = `
       <div class="reforge-container">
+        <!-- 頂部資訊與金幣欄 (商店風格) -->
+        <div class="shop-header-row">
+          <div class="shop-gold-badge">
+            <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-gold"></use></svg>
+            <span>小隊金幣：<b>${currentGold}</b> G</span>
+          </div>
+          <div style="font-size:13px;color:var(--ui-text-muted,#7e8c96);">
+            ※ 矮人古法重鑄鐵砧：消耗 10G，隨機將選取的裝備重鑄為同階、二階稀有或職業專屬神裝
+          </div>
+          <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary" onclick="logLab('INFO', '冒險小隊告別離開重鑄工坊。');">
+            <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-leave"></use></svg>
+            <span>告別離開 ›</span>
+          </button>
+        </div>
+
         <div class="reforge-main-layout">
           <!-- 左側背包 (19格) -->
           <div class="reforge-inventory-col">
-            <div class="reforge-col-title">
-              <svg class="ui-icon" style="width:16px;height:16px;"><use href="#icon-chest"></use></svg>
-              <span>小隊背包 (點選或拖曳裝備至右側格子)</span>
+            <div class="shop-col-header">
+              <span class="shop-col-title">
+                <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-chest"></use></svg>
+                <span>小隊背包 (19格)</span>
+              </span>
+              <small>點選或拖曳裝備至鐵砧</small>
             </div>
             ${buildLabHexGrid(squadItems, false, selectedIndex)}
           </div>
 
           <!-- 右側鐵砧槽 -->
           <div class="reforge-anvil-col">
-            <div class="reforge-col-title">
-              <svg class="ui-icon" style="width:16px;height:16px;"><use href="#icon-anvil"></use></svg>
-              <span>重鑄鐵砧</span>
+            <div class="shop-col-header">
+              <span class="shop-col-title">
+                <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-anvil"></use></svg>
+                <span>重鑄鐵砧</span>
+              </span>
+              <small>重鑄消耗 10G</small>
             </div>
 
             <div class="reforge-slot-box ${selectedItem ? 'has-slotted-item' : 'empty'}" id="labReforgeDropBox">
@@ -683,11 +721,16 @@ function playLabReforgeScene(context) {
                     ${selectedItem.bonusHp ? `生命 +${selectedItem.bonusHp}` : ''}
                     ${selectedItem.bonusDef ? `防禦 +${selectedItem.bonusDef}` : ''}
                   </div>
-                  <button type="button" class="reforge-remove-btn" id="btnLabRemoveReforge">✕ 取出</button>
+                  <button type="button" class="btn-shop-action reforge-remove-btn" id="btnLabRemoveReforge">
+                    <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24" style="width:12px;height:12px;"><use href="#icon-close"></use></svg>
+                    <span>取出</span>
+                  </button>
                 </div>
               ` : `
-                <div class="reforge-placeholder-icon">⚒️</div>
-                <div class="reforge-placeholder-text">點選左側裝備<br>或將裝備拖曳至此處</div>
+                <div class="reforge-placeholder-icon">
+                  <svg class="ui-icon svg-icon" viewBox="0 0 24 24" style="width:36px;height:36px;fill:currentColor;"><use href="#icon-anvil"></use></svg>
+                </div>
+                <div class="reforge-placeholder-text">點選左側背包裝備<br>或將裝備拖曳至此處</div>
               `}
             </div>
 
@@ -707,8 +750,9 @@ function playLabReforgeScene(context) {
             </div>
 
             <div class="reforge-actions-bar">
-              <button type="button" class="btn btn-primary btn-reforge-execute" id="btnLabExecReforge" ${(!selectedItem || currentGold < 10) ? 'disabled' : ''}>
-                ⚒️ 開始重鑄 (10G)
+              <button type="button" class="btn-shop-action btn-reforge-execute ui-button ui-button--primary" id="btnLabExecReforge" ${(!selectedItem || currentGold < 10) ? 'disabled' : ''}>
+                <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-anvil"></use></svg>
+                <span>開始重鑄 (10G)</span>
               </button>
             </div>
           </div>
@@ -782,7 +826,7 @@ function playLabReforgeScene(context) {
       squadItems[selectedIndex] = newItem;
 
       playLabTick(340);
-      logLab('REFORGE', `⚒️ 消耗 10G 將【${oldItem.name}】重鑄為 ${poolLabel}【${newItem.name}】！`, 'success');
+      logLab('REFORGE', `[重鑄] 消耗 10G 將【${oldItem.name}】重鑄為 ${poolLabel}【${newItem.name}】！`, 'success');
       renderReforgeUI();
     });
   }

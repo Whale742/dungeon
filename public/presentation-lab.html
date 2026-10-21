@@ -254,8 +254,8 @@
             <label class="lab-label" for="labSceneSelect">選擇測試項目：</label>
             <select id="labSceneSelect" class="lab-select" style="width: 100%;">
               <optgroup label="🎪 冒險事件與據點全覽 (All Exploration & Random Events)">
-                <option value="event_gamble">🎲 隨機事件：命運賭局 (20面骰下注、減速滾動與結算)</option>
-                <option value="event_reforge">⚒️ 隨機事件：矮人鑄造工坊 (背包選擇、鐵砧重鑄槽、消耗10G重鑄)</option>
+                <option value="event_gamble">隨機事件：命運賭局 (20面骰下注、減速滾動與結算)</option>
+                <option value="event_reforge">隨機事件：矮人鑄造工坊 (背包選擇、鐵砧重鑄槽、消耗10G重鑄)</option>
                 <option value="event_altar">⛩️ 隨機事件：古老深淵祭壇 (鮮血獻祭、搜刮、聖光淨化)</option>
                 <option value="event_wandering_merchant">🏕️ 隨機事件：迷途流浪商人 (以物易物、打探情報、幻象重塑)</option>
                 <option value="event_shop_standard">🛒 商店據點：迷宮行商據點 (19格貨架、背包、商品頁籤、買賣休整)</option>
@@ -712,7 +712,7 @@
               </section>
 
               <!-- 視圖：事件區 -->
-              <section id="viewEvent" class="view-panel active" style="min-height: 100%; display: flex; align-items: center; justify-content: center;">
+              <section id="viewEvent" class="view-panel active">
                 <!-- 1. 寶箱發現區塊 (探索層) -->
                 <div id="chestDiscoverySection" class="exploration-chest hidden">
                   <div id="chestDiscoveryStory" class="exploration-chest-story"></div>
@@ -854,10 +854,13 @@
 
 
       <!-- 底部時序日誌與控制台 (Timing & Console Log) -->
-      <div class="lab-bottom-panel">
+      <div class="lab-bottom-panel" id="labBottomPanel">
         <div class="lab-bottom-header">
           <span>演出時序節拍與除錯日誌 (TIMING & LOG)</span>
-          <button type="button" id="btnClearLabLog" class="lab-btn lab-btn-outline lab-btn-sm">清空日誌</button>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" id="btnToggleLabLog" class="lab-btn lab-btn-outline lab-btn-sm" title="收合/展開時序日誌">收合日誌 ▼</button>
+            <button type="button" id="btnClearLabLog" class="lab-btn lab-btn-outline lab-btn-sm">清空日誌</button>
+          </div>
         </div>
         <div id="labLogContainer" class="lab-log-body">
           <div class="lab-log-entry"><span class="lab-log-time">00:00.000</span><span class="lab-log-tag">[INIT]</span><span>Presentation Lab initialized and ready.</span></div>

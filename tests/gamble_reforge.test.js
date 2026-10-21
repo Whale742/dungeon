@@ -126,3 +126,33 @@ test('Presentation Lab: All events scenes registered in /lab', () => {
     assert.ok(labScenesCode.includes(sc), `Expected event-lab-scenes.js to define scene ${sc}`);
   });
 });
+
+test('Monster Wounded (負傷) status terminology and removal of 75% display', () => {
+  const mockSocket = { id: 'sock_test', emit: () => {}, join: () => {} };
+  const mockIo = { to: () => ({ emit: () => {} }), emit: () => {} };
+  const room = new Room('TEST_WOUNDED', mockSocket, 'Player1', mockIo);
+
+  const baseEnemy = {
+    id: 'test_golem',
+    name: '遠古守衛石像',
+    desc: '古代遺跡的強大守護者。',
+    hp: 400,
+    attack: 40
+  };
+
+  const woundedEnemy = room.createEnemyInstance(baseEnemy, 0, { isWeakened: true });
+  assert.strictEqual(woundedEnemy.name, '【負傷】遠古守衛石像');
+  assert.strictEqual(woundedEnemy.desc, '古代遺跡的強大守護者。 (⚠️ 負傷)');
+  assert.ok(woundedEnemy.encounterStory.includes('處於負傷狀態！'));
+  assert.ok(!woundedEnemy.encounterStory.includes('75%'));
+  assert.ok(!woundedEnemy.encounterStory.includes('削弱'));
+  assert.ok(!woundedEnemy.desc.includes('75%'));
+  assert.ok(!woundedEnemy.desc.includes('削弱'));
+
+  // Test battle log on wounded encounter
+  room.handleBattleEvent(null, true, { enemies: [woundedEnemy] });
+  const hasWoundedLog = room.logs.some(l => l.text.includes('遭遇負傷BOSS！') && l.text.includes('（負傷）'));
+  assert.ok(hasWoundedLog, 'Expected battle log to contain 遭遇負傷BOSS！ and （負傷）');
+  const hasOldWeakenedLog = room.logs.some(l => l.text.includes('75%') || l.text.includes('削弱BOSS'));
+  assert.strictEqual(hasOldWeakenedLog, false, 'Expected battle log to not mention 75% or 削弱BOSS');
+});
