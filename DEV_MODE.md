@@ -63,3 +63,22 @@ cloud credentials are blanked, no Supabase access or writes. Covered identical H
 public list exclusion, rejected joins, pre-start/wrong-token/production authorization,
 reconnected socket without membership and disabled-mode normal adventure start.
 Limitations: mutations/panel arrive in later phases; browser animation QA pending.
+
+## Phase 2
+
+Changed: `game/DevController.js`, adjacent tests, socket handlers in `server.js`,
+integration tests. Commands are explicit schemas (`gold.set`, `gold.add` initially).
+Exact room and full server context/revision must match. Each Dev room has one
+synchronous transaction lock: JavaScript run-to-completion prevents normal game
+callbacks interleaving; nested broadcasts are withheld until invariant validation.
+Failed mutations restore the captured fields before any broadcast. No timers,
+ACK sets or game phase are modified by commands. Dedup retains up to 2048 request
+IDs for the room lifetime, then rejects new IDs rather than forgetting old ones.
+Reused IDs with changed payloads are rejected. Dev audit (100 entries with before/
+after snapshots) is private and separate from `Room.logs`; no token is recorded.
+
+Validation: 12 tests passed including duplicate/stale/foreign/unauthorized requests,
+invalid schemas, all unsafe phases, vote conflicts, transaction lock, invariant
+rollback, audit separation and live socket rejection. Original 4 regressions pass.
+Limits: logs are memory-only; room lifetime cap requires a new room after 2048
+requests. Authorization guessing is limited per connection, not a global IP quota.

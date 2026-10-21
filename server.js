@@ -5,12 +5,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { Room } from './game/Room.js';
 import { DevAccess } from './game/DevAccess.js';
+import { DevController } from './game/DevController.js';
 import { CLASSES, ROUTES, ROLE_DETAILS } from './game/constants.js';
 import { loadEnv } from './studio/env.js';
 import { mountStudio } from './studio/router.js';
 import { refreshPublished,createRoomContent,contentCache } from './studio/content.js';
 loadEnv();
 const devAccess = new DevAccess();
+const devController = new DevController(devAccess);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,6 +84,13 @@ io.on('connection', (socket) => {
     const result = devAccess.authorize(socket, room, request?.token);
     if (typeof callback === 'function') callback(result);
   });
+  socket.on('dev:inspect', (callback) => {
+    if (typeof callback === 'function') callback(devController.inspect(socket, rooms.get(socketToRoom.get(socket.id))));
+  });
+  socket.on('dev:command', (request, callback) => {
+    const result = devController.execute(socket, rooms.get(socketToRoom.get(socket.id)), request);
+    if (typeof callback === 'function') callback(result);
+  });
 
   // 1. 建立房間
   socket.on('room:create', ({ name, avatar }, callback) => {
@@ -100,6 +109,7 @@ io.on('connection', (socket) => {
       const code = generateRoomCode();
       const room = new Room(code, socket, name, io, avatar);
       room.isDev = isDev;
+      if (isDev) devController.register(room, socket);
       socket.emit('studio:content', room.studioContent.snapshot);
       rooms.set(code, room);
       socketToRoom.set(socket.id, code);

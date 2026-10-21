@@ -68,6 +68,12 @@ test('Dev route shares HTML; isolated solo rooms and socket-scoped authorization
   await request(dev, 'game:start');
   assert.equal((await request(dev, 'dev:authorize', { token: 'wrong' })).success, false);
   assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  const status = await request(dev, 'dev:inspect');
+  assert.equal(status.success, true);
+  const command = { id: 'test-command', roomCode: privateRoom.roomCode, context: status.context, command: 'gold.set', params: { value: 123 } };
+  assert.equal((await request(dev, 'dev:command', command)).success, false); // prologue is locked
+  assert.equal((await request(normal, 'dev:command', command)).success, false);
+  assert.equal((await request(outsider, 'dev:inspect')).success, false);
   assert.equal((await request(normal, 'dev:authorize', { token })).success, false);
   dev.disconnect();
   const reconnected = await connect(true);
