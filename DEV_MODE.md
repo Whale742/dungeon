@@ -41,3 +41,25 @@ combat/stale ACK/next round, victory/reward/exploration, chest/equipment swap/re
 No engine or balance files changed. `npm test` script repaired to discover adjacent
 tests; host npm executable is broken, so commands use Node directly.
 Limitation: these are authoritative engine regressions, not browser animation QA.
+
+## Phase 1
+
+Changed: `server.js`, `public/app.js`, `game/DevAccess.js`, adjacent tests,
+`server.test.js`, test discovery in `package.json`.
+`/dev` serves the same index; server-owned candidate rooms are solo and excluded
+from public lists, all joins are rejected. Grants use private WeakMaps and exact
+socket/room identity; disconnect/leave/create revokes access. The route flag grants
+no mutation rights. Token is accepted only by a dedicated socket event after start,
+hashed before timing-safe comparison, never placed in public state or persistent
+client storage. Five authorization attempts per connection per minute.
+
+Enable with `DEV_TOOLS_ENABLED=true` and `DEV_ACCESS_TOKEN` of at least 16 characters
+in the server environment. Both are required; disabled `/dev` returns 404.
+Never put the token in a URL. Production rooms cannot obtain a Dev grant.
+
+Validation: 7 unit/engine tests and 2 real HTTP/Socket.IO integration tests passed.
+Integration uses temporary in-memory sockets, ephemeral ports and child processes;
+cloud credentials are blanked, no Supabase access or writes. Covered identical HTML,
+public list exclusion, rejected joins, pre-start/wrong-token/production authorization,
+reconnected socket without membership and disabled-mode normal adventure start.
+Limitations: mutations/panel arrive in later phases; browser animation QA pending.

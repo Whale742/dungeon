@@ -4,11 +4,13 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Room } from './game/Room.js';
+import { DevAccess } from './game/DevAccess.js';
 import { CLASSES, ROUTES, ROLE_DETAILS } from './game/constants.js';
 import { loadEnv } from './studio/env.js';
 import { mountStudio } from './studio/router.js';
 import { refreshPublished,createRoomContent,contentCache } from './studio/content.js';
 loadEnv();
+const devAccess = new DevAccess();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +33,10 @@ mountStudio(app, path.join(__dirname, 'public'),{onPublish:async()=>syncLobbyCon
 void refreshPublished().then(syncLobbyContent);
 setInterval(() => { void refreshPublished().then(syncLobbyContent); }, 60000).unref();
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/dev', (_req, res) => {
+  if (!devAccess.enabled) return res.sendStatus(404);
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 app.use('/photo', express.static(path.join(__dirname, 'photo')));
 app.use('/BOSS', express.static(path.join(__dirname, 'public', 'BOSS')));
 app.use('/boss', express.static(path.join(__dirname, 'public', 'BOSS')));
@@ -71,9 +77,21 @@ io.on('connection', (socket) => {
   // 發送職業與基礎資料給新客戶端
   socket.emit('init:constants', { classes: CLASSES, routes: ROUTES, roleDetails: ROLE_DETAILS });
 
+  socket.on('dev:authorize', (request, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    const result = devAccess.authorize(socket, room, request?.token);
+    if (typeof callback === 'function') callback(result);
+  });
+
   // 1. 建立房間
   socket.on('room:create', ({ name, avatar }, callback) => {
     try {
+      const isDev = socket.handshake.auth?.devMode === true;
+      if (isDev && !devAccess.enabled) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Dev 功能未啟用' });
+        return;
+      }
+      devAccess.revoke(socket);
       const existingCode = socketToRoom.get(socket.id);
       if (existingCode && rooms.has(existingCode)) {
         rooms.get(existingCode).removePlayer(socket.id);
@@ -81,6 +99,7 @@ io.on('connection', (socket) => {
 
       const code = generateRoomCode();
       const room = new Room(code, socket, name, io, avatar);
+      room.isDev = isDev;
       socket.emit('studio:content', room.studioContent.snapshot);
       rooms.set(code, room);
       socketToRoom.set(socket.id, code);
@@ -108,8 +127,14 @@ io.on('connection', (socket) => {
         return;
       }
 
+      if (room.isDev || socket.handshake.auth?.devMode === true) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Dev 房間僅限建立者單人使用' });
+        return;
+      }
+
       const result = room.addPlayer(socket, name, avatar);
       if (result.success) {
+        devAccess.revoke(socket);
         socket.emit('studio:content', room.studioContent.snapshot);
         socketToRoom.set(socket.id, roomCode);
         console.log(`[加入] 玩家 ${name} 加入房間 ${roomCode}`);
@@ -129,7 +154,7 @@ io.on('connection', (socket) => {
     try {
       const list = [];
       for (const [c, r] of rooms.entries()) {
-        if (r.state === 'LOBBY') {
+        if (r.state === 'LOBBY' && !r.isDev) {
           const leader = Object.values(r.players || {}).find(p => p.id === r.leaderId);
           list.push({
             id: 'srv_' + c,
@@ -538,6 +563,7 @@ io.on('connection', (socket) => {
 
   // 12. 離開隊伍 (若隊長退出則移交第一順位)
   socket.on('leave_party', (callback) => {
+    devAccess.revoke(socket);
     const code = socketToRoom.get(socket.id);
     if (code && rooms.has(code)) {
       const room = rooms.get(code);
@@ -555,6 +581,7 @@ io.on('connection', (socket) => {
 
   // 斷線處理
   socket.on('disconnect', () => {
+    devAccess.revoke(socket);
     console.log(`[離線] 玩家離開：${socket.id}`);
     const code = socketToRoom.get(socket.id);
     if (code && rooms.has(code)) {

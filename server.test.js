@@ -1,0 +1,87 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
+import { io } from 'socket.io-client';
+
+const token = 'local-integration-test-token';
+export async function launch(t, enabled = true) {
+  const probe = createServer();
+  probe.listen(0, '127.0.0.1');
+  await once(probe, 'listening');
+  const port = probe.address().port;
+  await new Promise(resolve => probe.close(resolve));
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: new URL('.', import.meta.url), windowsHide: true,
+    env: { ...process.env, PORT: String(port), DEV_TOOLS_ENABLED: String(enabled), DEV_ACCESS_TOKEN: token,
+      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '' },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  const clients = [];
+  t.after(async () => {
+    for (const s of clients) s.disconnect();
+    const done = once(child, 'exit');
+    child.kill();
+    await done;
+  });
+  await new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => reject(new Error('Server startup timeout: ' + output)), 30000);
+    child.once('error', reject);
+    child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited ${code}`)); });
+    child.stderr.on('data', data => { output += data.toString(); });
+    child.stdout.on('data', data => { output += data.toString(); if (output.includes('0.0.0.0')) { clearTimeout(timer); resolve(); } });
+  });
+  const url = `http://127.0.0.1:${port}`;
+  async function connect(devMode = false) {
+    const socket = io(url, { auth: { devMode }, transports: ['websocket'], reconnection: false });
+    clients.push(socket);
+    await once(socket, 'connect');
+    return socket;
+  }
+  return { url, connect };
+}
+export function request(socket, event, data) {
+  return new Promise((resolve, reject) => {
+    const ack = (error, result) => error ? reject(error) : resolve(result);
+    if (data === undefined) socket.timeout(3000).emit(event, ack);
+    else socket.timeout(3000).emit(event, data, ack);
+  });
+}
+
+test('Dev route shares HTML; isolated solo rooms and socket-scoped authorization', async t => {
+  const { url, connect } = await launch(t);
+  assert.equal(await (await fetch(url + '/dev')).text(), await (await fetch(url + '/')).text());
+  const normal = await connect();
+  const dev = await connect(true);
+  const outsider = await connect();
+  const publicRoom = await request(normal, 'room:create', { name: 'Public' });
+  const privateRoom = await request(dev, 'room:create', { name: 'Dev' });
+  assert.equal(privateRoom.success, true);
+  const listed = (await request(outsider, 'room:list')).rooms;
+  assert.ok(listed.some(r => r.code === publicRoom.roomCode));
+  assert.ok(!listed.some(r => r.code === privateRoom.roomCode));
+  assert.equal((await request(outsider, 'room:join', { code: privateRoom.roomCode, name: 'Intruder' })).success, false);
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, false);
+  await request(dev, 'player:select_role', { roleKey: 'warrior' });
+  await request(dev, 'game:start');
+  assert.equal((await request(dev, 'dev:authorize', { token: 'wrong' })).success, false);
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  assert.equal((await request(normal, 'dev:authorize', { token })).success, false);
+  dev.disconnect();
+  const reconnected = await connect(true);
+  assert.equal((await request(reconnected, 'dev:authorize', { token })).success, false);
+});
+
+test('disabled Dev leaves normal room flow available', async t => {
+  const { url, connect } = await launch(t, false);
+  assert.equal((await fetch(url + '/')).status, 200);
+  assert.equal((await fetch(url + '/dev')).status, 404);
+  const dev = await connect(true);
+  assert.equal((await request(dev, 'room:create', { name: 'Dev' })).success, false);
+  const normal = await connect();
+  assert.equal((await request(normal, 'room:create', { name: 'Normal' })).success, true);
+  await request(normal, 'player:select_role', { roleKey: 'warrior' });
+  assert.equal((await request(normal, 'game:start')).success, true);
+});
