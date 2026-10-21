@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test game/*.test.js",
     "build:augur-lab": "node scripts/build-augur-lab.mjs",
     "verify:augur-browser": "node scripts/verify-augur-browser.mjs",
     "seed:studio": "node scripts/seed-studio.mjs",
