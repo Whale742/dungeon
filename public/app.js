@@ -3,6 +3,7 @@
 // ==========================================================================
 
 const socket = io({ auth: { devMode: location.pathname === '/dev' } });
+if (location.pathname === '/dev') import('/dev-tools.js').then(({ mountDevTools }) => mountDevTools(socket));
 
 // ============================================================================
 // 全站輕量 Toast 提示系統 (Dark Pixel Fantasy)

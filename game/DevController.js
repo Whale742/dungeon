@@ -1,3 +1,8 @@
+import { TIER1_EQUIPMENTS, TIER2_EQUIPMENTS, LOOT_TABLE } from './constants.js';
+
+const equipment = [...new Map([...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS, ...LOOT_TABLE].map(e => [e.id, e])).values()];
+const dots = ['poison', 'burn', 'fracture', 'chill'];
+const living = (r, id) => typeof id === 'string' && Object.hasOwn(r.players, id) && r.players[id].hp > 0;
 const fail = message => ({ success: false, message });
 const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
@@ -14,6 +19,24 @@ export class DevController {
         r.gold += p.value;
       } }]
     ]);
+    this.commands.set('player.hp', { keys: ['playerId', 'value'], validate: (p, r) => living(r, p.playerId) && integer(p.value, 1, r.players[p.playerId].maxHp),
+      run: (r, p) => { r.players[p.playerId].hp = p.value; } });
+    this.commands.set('player.shield', { keys: ['playerId', 'value'], validate: (p, r) => r.state === 'IN_BATTLE' && living(r, p.playerId) && integer(p.value, 1, 10000) && r.players[p.playerId].tempHp + p.value <= 10000,
+      run: (r, p) => { r.p8GrantShield(r.players[p.playerId], p.value, 1); } });
+    this.commands.set('player.status', { keys: ['playerId', 'status', 'apply'], validate: (p, r) => r.state === 'IN_BATTLE' && living(r, p.playerId) && dots.includes(p.status) && typeof p.apply === 'boolean',
+      run: (r, p) => {
+        const player = r.players[p.playerId];
+        if (p.apply) r.applyDotToAlly(player, p.status);
+        else { player[p.status + 'Turns'] = 0; player[p.status + 'Dmg'] = 0; }
+      } });
+    this.commands.set('item.grant', { keys: ['playerId', 'itemId', 'bag'], validate: (p, r) => living(r, p.playerId) && equipment.some(e => e.id === p.itemId) && ['personal', 'squad'].includes(p.bag),
+      run: (r, p) => {
+        if (r.squadInventory.length >= 19 || (p.bag === 'personal' && r.players[p.playerId].bag.length >= 4)) return fail('指定背包或發放暫存欄位已滿');
+        const deposit = r.addItemPrioritySquad(structuredClone(equipment.find(e => e.id === p.itemId)), p.playerId);
+        if (p.bag === 'personal') return r.transferToPersonal(p.playerId, deposit.index);
+      } });
+    this.commands.set('item.equip', { keys: ['playerId', 'bag', 'index'], validate: (p, r) => living(r, p.playerId) && ['personal', 'squad'].includes(p.bag) && integer(p.index, 0, p.bag === 'personal' ? 3 : 18),
+      run: (r, p) => p.bag === 'personal' ? r.equipItemFromBag(p.playerId, p.index) : r.equipItemFromSquad(p.playerId, p.index) });
   }
 
   register(room, socket) {
@@ -47,7 +70,8 @@ export class DevController {
     const record = this.rooms.get(room);
     return { success: true, roomCode: room.code, context: this.context(room),
       locked: record.busy || Boolean(this.lockReason(room)), reason: this.lockReason(room),
-      commands: [...this.commands.keys()], audit: record.audit };
+      commands: [...this.commands.keys()], equipment: equipment.map(e => ({ id: e.id, name: e.name, role: e.role, slot: e.slot })),
+      audit: record.audit };
   }
 
   snapshot(room) {

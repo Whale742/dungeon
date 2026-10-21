@@ -1,0 +1,16 @@
+#dungeon-dev-tools { font: 14px/1.6 system-ui, sans-serif; color: #e8e5de; }
+#dungeon-dev-tools [hidden] { display: none !important; }
+#dev-toggle { position: fixed; right: 16px; top: 16px; z-index: 15000; background: #191b23; color: #f7ca75; border: 1px solid #b98d49; border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+#dev-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 15001; width: min(420px, 95vw); padding: 18px; overflow-y: auto; background: #161921; border-left: 1px solid #a78751; box-shadow: -8px 0 32px #0008; box-sizing: border-box; }
+#dev-drawer header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#dev-drawer h2 { font-size: 15px; color: #edc786; margin: 0 0 10px; }
+#dev-drawer section { border-top: 1px solid #383b46; margin-top: 16px; padding-top: 14px; }
+#dev-drawer fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+#dev-drawer form { margin: 10px 0; }
+#dev-drawer label { display: block; margin: 6px 0; }
+#dev-drawer input, #dev-drawer select { display: block; width: 100%; box-sizing: border-box; padding: 7px; background: #222631; color: #fff; border: 1px solid #555d70; border-radius: 4px; }
+#dev-drawer button { background: #343d50; color: #fff; border: 1px solid #65718a; border-radius: 4px; padding: 6px 10px; margin: 4px 4px 4px 0; cursor: pointer; }
+#dev-drawer :disabled { opacity: .5; cursor: not-allowed; }
+#dev-drawer pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 ui-monospace, monospace; max-height: 240px; overflow-y: auto; }
+#dev-message { color: #f1c887; }
+#dev-drawer :focus-visible, #dev-toggle:focus-visible { outline: 2px solid #f1c887; outline-offset: 2px; }

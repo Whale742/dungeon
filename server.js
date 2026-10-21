@@ -540,6 +540,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(code);
     if (!room) return;
     const res = room.restartToLobby(socket.id);
+    if (res?.success) devAccess.revoke(socket);
     if (typeof callback === 'function') callback(res);
   });
 

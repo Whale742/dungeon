@@ -82,3 +82,24 @@ invalid schemas, all unsafe phases, vote conflicts, transaction lock, invariant
 rollback, audit separation and live socket rejection. Original 4 regressions pass.
 Limits: logs are memory-only; room lifetime cap requires a new room after 2048
 requests. Authorization guessing is limited per connection, not a global IP quota.
+
+## Phase 3
+
+Changed: `public/dev-tools.js`, `public/dev-tools.css`, one lazy import in
+`public/app.js`, DevController and adjacent tests. Same game HTML and engine.
+Right drawer appears only after start; password input clears immediately on submit
+and close. No token URL/query/storage. Six sections expose authoritative overview,
+gold set/add, catalog grant, original bag/squad equip, bounded living HP, tracked
+one-turn shield addition, four existing DOT apply/clear operations, read-only
+cooldowns/resources and private audit. All mutations require safe route or battle
+selection windows; DOT/shield controls additionally require battle. Drawer keyboard
+events do not reach game shortcuts. Restart revokes the grant.
+
+Validation: 14 automated tests passed, including equipment swap (no repeated stats),
+full-bag refusal, HP bounds, tracked shield and DOT settlement into next round.
+Browser QA passed: original recruit/create/class/start/prep/route screens, Dev hidden
+before start, in-memory authorization, locked prologue controls, route-time gold
+update, catalog grant and original equip from squad. Drawer screenshot inspected.
+Limits: only the four legacy DOTs can be cleared; complex effects/resources remain
+read-only. Personal grants require one free squad transit slot. Event/Boss controls
+are next phase. Full role/Boss animation matrix remains outstanding.
