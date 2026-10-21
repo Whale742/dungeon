@@ -1,5 +1,6 @@
 import { TIER1_EQUIPMENTS, TIER2_EQUIPMENTS, LOOT_TABLE } from './constants.js';
 import { DEV_ENEMIES, DEV_EVENTS, validEncounter } from './DevEncounter.js';
+import { DEV_ROLE_POLICY, roleResources, validRoleResource, setRoleResource } from './DevRoleResources.js';
 
 const equipment = [...new Map([...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS, ...LOOT_TABLE].map(e => [e.id, e])).values()];
 const dots = ['poison', 'burn', 'fracture', 'chill'];
@@ -44,6 +45,7 @@ export class DevController {
     this.commands.set('enemy.hp', { keys: ['enemyId', 'value'], validate: (p, r) => r.state === 'IN_BATTLE' &&
       r.getLivingEnemies().some(e => e.instanceId === p.enemyId && integer(p.value, 1, e.maxHp)),
       run: (r, p) => { r.enemies.find(e => e.instanceId === p.enemyId).hp = p.value; } });
+    this.commands.set('role.resource', { keys: ['playerId', 'resource', 'value'], validate: (p, r) => validRoleResource(r, p), run: setRoleResource });
   }
 
   register(room, socket) {
@@ -81,6 +83,7 @@ export class DevController {
       commands: [...this.commands.keys()], equipment: equipment.map(e => ({ id: e.id, name: e.name, role: e.role, slot: e.slot })),
       encounter: room.devEncounter || null, events: DEV_EVENTS,
       enemyTemplates: DEV_ENEMIES.map(e => ({ id: e.id, name: e.name })),
+      roles: Object.values(room.players).map(p => ({ playerId: p.id, policy: DEV_ROLE_POLICY[p.role] || '職業狀態唯讀', resources: roleResources(p) })),
       audit: record.audit };
   }
 

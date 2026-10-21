@@ -53,6 +53,7 @@ export function request(socket, event, data) {
 test('Dev route shares HTML; isolated solo rooms and socket-scoped authorization', async t => {
   const { url, connect } = await launch(t);
   assert.equal(await (await fetch(url + '/dev')).text(), await (await fetch(url + '/')).text());
+  assert.equal((await fetch(url + '/dev/', { redirect: 'manual' })).status, 302);
   const normal = await connect();
   const dev = await connect(true);
   const outsider = await connect();

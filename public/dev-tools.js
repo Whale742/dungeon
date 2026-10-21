@@ -23,7 +23,7 @@ export function mountDevTools(socket) {
             <form data-command="hp"><label>目前 HP（1–最大 HP）<input name="value" type="number" min="1" value="1" required></label><button>設定 HP</button></form>
             <form data-command="shield"><label>增加本回合護盾（1–10000）<input name="value" type="number" min="1" max="10000" value="10" required></label><button>增加護盾</button></form>
             <form data-command="status"><label>基本狀態<select name="status"><option value="poison">中毒</option><option value="burn">燃燒</option><option value="fracture">碎裂</option><option value="chill">寒冷</option></select></label><button name="apply">施加正式效果</button><button name="clear">清除此狀態</button></form>
-            <pre id="dev-role-info"></pre><div id="dev-role-controls"></div>
+            <pre id="dev-role-info"></pre><p id="dev-role-policy"></p><form data-command="resource"><label>安全職業資源<select name="resource" id="dev-resource"></select></label><label>資源數值<input name="value" type="number" min="0" value="0" required></label><button>設定職業資源</button></form>
           </section>
           <section><h2>戰鬥</h2><pre id="dev-enemies"></pre><form data-command="enemy"><label>指定存活敵人<select name="enemyId" id="dev-enemy"></select></label><label>敵人目前 HP（1–最大 HP）<input name="value" type="number" min="1" value="1" required></label><button>設定敵人 HP</button></form></section>
         </fieldset>
@@ -56,12 +56,16 @@ export function mountDevTools(socket) {
     }
     $('#dev-overview').textContent = `房間 ${state.code || status.roomCode} · 樓層 ${state.floor}\n階段 ${state.state} / ${state.selectionState || ''}\n回合 ${state.battleRound} · 版本 ${status.context.revision}\n${status.locked ? '鎖定：' + status.reason : busy ? '操作中' : '可操作'}\n金幣 ${state.gold}`;
     $('#dev-mutations').disabled = busy || status.locked;
-    for (const name of ['shield', 'status', 'enemy']) for (const input of root.querySelectorAll(`[data-command="${name}"] input, [data-command="${name}"] select, [data-command="${name}"] button`)) input.disabled = state.state !== 'IN_BATTLE';
+    for (const name of ['shield', 'status', 'enemy', 'resource']) for (const input of root.querySelectorAll(`[data-command="${name}"] input, [data-command="${name}"] select, [data-command="${name}"] button`)) input.disabled = state.state !== 'IN_BATTLE';
     $('#dev-event-info').textContent = status.encounter ? `已預約：${status.encounter.type} ${status.encounter.enemyId} ${status.encounter.weakened ? '負傷' : ''}` : '尚未預約；僅於下一次路線結算消耗一次。';
     options($('#dev-enemy'), (state.enemies || []).filter(e => e.hp > 0), 'instanceId', e => `${e.name} (${e.hp}/${e.maxHp})`);
     const p = state.players.find(p => p.id === $('#dev-player').value);
+    const role = status.roles?.find(r => r.playerId === p?.id);
+    options($('#dev-resource'), role?.resources || [], 'key', r => `${r.label}：${r.value} (${r.min}–${r.max})`);
+    $('#dev-role-policy').textContent = role?.policy || '職業狀態唯讀';
+    root.querySelector('[data-command="resource"]').hidden = !role?.resources.length;
     $('#dev-inventory').textContent = `小隊：${(state.squadInventory || []).map((i, n) => `${n + 1}.${i?.name || '空'}`).join('、')}\n角色：${(p?.bag || []).map((i, n) => `${n + 1}.${i?.name || '空'}`).join('、')}`;
-    $('#dev-role-info').textContent = p ? `HP ${p.hp}/${p.maxHp} · 護盾 ${p.tempHp}\n冷卻 ${JSON.stringify(p.cooldowns)}\n職業資源 ${p.resourceSummary || ''}\nX ${p.sageX ?? '—'} · 運算元 ${p.sageOperand ?? '—'} · 演算 ${p.sagePhase ?? '—'}\n層數：戰士 ${p.warriorStacks ?? 0} · 怒氣 ${p.rage ?? 0} · 匿蹤 ${p.stealthStacks ?? 0}\n${JSON.stringify(p.statuses || [])}` : '';
+    $('#dev-role-info').textContent = p ? `HP ${p.hp}/${p.maxHp} · 護盾 ${p.tempHp}\n冷卻 ${JSON.stringify(p.cooldowns)}\n職業資源 ${p.resourceSummary || ''}\nX ${p.sageX ?? '—'} · 運算元 ${p.sageOperand ?? '—'} · 演算 ${p.sagePhase ?? '—'}\n層數：戰士 ${p.warriorStacks ?? 0} · 怒氣 ${p.rage ?? 0} · 匿蹤 ${p.stealthStacks ?? 0}\n${p.role === 'augur' ? `觀測 ${p.observedTargetId || '自身'} · 牌象 ${p.augurCardState} · 命債 ${JSON.stringify(p.augurFateDebts)}\n` : ''}${JSON.stringify(p.statuses || [])}` : '';
     $('#dev-enemies').textContent = (state.enemies || []).map(e => `${e.instanceId}: ${e.name} HP ${e.hp}/${e.maxHp}`).join('\n');
     $('#dev-audit').textContent = JSON.stringify(status.audit, null, 2);
   }
@@ -108,6 +112,7 @@ export function mountDevTools(socket) {
       case 'status': command = 'player.status'; params = { playerId, status: data.get('status'), apply: event.submitter?.name !== 'clear' }; break;
       case 'encounter': command = event.submitter?.name === 'clear' ? 'encounter.clear' : 'encounter.reserve'; params = command === 'encounter.clear' ? {} : { type: data.get('type'), enemyId: data.get('enemyId'), weakened: data.has('weakened') }; break;
       case 'enemy': command = 'enemy.hp'; params = { enemyId: data.get('enemyId'), value: Number(data.get('value')) }; break;
+      case 'resource': command = 'role.resource'; params = { playerId, resource: data.get('resource'), value: Number(data.get('value')) }; break;
       default: return;
     }
     busy = true; render();

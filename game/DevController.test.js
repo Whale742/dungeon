@@ -4,11 +4,13 @@ import { Room } from './Room.js';
 import { DevAccess } from './DevAccess.js';
 import { DevController } from './DevController.js';
 import { DEV_ENEMIES } from './DevEncounter.js';
+import { CLASSES } from './constants.js';
+import { roleResources, DEV_ROLE_POLICY } from './DevRoleResources.js';
 
-function setup(t) {
+function setup(t, role = 'warrior') {
   const socket = { id: 'solo', join() {}, emit() {} };
   const room = new Room('TEST1', socket, 'Tester', { to: () => ({ emit() {} }) });
-  room.selectRole('solo', 'warrior');
+  room.selectRole('solo', role);
   room.isDev = true;
   const access = new DevAccess({ DEV_TOOLS_ENABLED: 'true', DEV_ACCESS_TOKEN: 'test-secret-123456789' });
   const controller = new DevController(access);
@@ -195,4 +197,47 @@ test('every exposed boss template uses the original enemy factory and initialize
     assert.ok(room.currentMonster.maxHp > 0);
     assert.equal(room.devEncounter, null);
   }
+});
+
+test('all roles have a policy and safely settle the next round after supported resource edits', t => {
+  for (const role of Object.keys(CLASSES)) {
+    assert.ok(DEV_ROLE_POLICY[role], role);
+    const { room, socket, controller: c, request } = setup(t, role);
+    room.handleBattleEvent(null, false, { col: 1, rng: () => 0 });
+    if (room.selectionState === 'RESOLVING') room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
+    room.handleSelectionReady('solo', room.battleRound);
+    for (const resource of roleResources(room.players.solo)) {
+      const params = { playerId: 'solo', resource: resource.key, value: resource.max };
+      assert.equal(c.execute(socket, room, request('role.resource', params)).success, true, role);
+      assert.equal(roleResources(room.players.solo).find(r => r.key === resource.key).value, resource.max);
+      assert.equal(c.execute(socket, room, request('role.resource', { ...params, value: resource.max + 1 })).success, false);
+    }
+    assert.equal(c.execute(socket, room, request('role.resource', { playerId: 'solo', resource: 'sagePhase', value: 1 })).success, false);
+    room.players.solo.action = 'basic';
+    room.resolveTurnActions();
+    assert.equal(room.selectionState, 'RESOLVING', role);
+    room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
+    assert.ok(['IN_BATTLE', 'BATTLE_VICTORY'].includes(room.state), role);
+    assert.ok(Number.isFinite(room.players.solo.hp), role);
+    assert.equal(room.pendingPresentationAcks.size === 0 || room.selectionState === 'RESOLVING' || room.state === 'BATTLE_VICTORY', true, role);
+  }
+});
+
+test('wrong-role resources, arena and Sage sampling/debt cannot be overwritten', t => {
+  const { room, socket, controller: c, request } = setup(t, 'sage');
+  room.handleBattleEvent(null, false, { col: 1 });
+  if (room.selectionState === 'RESOLVING') room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
+  room.handleSelectionReady('solo', room.battleRound);
+  const params = { playerId: 'solo', resource: 'sageX', value: 40 };
+  room.players.solo.sageDebt = 5;
+  assert.equal(c.execute(socket, room, request('role.resource', params)).success, false);
+  room.players.solo.sageDebt = 0;
+  room.players.solo.sageInduction = true;
+  room.players.solo.sageSamplingEnded = false;
+  assert.equal(c.execute(socket, room, request('role.resource', params)).success, false);
+  room.players.solo.sageSamplingEnded = true;
+  room.arena = { playerId: 'solo' };
+  assert.equal(c.execute(socket, room, request('role.resource', params)).success, false);
+  room.arena = null;
+  assert.equal(c.execute(socket, room, request('role.resource', { ...params, resource: 'rage' })).success, false);
 });

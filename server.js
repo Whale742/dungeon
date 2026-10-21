@@ -35,8 +35,9 @@ mountStudio(app, path.join(__dirname, 'public'),{onPublish:async()=>syncLobbyCon
 void refreshPublished().then(syncLobbyContent);
 setInterval(() => { void refreshPublished().then(syncLobbyContent); }, 60000).unref();
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/dev', (_req, res) => {
+app.get('/dev', (req, res) => {
   if (!devAccess.enabled) return res.sendStatus(404);
+  if (req.path !== '/dev') return res.redirect('/dev');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.use('/photo', express.static(path.join(__dirname, 'photo')));
@@ -104,7 +105,12 @@ io.on('connection', (socket) => {
       const existingCode = socketToRoom.get(socket.id);
       if (existingCode && rooms.has(existingCode)) {
         socket.leave(existingCode);
-        rooms.get(existingCode).removePlayer(socket.id);
+        const previous = rooms.get(existingCode);
+        previous.removePlayer(socket.id);
+        if (previous.isDev && previous.memberIds.length === 0) {
+          previous.clearTimer();
+          rooms.delete(existingCode);
+        }
       }
 
       const code = generateRoomCode();

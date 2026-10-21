@@ -129,3 +129,40 @@ start → safe enemy HP change → ordinary attack → presentation ACK → vict
 Limits: a selected boss uses the existing explicit single-enemy formation override;
 abyss dialogue choice manipulation and advanced stats/resistance edits are excluded.
 Boss browser animation matrix remains a release acceptance item.
+
+## Phase 5
+
+Changed: `game/DevRoleResources.js`, DevController/adjacent tests, drawer role
+controls, `/dev/` canonical redirect and empty old Dev-room cleanup in server/tests.
+Every current class has an explicit policy. Safe numeric controls: warrior stacks
+0..15, gladiator rage 0..100, Sage X 0..10000, Assassin stealth stacks 0..100 and
+Samurai soul 0..8. These are Dev input safety caps, not changes to game balance.
+All require living players and safe battle selection. Active arena and Sage debt/
+sampling reject resource mutation. No command changes equation phase, summons,
+arena membership, observation/card/debt relationships or cooldowns. Augur observation,
+card and debt are displayed read-only. Other composite resources remain read-only.
+
+Validation: `node --test game/*.test.js server.test.js` — 20/20 passed.
+Every class settles a normal action and presentation ACK into the next round or
+victory after every exposed numeric resource is set to its permitted maximum;
+out-of-range, wrong-role and composite-state writes are rejected. Every exposed
+enemy template initializes through the existing factory. Dev-disabled HTTP/socket
+flow, original 4 gameplay regressions, syntax checks and `git diff --check` pass.
+
+Browser acceptance: original recruit/lobby/class/prologue/preparation/route screens;
+Dev hidden before departure; authorization after start; locked story controls;
+gold, catalog grant and original equip; one-shot weakened lava boss reservation;
+normal route vote/transition/entrance; warrior stacks and enemy HP editing; original
+skill selection/confirmation; presentation/victory returns to floor 2, gold reward
+received, reservation cleared. Panel close restores normal skill interaction.
+Screenshot saved outside the repository in the chat visualization directory.
+
+Known limits: memory-only audit/dedup, 2048 unique request IDs per room, 100 visible
+audit entries, connection-level authorization throttling, only four legacy DOTs,
+one-turn shield addition, living HP edits only, single-enemy explicit boss formation,
+personal grant needs one free squad transit slot, composite role states read-only.
+Full manual animation coverage of every class/Boss combination has not been run;
+the browser smoke covers Warrior vs weakened lava boss, backed by all-class engine
+and all-template factory tests. No known failing automated checks. Final manual
+release acceptance remains required before merging `main`; no merge performed.
+Phase 6 was not started. No Supabase content, assets or balance files were changed.
