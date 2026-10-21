@@ -12,7 +12,7 @@ export function mountDevTools(socket) {
       <div id="dev-controls" hidden>
         <section><h2>總覽</h2><pre id="dev-overview"></pre></section>
         <fieldset id="dev-mutations">
-          <section><h2>事件</h2><p id="dev-event-info">事件預約尚未開放</p><div id="dev-encounter-controls"></div></section>
+          <section><h2>事件</h2><p id="dev-event-info"></p><form data-command="encounter"><label>下一次合法路線遭遇<select name="type" id="dev-event-type"></select></label><label>指定精英／Boss<select name="enemyId" id="dev-boss"></select></label><label><input name="weakened" type="checkbox">負傷版本（僅指定精英／Boss）</label><button name="reserve">預約一次</button><button name="clear">取消預約</button></form></section>
           <section><h2>資源</h2>
             <form data-command="gold"><label>金幣（0–1000000）<input name="value" type="number" value="100" min="-1000000" max="1000000" required></label><button name="set">設定</button><button name="add">增減</button></form>
             <form data-command="grant"><label>既有裝備模板<select name="item" id="dev-items"></select></label><label>發放背包<select name="bag"><option value="squad">小隊</option><option value="personal">角色</option></select></label><button>發放裝備</button></form>
@@ -25,7 +25,7 @@ export function mountDevTools(socket) {
             <form data-command="status"><label>基本狀態<select name="status"><option value="poison">中毒</option><option value="burn">燃燒</option><option value="fracture">碎裂</option><option value="chill">寒冷</option></select></label><button name="apply">施加正式效果</button><button name="clear">清除此狀態</button></form>
             <pre id="dev-role-info"></pre><div id="dev-role-controls"></div>
           </section>
-          <section><h2>戰鬥</h2><pre id="dev-enemies"></pre><div id="dev-enemy-controls"></div></section>
+          <section><h2>戰鬥</h2><pre id="dev-enemies"></pre><form data-command="enemy"><label>指定存活敵人<select name="enemyId" id="dev-enemy"></select></label><label>敵人目前 HP（1–最大 HP）<input name="value" type="number" min="1" value="1" required></label><button>設定敵人 HP</button></form></section>
         </fieldset>
         <section><h2>系統</h2><p>單人測試；演出及操作提交後鎖定。通行碼僅授權目前連線。</p><button id="dev-refresh">更新權威狀態</button><details><summary>操作紀錄（最近 100 筆）</summary><pre id="dev-audit"></pre></details></section>
       </div>
@@ -47,10 +47,18 @@ export function mountDevTools(socket) {
     $('#dev-controls').hidden = !status?.success;
     if (!status?.success || !state) return;
     options($('#dev-player'), state.players, 'id', p => `${p.name} · ${p.role}`);
-    if (!catalogLoaded) { options($('#dev-items'), status.equipment, 'id', e => `${e.name}${e.role ? ` (${e.role})` : ''}`); catalogLoaded = true; }
+    if (!catalogLoaded) {
+      options($('#dev-items'), status.equipment, 'id', e => `${e.name}${e.role ? ` (${e.role})` : ''}`);
+      const labels = { battle: '一般戰鬥', elite: '指定精英／Boss', shop: '商店', black_market: '黑市', chest: '寶箱', ALTAR: '深淵祭壇', GAMBLE: '命運賭局', REFORGE: '重鑄工坊', WANDERING_MERCHANT: '流浪商人' };
+      options($('#dev-event-type'), status.events.map(id => ({ id })), 'id', e => labels[e.id] || e.id);
+      options($('#dev-boss'), [{ id: '', name: '未指定' }, ...status.enemyTemplates], 'id', e => e.name);
+      catalogLoaded = true;
+    }
     $('#dev-overview').textContent = `房間 ${state.code || status.roomCode} · 樓層 ${state.floor}\n階段 ${state.state} / ${state.selectionState || ''}\n回合 ${state.battleRound} · 版本 ${status.context.revision}\n${status.locked ? '鎖定：' + status.reason : busy ? '操作中' : '可操作'}\n金幣 ${state.gold}`;
     $('#dev-mutations').disabled = busy || status.locked;
-    for (const name of ['shield', 'status']) for (const input of root.querySelectorAll(`[data-command="${name}"] input, [data-command="${name}"] select, [data-command="${name}"] button`)) input.disabled = state.state !== 'IN_BATTLE';
+    for (const name of ['shield', 'status', 'enemy']) for (const input of root.querySelectorAll(`[data-command="${name}"] input, [data-command="${name}"] select, [data-command="${name}"] button`)) input.disabled = state.state !== 'IN_BATTLE';
+    $('#dev-event-info').textContent = status.encounter ? `已預約：${status.encounter.type} ${status.encounter.enemyId} ${status.encounter.weakened ? '負傷' : ''}` : '尚未預約；僅於下一次路線結算消耗一次。';
+    options($('#dev-enemy'), (state.enemies || []).filter(e => e.hp > 0), 'instanceId', e => `${e.name} (${e.hp}/${e.maxHp})`);
     const p = state.players.find(p => p.id === $('#dev-player').value);
     $('#dev-inventory').textContent = `小隊：${(state.squadInventory || []).map((i, n) => `${n + 1}.${i?.name || '空'}`).join('、')}\n角色：${(p?.bag || []).map((i, n) => `${n + 1}.${i?.name || '空'}`).join('、')}`;
     $('#dev-role-info').textContent = p ? `HP ${p.hp}/${p.maxHp} · 護盾 ${p.tempHp}\n冷卻 ${JSON.stringify(p.cooldowns)}\n職業資源 ${p.resourceSummary || ''}\nX ${p.sageX ?? '—'} · 運算元 ${p.sageOperand ?? '—'} · 演算 ${p.sagePhase ?? '—'}\n層數：戰士 ${p.warriorStacks ?? 0} · 怒氣 ${p.rage ?? 0} · 匿蹤 ${p.stealthStacks ?? 0}\n${JSON.stringify(p.statuses || [])}` : '';
@@ -98,6 +106,8 @@ export function mountDevTools(socket) {
       case 'hp': command = 'player.hp'; params = { playerId, value: Number(data.get('value')) }; break;
       case 'shield': command = 'player.shield'; params = { playerId, value: Number(data.get('value')) }; break;
       case 'status': command = 'player.status'; params = { playerId, status: data.get('status'), apply: event.submitter?.name !== 'clear' }; break;
+      case 'encounter': command = event.submitter?.name === 'clear' ? 'encounter.clear' : 'encounter.reserve'; params = command === 'encounter.clear' ? {} : { type: data.get('type'), enemyId: data.get('enemyId'), weakened: data.has('weakened') }; break;
+      case 'enemy': command = 'enemy.hp'; params = { enemyId: data.get('enemyId'), value: Number(data.get('value')) }; break;
       default: return;
     }
     busy = true; render();

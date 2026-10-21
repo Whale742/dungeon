@@ -107,3 +107,25 @@ are next phase. Full role/Boss animation matrix remains outstanding.
 Phase 3 follow-up: failed transactions restore enemy identity through `setEnemies`,
 so the primary enemy remains the same object as its entry in the restored formation.
 Added regression assertion; all 14 tests passed again.
+
+## Phase 4
+
+Changed: `game/DevEncounter.js`, small route settlement hooks in `game/Room.js`,
+DevController/tests, drawer controls/CSS and socket room-switch cleanup.
+Catalog reservations cover ordinary minions, an existing elite/abyss template,
+normal/shady shop, non-mimic chest and all four existing random event subtypes.
+Unknown combinations are rejected; weakened is allowed only on selected enemies.
+Reservations consume at `resolveRouteChoice`, retain the original 2-second
+TRANSITION, call original event handlers or `handleBattleEvent` and original
+formation/enemy factories, initialize leader skills and continue normal ACK/reward
+flow. Random subtypes retain actual hex/floor metadata. No global RNG override.
+Enemy HP edits are limited to living enemies, 1..maxHp, safe battle selection only.
+Restart clears pending reservations. Room create leaves the previous socket channel.
+
+Validation: 18 tests passed, including all exposed boss templates, each event type,
+one-shot consumption, rejected combinations, cancellation/restart, weakened boss
+start → safe enemy HP change → ordinary attack → presentation ACK → victory reward
+→ next-floor exploration. Original regressions and HTTP/socket isolation pass.
+Limits: a selected boss uses the existing explicit single-enemy formation override;
+abyss dialogue choice manipulation and advanced stats/resistance edits are excluded.
+Boss browser animation matrix remains a release acceptance item.

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Room } from './Room.js';
 import { DevAccess } from './DevAccess.js';
 import { DevController } from './DevController.js';
+import { DEV_ENEMIES } from './DevEncounter.js';
 
 function setup(t) {
   const socket = { id: 'solo', join() {}, emit() {} };
@@ -114,4 +115,84 @@ test('HP bounds, tracked shields and supported dots survive next round settlemen
   room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
   assert.equal(room.battleRound, 2);
   assert.ok(Number.isFinite(room.players.solo.hp));
+});
+
+test('reserved events use original route transition and consume exactly once', t => {
+  for (const type of ['battle', 'shop', 'black_market', 'chest', 'ALTAR', 'GAMBLE', 'REFORGE', 'WANDERING_MERCHANT']) {
+    const { room, socket, controller: c, request } = setup(t);
+    assert.equal(c.execute(socket, room, request('encounter.reserve', { type, enemyId: '', weakened: false })).success, true);
+    assert.equal(room.state, 'CHOOSING_ROUTE');
+    assert.equal(room.currentEvent, null);
+    room.resolveRouteChoice(room.currentRoutes[0]);
+    assert.equal(room.state, 'TRANSITION');
+    assert.equal(room.devEncounter, null);
+    const transition = room.timerCallback;
+    room.clearTimer();
+    transition();
+    if (type === 'battle') { assert.equal(room.state, 'IN_BATTLE'); assert.ok(room.enemies.every(e => e.tier === 'MINION')); }
+    else if (type === 'shop' || type === 'black_market') { assert.equal(room.currentEvent.type, 'shop'); assert.equal(room.currentEvent.isShady, type === 'black_market'); }
+    else if (type === 'chest') { assert.equal(room.currentEvent.type, 'chest'); assert.equal(room.currentEvent.isMimic, false); }
+    else if (type === 'WANDERING_MERCHANT') assert.equal(room.currentEvent.type, 'shop');
+    else { assert.equal(room.currentEvent.subType, type); assert.equal(room.currentEvent.col, room.currentHex.col); }
+    room.startRouteSelection({ skipIntro: true });
+    assert.equal(room.devEncounter, null);
+  }
+});
+
+test('reserved weakened boss follows battle start, ACK, rewards and next-floor exploration', t => {
+  const { room, socket, controller: c, request } = setup(t);
+  assert.equal(c.execute(socket, room, request('encounter.reserve', { type: 'elite', enemyId: 'elite_0', weakened: true })).success, true);
+  room.resolveRouteChoice(room.currentRoutes[0]);
+  const transition = room.timerCallback;
+  room.clearTimer(); transition();
+  assert.equal(room.enemies.length, 1);
+  assert.equal(room.currentMonster.isWeakened, true);
+  assert.equal(room.battleCount, 1);
+  assert.equal(room.lockedLeaderRole, 'warrior');
+  if (room.selectionState === 'RESOLVING') room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
+  room.handleSelectionReady('solo', room.battleRound);
+  assert.equal(c.execute(socket, room, request('enemy.hp', { enemyId: room.currentMonster.instanceId, value: 0 })).success, false);
+  assert.equal(c.execute(socket, room, request('enemy.hp', { enemyId: room.currentMonster.instanceId, value: 1 })).success, true);
+  room.players.solo.action = 'basic';
+  room.resolveTurnActions();
+  assert.equal(room.state, 'IN_BATTLE');
+  room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
+  assert.equal(room.state, 'BATTLE_VICTORY');
+  assert.ok(room.currentVictory.goldGain > 0);
+  const id = room.currentVictory.presentationId;
+  room.handleVictoryComplete('solo', id);
+  room.continueAfterVictory('solo', id);
+  assert.equal(room.floor, 2);
+  assert.equal(room.state, 'CHOOSING_ROUTE');
+  assert.equal(room.devEncounter, null);
+});
+
+test('unsupported encounter combinations refuse atomically, cancellation and restart clear reservation', t => {
+  const { room, socket, controller: c, request } = setup(t);
+  for (const params of [{ type: 'shop', enemyId: 'elite_0', weakened: false }, { type: 'chest', enemyId: '', weakened: true }, { type: 'elite', enemyId: 'missing', weakened: false }]) {
+    assert.equal(c.execute(socket, room, request('encounter.reserve', params)).success, false);
+    assert.equal(room.devEncounter, undefined);
+  }
+  const params = { type: 'chest', enemyId: '', weakened: false };
+  c.execute(socket, room, request('encounter.reserve', params));
+  assert.equal(c.execute(socket, room, request('encounter.clear', {})).success, true);
+  assert.equal(room.devEncounter, null);
+  c.execute(socket, room, request('encounter.reserve', params));
+  room.restartToLobby('solo');
+  assert.equal(room.devEncounter, null);
+});
+
+test('every exposed boss template uses the original enemy factory and initializes combat', t => {
+  for (const enemy of DEV_ENEMIES) {
+    const { room, socket, controller: c, request } = setup(t);
+    assert.equal(c.execute(socket, room, request('encounter.reserve', { type: 'elite', enemyId: enemy.id, weakened: false })).success, true);
+    room.resolveRouteChoice(room.currentRoutes[0]);
+    const transition = room.timerCallback;
+    room.clearTimer(); transition();
+    assert.equal(room.state, 'IN_BATTLE', enemy.name);
+    assert.equal(room.currentMonster.originalName, enemy.name);
+    assert.equal(room.currentMonster.tier, enemy.tier);
+    assert.ok(room.currentMonster.maxHp > 0);
+    assert.equal(room.devEncounter, null);
+  }
 });

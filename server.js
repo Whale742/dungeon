@@ -103,6 +103,7 @@ io.on('connection', (socket) => {
       devAccess.revoke(socket);
       const existingCode = socketToRoom.get(socket.id);
       if (existingCode && rooms.has(existingCode)) {
+        socket.leave(existingCode);
         rooms.get(existingCode).removePlayer(socket.id);
       }
 

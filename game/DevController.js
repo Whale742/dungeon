@@ -1,4 +1,5 @@
 import { TIER1_EQUIPMENTS, TIER2_EQUIPMENTS, LOOT_TABLE } from './constants.js';
+import { DEV_ENEMIES, DEV_EVENTS, validEncounter } from './DevEncounter.js';
 
 const equipment = [...new Map([...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS, ...LOOT_TABLE].map(e => [e.id, e])).values()];
 const dots = ['poison', 'burn', 'fracture', 'chill'];
@@ -37,6 +38,12 @@ export class DevController {
       } });
     this.commands.set('item.equip', { keys: ['playerId', 'bag', 'index'], validate: (p, r) => living(r, p.playerId) && ['personal', 'squad'].includes(p.bag) && integer(p.index, 0, p.bag === 'personal' ? 3 : 18),
       run: (r, p) => p.bag === 'personal' ? r.equipItemFromBag(p.playerId, p.index) : r.equipItemFromSquad(p.playerId, p.index) });
+    this.commands.set('encounter.reserve', { keys: ['type', 'enemyId', 'weakened'], validate: validEncounter,
+      run: (r, p) => { r.devEncounter = structuredClone(p); } });
+    this.commands.set('encounter.clear', { keys: [], validate: () => true, run: r => { r.devEncounter = null; } });
+    this.commands.set('enemy.hp', { keys: ['enemyId', 'value'], validate: (p, r) => r.state === 'IN_BATTLE' &&
+      r.getLivingEnemies().some(e => e.instanceId === p.enemyId && integer(p.value, 1, e.maxHp)),
+      run: (r, p) => { r.enemies.find(e => e.instanceId === p.enemyId).hp = p.value; } });
   }
 
   register(room, socket) {
@@ -45,6 +52,7 @@ export class DevController {
     const broadcast = room.broadcastState.bind(room);
     room.broadcastState = () => {
       if (record.busy) return; // Commit once, after invariant checks.
+      if (room.state === 'LOBBY') room.devEncounter = null;
       record.revision++;
       broadcast();
       if (this.access.authorized(socket, room)) socket.emit('dev:update', this.inspect(socket, room));
@@ -71,6 +79,8 @@ export class DevController {
     return { success: true, roomCode: room.code, context: this.context(room),
       locked: record.busy || Boolean(this.lockReason(room)), reason: this.lockReason(room),
       commands: [...this.commands.keys()], equipment: equipment.map(e => ({ id: e.id, name: e.name, role: e.role, slot: e.slot })),
+      encounter: room.devEncounter || null, events: DEV_EVENTS,
+      enemyTemplates: DEV_ENEMIES.map(e => ({ id: e.id, name: e.name })),
       audit: record.audit };
   }
 
@@ -81,6 +91,7 @@ export class DevController {
 
   invariant(room) {
     if (!integer(room.gold, 0, 1000000) || room.squadInventory.length > 19) return false;
+    if (!room.enemies.every(e => Number.isFinite(e.hp) && e.hp >= 0 && Number.isFinite(e.maxHp) && e.maxHp > 0 && e.hp <= e.maxHp)) return false;
     return Object.values(room.players).every(p => Number.isFinite(p.hp) && p.hp >= 0 &&
       Number.isFinite(p.maxHp) && p.maxHp > 0 && Number.isFinite(p.tempHp) && p.tempHp >= 0 && p.bag.length <= 4);
   }

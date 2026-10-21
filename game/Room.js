@@ -2,6 +2,7 @@ import { resolveStats, resolveSkillAttack, skillValue, basicDamageType, mitigate
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { createRoomContent } from '../studio/content.js';
 import { normalizeAvatar } from './avatar.js';
+import { consumeEncounter, encounterBattleOptions } from './DevEncounter.js';
 import { phase8Methods, p8State, P8_ROLES } from './phase8.js';
 import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRate, isAssassinHidden, addAssassinCritical } from './assassin.js';
 // 遊戲房間管理核心 (Game Room Engine)
@@ -1552,8 +1553,9 @@ export class Room {
   }
 
   resolveRouteChoice(route) {
+    const devEncounter = this.isDev ? consumeEncounter(this, route) : null;
     this.decayDebuffsOnParty();
-    const hexNode = this.getHexNodeById(route?.hexId || route?.id);
+    let hexNode = this.getHexNodeById(route?.hexId || route?.id);
     let outcomeType = 'battle';
     let isWeakenedBoss = false;
 
@@ -1609,6 +1611,14 @@ export class Room {
       }
     }
 
+    if (devEncounter) {
+      outcomeType = ['battle', 'elite'].includes(devEncounter.type) ? 'battle'
+        : ['shop', 'black_market'].includes(devEncounter.type) ? 'shop'
+        : devEncounter.type === 'chest' ? 'chest' : 'random_event';
+      isWeakenedBoss = devEncounter.weakened;
+      hexNode = { ...hexNode, isShadyMerchant: devEncounter.type === 'black_market', isMimic: false };
+    }
+
     if (outcomeType === 'battle') {
       this.battlesInCurrentCycle = (this.battlesInCurrentCycle || 0) + 1;
     }
@@ -1652,16 +1662,18 @@ export class Room {
         } else if (outcomeType === 'chest') {
           this.handleChestEvent(hexNode);
         } else if (outcomeType === 'random_event') {
-          this.handleRandomEvent(hexNode);
+          this.handleRandomEvent(hexNode, devEncounter?.type);
         } else if (outcomeType === 'treasure') {
           this.handleTreasureEvent(outcomeData);
         } else if (outcomeType === 'trap') {
           this.handleTrapEvent(outcomeData);
         } else {
-          if (hexNode && this.checkAbyssEncounterTrigger(hexNode)) {
+          if (!devEncounter && hexNode && this.checkAbyssEncounterTrigger(hexNode)) {
             return;
           }
-          this.handleBattleEvent(outcomeData, isWeakenedBoss, hexNode ? { col: hexNode.col } : {});
+          this.handleBattleEvent(outcomeData, isWeakenedBoss, devEncounter
+            ? encounterBattleOptions(this, devEncounter, hexNode.col)
+            : hexNode ? { col: hexNode.col } : {});
         }
       }
     });
@@ -4601,11 +4613,11 @@ export class Room {
   }
 
   // 隨機事件 (Module 4)
-  handleRandomEvent(hexNode) {
+  handleRandomEvent(hexNode, subTypeOverride = null) {
     this.clearTimer();
     this.state = 'EVENT';
     const subTypes = ['WANDERING_MERCHANT', 'ALTAR', 'GAMBLE', 'REFORGE'];
-    const subType = typeof hexNode === 'string' ? hexNode : subTypes[((hexNode?.col ?? 1) * 3 + (hexNode?.row ?? 1)) % subTypes.length];
+    const subType = subTypeOverride || (typeof hexNode === 'string' ? hexNode : subTypes[((hexNode?.col ?? 1) * 3 + (hexNode?.row ?? 1)) % subTypes.length]);
     if (subType === 'WANDERING_MERCHANT') {
       return this.handleWanderingMerchantEvent(hexNode);
     }

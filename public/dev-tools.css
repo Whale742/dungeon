@@ -14,3 +14,4 @@
 #dev-drawer pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 ui-monospace, monospace; max-height: 240px; overflow-y: auto; }
 #dev-message { color: #f1c887; }
 #dev-drawer :focus-visible, #dev-toggle:focus-visible { outline: 2px solid #f1c887; outline-offset: 2px; }
+#dev-drawer input[type=checkbox] { display: inline-block; width: auto; margin-right: 8px; }
