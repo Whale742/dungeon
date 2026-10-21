@@ -61,7 +61,7 @@ export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,b
     pal_glory:7+P,pal_shield:.5*H,dru_claw:10+2.5*P,dru_shield:.85*H,
     g_strike:3+P+10*players+stacks*(13+P),g_rage:4+.5*P,
     sa_cut:2+P,sa_tsubame:3+.5*P,sa_counter:2+.5*P+.25*D+blocks,
-    a_shot:7+2*P,a_rain:6+M,a_friendly:3+.5*M,
+    a_shot:6+Math.max(P,M),a_rain:5*P,a_rain_arrow:.5*P,a_trap:.25*P,a_friendly:3+.5*M,
     m_blast:15+2*M,m_secondary:6+.6*M,m_miss:4+.4*M,m_secondary_miss:1+.2*M,m_drain_max:5+3*M,
     b_heal:1+.3*H,b_single:.4*H,b_miss:.07*H,b_nocturne:6+M,b_frenzy:7+2*M,
     alc_flask:10+2.5*M,poison:3+.5*M,burn:5+.5*M,fracture:2+.3*M,chill:3+.3*M,

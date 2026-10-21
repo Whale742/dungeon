@@ -136,9 +136,9 @@ const DEFAULT_ROLE_DETAILS = {
     type: '物理 / 遠程敏捷',
     passive: '常駐 40% 閃避率（可完全閃避單體物理打擊與怪物反擊）。',
     skills: [
-      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '拉弓射出基礎箭矢造成基礎 10 點物理傷害。' },
-      { type: '1 技能', name: '精準狙擊', dmgType: '【物理】', cd: '1 回合', desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。' },
-      { type: '2 技能', name: '箭雨壓制', dmgType: '【魔法】', cd: '1 回合', desc: '召喚範圍附魔箭雨造成 20 點魔法傷害並削弱敵方 10 點攻擊力。有 20% 機率受地底氣流干擾誤傷隨機一名隊友 10 點傷害。' }
+      { type: '普攻', name: '普通攻擊', dmgType: '【物理】', cd: '無 CD', desc: '拉弓射出基礎箭矢造成基礎物理傷害。' },
+      { type: '1 技能', name: '封鎖箭雨', dmgType: '【物理】', cd: '1 回合', desc: '射出 10 枝箭矢的箭雨，每支造成 50%×A 物理傷害且有 50% 機率命中。未命中箭矢殘留在地表形成持續 2 回合的「箭刺陷阱區域」，敵方每次行動受到 25%×A 物理傷害。' },
+      { type: '2 技能', name: '標記射擊', dmgType: '【魔法】', cd: '2 回合', desc: '拉滿弓弦狙擊單一目標，正常命中造成 6 + 100%×A 點魔法傷害，並在目標身上附加 1 層「破綻印記」（每層使目標受傷增加 10%、受到攻擊命中率提升 10%、效果命中降低 10%，最多 5 層，無回合限制）。' }
     ]
   },
   assassin: {
@@ -2753,6 +2753,7 @@ function renderBattle(me, isLeader) {
         buffHtml += `<button type="button" class="enemy-target-chip${isTarget ? ' active' : ''}${isDead ? ' dead' : ''}" data-enemy-id="${escapeHtml(eid)}" ${isDead ? 'disabled' : ''} style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;border:1px solid ${isTarget ? '#f59e0b' : 'rgba(255,255,255,0.2)'};background:${isTarget ? 'rgba(245,158,11,0.22)' : 'rgba(15,23,42,0.75)'};color:#f8fafc;cursor:${isDead ? 'not-allowed' : 'pointer'};opacity:${isDead ? '0.45' : '1'};font-size:12px;">
           <span style="font-weight:700;color:${en.tier === 'ABYSS' ? '#c084fc' : en.tier === 'ELITE' ? '#fbbf24' : '#94a3b8'};">[${tierLabel}]</span>
           <span>${escapeHtml(en.name)}</span>
+          ${en.flawMarks > 0 ? `<span style="color:#f87171;font-weight:700;">[破綻×${en.flawMarks}]</span>` : ''}
           <span style="font-family:monospace;color:${isDead ? '#ef4444' : '#cbd5e1'};">${en.hp}/${en.maxHp} (${hpPct}%)</span>
           ${isTarget && !isDead ? getIconSvg('target', 'ui-icon--sm') : ''}
         </button>`;
@@ -2781,6 +2782,13 @@ function renderBattle(me, isLeader) {
       const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
       const details = monster.talismans.map(t => TALISMAN_NAMES[t] || t).join('、');
       buffHtml += `<span class="buff-badge tag-talismans" style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fbbf24;"><img src="/buff icon/符咒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 符咒 (${monster.talismans.length} 張: ${details})</span>`;
+    }
+    if (monster.flawMarks > 0) {
+      buffHtml += `<span class="buff-badge tag-flaw" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5;"><img src="/buff icon/破綻印記.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 破綻印記 (${monster.flawMarks}/5 層 · 受傷+${monster.flawMarks * 10}% / 敵命中-${monster.flawMarks * 10}%)</span>`;
+    }
+    if (roomState?.arrowTrapTurns > 0 || roomState?.arrowTrap?.turns > 0) {
+      const trapTurns = roomState?.arrowTrapTurns || roomState?.arrowTrap?.turns || 1;
+      buffHtml += `<span class="buff-badge tag-arrow-trap" style="background: rgba(34, 197, 94, 0.25); border: 1px solid #22c55e; color: #86efac;">🏹 箭刺陷阱區域 (${trapTurns} 回合 · 敵方每次行動受 25%×A 傷害)</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
     elements.monsterBuffsRow.querySelectorAll('.enemy-target-chip').forEach(btn => {
@@ -2873,7 +2881,9 @@ const BUFF_ICON_MAP = {
   talisman: '/buff icon/符咒.webp',
   talismans: '/buff icon/符咒.webp',
   equation: '/buff icon/方程特性.webp',
-  sage_equation: '/buff icon/方程特性.webp'
+  sage_equation: '/buff icon/方程特性.webp',
+  flaw_mark: '/buff icon/破綻印記.webp',
+  flaw: '/buff icon/破綻印記.webp'
 };
 
 function getBuffIconUrl(status) {
@@ -2904,6 +2914,7 @@ function getBuffIconUrl(status) {
   if (label.includes('命債') || label.includes('透支')) return '/buff icon/命債.webp';
   if (label.includes('符')) return '/buff icon/符咒.webp';
   if (label.includes('方程') || label.includes('假設') || label.includes('求解')) return '/buff icon/方程特性.webp';
+  if (label.includes('破綻') || label.includes('印記')) return '/buff icon/破綻印記.webp';
 
   return '/buff icon/方程特性.webp';
 }
@@ -7844,7 +7855,7 @@ function renderReforgeEvent(ev) {
         <div style="font-size:13px;color:var(--ui-text-muted);">
           ※ 矮人古法重鑄鐵砧：消耗 10G，隨機將選取的裝備重鑄為同階、二階稀有或職業專屬神裝
         </div>
-        <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary" data-act="leave">
+        <button type="button" class="btn-shop-action btn-shop-leave btn-rand-leave ui-button ui-button--secondary" data-act="leave">
           ${getIconSvg('leave', 'ui-icon--sm')}
           <span>告別離開 ›</span>
         </button>
@@ -7996,8 +8007,10 @@ function renderReforgeEvent(ev) {
   }
 
   // Leave button
-  elements.eventDetails.querySelector('.btn-rand-leave')?.addEventListener('click', () => {
-    socket.emit('event:random_action', { action: 'leave' });
+  elements.eventDetails.querySelectorAll('.btn-rand-leave, .btn-shop-leave, [data-act="leave"]').forEach(btn => {
+    btn.onclick = () => {
+      socket.emit('event:random_action', { action: 'leave' });
+    };
   });
 }
 
@@ -8024,7 +8037,7 @@ function renderGambleEvent(ev) {
         <div style="font-size:13px;color:var(--ui-text-muted);">
           ※ 矮人幸運二十面骰：設定押注並決定押大或小，擲出幸運特賞點數可獲 3倍 獎金
         </div>
-        <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary" data-act="leave">
+        <button type="button" class="btn-shop-action btn-shop-leave btn-rand-leave ui-button ui-button--secondary" data-act="leave">
           ${getIconSvg('leave', 'ui-icon--sm')}
           <span>告別離開 ›</span>
         </button>
@@ -8102,10 +8115,14 @@ function renderGambleEvent(ev) {
           <div id="gambleScreenResult" class="gamble-screen-result hidden">
             <div id="gambleOutcomeBadge" class="gamble-outcome-badge jackpot">贏 (3倍)</div>
             <div id="gambleGoldDelta" class="gamble-gold-delta">+300 G</div>
-            <div style="display:flex;justify-content:center;margin-top:6px;width:100%;max-width:240px;">
-              <button type="button" id="btnGambleAgain" class="btn-shop-action btn-gamble-again ui-button ui-button--primary" style="width:100%;">
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:6px;width:100%;max-width:320px;">
+              <button type="button" id="btnGambleAgain" class="btn-shop-action btn-gamble-again ui-button ui-button--primary" style="flex:1;">
                 ${getIconSvg('dice', 'ui-icon--sm')}
                 <span>再來一局</span>
+              </button>
+              <button type="button" class="btn-shop-action btn-shop-leave btn-rand-leave ui-button ui-button--secondary" data-act="leave" style="flex:1;">
+                ${getIconSvg('leave', 'ui-icon--sm')}
+                <span>離開據點 ›</span>
               </button>
             </div>
           </div>
@@ -8340,7 +8357,7 @@ function renderGambleEvent(ev) {
     };
   }
 
-  elements.eventDetails.querySelectorAll('.btn-rand-leave').forEach(btn => {
+  elements.eventDetails.querySelectorAll('.btn-rand-leave, .btn-shop-leave, [data-act="leave"]').forEach(btn => {
     btn.onclick = () => {
       socket.emit('event:random_action', { action: 'leave' });
     };
@@ -8375,6 +8392,12 @@ function renderInteractiveEvent(ev) {
   } else if (bgImg) {
     bgImg.remove();
   }
+
+  const isBorderlessRandomEvent = Boolean(ev.type === 'random_event' && eventIllustrations[ev.subType]);
+  elements.eventCardBox?.classList.toggle('is-borderless-event', isBorderlessRandomEvent);
+  elements.eventCardBox?.classList.toggle('is-altar-event', Boolean(ev.type === 'random_event' && ev.subType === 'ALTAR'));
+  elements.eventCardBox?.classList.toggle('is-gamble-event', Boolean(ev.type === 'random_event' && ev.subType === 'GAMBLE'));
+  elements.eventCardBox?.classList.toggle('is-reforge-event', Boolean(ev.type === 'random_event' && ev.subType === 'REFORGE'));
 
   const eventKey = `${roomState?.code || ''}:${roomState?.floor || 1}:${ev.hexId || (ev.type + '_' + (ev.subType || '') + '_' + (ev.title || ''))}`;
   const isNewEventInstance = (currentInteractiveEventKey !== eventKey);
@@ -8502,7 +8525,7 @@ function renderInteractiveEvent(ev) {
             <span>小隊金幣：<b>${currentGold}</b> G</span>
           </div>
           <div style="font-size:13px;color:var(--ui-text-muted);">
-            ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : (ev.isShady ? '※ 黑市奸商物品售價昂貴，但可強取或暗行行竊' : '※ 商隊信譽優良，提供充足休整與物資')}
+            ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : (ev.isShady ? '※ 黑市奸商物品售價昂貴，若不買東西恐招惹商人不滿' : '※ 商隊信譽優良，提供充足休整與物資')}
           </div>
           ${(() => {
             const readyList = ev.readyToLeave || [];
@@ -8577,12 +8600,7 @@ function renderInteractiveEvent(ev) {
               </button>
             ` : ''}
           ` : `
-            ${ev.canRob ? `
-              <button type="button" class="btn-shop-action btn-shop-rob ui-button ui-button--danger">
-                ${getIconSvg('sword', 'ui-icon--sm')}
-                <span>翻臉洗劫奸商！</span>
-              </button>
-            ` : ''}
+
             ${ev.canSteal ? `
               <button type="button" class="btn-shop-action btn-shop-steal ui-button ui-button--secondary">
                 ${getIconSvg('lock', 'ui-icon--sm')}
@@ -8988,7 +9006,7 @@ function renderInteractiveEvent(ev) {
             </button>` : ''}
             <button type="button" class="btn btn-ghost btn-chest-action btn-chest-leave">
               ${getIconSvg('leave', 'ui-icon--sm')}
-              <span>繞開避走 ›</span>
+              <span>繞道而行</span>
             </button>
           </div>
         </div>
@@ -9091,7 +9109,7 @@ function renderInteractiveEvent(ev) {
       }
 
       elements.eventDetails.innerHTML = `
-        <div class="rand-event-container">
+        <div class="rand-event-container altar-container">
           <div class="rand-event-actions">${actionsHtml}</div>
           <button type="button" class="btn btn-ghost btn-rand-action btn-rand-leave" data-act="leave">
             ${getIconSvg('leave', 'ui-icon--sm')}

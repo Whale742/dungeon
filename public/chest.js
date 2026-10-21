@@ -599,17 +599,21 @@ async function playChestPresentation(ev, context = {}) {
           }
         };
         const act = action => {
-          if (ev.type !== 'chest' || context.onOpen) return finish();
+          if (context.onOpen) return finish();
           btnOpenChest.disabled = true;
           socket.emit('event:chest_action', {action,presentationId:ev.presentationId}, result => {
             if (signal.aborted) return;
-            if (result?.success && result.opened) { Object.assign(ev,result); finish(); }
-            else if (!result?.success) btnOpenChest.disabled = false;
+            if (result?.success) {
+              if (result.opened) Object.assign(ev, result);
+              finish();
+            } else {
+              btnOpenChest.disabled = false;
+            }
           });
         };
         const onClick = () => act('open');
-        if (ev.type === 'chest' && !context.onOpen) {
-          for (const [action,label,allowed] of [['pacify','安撫寶箱',ev.canPacify],['leave','離開',ev.canLeave]]) {
+        if (['chest', 'treasure'].includes(ev.type) && !context.onOpen) {
+          for (const [action,label,allowed] of [['pacify','安撫寶箱',ev.canPacify],['leave','繞道而行',ev.canLeave !== false]]) {
             if (!allowed) continue;
             const button=document.createElement('button'); button.type='button'; button.className=btnOpenChest.className;
             button.textContent=label; button.addEventListener('click',()=>act(action));

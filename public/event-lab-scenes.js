@@ -280,6 +280,16 @@ function buildLabHexGrid(items, isMerchant = false, selectedIdx = null) {
   `;
 }
 
+function leaveLabEvent(name = '據點') {
+  logLab('INFO', `冒險小隊告別離開${name}據點，繼續前進。`);
+  const cardBox = document.getElementById('eventCardBox');
+  if (cardBox) {
+    cardBox.classList.add('hidden');
+    cardBox.style.display = 'none';
+  }
+}
+window.leaveLabEvent = leaveLabEvent;
+
 // --------------------------------------------------------------------------
 // 1. 命運賭局 (GAMBLE) 測試場景
 // --------------------------------------------------------------------------
@@ -290,7 +300,16 @@ function playLabGambleScene(context) {
   const eventTitle = document.getElementById('eventTitle');
   const eventStoryText = document.getElementById('eventStoryText');
 
-  cardBox.classList.remove('hidden', 'is-shop-event');
+  cardBox.classList.remove('hidden', 'is-shop-event', 'is-altar-event', 'is-reforge-event');
+  cardBox.classList.add('is-borderless-event', 'is-gamble-event');
+  let bgImg = cardBox.querySelector('.event-bg-illustration');
+  if (!bgImg) {
+    bgImg = document.createElement('img');
+    bgImg.className = 'event-bg-illustration';
+    bgImg.alt = '';
+    cardBox.prepend(bgImg);
+  }
+  bgImg.src = '/assets/賭博.webp';
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-dice"></use></svg>`;
   eventTitle.textContent = '命運賭局 (20面骰)';
@@ -318,7 +337,7 @@ function playLabGambleScene(context) {
           <div style="font-size:13px;color:var(--ui-text-muted,#7e8c96);">
             ※ 矮人工程師幸運二十面骰：設定押注並決定押大或小，擲出幸運特賞點數可獲 3倍 獎金
           </div>
-          <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary" onclick="logLab('INFO', '冒險小隊告別離開賭局據點。');">
+          <button type="button" class="btn-shop-action btn-shop-leave btn-rand-leave ui-button ui-button--secondary" onclick="leaveLabEvent('命運賭局');">
             <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-leave"></use></svg>
             <span>告別離開 ›</span>
           </button>
@@ -410,10 +429,14 @@ function playLabGambleScene(context) {
             <div id="labGambleScreenResult" class="gamble-screen-result hidden">
               <div id="labGambleOutcomeBadge" class="gamble-outcome-badge jackpot">贏 (3倍)</div>
               <div id="labGambleGoldDelta" class="gamble-gold-delta">+150 G</div>
-              <div style="display:flex;justify-content:center;margin-top:6px;width:100%;max-width:240px;">
-                <button type="button" id="btnLabGambleAgain" class="btn-shop-action btn-gamble-again ui-button ui-button--primary" style="width:100%;">
+              <div style="display:flex;gap:10px;justify-content:center;margin-top:6px;width:100%;max-width:320px;">
+                <button type="button" id="btnLabGambleAgain" class="btn-shop-action btn-gamble-again ui-button ui-button--primary" style="flex:1;">
                   <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-dice"></use></svg>
                   <span>再來一局</span>
+                </button>
+                <button type="button" class="btn-shop-action btn-shop-leave btn-rand-leave ui-button ui-button--secondary" onclick="leaveLabEvent('命運賭局');" style="flex:1;">
+                  <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-leave"></use></svg>
+                  <span>告別離開 ›</span>
                 </button>
               </div>
             </div>
@@ -654,7 +677,16 @@ function playLabReforgeScene(context) {
   const eventTitle = document.getElementById('eventTitle');
   const eventStoryText = document.getElementById('eventStoryText');
 
-  cardBox.classList.remove('hidden', 'is-shop-event');
+  cardBox.classList.remove('hidden', 'is-shop-event', 'is-altar-event', 'is-gamble-event');
+  cardBox.classList.add('is-borderless-event', 'is-reforge-event');
+  let bgImg = cardBox.querySelector('.event-bg-illustration');
+  if (!bgImg) {
+    bgImg = document.createElement('img');
+    bgImg.className = 'event-bg-illustration';
+    bgImg.alt = '';
+    cardBox.prepend(bgImg);
+  }
+  bgImg.src = '/assets/鑄造台.webp';
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-anvil"></use></svg>`;
   eventTitle.textContent = '矮人鑄造工坊 (裝備重鑄)';
@@ -679,7 +711,7 @@ function playLabReforgeScene(context) {
           <div style="font-size:13px;color:var(--ui-text-muted,#7e8c96);">
             ※ 矮人古法重鑄鐵砧：消耗 10G，隨機將選取的裝備重鑄為同階、二階稀有或職業專屬神裝
           </div>
-          <button type="button" class="btn-shop-action btn-shop-leave ui-button ui-button--secondary" onclick="logLab('INFO', '冒險小隊告別離開重鑄工坊。');">
+          <button type="button" class="btn-shop-action btn-shop-leave btn-rand-leave ui-button ui-button--secondary" onclick="leaveLabEvent('矮人重鑄工坊');">
             <svg class="ui-icon svg-icon ui-icon--sm" viewBox="0 0 24 24"><use href="#icon-leave"></use></svg>
             <span>告別離開 ›</span>
           </button>
@@ -845,14 +877,23 @@ function playLabAltarScene(context) {
   const eventTitle = document.getElementById('eventTitle');
   const eventStoryText = document.getElementById('eventStoryText');
 
-  cardBox.classList.remove('hidden', 'is-shop-event');
+  cardBox.classList.remove('hidden', 'is-shop-event', 'is-reforge-event', 'is-gamble-event');
+  cardBox.classList.add('is-borderless-event', 'is-altar-event');
+  let bgImg = cardBox.querySelector('.event-bg-illustration');
+  if (!bgImg) {
+    bgImg = document.createElement('img');
+    bgImg.className = 'event-bg-illustration';
+    bgImg.alt = '';
+    cardBox.prepend(bgImg);
+  }
+  bgImg.src = '/assets/獻祭台.webp';
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-torii"></use></svg>`;
   eventTitle.textContent = '古老深淵祭壇';
   eventStoryText.textContent = '一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。獻出鮮血或搜刮遺物，代價自負。';
 
   eventDetails.innerHTML = `
-    <div class="rand-event-container">
+    <div class="rand-event-container altar-container">
       <div class="rand-event-actions">
         <button type="button" class="btn-rand-action" id="btnAltarSacrifice">
           <svg class="ui-icon" style="width:16px;height:16px;"><use href="#icon-sword"></use></svg>
@@ -867,6 +908,10 @@ function playLabAltarScene(context) {
           <span>聖光淨化 (聖騎士專屬免代價回復30%HP與15護盾)</span>
         </button>
       </div>
+      <button type="button" class="btn btn-ghost btn-rand-action btn-rand-leave" onclick="leaveLabEvent('古老深淵祭壇');">
+        <svg class="ui-icon" style="width:16px;height:16px;"><use href="#icon-leave"></use></svg>
+        <span>離開據點 ›</span>
+      </button>
     </div>
   `;
 
@@ -1236,6 +1281,12 @@ async function playEventLabScene(sceneName, context) {
   if (viewRoute) viewRoute.classList.add('hidden');
   if (viewPrologue) viewPrologue.classList.add('hidden');
   if (viewStatusLab) viewStatusLab.classList.add('hidden');
+
+  const cardBoxEl = document.getElementById('eventCardBox');
+  if (cardBoxEl) {
+    cardBoxEl.classList.remove('is-borderless-event', 'is-altar-event', 'is-gamble-event', 'is-reforge-event');
+    cardBoxEl.querySelector('.event-bg-illustration')?.remove();
+  }
 
   // Hide chest/trap discovery elements
   document.getElementById('chestDiscoverySection')?.classList.add('hidden');

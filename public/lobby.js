@@ -2,7 +2,7 @@
 const LOBBY_ROLE_PROFILES = Object.freeze(Object.fromEntries(Object.entries({
   warrior:{enName:'Warrior',tags:['TANK','物理','防護'],radar:['B','S','A','A','C'],passiveSummary:'承受傷害並守護全隊，以護盾與反擊維持前線。'},
   mage:{enName:'Mage',tags:['DPS','魔法','汲取'],radar:['S','C','D','C','B'],passiveSummary:'以魔法爆發與生命汲取輸出，威力強大但需要承擔走火風險。'},
-  archer:{enName:'Archer',tags:['DPS','物理','穿透'],radar:['A','B','C','C','B'],passiveSummary:'遠程物理輸出，單體射擊與箭雨壓制各有風險。'},
+  archer:{enName:'Archer',tags:['DPS','物理','穿透'],radar:['A','B','C','C','B'],passiveSummary:'遠程物理與魔法輸出，封鎖箭雨陷阱控場與標記狙擊削弱。'},
   assassin:{enName:'Assassin',tags:['DPS','物理','暴擊','匿蹤'],radar:['S','C','D','B','A'],passiveSummary:'運用匿蹤與暴擊形成爆發，抓住出手時機。'},
   bard:{enName:'Bard',tags:['SUPPORT','群療','增益'],radar:['C','B','S','B','B'],passiveSummary:'治療、增益與復活支援隊伍，演奏也可能出現走音。'},
   alchemist:{enName:'Alchemist',tags:['SUPPORT','魔法','調和'],radar:['A','C','A','D','A'],passiveSummary:'調和試劑帶來腐蝕、劇毒與淨化，結果充滿變數。'},

@@ -37,8 +37,8 @@ export const CLASSES = {
     desc: '【生命 80】遠程敏捷。常駐 40% 閃避，普攻與1技能為物理，2技能為魔法。',
     skills: [
       { id: 'basic', label: '普通攻擊', cd: 0, dmgType: 'phys', tags: ['物理', '單體'], desc: '拉弓射出基礎箭矢造成物理打擊。' },
-      { id: 'a_shot', label: '精準狙擊', cd: 1, dmgType: 'phys', tags: ['物理', '單體', '高風險'], desc: '百步穿楊狙擊目標；有機率發生脫靶導致無法造成傷害，並使下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。' },
-      { id: 'a_rain', label: '箭雨壓制', cd: 1, dmgType: 'mag', tags: ['魔法', '全體', '減益', '高風險'], desc: '召喚範圍附魔箭雨造成魔法傷害並削弱敵方攻擊；有機率受地底氣流干擾誤傷隨機一名隊友。' }
+      { id: 'a_rain', label: '封鎖箭雨', cd: 1, dmgType: 'phys', tags: ['物理', '群體'], desc: '射出10枝箭矢的箭雨，每支造成 50%×A 物理傷害且有 50% 機率命中。未命中的箭矢在地面形成持續 2 回合的「箭刺陷阱區域」，敵方每次行動均會受到 25%×A 物理傷害。' },
+      { id: 'a_shot', label: '標記射擊', cd: 2, dmgType: 'mag', tags: ['魔法', '單體', '減益'], desc: '拉滿弓弦狙擊單一目標，造成 6 + 100%×A 點魔法傷害，並附加 1 層「破綻印記」（每層使目標受傷增加 10%、受到攻擊命中率提升 10%、效果命中降低 10%，最多 5 層，無回合限制）。' }
     ]
   },
   assassin: {
@@ -1000,7 +1000,7 @@ export function getPlayerSkills(player) {
         basicSkill.desc = '消耗彈匣所有弩箭齊射。未裝填時造成基礎 10 點物理傷害；裝填時傷害大幅提升（1發45/2發63/3發89），依箭矢類型（穿甲物理／元素魔法／爆裂等量自傷）均分結算。';
       }
       // 1 技能替換為 戰術上膛
-      const idx1 = baseSkills.findIndex(s => s.id === 'a_shot');
+      const idx1 = baseSkills.findIndex(s => s.id === 'a_rain' || s.id === 'a_shot');
       if (idx1 !== -1) {
         baseSkills[idx1] = {
           id: 'a_reload',
@@ -1012,7 +1012,7 @@ export function getPlayerSkills(player) {
         };
       }
       // 2 技能替換為 極速狂熱裝填
-      const idx2 = baseSkills.findIndex(s => s.id === 'a_rain');
+      const idx2 = baseSkills.findIndex((s, i) => i !== idx1 && (s.id === 'a_shot' || s.id === 'a_rain'));
       if (idx2 !== -1) {
         baseSkills[idx2] = {
           id: 'a_frenzy_reload',
@@ -1155,17 +1155,17 @@ export const ROLE_DETAILS = {
       },
       {
         type: '1 技能',
-        name: '精準狙擊',
+        name: '封鎖箭雨',
         dmgType: '【物理】',
         cd: '1 回合',
-        desc: '百步穿楊狙擊目標造成 35 點傷害。有 20% 機率發生脫靶導致無法造成傷害（0 傷害），並使下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。'
+        desc: '射出 10 枝箭的箭雨，每支箭造成 50% × A 物理傷害且有 50% 機率命中。未命中箭矢殘留在地表形成持續 2 回合的「箭刺陷阱區域」，敵方每次行動均會受到 25% × A 物理傷害。'
       },
       {
         type: '2 技能',
-        name: '箭雨壓制',
+        name: '標記射擊',
         dmgType: '【魔法】',
-        cd: '1 回合',
-        desc: '召喚範圍附魔箭雨造成 20 點魔法傷害並削弱敵方 10 點攻擊力。有 20% 機率受地底氣流干擾誤傷隨機一名隊友 10 點傷害。'
+        cd: '2 回合',
+        desc: '拉滿弓弦狙擊單一目標，造成 6 + 100% × A 點魔法傷害，並附加 1 層「破綻印記」（每層使目標受傷增加 10%、受到攻擊命中率提升 10%、效果命中降低 10%，最多 5 層，無回合限制）。'
       }
     ]
   },
@@ -1559,12 +1559,13 @@ export const ABYSS_MINIONS = [
 export const SPECIAL_ELITES = {
   shady_merchant: {
     id: 'shady_merchant',
-    name: '深淵黑市奸商・格里德',
-    avatar: '/BOSS/Blood Moon Sorcerer_fullbody.webp',
-    hp: 110,
-    desc: '撕下偽善面具的黑市商人，揮舞著鑲滿假寶石的沉重金庫法杖！',
-    attack: 14,
-    baseResistances: { physical: 15, magic: 15, effect: 15 },
+    name: '奸商',
+    avatar: '/BOSS/奸商.webp',
+    hp: 180,
+    desc: '揮舞著算盤與重金錢袋的奸商，因沒買東西而暴跳如雷！',
+    attack: 8,
+    baseResistances: { physical: 0, magic: 0, effect: 0 },
+    noBonusResistance: true,
     ultName: '黑金暴利轟炸',
     tier: 'ELITE',
     isShadyMerchant: true

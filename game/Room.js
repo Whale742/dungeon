@@ -542,10 +542,12 @@ export class Room {
       augurResistanceBreak: enemy.augurResistanceBreak || 0,
       reversedOmenRemaining: enemy.reversedOmenRemaining || 0,
       reversedOmenBonus: enemy.reversedOmenBonus || 0,
+      flawMarks: enemy.flawMarks || 0,
       talismans: [...(enemy.talismans || [])],
       permanentTalismans: [...(enemy.permanentTalismans || [])],
       statuses: [
         ...p8State(enemy, this).phase8Statuses,
+        ...(enemy.flawMarks && enemy.flawMarks > 0 ? [{ id: 'flaw_mark', label: `破綻印記 (${enemy.flawMarks})`, icon: 'flaw_mark', stacks: enemy.flawMarks, isNegative: true, category: 'DEBUFF', desc: `受傷增加 ${enemy.flawMarks * 10}%，受到攻擊命中率提高 ${enemy.flawMarks * 10}%，效果命中降低 ${enemy.flawMarks * 10}%` }] : []),
         ...(enemy.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: enemy.poisonTurns, stacks: enemy.poisonDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
         ...(enemy.burnTurns ? [{ id: 'burn', label: 'BURN', icon: 'burn', turns: enemy.burnTurns, stacks: enemy.burnDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
         ...(enemy.fractureTurns ? [{ id: 'fracture', label: 'FRACTURE', icon: 'fracture', turns: enemy.fractureTurns, stacks: enemy.fractureDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
@@ -592,6 +594,11 @@ export class Room {
         if (rolledRes.bonusResistances) rolledRes.bonusResistances[t] = Math.min(30, rolledRes.bonusResistances[t]);
       }
     }
+    if (baseTemplate.isShadyMerchant || baseTemplate.noBonusResistance) {
+      rolledRes.resistances = { physical: 0, magic: 0, effect: 0 };
+      rolledRes.baseResistances = { physical: 0, magic: 0, effect: 0 };
+      rolledRes.bonusResistances = { physical: 0, magic: 0, effect: 0 };
+    }
 
     return {
       instanceId: options.instanceId || `enemy_${index}`,
@@ -605,6 +612,7 @@ export class Room {
       routeId,
       encounterStory,
       isWeakened,
+      isShadyMerchant: Boolean(baseTemplate.isShadyMerchant),
       avatar: baseTemplate.avatar,
       desc: isWeakened ? `${baseTemplate.desc} (⚠️ 負傷)` : baseTemplate.desc,
       attack: scaledAtk,
@@ -1906,6 +1914,7 @@ export class Room {
   // 戰鬥事件（支援舊版單體 Boss 與新版 Module 2 多目標編隊 options.col / options.enemies）
   handleBattleEvent(outcomeData = null, isWeakened = false, options = {}) {
     this.state = 'IN_BATTLE';
+    this.arrowTrap = null;
     let encounterStory = '';
 
     const useFormation = Boolean(
@@ -1925,6 +1934,9 @@ export class Room {
         ? options.enemies.map((e, idx) => (e.maxHp ? e : this.createEnemyInstance(e, idx, { isWeakened, tier: e.tier, rng: options.rng })))
         : this.buildEncounterFormation(col, { ...options, isWeakened });
       this.setEnemies(formationEnemies);
+      if (options.merchantLootPool) {
+        this.merchantLootPool = options.merchantLootPool;
+      }
       if (options.abyssModifiers) {
         const primary = this.getPrimaryEnemy();
         if (primary) {
@@ -3010,7 +3022,24 @@ export class Room {
     let drop = null;
     let deposit = null;
     let targetDesc = '';
-    if (!onlyGold) {
+    if (this.merchantLootPool && this.merchantLootPool.length > 0) {
+      // 奸商專屬戰利品：隨機獲得一件他商店中的商品(包括專屬裝備)
+      const chosen = this.merchantLootPool[Math.floor(Math.random() * this.merchantLootPool.length)];
+      drop = structuredClone(chosen);
+      delete drop.price;
+      delete drop.sold;
+      delete drop.shopConsumableId;
+      deposit = this.autoDepositLoot(drop);
+      targetDesc = deposit?.target === 'squad' ? '小隊背包' : (deposit?.target === 'personal' ? '個人行囊' : '溢出暫存區');
+      log.push({ text: `🎁 **【戰勝奸商！起獲贓物】** 小隊搜查了奸商的攤位，起獲了【${drop.name}】（${drop.desc}），已自動收納入${targetDesc}！`, type: 'loot' });
+      this.merchantLootPool = null;
+    } else if (monster.isShadyMerchant) {
+      const pool = [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS];
+      drop = structuredClone(pool[Math.floor(Math.random() * pool.length)]);
+      deposit = this.autoDepositLoot(drop);
+      targetDesc = deposit?.target === 'squad' ? '小隊背包' : (deposit?.target === 'personal' ? '個人行囊' : '溢出暫存區');
+      log.push({ text: `🎁 **【戰勝奸商！起獲贓物】** 小隊搜查了奸商的攤位，起獲了【${drop.name}】（${drop.desc}），已自動收納入${targetDesc}！`, type: 'loot' });
+    } else if (!onlyGold) {
       const smallEquipPool = TIER1_EQUIPMENTS;
       drop = structuredClone(smallEquipPool[Math.floor(Math.random() * smallEquipPool.length)]);
       deposit = this.autoDepositLoot(drop);
@@ -3805,9 +3834,11 @@ export class Room {
       consumables,
       buybackPool: [],
       restPrice: 30,
-      canRob: isShady && !isPrepShop,
+      canRob: false,
       canSteal: isShady && !isPrepShop && leaderRole === 'assassin',
       readyToLeave: [],
+      hasBought: false,
+      boughtCount: 0,
       canLeave: true
     };
     this.broadcastState();
@@ -4078,6 +4109,10 @@ export class Room {
 
       this.gold -= item.price;
       item.sold = true;
+      if (this.currentEvent) {
+        this.currentEvent.hasBought = true;
+        this.currentEvent.boughtCount = (this.currentEvent.boughtCount || 0) + 1;
+      }
 
       const boughtItem = structuredClone(item);
       delete boughtItem.price;
@@ -4212,18 +4247,7 @@ export class Room {
     }
 
     if (action === 'rob') {
-      if (!this.currentEvent.isShady) return { success: false, message: '只有奸商可以搶劫！' };
-      this.addLog(`⚔️ **${player.name}** 與小隊決定翻臉搶劫奸商！黑市奸商撕破偽裝拔出法杖！`, 'warning');
-      const leaderRole = this.getEffectiveLeaderRole();
-      if (leaderRole === 'warrior') {
-        this.monsterStunnedThisRound = true;
-        this.addLog('🛡️ 【堅守陣線】戰士隊長怒吼掀桌，黑市商人首回合陷入暈眩！', 'buff');
-      }
-      const col = this.currentEvent.col;
-      this.currentEvent.buybackPool = [];
-      this.currentEvent = null;
-      this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col });
-      return { success: true };
+      return { success: false, message: '無法主動攻擊奸商！' };
     }
 
     if (action === 'steal') {
@@ -4289,6 +4313,25 @@ export class Room {
 
       // 全員確認準備完畢，正式離開商店
       const wasPrepShop = Boolean(this.currentEvent?.isPrepShop);
+      const isShady = Boolean(this.currentEvent?.isShady);
+      const hasBought = Boolean(this.currentEvent?.hasBought);
+
+      if (isShady && !wasPrepShop && !hasBought) {
+        this.addLog('💢 **奸商** 怒吼：「看了那麼久，為什麼不跟我買東西！浪費我時間」', 'warning');
+        this.addLog('⚔️ 奸商惱羞成怒，主動向小隊發起了戰鬥！', 'warning');
+        const merchantLootPool = structuredClone(this.currentEvent.items || []);
+        const col = this.currentEvent.col || (this.currentHex?.col ?? 1);
+        if (this.currentEvent) {
+          this.currentEvent.buybackPool = [];
+        }
+        this.currentEvent = null;
+        if (this.io && this.code) {
+          this.io.to(this.code).emit('event:shop_closed');
+        }
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, merchantLootPool });
+        return { success: true, allReady: true, combatTriggered: true };
+      }
+
       this.addLog(wasPrepShop ? '🏕️ 小隊全員整備完畢，正式向深淵出發！' : '🛒 小隊全體整頓完畢告別了商人，繼續前行。', 'info');
       if (this.currentEvent) {
         this.currentEvent.buybackPool = [];
@@ -4541,13 +4584,14 @@ export class Room {
       }
     }
 
-    if (action === 'leave') {
+    if (action === 'leave' || action === 'bypass') {
+      this.addLog('🧭 小隊決定謹慎行事，繞道而行離開了寶箱。', 'info');
       this.currentEvent = null;
       this.advanceToNextFloorOrCheckpoint();
       return { success: true };
     }
 
-    if (action === 'leave') {
+    if (false) {
       this.currentEvent = null;
       this.advanceToNextFloorOrCheckpoint();
       return { success: true };
@@ -5267,6 +5311,8 @@ export class Room {
         if(this.p8Has(targetEnemy,'dissociate') || (this.p8Has(targetEnemy,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
         const corrodeStacks = (targetEnemy.talismans || []).filter(t => t === 'corrode').length;
         if(corrodeStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * corrodeStacks));
+        const flawStacks = Math.min(5, targetEnemy.flawMarks || 0);
+        if(flawStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * flawStacks));
       }
       rawDmg=this.augmentOmenDamage(rawDmg);
       if(options.equation&&rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
@@ -5826,66 +5872,119 @@ export class Room {
           break;
         }
         case 'a_shot': {
-          const isMiss = this.interveneNegative(p, '精準狙擊・脫靶', 20).failed;
-          if (isMiss) {
-            p.archerNextDodgeBonus = GAME_BALANCE.archerMissNextDodgeBonus;
-            actionOutcome = { type: 'miss', label: 'MISS', secondary: '下一次閃避率提高' };
-            log.push({ text: `🏹💨 **${p.name}** 屏息狙擊受到亂流影響，【箭矢脫靶 MISS】！下一次閃避檢定成功率提高 20 個百分點（檢定後消耗）。`, type: 'warning' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: 0, isCrit: false, label: '精準狙擊(脫靶)' });
-          } else {
-            const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'a_shot'))) * bardDmgMultiplier);
-            const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'phys');
-            monster.hp -= dmg;
-            const resNote = isResisted ? ` (🛡️️抗性減免${resistPercent}%)` : '';
-            log.push({ text: `🏹 **${p.name}** 射出精準箭矢，造成 **${dmg}** 點【物理】傷害！${resNote}`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'phys', value: dmg, isCrit: false, label: '精準狙擊' });
-          }
+          // 【標記射擊】目標／傷害類型：單體敵方／魔法 (CD 2回合)
+          // 拉滿弓弦狙擊單一目標，正常命中造成 6 + 100% × A 點魔法傷害，並在目標身上附加 1 層「破綻印記」。
+          // 每層印記對該敵方造成易傷效果(提高受到傷害10%)，以及命中提高的效果(降低效果命中10%)，最多5層，沒有回合限制。
+          const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p, 'a_shot'))) * bardDmgMultiplier);
+          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag', { enemy: monster });
+          monster.hp -= dmg;
+          monster.flawMarks = Math.min(5, (monster.flawMarks || 0) + 1);
+          const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
+          log.push({
+            text: `🏹✨ **${p.name}** 施展【標記射擊】，凝聚魔力射出破綻狙擊箭，造成 **${dmg}** 點【魔法】傷害${resNote}！並附加 1 層【破綻印記】（目標累積 ${monster.flawMarks}/5 層破綻）！`,
+            type: 'combat'
+          });
+          actionOutcome = { type: 'normal', label: '標記射擊', secondary: `破綻印記 ${monster.flawMarks}層` };
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '標記射擊' });
+          visualEvents.push({ type: 'enemy_debuff', targetId: 'monster', label: `破綻印記(${monster.flawMarks})`, icon: 'flaw_mark' });
           break;
         }
         case 'a_rain': {
-          const attackReduced = this.monsterAllowsEffect('攻擊降低');
-          if (attackReduced) monsterAttackReduction += 10;
-          this.roundModifiers.monsterAttackReduction = monsterAttackReduction;
-          const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'a_rain'))) * bardDmgMultiplier);
-          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
-          monster.hp -= dmg;
-          const secTargets = (this.secondaryMonsters || monster.secondaryTargets || []).filter(t => t && t !== monster && t.hp > 0);
-          for (const sec of secTargets) {
-            const secDmg = mitigateDirectDamage(raw, { damageType: 'mag', defense: sec.DEF || sec.defense || 0, resistance: sec.resistances?.magic || 0 });
-            sec.hp = Math.max(0, sec.hp - secDmg);
-            if (attackReduced) {
-              if (typeof sec.atk === 'number') sec.atk = Math.max(0, sec.atk - 10);
-              if (typeof sec.attack === 'number') sec.attack = Math.max(0, sec.attack - 10);
+          // 【封鎖箭雨】目標／傷害類型：群體敵方／物理 (CD 1回合)
+          // 射出10枝箭的箭雨，每支箭造成 50% × A 物理攻擊，每支箭皆有50%機率為命中敵方。
+          // 未命中箭矢殘留在地表形成持續2回合的「箭刺陷阱區域」。「箭刺陷阱區域」使得每次敵方行動皆會受到25%× A的物理傷害。
+          const totalArrows = 10;
+          let hitsCount = 0;
+          let missCount = 0;
+          const P = resolveSkillAttack({ actor: p, damageType: 'phys', equipmentMultiplier: this.statMultiplier(p) });
+          const arrowBaseRaw = Math.max(1, Math.round(this.skillValue(p, 'a_rain_arrow')));
+          const arrowRaw = Math.floor((this.applyFateBlessing(p, arrowBaseRaw)) * bardDmgMultiplier);
+
+          const targetDmgMap = new Map();
+          const targetHitsMap = new Map();
+
+          for (let i = 0; i < totalArrows; i++) {
+            const currentLiving = this.getLivingEnemies().filter(e => e.hp > 0);
+            if (currentLiving.length === 0) {
+              missCount += (totalArrows - i);
+              break;
+            }
+            // 輪流分配箭矢目標給存活敵方
+            const target = currentLiving[i % currentLiving.length];
+            const flawStacks = Math.min(5, target.flawMarks || 0);
+            // 破綻印記：每層提高 10% 受到攻擊命中率（基礎 50%）
+            const hitChance = Math.min(1.0, 0.50 + 0.10 * flawStacks);
+            const isHit = Math.random() < hitChance;
+
+            if (isHit) {
+              hitsCount++;
+              const { dmg } = applyResistanceDamage(arrowRaw, 'phys', { enemy: target });
+              const actual = Math.min(target.hp, dmg);
+              target.hp = Math.max(0, target.hp - actual);
+              targetDmgMap.set(target, (targetDmgMap.get(target) || 0) + actual);
+              targetHitsMap.set(target, (targetHitsMap.get(target) || 0) + 1);
+            } else {
+              missCount++;
             }
           }
-          const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const isTurbulence = this.interveneNegative(p, '箭雨壓制・誤傷隊友', 20).failed;
-          if (isTurbulence) actionOutcome = { type: 'friendly_fire', label: '氣流干擾' };
-          if (isTurbulence) {
-            const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0);
-            if (livingAllies.length > 0) {
-              const victim = livingAllies[Math.floor(Math.random() * livingAllies.length)];
-              const friendlyDamage = isAssassinHidden(victim) ? 0 : this.skillValue(p,'a_friendly');
-              this.applyDamageToPlayer(victim,friendlyDamage,{kind:'friendly',trueDamage:true});
-              log.push({ text: `🏹🌪️ **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}${attackReduced ? '並削弱怪物 10 點攻擊' : '；怪物免疫攻擊降低'}！但引發【狂風亂流】，偏折箭矢${friendlyDamage ? '誤傷' : '穿過隱身殘影'} **${victim.name}** ${friendlyDamage} 點傷害！（❤️ ${victim.hp}/${victim.maxHp}）`, type: 'warning' });
-              visualEvents.push({ type: 'self_damage', targetId: victim.id, value: friendlyDamage, outcome: friendlyDamage ? { type: 'normal' } : { type: 'dodge', stealth: true } });
-              if (victim.hp <= 0) {
-                victim.hp = 0;
-                this.clearPlayerDebuffs(victim);
-                log.push({ text: `💀 **${victim.name}** 不幸被流彈誤傷陣亡！`, type: 'damage' });
-              }
-            }
-          } else {
-            log.push({ text: `🏹 **${p.name}** 召喚【箭雨壓制】，造成 **${dmg}** 點【魔法】傷害${resNote}${attackReduced ? '並削弱怪物 10 點攻擊' : '；怪物免疫攻擊降低'}！`, type: 'combat' });
-          }
-          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '箭雨壓制' });
+
+          let totalDmg = 0;
+          // 主要目標視覺與傷害結算
+          const primaryDmg = targetDmgMap.get(monster) || 0;
+          totalDmg += primaryDmg;
+          visualEvents.push({
+            type: 'player_attack',
+            sourceId: p.id,
+            target: 'monster',
+            dmgType: 'phys',
+            value: primaryDmg,
+            isCrit: false,
+            label: '封鎖箭雨'
+          });
+
+          // 次要目標視覺與傷害結算
           for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
-            const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(raw, 'mag', { enemy: otherEnemy });
-            otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);
-            const otherResNote = otherResisted ? ` (🔮抗性減免${otherResPct}%)` : '';
-            log.push({ text: `🏹 **${p.name}** 的【箭雨壓制】同時波及 **${otherEnemy.name}**，造成 **${otherDmg}** 點【魔法】傷害！${otherResNote}`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: otherEnemy.instanceId, targetEnemyId: otherEnemy.instanceId, isSecondaryEnemy: true, dmgType: 'mag', value: otherDmg, isCrit: false, label: '箭雨壓制' });
+            const otherDmg = targetDmgMap.get(otherEnemy) || 0;
+            totalDmg += otherDmg;
+            if (otherDmg > 0 || targetHitsMap.get(otherEnemy)) {
+              visualEvents.push({
+                type: 'player_attack',
+                sourceId: p.id,
+                target: otherEnemy.instanceId,
+                targetEnemyId: otherEnemy.instanceId,
+                isSecondaryEnemy: true,
+                dmgType: 'phys',
+                value: otherDmg,
+                isCrit: false,
+                label: '封鎖箭雨'
+              });
+            }
           }
+
+          // 未命中箭矢殘留在地表形成持續2回合的「箭刺陷阱區域」
+          let trapText = '';
+          if (missCount > 0) {
+            this.arrowTrap = {
+              turns: 2,
+              atk: P,
+              sourceId: p.id,
+              sourceName: p.name,
+              missArrows: missCount
+            };
+            trapText = `，**${missCount}** 支未命中箭矢釘入地面，形成持續 2 回合的【箭刺陷阱區域】（敵方行動時受 25%×A 物理傷害）！`;
+          } else {
+            trapText = `，10 支箭矢全部精準命中！`;
+          }
+
+          log.push({
+            text: `🏹🌧️ **${p.name}** 射出【封鎖箭雨】（共 10 支箭矢），命中 **${hitsCount}** 支，造成共 **${totalDmg}** 點【物理】傷害${trapText}`,
+            type: 'combat'
+          });
+          actionOutcome = {
+            type: 'rain',
+            label: '封鎖箭雨',
+            secondary: `${hitsCount}中/${missCount}地刺`
+          };
           break;
         }
         case 'a_reload': {
@@ -6866,6 +6965,33 @@ export class Room {
       monster = actingEnemy;
       this._currentMonster = actingEnemy;
 
+      // 箭刺陷阱區域：每次敵方行動受到 25% * A 物理傷害
+      if (this.arrowTrap && this.arrowTrap.turns > 0 && actingEnemy.hp > 0) {
+        const trapRaw = Math.max(1, Math.round(0.25 * (this.arrowTrap.atk || 14)));
+        const { dmg: trapDmg } = applyResistanceDamage(trapRaw, 'phys', { enemy: actingEnemy });
+        if (trapDmg > 0) {
+          actingEnemy.hp = Math.max(0, actingEnemy.hp - trapDmg);
+          log.push({
+            text: `🏹💥 **${actingEnemy.name}** 行動時踏入【箭刺陷阱區域】，受到 **${trapDmg}** 點【物理】傷害！（❤️ ${actingEnemy.hp}/${actingEnemy.maxHp}）`,
+            type: 'combat'
+          });
+          visualEvents.push({
+            type: 'player_attack',
+            sourceId: this.arrowTrap.sourceId || null,
+            target: actingEnemy === monster ? 'monster' : actingEnemy.instanceId,
+            targetEnemyId: actingEnemy.instanceId,
+            dmgType: 'phys',
+            value: trapDmg,
+            isCrit: false,
+            label: '箭刺陷阱'
+          });
+          if (actingEnemy.hp <= 0) {
+            log.push({ text: `💀 **${actingEnemy.name}** 被【箭刺陷阱區域】當場刺殺身亡！`, type: 'damage' });
+            continue;
+          }
+        }
+      }
+
       const bossBefore = this.getHpSnapshot();
       const bossAugurReactionIndex = this.augurReactions.length;
       const interceptResults = [];
@@ -7089,6 +7215,29 @@ export class Room {
             log.push({ text: `🪶 **${p.name}** 身手矯健，閃避了所有反擊！`, type: 'buff' });
             monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
             continue;
+          }
+
+          // 破綻印記：降低目標效果命中與命中率 10% * flawMarks
+          const flawCount = monster.flawMarks || 0;
+          if (flawCount > 0) {
+            const flawMissRate = 0.10 * flawCount;
+            if (Math.random() < flawMissRate) {
+              log.push({
+                text: `🎯❌ **${monster.name}** 受到【破綻印記】干擾（效果命中 -${flawCount * 10}%），攻擊露出致命破綻偏折，未能命中 **${p.name}**！`,
+                type: 'buff'
+              });
+              monsterHits.push({
+                targetId: p.id,
+                role: p.role,
+                dodged: true,
+                value: 0,
+                outcome: { type: 'dodge', label: 'MISS' },
+                targetBefore,
+                targetAfter: snapshotTarget(this.getHpSnapshot(), p.id),
+                hpSnapshot: this.getHpSnapshot()
+              });
+              continue;
+            }
           }
 
           // 障目符：目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。
@@ -7363,7 +7512,16 @@ export class Room {
       this.alcVulnerableNextTurn = false;
     }
 
-    // 結算戰士揮砍失衡易傷、弓箭手脫靶失閃（強酸裝備減半由 roundModifiers 管理）
+    // 箭刺陷阱區域回合倒數
+    if (this.arrowTrap && this.arrowTrap.turns > 0) {
+      this.arrowTrap.turns -= 1;
+      if (this.arrowTrap.turns <= 0) {
+        log.push({ text: `🏹 地表的【箭刺陷阱區域】箭矢耗損殆盡消散了。`, type: 'info' });
+        this.arrowTrap = null;
+      }
+    }
+
+    // 結算戰士揮砍失衡易傷（強酸裝備減半由 roundModifiers 管理）
     for (const pl of Object.values(this.players)) {
       if (pl.warriorVulnerableTurns > 0) pl.warriorVulnerableTurns -= 1;
       if (pl.warriorVulnerableNextTurn) {
@@ -7825,9 +7983,12 @@ export class Room {
       isPaused: this.isPaused,
       timerRemaining: timerRemaining,
       gameOverReason: this.gameOverReason,
+      arrowTrap: this.arrowTrap ? { ...this.arrowTrap } : null,
+      arrowTrapTurns: this.arrowTrap?.turns || 0,
       enemies: (this.enemies || []).map(e => this.formatEnemySnapshot(e)),
       currentMonster: this.currentMonster ? {
         ...this.currentMonster,
+        flawMarks: this.currentMonster.flawMarks || 0,
         poisonTurns: this.currentMonster.poisonTurns || 0,
         poisonDmg: this.currentMonster.poisonDmg || 0,
         burnTurns: this.currentMonster.burnTurns || 0,
