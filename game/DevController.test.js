@@ -107,6 +107,8 @@ test('HP bounds, tracked shields and supported dots survive next round settlemen
   assert.equal(room.players.solo.poisonTurns, 2);
   assert.equal(run('player.status', { playerId: 'solo', status: 'poison', apply: false }).success, true);
   assert.equal(room.players.solo.poisonTurns, 0);
+  assert.equal(run('item.equip', { playerId: 'solo', bag: 'personal', index: 3 }).success, false);
+  assert.equal(room.currentMonster, room.getPrimaryEnemy());
   assert.equal(run('player.hp', { playerId: 'solo', value: room.players.solo.maxHp }).success, true);
   room.resolveTurnActions();
   room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);

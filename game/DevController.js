@@ -113,7 +113,10 @@ export class DevController {
       if (!this.invariant(room)) throw new Error('修改後狀態不符合遊戲限制');
       result = { success: true };
     } catch (error) {
-      if (before) Object.assign(room, before);
+      if (before) {
+        Object.assign(room, before);
+        room.setEnemies(before.enemies);
+      }
       result = fail(error.message || 'Dev 操作失敗');
     } finally {
       record.busy = false;

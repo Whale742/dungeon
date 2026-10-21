@@ -103,3 +103,7 @@ update, catalog grant and original equip from squad. Drawer screenshot inspected
 Limits: only the four legacy DOTs can be cleared; complex effects/resources remain
 read-only. Personal grants require one free squad transit slot. Event/Boss controls
 are next phase. Full role/Boss animation matrix remains outstanding.
+
+Phase 3 follow-up: failed transactions restore enemy identity through `setEnemies`,
+so the primary enemy remains the same object as its entry in the restored formation.
+Added regression assertion; all 14 tests passed again.
