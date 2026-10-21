@@ -542,6 +542,8 @@ export class Room {
       augurResistanceBreak: enemy.augurResistanceBreak || 0,
       reversedOmenRemaining: enemy.reversedOmenRemaining || 0,
       reversedOmenBonus: enemy.reversedOmenBonus || 0,
+      talismans: [...(enemy.talismans || [])],
+      permanentTalismans: [...(enemy.permanentTalismans || [])],
       statuses: [
         ...p8State(enemy, this).phase8Statuses,
         ...(enemy.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: enemy.poisonTurns, stacks: enemy.poisonDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
@@ -582,11 +584,19 @@ export class Room {
     const bossStory = this.studioContent.getRouteBossStory(routeId, baseTemplate.name);
     const weakenedSuffix = isWeakened ? '（⚠️ 遠處傳來粗重的喘息聲，該敵人在先前的戰鬥中遭受重創，傷害與血量削弱為原本的 75%！）' : '';
     const encounterStory = (baseTemplate.encounterStory || bossStory) + weakenedSuffix;
+    const resolvedTier = options.tier || baseTemplate.tier || 'ELITE';
+    const rolledRes = createBossResistances(baseTemplate, this.floor, options.rng);
+    if (resolvedTier === 'MINION') {
+      for (const t of ['physical', 'magic', 'effect']) {
+        if (rolledRes.resistances) rolledRes.resistances[t] = Math.min(30, rolledRes.resistances[t]);
+        if (rolledRes.bonusResistances) rolledRes.bonusResistances[t] = Math.min(30, rolledRes.bonusResistances[t]);
+      }
+    }
 
     return {
       instanceId: options.instanceId || `enemy_${index}`,
       id: baseTemplate.id || `enemy_${index}`,
-      tier: options.tier || baseTemplate.tier || 'ELITE',
+      tier: resolvedTier,
       kind: baseTemplate.kind || null,
       role: baseTemplate.role || null,
       bossName: baseTemplate.bossName || null,
@@ -602,7 +612,7 @@ export class Room {
       maxHp: scaledHp,
       tempHp: 0,
       baseHp: baseTemplate.hp,
-      ...createBossResistances(baseTemplate, this.floor, options.rng),
+      ...rolledRes,
       noBonusResistance: Boolean(baseTemplate.noBonusResistance),
       ultName: baseTemplate.ultName || '猛烈反擊',
       script: baseTemplate.script ? structuredClone(baseTemplate.script) : null,
@@ -3744,7 +3754,7 @@ export class Room {
         const basePrice = clone.cost || clone.basePrice || 40;
         clone.basePrice = basePrice;
         clone.droppedAtCol = col;
-        clone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
+        clone.price = calculateShopBuyPrice(basePrice, col, shopSession, clone);
         clone.shopConsumableId = `potion_${i}_${Date.now()}`;
         consumables.push(clone);
       }
@@ -3756,7 +3766,7 @@ export class Room {
         const basePrice = clone.cost || clone.basePrice || 30;
         clone.basePrice = basePrice;
         clone.droppedAtCol = col;
-        clone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
+        clone.price = calculateShopBuyPrice(basePrice, col, shopSession, clone);
         clone.shopConsumableId = `antidote_${i}_${Date.now()}`;
         consumables.push(clone);
       }
@@ -3767,7 +3777,7 @@ export class Room {
       const basePrice = clone.cost || clone.basePrice || 50;
       clone.basePrice = basePrice;
       clone.droppedAtCol = col;
-      clone.price = calculateShopBuyPrice(basePrice, col, shopSession, itemClone);
+      clone.price = calculateShopBuyPrice(basePrice, col, shopSession, clone);
       clone.shopConsumableId = `tent_${Date.now()}`;
       consumables.push(clone);
     }
@@ -3859,7 +3869,7 @@ export class Room {
     const cBasePrice = consumableClone.cost || consumableClone.basePrice || 50;
     consumableClone.basePrice = cBasePrice;
     consumableClone.droppedAtCol = col;
-    consumableClone.price = calculateShopBuyPrice(cBasePrice, col, shopSession);
+    consumableClone.price = calculateShopBuyPrice(cBasePrice, col, shopSession, consumableClone);
     const consumables = [consumableClone];
 
     this.currentEvent = {
@@ -4706,27 +4716,70 @@ export class Room {
     }
 
     if (subType === 'GAMBLE') {
-      if (action === 'coin' || action === 'bet') {
-        const betAmt = Number(params.amount ?? 30);
-        if ((this.gold || 0) < betAmt) return { success: false, message: `金幣不足 ${betAmt}！` };
+      if (action === 'd20_gamble' || action === 'gamble' || action === 'coin' || action === 'bet') {
+        const betAmt = Math.max(1, Math.min(this.gold || 0, Math.floor(Number(params.amount ?? 10))));
+        if ((this.gold || 0) < betAmt) return { success: false, message: `金幣不足 ${betAmt} G！` };
         this.gold -= betAmt;
-        const winChance = (leaderRole === 'sage') ? 0.70 : 0.50;
-        const win = (typeof params.win === 'boolean') ? params.win : Math.random() < winChance;
-        if (win) {
-          const winAmt = betAmt * 2;
-          this.gold += winAmt;
-          if (leaderRole === 'sage') {
-            this.addLog(`📐 【預設解】智者隊長精準演算概率，賭局大獲全勝！贏得 ${winAmt} 金幣！`, 'loot');
+
+        const choice = (params.choice === 'BIG') ? 'BIG' : 'SMALL';
+        // 擲 20 面骰 (1 ~ 20)
+        const roll = (typeof params.roll === 'number' && params.roll >= 1 && params.roll <= 20)
+          ? params.roll
+          : Math.floor(Math.random() * 20) + 1;
+
+        let outcomeType = 'LOSE';
+        let payout = 0;
+
+        if (roll === 10) {
+          outcomeType = 'PUSH';
+          payout = betAmt;
+        } else if (choice === 'SMALL') {
+          if (roll === 1) {
+            outcomeType = 'JACKPOT';
+            payout = betAmt * 3;
+          } else if (roll >= 2 && roll <= 9) {
+            outcomeType = 'WIN';
+            payout = betAmt * 2;
           } else {
-            this.addLog(`🎲 幸運女神眷顧！賭金翻倍，贏得 ${winAmt} 金幣！`, 'loot');
+            outcomeType = 'LOSE';
+            payout = 0;
           }
-          this.broadcastState();
-          return { success: true, win: true };
-        } else {
-          this.addLog(`🎲 押注失敗，${betAmt} 金幣被發牌人收走……`, 'warning');
-          this.broadcastState();
-          return { success: true, win: false };
+        } else if (choice === 'BIG') {
+          if (roll === 20) {
+            outcomeType = 'JACKPOT';
+            payout = betAmt * 3;
+          } else if (roll >= 11 && roll <= 19) {
+            outcomeType = 'WIN';
+            payout = betAmt * 2;
+          } else {
+            outcomeType = 'LOSE';
+            payout = 0;
+          }
         }
+
+        this.gold += payout;
+        const choiceLabel = choice === 'SMALL' ? '小 (1~9)' : '大 (11~20)';
+
+        if (outcomeType === 'JACKPOT') {
+          this.addLog(`🎲 押注【${choiceLabel}】，20面骰擲出極限【${roll}】點！天降鴻運，獲得 3 倍大獎（+${payout} G）！`, 'loot');
+        } else if (outcomeType === 'WIN') {
+          this.addLog(`🎲 押注【${choiceLabel}】，20面骰擲出【${roll}】點！押注獲勝，獲得 2 倍金幣（+${payout} G）！`, 'loot');
+        } else if (outcomeType === 'PUSH') {
+          this.addLog(`🎲 20面骰擲出【10】點！平局，退回押注本金 ${betAmt} G。`, 'info');
+        } else {
+          this.addLog(`🎲 押注【${choiceLabel}】，20面骰擲出【${roll}】點！押注失敗，損失 ${betAmt} G……`, 'warning');
+        }
+
+        this.broadcastState();
+        return {
+          success: true,
+          roll,
+          choice,
+          wager: betAmt,
+          payout,
+          outcomeType,
+          currentGold: this.gold
+        };
       }
 
       if (action === 'box') {
@@ -4773,28 +4826,48 @@ export class Room {
     }
 
     if (subType === 'REFORGE') {
-      if (action === 'reforge_weapon' || action === 'reforge') {
-        const cost = (leaderRole === 'mage') ? 15 : 30;
-        if ((this.gold || 0) < cost) return { success: false, message: `金幣不足 ${cost}！` };
-        const target = (this.squadInventory || []).find(e => e && e.name);
-        if (!target) {
-          return { success: false, message: '小隊背包中沒有裝備可供重鑄！' };
+      if (action === 'reforge' || action === 'reforge_weapon') {
+        const cost = 10;
+        if ((this.gold || 0) < cost) return { success: false, message: `金幣不足 ${cost} G！` };
+        
+        let targetIndex = Number(params.itemIndex ?? params.index);
+        if (isNaN(targetIndex) || !this.squadInventory || !this.squadInventory[targetIndex]) {
+          targetIndex = (this.squadInventory || []).findIndex(e => e && e.name);
         }
-        this.gold -= cost;
-        const boostMultiplier = (leaderRole === 'samurai') ? 0.40 : 0.25;
-        const atkBoost = Math.max(3, Math.round((target.bonusAtk || 4) * boostMultiplier));
-        target.bonusAtk = (target.bonusAtk || 0) + atkBoost;
-        target.name = `精煉的 ${target.name}`;
+        if (targetIndex === -1 || !this.squadInventory[targetIndex]) {
+          return { success: false, message: '小隊背包中沒有選取裝備可供重鑄！' };
+        }
 
-        if (leaderRole === 'samurai') {
-          this.addLog(`⚔️ 【拔刀號令】武士隊長親自淬火，【${target.name}】獲得 +40% 超常增幅 (+${atkBoost} 攻擊)！`, 'loot');
-        } else if (leaderRole === 'mage') {
-          this.addLog(`🪄 【奧術共鳴】法師隊長以半價 (15G) 強化了【${target.name}】(+${atkBoost} 攻擊)！`, 'loot');
+        const oldItem = this.squadInventory[targetIndex];
+        this.gold -= cost;
+
+        // 隨機重鑄池：可能更低變成一階，或更高階變成專屬裝備
+        const roll = Math.random();
+        let template;
+        let poolName = '';
+        if (roll < 0.40 && Array.isArray(TIER1_EQUIPMENTS) && TIER1_EQUIPMENTS.length > 0) {
+          template = TIER1_EQUIPMENTS[Math.floor(Math.random() * TIER1_EQUIPMENTS.length)];
+          poolName = '一階裝備';
+        } else if (roll < 0.80 && Array.isArray(TIER2_EQUIPMENTS) && TIER2_EQUIPMENTS.length > 0) {
+          template = TIER2_EQUIPMENTS[Math.floor(Math.random() * TIER2_EQUIPMENTS.length)];
+          poolName = '二階稀有裝備';
+        } else if (Array.isArray(LOOT_TABLE) && LOOT_TABLE.length > 0) {
+          template = LOOT_TABLE[Math.floor(Math.random() * LOOT_TABLE.length)];
+          poolName = '職業專屬神裝';
         } else {
-          this.addLog(`⚒️ 重鑄成功！【${target.name}】攻擊力提升 +${atkBoost}！`, 'loot');
+          template = TIER1_EQUIPMENTS[0];
+          poolName = '裝備';
         }
+
+        const newItem = structuredClone(template);
+        newItem.droppedAtCol = this.currentHex?.col || this.floor || 1;
+        newItem.basePrice = getItemBasePrice(newItem);
+
+        this.squadInventory[targetIndex] = newItem;
+
+        this.addLog(`⚒️ 鍛造熔爐烈焰呼嘯！消耗 10G 將【${oldItem.name}】重鑄為 ${poolName}【${newItem.name}】！`, 'loot');
         this.broadcastState();
-        return { success: true, item: target };
+        return { success: true, item: newItem, oldItem, itemIndex: targetIndex, poolName };
       }
 
       if (action === 'convert_magic') {
@@ -4923,8 +4996,16 @@ export class Room {
       this.addLog(`🔮 【命運宣告】卜者隊長命運干涉！**${target.name}** 本回合機率判定獲得絕對正面結果且免除命債！`, 'buff');
     } else if (role === 'onmyoji') {
       const targetEnemy = this.getTargetEnemy(options.targetEnemyId);
-      if (targetEnemy) targetEnemy.talismansLockedTurns = 1;
-      this.addLog(`📜 【百鬼敕令】陰陽師隊長敕令符咒封印，**${targetEnemy?.name || '目標'}** 身上所有符咒在下次脫落判定時全數鎖定保留！`, 'buff');
+      if (targetEnemy) {
+        targetEnemy.talismans = targetEnemy.talismans || [];
+        targetEnemy.permanentTalismans = targetEnemy.permanentTalismans || [];
+        const ALL_TYPES = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
+        for (const type of ALL_TYPES) {
+          targetEnemy.talismans.push(type, type);
+          targetEnemy.permanentTalismans.push(type, type);
+        }
+      }
+      this.addLog(`📜✨ 【萬符歸宗】陰陽師隊長施展萬符歸宗！向 **${targetEnemy?.name || '目標'}** 一次性貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, 'buff');
     }
 
     this.leaderSkillUsedThisBattle = true;
@@ -6405,6 +6486,7 @@ export class Room {
             log.push({ text: `📜💥🔥 **${p.name}** 高念真言施展【急急如律令・百符引爆】！引爆目標身上所有未掉落的符咒（共 **${totalCharms}** 張，結算上限 ${countedCharms} 張），造成 **${dmg}** 點【魔法】傷害！${resNote}`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '百符引爆' });
             monster.talismans = [];
+            monster.permanentTalismans = [];
             log.push({ text: `📜✨ 技能結算完成，目標身上所有符咒全數脫落並銷毀！`, type: 'buff' });
           }
           break;
@@ -6429,6 +6511,7 @@ export class Room {
             monster.talismans.push(type, type);
             monster.permanentTalismans.push(type, type);
           }
+          actionOutcome = { type: 'talisman_all', label: '萬符歸宗', secondary: '10道符咒' };
           log.push({ text: `📜✨ **${p.name}** 施展隊長技【萬符歸宗】！漫天靈符呼嘯而出，一次性向 **${monster.name}** 貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '萬符歸宗' });
           const drainCount = monster.talismans.filter(t => t === 'drain').length;
@@ -7754,7 +7837,9 @@ export class Room {
         chillTurns: this.currentMonster.chillTurns || 0,
         chillDmg: this.currentMonster.chillDmg || 0,
         corrosionTurns: this.currentMonster.corrosionTurns || 0,
-        corrosionMaxHpDeducted: this.currentMonster.corrosionMaxHpDeducted || 0
+        corrosionMaxHpDeducted: this.currentMonster.corrosionMaxHpDeducted || 0,
+        talismans: [...(this.currentMonster.talismans || [])],
+        permanentTalismans: [...(this.currentMonster.permanentTalismans || [])]
       } : null,
       currentEvent: this.currentEvent,
       currentTransition: this.currentTransition,

@@ -477,7 +477,7 @@ class OnmyojiPresentationEngine {
   // ==========================================
   // 1 技能：五鬼攝魂符 完整四階段演出
   // ==========================================
-  async playTalismanSequence(talismanConfig, isRepeat = false) {
+  async playTalismanSequence(talismanConfig, isRepeat = false, isLeader = false) {
     if (this.disposed || this.signal?.aborted) return;
     const talisman = talismanConfig || ONMYOJI_TALISMAN_CONFIGS.blind;
     this.container.style.setProperty('--onm-seal-color', talisman.color);
@@ -496,7 +496,7 @@ class OnmyojiPresentationEngine {
     const sealEmblem = this.container.querySelector('#onmSealEmblem');
 
     // 【前奏階段 0：蓋下大尺寸去背書法「令」字敕令】
-    this.setActionText(`施法前奏：Boss 正中央蓋下「令」字敕令印記！`);
+    this.setActionText(isLeader ? `【隊長技・萬符歸宗】漫天靈符呼嘯而出，一次性向目標貼上所有符咒！` : `施法前奏：Boss 正中央蓋下「令」字敕令印記！`);
     this.playSound('ling_stamp');
 
     if (casterBox) {
@@ -509,7 +509,7 @@ class OnmyojiPresentationEngine {
       casterAura.style.opacity = '1';
     }
     if (speech) {
-      speech.textContent = `「五鬼聽令，急急如律令！」`;
+      speech.textContent = isLeader ? `「萬符歸宗，急急如律令！」` : `「五鬼聽令，急急如律令！」`;
       speech.style.opacity = '1';
     }
     if (lingOverlay) {
@@ -830,14 +830,21 @@ function buildOnmyojiPresentationPlan(step = {}) {
       talisman = ONMYOJI_TALISMAN_CONFIGS[map[atk.label]];
     }
   }
-  if (!talisman && action === 'onm_talisman') {
+  if (!talisman && (action === 'onm_talisman' || action === 'onm_all_talismans')) {
     talisman = ONMYOJI_TALISMAN_CONFIGS.blind;
   }
 
   const talismansBefore = before.monster?.talismans || [];
   const talismansAfter = after.monster?.talismans || [];
   const rawCountBefore = talismansBefore.length;
-  const countBefore = action === 'onm_detonate' ? Math.min(rawCountBefore, 10) : rawCountBefore;
+  let countBefore = action === 'onm_detonate' ? Math.min(rawCountBefore, 10) : rawCountBefore;
+  if (action === 'onm_detonate' && countBefore === 0 && outcome.type === 'detonate_burst') {
+    const match = (outcome.secondary || '').match(/(\d+)張符咒/);
+    if (match) {
+      countBefore = parseInt(match[1], 10);
+    }
+  }
+  const isLeader = action === 'onm_all_talismans';
   const countAfter = talismansAfter.length;
   const isRepeat = talisman ? talismansBefore.includes(talisman.id) : false;
 
@@ -850,6 +857,7 @@ function buildOnmyojiPresentationPlan(step = {}) {
     action,
     talisman,
     isRepeat,
+    isLeader,
     countBefore,
     countAfter,
     finalDamage,
@@ -915,8 +923,8 @@ async function playOnmyojiPresentation(step, context = {}) {
     if (plan.action === 'basic') {
       await engine.playBasicSequence(plan.finalDamage);
       beat('impact', { damage: plan.finalDamage });
-    } else if (plan.action === 'onm_talisman') {
-      await engine.playTalismanSequence(plan.talisman, plan.isRepeat);
+    } else if (plan.action === 'onm_talisman' || plan.action === 'onm_all_talismans') {
+      await engine.playTalismanSequence(plan.talisman, plan.isRepeat, plan.isLeader);
       if (plan.finalDamage > 0) beat('impact', { damage: plan.finalDamage });
     } else if (plan.action === 'onm_detonate') {
       await engine.playDetonateSequence(plan.countBefore, plan.finalDamage, plan.vulnStacks);

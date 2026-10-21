@@ -2381,6 +2381,11 @@ function showEnemyTooltip(en, eOrTarget) {
   if (en.chillTurns > 0) buffs.push({ icon: 'snowflake', label: '寒冷', desc: `${en.chillTurns} 回合 / -${en.chillDmg || 3}` });
   if (en.corrosionTurns > 0) buffs.push({ icon: 'flask', label: '腐蝕', desc: `${en.corrosionTurns} 回合` });
   if (en.tempHp > 0) buffs.push({ icon: 'shield', label: '護盾', desc: `+${en.tempHp}` });
+  if (en.talismans && en.talismans.length > 0) {
+    const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
+    const details = en.talismans.map(t => TALISMAN_NAMES[t] || t).join('、');
+    buffs.push({ icon: 'status', label: `符咒 (${en.talismans.length}張)`, desc: details });
+  }
 
   let buffsHtml = '';
   if (buffs.length > 0) {
@@ -2632,6 +2637,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       if (en.chillTurns > 0) activeBadges.push(getIconSvg('snowflake', 'ui-icon--sm'));
       if (en.corrosionTurns > 0) activeBadges.push(getIconSvg('flask', 'ui-icon--sm'));
       if (en.isWeakened) activeBadges.push(getIconSvg('status', 'ui-icon--sm'));
+      if (en.talismans && en.talismans.length > 0) activeBadges.push(`<img src="/buff icon/符咒.webp" style="width:13px;height:13px;vertical-align:middle;display:inline-block;"><span style="font-size:10px;font-weight:700;color:#fbbf24;margin-left:2px;">${en.talismans.length}</span>`);
       statusRow.innerHTML = activeBadges.map(svg => `<span class="enemy-status-badge">${svg}</span>`).join('');
     }
   });
@@ -2770,6 +2776,11 @@ function renderBattle(me, isLeader) {
     }
     if (monster.corrosionTurns > 0) {
       buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;">${getIconSvg('flask')} 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
+    }
+    if (monster.talismans && monster.talismans.length > 0) {
+      const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
+      const details = monster.talismans.map(t => TALISMAN_NAMES[t] || t).join('、');
+      buffHtml += `<span class="buff-badge tag-talismans" style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fbbf24;"><img src="/buff icon/符咒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 符咒 (${monster.talismans.length} 張: ${details})</span>`;
     }
     elements.monsterBuffsRow.innerHTML = buffHtml;
     elements.monsterBuffsRow.querySelectorAll('.enemy-target-chip').forEach(btn => {
@@ -7661,6 +7672,664 @@ let currentShopCategoryTab = 'all';
 let currentInteractiveEventKey = null;
 let interactiveEventNarrativeDone = false;
 
+
+// ==========================================
+// 隨機事件模組：重鑄系統 & 20面骰賭博系統
+// ==========================================
+let selectedReforgeIndex = null;
+let currentGambleBet = 10;
+let gambleChoice = 'SMALL'; // 'SMALL' | 'BIG'
+let isGambleRolling = false;
+let gambleAudioCtx = null;
+
+function getGambleAudioContext() {
+  if (!gambleAudioCtx) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) gambleAudioCtx = new AudioCtx();
+  }
+  if (gambleAudioCtx && gambleAudioCtx.state === 'suspended') {
+    gambleAudioCtx.resume().catch(() => {});
+  }
+  return gambleAudioCtx;
+}
+
+function playNativeAudioTick(freq = 220) {
+  try {
+    const ctx = getGambleAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.04);
+  } catch (e) {}
+}
+
+function playNativeAudioOutcome(type) {
+  try {
+    const ctx = getGambleAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    let notes = [];
+    if (type === 'JACKPOT') {
+      notes = [523.25, 659.25, 783.99, 1046.50];
+    } else if (type === 'WIN') {
+      notes = [523.25, 659.25, 783.99];
+    } else if (type === 'PUSH') {
+      notes = [293.66, 440.00];
+    } else {
+      notes = [130.81, 185.00];
+    }
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = (type === 'LOSE') ? 'sawtooth' : 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+      gain.gain.setValueAtTime(0.12, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.07 + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.5);
+    });
+  } catch (e) {}
+}
+
+function spawnGambleSpark(container, x, y, color = '#fbbf24') {
+  if (!container) return;
+  const p = document.createElement('div');
+  p.className = 'spark-particle';
+  const size = 4 + Math.random() * 6;
+  p.style.width = `${size}px`;
+  p.style.height = `${size}px`;
+  p.style.background = color;
+  p.style.boxShadow = `0 0 10px ${color}`;
+  p.style.left = `calc(50% + ${x}px)`;
+  p.style.top = `calc(50% + ${y}px)`;
+  container.appendChild(p);
+
+  const dx = (Math.random() - 0.5) * 80;
+  const dy = (Math.random() - 0.5) * 80;
+  p.animate(
+    [
+      { transform: 'translate(0, 0) scale(1)', opacity: 0.95 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0)`, opacity: 0 }
+    ],
+    { duration: 450 + Math.random() * 200, easing: 'ease-out' }
+  ).onfinish = () => p.remove();
+}
+
+function renderReforgeEvent(ev) {
+  const squadItems = roomState?.squadInventory || [];
+  const currentGold = roomState?.gold || 0;
+  const rowCounts = [3, 4, 5, 4, 3];
+  let slotIdx = 0;
+
+  if (selectedReforgeIndex !== null && (!squadItems[selectedReforgeIndex] || !squadItems[selectedReforgeIndex].name)) {
+    selectedReforgeIndex = null;
+  }
+  const selectedItem = (selectedReforgeIndex !== null && squadItems[selectedReforgeIndex]) ? squadItems[selectedReforgeIndex] : null;
+
+  const hexGridHtml = `
+    <div class="hex-grid-squad reforge-squad-grid">
+      ${rowCounts.map(count => {
+        const slotsInRow = [];
+        for (let i = 0; i < count; i++) {
+          const curIdx = slotIdx++;
+          const item = squadItems[curIdx] || null;
+          if (item) {
+            const isExclusive = Boolean(item.role || item.slot === 'CLASS_EXCLUSIVE' || item.tier === 'CLASS_EXCLUSIVE');
+            const isRare = item.tier === 2;
+            const rarityStroke = isExclusive ? 'var(--rarity-exclusive)' : (isRare ? 'var(--rarity-rare)' : 'var(--hex-border)');
+            const isSelected = (selectedReforgeIndex === curIdx);
+            slotsInRow.push(`
+              <div class="hex-slot has-item squad-item-slot ${isSelected ? 'is-reforge-selected' : ''}"
+                   data-index="${curIdx}"
+                   draggable="true"
+                   tabindex="0"
+                   role="button"
+                   aria-label="${escapeHtml(item.name)}">
+                <svg class="hex-bg-svg" viewBox="0 0 100 115.47">
+                  <polygon class="hex-polygon" points="50 0, 100 28.87, 100 86.6, 50 115.47, 0 86.6, 0 28.87" style="stroke: ${rarityStroke};" />
+                </svg>
+                <div class="item-layer">
+                  <div class="item-layer-icon-box">
+                    ${renderItemIconHtml(item, 'item-equipment-img')}
+                  </div>
+                  <div class="item-layer-name">${escapeHtml(item.name)}</div>
+                </div>
+              </div>
+            `);
+          } else {
+            slotsInRow.push(`
+              <div class="hex-slot empty-slot squad-empty-slot" data-index="${curIdx}">
+                <svg class="hex-bg-svg" viewBox="0 0 100 115.47">
+                  <polygon class="hex-polygon" points="50 0, 100 28.87, 100 86.6, 50 115.47, 0 86.6, 0 28.87" style="opacity: 0.8;" />
+                </svg>
+              </div>
+            `);
+          }
+        }
+        return `<div class="hex-row">${slotsInRow.join('')}</div>`;
+      }).join('')}
+    </div>
+  `;
+
+  function formatReforgeStats(it) {
+    if (!it) return '';
+    const parts = [];
+    if (it.bonusAtk) parts.push(`物攻 +${it.bonusAtk}`);
+    if (it.bonusMatk) parts.push(`魔攻 +${it.bonusMatk}`);
+    if (it.bonusHp) parts.push(`生命 +${it.bonusHp}`);
+    if (it.bonusDef) parts.push(`物防 +${it.bonusDef}`);
+    if (it.bonusMdef) parts.push(`魔防 +${it.bonusMdef}`);
+    if (it.role || it.slot === 'CLASS_EXCLUSIVE' || it.tier === 'CLASS_EXCLUSIVE') parts.push('專屬神裝');
+    else if (it.tier === 2) parts.push('二階稀有');
+    else parts.push('一階裝備');
+    return parts.join(' | ') || '基本屬性';
+  }
+
+  elements.eventDetails.innerHTML = `
+    <div class="reforge-container">
+      <div class="reforge-main-layout">
+        <div class="reforge-inventory-col">
+          <div class="reforge-col-title">
+            ${getIconSvg('chest', 'ui-icon--sm')}
+            <span>小隊背包 (點選或拖曳裝備至右側格子)</span>
+          </div>
+          ${hexGridHtml}
+        </div>
+
+        <div class="reforge-anvil-col">
+          <div class="reforge-col-title">
+            ${getIconSvg('anvil', 'ui-icon--sm')}
+            <span>重鑄鐵砧</span>
+          </div>
+
+          <div class="reforge-slot-box ${selectedItem ? 'has-slotted-item' : 'empty'}" id="reforgeDropTarget">
+            ${selectedItem ? `
+              <div class="reforge-slotted-preview">
+                <div class="reforge-slotted-icon">${renderItemIconHtml(selectedItem, 'reforge-preview-img')}</div>
+                <div class="reforge-slotted-name">${escapeHtml(selectedItem.name)}</div>
+                <div class="reforge-slotted-stats">${formatReforgeStats(selectedItem)}</div>
+                <button type="button" class="reforge-remove-btn" id="btnRemoveReforgeItem">✕ 取出</button>
+              </div>
+            ` : `
+              <div class="reforge-placeholder-icon">⚒️</div>
+              <div class="reforge-placeholder-text">點選左側背包裝備<br>或將裝備拖曳至此處</div>
+            `}
+          </div>
+
+          <div class="reforge-info-panel">
+            <div class="reforge-info-row">
+              <span>重鑄費用：</span>
+              <b>10 G</b>
+            </div>
+            <div class="reforge-info-row">
+              <span>持有金幣：</span>
+              <b style="${currentGold < 10 ? 'color: #f87171;' : 'color: #34d399;'}">${currentGold} G</b>
+            </div>
+          </div>
+
+          <div class="reforge-tip-text">
+            消耗 10G，隨機重鑄為一件裝備（可能變為一階、二階或各職業專屬神裝）。
+          </div>
+
+          <div class="reforge-actions-bar">
+            <button type="button" class="btn btn-primary btn-reforge-execute" id="btnExecuteReforge" ${(!selectedItem || currentGold < 10) ? 'disabled' : ''}>
+              ⚒️ 開始重鑄 (10G)
+            </button>
+            <button type="button" class="btn btn-ghost btn-rand-leave" data-act="leave">
+              離開據點 ›
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Attach slot click & drag & hover events
+  elements.eventDetails.querySelectorAll('.hex-slot.squad-item-slot').forEach(slot => {
+    const idx = Number(slot.dataset.index);
+    const item = squadItems[idx];
+    if (item) {
+      slot.addEventListener('click', () => {
+        selectedReforgeIndex = idx;
+        renderInteractiveEvent(ev);
+      });
+      slot.addEventListener('mouseenter', (e) => showItemTooltip(item, e, true));
+      slot.addEventListener('mousemove', (e) => positionItemTooltip(e, elements.floatingItemTooltip));
+      slot.addEventListener('mouseleave', () => hideItemTooltip());
+
+      slot.addEventListener('dragstart', (e) => {
+        draggedInventorySlot = { area: 'REFORGE_SQUAD', index: idx, item };
+        slot.classList.add('is-dragging');
+        hideItemTooltip(true);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      slot.addEventListener('dragend', () => {
+        slot.classList.remove('is-dragging');
+        draggedInventorySlot = null;
+      });
+    }
+  });
+
+  // Drop target
+  const dropTarget = document.getElementById('reforgeDropTarget');
+  if (dropTarget) {
+    dropTarget.addEventListener('dragover', (e) => {
+      if (draggedInventorySlot && draggedInventorySlot.area === 'REFORGE_SQUAD') {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        dropTarget.classList.add('drag-over-reforge');
+      }
+    });
+    dropTarget.addEventListener('dragleave', () => {
+      dropTarget.classList.remove('drag-over-reforge');
+    });
+    dropTarget.addEventListener('drop', (e) => {
+      if (draggedInventorySlot && draggedInventorySlot.area === 'REFORGE_SQUAD') {
+        e.preventDefault();
+        dropTarget.classList.remove('drag-over-reforge');
+        selectedReforgeIndex = draggedInventorySlot.index;
+        draggedInventorySlot = null;
+        renderInteractiveEvent(ev);
+      }
+    });
+  }
+
+  // Remove button
+  const btnRemove = document.getElementById('btnRemoveReforgeItem');
+  if (btnRemove) {
+    btnRemove.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedReforgeIndex = null;
+      renderInteractiveEvent(ev);
+    });
+  }
+
+  // Execute button
+  const btnExec = document.getElementById('btnExecuteReforge');
+  if (btnExec) {
+    btnExec.onclick = () => {
+      if (!selectedItem || currentGold < 10) return;
+      btnExec.disabled = true;
+      socket.emit('event:random_action', { action: 'reforge', itemIndex: selectedReforgeIndex }, (res) => {
+        btnExec.disabled = false;
+        if (res && !res.success) {
+          alert(res.message);
+        } else if (res?.success) {
+          playNativeAudioTick(340);
+          if (window.RewardPresentation && res.item) {
+            RewardPresentation.enqueue({ type: 'item', item: res.item, title: `重鑄完成 (${res.poolName || '裝備'})` });
+          }
+          renderInteractiveEvent(ev);
+        }
+      });
+    };
+  }
+
+  // Leave button
+  elements.eventDetails.querySelector('.btn-rand-leave')?.addEventListener('click', () => {
+    socket.emit('event:random_action', { action: 'leave' });
+  });
+}
+
+function renderGambleEvent(ev) {
+  if (isGambleRolling) {
+    const walletEl = document.getElementById('gambleWalletGold');
+    if (walletEl) walletEl.textContent = roomState?.gold || 0;
+    return;
+  }
+
+  const currentGold = roomState?.gold || 0;
+  const minBet = currentGold >= 10 ? 10 : Math.max(1, currentGold);
+  const maxBet = Math.max(1, currentGold);
+  if (currentGambleBet > currentGold) currentGambleBet = Math.max(minBet, currentGold);
+  if (currentGambleBet < minBet && currentGold >= minBet) currentGambleBet = minBet;
+
+  elements.eventDetails.innerHTML = `
+    <div class="gamble-container">
+      <div class="gamble-rule-banner">
+        <div class="gamble-rule-icon">📜</div>
+        <div class="gamble-rule-content">
+          <div class="gamble-rule-title">矮人幸運二十面骰・賭局規則</div>
+          <div class="gamble-rule-text">
+            【賭大還是小，如果是小1～9贏；大是11～20。不管賭什麼10是平局，退回錢，贏金錢2倍，輸了沒錢。另外：如果賭小出現1；大出現20，則變成3倍。】
+          </div>
+        </div>
+      </div>
+
+      <div class="gamble-arena">
+        <div class="gamble-wallet-bar">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">🪙</span>
+            <span style="font-size:13px;color:#cbd5e1;font-weight:700;">小隊金幣：</span>
+            <span class="gamble-wallet-amount" id="gambleWalletGold">${currentGold}</span>
+            <span style="font-size:13px;color:#fbbf24;font-weight:700;">G</span>
+          </div>
+        </div>
+
+        <!-- 畫面 1：下注設定 -->
+        <div id="gambleScreenBet" class="gamble-screen">
+          <div class="gamble-bet-display">
+            <span id="gambleBetAmountDisplay">${currentGambleBet}</span> <span class="gamble-g-unit">G</span>
+          </div>
+
+          <div class="gamble-slider-container">
+            <input type="range" id="gambleBetSlider" class="gold-slider" min="${minBet}" max="${maxBet}" step="10" value="${currentGambleBet}">
+            <div class="gamble-quick-buttons">
+              <button type="button" class="gamble-btn-quick" data-val="min">最小</button>
+              <button type="button" class="gamble-btn-quick" data-val="25%">25%</button>
+              <button type="button" class="gamble-btn-quick" data-val="50%">50%</button>
+              <button type="button" class="gamble-btn-quick" data-val="all">全押</button>
+            </div>
+          </div>
+
+          <div class="gamble-choice-grid">
+            <button type="button" id="gambleBtnSmall" class="gamble-choice-card is-small ${gambleChoice === 'SMALL' ? 'is-selected' : ''}">
+              <div class="gamble-choice-label">小</div>
+              <div class="gamble-choice-sub">1 ～ 9 (贏 2倍)</div>
+              <div class="gamble-choice-tag">1點特賞 3倍</div>
+            </button>
+            <button type="button" id="gambleBtnBig" class="gamble-choice-card is-big ${gambleChoice === 'BIG' ? 'is-selected' : ''}">
+              <div class="gamble-choice-label">大</div>
+              <div class="gamble-choice-sub">11 ～ 20 (贏 2倍)</div>
+              <div class="gamble-choice-tag">20點特賞 3倍</div>
+            </button>
+          </div>
+
+          <button type="button" id="btnStartGambleRoll" class="btn-gamble-roll" ${currentGold <= 0 ? 'disabled' : ''}>
+            🎲 擲骰子
+          </button>
+          <button type="button" class="btn btn-ghost btn-rand-leave" data-act="leave">
+            離開據點 ›
+          </button>
+        </div>
+
+        <!-- 畫面 2：20面骰子滾動動畫舞台 -->
+        <div id="gambleScreenRoll" class="gamble-screen hidden" style="position:relative;height:280px;justify-content:center;">
+          <div id="gambleArcaneRing" class="arcane-ring"></div>
+          <div id="gambleParticleContainer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+          <div class="d20-stage">
+            <div id="gambleD20Wrapper" class="d20-wrapper">
+              <svg id="gambleD20Svg" viewBox="0 0 300 300" style="width:100%;height:100%;overflow:visible;">
+                <defs>
+                  <linearGradient id="gSapphireGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e4b8f" />
+                    <stop offset="55%" stop-color="#0f2952" />
+                    <stop offset="100%" stop-color="#09152b" />
+                  </linearGradient>
+                  <linearGradient id="gSapphireBright" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#2b6cb0" />
+                    <stop offset="60%" stop-color="#153e75" />
+                    <stop offset="100%" stop-color="#2c1638" />
+                  </linearGradient>
+                  <linearGradient id="gRubyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#be123c" />
+                    <stop offset="55%" stop-color="#881337" />
+                    <stop offset="100%" stop-color="#3b0718" />
+                  </linearGradient>
+                  <linearGradient id="gGoldFrame" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fef08a" />
+                    <stop offset="30%" stop-color="#eab308" />
+                    <stop offset="70%" stop-color="#a16207" />
+                    <stop offset="100%" stop-color="#451a03" />
+                  </linearGradient>
+                  <filter id="gGoldGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.85"/>
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#fbbf24" flood-opacity="0.6"/>
+                  </filter>
+                </defs>
+                <polygon points="150,15 268,82 268,218 150,285 32,218 32,82" fill="#1c1309" stroke="#090603" stroke-width="10" stroke-linejoin="round"/>
+                <polygon points="150,20 38,84 115,78" fill="url(#gSapphireGrad)" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <polygon points="150,20 115,78 212,102" fill="url(#gSapphireBright)" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <polygon points="150,20 212,102 262,84" fill="url(#gRubyGrad)" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <polygon points="38,84 115,78 52,192 38,212" fill="url(#gSapphireGrad)" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <polygon points="115,78 52,192 168,218" fill="url(#gSapphireBright)" stroke="url(#gGoldFrame)" stroke-width="8" stroke-linejoin="round"/>
+                <polygon points="115,78 212,102 168,218" fill="url(#gSapphireGrad)" stroke="url(#gGoldFrame)" stroke-width="8" stroke-linejoin="round"/>
+                <polygon points="212,102 262,212 168,218" fill="url(#gRubyGrad)" stroke="url(#gGoldFrame)" stroke-width="7.5" stroke-linejoin="round"/>
+                <polygon points="212,102 262,84 262,212" fill="#5c0b22" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <polygon points="52,192 168,218 150,280 38,212" fill="url(#gSapphireGrad)" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <polygon points="168,218 262,212 150,280" fill="url(#gRubyGrad)" stroke="url(#gGoldFrame)" stroke-width="7" stroke-linejoin="round"/>
+                <path d="M114,112 L117,122 L127,125 L117,128 L114,138 L111,128 L101,125 L111,122 Z" fill="#fef08a" filter="url(#gGoldGlow)" />
+                <text x="114" y="172" text-anchor="middle" fill="url(#gGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="38" filter="url(#gGoldGlow)">20</text>
+                <text x="164" y="146" text-anchor="middle" fill="url(#gGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="30" transform="rotate(-32 164 140)" filter="url(#gGoldGlow)">14</text>
+                <text x="158" y="68" text-anchor="middle" fill="url(#gGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="23" transform="rotate(14 158 64)" filter="url(#gGoldGlow)">4</text>
+                <text x="95" y="62" text-anchor="middle" fill="#eab308" font-family="Cinzel, serif" font-weight="900" font-size="18" transform="rotate(-28 95 58)">13</text>
+                <text x="64" y="142" text-anchor="middle" fill="#eab308" font-family="Cinzel, serif" font-weight="900" font-size="25" transform="rotate(-15 64 138)">2</text>
+                <text x="214" y="182" text-anchor="middle" fill="url(#gGoldFrame)" font-family="Cinzel, serif" font-weight="900" font-size="25" transform="rotate(42 214 176)" filter="url(#gGoldGlow)">16</text>
+                <text x="115" y="242" text-anchor="middle" fill="#ca8a04" font-family="Cinzel, serif" font-weight="900" font-size="20" transform="rotate(18 115 238)">12</text>
+                <text x="195" y="246" text-anchor="middle" fill="#ca8a04" font-family="Cinzel, serif" font-weight="900" font-size="20" transform="rotate(-24 195 240)">5</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 畫面 3：結算結果 -->
+        <div id="gambleScreenResult" class="gamble-screen-result hidden">
+          <div id="gambleBigNumber" class="gamble-big-number font-cinzel">20</div>
+          <div id="gambleOutcomeBadge" class="gamble-outcome-badge jackpot">贏 (3倍)</div>
+          <div id="gambleGoldDelta" class="gamble-gold-delta">+300 G</div>
+          <div style="display:flex;gap:12px;margin-top:10px;">
+            <button type="button" id="btnGambleAgain" class="btn-gamble-again">再來一局</button>
+            <button type="button" class="btn btn-ghost btn-rand-leave" data-act="leave">離開據點 ›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // UI bindings
+  const slider = document.getElementById('gambleBetSlider');
+  const display = document.getElementById('gambleBetAmountDisplay');
+
+  function updateSliderFill() {
+    if (!slider) return;
+    const pct = maxBet > 0 ? Math.round((currentGambleBet / maxBet) * 100) : 0;
+    slider.style.background = `linear-gradient(90deg, #b45309 0%, #fbbf24 ${pct}%, #1e293b ${pct}%)`;
+    if (display) display.textContent = currentGambleBet;
+  }
+  updateSliderFill();
+
+  if (slider) {
+    slider.oninput = (e) => {
+      currentGambleBet = Number(e.target.value);
+      updateSliderFill();
+    };
+  }
+
+  elements.eventDetails.querySelectorAll('.gamble-btn-quick').forEach(btn => {
+    btn.onclick = () => {
+      const v = btn.dataset.val;
+      if (v === 'min') currentGambleBet = minBet;
+      else if (v === '25%') currentGambleBet = Math.max(minBet, Math.floor(currentGold * 0.25));
+      else if (v === '50%') currentGambleBet = Math.max(minBet, Math.floor(currentGold * 0.5));
+      else if (v === 'all') currentGambleBet = currentGold;
+      if (slider) slider.value = currentGambleBet;
+      updateSliderFill();
+    };
+  });
+
+  const btnSmall = document.getElementById('gambleBtnSmall');
+  const btnBig = document.getElementById('gambleBtnBig');
+  if (btnSmall && btnBig) {
+    btnSmall.onclick = () => {
+      if (isGambleRolling) return;
+      gambleChoice = 'SMALL';
+      btnSmall.classList.add('is-selected');
+      btnBig.classList.remove('is-selected');
+    };
+    btnBig.onclick = () => {
+      if (isGambleRolling) return;
+      gambleChoice = 'BIG';
+      btnBig.classList.add('is-selected');
+      btnSmall.classList.remove('is-selected');
+    };
+  }
+
+  const btnRoll = document.getElementById('btnStartGambleRoll');
+  if (btnRoll) {
+    btnRoll.onclick = () => {
+      if (isGambleRolling || currentGold <= 0 || currentGambleBet <= 0) return;
+      getGambleAudioContext();
+
+      isGambleRolling = true;
+      const wager = Math.min(currentGold, currentGambleBet);
+
+      const screenBet = document.getElementById('gambleScreenBet');
+      const screenRoll = document.getElementById('gambleScreenRoll');
+      const screenResult = document.getElementById('gambleScreenResult');
+      const d20Wrapper = document.getElementById('gambleD20Wrapper');
+      const arcaneRing = document.getElementById('gambleArcaneRing');
+      const particleBox = document.getElementById('gambleParticleContainer');
+
+      if (screenBet) screenBet.classList.add('hidden');
+      if (screenResult) screenResult.classList.add('hidden');
+      if (screenRoll) screenRoll.classList.remove('hidden');
+
+      if (d20Wrapper) {
+        d20Wrapper.classList.remove('d20-vanish');
+        d20Wrapper.style.opacity = '1';
+        d20Wrapper.style.transform = 'translate3d(0, 0, 0) rotate(0deg) scale(1)';
+      }
+      if (arcaneRing) arcaneRing.classList.add('active-roll');
+
+      let serverRes = null;
+      socket.emit('event:random_action', { action: 'd20_gamble', amount: wager, choice: gambleChoice }, (res) => {
+        serverRes = res;
+        if (!res || !res.success) {
+          alert(res?.message || '賭局發生錯誤');
+          isGambleRolling = false;
+          if (screenRoll) screenRoll.classList.add('hidden');
+          if (screenBet) screenBet.classList.remove('hidden');
+        }
+      });
+
+      const totalDuration = 2200;
+      const startTime = performance.now();
+      let currentAngle = 0;
+      let lastSoundTick = 0;
+
+      function animateFrame(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / totalDuration);
+        const speedFactor = Math.pow(1 - progress, 2.35);
+
+        currentAngle += 36 * speedFactor + 0.3;
+        const bounceRadius = 55 * speedFactor;
+        const offsetX = Math.sin(elapsed * 0.019) * bounceRadius;
+        const offsetY = Math.cos(elapsed * 0.025) * (bounceRadius * 0.75);
+        const scale = 1 + Math.sin(elapsed * 0.04) * 0.12 * speedFactor;
+
+        if (d20Wrapper) {
+          d20Wrapper.style.transform = `translate3d(${offsetX.toFixed(1)}px, ${offsetY.toFixed(1)}px, 0) rotate(${currentAngle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+        }
+
+        const tickInterval = 55 + progress * 260;
+        if (now - lastSoundTick > tickInterval && progress < 0.94) {
+          lastSoundTick = now;
+          playNativeAudioTick(180 + (1 - progress) * 240);
+          spawnGambleSpark(particleBox, offsetX, offsetY, Math.random() > 0.5 ? '#fbbf24' : '#38bdf8');
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animateFrame);
+        } else {
+          if (d20Wrapper) d20Wrapper.style.transform = 'translate3d(0px, 0px, 0px) rotate(0deg) scale(1.05)';
+          playNativeAudioTick(140);
+
+          const checkResultReady = () => {
+            if (serverRes) {
+              if (!serverRes.success) return;
+              if (d20Wrapper) d20Wrapper.classList.add('d20-vanish');
+              for (let i = 0; i < 16; i++) {
+                spawnGambleSpark(particleBox, 0, 0, i % 2 === 0 ? '#fde047' : '#ffffff');
+              }
+              setTimeout(() => {
+                if (arcaneRing) arcaneRing.classList.remove('active-roll');
+                if (screenRoll) screenRoll.classList.add('hidden');
+                
+                isGambleRolling = false;
+                const sResult = document.getElementById('gambleScreenResult');
+                const numEl = document.getElementById('gambleBigNumber');
+                const badgeEl = document.getElementById('gambleOutcomeBadge');
+                const deltaEl = document.getElementById('gambleGoldDelta');
+                const walletEl = document.getElementById('gambleWalletGold');
+
+                if (walletEl) walletEl.textContent = serverRes.currentGold ?? (roomState?.gold || 0);
+                if (sResult && numEl && badgeEl && deltaEl) {
+                  sResult.classList.remove('hidden');
+                  numEl.textContent = serverRes.roll;
+                  playNativeAudioOutcome(serverRes.outcomeType);
+
+                  if (serverRes.outcomeType === 'JACKPOT') {
+                    numEl.style.color = '#fbbf24';
+                    numEl.style.textShadow = '0 0 35px rgba(251, 191, 36, 0.95)';
+                    badgeEl.className = 'gamble-outcome-badge jackpot outcome-stamp';
+                    badgeEl.textContent = '贏 (3倍)';
+                    deltaEl.style.color = '#fbbf24';
+                    deltaEl.textContent = `+${serverRes.payout} G`;
+                  } else if (serverRes.outcomeType === 'WIN') {
+                    numEl.style.color = '#34d399';
+                    numEl.style.textShadow = '0 0 25px rgba(52, 211, 153, 0.8)';
+                    badgeEl.className = 'gamble-outcome-badge win outcome-stamp';
+                    badgeEl.textContent = '贏 (2倍)';
+                    deltaEl.style.color = '#34d399';
+                    deltaEl.textContent = `+${serverRes.payout} G`;
+                  } else if (serverRes.outcomeType === 'PUSH') {
+                    numEl.style.color = '#38bdf8';
+                    numEl.style.textShadow = '0 0 25px rgba(56, 189, 248, 0.8)';
+                    badgeEl.className = 'gamble-outcome-badge push outcome-stamp';
+                    badgeEl.textContent = '平局';
+                    deltaEl.style.color = '#7dd3fc';
+                    deltaEl.textContent = `退回 ${serverRes.wager} G`;
+                  } else {
+                    numEl.style.color = '#f43f5e';
+                    numEl.style.textShadow = '0 0 25px rgba(244, 63, 94, 0.85)';
+                    badgeEl.className = 'gamble-outcome-badge lose outcome-stamp';
+                    badgeEl.textContent = '輸';
+                    deltaEl.style.color = '#fb7185';
+                    deltaEl.textContent = `-${serverRes.wager} G`;
+                  }
+                }
+              }, 380);
+            } else {
+              setTimeout(checkResultReady, 50);
+            }
+          };
+          setTimeout(checkResultReady, 200);
+        }
+      }
+
+      requestAnimationFrame(animateFrame);
+    };
+  }
+
+  const btnAgain = document.getElementById('btnGambleAgain');
+  if (btnAgain) {
+    btnAgain.onclick = () => {
+      if (isGambleRolling) return;
+      const screenResult = document.getElementById('gambleScreenResult');
+      const screenBet = document.getElementById('gambleScreenBet');
+      if (screenResult) screenResult.classList.add('hidden');
+      if (screenBet) screenBet.classList.remove('hidden');
+      renderInteractiveEvent(ev);
+    };
+  }
+
+  elements.eventDetails.querySelectorAll('.btn-rand-leave').forEach(btn => {
+    btn.onclick = () => {
+      socket.emit('event:random_action', { action: 'leave' });
+    };
+  });
+}
+
 function renderInteractiveEvent(ev) {
   if (!elements.eventCardBox) return;
   elements.eventCardBox.classList.remove('hidden');
@@ -8360,101 +9029,77 @@ function renderInteractiveEvent(ev) {
     elements.eventIcon.innerHTML = getIconSvg(subTypeIcon, 'svg-hero-icon');
     elements.eventTitle.textContent = (ev.title || '神秘據點').replace(/^[🏕️⛩️🎲⚒️\s]+/, '');
 
-    let actionsHtml = '';
     const leaderRole = roomState.lockedLeaderRole;
 
-    if (ev.subType === 'WANDERING_MERCHANT') {
-      actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="info">
-          ${getIconSvg('camp', 'ui-icon--sm')}
-          <span>打探路況情報 (${leaderRole === 'bard' ? '免費' : '15G'})</span>
-        </button>
-        <button type="button" class="btn-rand-action" data-act="barter">
-          ${getIconSvg('chest', 'ui-icon--sm')}
-          <span>以物易物 (隨機交換小隊背包首件物品)</span>
-        </button>
-        ${leaderRole === 'dreamweaver' ? `
-          <button type="button" class="btn-rand-action" data-act="reshape">
-            ${getIconSvg('sparkle', 'ui-icon--sm')}
-            <span>幻象重塑 (織夢術士專屬重塑配飾)</span>
-          </button>
-        ` : ''}
-      `;
-    } else if (ev.subType === 'ALTAR') {
-      actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="sacrifice">
-          ${getIconSvg('torii', 'ui-icon--sm')}
-          <span>鮮血獻祭 (${leaderRole === 'warrior' ? '扣10%HP' : '扣20%HP'}，全員永久+3攻擊 & T2裝備)</span>
-        </button>
-        <button type="button" class="btn-rand-action" data-act="desecrate">
-          ${getIconSvg('gold', 'ui-icon--sm')}
-          <span>搜刮祭壇 (+60G & T1裝備${leaderRole === 'onmyoji' ? '，陰陽師免除詛咒' : '，受減防詛咒'})</span>
-        </button>
-        ${leaderRole === 'paladin' ? `
-          <button type="button" class="btn-rand-action" data-act="purify">
-            ${getIconSvg('shield', 'ui-icon--sm')}
-            <span>聖光淨化 (聖騎士專屬免代價回復30%HP與15護盾)</span>
-          </button>
-        ` : ''}
-      `;
+    if (ev.subType === 'REFORGE') {
+      renderReforgeEvent(ev);
     } else if (ev.subType === 'GAMBLE') {
-      actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="coin">
-          ${getIconSvg('dice', 'ui-icon--sm')}
-          <span>擲硬幣押注 (押注30G 贏取60G，${leaderRole === 'sage' ? '智者勝率70%' : '勝率50%'})</span>
-        </button>
-        <button type="button" class="btn-rand-action" data-act="box">
-          ${getIconSvg('chest', 'ui-icon--sm')}
-          <span>購買神秘盲盒 (50G 抽取T2裝備，${leaderRole === 'sage' ? '智者免碎裂' : '50%碎裂'})</span>
-        </button>
-        ${leaderRole === 'gladiator' ? `
-          <button type="button" class="btn-rand-action" data-act="hp_gamble">
-            ${getIconSvg('sword', 'ui-icon--sm')}
-            <span>豪賭生命 (角鬥士專屬扣20%HP換80G與T2裝備)</span>
+      renderGambleEvent(ev);
+    } else {
+      let actionsHtml = '';
+      if (ev.subType === 'WANDERING_MERCHANT') {
+        actionsHtml = `
+          <button type="button" class="btn-rand-action" data-act="info">
+            ${getIconSvg('camp', 'ui-icon--sm')}
+            <span>打探路況情報 (${leaderRole === 'bard' ? '免費' : '15G'})</span>
           </button>
-        ` : ''}
-      `;
-    } else if (ev.subType === 'REFORGE') {
-      actionsHtml = `
-        <button type="button" class="btn-rand-action" data-act="reforge">
-          ${getIconSvg('anvil', 'ui-icon--sm')}
-          <span>重鑄武器 (${leaderRole === 'mage' ? '15G' : '30G'} / ${leaderRole === 'samurai' ? '武士增幅+40%' : '攻擊力提升'})</span>
-        </button>
-        ${leaderRole === 'mage' ? `
-          <button type="button" class="btn-rand-action" data-act="convert_magic">
-            ${getIconSvg('magic', 'ui-icon--sm')}
-            <span>奧術附魔 (法師專屬武器轉為魔法屬性)</span>
+          <button type="button" class="btn-rand-action" data-act="barter">
+            ${getIconSvg('chest', 'ui-icon--sm')}
+            <span>以物易物 (隨機交換小隊背包首件物品)</span>
           </button>
-        ` : ''}
+          ${leaderRole === 'dreamweaver' ? `
+            <button type="button" class="btn-rand-action" data-act="reshape">
+              ${getIconSvg('sparkle', 'ui-icon--sm')}
+              <span>幻象重塑 (織夢術士專屬重塑配飾)</span>
+            </button>
+          ` : ''}
+        `;
+      } else if (ev.subType === 'ALTAR') {
+        actionsHtml = `
+          <button type="button" class="btn-rand-action" data-act="sacrifice">
+            ${getIconSvg('torii', 'ui-icon--sm')}
+            <span>鮮血獻祭 (${leaderRole === 'warrior' ? '扣10%HP' : '扣20%HP'}，全員永久+3攻擊 & T2裝備)</span>
+          </button>
+          <button type="button" class="btn-rand-action" data-act="desecrate">
+            ${getIconSvg('gold', 'ui-icon--sm')}
+            <span>搜刮祭壇 (+60G & T1裝備${leaderRole === 'onmyoji' ? '，陰陽師免除詛咒' : '，受減防詛咒'})</span>
+          </button>
+          ${leaderRole === 'paladin' ? `
+            <button type="button" class="btn-rand-action" data-act="purify">
+              ${getIconSvg('shield', 'ui-icon--sm')}
+              <span>聖光淨化 (聖騎士專屬免代價回復30%HP與15護盾)</span>
+            </button>
+          ` : ''}
+        `;
+      }
+
+      elements.eventDetails.innerHTML = `
+        <div class="rand-event-container">
+          <div class="rand-event-actions">${actionsHtml}</div>
+          <button type="button" class="btn btn-ghost btn-rand-action btn-rand-leave" data-act="leave">
+            ${getIconSvg('leave', 'ui-icon--sm')}
+            <span>離開據點 ›</span>
+          </button>
+        </div>
       `;
+
+      elements.eventDetails.querySelectorAll('.btn-rand-action').forEach(b => {
+        b.onclick = () => {
+          b.disabled = true;
+          const act = b.dataset.act;
+          socket.emit('event:random_action', { action: act }, (res) => {
+            b.disabled = false;
+            if (res && !res.success) {
+              alert(res.message);
+            } else if (res?.success && window.RewardPresentation) {
+              const reward = res.item || res.rewardItem || res.drop;
+              if (reward) RewardPresentation.enqueue({ type: 'item', item: reward, title: '事件戰利品' });
+              if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
+            }
+          });
+        };
+      });
     }
-
-    elements.eventDetails.innerHTML = `
-      <div class="rand-event-container">
-        <div class="rand-event-actions">${actionsHtml}</div>
-        <button type="button" class="btn btn-ghost btn-rand-action btn-rand-leave" data-act="leave">
-          ${getIconSvg('leave', 'ui-icon--sm')}
-          <span>離開據點 ›</span>
-        </button>
-      </div>
-    `;
-
-    elements.eventDetails.querySelectorAll('.btn-rand-action').forEach(b => {
-      b.onclick = () => {
-        b.disabled = true;
-        const act = b.dataset.act;
-        socket.emit('event:random_action', { action: act }, (res) => {
-          b.disabled = false;
-          if (res && !res.success) {
-            alert(res.message);
-          } else if (res?.success && window.RewardPresentation) {
-            const reward = res.item || res.rewardItem || res.drop;
-            if (reward) RewardPresentation.enqueue({ type: 'item', item: reward, title: '事件戰利品' });
-            if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
-          }
-        });
-      };
-    });
   }
 
   const storyText = ev.story || '';

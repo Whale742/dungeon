@@ -278,6 +278,13 @@ body.presentation-floor-active #floatingChatContainer { visibility: hidden !impo
   text-align: center;
   min-height: 380px;
   scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.abyss-map-canvas::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .hex-grid-board {

@@ -39,13 +39,11 @@
   <div id="studioNotice" class="studio-preview-banner" role="status"></div>
 
   <!-- Global SVG Sprite Definitions (Reused from index.html) -->
-  <svg style="display:none;" aria-hidden="true">
+  <svg style="display: none;" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <symbol id="icon-sword" viewBox="0 0 24 24">
-        <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <line x1="13" y1="19" x2="19" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <line x1="16" y1="16" x2="20" y2="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <line x1="19" y1="21" x2="21" y2="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14.5 17.5 3 6V3h3l11.5 11.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m13 19 6-6M16 16l4 4M19 21l2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
       <symbol id="icon-shield" viewBox="0 0 24 24">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -85,6 +83,39 @@
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
+      <symbol id="icon-pen" viewBox="0 0 24 24">
+        <path d="m16 3 5 5-12 12-6 1 1-6L16 3ZM14 5l5 5M4 15l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-log" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="16" y1="13" x2="8" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="16" y1="17" x2="8" y2="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-expand" viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-collapse" viewBox="0 0 24 24">
+        <polyline points="18 15 12 9 6 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-cooldown" viewBox="0 0 24 24">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-status" viewBox="0 0 24 24">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-summon" viewBox="0 0 24 24">
+        <path d="M12 2a5 5 0 0 1 5 5c0 3-5 9-5 9s-5-6-5-9a5 5 0 0 1 5-5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8.5 14a4 4 0 0 0-4.5 4v2h16v-2a4 4 0 0 0-4.5-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-death" viewBox="0 0 24 24">
+        <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+        <path d="M8 20v2h8v-2M16 20a3 3 0 0 0 3-3v-2a7 7 0 0 0-14 0v2a3 3 0 0 0 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-revive" viewBox="0 0 24 24">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
       <symbol id="icon-chest" viewBox="0 0 24 24">
         <rect x="2" y="7" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M2 12h20M12 10v4M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -94,19 +125,106 @@
         <line x1="12" y1="9" x2="12" y2="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <line x1="12" y1="17" x2="12.01" y2="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
+      <symbol id="icon-gold" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 8v8M9.5 10a2.5 2.5 0 0 1 5 0c0 1.5-1 2-2.5 2.5s-2.5 1-2.5 2.5a2.5 2.5 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24">
+        <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
+        <rect x="14" y="4" width="4" height="16" fill="currentColor"/>
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+      </symbol>
       <symbol id="icon-flag" viewBox="0 0 24 24">
         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <line x1="4" y1="22" x2="4" y2="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
-      <symbol id="icon-sparkle" viewBox="0 0 24 24">
-        <path d="m12 3 2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <symbol id="icon-user" viewBox="0 0 24 24">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="16" x2="12" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="12" y1="8" x2="12.01" y2="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
       <symbol id="icon-close" viewBox="0 0 24 24">
         <line x1="18" y1="6" x2="6" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <line x1="6" y1="6" x2="18" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
-      <symbol id="icon-check" viewBox="0 0 24 24">
-        <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <symbol id="icon-leave" viewBox="0 0 24 24">
+        <path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24">
+        <polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-sparkle" viewBox="0 0 24 24">
+        <path d="m12 3 2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24">
+        <line x1="5" y1="12" x2="19" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="12 5 19 12 12 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-shop" viewBox="0 0 24 24">
+        <circle cx="9" cy="21" r="1" fill="none" stroke="currentColor" stroke-width="2"/>
+        <circle cx="20" cy="21" r="1" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-camp" viewBox="0 0 24 24">
+        <path d="m12 2-9 18h18L12 2Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m12 14-4 6h8l-4-6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-scroll" viewBox="0 0 24 24">
+        <path d="M8 2H5a3 3 0 0 0-3 3v1a3 3 0 0 0 3 3h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19 17V5a3 3 0 0 0-3-3H8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-crit" viewBox="0 0 24 24">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-potion" viewBox="0 0 24 24">
+        <path d="M9 2h6M10 2v4a4 4 0 0 1-1 3l-4 6.5A4 4 0 0 0 8.5 22h7a4 4 0 0 0 3.5-6.5L15 9a4 4 0 0 1-1-3V2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="7" y1="15" x2="17" y2="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-fire" viewBox="0 0 24 24">
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-snowflake" viewBox="0 0 24 24">
+        <line x1="12" y1="2" x2="12" y2="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="2" y1="12" x2="22" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="5" y1="5" x2="19" y2="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="19" y1="5" x2="5" y2="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-bone" viewBox="0 0 24 24">
+        <path d="M17 3a2.5 2.5 0 0 1 2.45 3.01A2.5 2.5 0 0 1 18 10l-8 8a2.5 2.5 0 0 1-3.99-1.45A2.5 2.5 0 0 1 6 12l8-8a2.5 2.5 0 0 1 3-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-flask" viewBox="0 0 24 24">
+        <path d="M9 3h6M10 3v4.5L5.2 16.1A3 3 0 0 0 7.8 21h8.4a3 3 0 0 0 2.6-4.9L14 7.5V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="7.5" y1="14" x2="16.5" y2="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-dice" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+        <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+      </symbol>
+      <symbol id="icon-anvil" viewBox="0 0 24 24">
+        <path d="M3 8h18l-3 4H6L3 8zM6 12v4a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="4" y1="21" x2="20" y2="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-crown" viewBox="0 0 24 24">
+        <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z" fill="currentColor"/>
+      </symbol>
+      <symbol id="icon-arrow-down" viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
     </defs>
   </svg>
@@ -135,6 +253,16 @@
           <div class="lab-form-group">
             <label class="lab-label" for="labSceneSelect">選擇測試項目：</label>
             <select id="labSceneSelect" class="lab-select" style="width: 100%;">
+              <optgroup label="🎪 冒險事件與據點全覽 (All Exploration & Random Events)">
+                <option value="event_gamble">🎲 隨機事件：命運賭局 (20面骰下注、減速滾動與結算)</option>
+                <option value="event_reforge">⚒️ 隨機事件：矮人鑄造工坊 (背包選擇、鐵砧重鑄槽、消耗10G重鑄)</option>
+                <option value="event_altar">⛩️ 隨機事件：古老深淵祭壇 (鮮血獻祭、搜刮、聖光淨化)</option>
+                <option value="event_wandering_merchant">🏕️ 隨機事件：迷途流浪商人 (以物易物、打探情報、幻象重塑)</option>
+                <option value="event_shop_standard">🛒 商店據點：迷宮行商據點 (19格貨架、背包、商品頁籤、買賣休整)</option>
+                <option value="event_shop_shady">💰 商店據點：深淵黑市商人 (奸商物價、強取豪奪搶劫、暗行行竊)</option>
+                <option value="event_shop_prep">🎒 商店據點：出發前行前整備 (出發前物資採購與補給)</option>
+                <option value="event_mimic_chest">👾 寶箱事件：擬態怪突襲 (尖牙利齒偽裝、暴力強開、安撫退敵)</option>
+              </optgroup>
               <optgroup label="🎁 寶箱演出 (Phase 4 — 核心重點)">
                 <option value="chest_full" selected>★ 完整寶箱流程 (Full Chest Sequence)</option>
                 <option value="chest_discovery">發現寶箱故事 (Discovery)</option>
@@ -603,6 +731,19 @@
                 <div id="trapDiscoverySection" class="exploration-trap hidden">
                   <div id="trapDiscoveryStory" class="exploration-trap-story"></div>
                 </div>
+                <!-- 3. 互動事件卡片 (商店 / 隨機事件 / 賭博 / 重鑄 / 祭壇 / 流浪商人 / 擬態怪) -->
+                <div class="event-card hidden" id="eventCardBox">
+                  <div class="event-icon" id="eventIcon"><svg class="svg-icon svg-hero-icon"><use href="#icon-chest"></use></svg></div>
+                  <h2 id="eventTitle" class="section-title">事件標題</h2>
+                  <div id="eventStoryText" class="event-story-text"></div>
+                  <div id="eventDetails" class="event-details" style="display:block;opacity:1;transform:none;">
+                    <!-- 動態事件內容 -->
+                  </div>
+                  <div class="event-footer" style="display:none;">
+                    <div class="pulse-waiting"><svg class="ico sm"><use href="#icon-timer"/></svg> 整理裝備中...</div>
+                  </div>
+                </div>
+                <div id="floatingItemTooltip" class="floating-item-tooltip hidden"></div>
               </section>
 
               <!-- 視圖：路線分歧區 -->
@@ -763,6 +904,7 @@
   <script src="onmyoji-presentation.js"></script>
   <script src="onmyoji-lab-scenes.js"></script>
   <script src="modal-motion.js"></script>
+  <script src="event-lab-scenes.js"></script>
   <script src="presentation-lab.js"></script>
   <script src="/studio/lab-controller.js"></script>
 </body>

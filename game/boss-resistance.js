@@ -25,5 +25,8 @@ export function getBossResistance(monster, type) {
   if (type === 'effect' && monster?.augurResistanceBreak > 0) {
     res = Math.max(0, res - 15);
   }
+  if (monster?.tier === 'MINION') {
+    res = Math.min(30, res);
+  }
   return res;
 }

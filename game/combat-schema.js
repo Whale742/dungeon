@@ -14,7 +14,7 @@ export const SKILL_CATEGORIES = Object.freeze({
   s_stab: 'OFFENSIVE', s_smoke: 'OFFENSIVE', b_heal: 'HEAL', b_buff: 'BUFF',
   b_nocturne: 'DEBUFF', b_frenzy: 'BUFF', b_revive: 'REVIVE', alc_acid: 'AOE_OFFENSIVE',
   alc_poison: 'DEBUFF', alc_flask: 'AOE_OFFENSIVE', alc_fate: 'CLEANSE', dru_transform: 'TRANSFORM',
-  dru_summon_treant: 'SUMMON', dru_summon_wolf: 'SUMMON', use_item_healing_potion: 'HEAL', use_item_antidote: 'CLEANSE'
+  dru_summon_treant: 'SUMMON', dru_summon_wolf: 'SUMMON', use_item_healing_potion: 'HEAL', use_item_antidote: 'CLEANSE', onm_all_talismans: 'DEBUFF', leader_assassin_execute: 'OFFENSIVE'
 });
 
 export function playerStatuses(player, room, balance) {

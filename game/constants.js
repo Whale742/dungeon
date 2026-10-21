@@ -1046,7 +1046,7 @@ export function getActionPriority(actionId) {
   if (actionId === 'b_buff' || actionId === 'b_frenzy') return 4; // 4. 增益 (Buff)
   if (actionId === 'b_heal') return 5; // 5. 治療 (Heal)
   if (actionId === 'dru_transform' || actionId === 'dru_summon_treant' || actionId === 'dru_summon_wolf') return 6; // 6. 變身/召喚 (Transform / Summon)
-  if (actionId === 'a_rain' || actionId === 'aug_reckon' || actionId === 'onm_talisman') return 7; // 7. 敵方減益 (Enemy Debuff - 削弱敵方攻擊力 / 命運清算・凶兆逆位 / 施加符咒)
+  if (actionId === 'a_rain' || actionId === 'aug_reckon' || actionId === 'onm_talisman' || actionId === 'onm_all_talismans') return 7; // 7. 敵方減益 (Enemy Debuff - 削弱敵方攻擊力 / 命運清算・凶兆逆位 / 施加符咒 / 萬符歸宗)
   // 8. 攻擊技能 (Offensive Skills)
   // 【重要規範】:
   // - 法師【生命汲取】(m_drain): 依實際造成的魔法傷害計算回血，本質為攻擊技能，歸於 Priority 8。

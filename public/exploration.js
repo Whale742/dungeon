@@ -110,7 +110,13 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
     elements.routeStatusText.classList.remove('hidden');
     document.getElementById('routeDiffPercent')?.closest('.buff-highlight')?.classList.remove('hidden');
     await waitForPrologue(EXPLORATION_TIMING.promptEnter, signal);
-    if (elements.hexMapContainer) elements.hexMapContainer.classList.remove('hidden');
+    if (elements.hexMapContainer) {
+      elements.hexMapContainer.classList.remove('hidden');
+      const canvas = elements.hexMapContainer.querySelector('.abyss-map-canvas');
+      if (canvas) {
+        updateHexMapCamera(canvas, roomState?.currentHex?.col ?? 0, true);
+      }
+    }
     elements.routeOptionsGrid.classList.add('exploration-choices-enter');
     elements.routeOptionsGrid.classList.remove('hidden');
     const count = (roomState.currentRoutes || []).length;
@@ -134,6 +140,71 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
 
 let pendingHexVoteId = null;
 let pendingHexVoteKey = null;
+let lastHexMapCameraScrollLeft = null;
+let lastHexMapCurrentCol = null;
+let hexMapResizeObserver = null;
+
+function updateHexMapCamera(canvas, currentCol, isSmooth = true) {
+  if (!canvas) return;
+  const board = canvas.querySelector('.hex-grid-board');
+  if (!board) return;
+
+  const canvasWidth = canvas.clientWidth;
+  const boardWidth = board.scrollWidth;
+  const maxScroll = Math.max(0, boardWidth - canvasWidth);
+  if (maxScroll <= 0) {
+    canvas.scrollLeft = 0;
+    lastHexMapCameraScrollLeft = 0;
+    return;
+  }
+
+  if (currentCol === 0 || (lastHexMapCurrentCol !== null && currentCol < lastHexMapCurrentCol)) {
+    canvas.scrollLeft = 0;
+    lastHexMapCameraScrollLeft = 0;
+    lastHexMapCurrentCol = currentCol;
+    return;
+  }
+
+  const currentCell = board.querySelector('.hex-cell.hex-current');
+  const selectableCells = board.querySelectorAll('.hex-cell.hex-selectable');
+  const boardRect = board.getBoundingClientRect();
+
+  let targetFocusX = null;
+  if (currentCell && boardRect.width > 0) {
+    const curRect = currentCell.getBoundingClientRect();
+    const curCenterX = curRect.left - boardRect.left + curRect.width / 2;
+
+    if (selectableCells.length > 0) {
+      let maxSelectX = -Infinity;
+      selectableCells.forEach(cell => {
+        const r = cell.getBoundingClientRect();
+        const cx = r.left - boardRect.left + r.width / 2;
+        if (cx > maxSelectX) maxSelectX = cx;
+      });
+      targetFocusX = curCenterX * 0.35 + maxSelectX * 0.65;
+    } else {
+      targetFocusX = curCenterX;
+    }
+  }
+
+  if (targetFocusX == null || isNaN(targetFocusX) || targetFocusX <= 0) {
+    const hexW = 68;
+    const paddingLeft = 24;
+    const focusCol = Math.min(9, (currentCol ?? 0) + 0.6);
+    targetFocusX = paddingLeft + (focusCol + 0.5) * hexW;
+  }
+
+  const desiredScrollLeft = targetFocusX - canvasWidth / 2;
+  const targetScroll = Math.max(0, Math.min(maxScroll, Math.round(desiredScrollLeft)));
+
+  if (isSmooth && typeof canvas.scrollTo === 'function') {
+    canvas.scrollTo({ left: targetScroll, behavior: 'smooth' });
+  } else {
+    canvas.scrollLeft = targetScroll;
+  }
+  lastHexMapCameraScrollLeft = targetScroll;
+  lastHexMapCurrentCol = currentCol;
+}
 
 function buildHexRouteArrowHtml(currentCol, currentRow, targetNode, centerRow) {
   if (!targetNode) return '';
@@ -364,9 +435,40 @@ function renderHexGridMap(me, enabled, myVoteId) {
   '</div>';
 
   html += '</div>';
-  const scrollLeft = container.querySelector('.abyss-map-canvas')?.scrollLeft || 0;
+  const prevCanvas = container.querySelector('.abyss-map-canvas');
+  const prevScroll = prevCanvas ? prevCanvas.scrollLeft : lastHexMapCameraScrollLeft;
+
   container.innerHTML = html;
-  container.querySelector('.abyss-map-canvas').scrollLeft = scrollLeft;
+
+  const canvas = container.querySelector('.abyss-map-canvas');
+  if (canvas) {
+    if (prevScroll !== null && prevScroll !== undefined) {
+      canvas.scrollLeft = prevScroll;
+    }
+
+    const isColAdvance = lastHexMapCurrentCol !== null && lastHexMapCurrentCol !== currentCol;
+    const shouldSmooth = isColAdvance || (lastHexMapCameraScrollLeft === null && currentCol > 0);
+
+    requestAnimationFrame(() => {
+      updateHexMapCamera(canvas, currentCol, shouldSmooth);
+    });
+
+    setTimeout(() => {
+      updateHexMapCamera(canvas, currentCol, shouldSmooth);
+    }, 120);
+
+    if (typeof ResizeObserver !== 'undefined') {
+      if (hexMapResizeObserver) {
+        hexMapResizeObserver.disconnect();
+      }
+      hexMapResizeObserver = new ResizeObserver(() => {
+        if (canvas.clientWidth > 40) {
+          updateHexMapCamera(canvas, currentCol, false);
+        }
+      });
+      hexMapResizeObserver.observe(canvas);
+    }
+  }
 
   if (typeof container.querySelectorAll === 'function') {
     container.querySelectorAll('.hex-cell.hex-selectable').forEach(btn => {

@@ -80,7 +80,7 @@ const SFX_PRESENTATION_PROFILES = Object.freeze({
   bard: { basic: 'bard_basic', b_heal: 'bard_skill1', b_revive: 'bard_skill1', b_nocturne: 'bard_skill1', b_buff: 'bard_skill2', b_frenzy: 'bard_skill2' },
   alchemist: { basic: 'bottle_throw', alc_flask: 'alchemy_skill1', alc_acid: 'alchemy_skill1', alc_poison: 'alchemy_skill1', alc_fate: null },
   druid: { basic: null, dru_transform: null, dru_summon_wolf: null, dru_summon_treant: null },
-  onmyoji: { basic: 'mage_basic', onm_talisman: 'mage_skill1', onm_detonate: 'mage_skill2' }
+  onmyoji: { basic: 'mage_basic', onm_talisman: 'mage_skill1', onm_all_talismans: 'mage_skill1', onm_detonate: 'mage_skill2' }
 });
 function resolveCombatSfxProfile(step) {
   const role = step.sourceRole || step.role;

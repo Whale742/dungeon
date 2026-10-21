@@ -487,6 +487,12 @@ function resetLab() {
   });
 
   // Hide discovery sections
+  const evCard = document.getElementById('eventCardBox');
+  if (evCard) {
+    evCard.classList.add('hidden');
+    evCard.classList.remove('is-shop-event');
+    evCard.style.display = 'none';
+  }
   if (elements.chestDiscoverySection) {
     elements.chestDiscoverySection.classList.add('hidden');
     elements.chestDiscoverySection.classList.remove('enter', 'exit');
@@ -783,6 +789,10 @@ async function playScene(sceneName) {
     const preloadRole=fixture?.role||fixture?.steps?.find(step=>step.sourceRole)?.sourceRole;
     if(preloadRole)await sfxManager.preloadRole(preloadRole);
     if(signal.aborted)return;
+    if (typeof EVENT_LAB_SCENES !== 'undefined' && EVENT_LAB_SCENES[sceneName]) {
+      await playEventLabScene(sceneName, context);
+      return;
+    }
     if (sceneName.startsWith('chest_')) {
       elements.views.event.classList.remove('hidden');
       elements.views.event.classList.add('active');
