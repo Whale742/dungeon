@@ -32,3 +32,5 @@ Thumbs.db
 
 buff.md
 temp/
+tests/
+tests/*
