@@ -4,7 +4,6 @@
 .battlefield-player-number{text-align:center}
 .battlefield-hit-host{position:absolute;width:100px;height:100px;transform:translate(-50%,-50%);pointer-events:none}
 .battlefield-hit-host .archer-arrow-impact{animation:player-arrow-impact .3s ease-out both}
-.battlefield-hit-host .presentation-combat-acid-fx:before{background:radial-gradient(circle,var(--player-fx-color,#86efac),transparent 75%);box-shadow:0 0 18px var(--player-fx-color,#86efac)}
 @keyframes player-arrow-impact{from{opacity:0;scale:.35}20%{opacity:.9;scale:1}to{opacity:0;scale:1.6}}
 .battlefield-projectile{position:absolute;transform:translate(-50%,-50%);width:70px;height:4px;background:currentColor;box-shadow:0 0 8px currentColor}
 .battlefield-rain-field{position:absolute;inset:auto;height:145px;transform:translate(-50%,-50%)}
@@ -12,8 +11,6 @@
 .battlefield-arrow-rain[data-reduced-motion=true] .archer-falling-arrow:before{display:none}
 .battlefield-projectile:has(.presentation-ammo-arrow){width:86px;height:86px;background:transparent;box-shadow:none}
 .battlefield-projectile.bottle{width:24px;height:38px;background:none;box-shadow:none}
-.battlefield-projectile.bottle .combat-bottle-glass{background:linear-gradient(transparent 32%,var(--player-fx-color,#7eac68) 36%)}
-.battlefield-player-effects[data-flask=poison] .combat-bottle-glass{background:linear-gradient(135deg,#b576d988,#a2d453cc)}
 .battlefield-projectile.arrow{width:120px;height:120px;background:none;box-shadow:none}
 .archer-projectile-art{width:100%;height:100%;object-fit:contain;transform:rotate(-119deg)}
 .battlefield-rain-field .archer-falling-arrow:has(img){width:calc(var(--rain-arrow-length,95px)*.7)}
@@ -23,15 +20,16 @@
 .archer-painted-impact{width:100%;height:100%;object-fit:contain;animation:player-arrow-impact .26s ease-out both}
 .battlefield-trap-art{position:absolute;width:120px;height:120px;object-fit:contain;transform:translate(-50%,-50%)}
 .battlefield-projectile.healing,.battlefield-projectile.reagent{width:23px;height:23px;border-radius:50%;background:currentColor}
-.battlefield-glass-shard{position:absolute;width:7px;height:12px;border:1px solid #d9ffeb;background:var(--player-fx-color);rotate:var(--shard-angle);animation:flask-shatter .4s ease-out both}
-@keyframes flask-shatter{from{opacity:.9;translate:0 0}to{opacity:0;transform:rotate(var(--shard-angle)) translateX(45px)}}
 .battlefield-first-bow{position:absolute;left:50%;top:52%;width:min(68vw,560px);height:min(44vh,380px);object-fit:contain;transform:translate(-50%,-50%)}
-.battlefield-throw-hand,.mix-hand{position:absolute;width:75px;height:180px;border:3px solid #ae8562;border-radius:55% 55% 15% 15%;background:linear-gradient(110deg,#392d28,#8e7057);bottom:-25px;left:45%;transform:rotate(-25deg)}
-.battlefield-alchemy-mix{position:absolute;left:50%;top:65%;width:280px;height:210px;transform:translate(-50%,-50%)}
-.mix-hand.left{left:0;rotate:35deg}.mix-hand.right{left:auto;right:0;rotate:-35deg}
-.mix-orb{position:absolute;left:110px;top:0;width:60px;height:75px;border:3px solid #afffd0;border-radius:12px 12px 45% 45%;background:#6fe5a4bb;box-shadow:0 0 35px #89ffbb}
-[data-mixture=success] .mix-orb{background:conic-gradient(#fff9d1,#73f0c1,#c6a3ff,#fff9d1);box-shadow:0 0 50px #fff4b5}
-[data-mixture=failure] .mix-orb{background:#d145ae;box-shadow:0 0 40px #a32b70;border-color:#f8a4e5}
+.battlefield-throw-hand{position:absolute;left:50%;top:56%;width:min(65vw,320px);height:min(30vh,270px);object-fit:contain;transform:translate(-50%,-50%)}
+.battlefield-alchemy-mix{position:absolute;left:50%;top:58%;width:min(85vw,380px);height:min(29vh,240px);transform:translate(-50%,-50%)}
+.mix-hand{position:absolute;bottom:0;width:50%;height:85%;object-fit:contain}.mix-hand.left{left:0}.mix-hand.right{right:0}
+.mix-orb{position:absolute;left:25%;top:0;width:50%;height:55%;object-fit:contain}
+[data-mixture=failure] .mix-orb{filter:hue-rotate(225deg) saturate(.75)}
+.battlefield-projectile.bottle{width:65px;height:80px}
+.battlefield-projectile.healing,.battlefield-projectile.reagent{width:75px;height:75px;background:none;box-shadow:none;border-radius:0}
+.alchemy-projectile-art{width:100%;height:100%;object-fit:contain}
+.battlefield-role-art{position:absolute;width:clamp(85px,16vw,210px);height:clamp(85px,22vh,210px);object-fit:contain;transform:translate(-50%,-50%)}
 .battlefield-magazine{position:absolute;left:50%;top:65%;transform:translate(-50%,-50%);display:flex;gap:14px;padding:15px;background:#132032dd;border-radius:8px}
 .battlefield-trap-note{position:absolute;left:50%;top:75%;transform:translateX(-50%);padding:8px 12px;border:1px solid #e8be72;background:#18212ded;color:#fef3c7;font-size:20px}
 .battlefield-trap-spikes{position:absolute;width:65px;height:28px;transform:translate(-50%,-50%);background:repeating-linear-gradient(70deg,transparent 0 10px,#a2bd92 11px 14px,transparent 15px 20px);border-bottom:2px solid #ddd39c}
@@ -57,3 +55,5 @@
 .phase5-augur .shade,.phase5-augur .orb-caption,.phase5-augur .caption{display:none}
 .phase5-augur-anchor{position:absolute;width:0;height:0;pointer-events:none}
 .phase5-augur-anchor .omen-mark{left:-24px;top:-50px;width:48px;height:72px}
+
+.battlefield-outcome-note{top:max(60px,10vh);width:max-content;max-width:85vw;box-sizing:border-box;font-size:clamp(12px,1.5vw,16px);text-align:center}

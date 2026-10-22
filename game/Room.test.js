@@ -166,7 +166,7 @@ function phase1Battle(t, role, hp = 500) {
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
-for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame'],sage:['basic','sge_deduce','sge_induce'],augur:['basic','aug_bind','aug_reckon'],onmyoji:['basic','onm_talisman','onm_detonate'],gladiator:['basic','g_sacrifice','g_arena'],druid:['basic','dru_transform','dru_summon_wolf','dru_summon_treant']})){
+for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shield'],mage:['basic','m_blast','m_drain'],assassin:['basic','s_stab','s_smoke'],bard:['basic','b_heal','b_buff'],paladin:['basic','pal_glory','pal_grace'],alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame'],sage:['basic','sge_deduce','sge_induce'],augur:['basic','aug_bind','aug_reckon'],onmyoji:['basic','onm_talisman','onm_detonate'],gladiator:['basic','g_sacrifice','g_arena'],druid:['basic','dru_transform','dru_summon_wolf','dru_summon_treant']})){
   for(const action of actions)test('Phase 4 production battlefield dispatch: '+role+' '+action,t=>{
     const {room,player,events}=phase1Battle(t,role);t.mock.method(Math,'random',()=>.5);
     if(action==='sa_tsubame')player.soul=8;
@@ -960,4 +960,78 @@ test('Phase 2 true damage bypasses mitigation, while guard and immunity still ha
   const before=player.hp;actMechanism(room,enemy);assert.equal(before-player.hp,9);
   const f=mechanismBattle(t,[ABYSS_BOSSES.samurai]);mechanismRound(f.room,3);f.enemy.sealedThisRound=true;
   const hp=f.player.hp,queue=actMechanism(f.room,f.enemy);assert.equal(f.player.hp,hp);assert.equal(queue[0].results[0].outcome.type,'blocked');
+});
+
+
+test('Every painted enemy recipe uses existing art, true anchors, no SVG and no settlement',t=>{
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const recipes=vm.runInContext('ENEMY_PAINTED_ART',h.scope);
+  for(const [id,paths] of Object.entries(recipes)){
+    for(const path of paths)assert.ok(readFileSync(new URL('../public/assets/combat-fx/'+path,import.meta.url)).length>100,path);
+    for(const reduced of [false,true]){
+      const root=h.scope.document.createElement('div'),result={kind:'damage',actualDamage:12,targetId:'ally',sourceId:'enemy'};
+      const step={sourceId:'enemy',presentation:{mechanicId:id,isUltimate:true}};
+      let targetX=300;h.scope.getBattleEffectAnchor=id=>({id,x:id==='ally'?targetX:100,y:200,rect:{width:80,height:90},element:root});
+      const fx=h.scope.createEnemyChoreography(step,result,root,{reduced,animations:[],speed:1});assert.ok(fx,id);
+      fx.render(fx.contact);const image=root.children[0].children[0];assert.ok(image.src.endsWith('.png'));
+      const charge=/energy-core|blood-moon/.test(image.src)&&paths.length>1,link=/energy-stream|energy-link|overload-lightning/.test(image.src);
+      assert.equal(image.style.left,charge?'100px':link&&!reduced?'200px':'300px');
+      targetX=430;fx.render(fx.contact+.1);assert.equal(image.style.left,charge?'100px':link&&!reduced?'265px':'430px');
+      result.actualDamage=0;fx.render(fx.contact+.2);assert.ok(root.children[0].children.every(n=>n.style.opacity==='0'),'miss must not show an impact');
+      fx.remove();assert.equal(root.children[0].isConnected,false);
+    }
+  }
+  assert.equal(h.commits.length,0);
+  assert.equal(h.scope.enemyPaintedPaths({presentation:{mechanicId:'abyss_sage'}},{kind:'damage'}),null,'preserve Sage choreography');
+  assert.equal(h.scope.enemyPaintedPaths({presentation:{mechanicId:'lava_colossus'},actionId:'heal'},{kind:'heal'}),null,'never put a fist on healing');
+});
+
+test('Alchemist painted vial leaves the hand and tracks the true target with reduced motion',async()=>{
+  for(const reduced of [false,true]){
+    const nodes=[],target={x:800,y:200};
+    class Node{constructor(){this.style={};this.children=[];nodes.push(this);}appendChild(n){this.children.push(n);}setAttribute(){}remove(){this.removed=true;}}
+    const scope={innerWidth:1440,innerHeight:900,AMMO_IMAGES:{},document:{createElement:()=>new Node()},getBattleEffectAnchor:id=>id==='enemy_2'?target:{x:50,y:600}};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    const samples=[],stage={root:new Node(),reduced,tick:async(ms,render)=>{render(0);samples.push({...nodes[1].style});target.x=930;render(1);samples.push({...nodes[1].style});}};
+    await scope.battlefieldProjectile(stage,'hero','enemy_2','bottle',{getBoundingClientRect:()=>({left:200,top:400,width:300,height:200})});
+    assert.equal(nodes[2].src,'/assets/combat-fx/alchemist/reagent-bottle.png');assert.equal(samples[0].left,reduced?'800px':'446px');assert.equal(samples[1].left,'930px');assert.equal(nodes[1].removed,true);
+  }
+});
+
+
+test('All real enemy queues retain one settlement per result with painted choreography',async t=>{
+  for(const template of allEnemyTemplates){
+    const {room,enemy}=mechanismBattle(t,[template]);room.checkDodge=()=>false;const queue=mechanismRound(room,3);queue.push(...actMechanism(room,enemy));normalizeCombatQueue(queue,'official-art-'+enemy.instanceId);
+    for(const reducedMotion of [false,true]){
+      const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+      const preloaded=[];h.scope.preloadPhase5Art=async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
+      for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion,speed:1.5});
+      assert.equal(h.commits.length,queue.flatMap(s=>s.results).length,template.name);assert.equal(h.frames.size,0);assert.ok(h.roots.filter(root=>root.className==='enemy-effect-overlay').every(root=>!root.isConnected));
+      const before=h.commits.length;for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion});assert.equal(h.commits.length,before,'replay cannot apply damage twice');
+    }
+  }
+});
+
+
+test('Arena participants keep their own painted profession renderer',async()=>{
+  const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  const calls=[];scope.playBattlefieldPaintedRole=async step=>calls.push(step.sourceRole);scope.playBattlefieldRanged=async step=>calls.push(step.sourceRole);scope.playPhase5BattlefieldPresentation=async()=>{throw Error('An unrelated profession must not use Gladiator art');};
+  for(const sourceRole of ['alchemist','archer','warrior','mage','assassin','bard','paladin'])await scope.playBattlefieldPlayerPresentation({type:'player_action',sourceRole,actionId:'basic',hpSnapshotBefore:{arena:{playerId:'hero',enemyId:'enemy_2'}}},{});
+  assert.equal(calls.length,7);
+});
+
+
+test('Production and Lab load painted enemy choreography before its dispatcher',()=>{
+  for(const page of ['index.html','presentation-lab.html']){
+    const html=readFileSync(new URL('../public/'+page,import.meta.url),'utf8');
+    const choreography=html.indexOf('<script src="enemy-choreography.js"'),dispatch=html.indexOf('<script src="enemy-presentation.js"');
+    assert.ok(choreography>=0&&choreography<dispatch,page+' must not silently run the placeholder renderer');
+  }
+});
+
+test('A dead lava source still paints its authoritative explosion on the living target',()=>{
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const root=h.scope.document.createElement('div');h.scope.getBattleEffectAnchor=id=>id==='dead-larva'?null:{x:360,y:240,rect:{width:80,height:90},element:root};
+  const fx=h.scope.createEnemyChoreography({sourceId:'dead-larva',presentation:{mechanicId:'lava_larva',family:'lava'}},{kind:'damage',targetId:'ally',actualDamage:4},root,{reduced:false,animations:[],speed:1});
+  fx.render(0);assert.equal(root.children[0].hidden,true);fx.render(fx.contact+.1);assert.equal(root.children[0].hidden,false);assert.equal(root.children[0].children[0].style.left,'360px');assert.equal(h.commits.length,0);fx.remove();
 });

@@ -5,46 +5,77 @@ const ENEMY_CHOREOGRAPHY_TIMING=Object.freeze({
   shadow_alpha:{basic:[900,.43],ultimate:[1380,.46]},
   banshee:{basic:[1080,.49],ultimate:[1740,.58]}
 });
+// Explicit semantic matches. Missing art returns to the existing effect; no unrelated picture is substituted.
+const ENEMY_PAINTED_ART=Object.freeze({
+  lava_colossus:['enemies/lava-fist.png','enemies/lava-ground-crack.png','enemies/lava-eruption.png','enemies/lava-debris.png'],
+  shadow_alpha:['enemies/shadow-lunge.png','enemies/shadow-claw.png','enemies/shadow-rending-claws.png','enemies/shadow-rend.png'],
+  ancient_golem:['enemies/automaton-energy-core.png','enemies/overload-lightning.png'],
+  blood_sorcerer:['enemies/blood-ribbon.png','enemies/blood-pierce.png','enemies/blood-moon.png','enemies/blood-energy-stream.png'],
+  corrosive_serpent:['enemies/acid-projectile.png','enemies/acid-pool.png'],
+  frost_knight:['common/ice-projectile-volley.png','common/frost-slash.png','common/ice-eruption.png'],
+  glutton:['enemies/gluttonous-bite.png'],banshee:['enemies/whispering-spirits.png','enemies/banshee-scream.png'],
+  crystal_scorpion:['enemies/crystal-pierce.png','enemies/crystal-burst.png'],
+  hellstrider:['common/fireball.png','common/meteor-shower.png','common/rock-impact.png'],
+  lava_larva:['enemies/lava-debris.png','enemies/lava-eruption.png'],
+  shadow_wolf_pup:['enemies/shadow-lunge.png','enemies/shadow-claw.png'],
+  ancient_repair_drone:['common/arcane-energy-link.png','enemies/automaton-energy-core.png'],
+  blood_moon_acolyte:['enemies/blood-ribbon.png','enemies/blood-energy-stream.png'],
+  corrosive_slime:['enemies/acid-projectile.png','enemies/acid-pool.png'],
+  frostbone_skeleton:['common/ice-projectile-volley.png','common/frost-slash.png'],
+  carrion_crawler:['enemies/parasitic-vortex.png'],whispering_apparition:['enemies/whispering-spirits.png'],
+  crystal_beetle:['enemies/crystal-pierce.png','enemies/crystal-burst.png'],hellfire_imp:['common/fireball.png'],
+  labyrinth_crossbowman:['archer/magic-arrow.png'],cave_goblin_rogue:['common/slash-texture.png'],
+  shady_merchant:['common/gold-coin-burst.png'],treasure_mimic:['enemies/gluttonous-bite.png'],
+  abyss_remnant:['enemies/whispering-spirits.png'],
+  abyss_warrior:['common/sword-slash.png'],abyss_mage:['mage/arcane-core.png'],abyss_archer:['archer/magic-arrow.png'],
+  abyss_assassin:['assassin/shadow-step.png','assassin/fatal-slash.png'],abyss_bard:['bard/pluck-streak.png','bard/melody-ribbon.png'],
+  abyss_alchemist:['common/acid-orb.png','common/acid-splash.png'],abyss_druid:['common/vine-strike.png'],
+  abyss_paladin:['common/sword-slash.png'],abyss_gladiator:['common/slash-texture.png'],abyss_samurai:['common/sword-slash.png']
+});
+function enemyPaintedPaths(step,result){
+  const id=step.presentation?.mechanicId,art=ENEMY_PAINTED_ART[id];
+  if(!art)return null;
+  if(result.kind==='damage'||result.kind==='intercept'){
+    if(/反射/.test(step.actionId))return id==='crystal_scorpion'?['enemies/crystal-burst.png']:null;
+    if(!step.presentation?.isUltimate){
+      if(id==='lava_colossus')return [art[0],art[1],art[3]];
+      if(id==='shadow_alpha')return art.slice(0,2);
+      if(id==='blood_sorcerer')return art.slice(0,2);
+      if(id==='hellstrider')return [art[0]];
+      if(id==='frost_knight')return ['common/frost-slash.png'];
+    }
+    return art;
+  }
+  if(/岩甲失效/.test(step.actionId))return ['enemies/lava-debris.png'];
+  if(result.kind==='shield'&&id==='abyss_paladin')return ['paladin/holy-shield.png'];
+  if(result.kind==='heal'&&id==='abyss_bard')return ['bard/melody-ribbon.png'];
+  if(result.kind==='heal'&&id==='abyss_mage')return ['common/arcane-energy-link.png'];
+  if(result.kind==='heal'&&id==='abyss_alchemist')return ['alchemist/transmutation-orb.png'];
+  if(result.kind==='shield'&&['ancient_golem','ancient_repair_drone'].includes(id))return ['enemies/automaton-energy-core.png'];
+  if(result.kind==='shield'&&['crystal_scorpion','crystal_beetle'].includes(id))return ['enemies/crystal-burst.png'];
+  if(result.kind==='heal'&&['blood_sorcerer','blood_moon_acolyte'].includes(id))return ['enemies/blood-energy-stream.png'];
+  if(result.kind==='heal'&&id==='glutton')return ['enemies/parasitic-vortex.png'];
+  if(result.kind==='status'&&/充能|能源/.test(step.actionId)&&['ancient_golem','ancient_repair_drone'].includes(id))return ['enemies/automaton-energy-core.png'];
+  return null;
+}
 function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {
-  const id=step.presentation?.mechanicId,timing=ENEMY_CHOREOGRAPHY_TIMING[id];
-  if(!timing||result.kind!=='damage'||result.targetEnemyId)return null;
-  const ultimate=!!step.presentation.isUltimate,[baseDuration,baseContact]=timing[ultimate?'ultimate':'basic'];
+  const paths=enemyPaintedPaths(step,result);if(!paths)return null;
+  const id=step.presentation.mechanicId,ultimate=!!step.presentation.isUltimate;
+  const existingDuration=typeof ENEMY_FX_PROFILES!=='undefined'?(ENEMY_FX_PROFILES[step.presentation.family]?.[3]||700):700;
+  const timing=ENEMY_CHOREOGRAPHY_TIMING[id]||{basic:[existingDuration,.35],ultimate:[existingDuration,.35]};
+  const [baseDuration,baseContact]=timing[ultimate?'ultimate':'basic'];
   const duration=reduced?650:baseDuration,contact=reduced?.35:baseContact;
   const sourceId=step.presentation.visualOriginId||result.sourceId||step.sourceId,targetId=resolvePresentationTarget(result,step);
   const layer=document.createElement('div');layer.className='enemy-choreography enemy-choreography-'+id;layer.dataset.ultimate=String(ultimate);layer.setAttribute('aria-hidden','true');root.appendChild(layer);
-  const ns='http://www.w3.org/2000/svg';
-  const svg=document.createElementNS(ns,'svg');svg.classList.add('enemy-painted-effects');layer.appendChild(svg);
-  const make=(tag,attrs,parent=svg)=>{const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);parent.appendChild(n);return n;};
-  // Irregular stone facets / brush strokes keep the effect in the existing
-  // painted fantasy palette instead of a neon geometric impact badge.
-  const defs=make('defs',{}),gradientId='rock-'+String(result.resultId||sourceId).replace(/[^a-zA-Z0-9]/g,'');
-  const gradient=make('linearGradient',{id:gradientId,x1:'0',y1:'0',x2:'1',y2:'1'},defs);
-  make('stop',{offset:'0','stop-color':'#847360'},gradient);make('stop',{offset:'.45','stop-color':'#332e2b'},gradient);make('stop',{offset:'1','stop-color':'#15191c'},gradient);
-  const fist=make('g',{'class':'enemy-lava-fist',opacity:0});
-  if(id==='lava_colossus'){
-    // A clipped fist fragment reuses the actual painted sprite. It has no
-    // actor model, portrait card or HP and never duplicates the whole unit.
-    const crop=make('svg',{x:-52,y:-65,width:104,height:130,viewBox:'1500 1230 340 440',overflow:'hidden'},fist);
-    const path='/BOSS/Lava Colossus_fullbody.webp';
-    make('image',{href:typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(path):path,x:0,y:0,width:2048,height:2048},crop);
-  }
-  const cracks=Array.from({length:ultimate?8:5},(_,i)=>make('path',{fill:'none',stroke:i%2?'#c36c39':'#e6ad64','stroke-width':i%2?2:3,'stroke-linecap':'round',opacity:0}));
-  const chips=Array.from({length:ultimate?16:8},(_,i)=>make('path',{d:'M-7-4 L1-9 9-2 5 7 -4 5Z',fill:i%3?'#5d5146':'#ca6d35',stroke:'#a78b62','stroke-width':1,opacity:0}));
-  const waves=Array.from({length:ultimate?9:4},(_,i)=>make('path',{fill:'none',stroke:i%3?'#afbbc9':'#e5dce9','stroke-width':i%3?1.4:3,'stroke-linecap':'round',opacity:0}));
-  const aura=make('path',{fill:'none',stroke:'#bfc8dc','stroke-width':2,opacity:0});
-  const clawNodes=[];
-  if(id==='shadow_alpha')for(let i=0;i<(ultimate?3:1);i++){
-    const claw=document.createElement('div');claw.className='enemy-painted-claws';claw.style.backgroundImage='url("/assets/beast-claw-scratch.svg")';claw.style.opacity='0';layer.appendChild(claw);clawNodes.push(claw);
-  }
+  const images=paths.map(path=>{const n=document.createElement('img');n.src='/assets/combat-fx/'+path;n.alt='';n.className='enemy-official-art';n.setAttribute('aria-hidden','true');layer.appendChild(n);return n;});
   const clamp=n=>Math.max(0,Math.min(1,n)),out=n=>1-Math.pow(1-clamp(n),3);
   let actorAnimated=false;
   const render=p=>{
-    const source=getBattleEffectAnchor(sourceId),target=getBattleEffectAnchor(targetId);if(!source||!target){layer.hidden=true;return;}layer.hidden=false;
-    svg.setAttribute('viewBox','0 0 '+innerWidth+' '+innerHeight);
-    const a=source,b=target,dx=b.x-a.x,dy=b.y-a.y,angle=Math.atan2(dy,dx)*180/Math.PI;
+    const source=getBattleEffectAnchor(sourceId),target=getBattleEffectAnchor(targetId);if(!target||(!source&&p<contact)){layer.hidden=true;return;}layer.hidden=false;
+    const a=source||target,b=target,dx=b.x-a.x,dy=b.y-a.y;
     const wind=clamp(p/contact),q=clamp((p-contact)/(1-contact));
     layer.dataset.phase=p<contact*.6?'windup':p<contact?'travel':q<.4?'impact':'dissolve';
-    if(!actorAnimated){
+    if(!actorAnimated&&source){
       actorAnimated=true;const sprite=source.element.querySelector('.enemy-sprite-img');
       if(sprite?.animate&&!reduced){
         const leap=id==='shadow_alpha',x=leap?dx*.76:Math.sign(dx)*(ultimate?18:9),y=leap?dy*.68:-(ultimate?20:10);
@@ -54,35 +85,19 @@ function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {
         animations.push(sprite.animate(motion,{duration:duration/speed,easing:'linear',fill:'forwards'}));
       }
     }
-    if(id==='lava_colossus'){
-      const flight=out((wind-.45)/.55),size=ultimate?1.65:1;
-      const hand={x:a.x+a.rect.width*.33,y:a.y+a.rect.height*.2};
-      fist.setAttribute('opacity',p<contact?String(clamp(wind*5)):String(Math.max(0,1-q*4)));
-      fist.setAttribute('transform',`translate(${hand.x+(b.x-hand.x)*flight},${hand.y+(b.y-hand.y)*flight-Math.sin(flight*Math.PI)*(ultimate?85:45)}) rotate(${wind*35-25}) scale(${size*(.35+.65*flight)})`);
-      const foot=b.y+b.rect.height*.38,spread=ultimate?210:105;
-      cracks.forEach((n,i)=>{const theta=(i/(cracks.length-1)*1.7+.65)*Math.PI,reach=spread*out(q*3),x=Math.cos(theta)*reach,y=Math.sin(theta)*reach*.25;n.setAttribute('d',`M${b.x} ${foot} l${x*.3} ${y*.3-6} ${x*.18} ${y*.2+9} ${x*.22} ${y*.1-3} ${x*.3} ${y*.4}`);n.setAttribute('opacity',p>=contact?String((1-q)*.9):'0');});
-      chips.forEach((n,i)=>{const t=q,theta=(i*2.4),vx=Math.cos(theta)*(ultimate?170:90),vy=-30-(i%5)*22;const x=b.x+vx*t,y=foot+vy*t+100*t*t;n.setAttribute('transform',`translate(${x},${y}) rotate(${i*37+t*160}) scale(${.5+i%3*.3})`);n.setAttribute('opacity',p>=contact?String((1-t)*.9):'0');});
-    }else if(id==='shadow_alpha'){
-      for(const [i,claw] of clawNodes.entries()){
-        const start=contact+i*.075,age=(p-start)/.23,alpha=age<0?0:Math.sin(clamp(age)*Math.PI)*(1-clamp(age)*.3);
-        Object.assign(claw.style,{left:b.x+'px',top:b.y+'px',width:(ultimate?190:145)+'px',height:(ultimate?190:145)+'px',opacity:String(alpha),transform:`translate(-50%,-50%) rotate(${angle-90+(i%2?-42:24)}deg) scale(${.8+out(age)*.25})`});
-      }
-      waves.forEach((n,i)=>{const age=clamp((p-contact*.45)/contact),x=a.x+dx*age,y=a.y+dy*age;n.setAttribute('d',`M${x-dx*.18} ${y-dy*.18+i*6} Q${x-dx*.07} ${y-10+i*8} ${x} ${y+i*5}`);n.setAttribute('stroke','#65596e');n.setAttribute('opacity',!reduced&&p<contact?String(age*.45):'0');});
-    }else{
-      // Cold, asymmetric sound fronts converge at the throat, then travel to
-      // the target. The ultimate stores several pulses before a broad scream.
-      const mouth={x:a.x,y:a.y-a.rect.height*.18},charge=wind*Math.PI*2;
-      aura.setAttribute('d',`M${mouth.x-34*wind} ${mouth.y-8} Q${mouth.x-18} ${mouth.y-27-Math.sin(charge)*8} ${mouth.x+8} ${mouth.y-17} Q${mouth.x+42} ${mouth.y+3} ${mouth.x+19} ${mouth.y+22}`);
-      aura.setAttribute('opacity',p<contact?String(wind*.75):String((1-q)*.2));
-      waves.forEach((n,i)=>{
-        const travel=clamp((p-contact*.55-i*.012)/(contact*.45)),x=mouth.x+(b.x-mouth.x)*travel,y=mouth.y+(b.y-mouth.y)*travel;
-        const radius=(ultimate?35:18)+(ultimate?90:45)*travel+(p>=contact?q*25:0),tilt=Math.atan2(dy,dx),ux=Math.cos(tilt+Math.PI/2)*radius,uy=Math.sin(tilt+Math.PI/2)*radius;
-        n.setAttribute('d',`M${x-ux} ${y-uy} Q${x+Math.cos(tilt)*radius*.7} ${y+Math.sin(tilt)*radius*.7-8} ${x+ux*.15} ${y+uy*.15} Q${x-Math.cos(tilt)*radius*.35} ${y-Math.sin(tilt)*radius*.35+7} ${x+ux} ${y+uy}`);
-        n.setAttribute('opacity',p>contact*.55?String((p>=contact?(1-q)*.48:Math.sin(travel*Math.PI)*(ultimate?.7:.5))):'0');
-      });
-      chips.forEach((n,i)=>{n.setAttribute('opacity','0');});
-    }
-    if(reduced){fist.setAttribute('opacity','0');for(const n of chips)n.setAttribute('opacity','0');for(const claw of clawNodes)claw.style.opacity=p>=contact&&q<.5?'.35':'0';}
+    const missed=['damage','intercept'].includes(result.kind)&&!(result.actualDamage>0);
+    images.forEach((image,i)=>{
+      const path=paths[i],charge=/energy-core|blood-moon/.test(path)&&paths.length>1;
+      const link=/energy-stream|energy-link|overload-lightning/.test(path);
+      const impactOnly=!charge&&(i>0||paths.length===1),travel=out((wind-.35)/.65),ground=/ground|pool|eruption/.test(path);
+      const hitAge=clamp((p-contact-i*.025)/(1-contact)),visible=charge?p<contact:impactOnly?p>=contact+i*.025&&!missed:p<contact||!missed;
+      let x=charge?a.x:reduced||impactOnly?b.x:a.x+dx*travel;
+      let y=(charge?a.y:reduced||impactOnly?b.y:a.y+dy*travel)+(ground?b.rect.height*.32:0);
+      let width=Math.min(ultimate?240:175,Math.max(100,b.rect.width*1.7)),height=width,rotation=reduced?0:i*12;
+      if(link&&!reduced){x=(a.x+b.x)/2;y=(a.y+b.y)/2;width=Math.hypot(dx,dy);height=Math.min(110,b.rect.height);rotation=Math.atan2(dy,dx)*180/Math.PI;}
+      const alpha=charge?Math.sin(wind*Math.PI):p<contact?Math.sin(wind*Math.PI):1-hitAge;
+      Object.assign(image.style,{left:x+'px',top:y+'px',width:width+'px',height:height+'px',opacity:visible?String(alpha*(reduced?.55:1)):'0',transform:`translate(-50%,-50%) scale(${reduced?1:p<contact?.65+travel*.35:1+hitAge*.18}) rotate(${rotation}deg)`});
+    });
   };
-  return {duration,contact,render,remove:()=>layer.remove(),windupSfx:id==='banshee'?'bard_tone':'air_pass',impactSfx:id==='shadow_alpha'?'claw_slash':id==='banshee'?'bard_off_key':'heavy_impact'};
+  return {duration,contact,render,remove:()=>layer.remove(),windupSfx:id==='banshee'?'bard_tone':['lava_colossus','shadow_alpha'].includes(id)?'air_pass':null,impactSfx:id==='shadow_alpha'?'claw_slash':id==='banshee'?'bard_off_key':id==='lava_colossus'?'heavy_impact':null};
 }

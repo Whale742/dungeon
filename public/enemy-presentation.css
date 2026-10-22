@@ -58,3 +58,5 @@
 @media(prefers-reduced-motion:reduce){.enemy-effect-shape{animation:none;box-shadow:none}.enemy-effect-link{display:none}}
 .enemy-effect-shape[data-reduced=true]{animation:none;box-shadow:none}
 @media(max-height:480px){.enemy-telegraphs{font-size:11px;margin:2px;padding:3px 7px}.enemy-effect-caption{font-size:11px}}
+
+.enemy-official-art{position:absolute;object-fit:contain;pointer-events:none;transform-origin:center}

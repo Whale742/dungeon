@@ -206,7 +206,7 @@ const COMBAT_SKILL_PROFILES = Object.freeze({
 
 const COMBAT_FX_ASSETS = Object.freeze({
   werewolfClaw: '/assets/beast-claw-scratch.svg', bossClaw: '/assets/beast-claw-scratch.svg',
-  swordSlash: null, vineStrike: null, impactSpark: null, acidSplash: null, slashTexture: null
+  swordSlash: '/assets/combat-fx/common/sword-slash.png', vineStrike: '/assets/combat-fx/common/vine-strike.png', impactSpark: '/assets/combat-fx/common/impact-spark.png', acidSplash: '/assets/combat-fx/common/acid-splash.png', slashTexture: '/assets/combat-fx/common/slash-texture.png', acidBottle:'/assets/combat-fx/alchemist/reagent-bottle.png', arrow:'/assets/combat-fx/archer/magic-arrow.png'
 });
 const COMBAT_FORM_PROFILES = Object.freeze({
   werewolf: { fxType: 'claw_slash', attackSfx: 'claw_slash', impactSfx: 'heavy_impact', fxLead: 220 },
@@ -239,7 +239,15 @@ function createCombatFx({ type, target, direction = 'right', variant, speed = 1,
   if (variant) fx.dataset.variant = variant;
   fx.style.setProperty('--fx-speed', speed);
   if (reducedMotion) fx.dataset.reducedMotion = 'true';
-  if (type === 'claw_slash' || type === 'boss_claw') {
+  const painted={sword_slash:COMBAT_FX_ASSETS.swordSlash,cross_slash:COMBAT_FX_ASSETS.slashTexture,
+    vine_strike:COMBAT_FX_ASSETS.vineStrike,nature_strike:COMBAT_FX_ASSETS.vineStrike,
+    impact_spark:COMBAT_FX_ASSETS.impactSpark,arrow_projectile:COMBAT_FX_ASSETS.arrow,
+    acid_projectile:COMBAT_FX_ASSETS.acidBottle,acid_splash:COMBAT_FX_ASSETS.acidSplash}[type];
+  if(painted){
+    fx.classList.add('combat-fx-official');
+    const image=document.createElement('img');image.src=painted;image.alt='';image.setAttribute('aria-hidden','true');fx.appendChild(image);
+    if(type==='cross_slash'){const second=image.cloneNode();second.className='is-second';fx.appendChild(second);}
+  } else if (type === 'claw_slash' || type === 'boss_claw') {
     const asset = type === 'boss_claw' ? COMBAT_FX_ASSETS.bossClaw : COMBAT_FX_ASSETS.werewolfClaw;
     fx.classList.add('combat-fx-claw');
     fx.style.setProperty('--claw-asset', `url("${asset}")`);

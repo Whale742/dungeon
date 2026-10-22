@@ -1586,3 +1586,9 @@ body:has(#viewBattle.active) .main-content {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+.combat-fx-official:before,.combat-fx-official:after{display:none!important}
+.combat-fx-official img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;animation:combatPaintedStrike calc(420ms / var(--fx-speed,1)) ease-out both}
+.combat-fx-official img.is-second{rotate:85deg;animation-delay:60ms}
+.combat-fx-official[data-reduced-motion=true] img{animation-name:combatFxFade}
+@keyframes combatPaintedStrike{0%{opacity:0;scale:.7;rotate:-12deg}25%{opacity:1;scale:1;rotate:0deg}100%{opacity:0;scale:1.15;rotate:10deg}}

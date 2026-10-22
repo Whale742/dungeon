@@ -167,6 +167,10 @@ async function playEnemyMechanicPresentation(step, context={}) {
   const signal=context.signal;if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
   const profile=ENEMY_FX_PROFILES[step.presentation?.family]||ENEMY_FX_PROFILES.heavy,speed=Math.max(.1,context.speed||1);
   const reduced=context.reducedMotion||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if(typeof enemyPaintedPaths==='function'&&typeof preloadPhase5Art==='function'){
+    const paths=[...new Set((step.results||[]).flatMap(r=>enemyPaintedPaths(step,r)||[]))];
+    await preloadPhase5Art(paths.map(p=>'/assets/combat-fx/'+p),signal);
+  }
   const root=document.createElement('div');root.className='enemy-effect-overlay';root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
   let frame=0;const animations=[];
   const cleanup=()=>{cancelAnimationFrame(frame);for(const a of animations)a.cancel();root.remove();};
@@ -205,7 +209,7 @@ async function playEnemyMechanicPresentation(step, context={}) {
         frame=requestAnimationFrame(place);
       };
       place();
-      if(custom&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
+      if(custom?.windupSfx&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
       await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
         impacted=true;impactTime=performance.now();effect.hidden=!!custom||!lastRect;beam.hidden=true;projectile.hidden=true;
