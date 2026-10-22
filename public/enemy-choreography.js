@@ -56,8 +56,9 @@ function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {
     }
     if(id==='lava_colossus'){
       const flight=out((wind-.45)/.55),size=ultimate?1.65:1;
+      const hand={x:a.x+a.rect.width*.33,y:a.y+a.rect.height*.2};
       fist.setAttribute('opacity',p<contact?String(clamp(wind*5)):String(Math.max(0,1-q*4)));
-      fist.setAttribute('transform',`translate(${a.x+dx*flight},${a.y+dy*flight-Math.sin(flight*Math.PI)*(ultimate?85:45)}) rotate(${wind*35-25}) scale(${size})`);
+      fist.setAttribute('transform',`translate(${hand.x+(b.x-hand.x)*flight},${hand.y+(b.y-hand.y)*flight-Math.sin(flight*Math.PI)*(ultimate?85:45)}) rotate(${wind*35-25}) scale(${size*(.35+.65*flight)})`);
       const foot=b.y+b.rect.height*.38,spread=ultimate?210:105;
       cracks.forEach((n,i)=>{const theta=(i/(cracks.length-1)*1.7+.65)*Math.PI,reach=spread*out(q*3),x=Math.cos(theta)*reach,y=Math.sin(theta)*reach*.25;n.setAttribute('d',`M${b.x} ${foot} l${x*.3} ${y*.3-6} ${x*.18} ${y*.2+9} ${x*.22} ${y*.1-3} ${x*.3} ${y*.4}`);n.setAttribute('opacity',p>=contact?String((1-q)*.9):'0');});
       chips.forEach((n,i)=>{const t=q,theta=(i*2.4),vx=Math.cos(theta)*(ultimate?170:90),vy=-30-(i%5)*22;const x=b.x+vx*t,y=foot+vy*t+100*t*t;n.setAttribute('transform',`translate(${x},${y}) rotate(${i*37+t*160}) scale(${.5+i%3*.3})`);n.setAttribute('opacity',p>=contact?String((1-t)*.9):'0');});

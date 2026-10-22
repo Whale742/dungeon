@@ -36,7 +36,7 @@ function getBattleEffectAnchor(id) {
 function positionBattleFeedback(node,id,lane=0,occupied=[]) {
   const anchor=getVisualAnchor(id);if(!anchor){node.hidden=true;return;}
   const r=anchor.element.getBoundingClientRect(),w=Math.max(34,node.offsetWidth||48),h=22;
-  const obstacles=[...document.querySelectorAll('.battle-enemy-slot,.teammate-card')].map(n=>n.getBoundingClientRect());
+  const obstacles=[...document.querySelectorAll('.battle-enemy-slot,.teammate-card,.enemy-cd-badge,.enemy-danger-marker,.enemy-threat-marker,.app-header,.enemy-telegraphs')].map(n=>n.getBoundingClientRect());
   const candidates=[];
   for(let row=0;row<8;row++){
     candidates.push([r.left+r.width/2,r.top-18-(row+lane)*24]);
@@ -206,7 +206,8 @@ async function playEnemyMechanicPresentation(step, context={}) {
       await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
         impacted=true;impactTime=performance.now();effect.hidden=!!custom||!lastRect;beam.hidden=true;projectile.hidden=true;
-        for(const entry of battleFeedbackEntries(result)){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';owned.appendChild(n);numbers.push(n);}
+        const initialPositions=[];
+        for(const entry of battleFeedbackEntries(result)){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';n.hidden=true;owned.appendChild(n);numbers.push(n);positionBattleFeedback(n,targetId,numbers.length-1,initialPositions);}
         if(typeof sfxManager!=='undefined')sfxManager.play(custom?.impactSfx||(result.kind==='heal'?'heal':result.kind==='shield'?'shield_cast':result.kind==='cleanse'?'cleanse':profile[2]),{signal,instance:step.sourceId});
         if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){effect.hidden=!lastRect;effect.classList.add('battlefield-parry');if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});}
         if(step.presentation&&Object.hasOwn(step.presentation,'arenaAfter'))syncEnemyArenaVisual(step.presentation.arenaAfter);

@@ -539,6 +539,44 @@ test('Enemy strip caps three icons while the existing tooltip keeps full statuse
   for(const label of ['POISON','BURN','FRACTURE','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
   assert.ok(tooltip.innerHTML.includes('2/2'));assert.ok(tooltip.innerHTML.includes('3 回合'));
 });
+test('A four-hit ultimate shows one central name while committing all four actual hits',async t=>{
+  const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.samurai]);mechanismRound(room,3);room.checkDodge=()=>false;
+  const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'one-ultimate-cue');
+  const h=enemyPresentationHarness(),context={signal:new AbortController().signal,reducedMotion:true};
+  for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,context);
+  const captions=h.roots.flatMap(n=>n.children).filter(n=>n.className==='enemy-effect-caption');
+  assert.equal(captions.length,1);assert.equal(captions[0].textContent,enemy.ultName);
+  assert.equal(h.commits.filter(r=>r.kind==='damage').length,4);
+});
+test('Concurrent enemy threats use a single warning and a compact real-target lock',t=>{
+  const {room,player}=mechanismBattle(t,[ENCOUNTERS[1],ENCOUNTERS[2],ENCOUNTERS[0]]);mechanismRound(room,3);
+  const h=enemyPresentationHarness(),stage=h.scope.document.createElement('div'),card=h.scope.document.createElement('div');let warning;
+  stage.before=n=>{warning=n;};card.dataset.playerId=player.id;card.querySelector=()=>card.children[0]||null;
+  h.scope.document.getElementById=id=>id==='battleEnemiesStage'?stage:id==='enemyTelegraphs'?warning:null;
+  h.scope.document.querySelectorAll=()=>[card];
+  h.scope.renderEnemyTelegraphs(room.getHpSnapshot().enemies);
+  assert.ok(warning.textContent.includes('另 2 名警戒'));assert.ok(!warning.textContent.includes('\n'));
+  assert.equal(card.children[0].textContent,'⌖');assert.ok(!card.children[0].hidden);
+});
+test('Impact numbers have safe coordinates before their first animation frame',async t=>{
+  const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.stargazer]);mechanismRound(room,1);room.checkDodge=()=>false;
+  const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'first-frame-values');const h=enemyPresentationHarness();
+  for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{});
+  const visit=n=>[n,...n.children.flatMap(visit)],values=h.roots.flatMap(visit).filter(n=>n.className?.includes('battle-feedback')&&n.className!=='battle-feedback-sr');
+  assert.ok(values.length);assert.ok(values.every(n=>parseFloat(n.style.left)>0&&parseFloat(n.style.top)>0));
+});
+test('Split HP and shield numbers avoid actor, cooldown and header rectangles in a narrow viewport',()=>{
+  const h=enemyPresentationHarness();h.scope.innerWidth=844;h.scope.innerHeight=390;
+  const obstacles=[{left:100,right:180,top:100,bottom:240,width:80,height:140},{left:110,right:170,top:72,bottom:96},{left:0,right:844,top:0,bottom:60}];
+  h.scope.document.querySelectorAll=()=>obstacles.map(r=>({getBoundingClientRect:()=>r}));
+  h.scope.getVisualAnchor=id=>({id,element:{getBoundingClientRect:()=>obstacles[0]},x:140,y:170});
+  const occupied=[];
+  for(let i=0;i<2;i++)h.scope.positionBattleFeedback(h.scope.document.createElement('div'),'target',i,occupied);
+  assert.equal(occupied.length,2);
+  const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+  assert.ok(occupied.every(r=>r.left>=0&&r.right<=844&&r.top>=0&&r.bottom<=390&&obstacles.every(o=>!overlaps(r,o))));
+  assert.ok(!overlaps(occupied[0],occupied[1]));
+});
 test('Rain armor prelude never reveals a secondary hit before the player animation',t=>{
   const {room,player,events}=mechanismBattle(t,[ENCOUNTERS[0],EXCLUSIVE_MINIONS[0],EXCLUSIVE_MINIONS[0]],'archer');
   const before=room.getHpSnapshot().enemies.map(e=>e.hp),rolls=[.9,.1,.1,.1];t.mock.method(Math,'random',()=>rolls.shift()??.1);
