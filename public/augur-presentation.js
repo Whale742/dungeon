@@ -572,6 +572,7 @@ function preloadAugurAssets() {
 if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>{augurPreloadPromise=null;});
 
 async function playAugurPresentation(step,context={}) {
+  if(typeof playBattlefieldAugur==='function'&&getActorAnchor(step.sourceId))return playBattlefieldAugur(step,{...context,battlefield:true});
   await preloadAugurAssets();
   const signal=context.signal || context.controller?.signal;if(signal?.aborted)return;
   const stage=typeof getOrCreateCombatStage==='function'?getOrCreateCombatStage():document.querySelector('.combat-stage') || document.body;

@@ -7,7 +7,7 @@ async function playSageEquationPresentation(step,context) {
   const prepareStage=s=>{
     if(!confusion)return;
     cutin=s.el('img','sage-confusion-cutin');cutin.src='assets/sage-error.png';cutin.alt='智者思緒紊亂';
-    if(step.outcome.confusionTargetId===step.sourceId){
+    if(!context.battlefield&&step.outcome.confusionTargetId===step.sourceId){
       const card=s.cards.get(step.sourceId);if(card)s.position(card.parentElement,260,650);
       s.anchors.set(step.sourceId,{x:260,y:650});
     }

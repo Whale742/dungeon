@@ -79,7 +79,7 @@ function getOnmyojiPortrait(descriptor = {}) {
     };
   }
   return {
-    src: onmyojiAsset('/photo/Onmyoji.webp'),
+    src: onmyojiAsset('/photo/Onmyōji.webp'),
     name: descriptor.name || '陰陽師'
   };
 }
@@ -875,7 +875,7 @@ function preloadOnmyojiAssets() {
   return onmyojiPreloadPromise ||= Promise.all([
     '/assets/Onmyoji-1.png',
     '/assets/Onmyoji-2.png',
-    '/photo/Onmyoji.webp'
+    '/photo/Onmyōji.webp'
   ].map(p => {
     return new Promise(resolve => {
       const img = new Image();

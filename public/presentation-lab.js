@@ -601,14 +601,46 @@ function updateMockHudHp(playerId, hp, maxHp) {
 
 // Lab projects production snapshots only; it never invents presentation outcomes.
 window.applyHpSnapshot = snapshot => {
-  window.roomState = { ...window.roomState,
-    players: mergePresentationSnapshot({ players: window.roomState.players }, snapshot).players };
+  window.roomState = mergePresentationSnapshot(window.roomState,snapshot);
   for (const player of snapshot.players || []) {
     updateMockHudHp(player.id, player.hp, player.maxHp);
     const chip=[...document.querySelectorAll('.lab-mock-player-chip')].find(n=>n.dataset.playerId===player.id);
     if(chip){const resource=chip.querySelector('.combat-resource-summary');if(resource)resource.textContent=player.resourceSummary||'';syncPortraitStatusFx(player,chip.querySelector('.lab-sage-portrait'));}
+    if(chip&&document.body.classList.contains('lab-battlefield-preview')){
+      const portrait=chip.querySelector('.lab-sage-portrait');
+      const descriptor=resolveBattlePortrait(player);const image=portrait?.querySelector('img');if(image&&descriptor.src)image.src=descriptor.src;
+    }
   }
+  for(const enemy of snapshot.enemies||[]){const node=[...document.querySelectorAll('.lab-battlefield-enemy')].find(n=>n.dataset.enemyId===enemy.instanceId);if(node)node.querySelector('small').textContent=`HP ${enemy.hp}/${enemy.maxHp}`;}
 };
+// Existing lab fixtures exercise the production renderer on a single HUD, not
+// on the retired cinematic result cards. Fixture aliases are normalized here.
+async function playPhase5LabFixture(fixture,context) {
+  document.body.classList.add('lab-battlefield-preview');
+  const enemyRow=document.createElement('div');enemyRow.className='lab-battlefield-enemies';document.getElementById('labStage').appendChild(enemyRow);
+  const steps=structuredClone(fixture.steps||[]);
+  const normalize=snapshot=>{
+    if(!snapshot)return;
+    if(!snapshot.enemies?.length&&snapshot.monster)snapshot.enemies=[snapshot.monster];
+    for(const [i,e] of (snapshot.enemies||[]).entries())e.instanceId||='lab-enemy-'+i;
+    if(snapshot.monster)snapshot.monster.instanceId||=snapshot.enemies?.[0]?.instanceId;
+  };
+  for(const step of steps){
+    normalize(step.hpSnapshotBefore);normalize(step.hpSnapshot);
+    const id=step.targetEnemyId||step.hpSnapshotBefore?.monster?.instanceId;
+    if(step.targetId==='monster'){step.targetId=id;step.targetEnemyId=id;}
+    for(const result of step.results||[]){normalize(result.hpSnapshot);if(result.targetId==='monster'){result.targetId=id;result.targetEnemyId=id;if(result.targetBefore)result.targetBefore.instanceId=id;if(result.targetAfter)result.targetAfter.instanceId=id;}}
+  }
+  const initial=steps[0]?.hpSnapshotBefore;if(!initial){enemyRow.remove();return;}
+  appliedBattleResults.clear();window.roomState=structuredClone(initial);renderSageLabHud(initial.players||[]);
+  for(const enemy of initial.enemies||[]){
+    const node=document.createElement('div');node.className='battle-enemy-slot lab-battlefield-enemy';node.dataset.enemyId=enemy.instanceId;
+    const visual=document.createElement('div');visual.className='enemy-sprite-wrap';const image=document.createElement('img');image.src=enemy.avatar||steps[0].monsterAvatar;image.alt=enemy.name||'';visual.appendChild(image);node.appendChild(visual);
+    const hp=document.createElement('small');hp.textContent=`HP ${enemy.hp}/${enemy.maxHp}`;node.appendChild(hp);enemyRow.appendChild(node);
+  }
+  try{for(const step of steps){if(context.signal.aborted)return;await playBattlefieldPlayerPresentation(step,{...context,battlefield:true});}}
+  finally{enemyRow.remove();document.body.classList.remove('lab-battlefield-preview');}
+}
 function renderSageLabHud(players){
   const party=document.querySelector('#labMockHud .lab-mock-party');if(!party)return;
   party.replaceChildren();
@@ -789,6 +821,9 @@ async function playScene(sceneName) {
     const preloadRole=fixture?.role||fixture?.steps?.find(step=>step.sourceRole)?.sourceRole;
     if(preloadRole)await sfxManager.preloadRole(preloadRole);
     if(signal.aborted)return;
+    if(fixture?.steps?.length&&['sage','augur','onmyoji','gladiator','druid'].includes(preloadRole)){
+      await playPhase5LabFixture(fixture,context);logLab('COMPLETE',fixture.label,'success');return;
+    }
     if (typeof EVENT_LAB_SCENES !== 'undefined' && EVENT_LAB_SCENES[sceneName]) {
       await playEventLabScene(sceneName, context);
       return;

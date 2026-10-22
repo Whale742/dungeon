@@ -100,6 +100,7 @@ async function presentCombatResult(result, card, context = {}) {
   const emit = beat => context.onTiming?.(beat, { targetId: resolvePresentationTarget(result), result });
   if(!context.dreamweaverOriginalTrigger && ['dream_heal','nightmare'].includes(outcome.type))revealDreamOutcomeButterfly(card,outcome.type,context);
   if (result.sharedFrom) {
+    if(typeof playPhase5DruidGuard==='function')await playPhase5DruidGuard(result,context);
     card.classList.add('has-root-link');
     resultFloat(card, '傷害分攤', 'is-nature');
     await wait(100);

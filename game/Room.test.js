@@ -126,11 +126,12 @@ function phase1Battle(t, role, hp = 500) {
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
-for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame']})){
+for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame'],sage:['basic','sge_deduce','sge_induce'],augur:['basic','aug_bind','aug_reckon'],onmyoji:['basic','onm_talisman','onm_detonate'],gladiator:['basic','g_sacrifice','g_arena'],druid:['basic','dru_transform','dru_summon_wolf','dru_summon_treant']})){
   for(const action of actions)test('Phase 4 production battlefield dispatch: '+role+' '+action,t=>{
     const {room,player,events}=phase1Battle(t,role);t.mock.method(Math,'random',()=>.5);
     if(action==='sa_tsubame')player.soul=8;
     if(action==='dw_butterfly')player.targetPlayerId=player.id;
+    if(action==='aug_bind')player.targetPlayerId=player.id;
     player.action=action;room.resolveTurnActions();
     const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId===action);
     assert.ok(step,action);
@@ -255,7 +256,7 @@ for(const action of ['a_reload','a_frenzy_reload'])test('Phase 4 reload changes 
 test('Phase 4 battlefield scope owns no portraits and cleans abort, replay and quick playback',async t=>{
   const {room,player,events}=phase1Battle(t,'archer');player.action='a_rain';room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.actionId==='a_rain'),roots=[],frames=new Set(),committed=new Set();let clock=0,seq=0;
-  class Node{constructor(){this.children=[];this.style={setProperty(){}};this.dataset={};this.classList={add(){},remove(){}};this.hidden=false;}appendChild(n){this.children.push(n);return n;}querySelector(){return null;}remove(){this.removed=true;}}
+  class Node{constructor(){this.children=[];this.style={setProperty(){}};this.dataset={};this.classList={add(){},remove(){}};this.hidden=false;}appendChild(n){this.children.push(n);return n;}querySelector(){return null;}querySelectorAll(){return [];}remove(){this.removed=true;}}
   const scope={DOMException,AbortController,innerWidth:1280,innerHeight:720,performance:{now:()=>clock+=50},matchMedia:()=>({matches:false}),document:{body:{appendChild:n=>roots.push(n)},createElement:tag=>{assert.notEqual(tag,'img');return new Node();}},
     getVisualAnchor:id=>({id,x:100,y:200,element:new Node()}),getBattleEffectAnchor:id=>({id,x:100,y:200,element:new Node()}),battleFeedbackEntries:()=>[],positionBattleFeedback(){},resolvePresentationTarget:r=>r.targetId,requestAnimationFrame:()=>{frames.add(++seq);return seq;},cancelAnimationFrame:id=>frames.delete(id),
     presentationFrame:async()=>{},waitForPresentation:async()=>{},createSfxPresentationScope:()=>({hold:async()=>{}}),enemyEventFeedback:()=>'',applyHpSnapshot:()=>{},

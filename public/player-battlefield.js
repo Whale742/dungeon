@@ -1,6 +1,6 @@
 // Phase 4 owns effects only. Actors, HP and resources remain on the battlefield.
-const BATTLEFIELD_PLAYER_ROLES = new Set(['alchemist','archer','stargazer','dreamweaver','samurai']);
-function isBattlefieldPlayerStep(step) {return BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&step.type!=='boss_action';}
+const BATTLEFIELD_PLAYER_ROLES = new Set(['alchemist','archer','stargazer','dreamweaver','samurai','sage','augur','onmyoji','gladiator','druid']);
+function isBattlefieldPlayerStep(step) {return ['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type));}
 function battlefieldPlayerTarget(step) {
   if(step.targetId&&!['all','all_enemies','monster'].includes(step.targetId))return step.targetId;
   return resolvePresentationTarget(step.results?.find(r=>r.targetEnemyId)||step.results?.find(r=>r.targetId===step.targetId)||{targetId:step.targetId,targetEnemyId:step.targetEnemyId},step);
@@ -36,7 +36,7 @@ async function withBattlefieldSkillStage(step,context,play) {
   if(step.sourceRole==='stargazer'&&step.actionId==='sg_observe')root.classList.add('battlefield-universe');
   const audio=context.audioScope||createSfxPresentationScope({...context,signal});
   context.audioScope=audio;
-  const followers=[],animations=new Set(),anchors=new Map(),cards=new Map();let raf=0,scale=1;
+  const followers=[],animations=new Set(),anchors=new Map(),cards=new Map(),renderers=[];let raf=0,scale=1;
   const el=(tag,cls,html,parent=frame)=>{const node=document.createElement(tag);node.className=cls;if(html)node.innerHTML=html;parent.appendChild(node);return node;};
   const position=(node,x,y)=>{node.style.left=x+'px';node.style.top=y+'px';};
   const targetId=battlefieldPlayerTarget(step);
@@ -51,6 +51,7 @@ async function withBattlefieldSkillStage(step,context,play) {
     if(node.dataset.feedbackLane!==undefined)positionBattleFeedback(node,id,Number(node.dataset.feedbackLane));
   };
   const measure=()=>{
+    if(signal?.aborted)return;
     scale=Math.min(innerWidth/1440,innerHeight/810)||1;
     const left=(innerWidth-1440*scale)/2,top=(innerHeight-810*scale)/2;
     frame.style.transform=`translate(${left}px,${top}px) scale(${scale})`;
@@ -61,8 +62,10 @@ async function withBattlefieldSkillStage(step,context,play) {
       if(f.node.dataset.feedbackLane!==undefined){positionBattleFeedback(f.node,f.id,Number(f.node.dataset.feedbackLane),occupied);continue;}
       const a=getBattleEffectAnchor(f.id);if(a){position(f.node,a.x+f.dx,a.y+f.dy);f.node.hidden=false;}else f.node.hidden=true;
     }
-    raf=requestAnimationFrame(measure);
+    for(const renderer of renderers)renderer((performance.now()-rendererStart)/1000*speed);
+    if(!signal?.aborted)raf=requestAnimationFrame(measure);
   };
+  const rendererStart=performance.now();
   measure();
   const wait=ms=>waitForPresentation(ms,signal,speed);
   const tick=async(ms,update)=>{
@@ -71,12 +74,16 @@ async function withBattlefieldSkillStage(step,context,play) {
   };
   const animate=(node,keys,ms,options={})=>{const a=node.animate(keys,{duration:(reduced?Math.min(ms,120):ms)/speed,fill:'forwards',...options});animations.add(a);a.finished.catch(()=>{});return a;};
   const local={...context,signal,speed,reducedMotion:reduced,effectRoot:root,follow,audioScope:audio,numberCounts:new Map(),battlefield:true};
-  const resolveResults=async(options={})=>{for(const result of step.results||[]){if(signal?.aborted)return;await options.beforeResult?.(result);commitBattlefieldPlayerResult(result,step,local);}if(!signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);};
+  const resolveResults=async(options={})=>{for(const result of step.results||[]){if(signal?.aborted)return;await options.beforeResult?.(result);commitBattlefieldPlayerResult(result,step,local);}if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);};
   const title=el('div','skill-production-title');title.textContent=step.skillName;
-  const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local};
+  const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,
+    startRenderer:render=>renderers.push(render),unfollow:node=>{for(let i=followers.length-1;i>=0;i--)if(followers[i].node===node)followers.splice(i,1);},debug:()=>{}};
   const cleanup=()=>{cancelAnimationFrame(raf);for(const a of animations)a.cancel();root.remove();};
   signal?.addEventListener('abort',cleanup,{once:true});
-  try{await play(api);if(!signal?.aborted){await audio.hold();const until=Math.max(0,...followers.filter(f=>Number.isFinite(f.expires)).map(f=>f.expires-performance.now()));if(until>0)await waitForPresentation(until,signal,1);}}
+  try{context.prepareStage?.(api);await Promise.all([...frame.querySelectorAll('img')].map(img=>img.decode().catch(()=>{})));
+    if(signal?.aborted)return;
+    if(!context.skipCastAudio&&['sage','augur','onmyoji','gladiator','druid'].includes(step.sourceRole)){const profile=resolveCombatSfxProfile(step);if(profile.key)audio.play(profile.key,{noHold:!!context.castAudioNoHold});}
+    await play(api);if(!signal?.aborted){await audio.hold();const until=Math.max(0,...followers.filter(f=>Number.isFinite(f.expires)).map(f=>f.expires-performance.now()));if(until>0)await waitForPresentation(until,signal,1);}}
   finally{signal?.removeEventListener('abort',cleanup);cleanup();}
 }
 const FLASK_COLORS=Object.freeze({poison:'#a3b836',burn:'#ff713b',fracture:'#a8adb7',chill:'#94eaff',acid:'#68ed83'});
@@ -177,6 +184,7 @@ async function battlefieldProjectile(s,sourceId,targetId,type,central) {
 }
 async function playBattlefieldPlayerPresentation(step,context={}) {
   const local={...context,battlefield:true};
+  if(['sage','augur','onmyoji','gladiator','druid'].includes(step.sourceRole)||['arena_enter','arena_exit'].includes(step.type)||step.hpSnapshotBefore?.arena)return playPhase5BattlefieldPresentation(step,local);
   if(step.sourceRole==='stargazer'&&['basic','sg_observe','sg_clock'].includes(step.actionId))return playStargazerPresentation(step,local);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,local);
   if(step.sourceRole==='samurai'&&['basic','sa_cut','sa_tsubame','sa_counter'].includes(step.actionId))return playBattlefieldSamurai(step,local);

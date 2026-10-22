@@ -10,15 +10,17 @@ function sagePresentationData(step) {
 function sageOperandAnchor(s,value) {
   // One temporary operand anchor, not a second resource HUD. The existing battle
   // HUD remains the owner of 變量(X), 運算元 and phase.
-  const n=s.el('div','sage-skill-operand');s.position(n,260,595);
+  const actor=s.anchors.get(s.local?.sourceId)||s.phase5Actor||{x:260,y:430};
+  const n=s.el('div','sage-skill-operand');s.position(n,actor.x,actor.y+100);
   const label=s.el('small','',null,n);label.textContent='運算元';
   const number=s.el('span','sage-skill-number',null,n);number.textContent=String(value??'—');
   return {node:n,number};
 }
 function sageVector(s,offset=0) {
-  const line=s.el('div','sage-vector-line');s.position(line,320,430);
-  line.style.width='850px';
-  for(const left of [150,360,590]){const tick=s.el('i','sage-vector-tick',null,line);tick.style.left=left+'px';}
+  const a=s.phase5Actor||{x:320,y:430},b=s.anchors.get('monster')||{x:1170,y:430};
+  const line=s.el('div','sage-vector-line');s.position(line,a.x,a.y);
+  const length=Math.hypot(b.x-a.x,b.y-a.y);line.style.width=length+'px';line.style.rotate=Math.atan2(b.y-a.y,b.x-a.x)+'rad';
+  for(const fraction of [.18,.42,.7]){const tick=s.el('i','sage-vector-tick',null,line);tick.style.left=(length*fraction)+'px';}
   if(offset)s.animate(line,[{transform:`translateY(${offset}px) rotate(${offset*.12}deg)`,opacity:.35},{transform:'translateY(0) rotate(0)',opacity:.95}],230);
   return line;
 }
@@ -70,11 +72,12 @@ async function playSageSkillPresentation(step,context={}) {
   let prepared;
   const prepareStage=s=>{
     s.root.classList.add('sage-skill-stage');s.root.dataset.sagePhase=data.sagePhase||'';
+    s.phase5Actor=s.anchors.get(step.sourceId)||{x:320,y:430};
     const anchor=sageOperandAnchor(s,data.operandBefore);
     const lines=vector?[sageVector(s),sageVector(s)]:[sageVector(s)];
-    const point=s.el('div','sage-vector-mass');s.position(point,320,430);
+    const point=s.el('div','sage-vector-mass');s.position(point,s.phase5Actor.x,s.phase5Actor.y);
     let contour;
-    if(vector){contour=s.el('div','sage-vector-contour');s.position(contour,1170,430);}
+    if(vector){const target=s.anchors.get('monster')||{x:1170,y:430};contour=s.el('div','sage-vector-contour');s.position(contour,target.x,target.y);}
     prepared={anchor,lines,point,contour};
   };
   await withSkillPresentationStage(step,{...context,castAudioNoHold:true,prepareStage},async s=>{
@@ -83,12 +86,12 @@ async function playSageSkillPresentation(step,context={}) {
       lines.forEach((line,i)=>{const offset=i?9:-9;s.animate(line,[{transform:`translateY(${offset}px) rotate(${offset*.12}deg)`,opacity:.35},{transform:'translateY(0) rotate(0)',opacity:.95}],230);});
       await s.wait(230);
     }
-    if(s.reduced){s.position(point,1170,430);s.animate(point,[{opacity:0},{opacity:.65}],120);}
-    else s.animate(point,[{transform:'translate(-50%,-50%)'},{transform:'translate(calc(-50% + 850px),-50%)'}],basic?200:250);
-    await s.wait(basic?200:250);if(s.signal.aborted)return;
+    await s.tick(basic?200:250,p=>{const a=s.anchors.get(step.sourceId)||s.phase5Actor,b=s.anchors.get('monster')||SKILL_STAGE.target;
+      s.position(point,a.x+(b.x-a.x)*p,a.y+(b.y-a.y)*p);});if(s.signal.aborted)return;
     point.style.opacity='0';for(const line of lines)s.animate(line,[{opacity:.7},{opacity:0}],180);
     if(contour)s.animate(contour,[{opacity:.3,transform:'translate(-50%,-50%)'},{opacity:0,transform:'translate(-50%,calc(-50% + 8px))'}],160);
-    sageImpulse(s,1170,430);context.onTiming?.('sage_projectile_contact',{step});
+    const target=s.anchors.get('monster')||SKILL_STAGE.target;
+    sageImpulse(s,target.x,target.y);context.onTiming?.('sage_projectile_contact',{step});
     await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false});if(s.signal.aborted)return;
     await sageOperandFeedback(s,step,data,anchor);
     if(!s.signal.aborted&&step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
@@ -105,6 +108,8 @@ function syncSageSamplingIndicator(entity,layer) {
 function clearSageSamplingIndicators(){document.querySelectorAll('.sage-sampling-indicator').forEach(n=>n.remove());}
 async function playSageMomentumCapture(result,card,context={}) {
   const d=result.sageMomentumCapture;if(!d||context.signal?.aborted)return;
+  const actual=typeof getActorAnchor==='function'?getActorAnchor(resolvePresentationTarget(result))?.element:null;
+  if(actual)card=actual;
   const root=document.createElement('div');root.className='sage-momentum-feedback';
   root.textContent=`運算元 ${d.operandBefore} +${d.delta}`;card.appendChild(root);
   const ghost=document.createElement('span');ghost.className='sage-momentum-capture-ghost';ghost.textContent=String(d.delta);root.appendChild(ghost);
