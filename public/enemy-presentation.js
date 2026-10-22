@@ -160,6 +160,10 @@ async function playEnemyMechanicPresentation(step, context={}) {
       // Commit at the impact, once. The number describes canonical fields only.
       if(applyAuthoritativeResult(result)){
         impacted=true;effect.hidden=!lastRect;beam.hidden=true;projectile.hidden=true;number.hidden=false;
+        if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){
+          effect.classList.add('battlefield-parry');
+          if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});
+        }
         if(step.presentation&&Object.hasOwn(step.presentation,'arenaAfter'))syncEnemyArenaVisual(step.presentation.arenaAfter);
         const anchor=getEnemyAnchor(targetId);
         if(anchor)syncEnemyMechanicVisual(result.targetAfter,anchor.element);

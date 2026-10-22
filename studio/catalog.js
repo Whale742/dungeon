@@ -55,7 +55,7 @@ export function buildCatalog() {
     c.skills.forEach(s => addSkill(role,s));
     const players = [{role,equips:[],hp:50}, ...LOOT_TABLE.filter(e=>e.role===role).map(e=>({role,equips:[e],hp:50})),
       {role,equips:[],hp:50,arenaActive:true}, {role,equips:[],hp:50,sagePhase:'solve'},
-      ...['werewolf','treant'].map(druidForm=>({role,equips:[],hp:50,druidForm}))];
+      ...['werewolf','treant','bear'].map(druidForm=>({role,equips:[],hp:50,druidForm}))];
     for (const p of players) for (const s of getPlayerSkills(p)) {
       const key = skillCopyKey(p,s); addSkill(role,s,key,key !== s.id ? key.slice(s.id.length + 2) : '');
     }
@@ -73,7 +73,7 @@ export function buildCatalog() {
   for (const [role,c] of Object.entries(CLASSES)) {
     const ids = [...new Set([...skills.values()].filter(s=>s.role_id===role).map(s=>skillMeta[role+':'+s.skill_id].actionId))].filter(id=>id!=='passive');
     const variants = [{role,name:'{player}',equips:[]}];
-    if(role==='druid') for(const druidForm of ['werewolf','treant'])variants.push({role,name:'{player}',equips:[],druidForm});
+    if(role==='druid') for(const druidForm of ['werewolf','treant','bear'])variants.push({role,name:'{player}',equips:[],druidForm});
     if(role==='archer')variants.push({role,name:'{player}',equips:[{id:'a_crossbow',name:'改良型重弩'}]});
     for (const p of variants) for (const id of ids) for (const extra of [{},{isCrit:true},{flaskType:'poison'}]) {
       const key=storyKey('battle','player',role,id,narrativeVariant(p,extra));
@@ -109,6 +109,7 @@ export function buildCatalog() {
     for(const [form,d] of Object.entries(c.forms||{}))localAsset(d.avatar,'roles',`role.${role}.form.${form}`);
     for(const [type,list] of Object.entries(c.summons||{}))list.forEach((d,i)=>localAsset(d.avatar,'roles',`role.${role}.summon.${type}.${i+1}`));
   }
+  for(const item of LOOT_TABLE)if(item.icon)localAsset(item.icon,'effects',`equip.${item.role}.${item.id}.icon`);
   for(const boss of ENCOUNTERS)localAsset(boss.avatar,'bosses','boss.'+encodeURIComponent(boss.name)+'.avatar');
   for(const minion of [...EXCLUSIVE_MINIONS, ...GENERAL_MINIONS, ...ABYSS_MINIONS])localAsset(minion.avatar,'bosses','minion.'+encodeURIComponent(minion.name)+'.avatar');
   for(const [key,p] of Object.entries(sfx.assets)){localAsset(p.src,'sfx','sfx.'+key);usage[assetKeyForPath(p.src)]=['sfx-assets.js','presentation-core.js'];}

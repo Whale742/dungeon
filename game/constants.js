@@ -88,7 +88,8 @@ export const CLASSES = {
     forms: {
       werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
       treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
-      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' },
+      bear: { name: '巨熊', avatar: '/photo/巨熊.webp' }
     },
     summons: {
       treant: [
@@ -127,6 +128,7 @@ export const LOOT_TABLE = [
     id: 'w_sword',
     role: 'warrior',
     name: '鋼鐵聖劍',
+    icon: '/assets/專屬裝備/鋼鐵聖劍.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 10,
@@ -136,6 +138,7 @@ export const LOOT_TABLE = [
     id: 'w_thorn_shield',
     role: 'warrior',
     name: '荊棘重盾',
+    icon: '/assets/專屬裝備/荊棘重盾.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     desc: '被動：當自身護盾被擊破時，會獲得一次反傷，反傷倍率等同於受到傷害的100%，冷卻三回合。'
@@ -154,6 +157,7 @@ export const LOOT_TABLE = [
     id: 'w_greatsword',
     role: 'warrior',
     name: '雙手劍',
+    icon: '/assets/專屬裝備/雙手劍.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
@@ -166,6 +170,7 @@ export const LOOT_TABLE = [
     id: 'm_wand',
     role: 'mage',
     name: '虛空魔杖',
+    icon: '/assets/專屬裝備/虛空魔杖.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 15,
@@ -175,6 +180,7 @@ export const LOOT_TABLE = [
     id: 'm_amulet',
     role: 'mage',
     name: '大魔導護符',
+    icon: '/assets/專屬裝備/大魔導護符.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: 20,
@@ -184,6 +190,7 @@ export const LOOT_TABLE = [
     id: 'm_robe',
     role: 'mage',
     name: '嗜血法袍',
+    icon: '/assets/專屬裝備/嗜血法袍.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: -20,
@@ -197,6 +204,7 @@ export const LOOT_TABLE = [
     id: 'a_bow',
     role: 'archer',
     name: '破甲獵弓',
+    icon: '/assets/專屬裝備/破甲獵弓.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 12,
@@ -206,6 +214,7 @@ export const LOOT_TABLE = [
     id: 'a_cloak',
     role: 'archer',
     name: '靈巧披風',
+    icon: '/assets/專屬裝備/靈巧披風.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: 20,
@@ -225,6 +234,7 @@ export const LOOT_TABLE = [
     id: 'a_crossbow',
     role: 'archer',
     name: '改良型重弩',
+    icon: '/assets/專屬裝備/改良型重弩.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
@@ -237,6 +247,7 @@ export const LOOT_TABLE = [
     id: 's_blade',
     role: 'assassin',
     name: '染毒刺刃',
+    icon: '/assets/專屬裝備/染毒刺刃.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusAtk: -10,
@@ -247,6 +258,7 @@ export const LOOT_TABLE = [
     id: 's_armor',
     role: 'assassin',
     name: '暗影皮甲',
+    icon: '/assets/專屬裝備/暗影皮甲.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: -10,
@@ -257,6 +269,7 @@ export const LOOT_TABLE = [
     id: 's_boots',
     role: 'assassin',
     name: '赫米斯之靴',
+    icon: '/assets/專屬裝備/赫米斯之靴.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     desc: '被動：當刺客施放1技能時，有30%機率多造成一次傷害。（第二次傷害暴擊可獲得匿蹤，但是造成傷害為原傷害50%）。'
@@ -267,6 +280,7 @@ export const LOOT_TABLE = [
     id: 'b_harp',
     role: 'bard',
     name: '精靈木豎琴',
+    icon: '/assets/專屬裝備/精靈木豎琴.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
@@ -276,6 +290,7 @@ export const LOOT_TABLE = [
     id: 'b_robe',
     role: 'bard',
     name: '祝福絲綢袍',
+    icon: '/assets/專屬裝備/祝福絲綢袍.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: 10,
@@ -286,6 +301,7 @@ export const LOOT_TABLE = [
     id: 'b_violin',
     role: 'bard',
     name: '妖精木提琴',
+    icon: '/assets/專屬裝備/妖精木提琴.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 10,
@@ -299,6 +315,7 @@ export const LOOT_TABLE = [
     id: 'alc_flask',
     role: 'alchemist',
     name: '賢者燒瓶',
+    icon: '/assets/專屬裝備/賢者燒瓶.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusAtk: 15,
@@ -308,6 +325,7 @@ export const LOOT_TABLE = [
     id: 'alc_robe',
     role: 'alchemist',
     name: '防護生化袍',
+    icon: '/assets/專屬裝備/防護生化袍.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: 20,
@@ -317,6 +335,7 @@ export const LOOT_TABLE = [
     id: 'alc_burette',
     role: 'alchemist',
     name: '精密滴管',
+    icon: '/assets/專屬裝備/精密滴管.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
@@ -328,6 +347,7 @@ export const LOOT_TABLE = [
     id: 'dru_amulet',
     role: 'druid',
     name: '荒野守護符',
+    icon: '/assets/專屬裝備/荒野守護符.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     bonusHp: 30,
@@ -337,6 +357,7 @@ export const LOOT_TABLE = [
     id: 'dru_resonance',
     role: 'druid',
     name: '自然共鳴',
+    icon: '/assets/專屬裝備/自然共鳴.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     isSpecial: true,
@@ -346,6 +367,7 @@ export const LOOT_TABLE = [
     id: 'dru_beast',
     role: 'druid',
     name: '野獸招喚',
+    icon: '/assets/專屬裝備/野獸招喚.webp',
     slot: EQUIP_SLOTS.CLASS_EXCLUSIVE,
     tier: 'CLASS_EXCLUSIVE',
     desc: '被動：1技能變身多增加“巨熊”，機率為各1/3。巨熊血量與攻擊力為：10+100%A 攻擊力，增加200%D的血量，退出狀態後恢復。'
@@ -724,6 +746,7 @@ export const BATTLE_NARRATIVES = {
         if (role === 'druid') {
           if (player.druidForm === 'werewolf') return `🐺 狼人形態下的 **${name}** 雙眼血紅，鋒利的利爪撕裂空氣狂暴抓向魔物！`;
           if (player.druidForm === 'treant') return `🌳 樹精形態下的 **${name}** 揮動粗壯的古木藤蔓，沉重地甩向魔物！`;
+          if (player.druidForm === 'bear') return `🐻 巨熊形態下的 **${name}** 發出撼地咆哮，以厚重狂暴的巨掌拍碎魔物！`;
           return `🍃 **${name}** 揮動自然法杖，召喚林地原始的狂風重擊魔物！`;
         }
         if (role === 'paladin') return `🛡️✨ **${name}** 揮動聖光重錘砸向魔物，並引導神聖護盾庇護自身！`;
@@ -1276,7 +1299,8 @@ export const ROLE_DETAILS = {
     forms: {
       werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
       treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
-      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' },
+      bear: { name: '巨熊', avatar: '/photo/巨熊.webp' }
     },
     summons: {
       treant: [

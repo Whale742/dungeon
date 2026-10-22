@@ -136,6 +136,7 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       statuses: player.statuses, outcome: step.outcome }, player);
   }
   const attacks = visuals.filter(e => e.type === 'player_attack' || e.type === 'augur_tome');
+  const orderedSelfEvents=new Set();
   if (step.category === 'TRANSFORM' || step.category === 'SUMMON') {
     const player = after.players.find(p => p.id === step.sourceId);
     const old = snapshotTarget(before, step.sourceId);
@@ -155,8 +156,18 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
       finalDamage: value+absorbed, absorbed, tempAbsorbed:absorbed, hpDmg:Math.max(0,current.hp-next.hp), actualDamage: Math.max(0, current.hp - next.hp),
       sourceId: event.sourceId, sourceRole: event.type === 'augur_tome' ? 'augur' : undefined,
       isSecondaryEnemy: !!event.isSecondaryEnemy,
+      ammoType: event.ammoType, segmentIndex: event.segmentIndex,
       outcome: event.type === 'augur_tome' ? { type: 'augur_tome' } : event.outcome || step.outcome,
       damageType: event.type === 'augur_tome' || event.outcome?.type === 'nightmare' ? 'true' : event.dmgType === 'mag' ? 'magic' : 'physical' }, next);
+    if(event.ammoType==='burst'){
+      const start=visuals.indexOf(event),following=visuals.slice(start+1);
+      const end=following.findIndex(e=>e.type==='player_attack');
+      const recoil=(end<0?following:following.slice(0,end)).find(e=>e.type==='self_damage'&&!orderedSelfEvents.has(e));
+      if(recoil){
+        const self=snapshotTarget(display,recoil.targetId);
+        if(self){orderedSelfEvents.add(recoil);append({kind:'damage',sourceId:recoil.sourceId||step.sourceId,targetId:recoil.targetId,finalDamage:recoil.value,damageType:'true',outcome:recoil.outcome||{type:'normal'}},{...self,hp:Math.max(0,self.hp-recoil.value)});}
+      }
+    }
   }
   // Certain equipment adds a separate actual boss damage result.
   if (display.monster && after.monster && display.monster.hp > Math.max(0, after.monster.hp)) {
@@ -174,6 +185,7 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
     }
   }
   for (const event of visuals.filter(e => e.type === 'self_damage' || e.type === 'revive' || e.type === 'hidden_evade')) {
+    if(orderedSelfEvents.has(event))continue;
     const target = event.targetAfter || snapshotTarget(after, event.targetId);
     if (target) append({ kind: event.type === 'revive' ? 'revive' : 'damage', targetId: event.targetId,
       sourceId: event.sourceId || step.sourceId, finalDamage: event.value, actualHeal: event.type === 'revive' ? event.value : undefined,

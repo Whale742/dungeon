@@ -51,7 +51,8 @@ export const NEW_CLASSES = {
       skill('onm_detonate', '急急如律令・百符引爆', 2, 'mag', '引爆目標身上所有未掉落的符咒。若目標身上沒有符咒（0 張），不造成任何傷害。若目標身上有符咒，啟動基礎傷害 10 點，每張符咒額外增加 3 點傷害。單次引爆上限為 10 張符咒（滿 10 張時造成 40 點傷害）。引爆結算：技能結算後，目標身上所有符咒全數脫落並銷毀。', 'OFFENSIVE')] }
 
 };
-const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', ...stats, unique });
+const NO_EXCLUSIVE_IMG_IDS = new Set(['sg_eyepiece', 'sg_tube', 'sg_mount', 'sg_bracer']);
+const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', ...(NO_EXCLUSIVE_IMG_IDS.has(id) ? {} : { icon: `/assets/專屬裝備/${id === 'sg_cloak' ? '流浪占星師的斗篷' : name}.webp` }), ...stats, unique });
 export const NEW_LOOT = [
   item('dw_spindle','dreamweaver','命運的紡錘','使【潛意識混淆】觸發機率提高25%（至75%），裝備不可疊加。',{},true),
   item('dw_loom','dreamweaver','莫比烏斯的織機','提高我方全體20生命上限。當我方角色觸發【夢魘成真】效果受到傷害後，恢復生命上限5%生命。可疊加。'),
@@ -93,5 +94,5 @@ export const NEW_ROLE_DETAILS = Object.fromEntries(Object.entries(NEW_CLASSES).m
   roleName:c.name, enName:id==='onmyoji'?'Onmyōji':id[0].toUpperCase()+id.slice(1), avatar:c.avatar, hp:c.maxHp,
   type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'augur' ? '魔法 / 功能型輔助 / 機率干涉 / 命運觀測' : id === 'onmyoji' ? '魔法 / 咒術 / 削弱' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : id === 'paladin' ? '物理 / 坦鋒 / 守護' : '物理 / 戰術', passive:c.passive,
   skills:c.skills.map((s,i)=>({ type:i ? `${i} 技能`:'普攻', name:s.label, cd:`CD ${s.cd}`, dmgType:s.dmgType==='mag'?'【魔法】':s.dmgType==='phys'?'【物理】':'【輔助】', desc:s.desc })),
-  equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc})).concat(id==='stargazer'?[{name:'克卜勒的深空天眼',desc:'同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。'}]:[])
+  equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc,icon:e.icon})).concat(id==='stargazer'?[{name:'克卜勒的深空天眼',icon:'/assets/專屬裝備/克卜勒的深空天眼.webp',desc:'同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。'}]:[])
 }]));

@@ -213,7 +213,8 @@ const DEFAULT_ROLE_DETAILS = {
     forms: {
       werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
       treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
-      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' }
+      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' },
+      bear: { name: '巨熊', avatar: '/photo/巨熊.webp' }
     },
     summons: {
       treant: [
@@ -963,6 +964,8 @@ function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
       return `<img src="/photo/狼人.webp" class="${className} druid-transformed-avatar" alt="狼人">`;
     } else if (player.druidForm === 'treant' || player.druidForm === 'tree') {
       return `<img src="/photo/遠古樹精.webp" class="${className} druid-transformed-avatar" alt="遠古樹精">`;
+    } else if (player.druidForm === 'bear') {
+      return `<img src="/photo/巨熊.webp" class="${className} druid-transformed-avatar" alt="巨熊">`;
     }
   }
 
@@ -1004,6 +1007,8 @@ function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait'
       return `<img src="/photo/狼人.webp" class="${className}" alt="狼人">`;
     } else if (druidForm === 'treant' || druidForm === 'tree') {
       return `<img src="/photo/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
+    } else if (druidForm === 'bear') {
+      return `<img src="/photo/巨熊.webp" class="${className}" alt="巨熊">`;
     }
   }
   const roleInfo = roleKey ? classesData[roleKey] : null;
@@ -1957,6 +1962,7 @@ async function preloadPartyClassAssets(state) {
         '/photo/Druid.webp',
         '/photo/狼人.webp',
         '/photo/遠古樹精.webp',
+        '/photo/巨熊.webp',
         '/photo/小樹精1.webp',
         '/photo/小樹精2.webp',
         '/photo/小樹精3.webp',
@@ -3242,6 +3248,8 @@ function renderMyActionBar(me) {
     stanceHtml += ` <span class="badge-form-treant">${getIconSvg('shield')} 樹精形態 (護盾85%/減傷30%/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'tree') {
     stanceHtml += ` <span class="badge-form-treant">${getIconSvg('cooldown')} 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
+  } else if (me.druidForm === 'bear') {
+    stanceHtml += ` <span class="badge-form-bear" style="background:rgba(180,83,9,0.25);border:1px solid rgba(245,158,11,0.5);color:#fde68a;border-radius:4px;padding:2px 6px;font-size:11px;">${getIconSvg('shield')} 巨熊形態 (血量/攻擊強化，剩餘${me.druidFormTurns}R)</span>`;
   }
   if (me.minion) {
     stanceHtml += ` <span class="badge-minion">${getIconSvg('summon')} 夥伴: ${escapeHtml(me.minion.name)} (HP ${me.minion.hp}/${me.minion.maxHp} | 攻 ${me.minion.atk})</span>`;
@@ -4064,6 +4072,11 @@ function openRoleDetailModal(roleKey) {
               <div style="font-weight: 700; font-size: 13px; color: #86efac;">遠古樹精形態</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">護盾85%，減傷30%，分攤50%</div>
             </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
+              <img src="/photo/巨熊.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="巨熊形態">
+              <div style="font-weight: 700; font-size: 13px; color: #facc15;">巨熊形態 (野獸招喚)</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">血量+200%D，普攻10+100%A</div>
+            </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
               <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：小樹精">
               <div style="font-weight: 700; font-size: 13px; color: #4ade80;">夥伴：小樹精</div>
@@ -4080,11 +4093,14 @@ function openRoleDetailModal(roleKey) {
     }
 
     if(roomState?.state!=='LOBBY'&&details.equipment?.length) {
+      const noImgNames = new Set(['荊棘重鎧', '大天使重弓', '粗糙研磨的黃銅目鏡', '生鏽卡死的伸縮鏡筒', '傾角失準的赤道儀基座', '墜星隕鐵護腕']);
       html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>{
         const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key.startsWith('equip.'+roleKey+'.')&&(s.title===e.name||s.story_key.endsWith('.'+e.id)));
         const name = override?.title || e.name;
         const desc = override?.body || e.desc;
-        return '<p><strong>'+escapeHtml(name)+'</strong>：'+escapeHtml(desc)+'</p>';
+        const iconSrc = e.icon || (!noImgNames.has(e.name) ? `/assets/專屬裝備/${e.name === '流浪占星師的粗呢斗篷' ? '流浪占星師的斗篷' : e.name}.webp` : '');
+        const iconHtml = iconSrc ? `<img src="${iconSrc}" alt="${escapeHtml(name)}" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:4px;" onerror="this.style.display='none';">` : '';
+        return '<p style="display:flex;align-items:flex-start;gap:4px;">'+iconHtml+'<span><strong>'+escapeHtml(name)+'</strong>：'+escapeHtml(desc)+'</span></p>';
       }).join('')+'</details>';
     }
     elements.roleDetailBody.innerHTML = html;
@@ -5244,6 +5260,15 @@ function playSinglePlayerVisualEvent(ev) {
       if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
     }
     playSound('treant_creak');
+  } else if (ev.type === 'transform_bear') {
+    const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
+    if (card) {
+      spawnFloatingText(card.querySelector('.floating-text-container'), '變身巨熊!', 'buff');
+      playPixelFx(card, 'wolf-claw');
+      const avatarImg = card.querySelector('.teammate-avatar-img');
+      if (avatarImg) avatarImg.src = '/photo/巨熊.webp';
+    }
+    playSound('wolf_howl');
   } else if (ev.type === 'transform_tree') {
     const card = document.querySelector(`.teammate-card[data-player-id="${ev.sourceId}"]`);
     if (card) {
@@ -5553,9 +5578,9 @@ function updateBattleHudFromSnapshot(snapshot) {
           const avatarEl = card.querySelector('.teammate-avatar-img');
           if (avatarEl) {
             const isEmoji = p.customAvatar && !p.customAvatar.startsWith('data:image/') && !p.customAvatar.startsWith('http') && !p.customAvatar.startsWith('/');
-            if (p.druidForm === 'werewolf' || p.druidForm === 'treant' || p.druidForm === 'tree') {
-              const formSrc = p.druidForm === 'werewolf' ? '/photo/狼人.webp' : '/photo/遠古樹精.webp';
-              const formAlt = p.druidForm === 'werewolf' ? '狼人' : '遠古樹精';
+            if (p.druidForm === 'werewolf' || p.druidForm === 'treant' || p.druidForm === 'tree' || p.druidForm === 'bear') {
+              const formSrc = p.druidForm === 'werewolf' ? '/photo/狼人.webp' : (p.druidForm === 'bear' ? '/photo/巨熊.webp' : '/photo/遠古樹精.webp');
+              const formAlt = p.druidForm === 'werewolf' ? '狼人' : (p.druidForm === 'bear' ? '巨熊' : '遠古樹精');
               if (avatarEl.tagName === 'IMG') {
                 if (!avatarEl.src || !avatarEl.src.endsWith(formSrc)) avatarEl.src = formSrc;
                 avatarEl.alt = formAlt;
@@ -5630,6 +5655,10 @@ async function playPresentationStep(step, round) {
     elements.battleNarrativeText.classList.add('narrative-fade');
   }
 
+  if (isBattlefieldPlayerStep(step)) {
+    await playBattlefieldPlayerPresentation(step, activeCombatContext);
+    return;
+  }
   if (step.type === 'enemy_mechanic') {
     await playEnemyMechanicPresentation(step, activeCombatContext);
     return;
@@ -5764,7 +5793,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     let legacyStageEntered = false;
     for (const step of queue) {
       if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
-      const official = step.type === 'enemy_mechanic' || ['kill','status_cleanup'].includes(step.type);
+      const official = isBattlefieldPlayerStep(step) || step.type === 'enemy_mechanic' || ['kill','status_cleanup'].includes(step.type);
       if (!official && !legacyStageEntered) { await enterCombatStage(activeCombatContext); legacyStageEntered = true; }
       const legacyStage = document.getElementById('presentationCombatStage');
       if (legacyStage) legacyStage.style.visibility = official ? 'hidden' : '';
@@ -5799,7 +5828,7 @@ socket.on('battle:visual_events', ({ events, narratives, round, monsterKilled, d
   if (!events || events.length === 0) return;
 
   const playerActions = events.filter(e =>
-    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'transform_end', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
+    ['player_attack', 'shield_cast', 'stealth', 'heal_group', 'revive', 'heal', 'self_damage', 'alc_shield', 'transform_wolf', 'transform_treant', 'transform_tree', 'transform_bear', 'transform_end', 'surrender', 'summon_minion', 'minion_hit'].includes(e.type)
   );
   const monsterAction = events.find(e => e.type === 'monster_attack');
 
@@ -6515,6 +6544,17 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
     const meRole = (typeof roomState !== 'undefined' && roomState?.players?.[window.currentSocketId]?.role) || (typeof me !== 'undefined' && me?.role);
     const roleKey = item.role || meRole || 'warrior';
     const svg = CLASS_EXCLUSIVE_SVGS[roleKey] || CLASS_EXCLUSIVE_SVGS.warrior || '';
+    const exclusiveImgMap = { '流浪占星師的粗呢斗篷': '/assets/專屬裝備/流浪占星師的斗篷.webp' };
+    const noImgNames = new Set(['荊棘重鎧', '大天使重弓', '粗糙研磨的黃銅目鏡', '生鏽卡死的伸縮鏡筒', '傾角失準的赤道儀基座', '墜星隕鐵護腕']);
+    let imgUrl = (item.icon && item.icon.startsWith('/'))
+      ? item.icon.replace(/^\/?assets\/assets\//, '/assets/')
+      : (item.name && !noImgNames.has(item.name) ? (exclusiveImgMap[item.name] || `/assets/專屬裝備/${encodeURIComponent(item.name)}.webp`) : '');
+    if (imgUrl) {
+      return `
+        <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name || '')}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
+        <div class="exclusive-equip-svg-wrap ${iconClass}-svg" style="display:none;">${svg}</div>
+      `;
+    }
     return `<div class="exclusive-equip-svg-wrap ${iconClass}-svg">${svg}</div>`;
   }
   let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`;

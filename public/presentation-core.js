@@ -88,7 +88,7 @@ class SFXManager {
     const prefix=role==='dreamweaver'?'dream':role==='samurai'?'samurai':role==='sage'?'sage':role;
     const keys=new Set(Object.values(typeof SFX_PRESENTATION_PROFILES!=='undefined'?SFX_PRESENTATION_PROFILES[role]||{}:{}).filter(Boolean));
     for(const key of Object.keys(SFX_ASSETS))if(key.startsWith(prefix))keys.add(key);
-    if(role==='druid')for(const key of ['transform_wolf','transform_treant','treant_action','wolf_action','claw_slash'])keys.add(key);
+    if(role==='druid')for(const key of ['transform_wolf','transform_treant','transform_bear','treant_action','wolf_action','claw_slash'])keys.add(key);
     return Promise.all([...keys].map(key=>SFX_ASSETS[key]).filter(Boolean).map(profile=>this.loadAsset(profile)));
   }
   stopAll({preserveTails=false}={}) {
@@ -190,7 +190,7 @@ class SFXManager {
         shield_break: [1800, 180, .25, 'sawtooth'], support_cast: [330, 660, .24, 'triangle'],
         cleanse: [520, 1040, .3, 'sine'], bard_off_key: [440, 415, .32, 'triangle'],
         alchemy_success: [523, 1046, .4, 'sine'], alchemy_failure: [370, 92, .3, 'sawtooth'],
-        transform_wolf: [180, 75, .3, 'sawtooth'], transform_treant: [95, 48, .55, 'triangle'],
+        transform_wolf: [180, 75, .3, 'sawtooth'], transform_treant: [95, 48, .55, 'triangle'], transform_bear: [120, 55, .4, 'sawtooth'],
         summon_wolf: [240, 120, .24, 'sawtooth'], summon_treant: [140, 65, .45, 'triangle'],
         vine_strike: [110, 65, .22, 'triangle'], reload_pull: [150, 240, .16, 'sawtooth'],
         reload_insert: [900, 450, .07, 'triangle'], reload_lock: [1400, 850, .05, 'square'],
@@ -1148,6 +1148,7 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
   const form = descriptor.druidForm;
   if (role === 'druid' && form === 'werewolf') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.werewolf','/photo/狼人.webp'):'/photo/狼人.webp', name: '狼人', transformed: true };
   if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.'+form,'/photo/遠古樹精.webp'):'/photo/遠古樹精.webp', name: '遠古樹精', transformed: true };
+  if (role === 'druid' && form === 'bear') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.bear','/photo/巨熊.webp'):'/photo/巨熊.webp', name: '巨熊', transformed: true };
   if (descriptor.entityType === 'minion' || descriptor.type === 'wolf' || descriptor.type === 'treant') {
     const index = descriptor.minionIndex || 1;
     return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然夥伴' };

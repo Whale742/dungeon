@@ -101,6 +101,16 @@
         "display_name": "樹木休眠",
         "short_copy": "休眠 1 回合，無法行動。",
         "full_copy": "遭受致命傷害後休眠 1 回合，無法行動。"
+      },
+      "basic__bear": {
+        "display_name": "巨熊重擊",
+        "short_copy": "單體物理：round(10 + 100% × A物)，變身巨熊血量增加 200% × D。",
+        "full_copy": "巨熊形態普攻：單體物理 round(10 + 100% × A物)。變身巨熊期間最大生命值增加 200% × D，解除變身後恢復。"
+      },
+      "dru_bear_claw": {
+        "display_name": "巨熊重擊",
+        "short_copy": "單體物理：round(10 + 100% × A物)，變身當下立即攻擊一次。",
+        "full_copy": "巨熊重擊：單體物理 round(10 + 100% × A物)。變身當下立即攻擊一次；形態期間普攻使用相同公式。"
       }
     }
   },

@@ -69,6 +69,7 @@ function skillButterflySvg() {
         </g></svg>`;
 }
 async function withSkillPresentationStage(step,context,play) {
+  if(context.battlefield)return withBattlefieldSkillStage(step,context,play);
   const stage=getOrCreateCombatStage(),box=stage.getBoundingClientRect();
   const scale=Math.min(box.width/1440,box.height/810)||1;
   const root=document.createElement('div');root.className='skill-production-stage';

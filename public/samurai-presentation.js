@@ -42,7 +42,7 @@ function buildSamuraiPresentationPlan(step,context={},mode){
   p.duration=1950;p.eye={start:240,open:740,end:1110};p.gather={start:120,end:320};
   // Stretch only the prelude; retain the source choreography after opening.
   p.prelude={sourceEnd:p.eye.open,duration:1000};p.introSound='samurai-skill2-intro';
-  if(p.valid){damage.forEach((r,i)=>hit(r,1140+i*75,'line',[-.54,.57,-.095,-.81][i],{final:i===3,ignore:true,heavy:i===3,offsetY:[-3,4,-6,0][i]}));for(let i=damage.length;i<4;i++)p.slashes.push({time:1140+i*75,start:1122+i*75,index:i,target:'boss',kind:'line',angle:[-.54,.57,-.095,-.81][i],final:i===3,heavy:i===3,offsetY:[-3,4,-6,0][i]});p.flashAt=1390;p.audio.push({time:1390,type:'finish',power:.85});p.soulChanges=samuraiSoulChanges(step,step.sourceId,1240);}
+  if(p.valid){damage.forEach((r,i)=>hit(r,1140+i*75,'line',[-.54,.57,-.095,-.81][i],{final:i===damage.length-1,ignore:true,heavy:i===damage.length-1,offsetY:[-3,4,-6,0][i]}));p.flashAt=1390;p.audio.push({time:1390,type:'finish',power:.85});p.soulChanges=samuraiSoulChanges(step,step.sourceId,1240);}
  }
  if(id==='sa_counter'){
   p.guard=true;p.counterAt=135;p.enemyPhaseEnd=0;p.duration=755;

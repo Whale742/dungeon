@@ -126,6 +126,75 @@ function phase1Battle(t, role, hp = 500) {
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
+for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_fake'],samurai:['basic','sa_cut','sa_tsubame']})){
+  for(const action of actions)test('Phase 4 production battlefield dispatch: '+role+' '+action,t=>{
+    const {room,player,events}=phase1Battle(t,role);t.mock.method(Math,'random',()=>.5);
+    if(action==='sa_tsubame')player.soul=8;
+    if(action==='dw_butterfly')player.targetPlayerId=player.id;
+    player.action=action;room.resolveTurnActions();
+    const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId===action);
+    assert.ok(step,action);
+    // Dream declarations establish deferred server state; they need not invent
+    // immediate results. Their later *_result event owns the actual outcome.
+    if(!['dw_butterfly','dw_fake'].includes(action))assert.ok(step.results?.length);
+    const scope={};vm.createContext(scope);
+    vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    assert.equal(scope.isBattlefieldPlayerStep(step),true);
+    for(const r of step.results){assert.notEqual(r.targetId,'monster');assert.ok(r.resultId&&r.targetBefore&&r.targetAfter);}
+    if(action==='dw_butterfly')assert.equal(scope.battlefieldPlayerTarget(step),player.id);
+    if(role==='samurai'){
+      vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+      vm.runInContext(readFileSync(new URL('../public/samurai-presentation.js',import.meta.url),'utf8'),scope);
+      const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
+      const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId===player.targetEnemyId);
+      assert.equal(plan.hits.length,hits.length);assert.equal(plan.slashes.length,plan.hits.filter(h=>!['miss','dodge'].includes(h.result.outcome?.type)).length);
+    }
+  });
+}
+test('Phase 4 crossbow bolts retain their actual ammo type and independent result',t=>{
+  const {room,player,events}=phase1Battle(t,'archer');player.equips=[{id:'a_crossbow',name:'改良型重弩'}];
+  player.ammo=['pierce','elemental','burst'];player.action='basic';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceRole==='archer'&&s.actionId==='basic');
+  const bolts=step.results.filter(r=>r.ammoType);
+  assert.deepEqual(bolts.map(r=>r.ammoType),['pierce','elemental','burst']);
+  assert.equal(new Set(bolts.map(r=>r.resultId)).size,3);
+});
+test('Phase 4 burst recoil follows its actual bolt before the next shot',t=>{
+  const {room,player,events}=phase1Battle(t,'archer');player.equips=[{id:'a_crossbow',name:'改良型重弩'}];
+  player.ammo=['burst','pierce','burst'];player.action='basic';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceRole==='archer'&&s.actionId==='basic');
+  const damage=step.results.filter(r=>r.kind==='damage');
+  assert.deepEqual(damage.map(r=>r.targetId),[player.targetEnemyId,player.id,player.targetEnemyId,player.targetEnemyId,player.id]);
+  for(const hit of damage.filter(r=>r.targetId===player.id))assert.equal(hit.actualHpDamage,hit.targetBefore.hp-hit.targetAfter.hp);
+});
+test('Phase 4 arrow traps publish one actual lethal result per enemy',t=>{
+  const {room,player,events}=phase1Battle(t,'archer',1);player.action='skip';
+  room.arrowTrap={turns:2,atk:14,sourceId:player.id};room.resolveTurnActions();
+  const traps=resolutionQueue(events).filter(s=>s.actionId==='a_trap');
+  assert.equal(traps.length,3);assert.equal(new Set(traps.map(s=>s.targetEnemyId)).size,3);
+  assert.ok(traps.every(s=>s.results[0].actualHpDamage===1&&s.results[0].targetAfter.hp===0));
+});
+for(const action of ['a_reload','a_frenzy_reload'])test('Phase 4 reload changes actual ammunition without damage: '+action,t=>{
+  const {room,player,events}=phase1Battle(t,'archer');player.equips=[{id:'a_crossbow',name:'改良型重弩'}];player.ammo=[];player.action=action;
+  room.resolveTurnActions();const step=resolutionQueue(events).find(s=>s.actionId===action);
+  assert.ok(step.results.some(r=>r.kind==='reload'&&r.ammoAfter.length>0));
+  assert.ok(!step.results.some(r=>r.kind==='damage'));
+});
+test('Phase 4 battlefield scope owns no portraits and cleans abort, replay and quick playback',async t=>{
+  const {room,player,events}=phase1Battle(t,'archer');player.action='a_rain';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='a_rain'),roots=[],frames=new Set(),committed=new Set();let clock=0,seq=0;
+  class Node{constructor(){this.children=[];this.style={setProperty(){}};this.dataset={};this.classList={add(){},remove(){}};this.hidden=false;}appendChild(n){this.children.push(n);return n;}querySelector(){return null;}remove(){this.removed=true;}}
+  const scope={DOMException,AbortController,innerWidth:1280,innerHeight:720,performance:{now:()=>clock+=50},matchMedia:()=>({matches:false}),document:{body:{appendChild:n=>roots.push(n)},createElement:tag=>{assert.notEqual(tag,'img');return new Node();}},
+    getVisualAnchor:id=>({id,x:100,y:200,element:new Node()}),resolvePresentationTarget:r=>r.targetId,requestAnimationFrame:()=>{frames.add(++seq);return seq;},cancelAnimationFrame:id=>frames.delete(id),
+    presentationFrame:async()=>{},waitForPresentation:async()=>{},createSfxPresentationScope:()=>({hold:async()=>{}}),enemyEventFeedback:()=>'',applyHpSnapshot:()=>{},
+    applyAuthoritativeResult:r=>{if(committed.has(r.resultId))return false;committed.add(r.resultId);return true;}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  const controller=new AbortController();
+  await scope.withBattlefieldSkillStage(step,{signal:controller.signal,speed:4,reducedMotion:true},async s=>{assert.equal(committed.size,0);await s.tick(400,()=>{});await s.resolveResults();await s.resolveResults();});
+  assert.equal(committed.size,step.results.length);assert.ok(roots.every(n=>n.removed));assert.equal(frames.size,0);
+  await assert.rejects(scope.withBattlefieldSkillStage(step,{signal:controller.signal},async s=>{controller.abort();await s.tick(400,()=>{});}),{name:'AbortError'});
+  assert.equal(frames.size,0);assert.ok(roots.every(n=>n.removed));
+});
 for (const [role, action] of [['mage','m_blast'], ['archer','a_rain'], ['alchemist','alc_acid'], ['warrior','basic']]) {
   test('Phase 1 concrete multi-enemy results: ' + action, t => {
     const { room, player, events } = phase1Battle(t, role);

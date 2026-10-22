@@ -211,7 +211,8 @@ const COMBAT_FX_ASSETS = Object.freeze({
 const COMBAT_FORM_PROFILES = Object.freeze({
   werewolf: { fxType: 'claw_slash', attackSfx: 'claw_slash', impactSfx: 'heavy_impact', fxLead: 220 },
   treant: { fxType: 'vine_strike', attackSfx: 'vine_strike', impactSfx: 'heavy_impact', fxLead: 160 },
-  tree: { fxType: 'vine_strike', attackSfx: 'vine_strike', impactSfx: 'heavy_impact', fxLead: 160 }
+  tree: { fxType: 'vine_strike', attackSfx: 'vine_strike', impactSfx: 'heavy_impact', fxLead: 160 },
+  bear: { fxType: 'claw_slash', attackSfx: 'claw_slash', impactSfx: 'heavy_impact', fxLead: 220 }
 });
 let combatFxPreload = null;
 const failedCombatFxAssets = new Set();

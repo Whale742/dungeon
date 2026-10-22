@@ -883,6 +883,7 @@ export class Room {
       druidFormTurns: 0,
       druidRegenBonus: 0,
       werewolfMaxHpDeducted: 0,
+      bearMaxHpAdded: 0,
       isSurrendered: false,
       minions: [],
       minion: null,
@@ -5661,7 +5662,7 @@ export class Room {
               const {dmg}=applyResistanceDamage(raw,dmgType,{kind:'volley',actor:p,penetration:arrow.kind==='pierce'?1:0});
               const actual=Math.min(monster.hp,dmg);
               monster.hp-=actual;
-              visualEvents.push({type:'player_attack',sourceId:p.id,target:'monster',dmgType,value:actual,isCrit:false,label,segmentIndex:arrow.index,eventKind:'multi_hit'});
+              visualEvents.push({type:'player_attack',sourceId:p.id,target:'monster',dmgType,value:actual,isCrit:false,label,ammoType:arrow.kind,segmentIndex:arrow.index,eventKind:'multi_hit'});
               if(arrow.kind==='burst') {
                 burstCount++;
                 const paid=Math.min(p.hp,actual);p.hp-=paid;
@@ -6782,6 +6783,7 @@ export class Room {
         druidForm: p.druidForm,
         ammoBefore: [...(snapshotTarget(actionBefore, p.id)?.ammo || [])],
         ammoAfter: [...(p.ammo || [])],
+        archerTrap: p.action==='a_rain'&&this.arrowTrap?structuredClone(this.arrowTrap):null,
         actionId: p.action,
         skillName: usedSkill ? usedSkill.label : (
           p.action === 'leader_assassin_execute' ? '絕命處決' :
@@ -7023,7 +7025,11 @@ export class Room {
         const trapRaw = Math.max(1, Math.round(0.25 * (this.arrowTrap.atk || 14)));
         const { dmg: trapDmg } = applyResistanceDamage(trapRaw, 'phys', { enemy: actingEnemy });
         if (trapDmg > 0) {
+          const trapBefore=this.getHpSnapshot();
           actingEnemy.hp = Math.max(0, actingEnemy.hp - trapDmg);
+          const trapAfter=this.getHpSnapshot();
+          presentationQueue.push({type:'player_action',category:'OFFENSIVE',sourceId:this.arrowTrap.sourceId,sourceRole:'archer',actionId:'a_trap',skillName:'箭刺陷阱',targetId:actingEnemy.instanceId,targetEnemyId:actingEnemy.instanceId,
+            hpSnapshotBefore:trapBefore,hpSnapshot:trapAfter,results:[{kind:'damage',sourceId:this.arrowTrap.sourceId,targetId:actingEnemy.instanceId,targetEnemyId:actingEnemy.instanceId,finalDamage:trapDmg,damageType:'physical',outcome:{type:'normal'},targetBefore:snapshotTarget(trapBefore,actingEnemy.instanceId),targetAfter:snapshotTarget(trapAfter,actingEnemy.instanceId)}]});
           log.push({
             text: `🏹💥 **${actingEnemy.name}** 行動時踏入【箭刺陷阱區域】，受到 **${trapDmg}** 點【物理】傷害！（❤️ ${actingEnemy.hp}/${actingEnemy.maxHp}）`,
             type: 'combat'
@@ -8095,7 +8101,7 @@ export class Room {
         maxHp: p.maxHp,
         bonusAtk: p.bonusAtk,
         ...resolveStats(p,this.statMultiplier(p)),
-        equips: (p.equips || []).map(e => ({ id: e.id, name: e.name, type: e.type, desc: e.desc, statDesc: e.statDesc })),
+        equips: (p.equips || []).map(e => ({ id: e.id, name: e.name, type: e.type, desc: e.desc, statDesc: e.statDesc, icon: e.icon, role: e.role, slot: e.slot, tier: e.tier })),
         equipCounts: p.equipCounts || {},
         bag: (p.bag || []).map(item => item ? ({ ...item }) : null),
         equipSlots: p.equipSlots ? { ...p.equipSlots } : { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null },
@@ -8118,6 +8124,7 @@ export class Room {
         alcAcidEquipHalvedTurns: p.alcAcidEquipHalvedTurns || 0,
         alcAcidStack: p.alcAcidStack || 0,
         werewolfMaxHpDeducted: p.werewolfMaxHpDeducted || 0,
+        bearMaxHpAdded: p.bearMaxHpAdded || 0,
         cooldowns: {
           ...p.cooldowns,
           ...(p.role === 'gladiator' && p.arenaActive ? {

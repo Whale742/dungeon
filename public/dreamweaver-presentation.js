@@ -23,18 +23,18 @@ async function playDreamweaverPresentation(step, context = {}) {
     context.originalDreamweaverFx = true;
     context.dreamweaverOriginalTrigger = isResult;
     const type = isResult ? 'trigger' : step.actionId === 'basic' ? 'attack' : step.actionId === 'dw_butterfly' ? 'skill1' : 'skill2';
-    const targetId = step.targetId || step.results?.[0]?.targetId || 'monster';
+    const targetId = context.battlefield?battlefieldPlayerTarget(step):step.targetId || step.results?.[0]?.targetId || 'monster';
     const card = s.cards.get(targetId) || s.cards.get('monster') || [...s.cards.values()][0];
     // Skill one uses the same left / center / right composition as skill two,
     // including when the selected recipient is the caster or another ally.
-    if(step.actionId?.startsWith('dw_butterfly') && card) {
+    if(!context.battlefield && step.actionId?.startsWith('dw_butterfly') && card) {
       s.position(card.parentElement, SKILL_STAGE.target.x, SKILL_STAGE.target.y);
       card.parentElement.style.transform = 'translate(-50%,-50%)';
       s.anchors.set(card.dataset.targetId, {...SKILL_STAGE.target});
       s.actor.style.opacity = '1';
     }
-    const target = card?.querySelector('.presentation-result-hit') || s.actor;
-    const anchor = card?.querySelector('.presentation-result-portrait') || s.actor;
+    const target = context.battlefield?s.targetFor(targetId)||s.actor:card?.querySelector('.presentation-result-hit') || s.actor;
+    const anchor = context.battlefield?target:card?.querySelector('.presentation-result-portrait') || s.actor;
     const color = DREAMWEAVER_BRANCH_COLORS[step.outcome?.type];
     const reveal = s.el('div', 'skill-reveal');
     reveal.textContent = step.outcome?.label || step.skillName;
@@ -59,6 +59,7 @@ async function playDreamweaverPresentation(step, context = {}) {
       const contact = isResult ? .08 : type === 'attack' ? DreamweaverFX.timings.attackImpact : DreamweaverFX.timings.infuse;
       const duration=['skill1','skill2'].includes(type)?DreamweaverFX.timings.infuse:fx.duration;
       await s.tick(duration * 1000, p => {
+        if(context.battlefield)fx.refresh();
         fx.seek(p * duration);
         if(type==='attack' && fx.time>=.45)cue('dreamwaver-swoosh',fx.time);
         if(type==='attack' && fx.time>=2.4)cue('dreamwaver-rope',fx.time);

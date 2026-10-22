@@ -30,9 +30,9 @@ const playerVisual=node('playerVisual','motion',player);playerCard.classList.add
 dom.playerHit=playerCard.querySelector('.presentation-result-hit');
 const boss=node('bossPosition','position samurai-boss');bossCard.classList.add('samurai-card');boss.appendChild(bossCard);
 dom.bossVisual=bossCard.querySelector('.presentation-result-hit');
-const playerPortrait=playerCard.querySelector('.presentation-result-portrait'),bossPortrait=bossCard.querySelector('.presentation-result-portrait');
-node('playerEcho','shadow-silhouette',playerVisual).style.backgroundImage=`url("${playerPortrait.querySelector('img')?.src||''}")`;
-node('playerFlare','portrait-flare',playerPortrait);node('bossFlare','portrait-flare',bossPortrait);
+const playerPortrait=(context.battlefield&&battlefieldVisualElement(context.actorId))||playerCard.querySelector('.presentation-result-portrait'),bossPortrait=(context.battlefield&&battlefieldVisualElement(context.targetId))||bossCard.querySelector('.presentation-result-portrait');
+if(!context.battlefield)node('playerEcho','shadow-silhouette',playerVisual).style.backgroundImage=`url("${playerPortrait.querySelector('img')?.src||''}")`;
+node('playerFlare','portrait-flare',context.battlefield?player:playerPortrait);node('bossFlare','portrait-flare',context.battlefield?boss:bossPortrait);
 node('sceneDimmer','scene-dimmer');node('focusAura','focus-aura');
 const canvas=node('vfx','vfx',world,'canvas'),ctx=canvas.getContext('2d',{alpha:true});
 const damageLayer=node('damageLayer','damage-layer');
@@ -56,7 +56,7 @@ const box=root.getBoundingClientRect(),pr=playerPortrait.getBoundingClientRect()
 const anchor=r=>({x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height});
 const geometry={w:box.width,h:box.height,dpr:Math.min(devicePixelRatio||1,2),p:anchor(pr),b:anchor(br),pips:pips.map(el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2};})};
 canvas.width=Math.max(1,Math.round(geometry.w*geometry.dpr));canvas.height=Math.max(1,Math.round(geometry.h*geometry.dpr));
-const damageNodes=[...plan.hits,...plan.incoming.filter(h=>h.result&&h.taken>0)].map(hit=>{
+const damageNodes=context.battlefield?[]:[...plan.hits,...plan.incoming.filter(h=>h.result&&h.taken>0)].map(hit=>{
  const el=node('damage','damage-number'+(hit.burst?' samurai-critical':'')+(hit.target==='player'?' samurai-player-damage':''),damageLayer);
  el.textContent=hit.displayText??('-'+hit.value);
  if(hit.ignore){const label=document.createElement('small');label.textContent='PURE';el.appendChild(label);}

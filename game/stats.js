@@ -59,10 +59,11 @@ export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,b
   const D=resolveStats(actor,equipmentMultiplier).DEF,H=actor.maxHp;
   if(key==='basic') {
     if(actor.role==='druid'&&actor.druidForm==='werewolf')return Math.round(10+2.5*P);
+    if(actor.role==='druid'&&actor.druidForm==='bear')return Math.round(10+1.0*P);
     const [c,k]=basic[actor.role];return Math.round(c+k*(basicDamageType(actor.role)==='phys'?P:M));
   }
   const values={w_strike:4+P+.5*D,w_miss:1+.5*P,w_cleave:8+P+.75*D,w_shield:.4*H,
-    pal_glory:7+P,pal_shield:.5*H,dru_claw:10+2.5*P,dru_shield:.85*H,
+    pal_glory:7+P,pal_shield:.5*H,dru_claw:10+2.5*P,dru_bear_claw:10+1.0*P,dru_shield:.85*H,
     g_strike:3+P+10*players+stacks*(13+P),g_rage:4+.5*P,
     sa_cut:2+P,sa_tsubame:3+.5*P,sa_counter:2+.5*P+.25*D+blocks,
     a_shot:6+Math.max(P,M),a_rain:5*P,a_rain_arrow:.5*P,a_trap:.25*P,a_friendly:3+.5*M,

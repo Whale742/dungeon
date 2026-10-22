@@ -189,7 +189,7 @@ async function playStargazerPresentation(step, context = {}) {
     // 4. 並在 scale 2 後才造成傷害與播放音效：
     // - 僅命中時播放 sage_laser，preserveAcrossViews 避免 stage 結束被掐斷
     // - skipResultAudio: true 去除敵人預設的受擊音效 (magic_impact/physical_hit)
-    sfxManager.play('sage_laser', { preserveAcrossViews: true });
+    sfxManager.play('sage_laser', { preserveAcrossViews: true,signal:s.signal });
     context.onTiming?.('stargazer_aim_contact', {step, x:target.x, y:target.y});
     await s.resolveResults({ skipResultAudio: true });
     await tl.wait(500);
@@ -600,6 +600,7 @@ async function playStargazerPresentation(step, context = {}) {
       if(step.actionId === 'sg_observe') await runStargazerObservation(tl, step.outcome.type === 'star' ? 'constellation' : step.outcome.type, step.outcome.label);
       else await runOrbitReshapeEvent(tl, {accelerate:'minor_shift', reset:'supernova', overload:'overload', nothing:'whiff'}[step.outcome.type]);
       targetUnit.style.display = ''; context.onTiming?.('outcome_reveal', {step});
+      if(context.battlefield&&step.actionId==='sg_observe'){s.root.classList.remove('battlefield-universe');fx.style.opacity='0';}
       await s.resolveResults(); await s.wait(300);
     } finally {fx.pauseAnimations?.();}
   });
