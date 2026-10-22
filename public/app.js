@@ -2441,25 +2441,8 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     return;
   }
 
-  const bosses = enemies.filter(e => e.isBoss || e.tier === 'ELITE' || e.tier === 'ABYSS');
-  const minions = enemies.filter(e => !bosses.includes(e));
-
-  let displayOrder = [];
-  const isOneBossMultiMinions = (bosses.length === 1 && minions.length > 0);
-
-  if (isOneBossMultiMinions) {
-    if (minions.length === 1) {
-      displayOrder = [minions[0], bosses[0]];
-    } else if (minions.length === 2) {
-      displayOrder = [minions[0], bosses[0], minions[1]];
-    } else {
-      const half = Math.floor(minions.length / 2);
-      displayOrder = [...minions.slice(0, half), bosses[0], ...minions.slice(half)];
-    }
-  } else {
-    displayOrder = [...enemies];
-  }
-
+  const { bosses, centered, displayOrder } = getBattleFormation(enemies);
+  elements.battleEnemiesStage.classList.toggle('is-centered-formation', centered);
   const isUltRound = (roomState.battleRound % 3 === 0);
   const activeIds = new Set(displayOrder.map((en, idx) => String(en.instanceId || en.id || `enemy_${idx}`)));
 
@@ -2473,17 +2456,14 @@ function renderBattleEnemiesStage(enemies, monster, me) {
 
   displayOrder.forEach((en, idx) => {
     const eid = String(en.instanceId || en.id || `enemy_${idx}`);
-    const isTarget = eid === (monster?.instanceId || monster?.id) || eid === currentSelectedEnemyId;
+    const isTarget = eid === (currentSelectedEnemyId || monster?.instanceId || monster?.id);
     const isDead = en.hp <= 0;
     const hpPct = Math.max(0, Math.min(100, Math.round((en.hp / Math.max(1, en.maxHp)) * 100)));
     const fillClass = hpPct < 25 ? 'hp-crit' : (hpPct < 50 ? 'hp-warn' : '');
 
-    let sizeClass = 'is-uniform-slot';
-    if (enemies.length === 1) {
-      sizeClass = 'is-single-slot';
-    } else if (isOneBossMultiMinions) {
-      sizeClass = (en === bosses[0]) ? 'is-boss-slot' : 'is-minion-slot';
-    }
+    const tier = en.tier || (en.isBoss ? 'ELITE' : 'MINION');
+    const sizeClass = tier === 'MINION' ? 'is-minion-slot' : 'is-boss-slot' + (tier === 'ABYSS' ? ' is-abyss-slot' : '');
+    const column = centered ? (en === bosses[0] ? 2 : (idx === 0 ? 1 : 3)) : null;
 
     const cdTurns = en.cd ?? (isUltRound ? 1 : ((3 - (roomState.battleRound % 3)) % 3 || 3));
     const isReady = (cdTurns === 1 || isUltRound);
@@ -2571,10 +2551,10 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       elements.battleEnemiesStage.appendChild(slot);
     } else {
       // 保留原有節點，依序 appendChild 更新順序
-      elements.battleEnemiesStage.appendChild(slot);
+      // CSS order preserves focus and active effects.
       slot._currentEnemy = en;
 
-      slot.className = `battle-enemy-slot ${sizeClass} ${isTarget ? 'is-target' : ''} ${isDead ? 'is-dead' : ''}`;
+      // Preserve transient hit/effect classes on the authoritative node.
 
       // 同步更新敵人頭像與圖片，嚴格保證圖文一致
       const spriteWrap = slot.querySelector('.enemy-sprite-wrap');
@@ -2625,6 +2605,18 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       if (nameEl) nameEl.textContent = en.name;
     }
 
+    for (const cls of ['is-single-slot', 'is-uniform-slot', 'is-minion-slot', 'is-boss-slot', 'is-abyss-slot']) slot.classList.remove(cls);
+    slot.classList.add(...sizeClass.split(' '));
+    slot.classList.toggle('is-target', isTarget && !isDead);
+    slot.classList.toggle('is-dead', isDead);
+    slot.style.order = String(idx);
+    slot.style.gridColumn = column ? String(column) : '';
+    slot.dataset.tier = tier;
+    slot.setAttribute('aria-pressed', String(isTarget && !isDead));
+    let tierLabel = slot.querySelector('.enemy-tier-label');
+    if (!tierLabel) { tierLabel = document.createElement('span'); tierLabel.className = 'enemy-tier-label'; slot.appendChild(tierLabel); }
+    tierLabel.textContent = tier === 'ABYSS' ? '深淵' : tier === 'ELITE' ? '菁英' : '';
+    tierLabel.hidden = tier === 'MINION';
     slot.tabIndex = isDead ? -1 : 0;
     slot.setAttribute('aria-label', `${en.name} HP ${en.hp}/${en.maxHp}`);
 
@@ -2649,7 +2641,7 @@ let currentSelectedEnemyId = null;
 let lastBattleEncounterKey = null;
 function renderBattle(me, isLeader) {
   // 檢測是否切換不同敵方編隊／層數，若切換則重置舞台避免殘留舊敵人圖示
-  const currentEncounterKey = `${roomState.floor}_${roomState.currentMonster?.name || ''}_${(roomState.enemies || []).map(e => e.name || e.instanceId).join(',')}`;
+  const currentEncounterKey = `${roomState.floor}_${(roomState.enemies || [roomState.currentMonster]).filter(Boolean).map(e => e.instanceId || e.id).sort().join(',')}`;
   if (lastBattleEncounterKey !== currentEncounterKey) {
     lastBattleEncounterKey = currentEncounterKey;
     if (elements.battleEnemiesStage) {
@@ -5045,12 +5037,7 @@ function playPixelFx(container, fxType) {
 
 // 首領受擊演出 (帶有 x+8, y+3 之右後方向性位移 + Pixel FX)
 function triggerHitOnMonster(isCrit = false, fxType = 'slash', value = 0, targetEnemyId = null) {
-  const targetSlot = (targetEnemyId ? document.querySelector(`.battle-enemy-slot[data-enemy-id="${targetEnemyId}"]`) : null)
-    || document.querySelector('.battle-enemy-slot.is-target')
-    || document.querySelector('.battle-enemy-slot.is-boss-slot')
-    || document.querySelector('.battle-enemy-slot:not(.is-dead)')
-    || document.querySelector('.battle-enemy-slot')
-    || elements.monsterCard;
+  const targetSlot = targetEnemyId ? getEnemyAnchor(targetEnemyId)?.element : document.querySelector('.battle-enemy-slot.is-target');
 
   if (targetSlot) {
     targetSlot.classList.remove('hit-displace-boss', 'crit-frame-flash', 'shaking');
@@ -5184,10 +5171,7 @@ function playSinglePlayerVisualEvent(ev) {
     triggerHitOnMonster(ev.isCrit, fxType, ev.value, ev.targetEnemyId);
     playSound(sfxName);
 
-    const floatTarget = (ev.targetEnemyId ? document.querySelector(`.battle-enemy-slot[data-enemy-id="${ev.targetEnemyId}"] .floating-text-container`) : null)
-      || document.querySelector('.battle-enemy-slot.is-target .floating-text-container')
-      || document.querySelector('.battle-enemy-slot .floating-text-container')
-      || elements.monsterFloatingContainer;
+    const floatTarget = ev.targetEnemyId ? getEnemyAnchor(ev.targetEnemyId)?.element.querySelector('.floating-text-container') : document.querySelector('.battle-enemy-slot.is-target .floating-text-container');
     if (ev.isCrit) {
       spawnFloatingText(floatTarget, `CRIT -${ev.value}!`, 'crit');
     } else {
@@ -5407,13 +5391,11 @@ function hideCombatActionBanner() {
 function updateMonsterHpDisplay(hp, maxHp, enemyId = null) {
   const safeHp = Math.max(0, hp);
   const pct = Math.max(0, Math.min(100, (safeHp / Math.max(1, maxHp)) * 100));
-  if (elements.monsterHpText) elements.monsterHpText.textContent = `${safeHp} / ${maxHp}`;
-  if (elements.monsterHpFill) elements.monsterHpFill.style.width = `${pct}%`;
+  const selected = !enemyId || enemyId === currentSelectedEnemyId;
+  if (selected && elements.monsterHpText) elements.monsterHpText.textContent = `${safeHp} / ${maxHp}`;
+  if (selected && elements.monsterHpFill) elements.monsterHpFill.style.width = `${pct}%`;
 
-  const slot = (enemyId ? document.querySelector(`.battle-enemy-slot[data-enemy-id="${enemyId}"]`) : null)
-    || document.querySelector('.battle-enemy-slot.is-target')
-    || document.querySelector('.battle-enemy-slot.is-boss-slot')
-    || document.querySelector('.battle-enemy-slot');
+  const slot = enemyId ? getEnemyAnchor(enemyId)?.element : document.querySelector('.battle-enemy-slot.is-target');
 
   if (slot) {
     const fill = slot.querySelector('.tos-hp-fill');
@@ -5427,6 +5409,10 @@ function updateMonsterHpDisplay(hp, maxHp, enemyId = null) {
     }
     if (safeHp <= 0) {
       slot.classList.add('is-dead');
+      slot.classList.remove('is-target');
+      slot.setAttribute('aria-pressed', 'false');
+      const reticle = slot.querySelector('.enemy-target-reticle');
+      if (reticle) reticle.style.display = 'none';
       slot.tabIndex = -1;
     } else {
       slot.classList.remove('is-dead');
@@ -5441,15 +5427,15 @@ function updateBattleHudFromSnapshot(snapshot) {
 
   // 1. 首領怪物 HP 與死亡視覺狀態
   if (snapshot.monster) {
-    if (roomState && (roomState.monster || roomState.currentMonster)) {
-      if (roomState.monster) {
-        roomState.monster.hp = snapshot.monster.hp;
-        roomState.monster.maxHp = snapshot.monster.maxHp;
-      }
-      if (roomState.currentMonster) {
-        roomState.currentMonster.hp = snapshot.monster.hp;
-        roomState.currentMonster.maxHp = snapshot.monster.maxHp;
-      }
+    if (roomState) {
+      const id = snapshot.monster.instanceId || snapshot.monster.id;
+      const enemy = roomState.enemies?.find(e => (e.instanceId || e.id) === id);
+      if (enemy) Object.assign(enemy, snapshot.monster);
+      // monster is a compatibility alias, never a second health owner.
+      roomState.currentMonster = enemy || { ...snapshot.monster };
+      if (roomState.monster) roomState.monster = roomState.currentMonster;
+      const node = getEnemyAnchor(id)?.element;
+      if (node) node._currentEnemy = { ...node._currentEnemy, ...snapshot.monster };
     }
     updateMonsterHpDisplay(snapshot.monster.hp, snapshot.monster.maxHp, snapshot.monster.instanceId || snapshot.monster.id);
     if (elements.monsterAvatar) {
@@ -5467,6 +5453,10 @@ function updateBattleHudFromSnapshot(snapshot) {
   // 多目標編隊敵方血條更新
   if (Array.isArray(snapshot.enemies)) {
     snapshot.enemies.forEach(en => {
+      const current = roomState?.enemies?.find(e => (e.instanceId || e.id) === (en.instanceId || en.id));
+      if (current) Object.assign(current, en);
+      const node = getEnemyAnchor(en.instanceId || en.id)?.element;
+      if (node) node._currentEnemy = { ...node._currentEnemy, ...en };
       const eid = en.instanceId || en.id;
       if (eid) {
         updateMonsterHpDisplay(en.hp, en.maxHp, eid);
@@ -5629,12 +5619,12 @@ async function playPresentationStep(step, round) {
   }
 
   if (step.category) {
-    await playExpandedCombatPresentation(step, activeCombatContext);
+    await playExpandedCombatPresentation(adaptLegacyPresentationStep(step), activeCombatContext);
     return;
   }
   if (step.type === 'player_action' || step.type === 'boss_action') {
     if (typeof playCombatActionPresentation === 'function') {
-      await playCombatActionPresentation(step);
+      await playCombatActionPresentation(adaptLegacyPresentationStep(step), activeCombatContext);
     } else {
       if (step.visualEvents && step.visualEvents.length > 0) {
         step.visualEvents.forEach(ev => playSinglePlayerVisualEvent(ev));
@@ -5724,6 +5714,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     cleaned = true;
     if(controller.signal.aborted&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
     if (combatQueueController === controller) {
+      if (controller.signal.aborted && queue.at(-1)?.hpSnapshot) applyHpSnapshot(queue.at(-1).hpSnapshot);
       combatQueueController = null;
       isProcessingPresentationQueue = false;
       isPlayingBattleNarrative = false;
@@ -5750,6 +5741,8 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     }
     await ensureBattlePhase(round);
     if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
+    appliedBattleResults.clear();
+    if (queue[0]?.hpSnapshotBefore) applyHpSnapshot(queue[0].hpSnapshotBefore);
     await enterCombatStage(activeCombatContext);
     for (const step of queue) {
       await playPresentationStep(step, round);
@@ -5762,7 +5755,9 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     controller.signal.removeEventListener('abort', cleanup);
     cleanup();
   }
-  if (completed && !controller.signal.aborted) {
+  if (combatQueueController && combatQueueController !== controller) return;
+  if (!completed && !controller.signal.aborted && queue.at(-1)?.hpSnapshot) applyHpSnapshot(queue.at(-1).hpSnapshot);
+  if (!controller.signal.aborted) {
     if (pendingAuthoritativeState) { roomState = pendingAuthoritativeState; pendingAuthoritativeState = null; }
     renderApp();
     socket.emit('battle:presentation_complete', { round, presentationId });

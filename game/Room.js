@@ -8,7 +8,7 @@ import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRa
 // 遊戲房間管理核心 (Game Room Engine)
 // 100% 完整移植 index.js 中的戰鬥演算法、職業技能、裝備、怪物抗性與傷害拆分機制
 
-import { SKILL_CATEGORIES, playerStatuses, snapshotTarget, buildActionResults, sequenceAugurDamageResults } from './combat-schema.js';
+import { SKILL_CATEGORIES, playerStatuses, snapshotTarget, buildActionResults, sequenceAugurDamageResults, normalizeCombatQueue } from './combat-schema.js';
 import {
   GAME_BALANCE,
   CLASSES,
@@ -5808,20 +5808,23 @@ export class Room {
         case 'm_blast': {
           const isBackfire = this.interveneNegative(p, '奧術爆破・法力走火', 25).failed;
           if (isBackfire) actionOutcome = { type: 'misfire', label: '法力走火' };
-          const secTargets = (this.secondaryMonsters || monster.secondaryTargets || []).filter(t => t && t !== monster && t.hp > 0);
+          const secTargets = this.getLivingEnemies().filter(t => t !== monster);
           if (isBackfire) {
             const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'m_miss'))) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
             monster.hp -= dmg;
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: isBackfire ? '奧術爆破(走火)' : '奧術爆破' });
             for (const sec of secTargets) {
               const secRaw = Math.floor((this.applyFateBlessing(p, this.skillValue(p, 'm_secondary_miss'))) * bardDmgMultiplier);
               const secDmg = mitigateDirectDamage(secRaw, { damageType: 'mag', defense: sec.DEF || sec.defense || 0, resistance: sec.resistances?.magic || 0 });
               sec.hp = Math.max(0, sec.hp - secDmg);
+              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: sec.instanceId, targetEnemyId: sec.instanceId,
+                isSecondaryEnemy: true, dmgType: 'mag', value: secDmg, label: '奧術爆破・次要目標' });
             }
             p.hp = Math.max(0, p.hp - 10);
             const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
             log.push({ text: `🧙‍♂️💥 **${p.name}** 引導【奧術爆破】不幸【法力走火】！僅造成 **${dmg}** 點【魔法】傷害${resNote}，且自身受到 **10** 點反噬自傷！（❤️ ${p.hp}/${p.maxHp}）`, type: 'damage' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '奧術爆破(走火)' });
+
             visualEvents.push({ type: 'self_damage', targetId: p.id, value: 10 });
             if (p.hp <= 0) {
               p.hp = 0;
@@ -5832,14 +5835,17 @@ export class Room {
             const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'m_blast'))) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
             monster.hp -= dmg;
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: isBackfire ? '奧術爆破(走火)' : '奧術爆破' });
             for (const sec of secTargets) {
               const secRaw = Math.floor((this.applyFateBlessing(p, this.skillValue(p, 'm_secondary'))) * bardDmgMultiplier);
               const secDmg = mitigateDirectDamage(secRaw, { damageType: 'mag', defense: sec.DEF || sec.defense || 0, resistance: sec.resistances?.magic || 0 });
               sec.hp = Math.max(0, sec.hp - secDmg);
+              visualEvents.push({ type: 'player_attack', sourceId: p.id, target: sec.instanceId, targetEnemyId: sec.instanceId,
+                isSecondaryEnemy: true, dmgType: 'mag', value: secDmg, label: '奧術爆破・次要目標' });
             }
             const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
             log.push({ text: `🧙‍♂️ **${p.name}** 引爆【奧術爆破】，轟出 **${dmg}** 點【魔法】傷害！${resNote}`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '奧術爆破' });
+
           }
 
           // 嗜血法袍特殊效果
@@ -5848,6 +5854,7 @@ export class Room {
             const extraDmgRaw = Math.floor((monster.maxHp || monster.hp) * 0.10 * robeCount);
             const actualBonus = Math.min(monster.hp, Math.max(1, extraDmgRaw));
             monster.hp -= actualBonus;
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: actualBonus, label: '嗜血法袍' });
             for (const ally of Object.values(this.players)) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, actualBonus);
             }
@@ -5955,7 +5962,8 @@ export class Room {
           });
 
           // 次要目標視覺與傷害結算
-          for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
+          for (const otherEnemy of targetDmgMap.keys()) {
+            if (otherEnemy === monster) continue;
             const otherDmg = targetDmgMap.get(otherEnemy) || 0;
             totalDmg += otherDmg;
             if (otherDmg > 0 || targetHitsMap.get(otherEnemy)) {
@@ -6238,6 +6246,7 @@ export class Room {
           const raw = Math.floor((this.applyFateBlessing(p, 40) + getEffectiveBonusAtk(p)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
           for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
             const nonPrimaryRaw = Math.floor(raw * 0.5);
             const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(nonPrimaryRaw, 'mag', { enemy: otherEnemy });
@@ -6267,7 +6276,6 @@ export class Room {
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
           const buretteNote = buretteCount > 0 ? ' (🧪精密滴管移除自傷)' : '';
           log.push({ text: `⚗️ **${p.name}** 投擲【腐蝕強酸瓶】，造成 **${dmg}** 點【魔法】傷害！${resNote}${selfDmg > 0 ? ` 自身受到 **${selfDmg}** 點自傷！` : buretteNote + '！'}⚠️ 強酸飛濺腐蝕全隊裝備，本回合全體裝備效果降低 50%！（❤️ ${p.hp}/${p.maxHp}）`, type: 'combat' });
-          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
           if (selfDmg > 0) {
             visualEvents.push({ type: 'self_damage', targetId: p.id, value: selfDmg });
           }
@@ -6666,7 +6674,7 @@ export class Room {
       const stepVisuals = visualEvents.slice(beforeVisualCount);
       for(const event of stepVisuals)if(event.type==='player_attack')Object.assign(event,{
         eventKind:event.eventKind || (['m_blast','a_rain'].includes(p.action)?'area':'direct'),
-        targetRole:event.targetRole || 'primary',sourceId:p.id,actionId:p.action
+        targetRole:event.targetRole || (event.isSecondaryEnemy ? 'secondary' : 'primary'),sourceId:p.id,actionId:p.action
       });
       const stepLogs = log.slice(beforeLogCount);
       const activeSkills = roundSkillSets.get(p.id);
@@ -6676,7 +6684,7 @@ export class Room {
         hiddenEffectNote = '酸霧侵蝕裝備，全隊裝備效果降低 50%！';
       }
 
-      const attackVisual = stepVisuals.find(v => v.type === 'player_attack');
+      const attackVisual = stepVisuals.find(v => v.type === 'player_attack' && !v.isSecondaryEnemy);
       const isLethal = monster.hp <= 0;
       const monsterHpDelta = Math.max(0, monsterHpBefore - monster.hp);
       if (monsterHpDelta > 0) {
@@ -6693,12 +6701,14 @@ export class Room {
         if (monster.abyssMechanics?.passiveReflectRatio && p.hp > 0) {
           const reflectDmg = Math.max(1, Math.floor(monsterHpDelta * monster.abyssMechanics.passiveReflectRatio));
           this.applyDamageToPlayer(p, reflectDmg, { kind: 'abyss_reflect' });
+          stepVisuals.push({ type: 'self_damage', sourceId: monster.instanceId, targetId: p.id, value: reflectDmg, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), outcome: { type: 'abyss_reflect' } });
           log.push({ text: `🛡️⚡ **${monster.name}** 的【荊棘聖盾】反彈了 **${reflectDmg}** 點真實傷害予 **${p.name}**！`, type: 'damage' });
         }
         // 深淵武士【見切反擊】：25% 機率反擊
         if (monster.abyssMechanics?.passiveCounterChance && monster.hp > 0 && p.hp > 0 && Math.random() < monster.abyssMechanics.passiveCounterChance) {
           const counterDmg = monster.abyssMechanics.passiveCounterDmg || 8;
           this.applyDamageToPlayer(p, counterDmg, { kind: 'abyss_counter' });
+          stepVisuals.push({ type: 'self_damage', sourceId: monster.instanceId, targetId: p.id, value: counterDmg, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), outcome: { type: 'abyss_counter' } });
           log.push({ text: `⚔️⚡ **${monster.name}** 觸發【見切反擊】，瞬間拔刀對 **${p.name}** 造成 **${counterDmg}** 點傷害！`, type: 'damage' });
         }
       }
@@ -7086,7 +7096,7 @@ export class Room {
             monster.hp = Math.max(0, monster.hp - totalBacklashDmg);
             const ratioText = confuseCount > 1 ? `（${confuseCount} 重惑心，共 ${totalRatioPercent}%）` : `（${totalRatioPercent}%）`;
             log.push({ text: `📜🌀 **【惑心符】** 心智混亂！魔物出手時將造成的傷害${ratioText}作用在自身，反噬受到 **${totalBacklashDmg}** 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
+            visualEvents.push({ type: 'player_attack', sourceId: Object.values(this.players).find(p => p.role === 'onmyoji')?.id || monster.instanceId, target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
           }
         }
 
@@ -7644,6 +7654,7 @@ export class Room {
     this.isNarrating = true;
     this.presentationMode = mode;
     this.battlePresentationId += 1;
+    normalizeCombatQueue(queue, this.code + ":" + this.battlePresentationId);
     this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
     this.io.to(this.code).emit('battle:presentation_queue', {
       queue, round: this.battleRound, presentationId: this.battlePresentationId,

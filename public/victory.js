@@ -6,7 +6,9 @@ let victoryContinueButton = null;
 function mergePresentationSnapshot(base, incoming) {
   const map = new Map((base?.players || []).map(p => [p.id, p]));
   for (const p of incoming.players || []) map.set(p.id, { ...map.get(p.id), ...p });
-  return { ...base, ...incoming, players: [...map.values()], monster: incoming.monster || base?.monster };
+  const enemies = new Map((base?.enemies || []).map(e => [e.instanceId || e.id, e]));
+  for (const enemy of incoming.enemies || []) { const id = enemy.instanceId || enemy.id; enemies.set(id, { ...enemies.get(id), ...enemy }); }
+  return { ...base, ...incoming, enemies: [...enemies.values()], players: [...map.values()], monster: incoming.monster || base?.monster };
 }
 function projectExpandedDisplayState(state) {
   const victory = state.state === 'BATTLE_VICTORY' ? state.currentVictory : null;

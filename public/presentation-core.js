@@ -1242,3 +1242,94 @@ if (typeof window !== 'undefined' && !window.presentationManager) {
     setBlocking(blocking) { this.isBlocking = blocking; }
   };
 }
+
+// Formal battlefield anchors. Read geometry on every use: resize, scroll and
+// layout never leave cached coordinates pointing at a different combatant.
+function battlefieldAnchor(element, id) {
+  if (!element?.isConnected) return null;
+  const rect = element.getBoundingClientRect();
+  return { element, id, rect, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+function getActorAnchor(playerId) {
+  const element = [...document.querySelectorAll('.teammate-card[data-player-id]')]
+    .find(node => node.dataset.playerId === String(playerId));
+  return battlefieldAnchor(element, playerId);
+}
+function getEnemyAnchor(instanceId) {
+  if (!instanceId || instanceId === 'monster') return null;
+  const element = [...document.querySelectorAll('.battle-enemy-slot[data-enemy-id]')]
+    .find(node => node.dataset.enemyId === String(instanceId));
+  return battlefieldAnchor(element, instanceId);
+}
+function resolvePresentationTarget(result, step = {}) {
+  const id = result.canonicalTargetId || result.targetId;
+  if (id !== 'monster') return id || result.targetEnemyId;
+  return result.targetEnemyId || result.targetBefore?.instanceId || result.targetAfter?.instanceId ||
+    step.targetEnemyId || step.hpSnapshotBefore?.monster?.instanceId;
+}
+function getVisualAnchor(targetId) {
+  const direct = getEnemyAnchor(targetId) || getActorAnchor(targetId);
+  if (direct) return direct;
+  const players = typeof roomState !== 'undefined' ? roomState?.players || [] : [];
+  const owner = players.find(p => p.minions?.some(m => m.id === targetId));
+  const card = owner && [...document.querySelectorAll('[data-minion-owner-id]')]
+    .find(node => node.dataset.minionOwnerId === owner.id);
+  return battlefieldAnchor(card, targetId);
+}
+// Compatibility is local to unmigrated choreography. Wire results always carry
+// concrete IDs; only the primary enemy receives the old stage's monster key.
+function adaptLegacyPresentationStep(step) {
+  const primaryId = step.targetEnemyId || step.hpSnapshotBefore?.monster?.instanceId;
+  return { ...step, canonicalTargetId: step.targetId,
+    targetId: step.targetId === primaryId ? 'monster' : step.targetId,
+    results: step.results?.map(result => ({ ...result,
+      canonicalTargetId: resolvePresentationTarget(result, step),
+      targetId: resolvePresentationTarget(result, step) === primaryId ? 'monster' : result.targetId })) };
+}
+const appliedBattleResults = new Set();
+function applyAuthoritativeResult(result) {
+  const key = result.resultId || result;
+  const id = resolvePresentationTarget(result);
+  if (!id || appliedBattleResults.has(key) || !result.targetAfter) return false;
+  appliedBattleResults.add(key);
+  const target = result.targetAfter;
+  if (result.targetEnemyId || target.instanceId) {
+    const state = typeof roomState !== 'undefined' ? roomState : null;
+    const primary = state?.currentMonster?.instanceId === id || state?.monster?.instanceId === id;
+    applyHpSnapshot({ enemies: [{ ...target, instanceId: id }], ...(primary ? { monster: target } : {}) });
+  } else if (result.kind === 'intercept') {
+    const state = typeof roomState !== 'undefined' ? roomState : null;
+    const owner = state?.players?.find(p => p.minions?.some(m => m.id === id));
+    if (owner) applyHpSnapshot({ players: [{ ...owner, minions: owner.minions.map(m => m.id === id ? { ...m, ...target } : m) }] });
+  } else {
+    const display = result.sageMomentumCapture ? { ...target,
+      sageOperand: result.targetBefore?.sageOperand, resourceSummary: result.targetBefore?.resourceSummary } : target;
+    applyHpSnapshot({ players: [display] });
+  }
+  return true;
+}
+function playTargetedEffect(result, context = {}) {
+  if (context.signal?.aborted) return;
+  const anchor = getVisualAnchor(resolvePresentationTarget(result));
+  if (!anchor) return;
+  const target = anchor.element;
+  const layer = target.querySelector('.floating-text-container') || target;
+  const damage = result.actualDamage ?? result.finalDamage;
+  const value = result.actualHeal > 0 ? '+' + result.actualHeal : damage > 0 ? '-' + damage : null;
+  if (value && typeof spawnFloatingText === 'function') spawnFloatingText(layer, value, result.actualHeal > 0 ? 'heal' : 'damage');
+  if (!context.reducedMotion && damage > 0 && typeof createCombatFx === 'function') {
+    const fx = createCombatFx({ type: result.damageType === 'magic' ? 'magic_impact' : 'impact_spark',
+      target: target.querySelector('.enemy-sprite-wrap, .teammate-avatar-wrap') || target,
+      speed: context.speed || 1, reducedMotion: context.reducedMotion });
+    context.signal?.addEventListener('abort', () => fx?.remove(), { once: true });
+  }
+}
+
+function getBattleFormation(enemies) {
+  const bosses = enemies.filter(e => ['ELITE', 'ABYSS'].includes(e.tier) || (!e.tier && e.isBoss));
+  const minions = enemies.filter(e => !bosses.includes(e));
+  const centered = bosses.length === 1 && minions.length <= 2;
+  const half = Math.ceil(minions.length / 2);
+  const displayOrder = bosses.length === 1 ? [...minions.slice(0, half), bosses[0], ...minions.slice(half)] : [...enemies];
+  return { bosses, minions, centered, displayOrder };
+}

@@ -31,7 +31,7 @@ function minionPortraitSvg(type, avatar, descriptor = {}) {
 function resultTarget(result, before = true) { return before ? result.targetBefore : result.targetAfter; }
 function resultPortrait(result) {
   const target = resultTarget(result) || resultTarget(result, false) || {};
-  const isEnemy = result.targetId === 'monster' ||
+  const isEnemy = Boolean(result.targetEnemyId) || result.targetId === 'monster' ||
     String(result.targetId || '').startsWith('enemy_') ||
     String(target.instanceId || '').startsWith('enemy_') ||
     target.entityType === 'monster' ||
@@ -96,7 +96,8 @@ async function presentCombatResult(result, card, context = {}) {
   const wait = ms => waitForPresentation(context.fastResult?Math.min(ms,30):ms, context.signal, context.speed || 1);
   const target = resultTarget(result, false);
   const outcome = result.outcome || { type: 'normal' };
-  const emit = beat => context.onTiming?.(beat, { targetId: result.targetId, result });
+  const commit = () => { if (typeof applyAuthoritativeResult === 'function' && applyAuthoritativeResult(result)) playTargetedEffect(result, context); };
+  const emit = beat => context.onTiming?.(beat, { targetId: resolvePresentationTarget(result), result });
   if(!context.dreamweaverOriginalTrigger && ['dream_heal','nightmare'].includes(outcome.type))revealDreamOutcomeButterfly(card,outcome.type,context);
   if (result.sharedFrom) {
     card.classList.add('has-root-link');
@@ -130,7 +131,7 @@ async function presentCombatResult(result, card, context = {}) {
       if (result.absorbed > 0) resultFloat(card, 'ABSORB ' + result.absorbed, 'is-guard');
       await wait(100);
     }
-    const damage = result.absorbed > 0 ? result.hpDmg : result.finalDamage;
+    const damage = result.absorbed > 0 ? result.hpDmg : (result.actualDamage ?? result.finalDamage);
     if (outcome.type === 'block' || damage === 0) {
       resultFloat(card, samuraiParry?'格擋':'BLOCK', samuraiParry?'is-guard is-samurai-parry':'is-guard');
       emit('block');
@@ -163,6 +164,7 @@ async function presentCombatResult(result, card, context = {}) {
       emit('impact');
       if(!context.immediateImpact)await wait(SUPPORT_TIMING.impactDelay);
       resultFloat(card, '-' + damage, result.damageType === 'magic' ? 'is-magic' : 'is-damage');
+      commit();
       emit('damage_float');
     }
     if (result.shieldBreak) {
@@ -176,6 +178,7 @@ async function presentCombatResult(result, card, context = {}) {
     updateResultCard(card, target);
     if(!context.skipResultAudio)audio.playResult('healing_result', { volume: context.sourceRole === 'bard' ? .7 : 1 });
     if (result.actualHeal > 0) resultFloat(card, '+' + result.actualHeal, 'is-heal');
+    commit();
     emit('heal_float');
     await wait(100);
   } else {
@@ -218,15 +221,7 @@ async function presentCombatResult(result, card, context = {}) {
     await wait(120);
     resultFloat(card, 'TEMP +' + target.tempHp, 'is-guard');
   }
-  if (target && typeof applyHpSnapshot === 'function') {
-    // Ripple targets may complete in different orders. Apply only this target's
-    // authoritative snapshot, never another victim's future result.
-    if (result.targetId === 'monster') applyHpSnapshot({ monster: target });
-    else if (result.kind !== 'intercept') {
-      const displayTarget=result.sageMomentumCapture?{...target,sageOperand:result.targetBefore?.sageOperand,resourceSummary:result.targetBefore?.resourceSummary}:target;
-      applyHpSnapshot({ players: [displayTarget] });
-    }
-  }
+  commit();
   emit('hp_update');
   if(result.sageMomentumCapture&&typeof playSageMomentumCapture==='function')await playSageMomentumCapture(result,card,context);
   if (!context.audioScope) await audio.hold();

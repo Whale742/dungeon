@@ -286,7 +286,7 @@ async function playCombatActionPresentation(step, context = {}) {
   };
 
   const primary = step.results?.find(r => r.kind === 'damage' && r.targetId === 'monster');
-  if (primary) step = { ...step, finalDamage: primary.finalDamage, targetHpBefore: primary.targetBefore.hp, targetHpAfter: primary.targetAfter.hp, targetMaxHp: primary.targetAfter.maxHp, hpSnapshot: primary.hpSnapshot };
+  if (primary) step = { ...step, finalDamage: primary.actualDamage ?? primary.finalDamage, targetHpBefore: primary.targetBefore.hp, targetHpAfter: primary.targetAfter.hp, targetMaxHp: primary.targetAfter.maxHp, hpSnapshot: primary.hpSnapshot };
   const outcome = step.outcome || { type: 'normal' };
   const missed = outcome.type === 'miss' || outcome.type === 'dodge';
   emitTiming('action_start', { step });
@@ -363,7 +363,7 @@ async function playCombatActionPresentation(step, context = {}) {
 
     const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
-    targetEntity = (typeof roomState !== 'undefined' && (roomState?.currentMonster || roomState?.monster)) || step.hpSnapshot?.monster || { name: mName, avatar: mAvatar };
+    targetEntity = primary?.targetBefore || (typeof roomState !== 'undefined' && (roomState?.currentMonster || roomState?.monster)) || step.hpSnapshot?.monster || { name: mName, avatar: mAvatar };
     targetPortraitHtml = battlePortraitHtml({ entityType: 'monster', avatar: mAvatar, name: mName }, 'presentation-combat-portrait-img');
     targetName = mName;
 
@@ -581,6 +581,7 @@ async function playCombatActionPresentation(step, context = {}) {
 
   // --- STEP 4: 傷害數字與生命條動態扣除 (Floating Damage & HP Bar Animation) ---
   await wait(timing.damageDelay || 75);
+  if (primary && typeof applyAuthoritativeResult === 'function' && applyAuthoritativeResult(primary)) playTargetedEffect(primary, context);
   emitTiming('damage_float', { damage: finalDamage });
 
   const dmgEl = document.createElement('div');
@@ -604,7 +605,7 @@ async function playCombatActionPresentation(step, context = {}) {
   // 延遲更新全域 HP Snapshot (與傷害跳動分離)
   await wait(timing.damageDelay || 75);
   emitTiming('hp_update');
-  if (step.hpSnapshot && typeof applyHpSnapshot === 'function') {
+  if (!primary && step.hpSnapshot && typeof applyHpSnapshot === 'function') {
     applyHpSnapshot(step.hpSnapshot);
   }
 

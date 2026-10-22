@@ -68,7 +68,7 @@ function samuraiAbortable(promise,signal){
 function resolveSamuraiCombatResult(result,card,context){
  if(context.signal?.aborted)return;
  const target=result.targetAfter;updateResultCard(card,target);
- if(target&&typeof applyHpSnapshot==='function')applyHpSnapshot(result.targetId==='monster'?{monster:target}:{players:[target]});
+ if(target&&typeof applyAuthoritativeResult==='function'&&applyAuthoritativeResult(result))playTargetedEffect(result,context);
  const emit=beat=>context.onTiming?.(beat,{result,targetId:result.targetId});
  const missed=['miss','dodge'].includes(result.outcome?.type),n=result.finalDamage??result.value;
  if(missed)resultFloat(card,'MISS','is-miss');else if(n>0)resultFloat(card,'-'+(result.absorbed>0?result.hpDmg:n),'is-damage');else resultFloat(card,'格擋','is-guard');

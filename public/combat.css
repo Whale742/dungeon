@@ -1028,11 +1028,13 @@ body:has(#viewBattle.active) .main-content {
   box-sizing: border-box;
 }
 
+.battle-main { overflow-y: auto; overflow-x: hidden; }
+
 /* Upper: Enemy Stage (敵人展示舞台) */
 .battle-arena.monster-card {
-  height: clamp(165px, 24vh, 205px) !important;
+  height: auto !important;
   min-height: 165px !important;
-  max-height: 205px !important;
+  max-height: none !important;
   flex: 0 0 auto;
   position: relative;
   overflow: visible !important; /* Prevents rectangular FX clipping */
@@ -1097,12 +1099,12 @@ body:has(#viewBattle.active) .main-content {
 /* Enemy Formation Stage */
 .battle-enemies-stage.enemies {
   position: relative;
-  display: flex !important;
+  /* Formation layout and tier sizes are owned by style.css. */
   align-items: flex-end !important;
   justify-content: center !important;
-  gap: clamp(16px, 4%, 48px) !important;
+
   width: 100% !important;
-  flex: 1 !important;
+  flex: 0 0 auto !important;
   min-height: 135px !important;
   padding: 0 0 4px !important;
   margin-bottom: 0 !important;
@@ -1117,15 +1119,15 @@ body:has(#viewBattle.active) .main-content {
   background: none !important;
   color: var(--light, #e8edf2) !important;
   padding: 0 0 2px !important;
-  width: clamp(110px, 15vw, 150px) !important;
+
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   gap: 4px !important;
   position: relative !important;
-  z-index: 2 !important;
+
   cursor: pointer !important;
-  outline: none !important;
+
   user-select: none;
 }
 
@@ -1145,7 +1147,7 @@ body:has(#viewBattle.active) .main-content {
 }
 
 .enemy-sprite-wrap {
-  height: clamp(80px, 12vh, 115px) !important;
+
   max-width: 100% !important;
   position: relative !important;
   display: flex !important;

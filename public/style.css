@@ -7317,40 +7317,34 @@ body.presentation-opening .narrative-controls,
   align-items: flex-end;
   justify-content: center;
 }
-.battle-enemy-slot.is-boss-slot .enemy-sprite-wrap {
-  width: 175px;
-  height: 180px;
+.battle-enemies-stage { flex-wrap: wrap; gap: clamp(6px, 2vw, 16px); }
+.battle-enemies-stage.is-centered-formation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.45fr) minmax(0, 1fr);
+  align-items: end;
 }
-.battle-enemy-slot.is-minion-slot .enemy-sprite-wrap {
-  width: 115px;
-  height: 120px;
-}
-.battle-enemy-slot.is-uniform-slot .enemy-sprite-wrap {
-  width: 130px;
-  height: 135px;
-}
-.battle-enemy-slot.is-single-slot .enemy-sprite-wrap {
-  width: 200px;
-  height: 200px;
-}
-
-@media (max-width: 640px) {
-  .battle-enemy-slot.is-boss-slot .enemy-sprite-wrap {
-    width: 130px;
-    height: 135px;
-  }
-  .battle-enemy-slot.is-minion-slot .enemy-sprite-wrap {
-    width: 85px;
-    height: 90px;
-  }
-  .battle-enemy-slot.is-uniform-slot .enemy-sprite-wrap {
-    width: 80px;
-    height: 85px;
-  }
-  .battle-enemy-slot.is-single-slot .enemy-sprite-wrap {
-    width: 150px;
-    height: 150px;
-  }
+.battle-enemy-slot { min-width: 0; max-width: 100%; }
+.is-centered-formation > .battle-enemy-slot { grid-row: 1; justify-self: center; width: 100%; }
+.battle-enemy-slot.is-minion-slot { width: clamp(70px, 13vw, 100px); }
+.battle-enemy-slot.is-boss-slot { width: clamp(155px, 29vw, 225px); }
+.battle-enemy-slot.is-abyss-slot { width: clamp(170px, 31vw, 245px); }
+.battle-enemy-slot .enemy-sprite-wrap { width: 100%; aspect-ratio: 100 / 110; }
+.battle-enemy-slot.is-boss-slot .enemy-sprite-wrap { aspect-ratio: 225 / 235; }
+.battle-enemy-slot.is-abyss-slot .enemy-sprite-wrap { aspect-ratio: 245 / 255; }
+.battle-enemy-slot.is-minion-slot { align-self: flex-end; z-index: 1; }
+.battle-enemy-slot.is-boss-slot { z-index: 2; }
+.battle-enemy-slot.is-boss-slot .enemy-pedestal { height: 24px; }
+.battle-enemy-slot.is-abyss-slot .enemy-pedestal { height: 28px; }
+.enemy-tier-label { font-size: 10px; color: var(--color-focus); letter-spacing: .12em; }
+.battle-enemy-slot .tos-enemy-hp-bar { height: 9px; }
+.battle-enemy-slot .enemy-cd-badge.ult-ready,
+.battle-enemy-slot .enemy-target-reticle { animation: none; }
+.battle-enemy-slot .enemy-target-reticle { top: 4px; right: 4px; }
+.battle-enemy-slot.is-target .enemy-sprite-wrap { outline: 1px solid var(--color-focus); border-radius: 8px; }
+@media (max-width: 640px), (max-height: 480px) {
+  .battle-enemy-slot.is-minion-slot { width: 70px; }
+  .battle-enemy-slot.is-boss-slot { width: 155px; }
+  .battle-enemy-slot.is-abyss-slot { width: 170px; }
 }
 
 .enemy-sprite-img {
