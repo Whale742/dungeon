@@ -11,22 +11,68 @@ const ENEMY_FX_PROFILES = Object.freeze({
   heavy:['#cbd5e1','heavy','physical_hit',700], nature:['#4ade80','wave','transform_treant',720],
   curse:['#e879f9','crystal','magic_impact',640], equation:['#7dd3fc','equation','magic_impact',720]
 });
-function enemyEventFeedback(result, step) {
-  const before=result.targetBefore, after=result.targetAfter;
-  const values=[];
-  if(result.actualHpDamage>0)values.push('生命 −'+result.actualHpDamage);
-  if(result.actualAbsorbed>0)values.push('護盾 −'+result.actualAbsorbed);
-  if(result.actualHeal>0)values.push('生命 +'+result.actualHeal);
-  if(result.actualShield>0)values.push('護盾 +'+result.actualShield);
-  const old=new Map((before?.statuses||[]).map(s=>[s.id,s]));
-  const current=new Map((after?.statuses||[]).map(s=>[s.id,s]));
-  for(const [id,s] of current)if(JSON.stringify(s)!==JSON.stringify(old.get(id)))values.push(s.label+(s.value!==undefined&&s.value!==''?' '+s.value:'')+(s.turns?' · '+s.turns+'R':''));
-  for(const [id,s] of old)if(!current.has(id))values.push(s.label+'解除');
-  if(before?.cooldowns&&after?.cooldowns&&Object.keys(after.cooldowns).some(k=>after.cooldowns[k]!==before.cooldowns[k]))values.push('技能冷卻已變更');
-  if(result.kind==='death')values.push('倒下');
+function battleFeedbackEntries(result) {
+  const entries=[],add=(text,type)=>entries.push({text,type});
+  if(result.actualHpDamage>0)add('-'+result.actualHpDamage,'damage');
+  if(result.actualAbsorbed>0)add('🛡 -'+result.actualAbsorbed,'shield');
+  // Legacy overheal results include shield gain in actualHeal. Separate that
+  // existing contract without inventing another HP or damage event.
+  const heal=result.kind==='heal'?Math.max(0,(result.actualHeal||0)-(result.actualShield||0)):result.actualHeal||0;
+  if(heal>0)add('+'+heal,'heal');
+  if(result.actualShield>0)add('🛡 +'+result.actualShield,'shield');
   const outcome=result.outcome?.type;
-  if(outcome && !['normal','hit'].includes(outcome))values.push(({dodge:'閃避',blocked:'未生效',block:'格擋',dream_heal:'夢境轉化治療'})[outcome]||outcome);
-  return values.join(' · ') || step.skillName || step.actionId;
+  if(['miss','dodge'].includes(outcome))add('MISS','outcome');
+  else if(['immune','immunity','resisted'].includes(outcome))add('免疫','outcome');
+  else if(result.outcome?.parry||['block','blocked','guard'].includes(outcome))add('格擋','outcome');
+  if(result.isCrit||result.outcome?.critical||['crit','critical'].includes(outcome))add('暴擊','outcome');
+  return entries;
+}
+function enemyEventFeedback(result) {return battleFeedbackEntries(result).map(e=>e.text).join(' ');}
+function getBattleEffectAnchor(id) {
+  const anchor=getVisualAnchor(id);if(!anchor)return null;
+  const visual=anchor.element.querySelector('.enemy-sprite-wrap,.teammate-avatar-wrap')||anchor.element;
+  const rect=visual.getBoundingClientRect();return {...anchor,rect,x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+}
+function positionBattleFeedback(node,id,lane=0,occupied=[]) {
+  const anchor=getVisualAnchor(id);if(!anchor){node.hidden=true;return;}
+  const r=anchor.element.getBoundingClientRect(),w=Math.max(34,node.offsetWidth||48),h=22;
+  const obstacles=[...document.querySelectorAll('.battle-enemy-slot,.teammate-card')].map(n=>n.getBoundingClientRect());
+  const candidates=[];
+  for(let row=0;row<8;row++){
+    candidates.push([r.left+r.width/2,r.top-18-(row+lane)*24]);
+    candidates.push([r.right+w/2+8,r.top+18+row*24],[r.left-w/2-8,r.top+18+row*24]);
+    candidates.push([r.left+r.width/2,r.bottom+18+(row+lane)*24]);
+  }
+  const overlap=(a,b)=>Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+  let best,score=Infinity;
+  for(const [x,y] of candidates){
+    if(x-w/2<4||x+w/2>innerWidth-4||y-h/2<4||y+h/2>innerHeight-4)continue;
+    const box={left:x-w/2,right:x+w/2,top:y-h/2,bottom:y+h/2};
+    const cost=[...obstacles,...occupied].reduce((sum,b)=>sum+overlap(box,b),0);
+    if(cost<score){best={x,y,box};score=cost;}if(cost===0)break;
+  }
+  if(!best){const x=Math.min(innerWidth-w/2-4,Math.max(w/2+4,anchor.x)),y=18+lane*24;best={x,y,box:{left:x-w/2,right:x+w/2,top:y-h/2,bottom:y+h/2}};}
+  node.style.left=best.x+'px';node.style.top=best.y+'px';node.hidden=false;occupied.push(best.box);
+}
+const enemyCueQueues=new WeakMap();
+function firstEnemyCastCue(step,context) {
+  const signal=context.signal||context.controller?.signal;
+  if(!signal)return !(step.presentation?.hitIndex>1);
+  let cues=enemyCueQueues.get(signal);if(!cues){cues=new Set();enemyCueQueues.set(signal,cues);}
+  const key=step.sourceId+':'+step.actionId;if(cues.has(key))return false;cues.add(key);return true;
+}
+function announceBattleFeedback(text) {
+  let live=document.getElementById('battleFeedbackLive');
+  if(!live){live=document.createElement('div');live.id='battleFeedbackLive';live.className='battle-feedback-sr';live.setAttribute('role','status');live.setAttribute('aria-live','polite');live.setAttribute('aria-atomic','true');document.body.appendChild(live);}
+  if(live.textContent!==text)live.textContent=text;
+}
+function enemyDisplayStatuses(enemy) {
+  const statuses=new Map((enemy.statuses||[]).map(s=>[s.id,{...s}]));
+  for(const [id,label,icon] of [['poison','中毒','poison'],['burn','燃燒','fire'],['fracture','骨折','bone'],['chill','寒冷','snowflake'],['corrosion','腐蝕','flask']])
+    if(enemy[id+'Turns']>0&&!statuses.has(id))statuses.set(id,{id,label,icon,turns:enemy[id+'Turns'],value:enemy[id+'Dmg']});
+  if(enemy.isWeakened&&!statuses.has('weakened'))statuses.set('weakened',{id:'weakened',label:'負傷',icon:'status'});
+  if(enemy.talismans?.length&&!statuses.has('talismans')){const names={blind:'障目',seal:'封勁',corrode:'蝕體',confuse:'惑心',drain:'抽髓'};statuses.set('talismans',{id:'talismans',label:'符咒',icon:'status',stacks:enemy.talismans.length,value:enemy.talismans.map(t=>names[t]||t).join('、')});}
+  return [...statuses.values()];
 }
 function enemyEventShape(result, step, profile) {
   if(result.outcome?.type==='dodge')return 'evade';
@@ -61,12 +107,20 @@ function syncEnemyMechanicVisual(enemy, node) {
     }
     pips.setAttribute('aria-label',resource.label+' '+resource.value+'/'+resource.max);
   }else pips?.remove();
+  const row=node.querySelector('.enemy-status-row');
   let badge=node.querySelector('.enemy-mechanic-state');
-  if(!badge){badge=document.createElement('span');badge.className='enemy-mechanic-state';node.appendChild(badge);}
-  const states=(enemy.statuses||[]).filter(s=>['enemy_mechanic','void_step','void_cover','crystal_support'].includes(s.id));
-  // Only resources / active conditions stay visible. Full help is in click info.
-  badge.textContent=enemy.hp<=0?'':states.filter(s=>s.value!==undefined&&s.value!==''||s.id!=='enemy_mechanic').map(s=>s.value!==undefined&&s.value!==''?s.label+' '+s.value:s.label).join(' · ');
-  badge.hidden=!badge.textContent;
+  if(!badge){badge=document.createElement('span');badge.className='enemy-mechanic-state';}
+  if(row){row.replaceChildren(badge);}else if(!badge.parentElement)node.appendChild(badge);
+  const states=enemyDisplayStatuses(enemy).filter(s=>s.id!=='enemy_mechanic'||!resource&&['treasure_mimic','abyss_sage','abyss_druid'].includes(info.mechanicId));
+  badge.replaceChildren();
+  for(const s of enemy.hp>0?states.slice(0,3):[]){
+    const icon=document.createElement('span');icon.className='enemy-status-badge';icon.setAttribute('aria-hidden','true');
+    const count=s.id==='enemy_mechanic'&&typeof s.value==='number'?s.value:typeof s.stacks==='number'?s.stacks:null;
+    icon.innerHTML=s.id==='enemy_mechanic'?(info.mechanicId==='abyss_sage'?'Σ':info.mechanicId==='treasure_mimic'?(enemy.mechanics?.open?'◇':'▣'):'↻'):getIconSvg(s.icon||'status','ui-icon--sm');
+    if(count!==null){const n=document.createElement('small');n.textContent=String(count);icon.appendChild(n);}badge.appendChild(icon);
+  }
+  if(enemy.hp>0&&states.length>3){const extra=document.createElement('span');extra.className='enemy-status-badge enemy-status-overflow';extra.textContent='+'+(states.length-3);badge.appendChild(extra);}
+  badge.hidden=enemy.hp<=0||!states.length;badge.setAttribute('aria-label',states.length+' 項狀態，開啟敵人資訊查看');
   if(enemy.mechanics?.form==='werewolf'||enemy.mechanics?.form==='treant'){
     const img=node.querySelector('.enemy-sprite-img');
     if(img)img.src=enemy.mechanics.form==='werewolf'?'/photo/狼人.webp':'/photo/遠古樹精.webp';
@@ -77,21 +131,26 @@ function renderEnemyTelegraphs(enemies) {
   if(!stage)return;
   let list=document.getElementById('enemyTelegraphs');
   if(!list){list=document.createElement('div');list.id='enemyTelegraphs';list.className='enemy-telegraphs';list.setAttribute('role','status');stage.before(list);}
-  list.replaceChildren();
+  const dangers=[];
   for(const enemy of enemies||[]){
     const p=enemy.presentation;
-    if(enemy.hp<=0||!p)continue;
-    if(!p.ultimateReady&&!p.targetId&&!p.immunity&&!enemy.mechanics?.transformRound)continue;
-    const line=document.createElement('div');
-    line.textContent=enemy.name+' · '+(p.ultimateReady?'本回合 '+p.ultimateName:enemy.mechanics?.transformRound?'下回合變形':p.passiveName)+' · '+(p.targetName?p.targetName+'：':'')+p.targetHint+(p.immunity?' · 本回合免傷':'');
-    list.appendChild(line);
+    const danger=enemy.hp>0&&p&&(p.ultimateReady||p.targetId||p.immunity||enemy.mechanics?.transformRound);
+    const node=getEnemyAnchor(enemy.instanceId)?.element;
+    let marker=node?.querySelector('.enemy-danger-marker');
+    if(node&&!marker){marker=document.createElement('span');marker.className='enemy-danger-marker';node.appendChild(marker);}
+    if(marker){marker.hidden=!danger||!!p?.ultimateReady;marker.textContent=p?.immunity?'◈':enemy.mechanics?.transformRound?'↻':'⌖';marker.setAttribute('aria-label',p?.immunity?'本回合免傷':enemy.mechanics?.transformRound?'下回合變形':'已鎖定目標');}
+    if(danger)dangers.push({enemy,p,priority:p.ultimateReady?4:p.immunity?3:enemy.mechanics?.transformRound?2:1});
   }
-  list.hidden=!list.childElementCount;
+  dangers.sort((a,b)=>b.priority-a.priority);
+  const first=dangers[0],others=dangers.length-1;
+  const text=first?'⚠ '+(first.p.ultimateReady?'本回合：'+first.p.ultimateName:first.p.immunity?'本回合免傷':first.enemy.mechanics?.transformRound?'下回合變形':'瞄準：'+(first.p.targetName||'鎖定目標'))+(first.p.ultimateReady&&first.p.targetName?' → '+first.p.targetName:'')+(others>0?' · 另 '+others+' 名警戒':''):'';
+  if(list.textContent!==text)list.textContent=text;
+  list.hidden=!first;
   for(const card of document.querySelectorAll('.teammate-card[data-player-id]')){
     const marks=(enemies||[]).filter(e=>e.hp>0&&e.presentation?.targetId===card.dataset.playerId);
     let marker=card.querySelector('.enemy-threat-marker');
     if(!marker&&marks.length){marker=document.createElement('span');marker.className='enemy-threat-marker';card.appendChild(marker);}
-    if(marker){marker.textContent=marks.map(e=>e.presentation.passiveName).join(' · ');marker.hidden=!marks.length;}
+    if(marker){marker.textContent='⌖'+(marks.length>1?' '+marks.length:'');marker.hidden=!marks.length;marker.setAttribute('aria-label',marks.length+' 名敵人鎖定');marker.title=marks.map(e=>e.name+'：'+e.presentation.targetHint).join('\n');}
   }
 }
 function syncEnemyArenaVisual(arena) {
@@ -105,76 +164,66 @@ function syncEnemyArenaVisual(arena) {
   }
 }
 async function playEnemyMechanicPresentation(step, context={}) {
-  const signal=context.signal;
-  if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
-  const profile=ENEMY_FX_PROFILES[step.presentation?.family]||ENEMY_FX_PROFILES.heavy;
-  const speed=Math.max(.1,context.speed||1);
+  const signal=context.signal;if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
+  const profile=ENEMY_FX_PROFILES[step.presentation?.family]||ENEMY_FX_PROFILES.heavy,speed=Math.max(.1,context.speed||1);
   const reduced=context.reducedMotion||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const duration=reduced?240:profile[3]+(step.presentation?.isUltimate?180:0);
-  const root=document.createElement('div');root.className='enemy-effect-overlay';root.style.setProperty('--enemy-fx-color',profile[0]);
-  root.setAttribute('aria-live','polite');
-  document.body.appendChild(root);
-  let frame=0;
-  const animations=[];
-  const cleanup=()=>{cancelAnimationFrame(frame);animations.forEach(a=>a.cancel());root.remove();};
+  const root=document.createElement('div');root.className='enemy-effect-overlay';root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
+  let frame=0;const animations=[];
+  const cleanup=()=>{cancelAnimationFrame(frame);for(const a of animations)a.cancel();root.remove();};
   signal?.addEventListener('abort',cleanup,{once:true});
-  try {
+  const firstCue=firstEnemyCastCue(step,context);
+  if(step.presentation?.isUltimate&&firstCue){const cue=document.createElement('div');cue.className='enemy-effect-caption';cue.textContent=step.skillName||step.actionId;cue.style.animationDuration=900/speed+'ms';root.appendChild(cue);}
+  try{
     for(const result of step.results||[]){
       if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
       if(appliedBattleResults.has(result.resultId||result))continue;
-      const targetId=resolvePresentationTarget(result,step);
-      const label=document.createElement('div');label.className='enemy-effect-caption';
-      label.textContent=(step.monsterName||'')+' · '+(step.presentation?.isUltimate?'【大招】':'')+(step.skillName||step.actionId||'')+(step.presentation?.hitCount>1?' '+step.presentation.hitIndex+'/'+step.presentation.hitCount:'')+' → '+(result.targetAfter?.name||result.targetBefore?.name||targetId);root.appendChild(label);
-      const effect=document.createElement('div');
-      const shape=enemyEventShape(result,step,profile);
-      if(shape==='equation')effect.dataset.label=/誤差歸零/.test(step.actionId)?'Σ → 0':result.targetAfter?.mechanics?.error!==undefined?'Σ = '+result.targetAfter.mechanics.error:step.presentation?.isUltimate?'無解證明':'向量崩解';
-      effect.className='enemy-effect-shape enemy-effect-'+shape;effect.dataset.reduced=String(!!reduced);effect.style.animationDuration=duration*.65/speed+'ms';effect.hidden=true;root.appendChild(effect);
-      const beam=document.createElement('div');beam.className='enemy-effect-link';root.appendChild(beam);
-      const projectile=document.createElement('span');projectile.className='enemy-effect-projectile enemy-projectile-'+profile[1];projectile.hidden=true;root.appendChild(projectile);
-      const number=document.createElement('div');number.className='enemy-effect-value';number.textContent=enemyEventFeedback(result,step);number.hidden=true;root.appendChild(number);
-      let lastRect=null,impacted=false;
-      const started=Date.now();
+      const targetId=resolvePresentationTarget(result,step),owned=document.createElement('div');root.appendChild(owned);
+      const custom=typeof createEnemyChoreography==='function'?createEnemyChoreography(step,result,owned,{reduced,animations,speed}):null;
+      const duration=custom?.duration||(reduced?400:profile[3]),contact=custom?.contact||.35;
+      const effect=document.createElement('div'),shape=enemyEventShape(result,step,profile);
+      effect.className='enemy-effect-shape enemy-effect-'+shape;effect.dataset.reduced=String(!!reduced);effect.style.animationDuration=duration*(1-contact)/speed+'ms';effect.hidden=true;owned.appendChild(effect);
+      if(shape==='equation')effect.dataset.label='Σ';
+      const beam=document.createElement('div');beam.className='enemy-effect-link';beam.hidden=true;owned.appendChild(beam);
+      const projectile=document.createElement('span');projectile.className='enemy-effect-projectile enemy-projectile-'+profile[1];projectile.hidden=true;owned.appendChild(projectile);
+      const numbers=[];let lastRect=null,impacted=false,impactTime=Infinity;
+      const start=performance.now();
       const place=()=>{
-        const target=getVisualAnchor(targetId), source=getVisualAnchor(step.presentation?.visualOriginId||result.sourceId||step.sourceId);
-        if(target){const visual=target.element.querySelector('.enemy-sprite-wrap,.teammate-avatar-wrap')||target.element;lastRect=visual.getBoundingClientRect();}
+        const target=getBattleEffectAnchor(targetId),source=getBattleEffectAnchor(step.presentation?.visualOriginId||result.sourceId||step.sourceId);
+        if(target)lastRect=target.rect;
+        custom?.render(Math.min(1,(performance.now()-start)/(duration/speed)));
         if(lastRect){
-          const r=lastRect,x=r.left+r.width/2,y=r.top+r.height/2;
-          effect.style.left=x+'px';effect.style.top=y+'px';
-          label.style.left=Math.min(innerWidth-140,Math.max(140,x))+'px';label.style.top=Math.max(10,r.top-46)+'px';
-          number.style.left=Math.min(innerWidth-110,Math.max(110,x))+'px';number.style.top=Math.max(12,Math.min(innerHeight-55,r.bottom))+'px';
-          if(source&&!reduced&&source.id!==targetId){
-            beam.hidden=impacted;beam.style.left=source.x+'px';beam.style.top=source.y+'px';
-            beam.style.width=Math.hypot(x-source.x,y-source.y)+'px';beam.style.transform='rotate('+Math.atan2(y-source.y,x-source.x)+'rad)';
-            const t=Math.min(1,(Date.now()-started)/(duration*.35/speed));
-            projectile.hidden=impacted;projectile.style.left=(source.x+(x-source.x)*t)+'px';projectile.style.top=(source.y+(y-source.y)*t)+'px';
-          }else beam.hidden=true;
-        }else{effect.hidden=true;beam.hidden=true;label.style.left='50%';label.style.top='35%';number.style.left='50%';number.style.top='45%';}
+          const r=lastRect,x=r.left+r.width/2,y=r.top+r.height/2;effect.style.left=x+'px';effect.style.top=y+'px';
+          const occupied=[];numbers.forEach((n,i)=>{if(performance.now()-impactTime<750/speed)positionBattleFeedback(n,targetId,i,occupied);else n.hidden=true;});
+          if(!custom&&source&&!reduced&&source.id!==targetId&&!impacted){
+            beam.hidden=false;beam.style.left=source.x+'px';beam.style.top=source.y+'px';beam.style.width=Math.hypot(x-source.x,y-source.y)+'px';beam.style.transform='rotate('+Math.atan2(y-source.y,x-source.x)+'rad)';
+            const t=Math.min(1,(performance.now()-start)/(duration*contact/speed));projectile.hidden=false;projectile.style.left=(source.x+(x-source.x)*t)+'px';projectile.style.top=(source.y+(y-source.y)*t)+'px';
+          }else{beam.hidden=true;projectile.hidden=true;}
+        }else{effect.hidden=true;beam.hidden=true;projectile.hidden=true;numbers.forEach(n=>n.hidden=true);}
         frame=requestAnimationFrame(place);
       };
       place();
-      if(typeof sfxManager!=='undefined')sfxManager.play(result.kind==='heal'?'heal':result.kind==='shield'?'shield_cast':result.kind==='cleanse'?'cleanse':profile[2],{signal,instance:step.sourceId});
-      const source=getVisualAnchor(step.sourceId)?.element;
-      const sprite=source?.querySelector('.enemy-sprite-img');
-      if(sprite?.animate&&!reduced&&result.kind==='damage')animations.push(sprite.animate([{transform:'translateY(0)'},{transform:'translateY(-5px)'},{transform:'translateY(0)'}],{duration:duration*.35/speed}));
-      await waitForPresentation(duration*.35,signal,speed);
-      // Commit at the impact, once. The number describes canonical fields only.
+      if(custom&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
+      await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
-        impacted=true;effect.hidden=!lastRect;beam.hidden=true;projectile.hidden=true;number.hidden=false;
-        if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){
-          effect.classList.add('battlefield-parry');
-          if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});
-        }
+        impacted=true;impactTime=performance.now();effect.hidden=!!custom||!lastRect;beam.hidden=true;projectile.hidden=true;
+        for(const entry of battleFeedbackEntries(result)){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';owned.appendChild(n);numbers.push(n);}
+        if(typeof sfxManager!=='undefined')sfxManager.play(custom?.impactSfx||(result.kind==='heal'?'heal':result.kind==='shield'?'shield_cast':result.kind==='cleanse'?'cleanse':profile[2]),{signal,instance:step.sourceId});
+        if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){effect.hidden=!lastRect;effect.classList.add('battlefield-parry');if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});}
         if(step.presentation&&Object.hasOwn(step.presentation,'arenaAfter'))syncEnemyArenaVisual(step.presentation.arenaAfter);
-        const anchor=getEnemyAnchor(targetId);
-        if(anchor)syncEnemyMechanicVisual(result.targetAfter,anchor.element);
-        const target=getVisualAnchor(targetId)?.element;
+        const anchor=getEnemyAnchor(targetId);if(anchor)syncEnemyMechanicVisual(result.targetAfter,anchor.element);
+        const target=getBattleEffectAnchor(targetId)?.element;
         if(target?.animate&&!reduced&&!(result.kind==='damage'&&!(result.actualDamage>0))){
           const image=target.querySelector('.enemy-sprite-img,.teammate-avatar-wrap')||target;
-          animations.push(image.animate(result.kind==='death'?[{filter:'brightness(2)',opacity:1},{filter:'grayscale(1)',opacity:.25}]:shape==='claw'?[{transform:'translateX(-5px)'},{transform:'translateX(4px)'},{transform:'none'}]:[{filter:'brightness(1.9)'},{filter:'brightness(1)'}],{duration:duration*.6/speed}));
+          const keys=result.kind==='death'?[{filter:'brightness(2)',opacity:1},{filter:'grayscale(1)',opacity:.25}]:custom&&step.presentation.mechanicId==='banshee'?[{transform:'translateX(-3px) skewX(2deg)',filter:'saturate(.2)'},{transform:'translateX(3px) skewX(-2deg)',offset:.3},{transform:'none',filter:'none'}]:shape==='claw'?[{transform:'translateX(-5px)'},{transform:'translateX(4px)'},{transform:'none'}]:[{filter:'brightness(1.5)'},{filter:'brightness(1)'}];
+          animations.push(image.animate(keys,{duration:Math.min(480,duration*.5)/speed}));
         }
       }
-      await waitForPresentation(duration*.65,signal,speed);
-      cancelAnimationFrame(frame);root.replaceChildren();
+      await waitForPresentation(Math.max(duration*(1-contact),numbers.length?750:0),signal,speed);
+      cancelAnimationFrame(frame);custom?.remove();owned.remove();
+    }
+    if(firstCue){
+      const audible=(step.results||[]).filter(r=>battleFeedbackEntries(r).length),targets=new Set(audible.map(r=>resolvePresentationTarget(r,step)));
+      if(audible.length)announceBattleFeedback((step.presentation?.isUltimate?step.skillName+' · ':'')+(targets.size>1?targets.size+' 個目標受影響':(audible[0].targetAfter?.name||'目標')+' '+battleFeedbackEntries(audible[0]).slice(0,2).map(e=>e.text).join(' ')));
     }
   }finally{signal?.removeEventListener('abort',cleanup);cleanup();}
 }

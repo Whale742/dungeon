@@ -390,6 +390,21 @@ async function playReloadResultPresentation(step, context) {
 }
 // Archer choreography consumes each authoritative result once. Projectile
 // count comes from the magazine snapshot; grouped damage is never divided here.
+// Shared original five-wave vocabulary; the caller owns target geometry and
+// authoritative impact timing. Arrows are visual strokes, never damage events.
+async function archerRainWave({field,wave,reduced,animate,wait,impact,emit,targetId,onImpact}) {
+  for(let i=0;i<(reduced?3:9);i++){
+    const arrow=document.createElement('div');arrow.className='archer-falling-arrow';arrow.innerHTML='<i></i><b></b>';field.appendChild(arrow);
+    arrow.style.left=(8+(i*31+wave*13)%86)+'%';
+    animate(arrow,reduced?[{opacity:0},{opacity:.75,offset:.4},{opacity:0}]:
+      [{opacity:0,transform:'translate(-65px,-300px) rotate(-16deg)'},
+       {opacity:1,offset:.15,transform:'translate(-55px,-245px) rotate(-16deg)'},
+       {opacity:1,offset:.8,transform:'translate(0,0) rotate(-16deg)'},
+       {opacity:0,transform:'translate(12px,65px) rotate(-16deg)'}],450,{delay:reduced?0:(i%3)*35});
+  }
+  emit?.('rain_wave',{wave,targetId});
+  await wait(360);const flash=impact();onImpact?.();await wait(180);field.remove();flash?.remove();
+}
 async function playArcherPresentation(step, context = {}) {
   const rain = step.actionId === 'a_rain';
   const ammo = rain ? [] : (step.ammoBefore || []).slice(0, 3);
@@ -431,18 +446,7 @@ async function playArcherPresentation(step, context = {}) {
       };
       const rainWave = async (card, wave, stray = false) => {
         const field = node(card.querySelector('.presentation-result-portrait'), 'archer-rain-field');
-        for (let i = 0; i < (reduced ? 3 : 9); i++) {
-          const arrow = node(field, 'archer-falling-arrow', '<i></i><b></b>');
-          arrow.style.left = (8 + (i * 31 + wave * 13) % 86) + '%';
-          const delay = reduced ? 0 : (i % 3) * 35;
-          animate(arrow, reduced ? [{ opacity: 0 }, { opacity: .75, offset: .4 }, { opacity: 0 }] :
-            [{ opacity: 0, transform: 'translate(-65px,-300px) rotate(-16deg)' },
-             { opacity: 1, offset: .15, transform: 'translate(-55px,-245px) rotate(-16deg)' },
-             { opacity: 1, offset: .8, transform: 'translate(0,0) rotate(-16deg)' },
-             { opacity: 0, transform: 'translate(12px,65px) rotate(-16deg)' }], 450, { delay: delay / (context.speed || 1) });
-        }
-        emit(stray ? 'rain_stray' : 'rain_wave', { wave, targetId: card.dataset.targetId });
-        await wait(360); const flash = impact(card); await wait(180); field.remove(); flash.remove();
+        await archerRainWave({field,wave,reduced,animate:(n,k,ms,o)=>animate(n,k,ms,{...o,delay:o.delay/(context.speed||1)}),wait,impact:()=>impact(card),emit:(beat,detail)=>emit(stray?'rain_stray':beat,detail),targetId:card.dataset.targetId});
       };
       if (rain) {
         // Preserve the complete MP3 tail after visual cleanup and view changes.

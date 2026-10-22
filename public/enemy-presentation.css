@@ -1,6 +1,11 @@
 .enemy-effect-overlay{position:fixed;inset:0;pointer-events:none;z-index:15000;overflow:hidden;color:var(--enemy-fx-color)}
-.enemy-effect-caption,.enemy-effect-value{position:absolute;transform:translateX(-50%);max-width:min(280px,90vw);padding:5px 9px;border:1px solid currentColor;border-radius:5px;background:#101221ed;text-align:center;font-size:12px;line-height:1.45;box-shadow:0 3px 12px #0009}
-.enemy-effect-value{color:#fff;font-weight:700;max-width:min(330px,94vw)}
+.enemy-effect-caption{position:absolute;left:50%;top:16px;transform:translateX(-50%);max-width:85vw;padding:5px 14px;border-bottom:1px solid #ad9463;background:#171c20e8;color:#e6d5ac;text-align:center;font-size:16px;letter-spacing:.08em;animation:enemy-cast-cue .9s ease-out both}
+.battle-feedback{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:19px;line-height:22px;font-weight:800;color:#f8eee0;text-shadow:0 2px 3px #000,1px 0 2px #000,-1px 0 2px #000;pointer-events:none;animation:battle-number-fade .75s ease-out both}
+.battle-feedback[data-kind=heal]{color:#b9d7a2}.battle-feedback[data-kind=shield]{color:#b8cfdf}.battle-feedback[data-kind=outcome]{color:#e8d3a0;font-size:16px}
+.battle-feedback-sr{position:fixed;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.enemy-choreography,.enemy-painted-effects{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.enemy-painted-effects{filter:drop-shadow(0 2px 3px #16131b80)}
+.enemy-painted-claws{position:absolute;background-size:contain;background-repeat:no-repeat;background-position:center;filter:sepia(.3) saturate(.5) drop-shadow(0 2px 4px #211c25);transform-origin:center}
 .enemy-effect-shape{position:absolute;width:70px;height:70px;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;box-shadow:0 0 20px currentColor;animation:enemy-fx-pulse .6s ease-out both}
 .enemy-effect-claw{border:0;border-left:5px solid;border-right:5px solid;border-radius:0;transform:translate(-50%,-50%) rotate(35deg);width:35px}
 .enemy-effect-arrow{height:3px;width:85px;background:currentColor;border:0;border-radius:0;transform:translate(-50%,-50%) rotate(-25deg)}
@@ -35,9 +40,12 @@
 .enemy-armor-broken .enemy-pedestal{border:2px dashed #fb923c66}
 .enemy-crystal-supported .enemy-pedestal{box-shadow:0 0 12px #c084fc66;border:1px solid #e9d5ff88}
 .battle-enemy-slot.enemy-arena-absent{opacity:.3;filter:grayscale(1);pointer-events:none}
-.enemy-telegraphs{margin:6px auto;padding:7px 12px;max-width:760px;border:1px solid #fbbf2466;border-radius:6px;background:#211c22;color:#fde68a;font-size:12px;line-height:1.6}
-.enemy-mechanic-state{font-size:10px;color:#bae6fd;max-width:180px;text-align:center;line-height:1.4}
-.enemy-threat-marker{display:block;font-size:11px;color:#fda4af;border:1px solid #fb718566;border-radius:4px;padding:2px 4px}
+.enemy-telegraphs{margin:5px auto;padding:4px 10px;width:min(760px,95%);box-sizing:border-box;border-bottom:1px solid #ac87554d;background:#211c22c9;color:#dfc799;font-size:12px;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.enemy-mechanic-state{display:inline-flex;gap:4px;align-items:center;justify-content:center;max-width:180px;font-size:11px;color:#b9c9d3}
+.enemy-mechanic-state small{font-size:10px}.enemy-status-overflow{cursor:help}
+.enemy-threat-marker{position:absolute;top:5px;right:7px;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;box-sizing:border-box;font-size:19px;color:#d5a6aa;border:1px solid #93666b;border-radius:50%;background:#251f28e8;z-index:3}
+.enemy-danger-marker{position:absolute;top:-12px;right:-10px;display:flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1px solid #b9985b;background:#252025;color:#e7cb8d;font-weight:800;font-size:13px}
+.enemy-danger-marker[hidden],.enemy-threat-marker[hidden],.enemy-mechanic-state[hidden],.enemy-telegraphs[hidden]{display:none}
 .enemy-mechanic-immune .enemy-sprite-img{filter:grayscale(.7) opacity(.6)}
 .enemy-mechanic-open .enemy-pedestal{border:1px dashed #fbbf24}
 .floating-status-tooltip .enemy-mechanic-help{white-space:normal;line-height:1.5;margin-top:8px;font-size:12px;color:#cbd5e1}
@@ -45,6 +53,8 @@
 @media(hover:none){#floatingEnemyTooltip.visible{pointer-events:auto;overscroll-behavior:contain}}
 @keyframes enemy-fx-pulse{from{opacity:.15;scale:.65}40%{opacity:.9}to{opacity:.1;scale:1.35}}
 @keyframes enemy-fx-death{from{opacity:1;scale:.8}to{opacity:0;scale:1.8;rotate:25deg}}
+@keyframes battle-number-fade{0%{opacity:0}12%,65%{opacity:1}to{opacity:0}}
+@keyframes enemy-cast-cue{0%{opacity:0}15%,70%{opacity:1}to{opacity:0}}
 @media(prefers-reduced-motion:reduce){.enemy-effect-shape{animation:none;box-shadow:none}.enemy-effect-link{display:none}}
 .enemy-effect-shape[data-reduced=true]{animation:none;box-shadow:none}
 @media(max-height:480px){.enemy-telegraphs{font-size:11px;margin:2px;padding:3px 7px}.enemy-effect-caption{font-size:11px}}

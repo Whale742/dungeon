@@ -1,16 +1,25 @@
 .battlefield-player-effects{position:fixed!important;inset:0;z-index:15000;pointer-events:none;background:transparent!important;overflow:hidden;color:var(--player-fx-color,#bcefff)}
 .battlefield-player-effects.battlefield-universe{background:#000!important}
 .battlefield-geometry{display:none}
-.battlefield-player-number{position:absolute;transform:translate(-50%,-50%);padding:4px 7px;color:#fff;background:#111827dd;border-radius:4px;max-width:280px;text-align:center;font-size:13px;line-height:1.4}
+.battlefield-player-number{text-align:center}
 .battlefield-player-hit{position:absolute;width:65px;height:65px;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;box-shadow:0 0 16px currentColor;animation:enemy-fx-pulse .45s ease-out both}
 .battlefield-projectile{position:absolute;transform:translate(-50%,-50%);width:70px;height:4px;background:currentColor;box-shadow:0 0 8px currentColor}
+.battlefield-rain-field{position:absolute;inset:auto;height:145px;transform:translate(-50%,-50%)}
+.battlefield-rain-field .archer-falling-arrow{height:var(--rain-arrow-length,95px);top:calc(50% - var(--rain-arrow-length,95px))}
+.battlefield-arrow-rain[data-reduced-motion=true] .archer-falling-arrow:before{display:none}
+.battlefield-projectile:has(.presentation-ammo-arrow){width:86px;height:86px;background:transparent;box-shadow:none}
 .battlefield-projectile.bottle{width:22px;height:34px;border-radius:5px 5px 12px 12px;border:2px solid #d8fff1;background:currentColor}
 .battlefield-projectile.bottle:before{content:'';position:absolute;top:-9px;left:5px;width:9px;height:9px;background:#b7d5ce;border-radius:2px}
+.battlefield-player-effects[data-flask=poison] .battlefield-projectile.bottle{background:linear-gradient(135deg,#b576d9,#a2d453)}
+.battlefield-projectile.arrow:after,.battlefield-projectile.rain:after{content:'';position:absolute;right:-7px;top:-4px;border-left:10px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent}
+.battlefield-projectile.arrow:before{content:'';position:absolute;left:0;top:-3px;width:12px;height:9px;background:currentColor;clip-path:polygon(0 0,100% 40%,100% 60%,0 100%,30% 50%)}
 .battlefield-projectile.rain{box-shadow:-15px -18px currentColor,18px -35px currentColor,35px -50px currentColor,-32px -40px currentColor;width:65px}
 .battlefield-projectile.healing,.battlefield-projectile.reagent{width:23px;height:23px;border-radius:50%;background:currentColor}
 .battlefield-glass-shard{position:absolute;width:7px;height:12px;border:1px solid #d9ffeb;background:var(--player-fx-color);rotate:var(--shard-angle);animation:flask-shatter .4s ease-out both}
 @keyframes flask-shatter{from{opacity:.9;translate:0 0}to{opacity:0;transform:rotate(var(--shard-angle)) translateX(45px)}}
 .battlefield-first-bow{position:absolute;left:46%;bottom:-5%;width:130px;height:330px;border:8px solid #ceeaff;border-left-width:2px;border-radius:0 90% 90% 0;box-shadow:0 0 25px #8adcff}
+.battlefield-first-bow:before{content:'';position:absolute;inset:0 auto 0 -45px;width:48px;background:linear-gradient(110deg,transparent 48%,#effbff 49% 51%,transparent 52%);filter:drop-shadow(0 0 6px #89dfff)}
+.battlefield-first-bow:after{content:'';position:absolute;left:-45px;top:49%;width:185px;height:5px;background:#effbff;box-shadow:0 0 14px 5px #77d7ff}
 .battlefield-throw-hand,.mix-hand{position:absolute;width:75px;height:180px;border:3px solid #ae8562;border-radius:55% 55% 15% 15%;background:linear-gradient(110deg,#392d28,#8e7057);bottom:-25px;left:45%;transform:rotate(-25deg)}
 .battlefield-alchemy-mix{position:absolute;left:50%;top:65%;width:280px;height:210px;transform:translate(-50%,-50%)}
 .mix-hand.left{left:0;rotate:35deg}.mix-hand.right{left:auto;right:0;rotate:-35deg}
@@ -20,7 +29,8 @@
 .battlefield-magazine{position:absolute;left:50%;top:65%;transform:translate(-50%,-50%);display:flex;gap:14px;padding:15px;background:#132032dd;border-radius:8px}
 .battlefield-trap-note{position:absolute;left:50%;top:75%;transform:translateX(-50%);padding:8px 12px;border:1px solid #e8be72;background:#18212ded;color:#fef3c7;font-size:20px}
 .battlefield-trap-spikes{position:absolute;width:65px;height:28px;transform:translate(-50%,-50%);background:repeating-linear-gradient(70deg,transparent 0 10px,#a2bd92 11px 14px,transparent 15px 20px);border-bottom:2px solid #ddd39c}
-.battlefield-player-effects .skill-production-title{position:absolute;top:30px;left:50%;transform:translateX(-50%);color:#fff}
+.battlefield-player-effects .skill-production-title{position:absolute;top:25px;left:50%;transform:translateX(-50%);color:#e8d8b0;font-size:17px;max-width:85%;white-space:nowrap}
+.battlefield-player-effects[data-action-id=basic] .skill-production-title{display:none}
 .battlefield-player-effects .samurai-world{background:transparent}
 .battlefield-player-effects .samurai-player,.battlefield-player-effects .samurai-boss{visibility:hidden}
 .battlefield-parry{border-color:#d7f4ff!important;box-shadow:0 0 25px #86cfff!important}

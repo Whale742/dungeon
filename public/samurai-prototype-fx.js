@@ -332,7 +332,7 @@ function render(t){
  dom.bossPosition.style.transform=`translateX(${bossTravel.toFixed(2)}px)`;
  dom.playerHit.style.transform=state.shake?`translate(${playerHitX.toFixed(2)}px,${playerHitY.toFixed(2)}px) rotate(${playerHitR.toFixed(2)}deg)`:'none';
  dom.bossVisual.style.transform=`translate(${bx.toFixed(2)}px,${by.toFixed(2)}px) rotate(${br.toFixed(2)}deg) scale(${bs.toFixed(4)})`;
- dom.playerEcho.style.opacity=echo.toFixed(3);dom.playerEcho.style.transform=`translateX(${-15*scale}px)`;
+ if(dom.playerEcho){dom.playerEcho.style.opacity=echo.toFixed(3);dom.playerEcho.style.transform=`translateX(${-15*scale}px)`;}
  dom.playerFlare.style.opacity=playerFlare.toFixed(3);dom.bossFlare.style.opacity=bossFlare.toFixed(3);
  dom.sceneDimmer.style.opacity=dim.toFixed(3);dom.player.style.zIndex=dim>.2?'9':'5';
  dom.focusAura.style.opacity=(dim*.9).toFixed(3);

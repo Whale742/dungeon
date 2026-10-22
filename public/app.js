@@ -2380,21 +2380,10 @@ function showEnemyTooltip(en, eOrTarget) {
   const info = en.presentation || {};
   const isUltRound = !!info.ultimateReady;
 
-  const buffs = [];
-  if (en.isWeakened) buffs.push({ icon: 'status', label: '負傷', desc: '負傷狀態' });
-  if (en.poisonTurns > 0) buffs.push({ icon: 'poison', label: '中毒', desc: `${en.poisonTurns} 回合 / -${en.poisonDmg || 5}` });
-  if (en.burnTurns > 0) buffs.push({ icon: 'fire', label: '燃燒', desc: `${en.burnTurns} 回合 / -${en.burnDmg || 7}` });
-  if (en.fractureTurns > 0) buffs.push({ icon: 'bone', label: '骨折', desc: `${en.fractureTurns} 回合 / -${en.fractureDmg || 2}` });
-  if (en.chillTurns > 0) buffs.push({ icon: 'snowflake', label: '寒冷', desc: `${en.chillTurns} 回合 / -${en.chillDmg || 3}` });
-  if (en.corrosionTurns > 0) buffs.push({ icon: 'flask', label: '腐蝕', desc: `${en.corrosionTurns} 回合` });
-  if (en.tempHp > 0) buffs.push({ icon: 'shield', label: '護盾', desc: `+${en.tempHp}` });
-  if (en.talismans && en.talismans.length > 0) {
-    const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
-    const details = en.talismans.map(t => TALISMAN_NAMES[t] || t).join('、');
-    buffs.push({ icon: 'status', label: `符咒 (${en.talismans.length}張)`, desc: details });
-  }
-
-  for (const status of en.statuses || []) if (['enemy_mechanic','void_step','void_cover','crystal_support'].includes(status.id)) buffs.push({ icon:'status', label:status.label, desc:String(status.value ?? '') });
+  const buffs = enemyDisplayStatuses(en).filter(status=>!info.resource||status.id!=='enemy_mechanic').map(status=>({icon:status.icon||'status',label:status.label||status.id,
+    desc:[status.value!==undefined&&status.value!==''?String(status.value):'',status.stacks!==undefined?'層數 '+status.stacks:'',status.turns?status.turns+' 回合':'',status.desc||''].filter(Boolean).join(' · ')}));
+  if(en.tempHp>0)buffs.push({icon:'shield',label:'護盾',desc:String(en.tempHp)});
+  if(info.resource)buffs.push({icon:'buff',label:info.resource.label,desc:info.resource.value+'/'+info.resource.max});
   let buffsHtml = '';
   if (buffs.length > 0) {
     buffsHtml = `<div class="floating-tooltip-buffs">${buffs.map(b => `
@@ -2484,7 +2473,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const isReady = en.presentation ? en.presentation.ultimateReady : isUltRound;
     const cdClass = isReady ? 'enemy-cd-badge ult-ready' : 'enemy-cd-badge';
     const cdIcon = isReady ? getIconSvg('crit', 'ui-icon--sm') : getIconSvg('cooldown', 'ui-icon--sm');
-    const cdText = isReady ? '大招就緒' : `CD ${cdTurns}`;
+    const cdText = isReady ? '!' : `CD ${cdTurns}`;
 
     let slot = elements.battleEnemiesStage.querySelector(`.battle-enemy-slot[data-enemy-id="${eid}"]`);
     const avatarSrc = en.avatar || '';
@@ -2540,6 +2529,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       });
 
       slot.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {hideEnemyTooltip();return;}
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           selectAction();
@@ -2634,21 +2624,10 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     tierLabel.hidden = tier === 'MINION';
     slot.tabIndex = isDead ? -1 : 0;
     slot.setAttribute('aria-label', `${en.name} HP ${en.hp}/${en.maxHp}`);
+    slot.setAttribute('aria-describedby','floatingEnemyTooltip');
 
-    // 狀態小標籤更新
-    const statusRow = slot.querySelector('.enemy-status-row');
-    if (statusRow) {
-      const activeBadges = [];
-      syncEnemyMechanicVisual(en, slot);
-      if (en.poisonTurns > 0) activeBadges.push(getIconSvg('poison', 'ui-icon--sm'));
-      if (en.burnTurns > 0) activeBadges.push(getIconSvg('fire', 'ui-icon--sm'));
-      if (en.fractureTurns > 0) activeBadges.push(getIconSvg('bone', 'ui-icon--sm'));
-      if (en.chillTurns > 0) activeBadges.push(getIconSvg('snowflake', 'ui-icon--sm'));
-      if (en.corrosionTurns > 0) activeBadges.push(getIconSvg('flask', 'ui-icon--sm'));
-      if (en.isWeakened) activeBadges.push(getIconSvg('status', 'ui-icon--sm'));
-      if (en.talismans && en.talismans.length > 0) activeBadges.push(`<img src="/buff icon/符咒.webp" style="width:13px;height:13px;vertical-align:middle;display:inline-block;"><span style="font-size:10px;font-weight:700;color:#fbbf24;margin-left:2px;">${en.talismans.length}</span>`);
-      statusRow.innerHTML = activeBadges.map(svg => `<span class="enemy-status-badge">${svg}</span>`).join('');
-    }
+    // The shared strip owns the three-icon limit, including mechanic states.
+    syncEnemyMechanicVisual(en, slot);
   });
 }
 
@@ -3746,7 +3725,12 @@ function handleSkillClick(actionId, me) {
   if (roomState?.isNarrating || isPlayingBattleNarrative || me.isLocked) return;
   if (roomState?.selectionState === 'RESOLVING') return;
 
-  if(actionId==='dw_butterfly') {openTargetModal('dream',[...(roomState.players||[]).filter(p=>p.hp>0),{id:'monster',name:roomState.currentMonster?.name||'魔物',hp:roomState.currentMonster?.hp||1,maxHp:roomState.currentMonster?.maxHp||1,role:null,customAvatar:roomState.currentMonster?.avatar}]);return;}
+  if(actionId==='dw_butterfly') {
+    const arena=roomState.enemyArena||roomState.arena;
+    const enemies=(roomState.enemies?.length?roomState.enemies:[roomState.currentMonster]).filter(e=>e?.hp>0&&(!arena?.enemyId||e.instanceId===arena.enemyId));
+    const allies=(roomState.players||[]).filter(p=>p.hp>0&&(!arena||p.id===arena.playerId));
+    openTargetModal('dream',[...allies,...enemies.map(e=>({...e,id:e.instanceId,role:null,customAvatar:e.avatar}))]);return;
+  }
   // 卜者命運繫結：若有其他存活隊友，彈出目標選擇；若無則自動指定自身
   if (actionId === 'aug_bind') {
     const aliveAllies = (roomState?.players || []).filter(p => p.hp > 0 && p.id !== me.id);
@@ -5790,10 +5774,13 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
     appliedBattleResults.clear();
     if (queue[0]?.hpSnapshotBefore) applyHpSnapshot(queue[0].hpSnapshotBefore);
-    let legacyStageEntered = false;
+    let legacyStageEntered = false, battlefieldFocused = false;
     for (const step of queue) {
       if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
       const official = isBattlefieldPlayerStep(step) || step.type === 'enemy_mechanic' || ['kill','status_cleanup'].includes(step.type);
+      // Choosing a skill can scroll the actual actors out of view. Bring the
+      // official stage back once, before its choreography begins.
+      if(official&&!battlefieldFocused){elements.monsterCard?.scrollIntoView({block:'start',behavior:'instant'});battlefieldFocused=true;}
       if (!official && !legacyStageEntered) { await enterCombatStage(activeCombatContext); legacyStageEntered = true; }
       const legacyStage = document.getElementById('presentationCombatStage');
       if (legacyStage) legacyStage.style.visibility = official ? 'hidden' : '';

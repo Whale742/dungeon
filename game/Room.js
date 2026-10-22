@@ -6755,6 +6755,20 @@ export class Room {
       }
       const actionResults = this.p8Results || buildActionResults({ outcome: actionOutcome, category: actionCategory, sourceId: p.id, cleansedSnapshot: this.actionCleansedSnapshot }, actionBefore, actionAfter, stepVisuals, this.actionHeals);
       this.actionHeals = null;
+      // Defensive status preludes can be recorded after a secondary arrow has
+      // already settled. Their presentation must not expose that later HP.
+      if(this.enemyMechanicQueue?.length&&this.enemyMechanicQueue.every(s=>s.results.every(r=>r.kind==='status'))){
+        const display=structuredClone(actionBefore);
+        for(const prelude of this.enemyMechanicQueue){
+          prelude.hpSnapshotBefore=structuredClone(display);
+          for(const r of prelude.results){
+            const id=r.targetEnemyId||r.targetId,current=snapshotTarget(display,id);if(!current)continue;
+            const vitals={hp:current.hp,tempHp:current.tempHp||0};r.targetBefore={...r.targetBefore,...vitals};r.targetAfter={...r.targetAfter,...vitals};
+            for(const unit of [snapshotTarget(display,id),...(display.enemies||[]).filter(e=>e.instanceId===id)])if(unit)Object.assign(unit,structuredClone(r.targetAfter));
+          }
+          prelude.hpSnapshot=structuredClone(display);
+        }
+      }
       drainEnemyEvents(this,presentationQueue,false);
       presentationQueue.push({
         category: actionCategory, outcome: actionOutcome, results: actionResults,

@@ -126,7 +126,7 @@ function phase1Battle(t, role, hp = 500) {
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
-for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_fake'],samurai:['basic','sa_cut','sa_tsubame']})){
+for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame']})){
   for(const action of actions)test('Phase 4 production battlefield dispatch: '+role+' '+action,t=>{
     const {room,player,events}=phase1Battle(t,role);t.mock.method(Math,'random',()=>.5);
     if(action==='sa_tsubame')player.soul=8;
@@ -136,7 +136,8 @@ for(const [role,actions] of Object.entries({alchemist:['basic','alc_flask','alc_
     assert.ok(step,action);
     // Dream declarations establish deferred server state; they need not invent
     // immediate results. Their later *_result event owns the actual outcome.
-    if(!['dw_butterfly','dw_fake'].includes(action))assert.ok(step.results?.length);
+    if(!['dw_butterfly','dw_false_dream'].includes(action))assert.ok(step.results?.length);
+    if(action==='dw_false_dream')assert.ok(resolutionQueue(events).some(s=>s.actionId===action+'_result'&&s.results.length));
     const scope={};vm.createContext(scope);
     vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
     assert.equal(scope.isBattlefieldPlayerStep(step),true);
@@ -158,6 +159,77 @@ test('Phase 4 crossbow bolts retain their actual ammo type and independent resul
   const bolts=step.results.filter(r=>r.ammoType);
   assert.deepEqual(bolts.map(r=>r.ammoType),['pierce','elemental','burst']);
   assert.equal(new Set(bolts.map(r=>r.resultId)).size,3);
+});
+for(const [roll,outcome] of [[.1,'star'],[.65,'planet'],[.75,'galaxy'],[.85,'blackhole'],[.95,'boundary']])test('Phase 4 actual observation branch owns its concrete targets: '+outcome,t=>{
+  const {room,player,events}=phase1Battle(t,'stargazer');t.mock.method(Math,'random',()=>roll);
+  player.action='sg_observe';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sg_observe');
+  assert.equal(step.outcome.type,outcome);
+  assert.equal(new Set(step.results.map(r=>r.resultId)).size,step.results.length);
+  assert.ok(step.results.every(r=>r.targetId!=='monster'&&r.targetBefore&&r.targetAfter));
+  if(outcome==='blackhole')assert.deepEqual(step.results.filter(r=>r.kind==='damage').map(r=>r.targetId),[player.targetEnemyId,player.id]);
+  if(outcome==='boundary')assert.ok(step.results.some(r=>r.targetId===player.id&&r.targetAfter.statuses.some(s=>s.id==='boundary')));
+  if(outcome==='galaxy')assert.ok(!step.results.some(r=>r.kind==='damage'));
+});
+for(const [roll,outcome] of [[.1,'accelerate'],[.75,'reset'],[.85,'overload'],[.95,'nothing']])test('Phase 4 actual clock branch preserves authoritative cooldowns: '+outcome,t=>{
+  const {room,player,events}=phase1Battle(t,'stargazer');t.mock.method(Math,'random',()=>roll);
+  player.action='sg_clock';player.cooldowns.sg_observe=3;room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sg_clock');
+  assert.equal(step.outcome.type,outcome);assert.ok(!step.results.some(r=>r.kind==='damage'));
+  // The common cooldown owner settles after all player actions. The cast's
+  // intermediate snapshot must stay unchanged until that authoritative update.
+  assert.equal(step.hpSnapshot.players.find(p=>p.id===player.id).cooldowns.sg_observe,3);
+  const state=events.filter(e=>e[0]==='room:update').at(-1)?.[1];
+  assert.ok(state);assert.equal(state.players.find(p=>p.id===player.id).cooldowns.sg_observe,player.cooldowns.sg_observe);
+});
+for(const dot of ['poison','burn','fracture','chill'])test('Phase 4 reagent branch never invents immediate ally damage: '+dot,t=>{
+  const {room,player,events}=phase1Battle(t,'alchemist');player.rolledFlaskDot=dot;player.rollTeamDot=true;player.action='alc_flask';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='alc_flask');
+  assert.equal(step.outcome.type,'alchemy_'+dot);
+  assert.ok(step.results.some(r=>r.targetEnemyId===player.targetEnemyId&&r.kind==='damage'));
+  assert.ok(!step.results.some(r=>r.targetId===player.id&&r.kind==='damage'));
+});
+for(const branch of ['stable','success','failure'])test('Phase 4 fate synthesis uses actual healing and cleansing: '+branch,t=>{
+  const {room,player,events}=phase1Battle(t,'alchemist');player.hp=10;player.action='alc_fate';
+  if(branch!=='stable'){player.poisonTurns=2;player.poisonDmg=1;}
+  t.mock.method(Math,'random',()=>branch==='success'?.1:.99);room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='alc_fate');
+  if(branch!=='stable')assert.equal(step.outcome.type,'alchemy_'+branch);
+  assert.ok(step.results.some(r=>r.kind==='heal'&&r.targetId===player.id&&r.actualHeal>0));
+  assert.ok(!step.results.some(r=>r.kind==='damage'||r.kind==='shield'));
+  assert.ok(step.results.every(r=>r.targetAfter.statuses.every(s=>s.id!=='poison')));
+});
+test('Phase 4 lethal Tsubame never creates the remaining three visual hits',t=>{
+  const {room,player,events}=phase1Battle(t,'samurai',1);player.soul=8;player.action='sa_tsubame';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sa_tsubame');
+  const scope={};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
+  assert.equal(plan.hits.length,1);assert.equal(plan.slashes.length,1);
+});
+test('Phase 4 parry and counter remain separate actual reactions with concrete targets',t=>{
+  const {room,player,events}=phase1Battle(t,'samurai');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
+  player.action='skip';room.resolveTurnActions();const queue=resolutionQueue(events);
+  assert.ok(queue.flatMap(s=>s.results).some(r=>r.targetId===player.id&&r.outcome?.parry));
+  const counters=queue.filter(s=>s.sourceId===player.id&&s.actionId==='sa_counter');assert.equal(counters.length,1);
+  assert.ok(counters[0].results.every(r=>r.targetId!=='monster'&&r.resultId&&r.targetBefore&&r.targetAfter));
+});
+test('Phase 4 dream target picker submits each living instance and respects arena isolation',t=>{
+  const {room,player}=phase1Battle(t,'dreamweaver');let targets;
+  const state={...room.getClientState(),isNarrating:false,selectionState:'SELECTING'};
+  const scope={roomState:state,isPlayingBattleNarrative:false,openTargetModal:(type,list)=>{assert.equal(type,'dream');targets=list;}};
+  vm.createContext(scope);
+  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  vm.runInContext('function handleSkillClick('+source.split('function handleSkillClick(')[1].split('// 目標選擇 Modal')[0],scope);
+  scope.handleSkillClick('dw_butterfly',{...player,isLocked:false});
+  assert.deepEqual(Array.from(targets,t=>t.id),[player.id,...room.enemies.map(e=>e.instanceId)]);
+  const enemyId=targets[2].id;room.selectionState='SELECTING';room.isNarrating=false;
+  assert.equal(room.lockAction(player.id,'dw_butterfly',enemyId).success,true);
+  assert.equal(player.targetEnemyId,enemyId);assert.equal(player.targetPlayerId,'monster');
+  state.enemies[2].hp=0;state.enemyArena={playerId:player.id,enemyId};
+  scope.handleSkillClick('dw_butterfly',{...player,isLocked:false});
+  assert.deepEqual(Array.from(targets,t=>t.id),[player.id,enemyId]);
 });
 test('Phase 4 burst recoil follows its actual bolt before the next shot',t=>{
   const {room,player,events}=phase1Battle(t,'archer');player.equips=[{id:'a_crossbow',name:'改良型重弩'}];
@@ -185,15 +257,36 @@ test('Phase 4 battlefield scope owns no portraits and cleans abort, replay and q
   const step=resolutionQueue(events).find(s=>s.actionId==='a_rain'),roots=[],frames=new Set(),committed=new Set();let clock=0,seq=0;
   class Node{constructor(){this.children=[];this.style={setProperty(){}};this.dataset={};this.classList={add(){},remove(){}};this.hidden=false;}appendChild(n){this.children.push(n);return n;}querySelector(){return null;}remove(){this.removed=true;}}
   const scope={DOMException,AbortController,innerWidth:1280,innerHeight:720,performance:{now:()=>clock+=50},matchMedia:()=>({matches:false}),document:{body:{appendChild:n=>roots.push(n)},createElement:tag=>{assert.notEqual(tag,'img');return new Node();}},
-    getVisualAnchor:id=>({id,x:100,y:200,element:new Node()}),resolvePresentationTarget:r=>r.targetId,requestAnimationFrame:()=>{frames.add(++seq);return seq;},cancelAnimationFrame:id=>frames.delete(id),
+    getVisualAnchor:id=>({id,x:100,y:200,element:new Node()}),getBattleEffectAnchor:id=>({id,x:100,y:200,element:new Node()}),battleFeedbackEntries:()=>[],positionBattleFeedback(){},resolvePresentationTarget:r=>r.targetId,requestAnimationFrame:()=>{frames.add(++seq);return seq;},cancelAnimationFrame:id=>frames.delete(id),
     presentationFrame:async()=>{},waitForPresentation:async()=>{},createSfxPresentationScope:()=>({hold:async()=>{}}),enemyEventFeedback:()=>'',applyHpSnapshot:()=>{},
     applyAuthoritativeResult:r=>{if(committed.has(r.resultId))return false;committed.add(r.resultId);return true;}};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
   const controller=new AbortController();
-  await scope.withBattlefieldSkillStage(step,{signal:controller.signal,speed:4,reducedMotion:true},async s=>{assert.equal(committed.size,0);await s.tick(400,()=>{});await s.resolveResults();await s.resolveResults();});
+  const context={signal:controller.signal,speed:4,reducedMotion:true};
+  await scope.withBattlefieldSkillStage(step,context,async s=>{assert.ok(context.audioScope);assert.equal(committed.size,0);await s.tick(400,()=>{});await s.resolveResults();await s.resolveResults();});
   assert.equal(committed.size,step.results.length);assert.ok(roots.every(n=>n.removed));assert.equal(frames.size,0);
   await assert.rejects(scope.withBattlefieldSkillStage(step,{signal:controller.signal},async s=>{controller.abort();await s.tick(400,()=>{});}),{name:'AbortError'});
   assert.equal(frames.size,0);assert.ok(roots.every(n=>n.removed));
+});
+test('Phase 4 Samurai renderer completes real four-hit choreography without a portrait echo or leaked nodes',t=>{
+  const {room,player,events}=phase1Battle(t,'samurai');player.soul=8;player.action='sa_tsubame';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sa_tsubame');
+  const canvas=new Proxy({}, {get:()=>()=>({addColorStop(){}})});
+  class Node{
+    constructor(){this.children=[];this.style={setProperty(){}};this.dataset={};this.classList={add(){},remove(){},toggle(){}};}
+    appendChild(node){this.children.push(node);return node;}remove(){this.removed=true;}
+    querySelector(){return new Node();}getBoundingClientRect(){return {left:50,top:100,width:100,height:120};}getContext(){return canvas;}
+  }
+  const actor=new Node(),target=new Node(),scope={devicePixelRatio:1,document:{createElement:()=>new Node()},battlefieldVisualElement:id=>id===player.id?actor:target};
+  vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/samurai-prototype-fx.js',import.meta.url),'utf8'),scope);
+  const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{}),root=new Node();
+  const engine=scope.createSamuraiPrototypeRenderer(root,new Node(),new Node(),plan,{battlefield:true,actorId:player.id,targetId:player.targetEnemyId});
+  for(const time of [0,240,740,1140,1215,1290,1365,1950]){engine.measure();engine.render(time);engine.reduceFlash();}
+  engine.dispose();assert.equal(plan.hits.length,4);
+  assert.equal(actor.children.length,0);assert.equal(target.children.length,0);assert.ok(root.children.every(n=>n.removed));
 });
 for (const [role, action] of [['mage','m_blast'], ['archer','a_rain'], ['alchemist','alc_acid'], ['warrior','basic']]) {
   test('Phase 1 concrete multi-enemy results: ' + action, t => {
@@ -396,7 +489,7 @@ test('Phase 3 shield-only hits, cleanses and misses do not imply a life hit or a
   const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'shield-feedback');
   const step=queue.find(s=>s.results.some(r=>r.actualAbsorbed>0)),result=step.results.find(r=>r.actualAbsorbed>0);
   const h=enemyPresentationHarness(),text=h.scope.enemyEventFeedback(result,step);
-  assert.equal(result.actualHpDamage,0);assert.match(text,/護盾 −/);assert.doesNotMatch(text,/生命 −/);
+  assert.equal(result.actualHpDamage,0);assert.match(text,/🛡 -/);assert.doesNotMatch(text,/生命|護盾|回合/);
   assert.equal(h.scope.enemyEventShape({kind:'cleanse'},{actionId:'來源死亡・標記解除'},['','claw']),'cleanse');
   assert.equal(h.scope.enemyEventShape({kind:'damage',outcome:{type:'dodge'}},{},['','heavy']),'evade');
 });
@@ -404,26 +497,84 @@ test('Phase 3 shield-only hits, cleanses and misses do not imply a life hit or a
 // DOM doubles exercise lifecycle only; every event and amount below comes from
 // the actual enemy factory / settlement, not a hand-authored presentation queue.
 function enemyPresentationHarness() {
-  const roots=[],commits=[],waits=[],frames=new Set();let frameId=0;
+  const roots=[],commits=[],waits=[],frames=new Set();let frameId=0,clock=0;
   class Node {
-    constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.isConnected=true;this.hidden=false;}
+    constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};this.isConnected=true;this.hidden=false;}
     appendChild(n){this.children.push(n);return n;}
     setAttribute(){}
     querySelector(){return null;}
-    replaceChildren(){this.children=[];}
+    replaceChildren(...nodes){this.children=nodes;}
     remove(){this.isConnected=false;}
-    getBoundingClientRect(){return {left:100,top:150,width:80,height:90,bottom:240};}
+    getBoundingClientRect(){return {left:100,right:180,top:150,width:80,height:90,bottom:240};}
   }
   const actor=new Node();
-  const scope={DOMException,innerWidth:900,innerHeight:700,document:{body:{appendChild:n=>roots.push(n)},createElement:()=>new Node(),querySelectorAll:()=>[]},
+  const scope={DOMException,innerWidth:900,innerHeight:700,performance:{now:()=>clock},document:{body:{appendChild:n=>roots.push(n)},createElement:()=>new Node(),createElementNS:()=>new Node(),getElementById:id=>roots.find(n=>n.id===id&&n.isConnected),querySelectorAll:()=>[]},
     requestAnimationFrame:()=>{frames.add(++frameId);return frameId;},cancelAnimationFrame:id=>frames.delete(id),
     appliedBattleResults:new Set(),getVisualAnchor:id=>({id,element:actor,x:140,y:195}),getEnemyAnchor:()=>null,
     resolvePresentationTarget:r=>r.targetId,
     applyAuthoritativeResult:r=>{if(scope.appliedBattleResults.has(r.resultId))return false;scope.appliedBattleResults.add(r.resultId);commits.push(r);return true;},
-    waitForPresentation:async(ms,signal,speed)=>{waits.push({ms,speed});if(signal?.aborted)throw new DOMException('cancelled','AbortError');}};
+    waitForPresentation:async(ms,signal,speed)=>{clock+=ms/(speed||1);waits.push({ms,speed});if(signal?.aborted)throw new DOMException('cancelled','AbortError');}};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/enemy-presentation.js',import.meta.url),'utf8'),scope);
   return {scope,roots,commits,waits,frames};
 }
+test('Battle feedback keeps shield and HP as separate short authoritative values',()=>{
+  const {scope}=enemyPresentationHarness();
+  const entries=scope.battleFeedbackEntries({actualHpDamage:18,actualAbsorbed:10,targetAfter:{statuses:[{label:'不得出現在數字旁的完整狀態',turns:9}]}});
+  assert.deepEqual(Array.from(entries,e=>e.text),['-18','🛡 -10']);
+  assert.deepEqual(Array.from(scope.battleFeedbackEntries({kind:'heal',actualHeal:20,actualShield:8}),e=>e.text),['+12','🛡 +8']);
+  assert.equal(scope.enemyEventFeedback({kind:'status',targetAfter:{statuses:[{label:'充能',value:2}]}},{skillName:'不應重複的技能名'}),'');
+  assert.equal(scope.enemyEventFeedback({outcome:{type:'dodge'}}),'MISS');assert.equal(scope.enemyEventFeedback({outcome:{type:'immune'}}),'免疫');
+});
+test('Enemy strip caps three icons while the existing tooltip keeps full statuses and resources',t=>{
+  const {room,enemy}=mechanismBattle(t,[ENCOUNTERS[2]]);mechanismRound(room,1);mechanismRound(room,2);
+  enemy.poisonTurns=2;enemy.burnTurns=2;enemy.fractureTurns=3;enemy.chillTurns=2;
+  const en=room.formatEnemySnapshot(enemy),h=enemyPresentationHarness(),node=h.scope.document.createElement('div'),row=h.scope.document.createElement('div');
+  node.classList={toggle(){}};node.querySelector=selector=>selector==='.enemy-status-row'?row:null;
+  h.scope.getIconSvg=()=>'<svg></svg>';h.scope.syncEnemyMechanicVisual(en,node);
+  const strip=row.children[0];assert.equal(strip.children.length,4);assert.equal(strip.children[3].textContent,'+1');
+  const tooltip=h.scope.document.createElement('div');tooltip.classList={add(){}};
+  Object.assign(h.scope,{elements:{floatingEnemyTooltip:tooltip},roomState:{battleRound:2},escapeHtml:s=>String(s??''),positionFloatingTooltip(){}});
+  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
+  h.scope.showEnemyTooltip(en,node);
+  for(const label of ['POISON','BURN','FRACTURE','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
+  assert.ok(tooltip.innerHTML.includes('2/2'));assert.ok(tooltip.innerHTML.includes('3 回合'));
+});
+test('Rain armor prelude never reveals a secondary hit before the player animation',t=>{
+  const {room,player,events}=mechanismBattle(t,[ENCOUNTERS[0],EXCLUSIVE_MINIONS[0],EXCLUSIVE_MINIONS[0]],'archer');
+  const before=room.getHpSnapshot().enemies.map(e=>e.hp),rolls=[.9,.1,.1,.1];t.mock.method(Math,'random',()=>rolls.shift()??.1);
+  player.action='a_rain';room.resolveTurnActions();const queue=resolutionQueue(events),action=queue.findIndex(s=>s.actionId==='a_rain');
+  assert.ok(action>0);assert.deepEqual(queue[0].hpSnapshotBefore.enemies.map(e=>e.hp),before);
+  for(const s of queue.slice(0,action)){assert.deepEqual(s.hpSnapshot.enemies.map(e=>e.hp),before);assert.ok(s.results.every(r=>r.actualHpDamage===0));}
+});
+test('Original rain choreography plays five staggered nine-arrow waves per real target with no extra results',async t=>{
+  const {room,player,events}=phase1Battle(t,'archer');player.action='a_rain';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='a_rain'),nodes=[],beats=[],commits=new Set(),delays=[];
+  class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};nodes.push(this);}appendChild(n){this.children.push(n);}remove(){this.removed=true;}}
+  const scope={document:{createElement:()=>new Node()},resolvePresentationTarget:r=>r.targetId,getBattleEffectAnchor:()=>({rect:{width:100}})};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/combat-expansion.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  scope.commitBattlefieldPlayerResult=r=>{assert.ok(!commits.has(r.resultId));commits.add(r.resultId);};
+  scope.withBattlefieldSkillStage=async(_step,_context,play)=>play({root:new Node(),local:{audioScope:{play(){}}},follow(){},wait:async()=>{},reduced:false,animate:(_n,_k,_ms,o)=>{if(o?.delay!==undefined)delays.push(o.delay);},resolveResults:async()=>{},el:()=>new Node()});
+  await scope.playBattlefieldArrowRain(step,{speed:2,onTiming:(beat,detail)=>beats.push([beat,detail])});
+  const targets=new Set(step.results.filter(r=>r.kind==='damage').map(r=>r.targetId));
+  assert.equal(beats.length,targets.size*5);assert.equal(nodes.filter(n=>n.className==='archer-falling-arrow').length,targets.size*45);
+  assert.equal(nodes.filter(n=>n.className==='archer-arrow-impact').length,targets.size*5);assert.ok(delays.includes(35));
+  assert.equal(commits.size,step.results.length);assert.ok(beats.every(([,b])=>targets.has(b.targetId)));
+});
+for(const index of [0,1,7])test('Painted enemy choreography uses distinct real basic and ultimate timelines: '+ENCOUNTERS[index].name,t=>{
+  const {room,enemy}=mechanismBattle(t,[ENCOUNTERS[index]]);room.checkDodge=()=>false;
+  const durations=[];
+  for(const round of [1,3]){
+    mechanismRound(room,round);const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'painted-'+index+'-'+round);
+    const step=queue.find(s=>s.results.some(r=>r.kind==='damage')),h=enemyPresentationHarness();
+    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const root=h.scope.document.createElement('div'),animations=[];
+    const fx=h.scope.createEnemyChoreography(step,step.results[0],root,{animations,speed:1,reduced:false});assert.ok(fx);
+    for(const p of [0,.2,fx.contact,.8,1])fx.render(p);
+    durations.push(fx.duration);fx.remove();assert.ok(root.children[0].isConnected===false);
+    assert.equal(h.commits.length,0,'drawing must never settle or invent damage');
+  }
+  assert.ok(durations[1]>durations[0]+300);
+});
 for(const [name,templates] of [
   ['三種一般小怪',GENERAL_MINIONS],['熔岩與兩幼體',[ENCOUNTERS[0],EXCLUSIVE_MINIONS[0],EXCLUSIVE_MINIONS[0]]],
   ['魔偶與維修機',[ENCOUNTERS[2],EXCLUSIVE_MINIONS[2]]],['狼王與幼狼',[ENCOUNTERS[1],EXCLUSIVE_MINIONS[1]]],
@@ -439,7 +590,7 @@ for(const [name,templates] of [
   for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{speed:2,reducedMotion:true});
   assert.equal(h.commits.length,queue.flatMap(s=>s.results).length);
   assert.ok(h.commits.every(r=>r.targetId&&r.targetBefore&&r.targetAfter));
-  assert.ok(h.roots.every(n=>!n.isConnected));assert.equal(h.frames.size,0);
+  assert.ok(h.roots.every(n=>!n.isConnected||n.id==='battleFeedbackLive'));assert.equal(h.frames.size,0);
   assert.ok(h.waits.every(w=>w.speed===2));
   for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{});
   assert.equal(h.commits.length,queue.flatMap(s=>s.results).length,'duplicates never commit or animate again');
@@ -467,11 +618,11 @@ for(const template of allEnemyTemplates)test('Phase 2 factory, action, snapshots
   normalizeCombatQueue(queue,'phase2-'+enemy.mechanics.id);
   for(const step of queue.filter(s=>s.type==='enemy_mechanic')){
     assert.ok(step.presentation?.family);
-    for(const result of step.results)assert.ok(front.enemyEventFeedback(result,step));
+    for(const result of step.results){const feedback=front.enemyEventFeedback(result,step);assert.equal(typeof feedback,'string');assert.doesNotMatch(feedback,/生命|護盾|回合/);}
   }
   const playback=enemyPresentationHarness();
   for(const step of queue.filter(s=>s.type==='enemy_mechanic'))await playback.scope.playEnemyMechanicPresentation(step,{reducedMotion:true});
-  assert.ok(playback.roots.every(n=>!n.isConnected));assert.equal(playback.frames.size,0);
+  assert.ok(playback.roots.every(n=>!n.isConnected||n.id==='battleFeedbackLive'));assert.equal(playback.frames.size,0);
   assert.ok(queue.length);
   for(const result of queue.flatMap(s=>s.results||[])) {
     assert.ok(result.sourceId&&result.targetId&&result.actionId&&result.skillId);
