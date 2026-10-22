@@ -24,7 +24,10 @@ export function resolveStats(actor, equipmentMultiplier=1) {
   const equips=actor.equips || [];
   const legacy=equips.reduce((n,e)=>n+(e.bonusAtk||0),0);
   const growth=actor.victoryAtkBonus ?? Math.max(0,(actor.bonusAtk||0)-legacy);
-  const ATK_base=(actor.ATK_base ?? initial.attack)+growth+(actor.warriorStacks||0);
+  const baseAttack=(actor.ATK_base ?? initial.attack)+growth+(actor.warriorStacks||0);
+  const penalty=actor.enemyEffects?.attack_down?.value||0;
+  const ATK_base=baseAttack-penalty;
+  const gearPenalty=Math.max(0,penalty-baseAttack);
   let physical=0,magic=0;
   for(const e of equips) {
     const multiplier=['g_xiphos','w_greatsword','b_violin','a_crossbow'].includes(e.id)?1:equipmentMultiplier;
@@ -32,8 +35,9 @@ export function resolveStats(actor, equipmentMultiplier=1) {
     physical+=Math.floor(bonus.physical*multiplier);magic+=Math.floor(bonus.magic*multiplier);
   }
   // Explicit actor fields support imported typed equipment aggregates.
-  return {ATK_base:Math.max(0,ATK_base),PAtk_gear:physical+(actor.PAtk_gear||0),MAtk_gear:magic+(actor.MAtk_gear||0),
-    DEF:Math.max(0,(actor.DEF ?? actor.defense ?? initial.defense)+equips.reduce((n,e)=>n+Math.floor((e.bonusDef||0)*equipmentMultiplier),0))};
+  const defenseFactor=1-(actor.enemyEffects?.acid_defense?.value || (actor.openDefenseReduction || 0));
+  return {ATK_base:Math.max(0,ATK_base),PAtk_gear:Math.max(0,physical+(actor.PAtk_gear||0)-gearPenalty),MAtk_gear:Math.max(0,magic+(actor.MAtk_gear||0)-gearPenalty),
+    DEF:Math.floor(defenseFactor*Math.max(0,(actor.DEF ?? actor.defense ?? initial.defense)+equips.reduce((n,e)=>n+Math.floor((e.bonusDef||0)*equipmentMultiplier),0)))};
 }
 export function resolveSkillAttack({actor,damageType,equipmentMultiplier=1}) {
   if(!['phys','mag','physical','magic'].includes(damageType))throw new TypeError('Attack requires a physical or magic damage type');

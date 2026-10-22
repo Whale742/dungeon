@@ -1,3 +1,4 @@
+import { mechanicStatuses } from './enemy-mechanics.js';
 import { NEW_CLASSES } from './phase8-config.js';
 import { p8State } from './phase8.js';
 // Wire contract: gameplay decides every outcome and value before presentation.
@@ -18,7 +19,7 @@ export const SKILL_CATEGORIES = Object.freeze({
 });
 
 export function playerStatuses(player, room, balance) {
-  const statuses = [];
+  const statuses = mechanicStatuses(player, room);
   const add = (id, label, icon, turns = 0, extra = {}) => statuses.push({ id, label, icon, turns, ...extra });
   if (player.hp <= 0) add('downed', '倒下・本層無法行動', 'downed');
   if (player.poisonTurns) add('poison', 'POISON', 'poison', player.poisonTurns, { stacks: player.poisonDmg, isNegative:true, category:'DEBUFF', isDot:true });
@@ -148,9 +149,10 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
     const current = snapshotTarget(display, id);
     if (!current) continue;
     const value = Math.max(0, Number(event.value) || 0);
-    const next = { ...current, hp: Math.max(0, current.hp - value) };
+    const absorbed=Math.min(current.tempHp||0,event.absorbed||0);
+    const next = { ...current, hp: Math.max(0, current.hp - value),tempHp:Math.max(0,(current.tempHp||0)-absorbed) };
     append({ kind: 'damage', targetId: id, targetEnemyId: id === 'monster' ? current.instanceId : id,
-      finalDamage: value, actualDamage: Math.max(0, current.hp - next.hp),
+      finalDamage: value+absorbed, absorbed, tempAbsorbed:absorbed, hpDmg:Math.max(0,current.hp-next.hp), actualDamage: Math.max(0, current.hp - next.hp),
       sourceId: event.sourceId, sourceRole: event.type === 'augur_tome' ? 'augur' : undefined,
       isSecondaryEnemy: !!event.isSecondaryEnemy,
       outcome: event.type === 'augur_tome' ? { type: 'augur_tome' } : event.outcome || step.outcome,

@@ -2624,6 +2624,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const statusRow = slot.querySelector('.enemy-status-row');
     if (statusRow) {
       const activeBadges = [];
+      for(const status of en.statuses || [])if(['enemy_mechanic','void_step','void_cover'].includes(status.id))activeBadges.push(`<span title="${escapeHtml(status.label)}">${escapeHtml(status.label)}${status.value !== undefined && status.value !== '' ? ' '+escapeHtml(String(status.value)) : ''}</span>`);
       if (en.poisonTurns > 0) activeBadges.push(getIconSvg('poison', 'ui-icon--sm'));
       if (en.burnTurns > 0) activeBadges.push(getIconSvg('fire', 'ui-icon--sm'));
       if (en.fractureTurns > 0) activeBadges.push(getIconSvg('bone', 'ui-icon--sm'));

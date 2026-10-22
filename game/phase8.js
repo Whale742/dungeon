@@ -1,3 +1,4 @@
+import { enemyEffect, afterPlayerDamage, drainEnemyEvents } from './enemy-mechanics.js';
 // Phase 8 hooks in Room's existing action, damage, shield and lifecycle owners.
 import { getFloorDifficultyMultiplier } from './constants.js';
 export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage','augur'];
@@ -75,8 +76,8 @@ export function p8State(p,room) {
     ...(p.role==='sage'?{sageEquationPreview:sageEquationPreview(p,room)}:{}),
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
-    arenaActive:!!room.arena && room.arena.playerId===p.id,
-    arenaBlocked:!!room.arena && room.arena.playerId!==p.id, noReviveThisFloor:p.noReviveFloor===room.floor,
+    arenaActive:!!(room.arena||room.enemyArena) && (room.arena||room.enemyArena).playerId===p.id,
+    arenaBlocked:!!(room.arena||room.enemyArena) && (room.arena||room.enemyArena).playerId!==p.id, noReviveThisFloor:p.noReviveFloor===room.floor,
     phase8Statuses:effects};
 }
 export const phase8Methods = {
@@ -100,6 +101,7 @@ export const phase8Methods = {
   p8Has(target,id) { return target?.p8Effects?.[id]?.until>=this.battleRound ? target.p8Effects[id] : null; },
   p8GrantShield(p,value,turns=1,kind='shield',ownerId=null) {
     value=Math.max(0,Math.floor(value)); if(p.hp<=0)return;
+    const corrosion=enemyEffect(this,p,'shield_decay');if(corrosion)value=Math.floor(value*(1-corrosion.value));
     if(kind==='sage') {
       // All Sages share one equation shield slot; other sources keep their own pools.
       const existing=(p.p8Shields||[]).filter(s=>s.kind==='sage');
@@ -155,7 +157,7 @@ export const phase8Methods = {
   },
   augurTomeStrike(augur, changedDebt) {
     const monster = this.currentMonster;
-    if (!changedDebt || !countEquip(augur,'aug_forbidden_tome') || !monster || monster.hp <= 0) return 0;
+    if (!changedDebt || !countEquip(augur,'aug_forbidden_tome') || !monster || monster.hp <= 0 || monster.untargetableThisRound) return 0;
     const before = this.getHpSnapshot();
     const raw = Math.round(Math.abs(changedDebt) * .5);
     const actual = Math.min(monster.hp, this.augmentOmenDamage(raw));
@@ -297,8 +299,9 @@ export const phase8Methods = {
     return { success, boosted:true, roll, finalChance };
   },
   p8ResetBattle() {
-    this.p8ExitArena(); this.arenaPending=null;
+    this.p8ExitArena(); this.arenaPending=null;this.enemyArena=null;this.enemyMechanicQueue=[];this.enemyReactionSteps=new WeakSet();
     for(const p of Object.values(this.players)) {
+      p.enemyEffects={};p.enemyActionMultiplier=1;
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
       p.rage=0;p.bloodStacks=0;p.soul=0;p.kyoutou=false;p.parryChecked=false;
       p.paladinGrace=null;p.paladinGloryTrackedDamage=0;p.paladinGloryCastedRound=0;
@@ -368,7 +371,7 @@ export const phase8Methods = {
         const originalMonsterMaxHp=m?.maxHp;
         p.maxHp=Math.max(1,Math.round(p.maxHp*.6*(this.memberIds.length+1)));p.hp=Math.max(1,Math.round(p.maxHp*ratio));
         if(m){const monsterRatio=m.hp/m.maxHp;m.maxHp=Math.max(1,Math.round(m.maxHp*.6*(this.memberIds.length+1)));m.hp=monsterRatio>0?Math.max(1,Math.round(m.maxHp*monsterRatio)):0;}
-        this.arena={playerId:p.id,originalMaxHp,originalMonsterMaxHp,until:this.battleRound};p.arenaActive=true;
+        this.arena={playerId:p.id,enemyId:m?.instanceId,originalMaxHp,originalMonsterMaxHp,until:this.battleRound};p.arenaActive=true;
         delete p.p8Effects?.arena_challenge;
         const after=this.getHpSnapshot();
         queue.push({type:'arena_enter',category:'ARENA_ENTER',sourceId:p.id,sourceRole:p.role,sourceName:p.name,
@@ -451,7 +454,7 @@ export const phase8Methods = {
     }
   },
   p8PaySageDebt(p) {
-    if(p.role!=='sage'||!p.sageDebt||p.sageDebtScheduledRound===this.battleRound||p.hp<=0||p.stunnedNextTurn||p.isSurrendered||p.druidForm==='tree'||(this.arena&&this.arena.playerId!==p.id))return;
+    if(p.role!=='sage'||!p.sageDebt||p.sageDebtScheduledRound===this.battleRound||p.hp<=0||p.stunnedNextTurn||p.isSurrendered||p.druidForm==='tree'||((this.arena||this.enemyArena)&&(this.arena||this.enemyArena).playerId!==p.id))return;
     const debt=p.sageDebt;p.sageDebt=0;
     delete p.sageDebtScheduledRound;
     p.sageX=Math.max(0,(p.sageX??30)-debt);
@@ -510,8 +513,11 @@ export const phase8Methods = {
       }
       if(p.kyoutou) {p.parriedCount=(p.parriedCount||0)+1;parry=true;damage=countEquip(p,'sa_murasame')?Math.floor(raw*.5):0;}
     }
-    if(!this.arena && !parry)damage=mitigate?mitigate(damage):damage;
-    if(!this.arena&&this.p8Has(p,'warrior_resolve'))damage=Math.floor(damage*.4);
+    const vulnerable=enemyEffect(this,p,'next_vulnerable');
+    if(vulnerable&&damage>0){damage=Math.floor(damage*(1+vulnerable.value));delete p.enemyEffects.next_vulnerable;}
+    const curse=enemyEffect(this,p,'vulnerable');if(curse&&damage>0)damage=Math.floor(damage*(1+curse.value));
+    if(!context.ignoreReduction && !this.arena && !parry)damage=mitigate?mitigate(damage):damage;
+    if(!context.ignoreReduction&&!this.arena&&this.p8Has(p,'warrior_resolve'))damage=Math.floor(damage*.4);
     return {damage:Math.max(0,damage),outcome:parry?'parry':'normal'};
   },
   p8MitigateFriendly(p,raw) {
@@ -879,6 +885,7 @@ export const phase8Methods = {
       const before=this.getHpSnapshot();this.p8Results=[];this.p8Visuals=[];resolve();const after=this.getHpSnapshot();
       queue.push({type:'player_action',category:'OFFENSIVE',sourceId:p.id,sourceName:p.name,sourceRole:p.role,actionId:id,skillName:name,monsterName:m.name,monsterAvatar:m.avatar,
         targetId:'monster',targetName:m.name,hpSnapshotBefore:before,hpSnapshot:after,results:this.p8Results,finalDamage:this.p8Results.filter(r=>r.targetId==='monster'&&r.kind==='damage').reduce((n,r)=>n+r.finalDamage,0),damageType:'physical',outcome,detail:name});
+      afterPlayerDamage(this,queue.at(-1));drainEnemyEvents(this,queue);
       this.p8Results=null;this.p8Visuals=null;
     };
     if (m?.hp<=0) this.clearAugurBattleDebts();
@@ -908,6 +915,7 @@ export const phase8Methods = {
       if (enemy.reversedOmenRemaining > 0) enemy.reversedOmenRemaining--;
     }
     for(const p of alive(this)) {
+      if(p.hp<=0 || (this.enemyArena&&this.enemyArena.playerId!==p.id))continue;
       p.sageSamplingEnded=true;
       if(m.hp>0&&p.role==='warrior'&&this.p8Has(p,'warrior_resolve')&&p.warriorRoundDamage>0)event(p,'堅定反擊','w_counter',()=>{this.p8DamageMonster(p,p.warriorRoundDamage,'phys',resistance);this.p8Log(`${p.name}【堅定反擊】返還本輪實受 ${p.warriorRoundDamage} 傷害。`);});
       p.warriorRoundDamage=0;

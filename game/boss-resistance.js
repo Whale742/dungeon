@@ -31,5 +31,6 @@ export function getBossResistance(monster, type) {
   if (monster?.tier === 'MINION') {
     res = Math.min(30, res);
   }
-  return res;
+  if(type==='physical' && monster?.openDefenseReduction)res=Math.max(0,res*(1-monster.openDefenseReduction));
+  return Math.min(100, res + (type === 'effect' ? monster?.enemyEffectResistanceBonus || 0 : 0));
 }
