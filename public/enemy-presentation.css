@@ -1,0 +1,50 @@
+.enemy-effect-overlay{position:fixed;inset:0;pointer-events:none;z-index:15000;overflow:hidden;color:var(--enemy-fx-color)}
+.enemy-effect-caption,.enemy-effect-value{position:absolute;transform:translateX(-50%);max-width:min(280px,90vw);padding:5px 9px;border:1px solid currentColor;border-radius:5px;background:#101221ed;text-align:center;font-size:12px;line-height:1.45;box-shadow:0 3px 12px #0009}
+.enemy-effect-value{color:#fff;font-weight:700;max-width:min(330px,94vw)}
+.enemy-effect-shape{position:absolute;width:70px;height:70px;transform:translate(-50%,-50%);border:3px solid currentColor;border-radius:50%;box-shadow:0 0 20px currentColor;animation:enemy-fx-pulse .6s ease-out both}
+.enemy-effect-claw{border:0;border-left:5px solid;border-right:5px solid;border-radius:0;transform:translate(-50%,-50%) rotate(35deg);width:35px}
+.enemy-effect-arrow{height:3px;width:85px;background:currentColor;border:0;border-radius:0;transform:translate(-50%,-50%) rotate(-25deg)}
+.enemy-effect-heavy{border-radius:5px;border-bottom-width:14px;width:85px;height:55px}
+.enemy-effect-arc{border-radius:0;border-width:0 5px 4px;transform:translate(-50%,-50%) skew(-25deg);box-shadow:8px 0 10px currentColor}
+.enemy-effect-drop{width:36px;height:55px;border-radius:55% 45% 60% 40%;background:currentColor;opacity:.7}
+.enemy-effect-crystal,.enemy-effect-curse{border-radius:4px;transform:translate(-50%,-50%) rotate(45deg);width:50px;height:50px}
+.enemy-effect-drain{border:8px double;border-radius:50%;width:60px;height:60px}
+.enemy-effect-wave{border:10px double;width:85px;height:85px}
+.enemy-effect-shield{border-radius:15% 15% 50% 50%;background:color-mix(in srgb,currentColor 20%,transparent)}
+.enemy-effect-heal:after{content:'+';display:block;text-align:center;font-size:48px;line-height:62px}
+.enemy-effect-cleanse{border:3px dotted;box-shadow:none}
+.enemy-effect-evade{border:2px dashed;box-shadow:none;opacity:.4}
+.enemy-effect-equation:after{content:attr(data-label);font:700 17px monospace;position:absolute;top:20px;left:3px;white-space:nowrap}
+.enemy-effect-death{border:5px dashed;border-radius:0;animation:enemy-fx-death .65s ease-out both}
+.enemy-effect-debris{border:7px dashed;border-radius:5%;animation:enemy-fx-death .6s ease-out both}
+.enemy-effect-reflect{border:8px double;transform:translate(-50%,-50%) rotate(45deg);border-radius:5px}
+.enemy-effect-mark{border:2px dashed;width:58px;height:58px;box-shadow:none}
+.enemy-effect-mark:after{content:'⌖';position:absolute;inset:0;text-align:center;font-size:46px;line-height:54px}
+.enemy-effect-charge{background:radial-gradient(circle,currentColor,transparent 65%);border:0;width:55px;height:55px}
+.enemy-effect-frost{border:3px dotted;border-radius:5px;transform:translate(-50%,-50%) rotate(45deg)}
+.enemy-effect-link{position:absolute;height:3px;background:linear-gradient(90deg,transparent,currentColor);transform-origin:left center;opacity:.6}
+.enemy-effect-projectile{position:absolute;width:16px;height:16px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor;transform:translate(-50%,-50%)}
+.enemy-projectile-arrow,.enemy-projectile-claw{width:28px;height:4px;border-radius:1px}
+.enemy-projectile-crystal{border-radius:2px;rotate:45deg}
+.enemy-resource-pips{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);display:flex;gap:5px;pointer-events:none}
+.enemy-resource-pips i{width:8px;height:8px;background:#164e63;border:1px solid #67e8f9;border-radius:50%}
+.enemy-resource-pips .is-lit{background:#a5f3fc;box-shadow:0 0 6px #22d3ee}
+[data-enemy-family=fire] .enemy-resource-pips i{background:#431407;border-color:#fb923c}
+[data-enemy-family=fire] .enemy-resource-pips .is-lit{background:#fde68a;box-shadow:0 0 6px #f97316}
+.enemy-armor-ready .enemy-pedestal{border:2px solid #fb923c88}
+.enemy-armor-broken .enemy-pedestal{border:2px dashed #fb923c66}
+.enemy-crystal-supported .enemy-pedestal{box-shadow:0 0 12px #c084fc66;border:1px solid #e9d5ff88}
+.battle-enemy-slot.enemy-arena-absent{opacity:.3;filter:grayscale(1);pointer-events:none}
+.enemy-telegraphs{margin:6px auto;padding:7px 12px;max-width:760px;border:1px solid #fbbf2466;border-radius:6px;background:#211c22;color:#fde68a;font-size:12px;line-height:1.6}
+.enemy-mechanic-state{font-size:10px;color:#bae6fd;max-width:180px;text-align:center;line-height:1.4}
+.enemy-threat-marker{display:block;font-size:11px;color:#fda4af;border:1px solid #fb718566;border-radius:4px;padding:2px 4px}
+.enemy-mechanic-immune .enemy-sprite-img{filter:grayscale(.7) opacity(.6)}
+.enemy-mechanic-open .enemy-pedestal{border:1px dashed #fbbf24}
+.floating-status-tooltip .enemy-mechanic-help{white-space:normal;line-height:1.5;margin-top:8px;font-size:12px;color:#cbd5e1}
+#floatingEnemyTooltip{max-height:calc(100dvh - 24px);overflow-y:auto;box-sizing:border-box}
+@media(hover:none){#floatingEnemyTooltip.visible{pointer-events:auto;overscroll-behavior:contain}}
+@keyframes enemy-fx-pulse{from{opacity:.15;scale:.65}40%{opacity:.9}to{opacity:.1;scale:1.35}}
+@keyframes enemy-fx-death{from{opacity:1;scale:.8}to{opacity:0;scale:1.8;rotate:25deg}}
+@media(prefers-reduced-motion:reduce){.enemy-effect-shape{animation:none;box-shadow:none}.enemy-effect-link{display:none}}
+.enemy-effect-shape[data-reduced=true]{animation:none;box-shadow:none}
+@media(max-height:480px){.enemy-telegraphs{font-size:11px;margin:2px;padding:3px 7px}.enemy-effect-caption{font-size:11px}}

@@ -1,4 +1,4 @@
-import { enemyCanParticipate, mechanicState, mechanicStatuses, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, redirectEnemyDamage, afterPlayerDamage, onPlayerHealed, enemyEffect } from './enemy-mechanics.js';
+import { enemyPresentationInfo, enemyCanParticipate, mechanicState, mechanicStatuses, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, redirectEnemyDamage, afterPlayerDamage, onPlayerHealed, enemyEffect } from './enemy-mechanics.js';
 import { resolveStats, resolveSkillAttack, skillValue, basicDamageType, mitigateDirectDamage, crossbowAllocations } from './stats.js';
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { createRoomContent } from '../studio/content.js';
@@ -551,6 +551,7 @@ export class Room {
       flawMarks: enemy.flawMarks || 0,
       talismans: [...(enemy.talismans || [])],
       permanentTalismans: [...(enemy.permanentTalismans || [])],
+      presentation: enemyPresentationInfo(enemy, this),
       mechanics: structuredClone(enemy.mechanics || mechanicState(enemy)),
       statuses: [
         ...mechanicStatuses(enemy, this),
@@ -631,6 +632,11 @@ export class Room {
       ...rolledRes,
       noBonusResistance: Boolean(baseTemplate.noBonusResistance),
       ultName: baseTemplate.ultName || '猛烈反擊',
+      ultDesc: baseTemplate.ultDesc || '',
+      basicName: baseTemplate.basicName || '普通攻擊',
+      basicDesc: baseTemplate.basicDesc || '',
+      passiveName: baseTemplate.passiveName || '',
+      passiveDesc: baseTemplate.passiveDesc || '',
       scriptDamageScale: atkPlayerMultiplier * floorMultiplier * (isWeakened ? 0.75 : 1),
       mechanics: mechanicState(baseTemplate),
       script: baseTemplate.script ? structuredClone(baseTemplate.script) : null,
@@ -2751,9 +2757,9 @@ export class Room {
       p.isStealthed = false;
     }
 
-    const isUltTurn = (this.battleRound % 3 === 0);
-    if (isUltTurn && this.currentMonster) {
-      this.addLog(`⚠️ **【警告：BOSS 正在蓄力必殺技【${this.currentMonster.ultName}】(1.35倍傷害)！】**`, 'warning');
+    for (const enemy of this.getLivingEnemies()) {
+      const cue=enemyPresentationInfo(enemy,this);
+      if(cue.ultimateReady)this.addLog(`⚠️ **【${enemy.name} 正在蓄力【${cue.ultimateName}】${cue.targetName?'・優先威脅 '+cue.targetName:''}】**`, 'warning');
     }
 
     // 嚴格遵守 P2-R1.1 Section 6：技能選擇 30 秒計時由客戶端 battle:selection_ready 驅動

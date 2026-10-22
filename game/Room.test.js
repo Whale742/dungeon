@@ -9,6 +9,7 @@ import { ENCOUNTERS, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS, SPECIAL_
 import { ENEMY_BALANCE, mechanicId, enemyRoundStart, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, afterPlayerDamage, sweepEnemyDeaths, enemyEffect, syncEnemySupport } from './enemy-mechanics.js';
 import { getBossResistance } from './boss-resistance.js';
 import { resolveStats } from './stats.js';
+import { enemyPresentationInfo } from './enemy-mechanics.js';
 
 
 export function fixture(t, role = 'warrior') {
@@ -271,14 +272,137 @@ test('Phase 2 exactly 41 canonical templates have independent mechanics',()=>{
   assert.equal(new Set(allEnemyTemplates.map(mechanicId)).size,41);
   assert.ok(allEnemyTemplates.every(mechanicId));
 });
-for(const template of allEnemyTemplates)test('Phase 2 factory, action, snapshots and death: '+template.name,t=>{
+
+test('Phase 3 script periods, known targets and four actual cuts are visible before choices',t=>{
+  const f=mechanismBattle(t,[ABYSS_BOSSES.sage]);mechanismRound(f.room,2);
+  assert.equal(enemyPresentationInfo(f.enemy,f.room).ultimateReady,true);
+  assert.equal(enemyPresentationInfo(f.enemy,f.room).period,2);
+  const aim=mechanismBattle(t,[GENERAL_MINIONS[2]]);mechanismRound(aim.room,1);
+  assert.equal(enemyPresentationInfo(aim.enemy,aim.room).targetId,aim.player.id);
+  const samurai=mechanismBattle(t,[ABYSS_BOSSES.samurai]);mechanismRound(samurai.room,3);
+  samurai.room.checkDodge=()=>false;
+  const hits=actMechanism(samurai.room,samurai.enemy).filter(s=>s.actionId===samurai.enemy.ultName&&s.results[0].kind==='damage');
+  assert.deepEqual(hits.map(s=>s.presentation.hitIndex),[1,2,3,4]);
+  assert.ok(hits.every(s=>s.presentation.hitCount===4&&s.presentation.isUltimate));
+});
+
+test('Phase 3 death feedback precedes support removal and expiry has a concrete target',t=>{
+  const {room}=mechanismBattle(t,[ABYSS_BOSSES.warrior,ABYSS_MINIONS[1]]);
+  mechanismRound(room,1);room.enemies[1].hp=0;
+  const queue=[];drainEnemyEvents(room,queue);
+  const death=queue.findIndex(s=>s.results[0].kind==='death');
+  const support=queue.findIndex(s=>s.actionId==='支援共鳴更新');
+  assert.ok(death>=0&&support>death);
+  assert.equal(queue[death].targetEnemyId,room.enemies[1].instanceId);
+  const f=mechanismBattle(t,[EXCLUSIVE_MINIONS[7]]);mechanismRound(f.room,1);
+  f.player.enemyEffects={unrest:{label:'心神不寧',sourceId:f.enemy.instanceId,value:1,until:1}};
+  const end=mechanismRound(f.room,2).find(s=>s.actionId==='心神不寧・結束');
+  assert.equal(end.targetId,f.player.id);assert.equal(end.results[0].kind,'cleanse');
+});
+
+test('Phase 3 arena event carries its actual participants and visually isolates both teams',t=>{
+  const {room,enemy,player}=mechanismBattle(t,[ABYSS_BOSSES.gladiator,ABYSS_MINIONS[0]]);
+  mechanismRound(room,3);
+  const step=actMechanism(room,enemy).find(s=>s.presentation?.arenaAfter);
+  assert.equal(step.presentation.arenaAfter.playerId,player.id);
+  assert.equal(step.presentation.arenaAfter.enemyId,enemy.instanceId);
+  const h=enemyPresentationHarness(),nodes=[player.id,'other',enemy.instanceId,room.enemies[1].instanceId].map((id,i)=>({dataset:i<2?{playerId:id}:{enemyId:id},classes:new Set(),setAttribute(){},classList:{contains(key){return nodes[i].classes.has(key);},toggle(key,value){if(value)nodes[i].classes.add(key);else nodes[i].classes.delete(key);}}}));
+  h.scope.document.querySelectorAll=selector=>selector.includes('teammate-card')?nodes.slice(0,2):nodes.slice(2);
+  h.scope.syncEnemyArenaVisual(step.presentation.arenaAfter);
+  assert.equal(nodes[0].classes.size,0);assert.ok(nodes[1].classes.has('arena-absent'));
+  assert.equal(nodes[2].classes.size,0);assert.ok(nodes[3].classes.has('enemy-arena-absent'));
+  h.scope.syncEnemyArenaVisual(null);assert.ok(nodes.every(n=>n.classes.size===0));
+});
+test('Phase 3 druid transforms at its recorded event and assassin immunity has an ending cue',t=>{
+  const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.druid]);
+  mechanismRound(room,3);actMechanism(room,enemy);
+  const step=mechanismRound(room,4).find(s=>['狼人變形','遠古樹精變形'].includes(s.actionId));
+  assert.ok(step);assert.notEqual(step.results[0].targetBefore.mechanics.form,step.results[0].targetAfter.mechanics.form);
+  const f=mechanismBattle(t,[ABYSS_BOSSES.assassin]);mechanismRound(f.room,3);
+  assert.ok(mechanismRound(f.room,4).some(s=>s.actionId==='虛無暗影步・結束'));
+});
+test('Phase 3 shield-only hits, cleanses and misses do not imply a life hit or a new mark',t=>{
+  const {room,enemy,player}=mechanismBattle(t,[ABYSS_BOSSES.stargazer]);
+  mechanismRound(room,1);player.tempHp=48;room.checkDodge=()=>false;
+  const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'shield-feedback');
+  const step=queue.find(s=>s.results.some(r=>r.actualAbsorbed>0)),result=step.results.find(r=>r.actualAbsorbed>0);
+  const h=enemyPresentationHarness(),text=h.scope.enemyEventFeedback(result,step);
+  assert.equal(result.actualHpDamage,0);assert.match(text,/護盾 −/);assert.doesNotMatch(text,/生命 −/);
+  assert.equal(h.scope.enemyEventShape({kind:'cleanse'},{actionId:'來源死亡・標記解除'},['','claw']),'cleanse');
+  assert.equal(h.scope.enemyEventShape({kind:'damage',outcome:{type:'dodge'}},{},['','heavy']),'evade');
+});
+
+// DOM doubles exercise lifecycle only; every event and amount below comes from
+// the actual enemy factory / settlement, not a hand-authored presentation queue.
+function enemyPresentationHarness() {
+  const roots=[],commits=[],waits=[],frames=new Set();let frameId=0;
+  class Node {
+    constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.isConnected=true;this.hidden=false;}
+    appendChild(n){this.children.push(n);return n;}
+    setAttribute(){}
+    querySelector(){return null;}
+    replaceChildren(){this.children=[];}
+    remove(){this.isConnected=false;}
+    getBoundingClientRect(){return {left:100,top:150,width:80,height:90,bottom:240};}
+  }
+  const actor=new Node();
+  const scope={DOMException,innerWidth:900,innerHeight:700,document:{body:{appendChild:n=>roots.push(n)},createElement:()=>new Node(),querySelectorAll:()=>[]},
+    requestAnimationFrame:()=>{frames.add(++frameId);return frameId;},cancelAnimationFrame:id=>frames.delete(id),
+    appliedBattleResults:new Set(),getVisualAnchor:id=>({id,element:actor,x:140,y:195}),getEnemyAnchor:()=>null,
+    resolvePresentationTarget:r=>r.targetId,
+    applyAuthoritativeResult:r=>{if(scope.appliedBattleResults.has(r.resultId))return false;scope.appliedBattleResults.add(r.resultId);commits.push(r);return true;},
+    waitForPresentation:async(ms,signal,speed)=>{waits.push({ms,speed});if(signal?.aborted)throw new DOMException('cancelled','AbortError');}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/enemy-presentation.js',import.meta.url),'utf8'),scope);
+  return {scope,roots,commits,waits,frames};
+}
+for(const [name,templates] of [
+  ['三種一般小怪',GENERAL_MINIONS],['熔岩與兩幼體',[ENCOUNTERS[0],EXCLUSIVE_MINIONS[0],EXCLUSIVE_MINIONS[0]]],
+  ['魔偶與維修機',[ENCOUNTERS[2],EXCLUSIVE_MINIONS[2]]],['狼王與幼狼',[ENCOUNTERS[1],EXCLUSIVE_MINIONS[1]]],
+  ['騎士與骷髏',[ENCOUNTERS[5],EXCLUSIVE_MINIONS[5]]],['深淵與兩隨從',[ABYSS_BOSSES.warrior,...ABYSS_MINIONS]],
+  ['單菁英',[ENCOUNTERS[9]]],['菁英死亡後的小怪',[ENCOUNTERS[8],EXCLUSIVE_MINIONS[8]]]
+])test('Phase 3 production formation event playback: '+name,async t=>{
+  const {room}=mechanismBattle(t,templates);room.checkDodge=()=>false;
+  const queue=mechanismRound(room,3);
+  if(name==='菁英死亡後的小怪'){room.enemies[0].hp=0;drainEnemyEvents(room,queue);}
+  for(const enemy of room.getLivingEnemies())queue.push(...actMechanism(room,enemy));
+  normalizeCombatQueue(queue,'phase3-'+name);
+  const h=enemyPresentationHarness();
+  for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{speed:2,reducedMotion:true});
+  assert.equal(h.commits.length,queue.flatMap(s=>s.results).length);
+  assert.ok(h.commits.every(r=>r.targetId&&r.targetBefore&&r.targetAfter));
+  assert.ok(h.roots.every(n=>!n.isConnected));assert.equal(h.frames.size,0);
+  assert.ok(h.waits.every(w=>w.speed===2));
+  for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{});
+  assert.equal(h.commits.length,queue.flatMap(s=>s.results).length,'duplicates never commit or animate again');
+});
+test('Phase 3 abort before impact removes every effect and does not commit early',async t=>{
+  const {room,enemy}=mechanismBattle(t,[ENCOUNTERS[0]]);mechanismRound(room,1);
+  const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'abort');
+  const h=enemyPresentationHarness(), controller=new AbortController();
+  h.scope.waitForPresentation=async()=>{controller.abort();throw new DOMException('cancelled','AbortError');};
+  await assert.rejects(h.scope.playEnemyMechanicPresentation(queue[0],{signal:controller.signal}),{name:'AbortError'});
+  assert.equal(h.commits.length,0);assert.equal(h.frames.size,0);assert.ok(h.roots.every(n=>!n.isConnected));
+});
+for(const template of allEnemyTemplates)test('Phase 2 factory, action, snapshots and death: '+template.name,async t=>{
   const pair=template.bossName?ENCOUNTERS.find(e=>e.name===template.bossName):null;
   const {room,enemy}=mechanismBattle(t,[template,...(pair?[pair]:[])]);
   assert.equal(enemy.mechanics.id,mechanicId(template));
+  const display=room.formatEnemySnapshot(enemy).presentation;
+  assert.equal(display.mechanicId,mechanicId(template));
+  assert.ok(display.passiveName && display.passiveDesc && display.counter && display.ultimateDesc);
+  const front={};vm.createContext(front);vm.runInContext(readFileSync(new URL('../public/enemy-presentation.js',import.meta.url),'utf8'),front);
+  assert.ok(vm.runInContext(`ENEMY_FX_PROFILES[${JSON.stringify(display.family)}]`,front));
   enemy.hp=Math.max(1,Math.floor(enemy.maxHp/2));
   let queue=mechanismRound(room,1);queue.push(...actMechanism(room,enemy));
   queue.push(...mechanismRound(room,3),...actMechanism(room,enemy));
   normalizeCombatQueue(queue,'phase2-'+enemy.mechanics.id);
+  for(const step of queue.filter(s=>s.type==='enemy_mechanic')){
+    assert.ok(step.presentation?.family);
+    for(const result of step.results)assert.ok(front.enemyEventFeedback(result,step));
+  }
+  const playback=enemyPresentationHarness();
+  for(const step of queue.filter(s=>s.type==='enemy_mechanic'))await playback.scope.playEnemyMechanicPresentation(step,{reducedMotion:true});
+  assert.ok(playback.roots.every(n=>!n.isConnected));assert.equal(playback.frames.size,0);
   assert.ok(queue.length);
   for(const result of queue.flatMap(s=>s.results||[])) {
     assert.ok(result.sourceId&&result.targetId&&result.actionId&&result.skillId);

@@ -1270,6 +1270,8 @@ function resolvePresentationTarget(result, step = {}) {
 function getVisualAnchor(targetId) {
   const direct = getEnemyAnchor(targetId) || getActorAnchor(targetId);
   if (direct) return direct;
+  const minion = [...document.querySelectorAll('[data-minion-id]')].find(node => node.dataset.minionId === String(targetId));
+  if (minion) return battlefieldAnchor(minion, targetId);
   const players = typeof roomState !== 'undefined' ? roomState?.players || [] : [];
   const owner = players.find(p => p.minions?.some(m => m.id === targetId));
   const card = owner && [...document.querySelectorAll('[data-minion-owner-id]')]

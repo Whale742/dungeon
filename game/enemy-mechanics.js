@@ -64,6 +64,54 @@ export function mechanicState(template) {
   return { id: mechanicId(template), round: 0, charge: 0, heat: 0, error: 0,
     firstPhysicalUsed: false, armorBroken: false, reflected: 0, parasiteHeal: 0, deathProcessed: false, open: false };
 }
+// Display contracts only: combat tuning remains in ENEMY_BALANCE and script.
+const MECHANIC_HELP = Object.freeze({
+  lava_colossus:['lava','每回合首次物理減傷25%；有效魔法命中解除岩甲。','以魔法破甲；大招灼燒可淨化。'],
+  shadow_alpha:['shadow','每回合標記生命比例最低者，大招優先威脅獵物。','護盾、嘲諷及援護可保護獵物。'],
+  ancient_golem:['arc','每回合充能，最多2層；大招消耗充能增傷。','優先擊倒維修機，阻止護盾與額外充能。'],
+  blood_sorcerer:['blood','大招依實際生命傷害汲取生命。','用護盾吸收傷害；阻止侍僧支援。'],
+  corrosive_serpent:['acid','大招命中附加1回合護盾獲取降低30%。','淨化腐蝕；預先取得護盾。'],
+  frost_knight:['frost','寒霜達2層使下次主動行動傷害降低20%，隨後消耗。','淨化印記；優先處理骷髏兵。'],
+  glutton:['devour','大招吞噬現有護盾30%並回血；寄生治療也會回流。','淨化寄生；吞盾與回血皆有上限。'],
+  banshee:['wave','大招對心神不寧的目標造成額外傷害。','淨化標記；阻止怨魂施加標記。'],
+  crystal_scorpion:['crystal','每回合首次有效物理命中反傷；甲蟲強化晶甲。','使用魔法；先處理甲蟲解除支援。'],
+  hellstrider:['fire','每回合累積熱度，最多3層；大招消耗熱度增傷。','阻止小鬼充能；淨化燃燒。'],
+  lava_larva:['lava','死亡時僅觸發一次小型自爆。','預留護盾；死亡後仍須承受自爆。'],
+  shadow_wolf_pup:['shadow','跟隨狼王獵物標記，每回合最多一次協同追擊。','保護標記隊友；擊倒狼王解除協同。'],
+  ancient_repair_drone:['arc','每回合為存活魔偶補盾與充能，共享支援有上限。','擊倒維修機立即停止支援。'],
+  blood_moon_acolyte:['blood','消耗可承受的自身生命為巫師補盾。','擊倒侍僧或巫師可停止獻祭。'],
+  corrosive_slime:['acid','命中暫時降低目標防禦。','可淨化，不會永久修改防禦。'],
+  frostbone_skeleton:['frost','命中增加寒霜印記，最多2層。','以閃避、護盾與淨化應對。'],
+  carrion_crawler:['devour','短期寄生使受治療者為存活暴食魔提供回血。','淨化寄生或擊倒暴食魔。'],
+  whispering_apparition:['wave','命中施加短期心神不寧，本身不額外傷害。','淨化標記以避免歌姬增傷。'],
+  crystal_beetle:['crystal','存活時強化巨蠍反射並補充有限護盾。','擊倒甲蟲解除晶甲共鳴。'],
+  hellfire_imp:['fire','火球附加短暫燃燒，並為炎獄行者有限充能。','淨化燃燒；擊倒小鬼中止充能。'],
+  gel_slime:['elastic','每回合首次物理傷害降低25%。','魔法傷害不觸發彈性減傷。'],
+  cave_goblin_rogue:['claw','優先威脅生命比例最低者，無盾目標受到少量增傷。','護盾、嘲諷、隱身與攔截仍有效。'],
+  labyrinth_crossbowman:['arrow','提前瞄準，下一回合強化單體射擊。','依瞄準標記預先護盾、援護或閃避。'],
+  abyss_remnant:['shadow','攻擊帶負面狀態的隊友時追加固定少量傷害。','淨化負面狀態，增傷不隨數量疊加。'],
+  abyss_watcher:['void','存活時為首領提供效果抗性，最多2層。','擊倒凝視者即可解除其抗性支援。'],
+  shady_merchant:['arrow','每隔3回合指定懸賞，攻擊優先威脅該角色。','預先保護懸賞對象，嘲諷及援護有效。'],
+  treasure_mimic:['devour','閉箱時每回合首次受傷降低30%；攻擊後開箱降低防禦。','趁開箱破綻集中攻擊。']
+});
+const ABYSS_FAMILIES = ['heavy','arc','arrow','shadow','wave','acid','nature','crystal','blood','void','wave','claw','curse','equation'];
+const ABYSS_IDS = ['warrior','mage','archer','assassin','bard','alchemist','druid','paladin','gladiator','stargazer','dreamweaver','samurai','onmyoji','sage'];
+export function enemyPresentationInfo(enemy, room) {
+  const id=mechanicId(enemy), s=enemy.mechanics || {}, help=MECHANIC_HELP[id];
+  const period=enemy.script?.specialEveryNRounds || B.ultimatePeriod, round=room.battleRound || 1;
+  const knownTarget=room.players[s.targetId];
+  const targetId=knownTarget?.hp>0?s.targetId:null;
+  return { mechanicId:id, family:help?.[0] || ABYSS_FAMILIES[ABYSS_IDS.indexOf(id?.replace('abyss_',''))] || 'heavy',
+    passiveName:LABELS[id] || enemy.passiveName || enemy.basicName,
+    passiveDesc:help?.[1] || [enemy.passiveDesc,enemy.basicDesc].filter(Boolean).join('；'),
+    counter:help?.[2] || '依預告保護隊友；運用護盾、淨化與控制，留意首領當前免傷及反擊狀態。',
+    ultimateName:enemy.ultName, ultimateDesc:enemy.ultDesc || help?.[1], period,
+    resource:id==='ancient_golem'?{label:'充能',value:s.charge||0,max:B.chargeCap}:id==='hellstrider'?{label:'熱度',value:s.heat||0,max:B.heatCap}:null,
+    ultimateReady:enemy.hp>0 && round%period===0, roundsUntilUltimate:(period-round%period)%period,
+    targetId, targetName:targetId?knownTarget.name:null,
+    targetHint:targetId?'優先威脅（仍可被嘲諷、隱身或援護改變）':enemy.script?.specialConfuseAllPlayers||id==='abyss_sage'?'全隊':'行動時依防護與目標規則結算',
+    immunity:!!enemy.untargetableThisRound, form:s.form || null };
+}
 const B = ENEMY_BALANCE;
 const state = enemy => enemy.mechanics ||= mechanicState(enemy);
 const lockedArena = room => room.arena || room.enemyArena || (room.arenaPending?.round===room.battleRound ? {playerId:room.arenaPending.playerId,enemyId:room.currentMonster?.instanceId} : null);
@@ -88,6 +136,7 @@ export function mechanicStatuses(unit, room) {
         s.id === 'abyss_sage' ? s.error : s.id === 'abyss_druid' ? (s.transformRound ? '下回合變形' : s.form==='werewolf'?'狼人':s.form==='treant'?'遠古樹精':'自然形態') : s.targetId ? room.players[s.targetId]?.name : '' });
   if (unit.untargetableThisRound) result.push({id:'void_step',label:'虛無暗影步・免傷',icon:'guard'});
   if (unit.enemyEffectResistanceBonus) result.push({id:'void_cover',label:'虛空掩護',icon:'guard',value:unit.enemyEffectResistanceBonus});
+  if (unit.crystalSupport) result.push({id:'crystal_support',label:'晶甲共鳴',icon:'guard'});
   return result;
 }
 
@@ -107,6 +156,9 @@ function record(room, source, target, actionId, kind, mutate, extra = {}) {
   (room.enemyMechanicQueue ||= []).push({type:'enemy_mechanic',category:'STATUS_TICK',
     sourceId:result.sourceId,enemyId:source.instanceId,targetId:id,targetEnemyId:result.targetEnemyId,
     actionId,skillName:actionId,monsterName:source.name,monsterAvatar:source.avatar,
+    presentation:source.instanceId?{...enemyPresentationInfo(source,room),
+      isUltimate:actionId===source.ultName, hitIndex:metadata.hitIndex, hitCount:metadata.hitCount,
+      visualOriginId:metadata.visualOriginId, arenaAfter:structuredClone(after.arena || null)}:null,
     outcome, hpSnapshotBefore:before,hpSnapshot:after,results:[result]});
   return result;
 }
@@ -121,9 +173,10 @@ function shield(room, source, target, value, label, cap = B.enemyShieldMaxHpRati
   if (target.hp <= 0 || !enemyCanParticipate(room,source) || !enemyCanParticipate(room,target)) return;
   record(room,source,target,label,'shield',() => { target.tempHp = Math.min(Math.floor(target.maxHp*cap),(target.tempHp||0)+Math.max(0,Math.floor(value))); });
 }
-function heal(room, source, target, value, label) {
+function heal(room, source, target, value, label, onHeal) {
   if (target.hp <= 0 || !enemyCanParticipate(room,target)) return;
-  record(room,source,target,label,'heal',() => { target.hp = Math.min(target.maxHp,target.hp+Math.min(Math.floor(target.maxHp*B.enemyHealPerActionMaxHpRatio),Math.max(0,Math.floor(value)))); });
+  const lastHit=(room.enemyMechanicQueue||[]).flatMap(s=>s.results||[]).findLast(r=>r.sourceId===source.instanceId&&r.kind==='damage'&&room.players[r.targetId]);
+  record(room,source,target,label,'heal',() => { onHeal?.();target.hp = Math.min(target.maxHp,target.hp+Math.min(Math.floor(target.maxHp*B.enemyHealPerActionMaxHpRatio),Math.max(0,Math.floor(value)))); },{visualOriginId:lastHit?.targetId});
 }
 function choose(room, preferred) {
   const eligible = players(room).filter(p => !isAssassinHidden(p));
@@ -150,7 +203,7 @@ function strike(room, enemy, target, raw, actionId, options = {}) {
       if (victim.hp<=0 && victim.druidForm==='treant') {victim.hp=1;victim.druidForm='tree';victim.druidFormTurns=1;victim.stunnedNextTurn=true;}
       if (victim.hp<=0) room.clearPlayerDebuffs(victim);
       return taken.actualDmg>0;
-    },{damageType:options.trueDamage?'true':options.type==='mag'?'magic':'physical',sharedFrom});
+    },{damageType:options.trueDamage?'true':options.type==='mag'?'magic':'physical',sharedFrom,hitIndex:options.hitIndex,hitCount:options.hitCount});
     if(victim.paladinGrace)victim.paladinGrace.interceptedDamage=(victim.paladinGrace.interceptedDamage||0)+hit.finalDamage;
     hits.push(hit);return hit;
   };
@@ -191,8 +244,7 @@ export function syncEnemySupport(room) {
 }
 export function sweepEnemyDeaths(room) {
   for(const enemy of room.enemies || []) if(enemy.hp<=0 && !state(enemy).deathProcessed) {
-    state(enemy).deathProcessed=true;
-    enemy.tempHp=0;enemy.untargetableThisRound=false;
+    record(room,enemy,enemy,'死亡','death',()=>{state(enemy).deathProcessed=true;enemy.tempHp=0;enemy.untargetableThisRound=false;});
     if(state(enemy).id==='lava_larva') for(const p of players(room)) strike(room,enemy,p,B.explosionDamage,'焦油自爆',{posthumous:true,type:'mag'});
     if(room.enemyArena?.enemyId===enemy.instanceId)room.enemyArena=null;
     for(const p of Object.values(room.players))for(const [id,e] of Object.entries(p.enemyEffects||{})) {
@@ -213,10 +265,15 @@ export function enemyRoundStart(room) {
   if(room.arena && !room.arena.enemyId)room.arena.enemyId=room.currentMonster?.instanceId;
   for(const p of Object.values(room.players)) {
     p.enemyActionMultiplier=1;
-    for(const [id,e] of Object.entries(p.enemyEffects||{}))if(e.until<room.battleRound)delete p.enemyEffects[id];
+    for(const [id,e] of Object.entries(p.enemyEffects||{}))if(e.until<room.battleRound){
+      const source=(room.enemies||[]).find(enemy=>enemy.instanceId===e.sourceId);
+      if(source)record(room,source,p,e.label+'・結束','cleanse',()=>{delete p.enemyEffects[id];});
+      else delete p.enemyEffects[id];
+    }
   }
   for(const enemy of living(room)) {
     const s=state(enemy);if(s.round===room.battleRound){enemy.untargetableThisRound=!!enemy.script?.specialUntargetableRound&&isEnemyUltimate(room,enemy);continue;}
+    if(enemy.script?.specialUntargetableRound&&s.round>0&&s.round%(enemy.script.specialEveryNRounds||B.ultimatePeriod)===0&&!isEnemyUltimate(room,enemy))record(room,enemy,enemy,'虛無暗影步・結束','cleanse',()=>{});
     record(room,enemy,enemy,LABELS[s.id] || enemy.ultName,'status',()=>{
       s.round=room.battleRound;s.firstPhysicalUsed=false;s.armorBroken=false;s.reflected=0;s.extraCharge=0;s.parasiteHeal=0;
       s.charge=Math.min(B.chargeCap,s.charge+B.chargePerRound);s.heat=Math.min(B.heatCap,s.heat+B.heatPerRound);
@@ -236,9 +293,10 @@ export function enemyRoundStart(room) {
   for(const enemy of living(room)) {
     const s=state(enemy),script=enemy.script;
     if(script?.specialWolfDamage && s.transformRound===room.battleRound){
-      s.transformRound=0;const wolf=Math.random()<B.wolfFormChance;s.form=wolf?'werewolf':'treant';
-      if(wolf)record(room,enemy,enemy,'狼人變形','damage',()=>{enemy.hp=Math.max(1,enemy.hp-Math.floor(enemy.maxHp*script.specialWolfHpCostRatio));});
-      else heal(room,enemy,enemy,enemy.maxHp*script.specialTreantHealRatio,'遠古樹精變形');
+      const wolf=Math.random()<B.wolfFormChance;
+      const transform=()=>{s.transformRound=0;s.form=wolf?'werewolf':'treant';};
+      if(wolf)record(room,enemy,enemy,'狼人變形','damage',()=>{transform();enemy.hp=Math.max(1,enemy.hp-Math.floor(enemy.maxHp*script.specialWolfHpCostRatio));});
+      else heal(room,enemy,enemy,enemy.maxHp*script.specialTreantHealRatio,'遠古樹精變形',transform);
       strike(room,enemy,choose(room),wolf?script.specialWolfDamage:script.specialTreantDamage,'深淵變形・突擊');
     }
   }
@@ -267,7 +325,10 @@ export function beforeEnemyDamage(room,enemy,raw,type,actor,kind,defense = true)
   let value=raw;
   if(actor && !kind) {
     const frost=enemyEffect(room,actor,'frost');
-    if(value>0 && frost?.value>=B.frostThreshold && !actor.enemyFrostConsumed){actor.enemyActionMultiplier=1-B.frostDamageReduction;actor.enemyFrostConsumed=true;delete actor.enemyEffects.frost;}
+    if(value>0 && frost?.value>=B.frostThreshold && !actor.enemyFrostConsumed){
+      const source=(room.enemies||[]).find(e=>e.instanceId===frost.sourceId)||enemy;
+      record(room,source,actor,'寒霜衝擊・印記消耗','cleanse',()=>{actor.enemyActionMultiplier=1-B.frostDamageReduction;actor.enemyFrostConsumed=true;delete actor.enemyEffects.frost;});
+    }
     value*=actor.enemyActionMultiplier||1;
     if(enemyEffect(room,actor,'seal_zero'))value=0;
   }
@@ -404,7 +465,7 @@ export function runEnemyAction(room,enemy,queue) {
     if(ult&&id==='banshee'&&enemyEffect(room,p,'unrest'))damage=Math.floor(damage*(1+B.unrestBonus));
     if(damage<=0)continue;
     if(focused)damage=intercept(damage);
-    if(damage>0)strike(room,enemy,p,damage,label,{type,trueDamage,beforeHit:p.id===target.id?devour:null});
+    if(damage>0)strike(room,enemy,p,damage,label,{type,trueDamage,hitIndex:i+1,hitCount,beforeHit:p.id===target.id?devour:null});
   }
   totalHpDamage=(room.enemyMechanicQueue||[]).slice(eventStart).flatMap(step=>step.results).filter(r=>r.kind==='damage' && room.players[r.targetId]).reduce((n,r)=>n+Math.max(0,r.targetBefore.hp-r.targetAfter.hp),0);
   if(totalHpDamage>0) {
@@ -440,6 +501,6 @@ export function enemyPlayerRoundTicks(room) {
     const source=(room.enemies||[]).find(m=>m.instanceId===e.sourceId);
     // Existing burns persist after the caster dies, unlike support abilities.
     if(source)strike(room,source,p,e.value,e.label,{posthumous:true,secondary:true,noDodge:true,trueDamage:true,dot:true});
-    if(e.until===room.battleRound)delete p.enemyEffects[id];
+    if(e.until===room.battleRound){if(source)record(room,source,p,e.label+'・結束','cleanse',()=>{delete p.enemyEffects[id];});else delete p.enemyEffects[id];}
   }
 }

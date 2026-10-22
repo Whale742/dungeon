@@ -2371,8 +2371,8 @@ function showEnemyTooltip(en, eOrTarget) {
   const physical = mirrored ? resistances.magic : resistances.physical;
   const magic = mirrored ? resistances.physical : resistances.magic;
 
-  const isUltRound = ((roomState?.battleRound || 1) % 3 === 0);
-  const ultAtk = Math.floor((en.attack || 10) * 1.35);
+  const info = en.presentation || {};
+  const isUltRound = !!info.ultimateReady;
 
   const buffs = [];
   if (en.isWeakened) buffs.push({ icon: 'status', label: '負傷', desc: '負傷狀態' });
@@ -2388,6 +2388,7 @@ function showEnemyTooltip(en, eOrTarget) {
     buffs.push({ icon: 'status', label: `符咒 (${en.talismans.length}張)`, desc: details });
   }
 
+  for (const status of en.statuses || []) if (['enemy_mechanic','void_step','void_cover','crystal_support'].includes(status.id)) buffs.push({ icon:'status', label:status.label, desc:String(status.value ?? '') });
   let buffsHtml = '';
   if (buffs.length > 0) {
     buffsHtml = `<div class="floating-tooltip-buffs">${buffs.map(b => `
@@ -2409,7 +2410,7 @@ function showEnemyTooltip(en, eOrTarget) {
     </div>
     <div class="floating-tooltip-row">
       <span class="floating-tooltip-label">反擊攻擊力</span>
-      <span class="floating-tooltip-val">${isUltRound ? `${ultAtk} 點 (必殺爆發！)` : `${en.attack || 10} 點`}</span>
+      <span class="floating-tooltip-val">${isUltRound ? '本回合施放大招（依實際事件結算）' : `${en.attack || 10} 點`}</span>
     </div>
     <div class="floating-tooltip-row">
       <span class="floating-tooltip-label">蓄力必殺</span>
@@ -2419,19 +2420,27 @@ function showEnemyTooltip(en, eOrTarget) {
       <span class="floating-tooltip-label">抗性體質</span>
       <span class="floating-tooltip-val">物抗 ${physical}% · 魔抗 ${magic}% · 效抗 ${resistances.effect}%</span>
     </div>
+    <div class="enemy-mechanic-help"><strong>${escapeHtml(info.passiveName || '特殊能力')}</strong><br>${escapeHtml(info.passiveDesc || '')}<br><strong>${escapeHtml(info.ultimateName || en.ultName || '大招')}</strong> · 每 ${info.period || 3} 回合${isUltRound ? '（本回合）' : ''}<br>${escapeHtml(info.ultimateDesc || '')}<br>${escapeHtml(info.targetName ? '優先目標：'+info.targetName+' · '+info.targetHint : info.targetHint || '')}<br>反制：${escapeHtml(info.counter || '')}</div>
     ${buffsHtml}
     <div class="floating-tooltip-desc">${escapeHtml(en.desc || '地下城凶險的魔物。')}</div>
   `;
 
+  elements.floatingEnemyTooltip.setAttribute('aria-hidden', 'false');
   elements.floatingEnemyTooltip.classList.add('visible');
   positionFloatingTooltip(eOrTarget, elements.floatingEnemyTooltip);
 }
 
 function hideEnemyTooltip() {
   if (elements.floatingEnemyTooltip) {
+    elements.floatingEnemyTooltip.setAttribute('aria-hidden', 'true');
     elements.floatingEnemyTooltip.classList.remove('visible');
   }
 }
+// Touch users can scroll the expanded enemy help and dismiss it by tapping
+// outside; desktop hover and keyboard focus retain their existing behavior.
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('.battle-enemy-slot, #floatingEnemyTooltip')) hideEnemyTooltip();
+});
 
 // 神魔之塔風格敵方排佈舞台渲染（保留 DOM 節點 diffing，無中斷 hover/focus/animations）
 function renderBattleEnemiesStage(enemies, monster, me) {
@@ -2465,11 +2474,11 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const sizeClass = tier === 'MINION' ? 'is-minion-slot' : 'is-boss-slot' + (tier === 'ABYSS' ? ' is-abyss-slot' : '');
     const column = centered ? (en === bosses[0] ? 2 : (idx === 0 ? 1 : 3)) : null;
 
-    const cdTurns = en.cd ?? (isUltRound ? 1 : ((3 - (roomState.battleRound % 3)) % 3 || 3));
-    const isReady = (cdTurns === 1 || isUltRound);
+    const cdTurns = en.presentation?.roundsUntilUltimate ?? en.cd ?? ((3 - roomState.battleRound % 3) % 3);
+    const isReady = en.presentation ? en.presentation.ultimateReady : isUltRound;
     const cdClass = isReady ? 'enemy-cd-badge ult-ready' : 'enemy-cd-badge';
     const cdIcon = isReady ? getIconSvg('crit', 'ui-icon--sm') : getIconSvg('cooldown', 'ui-icon--sm');
-    const cdText = isReady ? 'CD 1' : `CD ${cdTurns}`;
+    const cdText = isReady ? '大招就緒' : `CD ${cdTurns}`;
 
     let slot = elements.battleEnemiesStage.querySelector(`.battle-enemy-slot[data-enemy-id="${eid}"]`);
     const avatarSrc = en.avatar || '';
@@ -2624,7 +2633,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const statusRow = slot.querySelector('.enemy-status-row');
     if (statusRow) {
       const activeBadges = [];
-      for(const status of en.statuses || [])if(['enemy_mechanic','void_step','void_cover'].includes(status.id))activeBadges.push(`<span title="${escapeHtml(status.label)}">${escapeHtml(status.label)}${status.value !== undefined && status.value !== '' ? ' '+escapeHtml(String(status.value)) : ''}</span>`);
+      syncEnemyMechanicVisual(en, slot);
       if (en.poisonTurns > 0) activeBadges.push(getIconSvg('poison', 'ui-icon--sm'));
       if (en.burnTurns > 0) activeBadges.push(getIconSvg('fire', 'ui-icon--sm'));
       if (en.fractureTurns > 0) activeBadges.push(getIconSvg('bone', 'ui-icon--sm'));
@@ -2821,6 +2830,8 @@ function renderBattle(me, isLeader) {
 
   // 渲染隊友卡片網格
   renderTeammatesGrid(me);
+  renderEnemyTelegraphs(enemies);
+  syncEnemyArenaVisual(roomState.enemyArena || roomState.arena || null);
 
   // 渲染我的專屬操作列
   renderMyActionBar(me);
@@ -3133,7 +3144,7 @@ function renderTeammatesGrid(me) {
 
       const minionPortraitsHtml = p.minions.map((m, idx) => {
         const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
-        return `<img src="${imgSrc}" class="minion-bar-thumb" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
+        return `<img src="${imgSrc}" class="minion-bar-thumb" data-minion-id="${escapeHtml(m.id)}" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
       }).join('');
 
       minionCard.innerHTML = `
@@ -5457,7 +5468,7 @@ function updateBattleHudFromSnapshot(snapshot) {
       const current = roomState?.enemies?.find(e => (e.instanceId || e.id) === (en.instanceId || en.id));
       if (current) Object.assign(current, en);
       const node = getEnemyAnchor(en.instanceId || en.id)?.element;
-      if (node) node._currentEnemy = { ...node._currentEnemy, ...en };
+      if (node) { node._currentEnemy = { ...node._currentEnemy, ...en }; syncEnemyMechanicVisual(node._currentEnemy, node); }
       const eid = en.instanceId || en.id;
       if (eid) {
         updateMonsterHpDisplay(en.hp, en.maxHp, eid);
@@ -5592,7 +5603,7 @@ function updateBattleHudFromSnapshot(snapshot) {
         if (iconWrap && druid.minions.length > 0) {
           iconWrap.innerHTML = druid.minions.map((m, idx) => {
             const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
-            return `<img src="${imgSrc}" class="minion-bar-thumb" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
+            return `<img src="${imgSrc}" class="minion-bar-thumb" data-minion-id="${escapeHtml(m.id)}" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
           }).join('');
         }
       }
@@ -5619,6 +5630,10 @@ async function playPresentationStep(step, round) {
     elements.battleNarrativeText.classList.add('narrative-fade');
   }
 
+  if (step.type === 'enemy_mechanic') {
+    await playEnemyMechanicPresentation(step, activeCombatContext);
+    return;
+  }
   if (step.category) {
     await playExpandedCombatPresentation(adaptLegacyPresentationStep(step), activeCombatContext);
     return;
@@ -5721,6 +5736,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       isPlayingBattleNarrative = false;
       presentationManager.setBlocking(false);
       const stage = document.getElementById('presentationCombatStage');
+      if(stage)stage.style.visibility = '';
       if(controller.signal.aborted&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
       if(typeof hasGladiatorArenaStage!=='function'||!hasGladiatorArenaStage()){
         stage?.replaceChildren();stage?.classList.remove('is-active','is-exiting');
@@ -5737,6 +5753,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       const snapshot = queue[0].hpSnapshotBefore;
       roomState = { ...state,
         players: mergePresentationSnapshot(state, snapshot).players,
+        enemies: mergePresentationSnapshot(state, snapshot).enemies,
         currentMonster: { ...state.currentMonster, ...snapshot?.monster } };
       renderApp();
     }
@@ -5744,11 +5761,19 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
     appliedBattleResults.clear();
     if (queue[0]?.hpSnapshotBefore) applyHpSnapshot(queue[0].hpSnapshotBefore);
-    await enterCombatStage(activeCombatContext);
+    let legacyStageEntered = false;
     for (const step of queue) {
+      if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
+      const official = step.type === 'enemy_mechanic' || ['kill','status_cleanup'].includes(step.type);
+      if (!official && !legacyStageEntered) { await enterCombatStage(activeCombatContext); legacyStageEntered = true; }
+      const legacyStage = document.getElementById('presentationCombatStage');
+      if (legacyStage) legacyStage.style.visibility = official ? 'hidden' : '';
+      document.getElementById('app').inert = true;
       await playPresentationStep(step, round);
     }
-    await exitCombatStage(activeCombatContext);
+    if (legacyStageEntered) await exitCombatStage(activeCombatContext);
+    const legacyStage = document.getElementById('presentationCombatStage');
+    if (legacyStage) legacyStage.style.visibility = '';
     completed = true;
   } catch (error) {
     if (error.name !== 'AbortError') console.error('[PresentationQueue]', error);
