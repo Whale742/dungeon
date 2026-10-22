@@ -393,9 +393,12 @@ async function playReloadResultPresentation(step, context) {
 // count comes from the magazine snapshot; grouped damage is never divided here.
 // Shared original five-wave vocabulary; the caller owns target geometry and
 // authoritative impact timing. Arrows are visual strokes, never damage events.
-async function archerRainWave({field,wave,reduced,animate,wait,impact,emit,targetId,onImpact}) {
+async function archerRainWave({field,wave,reduced,animate,wait,impact,emit,targetId,onImpact,arrowImage}) {
   for(let i=0;i<(reduced?3:9);i++){
-    const arrow=document.createElement('div');arrow.className='archer-falling-arrow';arrow.innerHTML='<i></i><b></b>';field.appendChild(arrow);
+    const arrow=document.createElement('div');arrow.className='archer-falling-arrow';
+    if(arrowImage){const image=document.createElement('img');image.src=arrowImage;image.alt='';image.setAttribute('aria-hidden','true');arrow.appendChild(image);}
+    else arrow.innerHTML='<i></i><b></b>';
+    field.appendChild(arrow);
     arrow.style.left=(8+(i*31+wave*13)%86)+'%';
     animate(arrow,reduced?[{opacity:0},{opacity:.75,offset:.4},{opacity:0}]:
       [{opacity:0,transform:'translate(-65px,-300px) rotate(-16deg)'},

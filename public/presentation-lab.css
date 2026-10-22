@@ -660,5 +660,7 @@ body.lab-body {
 .lab-battlefield-enemy{display:flex;flex-direction:column;align-items:center;color:#efe2c7}
 .lab-battlefield-enemy .enemy-sprite-wrap img{width:clamp(100px,16vw,220px);height:clamp(110px,24vh,240px);object-fit:contain}
 .lab-battlefield-preview .lab-mock-hud{top:auto;bottom:15px}
-.lab-battlefield-preview .lab-sage-portrait{width:75px;height:85px}
+.lab-battlefield-preview .lab-sage-portrait{width:75px!important;height:85px!important}
 .lab-battlefield-preview .lab-sage-portrait img{width:100%;height:100%;object-fit:contain}
+.lab-minion-hud{display:flex;gap:4px;justify-content:center}
+.lab-minion-hud img{width:28px;height:32px;object-fit:contain}

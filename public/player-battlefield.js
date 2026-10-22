@@ -1,5 +1,11 @@
 // Phase 4 owns effects only. Actors, HP and resources remain on the battlefield.
 const BATTLEFIELD_PLAYER_ROLES = new Set(['alchemist','archer','stargazer','dreamweaver','samurai','sage','augur','onmyoji','gladiator','druid']);
+const ARCHER_BATTLEFIELD_ART=Object.freeze({
+  bow:'/assets/combat-fx/archer/first-person-bow-drawn.png',
+  arrow:'/assets/combat-fx/archer/magic-arrow.png',
+  ground:'/assets/combat-fx/archer/arrow-ground-impact.png',
+  hit:'/assets/combat-fx/common/impact-spark.png'
+});
 function isBattlefieldPlayerStep(step) {return ['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type));}
 function battlefieldPlayerTarget(step) {
   if(step.targetId&&!['all','all_enemies','monster'].includes(step.targetId))return step.targetId;
@@ -20,7 +26,7 @@ function commitBattlefieldPlayerResult(result,step,context) {
   }
   if(anchor&&result.actualDamage>0&&!context.reducedMotion&&['archer','alchemist'].includes(step.sourceRole)&&step.actionId!=='a_rain'){
     const flash=document.createElement('div');flash.className='battlefield-hit-host';context.effectRoot.appendChild(flash);context.follow(flash,id);
-    if(step.sourceRole==='archer'){const impact=document.createElement('i');impact.className='archer-arrow-impact';impact.dataset.ammo=result.ammoType||'pierce';flash.appendChild(impact);}
+    if(step.sourceRole==='archer'){const impact=document.createElement('img');impact.src=ARCHER_BATTLEFIELD_ART.hit;impact.alt='';impact.className='archer-painted-impact';impact.setAttribute('aria-hidden','true');impact.style.animationDuration=260/(context.speed||1)+'ms';flash.appendChild(impact);}
     else if(typeof createCombatFx==='function')createCombatFx({type:'acid_splash',target:flash,speed:context.speed||1,reducedMotion:false});
   }
   context.onTiming?.('impact',{result,targetId:id});context.onTiming?.('hp_update',{result,targetId:id});
@@ -75,7 +81,7 @@ async function withBattlefieldSkillStage(step,context,play) {
   const animate=(node,keys,ms,options={})=>{const a=node.animate(keys,{duration:(reduced?Math.min(ms,120):ms)/speed,fill:'forwards',...options});animations.add(a);a.finished.catch(()=>{});return a;};
   const local={...context,signal,speed,reducedMotion:reduced,effectRoot:root,follow,audioScope:audio,numberCounts:new Map(),battlefield:true};
   const resolveResults=async(options={})=>{for(const result of step.results||[]){if(signal?.aborted)return;await options.beforeResult?.(result);commitBattlefieldPlayerResult(result,step,local);}if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);};
-  const title=el('div','skill-production-title');title.textContent=step.skillName;
+  const title=el('div','skill-production-title',null,root);title.textContent=step.skillName||'';
   const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,
     startRenderer:render=>renderers.push(render),unfollow:node=>{for(let i=followers.length-1;i>=0;i--)if(followers[i].node===node)followers.splice(i,1);},debug:()=>{}};
   const cleanup=()=>{cancelAnimationFrame(raf);for(const a of animations)a.cancel();root.remove();};
@@ -89,6 +95,7 @@ async function withBattlefieldSkillStage(step,context,play) {
 const FLASK_COLORS=Object.freeze({poison:'#a3b836',burn:'#ff713b',fracture:'#a8adb7',chill:'#94eaff',acid:'#68ed83'});
 async function playBattlefieldRanged(step,context) {
   if(step.actionId==='a_rain')return playBattlefieldArrowRain(step,context);
+  if(step.sourceRole==='archer'&&!step.results?.some(r=>r.kind==='reload'))await preloadPhase5Art(Object.values(ARCHER_BATTLEFIELD_ART),context.signal);
   await withBattlefieldSkillStage(step,context,async s=>{
     const alchemy=step.sourceRole==='alchemist',reload=step.results?.some(r=>r.kind==='reload'),mix=alchemy&&step.actionId==='alc_fate';
     const audio=s.local.audioScope;
@@ -124,17 +131,24 @@ async function playBattlefieldRanged(step,context) {
       await s.resolveResults();await s.wait(300);return;
     }
     const firstPerson=alchemy&&step.actionId==='alc_flask'||!alchemy&&step.actionId==='a_shot';
-    if(firstPerson){const hands=s.el('div',alchemy?'battlefield-throw-hand':'battlefield-first-bow');hands.setAttribute('aria-label',alchemy?'第一人稱投擲試劑':'藍白魔力拉弓');s.animate(hands,[{translate:'0 90px',opacity:0},{translate:'0 0',opacity:1}],380);await s.wait(380);}
+    let bow;
+    if(firstPerson){
+      const hands=alchemy?s.el('div','battlefield-throw-hand'):document.createElement('img');
+      if(!alchemy){bow=hands;hands.className='battlefield-first-bow';hands.src=ARCHER_BATTLEFIELD_ART.bow;hands.alt='';hands.setAttribute('aria-hidden','true');s.root.appendChild(hands);}
+      hands.setAttribute('aria-label',alchemy?'第一人稱投擲試劑':'藍白魔力拉弓');
+      s.animate(hands,s.reduced?[{opacity:0},{opacity:1}]:[{translate:'0 90px',opacity:0},{translate:'0 0',opacity:1}],380);await s.wait(380);
+    }
     if(!alchemy&&step.actionId==='a_shot'){const profile=resolveCombatSfxProfile(step);if(profile.key)audio.play(profile.key,{noHold:true});}
     if(step.actionId!=='a_trap')audio.play(alchemy?'bottle_throw':step.actionId==='a_rain'?'archer_rain':'archer_twang');
-    let chemicalPlayed=false;
+    let chemicalPlayed=false,bowReleased=false;
     for(const result of step.results||[]){
       const id=resolvePresentationTarget(result,step);
       if(result.kind==='damage'&&result.targetEnemyId){
         const trap=step.actionId==='a_trap',ammo=result.ammoType||result.ammo;
+        if(bow&&!bowReleased){bowReleased=true;s.animate(bow,s.reduced?[{opacity:1},{opacity:0}]:[{opacity:1,scale:'1'},{opacity:.8,scale:'1.025',offset:.25},{opacity:0,scale:'1'}],240);}
         if(!trap)audio.play(alchemy?'acid_throw':'arrow_flight');
-        if(trap){const spikes=document.createElement('i');spikes.className='battlefield-trap-spikes';s.root.appendChild(spikes);s.follow(spikes,id,0,25);await s.wait(180);}
-        else await battlefieldProjectile(s,step.sourceId,id,alchemy?'bottle':ammo||'arrow',firstPerson);
+        if(trap){const spikes=document.createElement('img');spikes.src=ARCHER_BATTLEFIELD_ART.ground;spikes.alt='';spikes.className='battlefield-trap-art';spikes.setAttribute('aria-hidden','true');s.root.appendChild(spikes);s.follow(spikes,id,0,25);s.animate(spikes,[{opacity:0},{opacity:1,offset:.3},{opacity:0}],400);await s.wait(180);}
+        else await battlefieldProjectile(s,step.sourceId,id,alchemy?'bottle':ammo||'arrow',bow||firstPerson);
         commitBattlefieldPlayerResult(result,step,s.local);
         if(step.actionId==='alc_flask'&&!chemicalPlayed){chemicalPlayed=true;await s.wait(80);audio.play('alchemy_skill1',{noHold:true});}
         audio.play(alchemy?'acid_splash':'arrow_impact');
@@ -146,6 +160,7 @@ async function playBattlefieldRanged(step,context) {
   });
 }
 async function playBattlefieldArrowRain(step,context) {
+  await preloadPhase5Art([ARCHER_BATTLEFIELD_ART.arrow,ARCHER_BATTLEFIELD_ART.ground],context.signal);
   return withBattlefieldSkillStage(step,context,async s=>{
     const targets=[...new Set((step.results||[]).filter(r=>r.kind==='damage').map(r=>resolvePresentationTarget(r,step)))];
     s.root.classList.add('battlefield-arrow-rain');
@@ -156,8 +171,8 @@ async function playBattlefieldArrowRain(step,context) {
     for(let wave=0;wave<5;wave++)await Promise.all(targets.map(id=>{
       const field=document.createElement('div');field.className='archer-rain-field battlefield-rain-field';s.root.appendChild(field);s.follow(field,id);
       const anchor=getBattleEffectAnchor(id);field.style.width=Math.max(80,Math.min(240,anchor?.rect.width||150))+'px';field.style.setProperty('--rain-arrow-length',Math.max(50,Math.min(95,(anchor?.rect.height||150)*.6))+'px');
-      const impact=()=>{const flash=document.createElement('div');flash.className='archer-arrow-impact';field.appendChild(flash);s.animate(flash,[{opacity:0,transform:'scale(.35)'},{opacity:.9,transform:'scale(1)',offset:.2},{opacity:0,transform:'scale(1.6)'}],260);return flash;};
-      return archerRainWave({field,wave,reduced:s.reduced,animate:(n,k,ms,o)=>s.animate(n,k,ms,{...o,delay:o.delay/(context.speed||1)}),wait:s.wait,impact,targetId:id,
+      const impact=()=>{const flash=document.createElement('img');flash.src=ARCHER_BATTLEFIELD_ART.ground;flash.alt='';flash.setAttribute('aria-hidden','true');flash.className='archer-painted-ground';field.appendChild(flash);s.animate(flash,[{opacity:0,scale:'.65'},{opacity:.9,scale:'1',offset:.2},{opacity:0,scale:'1.08'}],260);return flash;};
+      return archerRainWave({field,wave,reduced:s.reduced,arrowImage:ARCHER_BATTLEFIELD_ART.arrow,animate:(n,k,ms,o)=>s.animate(n,k,ms,{...o,delay:o.delay/(context.speed||1)}),wait:s.wait,impact,targetId:id,
         emit:(beat,detail)=>context.onTiming?.(beat,{step,...detail}),onImpact:()=>{if(wave===4&&!resolved){resolved=true;for(const result of step.results||[])commitBattlefieldPlayerResult(result,step,s.local);}}});
     }));
     await s.resolveResults();
@@ -169,13 +184,16 @@ async function battlefieldProjectile(s,sourceId,targetId,type,central) {
   const projectile=document.createElement('div');projectile.className='battlefield-projectile '+type;s.root.appendChild(projectile);
   if(AMMO_IMAGES[type])projectile.innerHTML=ammoArrowHtml(type);
   else if(type==='bottle')projectile.innerHTML='<i class="combat-bottle-neck"></i><i class="combat-bottle-glass"></i>';
-  else if(type==='arrow')projectile.innerHTML='<span class="archer-volley-arrow"><i></i><b></b></span>';
+  else if(type==='arrow'){const image=document.createElement('img');image.src=ARCHER_BATTLEFIELD_ART.arrow;image.alt='';image.className='archer-projectile-art';image.setAttribute('aria-hidden','true');projectile.appendChild(image);}
   if(AMMO_IMAGES[type])await samuraiAbortable(Promise.all([...projectile.querySelectorAll('img')].map(img=>img.decode().catch(()=>{}))),s.signal);
   await s.tick(440,p=>{
     const source=sourceId&&getBattleEffectAnchor(sourceId),target=getBattleEffectAnchor(targetId);if(!target){projectile.hidden=true;return;}
-    const from=central||!source?{x:innerWidth/2,y:innerHeight*.75}:source;
+    const bow=central?.getBoundingClientRect?.();
+    const from=bow?{x:bow.left+bow.width*.25,y:bow.top+bow.height*.37}:central||!source?{x:innerWidth/2,y:innerHeight*.75}:source;
     const start=from;
-    projectile.style.left=(start.x+(target.x-start.x)*p)+'px';projectile.style.top=(start.y+(target.y-start.y)*p-Math.sin(p*Math.PI)*(type==='bottle'?70:0))+'px';
+    const travel=s.reduced?1:p;
+    projectile.style.left=(start.x+(target.x-start.x)*travel)+'px';projectile.style.top=(start.y+(target.y-start.y)*travel-Math.sin(travel*Math.PI)*(type==='bottle'?70:0))+'px';
+    if(s.reduced)projectile.style.opacity=String(Math.sin(p*Math.PI));
     projectile.style.rotate=type==='bottle'?p*220+'deg':Math.atan2(target.y-start.y,target.x-start.x)+'rad';
   });projectile.remove();
   if(type==='bottle')for(let i=0;i<5;i++){

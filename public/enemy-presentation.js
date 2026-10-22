@@ -177,6 +177,9 @@ async function playEnemyMechanicPresentation(step, context={}) {
     for(const result of step.results||[]){
       if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
       if(appliedBattleResults.has(result.resultId||result))continue;
+      // Establish the actual guard before starting this hit's timeline, so
+      // loading / playing its vine never delays the damage past contact.
+      if(result.sharedFrom&&typeof playPhase5DruidGuard==='function')await playPhase5DruidGuard(result,context);
       const targetId=resolvePresentationTarget(result,step),owned=document.createElement('div');root.appendChild(owned);
       const custom=typeof createEnemyChoreography==='function'?createEnemyChoreography(step,result,owned,{reduced,animations,speed}):null;
       const duration=custom?.duration||(reduced?400:profile[3]),contact=custom?.contact||.35;
@@ -218,6 +221,8 @@ async function playEnemyMechanicPresentation(step, context={}) {
           const keys=result.kind==='death'?[{filter:'brightness(2)',opacity:1},{filter:'grayscale(1)',opacity:.25}]:custom&&step.presentation.mechanicId==='banshee'?[{transform:'translateX(-3px) skewX(2deg)',filter:'saturate(.2)'},{transform:'translateX(3px) skewX(-2deg)',offset:.3},{transform:'none',filter:'none'}]:shape==='claw'?[{transform:'translateX(-5px)'},{transform:'translateX(4px)'},{transform:'none'}]:[{filter:'brightness(1.5)'},{filter:'brightness(1)'}];
           animations.push(image.animate(keys,{duration:Math.min(480,duration*.5)/speed}));
         }
+        if(typeof playPhase5DruidSleep==='function')await playPhase5DruidSleep(result,context);
+        if(result.sageMomentumCapture&&target&&typeof playSageMomentumCapture==='function')await playSageMomentumCapture(result,target,context);
       }
       await waitForPresentation(Math.max(duration*(1-contact),numbers.length?750:0),signal,speed);
       cancelAnimationFrame(frame);custom?.remove();owned.remove();

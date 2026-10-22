@@ -24,6 +24,11 @@ async function preloadPhase5Art(paths,signal) {
 function phase5Image(s,src,id,kind='strike') {
   const node=document.createElement('img');node.className='phase5-art phase5-'+kind;
   node.src=src;node.alt='';node.setAttribute('aria-hidden','true');s.root.appendChild(node);s.follow(node,id);
+  if(['roots','strike','spark','triumph'].includes(kind)&&getActorAnchor(id))s.startRenderer(()=>{
+    const anchor=getBattleEffectAnchor(id);if(!anchor)return;
+    // Ally art fits the portrait; adjacent HP and status rows stay readable.
+    node.style.width=Math.max(24,anchor.rect.width)+'px';node.style.height=Math.max(30,anchor.rect.height)+'px';
+  });
   return node;
 }
 function phase5Pulse(s,src,id,kind='strike',ms=360) {
@@ -59,9 +64,10 @@ async function phase5VineLink(s,fromId,toId) {
   s.unfollow(node);
   await s.tick(s.reduced?100:260,p=>{
     const a=getBattleEffectAnchor(fromId),b=getBattleEffectAnchor(toId);node.hidden=!a||!b;if(!a||!b)return;
-    node.style.left=(a.x+b.x)/2+'px';node.style.top=(a.y+b.y)/2+'px';
-    node.style.width=Math.hypot(b.x-a.x,b.y-a.y)+'px';node.style.height='48px';node.style.objectFit='fill';
-    node.style.transform=`translate(-50%,-50%) rotate(${Math.atan2(b.y-a.y,b.x-a.x)}rad) scaleY(${.65+.35*Math.sin(p*Math.PI)})`;
+    const ay=a.rect.top+Math.min(12,a.rect.height*.2),by=b.rect.top+Math.min(12,b.rect.height*.2);
+    node.style.left=(a.x+b.x)/2+'px';node.style.top=(ay+by)/2+'px';
+    node.style.width=Math.hypot(b.x-a.x,by-ay)+'px';node.style.height='32px';node.style.objectFit='fill';
+    node.style.transform=`translate(-50%,-50%) rotate(${Math.atan2(by-ay,b.x-a.x)}rad) scaleY(${.65+.35*Math.sin(p*Math.PI)})`;
     node.style.opacity=String(Math.sin(p*Math.PI));
   });node.remove();
 }
@@ -71,6 +77,18 @@ async function playPhase5DruidGuard(result,context) {
   await preloadPhase5Art([PHASE5_ART.vine],context.signal);
   await withBattlefieldSkillStage({sourceRole:'druid',sourceId:id,targetId:result.sharedFrom,actionId:'dru_guard',results:[]},
     {...context,skipCastAudio:true},async s=>{s.local.audioScope.play('vine_strike',{noHold:true});await phase5VineLink(s,id,result.sharedFrom);});
+}
+async function playPhase5DruidSleep(result,context) {
+  const before=result.targetBefore,after=result.targetAfter;
+  if(after?.role!=='druid'||before?.druidForm===after.druidForm||
+    !['treant','tree'].includes(before?.druidForm)||!['treant','tree'].includes(after.druidForm))return;
+  const id=resolvePresentationTarget(result),sleeping=after.druidForm==='tree';
+  await preloadPhase5Art([PHASE5_ART.roots,PHASE5_ART.vine],context.signal);
+  await withBattlefieldSkillStage({sourceRole:'druid',sourceId:id,targetId:id,actionId:'dru_sleep',results:[]},
+    {...context,skipCastAudio:true},async s=>{
+      phase5Pulse(s,sleeping?PHASE5_ART.roots:PHASE5_ART.vine,id,'roots',320);
+      await s.wait(s.reduced?100:240);
+    });
 }
 async function playPhase5BattlefieldPresentation(step,context) {
   const reactions=step.sourceRole==='augur'?[]:step.augurReactions||[];
@@ -237,7 +255,11 @@ async function playBattlefieldGladiator(step,context) {
 }
 
 async function playBattlefieldDruid(step,context) {
-  await preloadPhase5Art([PHASE5_ART.vine,PHASE5_ART.roots,PHASE5_ART.claw,PHASE5_ART.spark],context.signal);
+  const portraits=(step.results||[]).flatMap(result=>[
+    ...(result.kind==='transform'&&result.targetAfter?[resolveBattlePortrait(result.targetAfter).src]:[]),
+    ...(result.minions||[]).slice(0,3).map((minion,index)=>resolveBattlePortrait({...minion,minionIndex:minion.minionIndex||index+1,entityType:'minion'}).src)
+  ]).filter(Boolean);
+  await preloadPhase5Art([PHASE5_ART.vine,PHASE5_ART.roots,PHASE5_ART.claw,PHASE5_ART.spark,...portraits],context.signal);
   await withBattlefieldSkillStage(step,context,async s=>{
     const audio=s.local.audioScope;
     for(const result of step.results||[]) {

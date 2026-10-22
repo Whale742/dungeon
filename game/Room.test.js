@@ -11,6 +11,46 @@ import { getBossResistance } from './boss-resistance.js';
 import { resolveStats } from './stats.js';
 import { enemyPresentationInfo } from './enemy-mechanics.js';
 
+test('Sage feedback follows the battlefield actor and selected enemy in both phases',async()=>{
+  const scope={innerWidth:1440,innerHeight:810,getBattleEffectAnchor:()=>({rect:{width:75,height:85}})};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+  for(const phase of ['hypothesis','solve'])for(const actionId of ['basic','sge_deduce','sge_induce']){
+    const actor={x:840,y:680},enemy={x:1100,y:260},renderers=[],positions=[];
+    const stage={local:{sourceId:'actor',battlefield:true},anchors:new Map([['actor',actor],['monster',enemy]]),
+      root:{dataset:{}},signal:{aborted:false},reduced:false,
+      el:(tag,className)=>({className,style:{},remove(){this.removed=true;}}),
+      position:(node,x,y)=>{node.x=x;node.y=y;positions.push({node,x,y});},
+      startRenderer:render=>{renderers.push(render);render();},animate(){},wait:async()=>{},
+      tick:async(ms,render)=>{render(0);render(1);}};
+    const anchor=scope.sageOperandAnchor(stage,17);
+    await scope.sageOperandFeedback(stage,{sourceId:'actor',actionId},{sagePhase:phase,operandBefore:17,operandAfter:26,operandDelta:9,actualDamage:9},anchor);
+    assert.equal(anchor.number.textContent,actionId==='sge_induce'&&phase==='hypothesis'?'17':'26');
+    const ghost=positions.find(p=>p.node.className==='sage-skill-damage-ghost');
+    if(ghost){assert.deepEqual([ghost.x,ghost.y],[enemy.x,enemy.y]);assert.equal(ghost.node.removed,true);}
+    actor.x=520;actor.y=550;renderers.forEach(render=>render());
+    assert.deepEqual([anchor.node.x,anchor.node.y],[520,450]);
+    for(const p of positions.filter(p=>p.node.className==='sage-momentum-cue'))assert.notEqual(p.x,260);
+  }
+});
+
+test('Painted archer projectile leaves the bow and tracks a moving concrete target',async()=>{
+  for(const reduced of [false,true]){
+    const nodes=[],target={x:950,y:220};
+    class Node{constructor(){this.children=[];this.style={};nodes.push(this);}appendChild(n){this.children.push(n);}setAttribute(){}remove(){this.removed=true;}}
+    const scope={innerWidth:1440,innerHeight:900,AMMO_IMAGES:{},document:{createElement:()=>new Node()},
+      getBattleEffectAnchor:id=>id==='enemy_2'?target:{x:200,y:600}};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    const positions=[],s={root:new Node(),reduced,tick:async(ms,render)=>{
+      render(0);positions.push({...nodes[1].style});target.x=1080;target.y=310;render(1);positions.push({...nodes[1].style});
+    }};
+    await scope.battlefieldProjectile(s,'hero','enemy_2','arrow',{getBoundingClientRect:()=>({left:300,top:400,width:400,height:300})});
+    assert.equal(nodes[2].src,'/assets/combat-fx/archer/magic-arrow.png');
+    assert.deepEqual([positions[0].left,positions[0].top],reduced?['950px','220px']:['400px','511px']);
+    assert.deepEqual([positions[1].left,positions[1].top],['1080px','310px']);
+    assert.equal(nodes[1].removed,true);
+  }
+});
+
 
 export function fixture(t, role = 'warrior') {
   const events = [];
@@ -588,15 +628,18 @@ test('Rain armor prelude never reveals a secondary hit before the player animati
 test('Original rain choreography plays five staggered nine-arrow waves per real target with no extra results',async t=>{
   const {room,player,events}=phase1Battle(t,'archer');player.action='a_rain';room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.actionId==='a_rain'),nodes=[],beats=[],commits=new Set(),delays=[];
-  class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};nodes.push(this);}appendChild(n){this.children.push(n);}remove(){this.removed=true;}}
-  const scope={document:{createElement:()=>new Node()},resolvePresentationTarget:r=>r.targetId,getBattleEffectAnchor:()=>({rect:{width:100}})};
+  class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};nodes.push(this);}appendChild(n){this.children.push(n);}setAttribute(){}remove(){this.removed=true;}}
+  const scope={document:{createElement:()=>new Node()},preloadPhase5Art:async()=>{},resolvePresentationTarget:r=>r.targetId,getBattleEffectAnchor:()=>({rect:{width:100}})};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/combat-expansion.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
   scope.commitBattlefieldPlayerResult=r=>{assert.ok(!commits.has(r.resultId));commits.add(r.resultId);};
   scope.withBattlefieldSkillStage=async(_step,_context,play)=>play({root:new Node(),local:{audioScope:{play(){}}},follow(){},wait:async()=>{},reduced:false,animate:(_n,_k,_ms,o)=>{if(o?.delay!==undefined)delays.push(o.delay);},resolveResults:async()=>{},el:()=>new Node()});
   await scope.playBattlefieldArrowRain(step,{speed:2,onTiming:(beat,detail)=>beats.push([beat,detail])});
   const targets=new Set(step.results.filter(r=>r.kind==='damage').map(r=>r.targetId));
   assert.equal(beats.length,targets.size*5);assert.equal(nodes.filter(n=>n.className==='archer-falling-arrow').length,targets.size*45);
-  assert.equal(nodes.filter(n=>n.className==='archer-arrow-impact').length,targets.size*5);assert.ok(delays.includes(35));
+  assert.equal(nodes.filter(n=>n.className==='archer-painted-ground').length,targets.size*5);assert.ok(delays.includes(35));
+  const arrows=nodes.filter(n=>n.className==='archer-falling-arrow');
+  assert.ok(arrows.every(n=>n.children.length===1&&n.children[0].src==='/assets/combat-fx/archer/magic-arrow.png'));
+  assert.ok(nodes.filter(n=>n.className==='archer-painted-ground').every(n=>n.src==='/assets/combat-fx/archer/arrow-ground-impact.png'));
   assert.equal(commits.size,step.results.length);assert.ok(beats.every(([,b])=>targets.has(b.targetId)));
 });
 for(const index of [0,1,7])test('Painted enemy choreography uses distinct real basic and ultimate timelines: '+ENCOUNTERS[index].name,t=>{

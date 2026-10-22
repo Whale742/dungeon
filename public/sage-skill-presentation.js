@@ -11,9 +11,10 @@ function sageOperandAnchor(s,value) {
   // One temporary operand anchor, not a second resource HUD. The existing battle
   // HUD remains the owner of 變量(X), 運算元 and phase.
   const actor=s.anchors.get(s.local?.sourceId)||s.phase5Actor||{x:260,y:430};
-  const n=s.el('div','sage-skill-operand');s.position(n,actor.x,actor.y+100);
+  const n=s.el('div','sage-skill-operand');s.position(n,actor.x,actor.y+(s.local?.battlefield?-100:100));
   const label=s.el('small','',null,n);label.textContent='運算元';
   const number=s.el('span','sage-skill-number',null,n);number.textContent=String(value??'—');
+  s.startRenderer(()=>{const a=s.anchors.get(s.local?.sourceId)||actor;s.position(n,a.x,a.y+(s.local?.battlefield?-100:100));});
   return {node:n,number};
 }
 function sageVector(s,offset=0) {
@@ -21,6 +22,12 @@ function sageVector(s,offset=0) {
   const line=s.el('div','sage-vector-line');s.position(line,a.x,a.y);
   const length=Math.hypot(b.x-a.x,b.y-a.y);line.style.width=length+'px';line.style.rotate=Math.atan2(b.y-a.y,b.x-a.x)+'rad';
   for(const fraction of [.18,.42,.7]){const tick=s.el('i','sage-vector-tick',null,line);tick.style.left=(length*fraction)+'px';}
+  s.startRenderer(()=>{
+    const from=s.anchors.get(s.local?.sourceId)||a,to=s.anchors.get('monster')||b;
+    const distance=Math.hypot(to.x-from.x,to.y-from.y);
+    s.position(line,from.x,from.y);line.style.width=distance+'px';line.style.rotate=Math.atan2(to.y-from.y,to.x-from.x)+'rad';
+    [...line.children].forEach((tick,i)=>tick.style.left=(distance*[.18,.42,.7][i])+'px');
+  });
   if(offset)s.animate(line,[{transform:`translateY(${offset}px) rotate(${offset*.12}deg)`,opacity:.35},{transform:'translateY(0) rotate(0)',opacity:.95}],230);
   return line;
 }
@@ -34,26 +41,45 @@ function sageScan(s,anchor) {
 }
 async function sageOperandFeedback(s,step,data,anchor) {
   const solve=data.sagePhase==='solve',id=step.actionId;
+  const actor=()=>s.anchors.get(step.sourceId)||s.phase5Actor||{x:260,y:430};
   if(id==='sge_induce'&&solve){
     const cue=s.el('span','sage-momentum-cue');
-    cue.textContent=`${data.operandBefore} + ${data.operandDelta} = ${data.operandAfter}`;s.position(cue,260,565);
+    cue.textContent=`${data.operandBefore} + ${data.operandDelta} = ${data.operandAfter}`;
+    s.startRenderer(()=>{const a=actor();s.position(cue,a.x,a.y+(s.local?.battlefield?-135:135));});
     s.root.dataset.operandOperation='add';
     sageScan(s,anchor);
     s.animate(cue,[{opacity:0,transform:'translate(-50%,calc(-50% - 8px))'},{opacity:1,transform:'translate(-50%,-50%)'}],260);
     await s.wait(260);if(s.signal.aborted)return;
     cue.remove();anchor.number.textContent=String(data.operandAfter);
-    sageImpulse(s,260,604);await s.wait(200);return;
+    const a=actor();sageImpulse(s,a.x,a.y+(s.local?.battlefield?-100:100));await s.wait(200);return;
   }
   if(id==='sge_induce'){
-    const frame=s.el('div','sage-sampling-frame');s.position(frame,260,430);
+    const frame=s.el('div','sage-sampling-frame');
+    s.startRenderer(()=>{
+      const a=actor();s.position(frame,a.x,a.y);
+      if(s.local?.battlefield){
+        const target=getBattleEffectAnchor(step.sourceId),scale=Math.min(innerWidth/1440,innerHeight/810)||1;
+        if(target){frame.style.width=(target.rect.width+12)/scale+'px';frame.style.height=(target.rect.height+12)/scale+'px';}
+      }
+    });
     frame.innerHTML=sageSamplingMarkup();sageScan(s,anchor);await s.wait(280);return;
   }
   const replace=!solve&&id==='basic';
+  let returnMotion=Promise.resolve();
   if(!solve){
-    const ghost=s.el('span','sage-skill-damage-ghost');ghost.textContent=String(data.actualDamage);s.position(ghost,1170,430);
-    const returnLine=s.el('div','sage-vector-line');s.position(returnLine,260,604);returnLine.style.width='927px';returnLine.style.rotate='-.189rad';
-    s.animate(returnLine,[{opacity:.25},{opacity:0}],replace?220:280);
-    s.animate(ghost,s.reduced?[{opacity:.45},{opacity:0}]:[{opacity:.65,transform:'translate(-50%,-50%)'},{opacity:.25,transform:'translate(calc(-50% - 910px),calc(-50% + 174px))'}],replace?220:280);
+    const ghost=s.el('span','sage-skill-damage-ghost');ghost.textContent=String(data.actualDamage);
+    const returnLine=s.el('div','sage-vector-line');
+    s.startRenderer(()=>{
+      const a=actor(),b=s.anchors.get('monster')||SKILL_STAGE.target;
+      s.position(returnLine,b.x,b.y);returnLine.style.width=Math.hypot(a.x-b.x,a.y+(s.local?.battlefield?-100:100)-b.y)+'px';
+      returnLine.style.rotate=Math.atan2(a.y+(s.local?.battlefield?-100:100)-b.y,a.x-b.x)+'rad';
+    });
+    returnMotion=s.tick(replace?220:280,p=>{
+      const a=actor(),b=s.anchors.get('monster')||SKILL_STAGE.target;
+      s.position(ghost,s.reduced?a.x:b.x+(a.x-b.x)*p,s.reduced?a.y+(s.local?.battlefield?-100:100):b.y+(a.y+(s.local?.battlefield?-100:100)-b.y)*p);
+      ghost.style.opacity=String(.65*(1-p));returnLine.style.opacity=String(.25*(1-p));
+    }).finally(()=>{ghost.remove();returnLine.remove();});
+    returnMotion.catch(()=>{});
   }
   const cue=s.el('span','sage-skill-delta',null,anchor.node);
   // Fixed skill cues communicate the rule; all operands still come from payload.
@@ -62,7 +88,7 @@ async function sageOperandFeedback(s,step,data,anchor) {
     const calibration=s.el('i','sage-skill-two-ticks',null,anchor.node),marker=s.el('b','',null,calibration);
     s.animate(marker,[{transform:'translateX(0)'},{transform:'translateX(12px)',offset:.5},{transform:'translateX(24px)'}],220);
   }else sageScan(s,anchor);
-  await s.wait(replace?220:280);if(s.signal.aborted)return;
+  await Promise.all([s.wait(replace?220:280),returnMotion]);if(s.signal.aborted)return;
   anchor.number.textContent=String(data.operandAfter);cue.remove();
   s.root.dataset.operandOperation=replace?'replace':solve?'increment':'add';
 }
