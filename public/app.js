@@ -2462,6 +2462,12 @@ document.addEventListener('pointerdown', event => {
   if (!event.target.closest('.battle-enemy-slot, #floatingEnemyTooltip')) hideEnemyTooltip();
 });
 
+function isBattleEnemySelectable(enemyId) {
+  const arena=roomState?.enemyArena||roomState?.arena;
+  if(arena&&(arena.enemyId!==enemyId||arena.playerId!==myId))return false;
+  return (roomState?.enemies||[roomState?.currentMonster]).some(e=>e&&(e.instanceId||e.id)===enemyId&&e.hp>0);
+}
+
 // 神魔之塔風格敵方排佈舞台渲染（保留 DOM 節點 diffing，無中斷 hover/focus/animations）
 function renderBattleEnemiesStage(enemies, monster, me) {
   if (!elements.battleEnemiesStage) return;
@@ -2542,13 +2548,14 @@ function renderBattleEnemiesStage(enemies, monster, me) {
 
       const selectAction = () => {
         const cur = slot._currentEnemy || en;
-        if (cur.hp <= 0) return;
+        if (cur.hp <= 0 || !isBattleEnemySelectable(eid)) return;
         currentSelectedEnemyId = eid;
         socket.emit('battle:select_target', { targetEnemyId: eid });
         renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
       };
 
       slot.addEventListener('click', () => {
+        if(!isBattleEnemySelectable(eid))return;
         selectAction();
         showEnemyTooltip(slot._currentEnemy || en, slot);
       });
@@ -2557,6 +2564,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
         if (e.key === 'Escape') {hideEnemyTooltip();return;}
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          if(!isBattleEnemySelectable(eid))return;
           selectAction();
           showEnemyTooltip(slot._currentEnemy || en, slot);
         }
@@ -2668,7 +2676,9 @@ function renderBattle(me, isLeader) {
     }
   }
   const enemies = Array.isArray(roomState.enemies) && roomState.enemies.length > 0 ? roomState.enemies : (roomState.currentMonster ? [roomState.currentMonster] : []);
-  if (me?.targetEnemyId && enemies.some(e => (e.instanceId || e.id) === me.targetEnemyId && e.hp > 0)) {
+  const arena=roomState.enemyArena||roomState.arena;
+  if(arena?.enemyId)currentSelectedEnemyId=arena.enemyId;
+  else if (me?.targetEnemyId && enemies.some(e => (e.instanceId || e.id) === me.targetEnemyId && e.hp > 0)) {
     currentSelectedEnemyId = me.targetEnemyId;
   } else if (!currentSelectedEnemyId || !enemies.some(e => (e.instanceId || e.id) === currentSelectedEnemyId && e.hp > 0)) {
     const firstLiving = enemies.find(e => e.hp > 0) || enemies[0];
@@ -2758,6 +2768,7 @@ function renderBattle(me, isLeader) {
     if (enemies.length > 1) {
       buffHtml += `<div class="enemy-formation-bar" style="display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-bottom:6px;">`;
       enemies.forEach((en, idx) => {
+        if(arena?.enemyId&&en.instanceId!==arena.enemyId)return;
         const eid = en.instanceId || en.id || `enemy_${idx}`;
         const isTarget = eid === ( monster.instanceId || monster.id );
         const isDead = en.hp <= 0;
@@ -2807,7 +2818,7 @@ function renderBattle(me, isLeader) {
     elements.monsterBuffsRow.querySelectorAll('.enemy-target-chip').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetEnemyId = btn.getAttribute('data-enemy-id');
-        if (!targetEnemyId) return;
+        if (!targetEnemyId || !isBattleEnemySelectable(targetEnemyId)) return;
         currentSelectedEnemyId = targetEnemyId;
         socket.emit('battle:select_target', { targetEnemyId });
         renderBattle(getMyPlayer(), getMyPlayer()?.id === roomState.leaderId);
@@ -5650,6 +5661,10 @@ function applyHpSnapshot(snapshot) {
   if (!snapshot) return;
   if (expandedDisplay) expandedDisplay.snapshot = mergePresentationSnapshot(expandedDisplay.snapshot, snapshot);
   updateBattleHudFromSnapshot(snapshot);
+  if(Object.hasOwn(snapshot,'arena')){
+    if(roomState){roomState.arena=snapshot.arena?.enemyForced?null:snapshot.arena;roomState.enemyArena=snapshot.arena?.enemyForced?snapshot.arena:null;}
+    syncEnemyArenaVisual(snapshot.arena);
+  }
 }
 
 // 單一步驟演出 (P2-R1.1 Section 8-11: 14 步嚴格演出順序)

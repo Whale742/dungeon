@@ -511,7 +511,7 @@ test('Phase 3 arena event carries its actual participants and visually isolates 
   assert.equal(step.presentation.arenaAfter.playerId,player.id);
   assert.equal(step.presentation.arenaAfter.enemyId,enemy.instanceId);
   const h=enemyPresentationHarness(),nodes=[player.id,'other',enemy.instanceId,room.enemies[1].instanceId].map((id,i)=>({dataset:i<2?{playerId:id}:{enemyId:id},classes:new Set(),setAttribute(){},classList:{contains(key){return nodes[i].classes.has(key);},toggle(key,value){if(value)nodes[i].classes.add(key);else nodes[i].classes.delete(key);}}}));
-  h.scope.document.querySelectorAll=selector=>selector.includes('teammate-card')?nodes.slice(0,2):nodes.slice(2);
+  h.scope.document.querySelectorAll=selector=>selector.includes('teammate-card')?nodes.slice(0,2):selector.includes('.battle-enemy-slot')?nodes.slice(2):[];
   h.scope.syncEnemyArenaVisual(step.presentation.arenaAfter);
   assert.equal(nodes[0].classes.size,0);assert.ok(nodes[1].classes.has('arena-absent'));
   assert.equal(nodes[2].classes.size,0);assert.ok(nodes[3].classes.has('enemy-arena-absent'));
@@ -1423,4 +1423,40 @@ test('Live challenge uses the chosen enemy anchor, follows its movement and comm
   };
   const snapshot={players:[]};await scope.playBattlefieldGladiator({actionId:'g_arena',outcome:{type:'challenge'},sourceId:'hero',targetEnemyId:'enemy_1',results:[result],hpSnapshot:snapshot},{});
   assert.deepEqual(calls,[result,snapshot]);
+});
+
+
+test('Gladiator arena survives room updates, rejects outside selection and restores the formation after exit',t=>{
+  const {room,player}=fixture(t,'gladiator');room.addPlayer({id:'ally',join(){},emit(){}},'Ally');room.selectRole('ally','mage');
+  room.handleBattleEvent(null,false,{col:1});room.setEnemies([0,1,2].map(i=>room.createEnemyInstance(ENCOUNTERS[i],i,{tier:'MINION'})));
+  room.currentMonster=room.enemies[1];room.arenaPending={playerId:player.id,round:room.battleRound};const queue=[];room.p8RoundStart(queue);
+  const entry=queue.find(s=>s.type==='arena_enter');assert.ok(entry);const arena=room.getClientState().arena;
+  assert.equal(arena.enemyId,room.enemies[1].instanceId);assert.equal(arena.playerId,player.id);assert.equal(arena.enemyForced,false);assert.ok(!Object.hasOwn(arena,'originalMaxHp'));
+  assert.deepEqual(room.getClientState().arena,arena);assert.equal(room.getHpSnapshot().arena.enemyId,arena.enemyId);
+  assert.equal(room.selectTargetEnemy(player.id,room.enemies[0].instanceId).success,false);assert.equal(room.selectTargetEnemy('ally',arena.enemyId).success,false);
+  assert.equal(room.selectTargetEnemy(player.id,arena.enemyId).success,true);
+  const outsiderHp=room.enemies[0].hp;assert.equal(room.getTargetEnemy(room.enemies[0].instanceId).instanceId,arena.enemyId);assert.equal(room.enemies[0].hp,outsiderHp);
+  room.selectionState='SELECTING';room.checkTurnCompletion=()=>{};assert.equal(room.lockAction(player.id,'basic',null,room.enemies[0].instanceId).success,true);assert.equal(player.targetEnemyId,arena.enemyId);
+  room.p8ExitArena([]);assert.equal(room.getClientState().arena,null);assert.equal(room.selectTargetEnemy(player.id,room.enemies[0].instanceId).success,true);assert.equal(room.enemies.length,3);
+});
+test('Arena presentation centers its authoritative enemy, removes outsiders from access and restores nodes',()=>{
+  const classes=()=>{const values=new Set();return {values,toggle(k,on){if(on)values.add(k);else values.delete(k);},contains:k=>values.has(k)};};
+  const stage={classList:classes()},view={classList:classes()},nodes=['enemy_0','enemy_1','enemy_2'].map(enemyId=>({dataset:{enemyId},classList:classes(),attrs:{},setAttribute(k,v){this.attrs[k]=v;},blur(){this.blurred=true;}}));
+  const h=enemyPresentationHarness();h.scope.document.activeElement=nodes[0];h.scope.document.getElementById=id=>id==='viewBattle'?view:null;
+  h.scope.document.querySelectorAll=selector=>selector.includes('.battle-enemy-slot')?nodes:selector.includes('.battle-enemies-stage')?[stage]:[];
+  h.scope.syncEnemyArenaVisual({playerId:'hero',enemyId:'enemy_1'});
+  assert.ok(stage.classList.contains('is-duel-arena'));assert.ok(view.classList.contains('is-duel-arena'));assert.equal(nodes[0].attrs['aria-hidden'],'true');assert.equal(nodes[0].tabIndex,-1);assert.ok(nodes[0].blurred);assert.equal(nodes[1].attrs['aria-disabled'],'false');
+  h.scope.syncEnemyArenaVisual(null);assert.ok(!stage.classList.contains('is-duel-arena'));assert.ok(!view.classList.contains('is-duel-arena'));assert.ok(nodes.every(n=>n.attrs['aria-hidden']==='false'&&n.tabIndex===0));
+  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),scope={roomState:{enemies:nodes.map(n=>({instanceId:n.dataset.enemyId,hp:10})),arena:{playerId:'hero',enemyId:'enemy_1'}},myId:'hero'};
+  vm.createContext(scope);vm.runInContext(app.slice(app.indexOf('function isBattleEnemySelectable'),app.indexOf('// 神魔之塔風格敵方排佈舞台渲染')),scope);
+  assert.equal(scope.isBattleEnemySelectable('enemy_0'),false);assert.equal(scope.isBattleEnemySelectable('enemy_1'),true);scope.myId='ally';assert.equal(scope.isBattleEnemySelectable('enemy_1'),false);scope.roomState.arena=null;assert.equal(scope.isBattleEnemySelectable('enemy_0'),true);
+});
+
+
+test('Arena HUD snapshots retain isolation through partial updates and explicitly clear it at exit',()=>{
+  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),calls=[],scope={expandedDisplay:null,roomState:{},updateBattleHudFromSnapshot(){},syncEnemyArenaVisual:a=>calls.push(a)};
+  vm.createContext(scope);vm.runInContext(app.slice(app.indexOf('function applyHpSnapshot(snapshot)'),app.indexOf('// 單一步驟演出')),scope);
+  const arena={enemyId:'enemy_1',playerId:'hero'};scope.applyHpSnapshot({arena});assert.equal(scope.roomState.arena,arena);scope.applyHpSnapshot({players:[]});assert.equal(calls.length,1);assert.equal(scope.roomState.arena,arena);
+  scope.applyHpSnapshot({arena:null});assert.equal(calls.at(-1),null);assert.equal(scope.roomState.arena,null);
+  const forced={...arena,enemyForced:true};scope.applyHpSnapshot({arena:forced});assert.equal(scope.roomState.enemyArena,forced);assert.equal(scope.roomState.arena,null);
 });

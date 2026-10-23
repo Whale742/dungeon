@@ -14,7 +14,9 @@
 .enemy-armor-ready .enemy-pedestal{border:2px solid #fb923c88}
 .enemy-armor-broken .enemy-pedestal{border:2px dashed #fb923c66}
 .enemy-crystal-supported .enemy-pedestal{box-shadow:0 0 12px #c084fc66;border:1px solid #e9d5ff88}
-.battle-enemy-slot.enemy-arena-absent{opacity:.3;filter:grayscale(1);pointer-events:none}
+/* Override combat.css's forced flex layout; preserve the real nodes for return. */
+.battle-enemy-slot.enemy-arena-absent{display:none!important;pointer-events:none}
+.battle-enemies-stage.is-duel-arena{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 85%,#88603b,#4b3422 65%,#302218);border-color:#99734c;}
 .enemy-mechanic-state{display:inline-flex;flex-wrap:wrap;gap:3px;align-items:center;justify-content:center;max-width:100%;font-size:11px;color:#b9c9d3}
 .enemy-mechanic-state small{font-size:10px}.enemy-status-overflow{cursor:help}
 .enemy-threat-marker{position:absolute;top:5px;right:7px;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;box-sizing:border-box;font-size:19px;color:#d5a6aa;border:1px solid #93666b;border-radius:50%;background:#251f28e8;z-index:3}

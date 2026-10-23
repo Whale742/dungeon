@@ -148,11 +148,14 @@ function renderEnemyTelegraphs(enemies) {
   }
 }
 function syncEnemyArenaVisual(arena) {
+  document.getElementById('viewBattle')?.classList.toggle('is-duel-arena',!!arena?.enemyId);
+  for(const stage of document.querySelectorAll('.battle-enemies-stage,.lab-battlefield-enemies'))stage.classList.toggle('is-duel-arena',!!arena?.enemyId);
   for(const card of document.querySelectorAll('.teammate-card[data-player-id]'))card.classList.toggle('arena-absent',!!arena&&arena.playerId!==card.dataset.playerId);
   for(const node of document.querySelectorAll('.battle-enemy-slot[data-enemy-id]')){
     const absent=!!arena&&!!arena.enemyId&&arena.enemyId!==node.dataset.enemyId;
     node.classList.toggle('enemy-arena-absent',absent);
     node.setAttribute('aria-disabled',String(absent));
+    node.setAttribute('aria-hidden',String(absent));
     node.tabIndex=absent||node.classList.contains('is-dead')?-1:0;
     if(absent&&document.activeElement===node)node.blur();
   }

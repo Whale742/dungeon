@@ -2804,7 +2804,10 @@ export class Room {
     if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
+    const arena=this.arena || this.enemyArena;
+    if(arena&&arena.playerId!==player.id)return {success:false,message:'死亡角鬥場期間僅決鬥者可選擇目標'};
     const found = this.getLivingEnemies().find(e => e.instanceId === targetEnemyId || e.id === targetEnemyId);
+    if(arena?.enemyId&&found?.instanceId!==arena.enemyId)return {success:false,message:'死亡角鬥場期間只能選擇決鬥敵人'};
     if (!found) return { success: false, message: '無效或已陣亡的敵方目標' };
     player.targetEnemyId = found.instanceId;
     this.broadcastState();
@@ -2899,6 +2902,8 @@ export class Room {
       targetPlayerId = 'monster';
     }
 
+    const activeArena=this.arena || this.enemyArena;
+    if(activeArena?.enemyId)resolvedEnemyId=activeArena.enemyId;
     player.action = actionId;
     player.targetPlayerId = targetPlayerId;
     player.targetEnemyId = resolvedEnemyId;
@@ -8086,6 +8091,7 @@ export class Room {
       isPaused: this.isPaused,
       timerRemaining: timerRemaining,
       gameOverReason: this.gameOverReason,
+      arena: this.arena ? {playerId:this.arena.playerId,enemyId:this.arena.enemyId,until:this.arena.until,enemyForced:false} : null,
       enemyArena: this.enemyArena ? {...this.enemyArena} : null,
       arrowTrap: this.arrowTrap ? { ...this.arrowTrap } : null,
       arrowTrapTurns: this.arrowTrap?.turns || 0,

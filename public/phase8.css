@@ -13,8 +13,12 @@ body:not(:has(#viewBattle.active)) .floating-log-card{display:none;}
 .compact-role-state {display:flex;align-items:center;gap:8px;height:40px;min-height:40px;max-height:40px;color:#d9e4f3;font-size:12px;line-height:1.45;margin:6px 0;}
 .compact-role-state span {overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .compact-role-state button {flex:none;}
-.teammate-card.arena-absent{opacity:.25;filter:grayscale(1);transform:translateY(8px);pointer-events:none;}
-body:has(.teammate-card.arena-absent) #viewBattle{background:radial-gradient(ellipse,#4c1b1b55,transparent 70%);}
+.teammate-card.arena-absent{display:none!important;pointer-events:none;}
+body.is-exploring:has(#viewBattle.active.is-duel-arena){background-image:radial-gradient(ellipse at 50% 75%,#88603b,#4b3422 60%,#2b2018);background-color:#4b3422;}
+body.is-exploring:has(#viewBattle.active.is-duel-arena) .dungeon-wood-bg{background:radial-gradient(ellipse at 50% 75%,#88603b,#4b3422 60%,#2b2018);}
+body.is-exploring:has(#viewBattle.active.is-duel-arena) .dungeon-wood-bg::before{background:radial-gradient(ellipse at 50% 85%,#251a1140,transparent 70%);}
+body.is-exploring:has(#viewBattle.active.is-duel-arena)::before{background:radial-gradient(ellipse at 50% 50%,#38271a22,#241a1280);}
+#labStage:has(.lab-battlefield-enemies.is-duel-arena){background-image:radial-gradient(ellipse at 50% 75%,#88603b,#4b3422 60%,#2b2018)!important;}
 .role-detail-body details {margin:12px 0;border:1px solid #334155;border-radius:6px;padding:10px;}
 .role-detail-body summary {cursor:pointer;color:#e2e8f0;font-weight:700;}
 .p8-presentation {--p8-color:#b9a4df;--p8-secondary:#d4af68;overflow:hidden;scrollbar-width:none;}
