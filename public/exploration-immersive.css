@@ -49,5 +49,5 @@ body.is-exploring .main-content,
   font-size: 15px;
 }
 
-.encounter-scene-snapshot { display: none; }
+.encounter-scene-held { pointer-events: none; }
 .boss-encounter-stage { background: transparent; }

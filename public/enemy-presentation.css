@@ -15,12 +15,11 @@
 .enemy-armor-broken .enemy-pedestal{border:2px dashed #fb923c66}
 .enemy-crystal-supported .enemy-pedestal{box-shadow:0 0 12px #c084fc66;border:1px solid #e9d5ff88}
 .battle-enemy-slot.enemy-arena-absent{opacity:.3;filter:grayscale(1);pointer-events:none}
-.enemy-telegraphs{margin:5px auto;padding:4px 10px;width:min(760px,95%);box-sizing:border-box;border-bottom:1px solid #ac87554d;background:#211c22c9;color:#dfc799;font-size:12px;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .enemy-mechanic-state{display:inline-flex;flex-wrap:wrap;gap:3px;align-items:center;justify-content:center;max-width:100%;font-size:11px;color:#b9c9d3}
 .enemy-mechanic-state small{font-size:10px}.enemy-status-overflow{cursor:help}
 .enemy-threat-marker{position:absolute;top:5px;right:7px;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;box-sizing:border-box;font-size:19px;color:#d5a6aa;border:1px solid #93666b;border-radius:50%;background:#251f28e8;z-index:3}
 .enemy-danger-marker{position:absolute;top:-12px;right:-10px;display:flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1px solid #b9985b;background:#252025;color:#e7cb8d;font-weight:800;font-size:13px}
-.enemy-danger-marker[hidden],.enemy-threat-marker[hidden],.enemy-mechanic-state[hidden],.enemy-telegraphs[hidden]{display:none}
+.enemy-danger-marker[hidden],.enemy-threat-marker[hidden],.enemy-mechanic-state[hidden]{display:none}
 .enemy-mechanic-immune .enemy-sprite-img{filter:grayscale(.7) opacity(.6)}
 .enemy-mechanic-open .enemy-pedestal{border:1px dashed #fbbf24}
 .floating-status-tooltip .enemy-mechanic-help{white-space:normal;line-height:1.5;margin-top:8px;font-size:12px;color:#cbd5e1}
@@ -28,7 +27,7 @@
 @media(hover:none){#floatingEnemyTooltip.visible{pointer-events:auto;overscroll-behavior:contain}}
 @keyframes battle-number-fade{0%{opacity:0}12%,65%{opacity:1}to{opacity:0}}
 @keyframes enemy-cast-cue{0%{opacity:0}15%,70%{opacity:1}to{opacity:0}}
-@media(max-height:480px){.enemy-telegraphs{font-size:11px;margin:2px;padding:3px 7px}.enemy-effect-caption{font-size:11px}}
+@media(max-height:480px){.enemy-effect-caption{font-size:11px}}
 
 .enemy-official-art{position:absolute;object-fit:contain;pointer-events:none;transform-origin:center}
 

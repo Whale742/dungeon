@@ -36,7 +36,7 @@ function getBattleEffectAnchor(id) {
 function positionBattleFeedback(node,id,lane=0,occupied=[]) {
   const anchor=getVisualAnchor(id);if(!anchor){node.hidden=true;return;}
   const r=anchor.element.getBoundingClientRect(),w=Math.max(34,node.offsetWidth||48),h=22;
-  const obstacles=[...document.querySelectorAll('.battle-enemy-slot,.teammate-card,.enemy-cd-badge,.enemy-danger-marker,.enemy-threat-marker,.app-header,.enemy-telegraphs')].map(n=>n.getBoundingClientRect());
+  const obstacles=[...document.querySelectorAll('.battle-enemy-slot,.teammate-card,.enemy-cd-badge,.enemy-danger-marker,.enemy-threat-marker,.app-header')].map(n=>n.getBoundingClientRect());
   const candidates=[];
   for(let row=0;row<8;row++){
     candidates.push([r.left+r.width/2,r.top-18-(row+lane)*24]);
@@ -130,11 +130,8 @@ function syncEnemyMechanicVisual(enemy, node) {
   if((enemy.battleAvatar||enemy.presentation?.mechanicId==='abyss_druid')&&typeof syncBattlePortrait==='function')syncBattlePortrait(node.querySelector('.enemy-sprite-img'),{...enemy,entityType:'monster'});
 }
 function renderEnemyTelegraphs(enemies) {
-  const stage=document.getElementById('battleEnemiesStage');
-  if(!stage)return;
-  let list=document.getElementById('enemyTelegraphs');
-  if(!list){list=document.createElement('div');list.id='enemyTelegraphs';list.className='enemy-telegraphs';list.setAttribute('role','status');stage.before(list);}
-  const dangers=[];
+  // The authoritative danger/target metadata belongs on existing unit markers.
+  // No extra skill-text strip is mounted above the battlefield.
   for(const enemy of enemies||[]){
     const p=enemy.presentation;
     const danger=enemy.hp>0&&p&&(p.ultimateReady||p.targetId||p.immunity||enemy.mechanics?.transformRound);
@@ -142,13 +139,7 @@ function renderEnemyTelegraphs(enemies) {
     let marker=node?.querySelector('.enemy-danger-marker');
     if(node&&!marker){marker=document.createElement('span');marker.className='enemy-danger-marker';node.appendChild(marker);}
     if(marker){marker.hidden=!danger||!!p?.ultimateReady;marker.textContent=p?.immunity?'◈':enemy.mechanics?.transformRound?'↻':'⌖';marker.setAttribute('aria-label',p?.immunity?'本回合免傷':enemy.mechanics?.transformRound?'下回合變形':'已鎖定目標');}
-    if(danger)dangers.push({enemy,p,priority:p.ultimateReady?4:p.immunity?3:enemy.mechanics?.transformRound?2:1});
   }
-  dangers.sort((a,b)=>b.priority-a.priority);
-  const first=dangers[0],others=dangers.length-1;
-  const text=first?'⚠ '+(first.p.ultimateReady?'本回合：'+first.p.ultimateName:first.p.immunity?'本回合免傷':first.enemy.mechanics?.transformRound?'下回合變形':'瞄準：'+(first.p.targetName||'鎖定目標'))+(first.p.ultimateReady&&first.p.targetName?' → '+first.p.targetName:'')+(others>0?' · 另 '+others+' 名警戒':''):'';
-  if(list.textContent!==text)list.textContent=text;
-  list.hidden=!first;
   for(const card of document.querySelectorAll('.teammate-card[data-player-id]')){
     const marks=(enemies||[]).filter(e=>e.hp>0&&e.presentation?.targetId===card.dataset.playerId);
     let marker=card.querySelector('.enemy-threat-marker');

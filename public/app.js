@@ -889,6 +889,9 @@ let pendingAuthoritativeState = null;
 socket.on('room:update', (state) => {
   const amIInRoom = Boolean(myId && state.players && state.players.some(p => p.id === myId));
   if (!amIInRoom) {
+    battlePhaseController?.abort();
+    releaseBattleEncounterScene();
+    document.body.classList.remove('battle-intro-active');
     roomState = null;
     currentRoomCode = null;
     switchView('entry');
@@ -898,6 +901,8 @@ socket.on('room:update', (state) => {
   if(state.state!=='IN_BATTLE'&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
   if (battlePhaseController && (state.state !== 'IN_BATTLE' || battlePhaseController.battleKey !== battleSceneKey(state))) {
     battlePhaseController.abort();
+    releaseBattleEncounterScene();
+    document.body.classList.remove('battle-intro-active');
     battleControlsReadyKey = null;
   }
   if (combatQueueController && state.state !== 'IN_BATTLE') { combatQueueController.abort(); pendingAuthoritativeState = null; }
@@ -1031,11 +1036,27 @@ function getClassDisplayName(roleOrPlayer) {
   return roleInfo ? roleInfo.name : '冒險者';
 }
 
+// Keep the actual preceding scene inert during the encounter story and warning.
+// No cloned battlefield, duplicate IDs or parallel combat state is created.
+let battleEncounterScene=null;
+function holdBattleEncounterScene(state){
+  if(state?.state!=='IN_BATTLE'||state.battleRound!==1||presentationManager.hasPlayed(`BOSS_INTRO_${battleSceneKey(state)}`))return;
+  if(battleEncounterScene)return;
+  const entry=Object.entries(elements.views).find(([key,node])=>key!=='battle'&&node.classList.contains('active'));
+  if(entry){const [view,node]=entry;battleEncounterScene={view,node,inert:node.inert,ariaHidden:node.getAttribute('aria-hidden')};node.inert=true;node.setAttribute('aria-hidden','true');node.classList.add('encounter-scene-held');}
+  gateDestinationView('battle');document.body.classList.add('battle-intro-active');
+}
+function releaseBattleEncounterScene(){
+  const held=battleEncounterScene;if(!held)return;
+  battleEncounterScene=null;held.node.inert=held.inert;held.node.classList.remove('encounter-scene-held');
+  if(held.ariaHidden===null)held.node.removeAttribute('aria-hidden');else held.node.setAttribute('aria-hidden',held.ariaHidden);
+}
 // 切換視圖
 let audioView = null;
 
 function switchView(viewName) {
-  document.querySelector(".encounter-scene-snapshot")?.remove();
+  if(viewName!=='battle')releaseBattleEncounterScene();
+  if(viewName==='battle'&&battleEncounterScene){gateDestinationView('battle');return;}
   document.body.classList.toggle("is-exploring", ["route", "transition", "event", "battle"].includes(viewName));
   if (audioView !== viewName) {
     if (audioView !== null&&!(viewName==='battle'&&roomState?.state==='IN_BATTLE')) sfx?.stopAll({preserveTails:true});
@@ -1087,6 +1108,7 @@ function revealDestinationView(viewName) {
 // 渲染整體畫面
 function renderApp() {
   if (!roomState) return;
+  holdBattleEncounterScene(roomState);
   syncNarrativeControls(roomState);
 
   if (victoryPresentationController && (roomState.state !== 'BATTLE_VICTORY' ||
@@ -2260,7 +2282,7 @@ function ensureBattlePhase(round, state = roomState) {
   // Boss Intro 僅限第 1 回合且未播放過時執行；戰鬥中途 (round > 1) 嚴禁再次觸發進場黑幕遮蔽！
   const encounter = !presentationManager.hasPlayed(bossIntroKey) && round === 1;
   if (!encounter && lastAnnouncedBattleRound === round) {
-    revealDestinationView('battle');
+    if(!battlePhaseController)revealDestinationView('battle');
     return battlePhasePromise;
   }
   battlePhaseController?.abort();
@@ -2279,7 +2301,9 @@ function ensureBattlePhase(round, state = roomState) {
       await playBattlePhaseOpening(monster, round, {
         encounter, controller, signal: controller.signal,
         routeId: state?.currentMonster?.routeId || state?.currentTransition?.routeId,
+        revealEncounterScene(){releaseBattleEncounterScene();switchView('battle');},
         revealHud() {
+          releaseBattleEncounterScene();switchView('battle');
           revealDestinationView('battle');
           elements.views.battle.classList.remove('is-battle-hud-revealing');
         }
@@ -2289,9 +2313,10 @@ function ensureBattlePhase(round, state = roomState) {
     } finally {
       if (battlePhaseController === controller) {
         battlePhaseController = null;
+        releaseBattleEncounterScene();
         document.body.classList.remove('battle-intro-active');renderLogs();
         elements.views.battle.classList.remove('is-battle-hud-revealing');
-        revealDestinationView('battle'); // 保證離開進場演出後戰鬥畫面絕對解除隱藏
+        if(roomState?.state==='IN_BATTLE'&&battleSceneKey(roomState)===controller.battleKey){switchView('battle');revealDestinationView('battle');}
         if (!isProcessingPresentationQueue) presentationManager.setBlocking(false);
         if (!controller.signal.aborted) void revealBattleControls();
       }
@@ -8574,7 +8599,7 @@ function renderInteractiveEvent(ev) {
             <span>小隊金幣：<b>${currentGold}</b> G</span>
           </div>
           <div style="font-size:13px;color:var(--ui-text-muted);">
-            ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : (ev.isShady ? '※ 黑市奸商物品售價昂貴，若不買東西恐招惹商人不滿' : '※ 商隊信譽優良，提供充足休整與物資')}
+            ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : '※ 可瀏覽裝備與補給，或出售行囊中的物資'}
           </div>
           ${(() => {
             const readyList = ev.readyToLeave || [];
@@ -8650,10 +8675,10 @@ function renderInteractiveEvent(ev) {
             ` : ''}
           ` : `
 
-            ${ev.canSteal ? `
+            ${ev.isAssassinCaptain && !ev.isPrepShop ? `
               <button type="button" class="btn-shop-action btn-shop-steal ui-button ui-button--secondary">
                 ${getIconSvg('lock', 'ui-icon--sm')}
-                <span>刺客暗中行竊 (50%免戰偷取)</span>
+                <span>暗中行竊 (刺客)</span>
               </button>
             ` : ''}
           `}

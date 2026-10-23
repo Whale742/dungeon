@@ -591,14 +591,14 @@ test('A four-hit ultimate shows one central name while committing all four actua
   assert.equal(captions.length,1);assert.equal(captions[0].textContent,enemy.ultName);
   assert.equal(h.commits.filter(r=>r.kind==='damage').length,4);
 });
-test('Concurrent enemy threats use a single warning and a compact real-target lock',t=>{
+test('Concurrent enemy threats retain compact real-target locks without mounting a warning strip',t=>{
   const {room,player}=mechanismBattle(t,[ENCOUNTERS[1],ENCOUNTERS[2],ENCOUNTERS[0]]);mechanismRound(room,3);
   const h=enemyPresentationHarness(),stage=h.scope.document.createElement('div'),card=h.scope.document.createElement('div');let warning;
   stage.before=n=>{warning=n;};card.dataset.playerId=player.id;card.querySelector=()=>card.children[0]||null;
   h.scope.document.getElementById=id=>id==='battleEnemiesStage'?stage:id==='enemyTelegraphs'?warning:null;
   h.scope.document.querySelectorAll=()=>[card];
   h.scope.renderEnemyTelegraphs(room.getHpSnapshot().enemies);
-  assert.ok(warning.textContent.includes('另 2 名警戒'));assert.ok(!warning.textContent.includes('\n'));
+  assert.equal(warning,undefined,'no horizontal skill strip is created');
   assert.equal(card.children[0].textContent,'⌖');assert.ok(!card.children[0].hidden);
 });
 test('Impact numbers have safe coordinates before their first animation frame',async t=>{
@@ -1316,4 +1316,71 @@ test('Enemy persistent overlays omit avatar rings, wound slashes and guard plate
   const enemy=scope.getEntityActiveFxProfiles({...entity,instanceId:'enemy_0'}),player=scope.getEntityActiveFxProfiles({...entity,id:'hero'});
   for(const id of ['frenzy','bleed','shield','guard']){assert.ok(player.has(id));assert.ok(!enemy.has(id));}
   for(const id of ['equation','astronomy','vulnerable'])assert.ok(enemy.has(id));
+});
+
+test('Shady shops use neutral normal-shop copy despite published shady overrides; prices and Captain insight stay authoritative',t=>{
+  const {room}=fixture(t);const title=room.studioContent.title,text=room.studioContent.text;
+  room.studioContent={...room.studioContent,title:(key,fallback)=>key==='event.shop.shady'?'神秘奸商':title(key,fallback),text:(key,fallback)=>key==='event.shop.shady'?'不買就會開戰':text(key,fallback)};
+  room.handleShopEvent({isShadyMerchant:true,col:2});
+  assert.doesNotMatch(room.currentEvent.title+' '+room.currentEvent.story,/奸商|黑市|開戰|恐招惹/);
+  assert.ok(room.currentEvent.priceMultiplier>=1.5&&room.currentEvent.priceMultiplier<=2);assert.ok(room.currentEvent.sellRatio>=.1&&room.currentEvent.sellRatio<=.2);
+  const aug=fixture(t,'augur');aug.room.handleShopEvent({col:2});aug.room.generateHexMap();
+  const shop=aug.room.hexMap.flat().find(n=>n.type==='SHOP')||aug.room.hexMap[1][0];shop.type='SHOP';shop.isShadyMerchant=true;assert.equal(aug.room.getClientHexMap().flat().find(n=>n.id===shop.id).isKnownShady,true);
+});
+for(const mode of ['bought','failed','sold','untouched'])test('Shady leave preserves the real purchase condition: '+mode,t=>{
+  const {room}=fixture(t);room.handleShopEvent({isShadyMerchant:true,col:2});room.gold=0;
+  if(mode==='bought'){room.gold=100000;assert.equal(room.handleShopAction('solo','buy',{itemIndex:0}).success,true);assert.equal(room.currentEvent.hasBought,true);}
+  if(mode==='failed'){assert.equal(room.handleShopAction('solo','buy',{itemIndex:0}).success,false);assert.equal(room.currentEvent.hasBought,false);}
+  if(mode==='sold'){room.squadInventory=[structuredClone(TIER1_EQUIPMENTS[0])];assert.equal(room.handleShopAction('solo','sell',{fromArea:'squad',index:0}).success,true);assert.equal(room.currentEvent.hasBought,false);}
+  const result=room.handleShopAction('solo','leave');assert.equal(!!result.combatTriggered,mode!=='bought');
+  if(mode!=='bought'){assert.equal(room.state,'IN_BATTLE');assert.equal(room.currentMonster.isShadyMerchant,true);assert.match(room.currentMonster.encounterStory,/收起笑容|掀翻攤位/);}
+});
+test('Shop departure waits for all connected players and normal/prep/wandering behavior and Assassin branches survive',t=>{
+  const f=fixture(t);f.room.addPlayer({id:'other',join(){},emit(){}},'Other');f.room.selectRole('other','mage');f.room.handleShopEvent({isShadyMerchant:true,col:2});
+  assert.equal(f.room.handleShopAction('solo','leave').allReady,false);assert.equal(f.room.state,'EVENT');assert.equal(f.room.handleShopAction('other','leave').combatTriggered,true);
+  for(const params of [{isShadyMerchant:false,col:2},{isPrepShop:true,col:1}]){const {room}=fixture(t);room.handleShopEvent(params);assert.equal(!!room.handleShopAction('solo','leave').combatTriggered,false);assert.notEqual(room.state,'IN_BATTLE');}
+  const wander=fixture(t);wander.room.handleWanderingMerchantEvent({col:2});assert.equal(wander.room.currentEvent.isWanderingMerchant,true);assert.equal(wander.room.currentEvent.isShady,false);assert.equal(!!wander.room.handleShopAction('solo','leave').combatTriggered,false);
+  for(const stealSuccess of [true,false]){const {room}=fixture(t,'assassin');room.handleShopEvent({isShadyMerchant:true,col:2});assert.equal(room.currentEvent.canSteal,true);const res=room.handleShopAction('solo','steal',{stealSuccess});assert.equal(res.success,stealSuccess);assert.equal(room.state==='IN_BATTLE',!stealSuccess);}
+  const normal=fixture(t,'assassin');normal.room.handleShopEvent({col:2});assert.equal(normal.room.currentEvent.canSteal,false);assert.doesNotMatch(normal.room.handleShopAction('solo','steal').message,/奸商|黑市/);
+});
+function encounterOpeningHarness({abortAt=Infinity}={}){
+  const beats=[],sounds=[],controller=new AbortController();let waits=0;
+  class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){},remove(){}};this.hidden=true;this.textContent='';}appendChild(n){this.children.push(n);}replaceChildren(){this.children=[];}querySelector(selector){return this.parts?.[selector]||null;}remove(){this.removed=true;}}
+  const stage=new Node(),story=new Node(),storySection=new Node(),warning=new Node(),impact=new Node(),art=new Node(),name=new Node();name.parts={h1:new Node(),span:new Node()};stage.parts={'.boss-encounter-story':story,'.boss-encounter-story-section':storySection,'.boss-warning':warning,'.boss-encounter-impact-stage':impact,'.boss-encounter-art':art,'.boss-encounter-name':name,'.boss-encounter-resistances':new Node()};
+  const scope={DOMException,AbortController,performance:{now:()=>waits},document:{createElement:()=>new Node(),createTextNode:text=>({textContent:text})},PRESENTATION_CONFIG:{bossEncounter:{warningRevealAt:3000,warningEntry:460,warningHold:750,warningExit:360,preBossBeat:180,bossSettle:560,bossHold:100}},sfxManager:{preload:async()=>{},duck(){}},createSfxPresentationScope:()=>({play(){},hold:async()=>{}}),waitForPresentation:async()=>{if(++waits===abortAt)controller.abort();if(controller.signal.aborted)throw new DOMException('cancelled','AbortError');}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-phase.js',import.meta.url),'utf8'),scope);
+  scope.createBattlePhaseStage=()=>stage;scope.handoffBossPortrait=async(s,a,ctx)=>{await ctx.revealHud();return;};
+  const context={encounter:true,signal:controller.signal,onTiming:name=>beats.push(name),playSound:name=>{sounds.push(name);if(name==='boss_warning')assert.equal(story.children.map(p=>p.children.map(c=>c.textContent).join('')).join(''),'第一段。第二段！');},revealEncounterScene:()=>beats.push('scene_released'),revealHud:()=>beats.push('hud')};
+  return {scope,context,stage,beats,sounds,controller};
+}
+test('Encounter story completes before warning, entrance, HUD and Round 1; abort never reveals the battle',async()=>{
+  const h=encounterOpeningHarness();h.scope.playRoundStartBanner=async()=>h.beats.push('round');
+  await h.scope.playBattlePhaseOpening({name:'Boss',encounterStory:'第一段。\n\n第二段！'},1,h.context);
+  const names=['encounter_story_complete','encounter_darken','warning_audio_start','warning_entry','warning_complete','scene_released','boss_art_entry','boss_portrait_handoff','hud','round'];
+  for(let i=1;i<names.length;i++)assert.ok(h.beats.indexOf(names[i])>h.beats.indexOf(names[i-1]),names.join(' -> '));assert.ok(h.stage.removed);
+  const aborted=encounterOpeningHarness({abortAt:2});await assert.rejects(aborted.scope.playBattlePhaseOpening({name:'Boss',encounterStory:'第一段。\n\n第二段！'},1,aborted.context),{name:'AbortError'});assert.ok(aborted.stage.removed);assert.ok(!aborted.beats.includes('hud'));assert.equal(aborted.sounds.length,0);
+});
+test('Same-round room updates cannot reveal a gated encounter, and abort releases the inert previous view',async()=>{
+  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  const node=()=>{const classes=new Set();return {inert:false,classes,classList:{add:k=>classes.add(k),remove:k=>classes.delete(k),contains:k=>classes.has(k),toggle(k,on){if(on)classes.add(k);else classes.delete(k);}},getAttribute:()=>null,setAttribute(){},removeAttribute(){}};};
+  for(const abort of [false,true]){
+    const route=node(),battle=node(),body=node(),action=node();route.classList.add('active');const played=new Set();
+    const scope={AbortController,DOMException,roomState:{code:'GATE',floor:1,battleCount:1,battleRound:1,state:'IN_BATTLE',currentMonster:{name:'Boss'}},elements:{views:{route,battle}},document:{body,getElementById:()=>action},lastAnnouncedBattleRound:0,isProcessingPresentationQueue:false,sfx:null,renderLogs(){},revealBattleControls:async()=>{},presentationManager:{hasPlayed:key=>played.has(key),markPlayed:key=>played.add(key),setBlocking(){}}};
+    vm.createContext(scope);
+    vm.runInContext(source.slice(source.indexOf('// Keep the actual preceding scene inert'),source.indexOf('// 渲染整體畫面')),scope);
+    vm.runInContext(source.slice(source.indexOf('let battlePhaseController = null;'),source.indexOf('async function revealBattleControls()')),scope);
+    scope.playBattlePhaseOpening=(monster,round,ctx)=>new Promise((resolve,reject)=>{scope.opening=ctx;scope.finish=resolve;ctx.signal.addEventListener('abort',()=>reject(new DOMException('cancelled','AbortError')));});
+    scope.holdBattleEncounterScene(scope.roomState);scope.switchView('battle');const pending=scope.ensureBattlePhase(1);
+    assert.equal(route.inert,true);assert.ok(route.classes.has('active'));assert.ok(!battle.classes.has('active'));
+    scope.holdBattleEncounterScene(scope.roomState);scope.switchView('battle');scope.ensureBattlePhase(1);
+    assert.ok(battle.classes.has('view-gated-hidden'),'same battle update must retain gate');
+    if(abort){scope.roomState={state:'EVENT'};vm.runInContext('battlePhaseController.abort()',scope);}
+    else{scope.opening.revealEncounterScene();assert.ok(battle.classes.has('active'));assert.ok(battle.classes.has('view-gated-hidden'));scope.opening.revealHud();assert.ok(!battle.classes.has('view-gated-hidden'));scope.finish();}
+    await pending;assert.equal(route.inert,false);assert.ok(!route.classes.has('encounter-scene-held'));assert.ok(!body.classes.has('battle-intro-active'));
+  }
+});
+test('Mimic ambush keeps its real two-or-three enemy formation and uses the shared encounter state',t=>{
+  const {room}=fixture(t);room.handleChestEvent({isMimic:true,col:2});assert.equal(room.currentEvent.isMimic,true);
+  const result=room.handleChestAction('solo','open');assert.equal(result.isMimic,true);assert.equal(room.state,'IN_BATTLE');assert.equal(room.currentEvent,null);
+  assert.ok(room.enemies.length>=2&&room.enemies.length<=3);assert.ok(room.enemies.every(e=>e.isMimicAmbush));assert.match(room.currentMonster.encounterStory,/寶箱猛然張開/);assert.equal(room.getClientState().battleRound,1);
 });

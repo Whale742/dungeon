@@ -103,3 +103,8 @@
   .round-start-main { font-size: clamp(2rem,8cqw,3rem); }
   .round-start-sub { font-size: .65rem; letter-spacing: .12em; }
 }
+
+/* Keep the preceding scene visible under the story, then dim it for WARNING. */
+.boss-encounter-stage[data-phase="story"] .boss-encounter-backdrop,
+.boss-encounter-stage[data-phase="reading"] .boss-encounter-backdrop { opacity:.55; }
+.boss-encounter-story-section { background:linear-gradient(120deg,rgb(13 22 31 / .96),rgb(17 28 38 / .92));padding:24px 28px;border-block:1px solid rgb(173 148 99 / .3);max-height:72vh;overflow:auto;box-sizing:border-box; }

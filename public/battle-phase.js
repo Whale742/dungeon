@@ -95,16 +95,11 @@ function resolveRouteBossStory(routeId, bossName) {
   return `前方的迷霧驟然撕裂，強大的魔物【${cleanName || '首領'}】帶著無盡殺意現身！`;
 }
 
-async function typeBossStoryParagraphs(container, paragraphs, signal, timing, onHalfway, speed = 1) {
+async function typeBossStoryParagraphs(container, paragraphs, signal, timing, speed = 1) {
   const finishTyping = typeof beginNarrativeTyping === 'function' ? beginNarrativeTyping(signal) : () => {};
   const textWait = ms => waitForPresentation(ms, signal, speed * (typeof narrativeTextSpeed === 'function' ? narrativeTextSpeed() : 1));
   try {
   container.replaceChildren();
-  const totalChars = paragraphs.reduce((sum, p) => sum + p.length, 0);
-  const halfway = Math.max(1, Math.floor(totalChars / 2));
-  let typedCount = 0;
-  let halfwayTriggered = false;
-
   for (let index = 0; index < paragraphs.length; index++) {
     if (signal?.aborted) return;
     const paragraph = document.createElement('p');
@@ -115,13 +110,8 @@ async function typeBossStoryParagraphs(container, paragraphs, signal, timing, on
       await textWait(timing?.character || 40);
       const character = characters[charIndex];
       paragraph.appendChild(document.createTextNode(character));
-      typedCount++;
       if (charIndex % 2 === 1 && !/\s/.test(character)) {
         if (typeof playTypewriterClick === 'function') playTypewriterClick();
-      }
-      if (!halfwayTriggered && typedCount >= halfway) {
-        halfwayTriggered = true;
-        if (typeof onHalfway === 'function') onHalfway();
       }
       const pause = /[，、,；;：:]/.test(character) ? (timing?.comma || 140)
         : /[。！？!?…]/.test(character) ? (timing?.sentence || 280)
@@ -132,9 +122,6 @@ async function typeBossStoryParagraphs(container, paragraphs, signal, timing, on
       await textWait(timing?.paragraph || 600);
     }
   }
-  if (!halfwayTriggered && typeof onHalfway === 'function') {
-    onHalfway();
-  }
   } finally { finishTyping(); }
 }
 
@@ -142,10 +129,10 @@ async function playBossIntro(monster, context = {}) {
   // Warning and entrance beats follow the audio clock, including in previews.
   context = { ...context, speed: 1 };
   await sfxManager.preload();
-  document.querySelector('.encounter-scene-snapshot')?.remove();
   if (context.signal?.aborted) return;
   const stage = createBattlePhaseStage('boss-encounter-stage', context);
   if (!stage) return;
+  stage.dataset.phase='story';
   const wait = ms => waitForPresentation(ms, context.signal, context.speed);
   const beat = name => context.onTiming?.(name, performance.now());
   const timing = PRESENTATION_CONFIG.bossEncounter;
@@ -191,56 +178,19 @@ async function playBossIntro(monster, context = {}) {
         resolveRouteBossStory(routeId, monster.originalName || monster.name);
       const paragraphs = (rawStory || '').split(/\n\s*\n/).filter(Boolean);
 
-      let warningTriggered = false;
-      let warningAudioStartTime = 0;
-      let warningPromise = null;
-
-      const triggerWarning = () => {
-        if (warningTriggered) return;
-        warningTriggered = true;
-        stage.classList.add('is-darkening');
-        beat('encounter_darken');
-
-        warningPromise = (async () => {
-          if (typeof bgmManager !== 'undefined') void bgmManager.prepareBoss(context.signal);
-          warningAudioStartTime = performance.now();
-          void sound('boss_warning');
-          beat('warning_audio_start');
-
-          await wait(timing.warningRevealAt || 3000);
-
-          warning.hidden = false;
-          warning.classList.add('is-entering');
-          beat('warning_entry');
-          await wait(timing.warningEntry);
-          beat('warning_hold');
-          await wait(timing.warningHold);
-          warning.classList.add('is-exiting');
-          beat('warning_exit');
-          await wait(timing.warningExit);
-          warning.hidden = true;
-          beat('warning_complete');
-        })();
-      };
-
-      if (paragraphs.length) {
-        await typeBossStoryParagraphs(storyElement, paragraphs, context.signal, timing, () => {
-          triggerWarning();
-        }, context.speed || 1);
-      }
-
-      if (!warningTriggered) {
-        triggerWarning();
-      }
-
+      if (paragraphs.length)await typeBossStoryParagraphs(storyElement,paragraphs,context.signal,timing,context.speed||1);
+      beat('encounter_story_complete');stage.dataset.phase='reading';
       await wait(600);
+      stage.classList.add('is-darkening');beat('encounter_darken');
       storySection?.classList.add('is-exiting');
-      await wait(350);
-      storySection?.remove();
-
-      if (warningPromise) {
-        await warningPromise;
-      }
+      if(typeof bgmManager!=='undefined')void bgmManager.prepareBoss(context.signal);
+      void sound('boss_warning');beat('warning_audio_start');
+      await wait(350);storySection?.remove();
+      await wait(Math.max(0,(timing.warningRevealAt||3000)-350));
+      stage.dataset.phase='warning';warning.hidden=false;warning.classList.add('is-entering');beat('warning_entry');
+      await wait(timing.warningEntry);beat('warning_hold');await wait(timing.warningHold);
+      warning.classList.add('is-exiting');beat('warning_exit');await wait(timing.warningExit);
+      warning.hidden=true;beat('warning_complete');
 
       if (context.segment === 'warning') return;
     } else {
@@ -248,6 +198,8 @@ async function playBossIntro(monster, context = {}) {
       stage.classList.add('is-darkening');
     }
 
+    stage.dataset.phase='entrance';
+    await context.revealEncounterScene?.();
     await wait(timing.preBossBeat);
     impact.classList.add('is-pre-tremor'); beat('boss_rumble');
     if (typeof bgmManager !== 'undefined') await bgmManager.bossEntrance(context);
@@ -263,13 +215,13 @@ async function playBossIntro(monster, context = {}) {
     await wait(timing.bossSettle); beat('boss_art_settle');
     name.classList.add('is-entering'); beat('boss_name_entry'); await wait(300);
     beat('boss_hold'); await wait(timing.bossHold); await audio.hold();
+    stage.dataset.phase='handoff';
     beat('boss_portrait_handoff');
     await handoffBossPortrait(stage, art, context);
     return { hudRevealed: true };
   } finally {
     if (context.signal?.aborted && typeof bgmManager !== 'undefined') bgmManager.reset();
     stage.remove();
-    document.querySelector('.encounter-scene-snapshot')?.remove();
     beat('boss_complete');
   }
 }
@@ -297,6 +249,7 @@ async function playRoundStartBanner(round, context = {}) {
 async function playBattlePhaseOpening(monster, round, context = {}) {
   if (context.encounter) {
     const intro=await playBossIntro(monster, context);
+    if(context.signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
     if(!intro?.hudRevealed)await context.revealHud?.();
     context.onTiming?.('battle_hud_reveal', performance.now());
     await waitForPresentation(400, context.signal, context.speed);

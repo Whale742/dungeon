@@ -438,7 +438,7 @@ export class Room {
           desc: node.isRevealed
             ? node.desc
             : node.isScouted && node.type === 'SHOP'
-              ? '斥候提前偵測到商隊蹤跡（未揭露是否為奸商）'
+              ? '斥候提前偵測到商隊蹤跡'
               : node.isScouted && node.type === 'CHEST'
                 ? '斥候提前偵測到寶箱輪廓（未揭露是否為寶箱怪）'
                 : node.isScouted && node.type === 'EVENT'
@@ -1352,7 +1352,7 @@ export class Room {
       desc: hex.isRevealed
         ? hex.desc
         : hex.isScouted && hex.type === 'SHOP'
-          ? '斥候於迷霧中偵測到商隊蹤跡（未揭露是否為奸商）'
+          ? '斥候於迷霧中偵測到商隊蹤跡'
           : hex.isScouted && hex.type === 'CHEST'
             ? '斥候於迷霧中偵測到寶箱輪廓（未揭露是否為寶箱怪）'
             : hex.col === 9
@@ -1996,6 +1996,7 @@ export class Room {
         this.addLog('📜 【百鬼敕令】陰陽師隊長釋放百鬼血咒，深淵隨從小怪首回合行動遭到徹底封印！', 'buff');
       }
       const primary = this.getPrimaryEnemy();
+      if(primary&&options.encounterStory)primary.encounterStory=options.encounterStory;
       encounterStory = primary?.encounterStory || `小隊在第 ${col} 層遭遇了敵方編隊（${formationEnemies.map(e => e.name).join('、')}）！`;
     } else {
       const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
@@ -3851,12 +3852,10 @@ export class Room {
       col,
       title: isPrepShop
         ? this.studioContent.title('event.shop.prep', '🏕️ 出發備戰據點・後勤物資處')
-        : (isShady ? this.studioContent.title('event.shop.shady', '🛒 幽暗黑市・神秘奸商') : this.studioContent.title('event.shop.normal', '🛒 迷宮行商據點')),
+        : this.studioContent.title('event.shop.normal', '🛒 迷宮行商據點'),
       story: isPrepShop
         ? this.studioContent.text('event.shop.prep', '在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！')
-        : (isShady
-          ? this.studioContent.text('event.shop.shady', '角落裡站著一位兜帽遮臉的商人，兜帽下閃爍著詭異的貪婪紅光。')
-          : this.studioContent.text('event.shop.normal', '迷霧散去，一支受傷歇息的冒險者商隊向你們展示了貨品。')),
+        : this.studioContent.text('event.shop.normal', '迷宮深處，一名披著舊斗篷的商人向冒險小隊招手，攤位上擺滿各式裝備與補給品。他熱情地邀請眾人停下腳步。'),
       items,
       consumables,
       buybackPool: [],
@@ -4274,13 +4273,13 @@ export class Room {
     }
 
     if (action === 'rob') {
-      return { success: false, message: '無法主動攻擊奸商！' };
+      return { success: false, message: '目前無法主動向商人發起戰鬥。' };
     }
 
     if (action === 'steal') {
       const leaderRole = this.getEffectiveLeaderRole();
       if (leaderRole !== 'assassin') return { success: false, message: '只有刺客隊長能暗中行竊！' };
-      if (!this.currentEvent.isShady) return { success: false, message: '只有奸商可以行竊！' };
+      if (!this.currentEvent.isShady) return { success: false, message: '商人正留意著攤位，目前沒有下手機會。' };
 
       const success = (typeof params.stealSuccess === 'boolean') ? params.stealSuccess : Math.random() < 0.50;
       if (success && this.currentEvent.items.length > 0) {
@@ -4298,7 +4297,7 @@ export class Room {
         const col = this.currentEvent.col;
         this.currentEvent.buybackPool = [];
         this.currentEvent = null;
-        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col });
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, encounterStory:'行竊失風！原本熱情的商人驟然變臉，怒斥小隊偷取貨物。他掀開斗篷亮出武器，攔住了去路！' });
         return { success: false, message: '行竊失敗，觸發戰鬥！' };
       }
     }
@@ -4318,18 +4317,18 @@ export class Room {
       const totalCount = connectedPlayers.length;
       const readyCount = connectedPlayers.filter(p => this.currentEvent.readyToLeave.includes(p.id)).length;
 
-      // 廣播給所有玩家在視窗最右上角顯示「XXX已購買完成準備踏上旅程」
+      // 廣播給所有玩家在視窗最右上角顯示「XXX已確認離開，準備踏上旅程」
       if (this.io && this.code) {
         this.io.to(this.code).emit('event:shop_player_ready', {
           playerId: player.id,
           playerName: player.name,
-          message: `${player.name}已購買完成準備踏上旅程`,
+          message: `${player.name}已確認離開，準備踏上旅程`,
           readyCount,
           totalCount,
           readyPlayerIds: this.currentEvent.readyToLeave
         });
       }
-      this.addLog(`🧭 **${player.name}** 已購買完成準備踏上旅程。(${readyCount}/${totalCount})`, 'info');
+      this.addLog(`🧭 **${player.name}** 已確認離開，準備踏上旅程。(${readyCount}/${totalCount})`, 'info');
 
       // 必須每一位玩家都按離開商店按鈕才離開
       const allReady = connectedPlayers.length > 0 && connectedPlayers.every(p => this.currentEvent.readyToLeave.includes(p.id));
@@ -4355,7 +4354,7 @@ export class Room {
         if (this.io && this.code) {
           this.io.to(this.code).emit('event:shop_closed');
         }
-        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, merchantLootPool });
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, merchantLootPool, encounterStory:'小隊正準備離開，原本熱情的商人突然收起笑容。見眾人一件商品都沒有購買，他猛地掀翻攤位，怒聲斥責你們浪費他的時間。他抄起攤位旁的武器，攔住了小隊的去路……' });
         return { success: true, allReady: true, combatTriggered: true };
       }
 
@@ -4580,7 +4579,7 @@ export class Room {
         // 寶箱怪觸發：沒拿到任何東西，而是出現狂暴小怪戰鬥事件
         this.addLog('⚠️ 寶箱猛然張開獠牙巨口！暗藏其中的凶暴小怪破箱而出，撲向了小隊！', 'warning');
         this.currentEvent = null;
-        this.handleBattleEvent(null, false, { isMimicAmbush: true, col });
+        this.handleBattleEvent(null, false, { isMimicAmbush: true, col, encounterStory:'寶箱猛然張開獠牙巨口！暗藏其中的凶暴小怪破箱而出，撲向了小隊！' });
         return { success: true, isMimic: true };
       } else {
         // 常規寶箱開啟成功
