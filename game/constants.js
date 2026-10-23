@@ -1874,7 +1874,7 @@ export const ABYSS_BOSSES = {
     id: 'abyss_onmyoji',
     role: 'onmyoji',
     name: '深淵陰陽師',
-    avatar: '/photo/陰陽師.webp',
+    avatar: '/photo/Onmyoji.webp',
     hp: 65,
     attack: 12,
     baseResistances: { physical: 0, magic: 15, effect: 15 },

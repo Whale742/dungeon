@@ -5775,7 +5775,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     appliedBattleResults.clear();
     if (queue[0]?.hpSnapshotBefore) applyHpSnapshot(queue[0].hpSnapshotBefore);
     let legacyStageEntered = false, battlefieldFocused = false;
-    for (const step of queue) {
+    for (const step of groupEnemyPresentationSteps(queue)) {
       if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
       const official = isBattlefieldPlayerStep(step) || step.type === 'enemy_mechanic' || ['kill','status_cleanup'].includes(step.type);
       // Choosing a skill can scroll the actual actors out of view. Bring the

@@ -284,7 +284,7 @@ function phase6IncomingArt(step){
 function createPhase6Incoming(step,result,parent,options){
   if(!result.sharedFrom||result.targetBefore?.role!=='paladin'||!(result.actualDamage>0))return null;
   const targetId=resolvePresentationTarget(result,step),allyId=result.sharedFrom;
-  const inner=typeof createEnemyChoreography==='function'?createEnemyChoreography(step,{...result,targetId:allyId,targetEnemyId:null},parent,options):null;
+  const inner=!options.castOwnsEnemyArt&&typeof createEnemyChoreography==='function'?createEnemyChoreography(step,{...result,targetId:allyId,targetEnemyId:null},parent,options):null;
   const shield=battlefieldPaintedImage(parent,phase6ArtPath('holy'),'phase6-art phase6-reaction');
   const stream=battlefieldPaintedImage(parent,phase6ArtPath('link'),'phase6-guard-stream');
   shield.dataset.reaction='grace-intercept';

@@ -165,6 +165,7 @@ function syncEnemyArenaVisual(arena) {
 }
 async function playEnemyMechanicPresentation(step, context={}) {
   const signal=context.signal;if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
+  if(typeof sixEnemyEventMode==='function'&&(step.results||[]).some(r=>sixEnemyEventMode(step,r)))return playSixEnemyCastPresentation(step,context);
   const profile=ENEMY_FX_PROFILES[step.presentation?.family]||ENEMY_FX_PROFILES.heavy,speed=Math.max(.1,context.speed||1);
   const reduced=context.reducedMotion||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if(typeof enemyPaintedPaths==='function'&&typeof preloadPhase5Art==='function'){
@@ -238,5 +239,50 @@ async function playEnemyMechanicPresentation(step, context={}) {
       const audible=(step.results||[]).filter(r=>battleFeedbackEntries(r).length),targets=new Set(audible.map(r=>resolvePresentationTarget(r,step)));
       if(audible.length)announceBattleFeedback((step.presentation?.isUltimate?step.skillName+' · ':'')+(targets.size>1?targets.size+' 個目標受影響':(audible[0].targetAfter?.name||'目標')+' '+battleFeedbackEntries(audible[0]).slice(0,2).map(e=>e.text).join(' ')));
     }
+  }finally{signal?.removeEventListener('abort',cleanup);cleanup();}
+}
+
+// One timeline per six-enemy cast, including the original, ordered server
+// members. No authority state, RNG, or result ID is synthesized by grouping.
+async function playSixEnemyCastPresentation(step,context={}){
+  const {signal}=context,speed=Math.max(.1,context.speed||1),reduced=!!(context.reducedMotion||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const members=step.enemyCastMembers||[step],pending=members.flatMap(member=>(member.results||[]).map(result=>({member,result}))).filter(({result:r})=>!appliedBattleResults.has(r.resultId||r));
+  if(!pending.length)return;
+  const representative=pending.find(({member,result})=>sixEnemyEventMode(member,result)?.mode!=='quiet')||pending[0];
+  const recipe=sixEnemyEventMode(representative.member,representative.result);
+  let artFailed=false;
+  try{if(typeof preloadPhase5Art==='function')await preloadPhase5Art([...new Set(pending.flatMap(({member,result})=>[...(enemyPaintedPaths(member,result)||[]).map(p=>'/assets/combat-fx/'+p),...(typeof phase6IncomingArt==='function'?phase6IncomingArt({...member,results:[result]}):[])]))],signal);}
+  catch(error){if(error.name==='AbortError'||signal?.aborted)throw error;artFailed=true;console.error('[Enemy official art unavailable]',step.sourceId,error);announceBattleFeedback('敵方正式圖片載入失敗；戰鬥結果仍正常同步');}
+  if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
+  const root=document.createElement('div');root.className='enemy-effect-overlay';root.dataset.cast=step._sixCastKey||step.sourceId;root.setAttribute('aria-hidden','true');document.body.appendChild(root);
+  const animations=[],numbers=[],reactions=[],guards=[];let frame=0,impactTime=Infinity;
+  const cleanup=()=>{cancelAnimationFrame(frame);animations.forEach(a=>a.cancel());root.remove();};signal?.addEventListener('abort',cleanup,{once:true});
+  try{
+    if(artFailed){const cue=document.createElement('div');cue.className='enemy-effect-caption';cue.textContent='正式圖片載入失敗';root.appendChild(cue);}
+    else if(recipe.mode==='ultimate'){const cue=document.createElement('div');cue.className='enemy-effect-caption';cue.textContent=step.presentation?.ultimateName||step.skillName||step.actionId;root.appendChild(cue);}
+    for(const {result} of pending)if(result.sharedFrom&&typeof playPhase5DruidGuard==='function')await playPhase5DruidGuard(result,context);
+    const castStep={...representative.member,enemyCastMembers:members};
+    const custom=artFailed?null:createEnemyChoreography(castStep,representative.result,root,{reduced,animations,speed});
+    const duration=custom?.duration||300,contact=custom?.contact||.35,start=performance.now();
+    if(!artFailed&&typeof createPhase6Incoming==='function')for(const {member,result} of pending){const guard=createPhase6Incoming(member,result,root,{reduced,animations,speed,castOwnsEnemyArt:true});if(guard)guards.push(guard);}
+    const place=()=>{const cue=root.querySelector('.enemy-effect-caption'),source=getBattleEffectAnchor(step.sourceId);if(cue&&source){cue.style.left=Math.max(120,Math.min(innerWidth-120,source.x))+'px';cue.style.top=Math.max(90,source.rect.top-45)+'px';}const progress=Math.min(1,(performance.now()-start)*speed/duration);custom?.render(progress);for(const guard of guards)guard.render(progress<contact?progress/contact*guard.contact:guard.contact+(progress-contact)/(1-contact)*(1-guard.contact));const occupied=[];for(const {node,id,lane} of numbers){node.hidden=performance.now()-impactTime>=750/speed;if(!node.hidden)positionBattleFeedback(node,id,lane,occupied);}reactions.forEach(r=>r?.render((performance.now()-impactTime)*speed/1000));frame=requestAnimationFrame(place);};place();
+    if(custom?.windupSfx&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
+    await waitForPresentation(duration*contact,signal,speed);impactTime=performance.now();
+    for(const {member,result} of pending){
+      if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
+      if(!applyAuthoritativeResult(result))continue;
+      const id=resolvePresentationTarget(result,member),entries=battleFeedbackEntries(result),target=getBattleEffectAnchor(id)?.element;
+      if(typeof phase6ResultReaction==='function')reactions.push(phase6ResultReaction(result,root,{reduced,lane:entries.length,animate:(n,k,ms)=>animations.push(n.animate(k,{duration:ms/speed,fill:'forwards'}))}));
+      entries.forEach((entry,lane)=>{const node=document.createElement('div');node.className='enemy-effect-value battle-feedback';node.dataset.kind=entry.type;node.textContent=entry.text;node.style.animationDuration=750/speed+'ms';root.appendChild(node);numbers.push({node,id,lane});});
+      if(member.presentation&&Object.hasOwn(member.presentation,'arenaAfter'))syncEnemyArenaVisual(member.presentation.arenaAfter);
+      const enemy=getEnemyAnchor(id);if(enemy)syncEnemyMechanicVisual(result.targetAfter,enemy.element);
+      if(target?.animate&&!reduced&&result.actualDamage>0){const sprite=target.querySelector('.enemy-sprite-img,.teammate-avatar-wrap')||target;animations.push(sprite.animate([{transform:'translateX(-3px)',filter:'brightness(1.5)'},{transform:'translateX(3px)',offset:.35},{transform:'none',filter:'none'}],{duration:260/speed}));}
+      if(result.outcome?.parry&&result.targetBefore?.role==='samurai'&&typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});
+      if(typeof playPhase5DruidSleep==='function')await playPhase5DruidSleep(result,context);
+      if(result.sageMomentumCapture&&target&&typeof playSageMomentumCapture==='function')await playSageMomentumCapture(result,target,context);
+    }
+    if(custom?.impactSfx&&typeof sfxManager!=='undefined')sfxManager.play(custom.impactSfx,{signal,instance:step.sourceId});
+    await waitForPresentation(Math.max(duration*(1-contact),numbers.length?750:0),signal,speed);
+    announceBattleFeedback((step.skillName||step.actionId)+' · '+new Set(pending.map(({member,result})=>resolvePresentationTarget(result,member))).size+' 個目標同步');
   }finally{signal?.removeEventListener('abort',cleanup);cleanup();}
 }

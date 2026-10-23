@@ -967,7 +967,7 @@ test('Phase 2 true damage bypasses mitigation, while guard and immunity still ha
 test('Every painted enemy recipe uses existing art, true anchors, no SVG and no settlement',t=>{
   const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
   const recipes=vm.runInContext('ENEMY_PAINTED_ART',h.scope);
-  for(const [id,paths] of Object.entries(recipes)){
+  for(const [id,paths] of Object.entries(recipes).filter(([id])=>!vm.runInContext('SIX_ENEMY_IDS',h.scope).has(id))){
     for(const path of paths)assert.ok(readFileSync(new URL('../public/assets/combat-fx/'+path,import.meta.url)).length>100,path);
     for(const reduced of [false,true]){
       const root=h.scope.document.createElement('div'),result={kind:'damage',actualDamage:12,targetId:'ally',sourceId:'enemy'};
@@ -983,7 +983,7 @@ test('Every painted enemy recipe uses existing art, true anchors, no SVG and no 
     }
   }
   assert.equal(h.commits.length,0);
-  assert.equal(h.scope.enemyPaintedPaths({presentation:{mechanicId:'abyss_sage'}},{kind:'damage'}),null,'preserve Sage choreography');
+  assert.equal(h.scope.enemyPaintedPaths({presentation:{mechanicId:'abyss_sage'}},{kind:'status'}),null,'do not paint passive Sage ticks');
   assert.equal(h.scope.enemyPaintedPaths({presentation:{mechanicId:'lava_colossus'},actionId:'heal'},{kind:'heal'}),null,'never put a fist on healing');
 });
 
@@ -1136,4 +1136,81 @@ test('Phase 6 snapshots expose actual stealth, shield sources and consumed fatal
   player.paladinFatalGuard=true;player.hp=2;room.p8GrantShield(player,1,2,'paladin_basic');
   snap=room.getHpSnapshot().players.find(p=>p.id===player.id);assert.equal(snap.paladinFatalGuard,true);assert.ok(snap.presentationShields.some(s=>s.kind==='paladin_basic'));
   room.applyDamageToPlayer(player,100,{trueDamage:true});snap=room.getHpSnapshot().players.find(p=>p.id===player.id);assert.equal(snap.hp,1);assert.equal(snap.paladinFatalGuard,false);assert.equal(snap.stealthStacks,3);
+});
+
+test('Six new enemy recipes route real basic, ultimate and zero-damage status events; grouped casts settle once',async t=>{
+  const templates=[GENERAL_MINIONS.find(e=>e.id==='gel_slime'),ABYSS_MINIONS[1],...['stargazer','dreamweaver','onmyoji','sage'].map(k=>ABYSS_BOSSES[k])];
+  for(const template of templates)for(const ultimate of [false,true]){
+    const {room,enemy,player}=mechanismBattle(t,[template]);room.checkDodge=()=>false;
+    for(const id of ['ally2','ally3'])room.players[id]={...structuredClone(player),id,name:id,cooldowns:{skill1:2,skill2:3}};
+    mechanismRound(room,ultimate?(mechanicId(template)==='abyss_sage'?2:3):1);
+    const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'six-'+enemy.instanceId+'-'+ultimate);
+    for(const reducedMotion of [false,true]){
+      const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+      const casts=h.scope.groupEnemyPresentationSteps(queue),sounds=[];h.scope.sfxManager={play:id=>sounds.push(id)};
+      const routed=queue.flatMap(s=>s.results.map(r=>h.scope.enemyPaintedPaths(s,r))).filter(Boolean).flat();assert.ok(routed.length,template.name);
+      for(const path of routed)assert.ok(readFileSync(new URL('../public/assets/combat-fx/'+path,import.meta.url)).length);
+      for(const step of casts){
+        const r=step.results[0],mode=h.scope.sixEnemyEventMode(step,r);
+        const root=h.scope.document.createElement('div'),fx=h.scope.createEnemyChoreography(step,r,root,{reduced:reducedMotion,animations:[],speed:1});
+        if(fx){for(const p of [0,.2,.5,fx.contact,.9,1])fx.render(p);fx.remove();}
+        await h.scope.playEnemyMechanicPresentation(step,{reducedMotion});
+        if(mode?.mode!=='quiet')assert.equal(step.enemyCastMembers.length,queue.length,'one cast contains all recipients');
+      }
+      assert.equal(h.commits.length,queue.flatMap(s=>s.results).length);assert.equal(h.frames.size,0);
+      assert.ok(sounds.length<=2,'one windup and one contact for all recipients');
+      for(const step of casts)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion});assert.equal(h.commits.length,queue.flatMap(s=>s.results).length);
+      if(ultimate&&['abyss_dreamweaver','abyss_onmyoji'].includes(mechanicId(template)))assert.ok(h.commits.every(r=>!r.actualDamage&&!r.actualHpDamage),'status cast cannot invent damage');
+    }
+  }
+});
+
+test('Watcher support uses the beneficiary resistance delta and clears without extra damage',async t=>{
+  const {room}=mechanismBattle(t,[ABYSS_BOSSES.sage,ABYSS_MINIONS[1],ABYSS_MINIONS[1]]);
+  syncEnemySupport(room);const queue=[];drainEnemyEvents(room,queue);
+  room.enemies[1].hp=0;room.enemies[2].hp=0;syncEnemySupport(room);drainEnemyEvents(room,queue);queue.splice(0,queue.length,...queue.filter(s=>s.targetId===room.enemies[0].instanceId));normalizeCombatQueue(queue,'cover');
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  assert.equal(queue.length,2);assert.equal(h.scope.sixEnemyEventMode(queue[0],queue[0].results[0]).mode,'cover');assert.equal(h.scope.sixEnemyEventMode(queue[1],queue[1].results[0]).removing,true);
+  for(const step of queue){assert.ok(h.scope.enemyPaintedPaths(step,step.results[0])[0].endsWith('watcher-void-cover.png'));await h.scope.playEnemyMechanicPresentation(step,{reducedMotion:true});}
+  assert.equal(h.commits.length,2);assert.ok(h.commits.every(r=>r.kind==='status'&&!r.actualDamage));
+});
+
+test('Six-enemy missing image is reported and completes authority; abort and missing anchors clean the timeline',async t=>{
+  const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.sage]);mechanismRound(room,2);const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'six-cleanup');
+  for(const failure of ['image','anchor','abort']){
+    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const errors=[];h.scope.console={error:(...args)=>errors.push(args)};
+    const controller=new AbortController();
+    if(failure==='image')h.scope.preloadPhase5Art=async()=>{throw Error('missing PNG');};
+    if(failure==='anchor')h.scope.getVisualAnchor=()=>null;
+    if(failure==='abort'){const wait=h.scope.waitForPresentation;h.scope.waitForPresentation=async(...args)=>{controller.abort();return wait(...args);};}
+    const run=()=>h.scope.playEnemyMechanicPresentation(h.scope.groupEnemyPresentationSteps(queue)[0],{signal:controller.signal});
+    if(failure==='abort')await assert.rejects(run,{name:'AbortError'});else {await run();assert.equal(h.commits.length,queue.flatMap(s=>s.results).length);}
+    assert.equal(h.frames.size,0);assert.ok(h.roots.filter(n=>n.className==='enemy-effect-overlay').every(n=>!n.isConnected));
+    if(failure==='image')assert.equal(errors.length,1);
+  }
+});
+
+test('Six-enemy Lab captures retain their engine snapshots, exact order and single cast cleanup',async()=>{
+  const source=readFileSync(new URL('../public/presentation-lab.js',import.meta.url),'utf8');
+  const scenes=Object.fromEntries(source.split('\n').filter(line=>line.startsWith('"six_enemy_')).map(line=>{const at=line.indexOf(':');return [JSON.parse(line.slice(0,at)),JSON.parse(line.slice(at+1,-1))];}));
+  for(const [id,scene] of Object.entries(scenes).filter(([id])=>id.startsWith('six_enemy_'))){
+    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    for(const cast of h.scope.groupEnemyPresentationSteps(scene.steps))await h.scope.playEnemyMechanicPresentation(cast,{reducedMotion:true});
+    assert.deepEqual(h.commits.map(r=>r.resultId),scene.steps.flatMap(s=>s.results.map(r=>r.resultId)),id);
+    for(const r of h.commits){assert.equal(r.actualHpDamage||0,Math.max(0,(r.targetBefore.hp||0)-(r.targetAfter.hp||0)),id);}
+    assert.equal(h.frames.size,0,id);
+  }
+});
+
+test('Shared six-enemy casts keep Paladin grace art without replaying the enemy choreography',()=>{
+  const fixture=Object.entries(phase6Fixtures()).find(([id])=>id==='phase6_event_grace_hit')?.[1];assert.ok(fixture);
+  const step=fixture.steps.find(s=>s.results?.some(r=>r.sharedFrom&&r.targetBefore?.role==='paladin'));
+  const result=step.results.find(r=>r.sharedFrom&&r.targetBefore?.role==='paladin');
+  const h=enemyPresentationHarness();let enemyCasts=0;const images=[];
+  Object.assign(h.scope,{createEnemyChoreography(){enemyCasts++;return null;},battlefieldPaintedImage(parent,src,cls){const image=h.scope.document.createElement('img');image.src=src;image.className=cls;parent.appendChild(image);images.push(image);return image;}});
+  vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),h.scope);
+  const root=h.scope.document.createElement('div'),guard=h.scope.createPhase6Incoming(step,result,root,{castOwnsEnemyArt:true,reduced:false});
+  assert.ok(guard);guard.render(.5);guard.render(guard.contact);assert.equal(enemyCasts,0);assert.equal(images.length,2);assert.equal(images[0].dataset.reaction,'grace-intercept');
+  guard.remove();assert.ok(images.every(n=>!n.isConnected));assert.equal(h.commits.length,0);
 });

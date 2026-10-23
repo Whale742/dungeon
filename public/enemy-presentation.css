@@ -60,3 +60,5 @@
 @media(max-height:480px){.enemy-telegraphs{font-size:11px;margin:2px;padding:3px 7px}.enemy-effect-caption{font-size:11px}}
 
 .enemy-official-art{position:absolute;object-fit:contain;pointer-events:none;transform-origin:center}
+
+.enemy-six-orbits{position:absolute;overflow:visible;fill:none;stroke:#b7b9ef;stroke-width:1;pointer-events:none;filter:drop-shadow(0 0 3px #7475af)}
