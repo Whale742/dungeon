@@ -1,5 +1,5 @@
 // Enemy events use only official battlefield nodes. The fixed overlay contains
-// geometry, captions and numbers, never portraits or a second health model.
+// painted choreography, captions and numbers, never a second health model.
 const ENEMY_FX_PROFILES = Object.freeze({
   lava:['#fb923c','heavy','physical_hit',760], shadow:['#a78bfa','claw','claw_slash',520],
   arc:['#67e8f9','arc','magic_impact',620], blood:['#fb7185','drain','magic_impact',660],
@@ -74,18 +74,24 @@ function enemyDisplayStatuses(enemy) {
   if(enemy.talismans?.length&&!statuses.has('talismans')){const names={blind:'障目',seal:'封勁',corrode:'蝕體',confuse:'惑心',drain:'抽髓'};statuses.set('talismans',{id:'talismans',label:'符咒',icon:'status',stacks:enemy.talismans.length,value:enemy.talismans.map(t=>names[t]||t).join('、')});}
   return [...statuses.values()];
 }
-function enemyEventShape(result, step, profile) {
-  if(result.outcome?.type==='dodge')return 'evade';
-  if(result.kind==='cleanse')return /寒霜衝擊/.test(step.actionId)?'frost':'cleanse';
-  if(result.kind==='shield')return 'shield';
-  if(result.kind==='heal')return 'heal';
-  if(result.kind==='death')return 'death';
-  if(/岩甲失效/.test(step.actionId))return 'debris';
-  if(/晶甲反射|荊棘反傷|見切反擊/.test(step.actionId))return 'reflect';
+// Classify actual results, including self costs and form changes, before selecting art.
+function enemyEventKind(result,step) {
+  if(['miss','dodge','immune','immunity','resisted','blocked'].includes(result.outcome?.type))return 'outcome';
+  const before=result.targetBefore||{},after=result.targetAfter||{};
+  if(before.mechanics?.form!==after.mechanics?.form&&(before.mechanics?.form||after.mechanics?.form))return 'transform';
+  if(['damage','intercept'].includes(result.kind))return result.sourceId&&result.sourceId===result.targetId?'self-cost':'attack';
+  if(['heal','shield','cleanse','death'].includes(result.kind))return result.kind;
   if(/標記|瞄準|懸賞/.test(step.actionId))return 'mark';
   if(/充能|熱度|能源/.test(step.actionId))return 'charge';
-  if(/寒霜/.test(step.actionId))return 'frost';
-  return profile[1];
+  return 'status';
+}
+function enemyStateFeedback(result,step) {
+  const kind=enemyEventKind(result,step);
+  if(['attack','heal','shield','self-cost','outcome','death'].includes(kind))return [];
+  const before=result.targetBefore||{},after=result.targetAfter||{};
+  const changed=JSON.stringify(before.statuses||[])!==JSON.stringify(after.statuses||[])||
+    JSON.stringify(before.presentation?.resource)!==JSON.stringify(after.presentation?.resource)||kind==='transform';
+  return changed?[{text:step.actionId||step.skillName||'狀態更新',type:'status'}]:[];
 }
 function syncEnemyMechanicVisual(enemy, node) {
   if(!node)return;
@@ -169,7 +175,7 @@ async function playEnemyMechanicPresentation(step, context={}) {
     const paths=[...new Set((step.results||[]).flatMap(r=>enemyPaintedPaths(step,r)||[]))];
     await preloadPhase5Art([...paths.map(p=>'/assets/combat-fx/'+p),...(typeof phase6IncomingArt==='function'?phase6IncomingArt(step):[])],signal);
   }
-  const root=document.createElement('div');root.className='enemy-effect-overlay';root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
+  const root=document.createElement('div');root.className='enemy-effect-overlay';root.dataset.action=step.actionId;root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
   let frame=0;const animations=[];
   const cleanup=()=>{cancelAnimationFrame(frame);for(const a of animations)a.cancel();root.remove();};
   signal?.addEventListener('abort',cleanup,{once:true});
@@ -185,45 +191,32 @@ async function playEnemyMechanicPresentation(step, context={}) {
       const targetId=resolvePresentationTarget(result,step),owned=document.createElement('div');root.appendChild(owned);
       const custom=(typeof createPhase6Incoming==='function'?createPhase6Incoming(step,result,owned,{reduced,animations,speed}):null)||(typeof createEnemyChoreography==='function'?createEnemyChoreography(step,result,owned,{reduced,animations,speed}):null);
       const duration=custom?.duration||(reduced?400:profile[3]),contact=custom?.contact||.35;
-      const effect=document.createElement('div'),shape=enemyEventShape(result,step,profile);
-      effect.className='enemy-effect-shape enemy-effect-'+shape;effect.dataset.reduced=String(!!reduced);effect.style.animationDuration=duration*(1-contact)/speed+'ms';effect.hidden=true;owned.appendChild(effect);
-      if(shape==='equation')effect.dataset.label='Σ';
-      const beam=document.createElement('div');beam.className='enemy-effect-link';beam.hidden=true;owned.appendChild(beam);
-      const projectile=document.createElement('span');projectile.className='enemy-effect-projectile enemy-projectile-'+profile[1];projectile.hidden=true;owned.appendChild(projectile);
-      const numbers=[];let lastRect=null,impacted=false,impactTime=Infinity,phase6Reaction=null;
+      const numbers=[];let impactTime=Infinity,phase6Reaction=null;
       const start=performance.now();
       const place=()=>{
-        const target=getBattleEffectAnchor(targetId),source=getBattleEffectAnchor(step.presentation?.visualOriginId||result.sourceId||step.sourceId);
-        if(target)lastRect=target.rect;
         custom?.render(Math.min(1,(performance.now()-start)/(duration/speed)));
         phase6Reaction?.render((performance.now()-impactTime)/1000*speed);
-        if(lastRect){
-          const r=lastRect,x=r.left+r.width/2,y=r.top+r.height/2;effect.style.left=x+'px';effect.style.top=y+'px';
-          const occupied=[];numbers.forEach((n,i)=>{if(performance.now()-impactTime<750/speed)positionBattleFeedback(n,targetId,i,occupied);else n.hidden=true;});
-          if(!custom&&source&&!reduced&&source.id!==targetId&&!impacted){
-            beam.hidden=false;beam.style.left=source.x+'px';beam.style.top=source.y+'px';beam.style.width=Math.hypot(x-source.x,y-source.y)+'px';beam.style.transform='rotate('+Math.atan2(y-source.y,x-source.x)+'rad)';
-            const t=Math.min(1,(performance.now()-start)/(duration*contact/speed));projectile.hidden=false;projectile.style.left=(source.x+(x-source.x)*t)+'px';projectile.style.top=(source.y+(y-source.y)*t)+'px';
-          }else{beam.hidden=true;projectile.hidden=true;}
-        }else{effect.hidden=true;beam.hidden=true;projectile.hidden=true;numbers.forEach(n=>n.hidden=true);}
+        const occupied=[];
+        numbers.forEach((n,i)=>{if(performance.now()-impactTime<750/speed)positionBattleFeedback(n,targetId,i,occupied);else n.hidden=true;});
         frame=requestAnimationFrame(place);
       };
       place();
       if(custom?.windupSfx&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
       await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
-        impacted=true;impactTime=performance.now();
+        impactTime=performance.now();
         if(typeof phase6ResultReaction==='function')phase6Reaction=phase6ResultReaction(result,owned,{reduced,lane:battleFeedbackEntries(result).length,animate:(n,k,ms)=>animations.push(n.animate(k,{duration:ms/speed,fill:'forwards'}))});
-        effect.hidden=!!custom||!lastRect;beam.hidden=true;projectile.hidden=true;
         const initialPositions=[];
-        for(const entry of battleFeedbackEntries(result)){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';n.hidden=true;owned.appendChild(n);numbers.push(n);positionBattleFeedback(n,targetId,numbers.length-1,initialPositions);}
-        if(typeof sfxManager!=='undefined')sfxManager.play(custom?.impactSfx||(result.kind==='heal'?'heal':result.kind==='shield'?'shield_cast':result.kind==='cleanse'?'cleanse':profile[2]),{signal,instance:step.sourceId});
-        if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){effect.hidden=!lastRect;effect.classList.add('battlefield-parry');if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});}
+        for(const entry of [...battleFeedbackEntries(result),...enemyStateFeedback(result,step)]){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';n.hidden=true;owned.appendChild(n);numbers.push(n);positionBattleFeedback(n,targetId,numbers.length-1,initialPositions);}
+        const impactSound=custom?.impactSfx||(result.actualHeal>0?'heal':result.actualShield>0?'shield_cast':result.kind==='cleanse'?'cleanse':result.actualDamage>0?profile[2]:null);
+        if(impactSound&&typeof sfxManager!=='undefined')sfxManager.play(impactSound,{signal,instance:step.sourceId});
+        if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});}
         if(step.presentation&&Object.hasOwn(step.presentation,'arenaAfter'))syncEnemyArenaVisual(step.presentation.arenaAfter);
         const anchor=getEnemyAnchor(targetId);if(anchor)syncEnemyMechanicVisual(result.targetAfter,anchor.element);
         const target=getBattleEffectAnchor(targetId)?.element;
-        if(target?.animate&&!reduced&&!(result.kind==='damage'&&!(result.actualDamage>0))){
+        if(target?.animate&&!reduced&&(result.actualDamage>0||result.kind==='death')){
           const image=target.querySelector('.enemy-sprite-img,.teammate-avatar-wrap')||target;
-          const keys=result.kind==='death'?[{filter:'brightness(2)',opacity:1},{filter:'grayscale(1)',opacity:.25}]:custom&&step.presentation.mechanicId==='banshee'?[{transform:'translateX(-3px) skewX(2deg)',filter:'saturate(.2)'},{transform:'translateX(3px) skewX(-2deg)',offset:.3},{transform:'none',filter:'none'}]:shape==='claw'?[{transform:'translateX(-5px)'},{transform:'translateX(4px)'},{transform:'none'}]:[{filter:'brightness(1.5)'},{filter:'brightness(1)'}];
+          const keys=result.kind==='death'?[{filter:'brightness(2)',opacity:1},{filter:'grayscale(1)',opacity:.25}]:custom&&step.presentation.mechanicId==='banshee'?[{transform:'translateX(-3px) skewX(2deg)',filter:'saturate(.2)'},{transform:'translateX(3px) skewX(-2deg)',offset:.3},{transform:'none',filter:'none'}]:['claw','shadow'].includes(step.presentation?.family)?[{transform:'translateX(-5px)'},{transform:'translateX(4px)'},{transform:'none'}]:[{filter:'brightness(1.5)'},{filter:'brightness(1)'}];
           animations.push(image.animate(keys,{duration:Math.min(480,duration*.5)/speed}));
         }
         if(typeof playPhase5DruidSleep==='function')await playPhase5DruidSleep(result,context);

@@ -5,7 +5,7 @@ const ENEMY_CHOREOGRAPHY_TIMING=Object.freeze({
   shadow_alpha:{basic:[900,.43],ultimate:[1380,.46]},
   banshee:{basic:[1080,.49],ultimate:[1740,.58]}
 });
-// Explicit semantic matches. Missing art returns to the existing effect; no unrelated picture is substituted.
+// Explicit semantic matches. Unpainted state changes use HUD feedback, never generic attack geometry.
 const ENEMY_PAINTED_ART=Object.freeze({
   gel_slime:['enemies/slime-elastic-impact.png','enemies/slime-goo-crush.png'],
   abyss_watcher:['enemies/watcher-void-ray.png','enemies/watcher-void-cover.png'],
@@ -39,6 +39,9 @@ const ENEMY_PAINTED_ART=Object.freeze({
   abyss_paladin:['common/sword-slash.png'],abyss_gladiator:['common/slash-texture.png'],abyss_samurai:['common/sword-slash.png']
 });
 function enemyPaintedPaths(step,result){
+  // Self HP costs, shield consumption and form bookkeeping are not attacks.
+  const kind=enemyEventKind(result,step);
+  if(['self-cost','transform','death','cleanse'].includes(kind)||step.actionId==='吞噬護盾')return null;
   const six=sixEnemyEventMode(step,result);
   if(six){const art=ENEMY_PAINTED_ART[six.id];return six.mode==='quiet'?null:[art[six.mode==='ultimate'||six.mode==='cover'?1:0]];}
   const id=step.presentation?.mechanicId,art=ENEMY_PAINTED_ART[id];
@@ -63,7 +66,8 @@ function enemyPaintedPaths(step,result){
   if(result.kind==='shield'&&['crystal_scorpion','crystal_beetle'].includes(id))return ['enemies/crystal-burst.png'];
   if(result.kind==='heal'&&['blood_sorcerer','blood_moon_acolyte'].includes(id))return ['enemies/blood-energy-stream.png'];
   if(result.kind==='heal'&&id==='glutton')return ['enemies/parasitic-vortex.png'];
-  if(result.kind==='status'&&/充能|能源/.test(step.actionId)&&['ancient_golem','ancient_repair_drone'].includes(id))return ['enemies/automaton-energy-core.png'];
+  if(result.kind==='status'&&/充能|能源/.test(step.actionId)&&['ancient_golem','ancient_repair_drone'].includes(id)&&
+    (result.targetAfter?.mechanics?.charge||0)>(result.targetBefore?.mechanics?.charge||0))return ['enemies/automaton-energy-core.png'];
   return null;
 }
 function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {

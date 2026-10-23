@@ -238,6 +238,12 @@ function getEntityActiveFxProfiles(entity = {}) {
     activeProfiles.add('crit_lock');
   }
 
+  // Enemy HUDs already expose HP/shield, status badges and counter information.
+  // Do not paint avatar-shaped rings, wound slashes or guard plates over their art.
+  // Player profiles and the role-specific equation / astronomy layers stay intact.
+  if(entity.instanceId||entity.entityType==='monster'||entity.presentation?.mechanicId){
+    for(const id of ['frenzy','bleed','shield','guard','generic_buff','generic_debuff'])activeProfiles.delete(id);
+  }
   return activeProfiles;
 }
 

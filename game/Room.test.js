@@ -532,8 +532,8 @@ test('Phase 3 shield-only hits, cleanses and misses do not imply a life hit or a
   const step=queue.find(s=>s.results.some(r=>r.actualAbsorbed>0)),result=step.results.find(r=>r.actualAbsorbed>0);
   const h=enemyPresentationHarness(),text=h.scope.enemyEventFeedback(result,step);
   assert.equal(result.actualHpDamage,0);assert.match(text,/🛡 -/);assert.doesNotMatch(text,/生命|護盾|回合/);
-  assert.equal(h.scope.enemyEventShape({kind:'cleanse'},{actionId:'來源死亡・標記解除'},['','claw']),'cleanse');
-  assert.equal(h.scope.enemyEventShape({kind:'damage',outcome:{type:'dodge'}},{},['','heavy']),'evade');
+  assert.equal(h.scope.enemyEventKind({kind:'cleanse'},{actionId:'來源死亡・標記解除'}),'cleanse');
+  assert.equal(h.scope.enemyEventKind({kind:'damage',outcome:{type:'dodge'}},{}),'outcome');
 });
 
 // DOM doubles exercise lifecycle only; every event and amount below comes from
@@ -1009,6 +1009,8 @@ test('All real enemy queues retain one settlement per result with painted choreo
       const preloaded=[];h.scope.preloadPhase5Art=async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
       for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion,speed:1.5});
       assert.equal(h.commits.length,queue.flatMap(s=>s.results).length,template.name);assert.equal(h.frames.size,0);assert.ok(h.roots.filter(root=>root.className==='enemy-effect-overlay').every(root=>!root.isConnected));
+      const visit=node=>{assert.doesNotMatch(node.className||'',/enemy-effect-(?:shape|arc|arrow|projectile|link|wave|crystal)(?: |$)/);for(const child of node.children||[])visit(child);};
+      h.roots.forEach(visit);
       const before=h.commits.length;for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion});assert.equal(h.commits.length,before,'replay cannot apply damage twice');
     }
   }
@@ -1272,4 +1274,46 @@ test('Remote asset retry cannot prematurely replace an Abyss portrait, and a mis
   const writes=h.writes();h.image.onerror();assert.equal(h.writes(),writes,'allow existing registry local retry');
   h.image.dataset.studioResolved=h.image.dataset.studioOriginal;h.image.onerror();assert.equal(h.image.src,'/photo/遠古樹精.webp');assert.notEqual(h.image.src,descriptor.avatar);assert.ok(!h.classes.has('is-abyss-fullbody'));
   h.image.onload();assert.equal(h.image.dataset.portraitLoaded,'true');
+});
+
+
+test('Enemy state routing keeps transformations, costs and shield consumption out of attack art',()=>{
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const state={sourceId:'enemy',presentation:{mechanicId:'abyss_druid',family:'nature'},actionId:'狼人變形'};
+  const cost={kind:'damage',sourceId:'enemy',targetId:'enemy',actualDamage:4,targetBefore:{mechanics:{form:null}},targetAfter:{mechanics:{form:'werewolf'}}};
+  assert.equal(h.scope.enemyEventKind(cost,state),'transform');assert.equal(h.scope.enemyPaintedPaths(state,cost),null);
+  const selfCost={...cost,targetBefore:{},targetAfter:{}};
+  assert.equal(h.scope.enemyEventKind(selfCost,state),'self-cost');assert.equal(h.scope.enemyPaintedPaths(state,selfCost),null);
+  assert.equal(h.scope.enemyPaintedPaths({...state,actionId:'吞噬護盾',presentation:{mechanicId:'glutton'}},{...selfCost,targetId:'hero'}),null);
+  for(const [kind,actionId] of [['shield','維修護盾'],['heal','血月汲取'],['cleanse','來源死亡・標記解除'],['status','瞄準射擊'],['status','維修充能']]){
+    assert.equal(h.scope.enemyEventKind({kind},{actionId}),kind==='status'?actionId==='瞄準射擊'?'mark':'charge':kind);
+  }
+  const charge={presentation:{mechanicId:'ancient_golem'},actionId:'能源核心'},gain={kind:'status',targetBefore:{mechanics:{charge:0}},targetAfter:{mechanics:{charge:1}}};
+  assert.ok(h.scope.enemyPaintedPaths(charge,gain)[0].endsWith('automaton-energy-core.png'));
+  assert.equal(h.scope.enemyPaintedPaths({...charge,actionId:'過載・消耗充能'},{...gain,targetBefore:gain.targetAfter,targetAfter:gain.targetBefore}),null);
+  assert.equal(h.scope.enemyStateFeedback({kind:'status',targetBefore:{statuses:[]},targetAfter:{statuses:[]}},{actionId:'煉獄熱度'}).length,0);
+  assert.equal(h.scope.enemyStateFeedback({kind:'cleanse',targetBefore:{statuses:[{id:'mark'}]},targetAfter:{statuses:[]}},{actionId:'來源死亡・標記解除'})[0].text,'來源死亡・標記解除');
+});
+test('Unpainted status and unknown attacks settle once with plain feedback, never fabricated art, and abort cleans owned nodes',async()=>{
+  for(const reducedMotion of [false,true]){
+    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const sounds=[];h.scope.sfxManager={play:id=>sounds.push(id)};
+    const result={kind:'status',resultId:'status',targetId:'enemy',targetBefore:{statuses:[]},targetAfter:{statuses:[{id:'mark'}]}};
+    const step={sourceId:'enemy',actionId:'獵物標記',presentation:{mechanicId:'shadow_alpha',family:'shadow'},results:[result]};
+    await h.scope.playEnemyMechanicPresentation(step,{reducedMotion});assert.equal(sounds.length,0);assert.equal(h.commits.length,1);
+    const nodes=[];const visit=n=>{nodes.push(n);(n.children||[]).forEach(visit);};h.roots.forEach(visit);
+    assert.ok(nodes.some(n=>n.textContent==='獵物標記'));assert.ok(!nodes.some(n=>n.src||/enemy-effect-(shape|link|projectile)/.test(n.className||'')));
+    const unknown={...step,presentation:{mechanicId:'no-painted-asset'},results:[{kind:'damage',resultId:'hit',targetId:'hero',actualDamage:7,actualHpDamage:7}]};
+    await h.scope.playEnemyMechanicPresentation(unknown,{reducedMotion});assert.equal(h.commits.length,2);assert.equal(h.frames.size,0);
+    const controller=new AbortController();h.scope.waitForPresentation=async()=>{controller.abort();throw new DOMException('cancelled','AbortError');};
+    await assert.rejects(h.scope.playEnemyMechanicPresentation({...step,results:[{...result,resultId:'cancelled'}]},{signal:controller.signal,reducedMotion}),{name:'AbortError'});
+    assert.equal(h.commits.length,2);assert.equal(h.frames.size,0);assert.ok(h.roots.filter(n=>n.className==='enemy-effect-overlay').every(n=>!n.isConnected));
+  }
+});
+test('Enemy persistent overlays omit avatar rings, wound slashes and guard plates while retaining role geometry and player status effects',()=>{
+  const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/portrait-status-fx.js',import.meta.url),'utf8'),scope);
+  const entity={hp:20,tempHp:5,bleedTurns:2,statuses:['frenzy','guard','vulnerable','sage_equation','galaxy']};
+  const enemy=scope.getEntityActiveFxProfiles({...entity,instanceId:'enemy_0'}),player=scope.getEntityActiveFxProfiles({...entity,id:'hero'});
+  for(const id of ['frenzy','bleed','shield','guard']){assert.ok(player.has(id));assert.ok(!enemy.has(id));}
+  for(const id of ['equation','astronomy','vulnerable'])assert.ok(enemy.has(id));
 });
