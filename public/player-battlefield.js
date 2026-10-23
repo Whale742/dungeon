@@ -14,7 +14,7 @@ const ALCHEMIST_BATTLEFIELD_ART=Object.freeze({
 function battlefieldPaintedImage(parent,src,className){
   const image=document.createElement('img');image.src=src;image.alt='';image.className=className;image.setAttribute('aria-hidden','true');parent.appendChild(image);return image;
 }
-function isBattlefieldPlayerStep(step) {return ['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type));}
+function isBattlefieldPlayerStep(step) {return (typeof isPhase6TimedStep==='function'&&isPhase6TimedStep(step))||['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type));}
 function battlefieldPlayerTarget(step) {
   if(step.targetId&&!['all','all_enemies','monster'].includes(step.targetId))return step.targetId;
   return resolvePresentationTarget(step.results?.find(r=>r.targetEnemyId)||step.results?.find(r=>r.targetId===step.targetId)||{targetId:step.targetId,targetEnemyId:step.targetEnemyId},step);
@@ -27,10 +27,10 @@ function commitBattlefieldPlayerResult(result,step,context) {
   if(context.signal?.aborted||!applyAuthoritativeResult(result))return false;
   const id=resolvePresentationTarget(result,step),anchor=getVisualAnchor(id);
   const count=context.numberCounts?.get(id)||0;
-  const entries=battleFeedbackEntries(result);context.numberCounts?.set(id,count+entries.length);
+  const entries=context.feedbackEntries?context.feedbackEntries(result):battleFeedbackEntries(result);context.numberCounts?.set(id,count+entries.length);
   for(const [i,entry] of entries.entries()){
     const label=document.createElement('div');label.className='battlefield-player-number battle-feedback';label.dataset.feedbackLane=String(count+i);label.dataset.kind=entry.type;
-    label.setAttribute('aria-hidden','true');label.style.animationDuration=750/(context.speed||1)+'ms';label.textContent=entry.text;context.effectRoot.appendChild(label);context.follow(label,id);
+    label.setAttribute('aria-hidden','true');label.style.animationDuration=(context.feedbackDuration||750)/(context.speed||1)+'ms';label.textContent=entry.text;context.effectRoot.appendChild(label);context.follow(label,id);
   }
   if(anchor&&result.actualDamage>0&&!context.reducedMotion&&['archer','alchemist'].includes(step.sourceRole)&&step.actionId!=='a_rain'){
     const flash=document.createElement('div');flash.className='battlefield-hit-host';context.effectRoot.appendChild(flash);context.follow(flash,id);
@@ -61,7 +61,7 @@ async function withBattlefieldSkillStage(step,context,play) {
   }
   if(targetId){cards.set('monster',cards.get(targetId));anchors.set('monster',anchors.get(targetId));}
   const follow=(node,id,dx=0,dy=0)=>{
-    followers.push({node,id,dx,dy,expires:node.dataset.feedbackLane!==undefined?performance.now()+750/speed:Infinity});
+    followers.push({node,id,dx,dy,expires:node.dataset.feedbackLane!==undefined?performance.now()+(context.feedbackDuration||750)/speed:Infinity});
     if(node.dataset.feedbackLane!==undefined)positionBattleFeedback(node,id,Number(node.dataset.feedbackLane));
   };
   const measure=()=>{
@@ -212,6 +212,7 @@ async function battlefieldProjectile(s,sourceId,targetId,type,central) {
 }
 async function playBattlefieldPlayerPresentation(step,context={}) {
   const local={...context,battlefield:true};
+  if(typeof isPhase6TimedStep==='function'&&isPhase6TimedStep(step))return playPhase6BattlefieldPresentation(step,local);
   if(['sage','augur','onmyoji','gladiator','druid'].includes(step.sourceRole)||['arena_enter','arena_exit'].includes(step.type)||(step.type==='boss_action'&&step.hpSnapshotBefore?.arena))return playPhase5BattlefieldPresentation(step,local);
   if(step.sourceRole==='stargazer'&&['basic','sg_observe','sg_clock'].includes(step.actionId))return playStargazerPresentation(step,local);
   if(step.sourceRole==='dreamweaver')return playDreamweaverPresentation(step,local);
@@ -245,45 +246,6 @@ async function playBattlefieldSamurai(step,context) {
   });
 }
 
-function battlefieldRoleArt(step,result){
-  const base='/assets/combat-fx/',role=step.sourceRole,damage=result.kind==='damage'||result.kind==='intercept';
-  if(role==='bard')return base+'bard/'+(damage?'pluck-streak.png':'melody-ribbon.png');
-  if(role==='paladin'&&result.actualShield>0)return base+'paladin/holy-shield.png';
-  if(!damage)return role==='mage'&&step.actionId==='m_drain'&&result.actualHeal>0?base+'common/arcane-energy-link.png':null;
-  if(role==='mage')return base+(step.actionId==='m_fireball'?'common/fireball.png':'mage/arcane-core.png');
-  if(role==='assassin')return base+'assassin/fatal-slash.png';
-  return base+'common/sword-slash.png';
-}
 async function playBattlefieldPaintedRole(step,context){
-  const paths=(step.results||[]).map(r=>battlefieldRoleArt(step,r)).filter(Boolean);
-  const cast=step.sourceRole==='assassin'?'/assets/combat-fx/assassin/shadow-step.png':step.sourceRole==='bard'?'/assets/combat-fx/bard/glowing-strings.png':null;
-  await preloadPhase5Art([...new Set([...paths,cast].filter(Boolean))],context.signal);
-  return withBattlefieldSkillStage(step,context,async s=>{
-    const audio=s.local.audioScope,profile=resolveCombatSfxProfile(step);
-    if(profile.key)audio.play(profile.key,step.outcome?.type==='off_key'?{detune:true}:{});
-    if(cast){const image=battlefieldPaintedImage(s.root,cast,'battlefield-role-art');s.follow(image,step.sourceId);s.animate(image,s.reduced?[{opacity:0},{opacity:.65},{opacity:0}]:[{opacity:0,scale:'.65'},{opacity:1,scale:'1',offset:.5},{opacity:0,scale:'1.15'}],500);await s.wait(250);}
-    if(!cast)await s.wait(getCombatProfile(step).anticipationDelay||220);
-    for(const result of step.results||[]){
-      const id=resolvePresentationTarget(result,step),path=battlefieldRoleArt(step,result);
-      const damage=['damage','intercept'].includes(result.kind),miss=damage&&!(result.actualDamage>0);
-      if(path&&!miss){
-        const image=battlefieldPaintedImage(s.root,path,'battlefield-role-art');
-        if(damage&&['mage','bard'].includes(step.sourceRole)){
-          await s.tick(360,p=>{const a=getBattleEffectAnchor(step.sourceId),b=getBattleEffectAnchor(id);image.hidden=!b;if(!b)return;const q=s.reduced?1:p;image.style.left=((a?.x??b.x)+(b.x-(a?.x??b.x))*q)+'px';image.style.top=((a?.y??b.y)+(b.y-(a?.y??b.y))*q)+'px';image.style.opacity=String(s.reduced?Math.sin(p*Math.PI):1);});
-        }
-        s.follow(image,id);s.animate(image,s.reduced?[{opacity:0},{opacity:.65},{opacity:0}]:[{opacity:0,scale:'.65',rotate:'-18deg'},{opacity:1,scale:'1',rotate:'0deg',offset:.3},{opacity:0,scale:'1.18',rotate:'12deg'}],400);
-      }
-      if(!path&&(result.actualShield>0||result.actualHeal>0)){
-        // Keep the existing support pulse where the art library has no matching image.
-        const host=s.el('div','battlefield-hit-host '+(result.actualShield>0?'is-guarding':'is-healing'),null,s.root);
-        const pulse=s.el('div','presentation-result-fx',null,host);pulse.style.animationDuration=(s.reduced?120:550)/(context.speed||1)+'ms';s.follow(host,id);
-      }
-      commitBattlefieldPlayerResult(result,step,s.local);
-      if(result.actualDamage>0)audio.play(step.sourceRole==='mage'||step.sourceRole==='bard'?'magic_impact':'physical_hit');
-      else if(result.actualHeal>0)audio.playResult('healing_result',{volume:step.sourceRole==='bard'?.7:1});else if(result.actualShield>0)audio.play('shield_cast');
-      await s.wait(180);
-    }
-    if(step.outcome?.label){const note=s.el('div','battlefield-trap-note battlefield-outcome-note',null,s.root);note.textContent=step.outcome.label;}
-    await s.resolveResults();await s.wait(250);
-  });
+  return playPhase6BattlefieldPresentation(step,context);
 }

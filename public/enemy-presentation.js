@@ -169,7 +169,7 @@ async function playEnemyMechanicPresentation(step, context={}) {
   const reduced=context.reducedMotion||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if(typeof enemyPaintedPaths==='function'&&typeof preloadPhase5Art==='function'){
     const paths=[...new Set((step.results||[]).flatMap(r=>enemyPaintedPaths(step,r)||[]))];
-    await preloadPhase5Art(paths.map(p=>'/assets/combat-fx/'+p),signal);
+    await preloadPhase5Art([...paths.map(p=>'/assets/combat-fx/'+p),...(typeof phase6IncomingArt==='function'?phase6IncomingArt(step):[])],signal);
   }
   const root=document.createElement('div');root.className='enemy-effect-overlay';root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
   let frame=0;const animations=[];
@@ -185,19 +185,20 @@ async function playEnemyMechanicPresentation(step, context={}) {
       // loading / playing its vine never delays the damage past contact.
       if(result.sharedFrom&&typeof playPhase5DruidGuard==='function')await playPhase5DruidGuard(result,context);
       const targetId=resolvePresentationTarget(result,step),owned=document.createElement('div');root.appendChild(owned);
-      const custom=typeof createEnemyChoreography==='function'?createEnemyChoreography(step,result,owned,{reduced,animations,speed}):null;
+      const custom=(typeof createPhase6Incoming==='function'?createPhase6Incoming(step,result,owned,{reduced,animations,speed}):null)||(typeof createEnemyChoreography==='function'?createEnemyChoreography(step,result,owned,{reduced,animations,speed}):null);
       const duration=custom?.duration||(reduced?400:profile[3]),contact=custom?.contact||.35;
       const effect=document.createElement('div'),shape=enemyEventShape(result,step,profile);
       effect.className='enemy-effect-shape enemy-effect-'+shape;effect.dataset.reduced=String(!!reduced);effect.style.animationDuration=duration*(1-contact)/speed+'ms';effect.hidden=true;owned.appendChild(effect);
       if(shape==='equation')effect.dataset.label='Σ';
       const beam=document.createElement('div');beam.className='enemy-effect-link';beam.hidden=true;owned.appendChild(beam);
       const projectile=document.createElement('span');projectile.className='enemy-effect-projectile enemy-projectile-'+profile[1];projectile.hidden=true;owned.appendChild(projectile);
-      const numbers=[];let lastRect=null,impacted=false,impactTime=Infinity;
+      const numbers=[];let lastRect=null,impacted=false,impactTime=Infinity,phase6Reaction=null;
       const start=performance.now();
       const place=()=>{
         const target=getBattleEffectAnchor(targetId),source=getBattleEffectAnchor(step.presentation?.visualOriginId||result.sourceId||step.sourceId);
         if(target)lastRect=target.rect;
         custom?.render(Math.min(1,(performance.now()-start)/(duration/speed)));
+        phase6Reaction?.render((performance.now()-impactTime)/1000*speed);
         if(lastRect){
           const r=lastRect,x=r.left+r.width/2,y=r.top+r.height/2;effect.style.left=x+'px';effect.style.top=y+'px';
           const occupied=[];numbers.forEach((n,i)=>{if(performance.now()-impactTime<750/speed)positionBattleFeedback(n,targetId,i,occupied);else n.hidden=true;});
@@ -212,7 +213,9 @@ async function playEnemyMechanicPresentation(step, context={}) {
       if(custom?.windupSfx&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
       await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
-        impacted=true;impactTime=performance.now();effect.hidden=!!custom||!lastRect;beam.hidden=true;projectile.hidden=true;
+        impacted=true;impactTime=performance.now();
+        if(typeof phase6ResultReaction==='function')phase6Reaction=phase6ResultReaction(result,owned,{reduced,lane:battleFeedbackEntries(result).length,animate:(n,k,ms)=>animations.push(n.animate(k,{duration:ms/speed,fill:'forwards'}))});
+        effect.hidden=!!custom||!lastRect;beam.hidden=true;projectile.hidden=true;
         const initialPositions=[];
         for(const entry of battleFeedbackEntries(result)){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';n.hidden=true;owned.appendChild(n);numbers.push(n);positionBattleFeedback(n,targetId,numbers.length-1,initialPositions);}
         if(typeof sfxManager!=='undefined')sfxManager.play(custom?.impactSfx||(result.kind==='heal'?'heal':result.kind==='shield'?'shield_cast':result.kind==='cleanse'?'cleanse':profile[2]),{signal,instance:step.sourceId});

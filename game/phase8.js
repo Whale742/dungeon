@@ -64,6 +64,8 @@ export function p8State(p,room) {
     p.role==='samurai'?`武魂 ${p.soul||0}/8${p.kyoutou?' · 狂刀':''}`:
     p.role==='gladiator'?`怒氣 ${p.rage||0} · 血祭 ${p.bloodStacks||0}${room.arena?.playerId===p.id?' · 死亡角鬥場':''}`:
     p.role==='augur'?`命債 ${(p.augurFateDebts || []).reduce((sum, d) => sum + d.amount, 0)}/60 · 牌象: ${p.augurCardState === 'reversed' ? '逆位' : p.augurCardState === 'upright' ? '正位' : '空象'} · 觀測: ${room.players[p.observedTargetId]?.name || '自身'}`:
+    p.role==='assassin'?`匿蹤 ${p.stealthStacks||0} · 追擊 ${p.followUpsThisRound||0}/${room.getAssassinFollowUpCap(p)}`:
+    p.role==='paladin'&&p.hp>0?'神聖嘲諷・受擊權重 ↑':
     p.role==='warrior'?`受傷攻擊 +${p.warriorStacks||0}/15`:'';
   return {resourceSummary:resource, fateBlessing, sageX:x, sageOperand:p.sageOperand,sagePhase:p.sagePhase,
     ...(p.role === 'augur' ? {
@@ -76,6 +78,10 @@ export function p8State(p,room) {
     ...(p.role==='sage'?{sageEquationPreview:sageEquationPreview(p,room)}:{}),
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
+    // Read-only presentation evidence, including protection on non-Paladin allies.
+    paladinFatalGuard:!!p.paladinFatalGuard,
+    paladinGrace:p.paladinGrace?{...p.paladinGrace}:null,
+    presentationShields:(p.p8Shields||[]).filter(s=>s.value>0&&s.until>=room.battleRound).map(s=>({kind:s.kind,value:s.value})),
     arenaActive:!!(room.arena||room.enemyArena) && (room.arena||room.enemyArena).playerId===p.id,
     arenaBlocked:!!(room.arena||room.enemyArena) && (room.arena||room.enemyArena).playerId!==p.id, noReviveThisFloor:p.noReviveFloor===room.floor,
     phase8Statuses:effects};
@@ -411,6 +417,7 @@ export const phase8Methods = {
     for(const p of Object.values(this.players)) {
       if(p.role==='paladin'&&p.hp>0) {
         if(p.paladinGloryCastedRound && this.battleRound === p.paladinGloryCastedRound + 1) {
+          const presentationBefore=this.getHpSnapshot();
           const tracked = p.paladinGloryTrackedDamage || 0;
           let gloryShield = Math.floor(tracked * 0.70);
           const penaltyRate = (p.equips || []).some(e => e.id === 'pal_cuirass') ? 0.15 : 0.40;
@@ -425,8 +432,10 @@ export const phase8Methods = {
           this.p8Log(`🛡️✨ **【榮耀讚歌】** 迴響！全隊獲得 **${gloryShield}** 點護盾（轉化本隊造成的 ${tracked} 點傷害${hasPenalty ? '，負面減半' : ''}，持續 2 回合）！持有護盾期間全體傷害提高 20%！`, 'buff');
           p.paladinGloryCastedRound = 0;
           p.paladinGloryTrackedDamage = 0;
+          this.p8PresentPaladinSupport(queue,p,'pal_glory_echo','榮耀迴響',presentationBefore);
         }
         if(p.paladinGrace && this.battleRound >= p.paladinGrace.startRound + 2) {
+          const presentationBefore=this.getHpSnapshot();
           const intercepted = p.paladinGrace.interceptedDamage || 0;
           const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
           const gainShield = !augurs.length ? (Math.random() < 0.50) : !this.interveneNegative(p, '代受恩典・不獲護盾', 50).failed;
@@ -440,6 +449,7 @@ export const phase8Methods = {
             this.p8Log(`🛡️ **${p.name}**【代受恩典】持續時間結束，未能獲得護盾（50% 機率判定）。`, 'info');
           }
           p.paladinGrace = null;
+          this.p8PresentPaladinSupport(queue,p,'pal_grace_end','恩典收束',presentationBefore);
         }
       }
     }
@@ -452,6 +462,17 @@ export const phase8Methods = {
         p.sagePhase=p.sageCycleRound?'solve':'hypothesis';
       }
     }
+  },
+  p8PresentPaladinSupport(queue,p,actionId,skillName,before) {
+    const after=this.getHpSnapshot(),results=[];
+    for(const target of after.players){
+      const old=before.players.find(v=>v.id===target.id);
+      const gained=Math.max(0,(target.tempHp||0)-(old?.tempHp||0));
+      if(gained>0)results.push({kind:'shield',targetId:target.id,actualShield:gained,targetBefore:old,targetAfter:target,hpSnapshot:after});
+    }
+    if(!results.length)results.push({kind:'status',targetId:p.id,targetBefore:before.players.find(v=>v.id===p.id),targetAfter:after.players.find(v=>v.id===p.id),hpSnapshot:after});
+    queue.push({type:'player_action',category:'SHIELD',sourceId:p.id,sourceRole:'paladin',actionId,skillName,
+      targetId:p.id,outcome:{type:'normal'},hpSnapshotBefore:before,hpSnapshot:after,results});
   },
   p8PaySageDebt(p) {
     if(p.role!=='sage'||!p.sageDebt||p.sageDebtScheduledRound===this.battleRound||p.hp<=0||p.stunnedNextTurn||p.isSurrendered||p.druidForm==='tree'||((this.arena||this.enemyArena)&&(this.arena||this.enemyArena).playerId!==p.id))return;

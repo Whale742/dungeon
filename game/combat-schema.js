@@ -22,6 +22,7 @@ export function playerStatuses(player, room, balance) {
   const statuses = mechanicStatuses(player, room);
   const add = (id, label, icon, turns = 0, extra = {}) => statuses.push({ id, label, icon, turns, ...extra });
   if (player.hp <= 0) add('downed', '倒下・本層無法行動', 'downed');
+  if (player.role==='paladin'&&player.hp>0) add('paladin_target_weight','神聖嘲諷・受擊權重 ↑','guard',0,{category:'BUFF',desc:'提高被選為目標的權重，不保證敵人鎖定。'});
   if (player.poisonTurns) add('poison', 'POISON', 'poison', player.poisonTurns, { stacks: player.poisonDmg, isNegative:true, category:'DEBUFF', isDot:true });
   if (player.burnTurns) add('burn', 'BURN', 'burn', player.burnTurns, { stacks: player.burnDmg, isNegative:true, category:'DEBUFF', isDot:true });
   if (player.fractureTurns) add('fracture', 'FRACTURE', 'fracture', player.fractureTurns, { stacks: player.fractureDmg, isNegative:true, category:'DEBUFF', isDot:true });

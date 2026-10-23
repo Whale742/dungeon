@@ -547,6 +547,7 @@ function enemyPresentationHarness() {
     replaceChildren(...nodes){this.children=nodes;}
     remove(){this.isConnected=false;}
     getBoundingClientRect(){return {left:100,right:180,top:150,width:80,height:90,bottom:240};}
+    animate(){return {cancel(){},finished:Promise.resolve()};}
   }
   const actor=new Node();
   const scope={DOMException,innerWidth:900,innerHeight:700,performance:{now:()=>clock},document:{body:{appendChild:n=>roots.push(n)},createElement:()=>new Node(),createElementNS:()=>new Node(),getElementById:id=>roots.find(n=>n.id===id&&n.isConnected),querySelectorAll:()=>[]},
@@ -1034,4 +1035,105 @@ test('A dead lava source still paints its authoritative explosion on the living 
   const root=h.scope.document.createElement('div');h.scope.getBattleEffectAnchor=id=>id==='dead-larva'?null:{x:360,y:240,rect:{width:80,height:90},element:root};
   const fx=h.scope.createEnemyChoreography({sourceId:'dead-larva',presentation:{mechanicId:'lava_larva',family:'lava'}},{kind:'damage',targetId:'ally',actualDamage:4},root,{reduced:false,animations:[],speed:1});
   fx.render(0);assert.equal(root.children[0].hidden,true);fx.render(fx.contact+.1);assert.equal(root.children[0].hidden,false);assert.equal(root.children[0].children[0].style.left,'360px');assert.equal(h.commits.length,0);fx.remove();
+});
+
+
+function phase6Fixtures(){
+  const source=readFileSync(new URL('../public/presentation-lab.js',import.meta.url),'utf8'),marker='const PHASE5_ACCEPTANCE_SCENES=Object.freeze(';
+  const start=source.indexOf(marker)+marker.length,end=source.indexOf('\n});',start)+2;
+  return structuredClone(Object.fromEntries(Object.entries(vm.runInNewContext('('+source.slice(start,end)+')')).filter(([id])=>id.startsWith('phase6_'))));
+}
+function phase6Harness(step,{reduced=false,missing=false,abortAt=Infinity}={}){
+  const nodes=[],commits=[],animations=[],preloaded=[],positions=[],sounds=[],controller=new AbortController();let clock=0;
+  class Node{
+    constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};nodes.push(this);}
+    appendChild(n){this.children.push(n);return n;}setAttribute(){}remove(){this.removed=true;}
+  }
+  const anchor=id=>missing?null:{id,x:id?.startsWith('enemy')?800:240,y:id?.startsWith('enemy')?200:600,rect:{width:80,height:90},element:new Node()};
+  const scope={applyHpSnapshot(){},DOMException,innerWidth:1200,innerHeight:800,performance:{now:()=>clock},document:{createElement:()=>new Node()},getBattleEffectAnchor:anchor,
+    positionBattleFeedback(n,id){n.style.left=anchor(id)?.x+'px';},resolvePresentationTarget:r=>r.targetEnemyId||r.targetId,
+    resolveCombatSfxProfile:()=>({key:'original-recording'}),battlefieldPaintedImage(parent,src,cls){const n=new Node();n.src=src;n.className=cls;parent.appendChild(n);return n;},
+    preloadPhase5Art:async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length,path);preloaded.push(path);}},
+    commitBattlefieldPlayerResult(r,_step,context){if(context.signal.aborted)return false;if(commits.includes(r.resultId))return false;commits.push(r.resultId);return true;}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),scope);
+  const signal=controller.signal,audioScope={play:(...a)=>sounds.push(a),playResult:(...a)=>sounds.push(a)};
+  const advance=ms=>{clock+=ms;if(clock>=abortAt)controller.abort();if(signal.aborted)throw new DOMException('cancelled','AbortError');};
+  let root;
+  scope.withBattlefieldSkillStage=async(_step,context,play)=>{
+    root=new Node();const stage={root,actor:new Node(),targetFor:id=>anchor(id)?.element,signal,reduced,local:{...context,signal,audioScope,speed:1},
+      el:(tag,cls,html,parent=root)=>{const n=new Node();n.className=cls;parent.appendChild(n);return n;},
+      follow(n,id){positions.push(id);n.hidden=!anchor(id);},startRenderer(){},
+      animate(n,keys,ms){animations.push({n,keys,ms});},wait:async ms=>advance(ms),tick:async(ms,render)=>{render(0);advance(ms/2);render(.5);advance(ms/2);render(1);},
+      resolveResults:async()=>{for(const r of step.results||[])scope.commitBattlefieldPlayerResult(r,step,{signal});}};
+    try{await play(stage);}finally{root.remove();}
+  };
+  return {scope,nodes,commits,animations,preloaded,positions,sounds,signal,getRoot:()=>root};
+}
+test('Phase 6 real engine fixtures keep exact result order, assets and reduced motion',async()=>{
+  const fixtures=phase6Fixtures();assert.equal(Object.keys(fixtures).length,114);
+  for(const [id,fixture] of Object.entries(fixtures))for(const step of fixture.steps){
+    if(['enemy_mechanic','boss_action'].includes(step.type))continue;
+    for(const reduced of [false,true]){
+      const h=phase6Harness(step,{reduced});await h.scope.playPhase6BattlefieldPresentation(step,{});
+      assert.deepEqual(h.commits,step.results.map(r=>r.resultId),id);assert.ok(h.getRoot().removed);
+      assert.ok(h.nodes.filter(n=>n.src).every(n=>/\.(png|webp)$/.test(n.src)),id);
+      if(reduced)assert.ok(h.animations.every(a=>a.keys.every(k=>!k.translate&&!k.scale&&!k.rotate&&!k.transform)),id+' must fade without moving');
+      if(step.actionId==='s_smoke')assert.equal(h.getRoot().dataset.critical,'false');
+      if(step.sourceRole==='bard')assert.ok(h.nodes.some(n=>n.src?.endsWith('/glowing-strings.png'))&&h.nodes.some(n=>n.src?.endsWith('/pluck-streak.png')));
+    }
+  }
+});
+test('Phase 6 cancel before contact never applies results and removes the owned layer',async()=>{
+  const fixtures=phase6Fixtures();
+  for(const role of ['warrior','paladin','mage','bard','assassin']){
+    const step=Object.values(fixtures).find(f=>f.role===role&&f.steps[0].actionId==='basic').steps[0];
+    const h=phase6Harness(step,{abortAt:1});await assert.rejects(h.scope.playPhase6BattlefieldPresentation(step,{}),e=>e.name==='AbortError');
+    assert.equal(h.commits.length,0);assert.ok(h.getRoot().removed);
+    const missing=phase6Harness(step,{missing:true});await missing.scope.playPhase6BattlefieldPresentation(step,{});assert.deepEqual(missing.commits,step.results.map(r=>r.resultId));
+  }
+});
+test('Phase 6 Paladin echo and ending support preserve the authoritative shield deltas',t=>{
+  for(const half of [false,true]){
+    const {room,player}=phase1Battle(t,'paladin');room.addPlayer({id:'ally',join(){},emit(){}},'Ally');room.selectRole('ally','warrior');
+    player.paladinGloryCastedRound=1;player.paladinGloryTrackedDamage=50;room.battleRound=2;t.mock.method(Math,'random',()=>half?.1:.9);
+    const q=[];room.p8RoundStart(q);const step=q.find(s=>s.actionId==='pal_glory_echo');assert.ok(step);
+    assert.equal(step.hpSnapshotBefore.players.find(p=>p.id===player.id).tempHp,0);
+    for(const r of step.results){assert.equal(r.actualShield,half?17:35);assert.equal(r.targetAfter.tempHp-r.targetBefore.tempHp,r.actualShield);}
+    assert.equal(player.paladinGloryCastedRound,0);
+  }
+});
+test('Phase 6 incoming growth, fatal protection and grace never add a damage result',async()=>{
+  const fixtures=phase6Fixtures();
+  for(const name of ['growth','growth_shield','growth_cap','fatal','grace_hit']){
+    const fixture=fixtures['phase6_event_'+name];const h=enemyPresentationHarness();
+    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),h.scope);
+    h.scope.battlefieldPaintedImage=(parent,src,cls)=>{const n=h.scope.document.createElement('img');n.src=src;n.className=cls;parent.appendChild(n);return n;};
+    for(const step of fixture.steps)await h.scope.playEnemyMechanicPresentation(step,{speed:1.5,reducedMotion:true});
+    assert.equal(h.commits.length,fixture.steps.flatMap(s=>s.results).length,name);assert.equal(h.frames.size,0);
+    const walk=n=>[n,...n.children.flatMap(walk)],images=h.roots.flatMap(walk).filter(n=>n.src);
+    if(name==='growth')assert.ok(images.some(n=>n.dataset.reaction==='warrior-growth'));
+    if(['growth_shield','growth_cap'].includes(name))assert.ok(!images.some(n=>n.dataset.reaction==='warrior-growth'));
+    if(name==='fatal')assert.ok(images.some(n=>n.dataset.reaction==='fatal-guard'));
+    if(name==='grace_hit'){
+      assert.ok(images.some(n=>n.dataset.reaction==='grace-intercept'));
+      const redirect=h.commits.find(r=>r.sharedFrom);assert.equal(redirect.targetId,'hero');assert.equal(redirect.sharedFrom,'ally');
+      assert.equal(h.commits.find(r=>r.targetId==='ally').actualDamage,0);
+    }
+  }
+});
+
+
+test('Phase 6 feedback never labels a resource/status update as a second critical hit',()=>{
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),h.scope);
+  assert.equal(h.scope.phase6FeedbackEntries({kind:'status',outcome:{type:'critical'}}).length,0);
+  assert.ok(h.scope.phase6FeedbackEntries({kind:'damage',actualDamage:12,actualHpDamage:12,outcome:{type:'critical'}}).some(e=>e.text==='暴擊'));
+  assert.ok(!h.scope.phase6FeedbackEntries({kind:'damage',actualDamage:0,outcome:{type:'critical'}}).some(e=>e.text==='暴擊'));
+});
+test('Phase 6 snapshots expose actual stealth, shield sources and consumed fatal guard',t=>{
+  const {room,player}=phase1Battle(t,'assassin');player.stealthStacks=3;player.followUpsThisRound=1;
+  let snap=room.getHpSnapshot().players.find(p=>p.id===player.id);assert.ok(snap.resourceSummary.includes('匿蹤 3'));assert.ok(snap.resourceSummary.includes('1/2'));
+  player.paladinFatalGuard=true;player.hp=2;room.p8GrantShield(player,1,2,'paladin_basic');
+  snap=room.getHpSnapshot().players.find(p=>p.id===player.id);assert.equal(snap.paladinFatalGuard,true);assert.ok(snap.presentationShields.some(s=>s.kind==='paladin_basic'));
+  room.applyDamageToPlayer(player,100,{trueDamage:true});snap=room.getHpSnapshot().players.find(p=>p.id===player.id);assert.equal(snap.hp,1);assert.equal(snap.paladinFatalGuard,false);assert.equal(snap.stealthStacks,3);
 });

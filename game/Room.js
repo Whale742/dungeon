@@ -2658,7 +2658,7 @@ export class Room {
           const drain = Math.max(1, Math.round(pl.maxHp * 0.20));
           pl.hp = Math.max(1, pl.hp - drain);
           log.push({ text: `🩸 【狂亂殺戮曲】狂亂反噬代價生效！**${pl.name}** 承受 20% 最大生命反噬，扣除 **${drain}** 點生命！（❤️ ${pl.hp}/${pl.maxHp}）`, type: 'damage' });
-          visualEvents.push({ type: 'self_damage', targetId: pl.id, value: drain });
+          visualEvents.push({ type: 'self_damage', targetId: pl.id, value: drain, label: '狂亂反噬' });
         }
       }
     }

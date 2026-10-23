@@ -1,0 +1,51 @@
+.phase6-art{position:absolute;width:clamp(80px,12vw,145px);height:clamp(80px,17vh,145px);object-fit:contain;translate:-50% -50%;pointer-events:none}
+.phase6-art.phase6-heavy{width:clamp(110px,16vw,195px);height:clamp(110px,23vh,195px)}
+.phase6-art.phase6-secondary{width:clamp(65px,9vw,110px);height:clamp(65px,13vh,110px)}
+.phase6-art.phase6-flight{width:110px;height:80px}
+.phase6-flight[data-art=ribbon],.phase6-flight[data-art=blood],.phase6-flight[data-art=link]{width:140px;height:48px}
+.phase6-flight[data-art=shadow]{width:145px;height:100px}
+.phase6-vertical{transform:rotate(80deg)}
+.phase6-gold{filter:sepia(.65) saturate(.75) brightness(1.18)}
+.phase6-charge,.phase6-orbit{width:clamp(100px,15vw,175px);height:clamp(100px,21vh,175px)}
+.phase6-orbit{filter:blur(1px);mix-blend-mode:screen}
+.phase6-burst-echo{mix-blend-mode:screen;filter:blur(1px)}
+.phase6-battlefield[data-misfire=true] [data-art=core]{filter:hue-rotate(55deg) saturate(.8) brightness(.72)}
+.phase6-battlefield[data-role=mage] [data-art=blood]{filter:hue-rotate(310deg) saturate(.7)}
+.phase6-instrument{position:absolute;width:150px;height:115px;translate:-50% -50%;pointer-events:none}
+.phase6-string,.phase6-pluck{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:center}
+.phase6-pluck{mix-blend-mode:screen}
+.phase6-instrument[data-off-key=true]{filter:saturate(.45) brightness(.65)}
+[data-song=b_nocturne] .phase6-song,[data-song=b_nocturne] .phase6-instrument,[data-song=b_nocturne] [data-art=pluck]{filter:hue-rotate(190deg) saturate(.65)}
+[data-song=b_frenzy] .phase6-song,[data-song=b_frenzy] .phase6-instrument,[data-song=b_frenzy] [data-art=ribbon],[data-song=b_frenzy] [data-art=pluck]{filter:hue-rotate(310deg) saturate(.8)}
+.phase6-reaction{width:100px;height:100px}
+.phase6-reaction[data-reaction=warrior-growth]{filter:sepia(.9) saturate(.7) brightness(.8)}
+.phase6-growth{position:absolute;color:#d4b371;font-size:13px;white-space:nowrap;pointer-events:none}
+.phase6-fragment{width:80px;height:80px;filter:brightness(1.6) saturate(.8)}
+.phase6-weakpoint{width:45px!important;height:45px!important}
+.phase6-battlefield[data-critical=true] [data-art=fatal]{filter:saturate(1.3) brightness(1.2)}
+.phase6-guard-stream{position:absolute;width:120px;height:45px;object-fit:contain;translate:-50% -50%;filter:sepia(.7) brightness(1.25)}
+@media(max-width:600px){.phase6-art.phase6-heavy{width:125px;height:125px}.phase6-instrument{width:125px;height:100px}.phase6-art.phase6-flight{width:95px;height:65px}.phase6-flight[data-art=blood],.phase6-flight[data-art=ribbon]{width:115px;height:38px}}
+
+.phase6-art[data-art=steel],.phase6-art[data-art=holy]{width:105px;height:105px}
+.phase6-art.phase6-heavy[data-art=steel],.phase6-art.phase6-heavy[data-art=holy]{width:120px;height:120px}
+
+.phase6-art.phase6-self-impact{width:80px;height:80px}
+.phase6-art[data-art=ribbon]:not(.phase6-flight){width:100px;height:100px}
+
+.phase6-sleep-hint{position:absolute;font-size:18px;color:#c7b9e5;text-shadow:0 2px 3px #131822;pointer-events:none;translate:-50% -50%}
+
+/* Keep the existing Lab's authoritative snapshot HUD inside narrow previews. */
+@media(max-width:900px){
+  .lab-phase6-preview .lab-mock-hud{height:auto;padding:0 8px}
+  .lab-phase6-preview .lab-mock-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
+  .lab-phase6-preview .lab-mock-player-chip{min-width:0;flex-direction:column;padding:3px;gap:2px;text-align:center}
+  .lab-phase6-preview .combat-resource-summary{font-size:10px;overflow-wrap:anywhere}
+  .lab-phase6-preview .lab-mock-hud>:not(.lab-mock-party){display:none}
+}
+@media(max-width:900px) and (max-height:500px){
+  body.lab-body.lab-phase6-preview{height:auto;overflow:auto}
+  .lab-phase6-preview .lab-container{flex-direction:column}
+  .lab-phase6-preview .lab-sidebar{position:relative;width:100%;max-height:300px}
+  .lab-phase6-preview .lab-main{flex:none;height:auto;overflow:visible}
+  .lab-phase6-preview .lab-preview-area{flex:none;height:390px;padding:8px}
+}
