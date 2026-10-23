@@ -143,8 +143,8 @@ async function playBossIntro(monster, context = {}) {
     <div class="boss-encounter-layout game-container">
       <header class="app-header" style="visibility: hidden; opacity: 0; pointer-events: none;"></header>
       <main class="main-content" style="background: transparent; border: 0; box-shadow: none; backdrop-filter: none; pointer-events: none;">
-        <div class="boss-encounter-story-section exploration-trap enter">
-          <div class="boss-encounter-story exploration-trap-story" aria-live="off"></div>
+        <div class="boss-encounter-story-section">
+          <div class="boss-encounter-story" aria-live="off"></div>
         </div>
       </main>
     </div>
@@ -180,8 +180,8 @@ async function playBossIntro(monster, context = {}) {
 
       if (paragraphs.length)await typeBossStoryParagraphs(storyElement,paragraphs,context.signal,timing,context.speed||1);
       beat('encounter_story_complete');stage.dataset.phase='reading';
-      await wait(600);
-      stage.classList.add('is-darkening');beat('encounter_darken');
+      await wait(timing.storyHold ?? 850);
+      stage.dataset.phase='darkening';stage.classList.add('is-darkening');beat('encounter_darken');
       storySection?.classList.add('is-exiting');
       if(typeof bgmManager!=='undefined')void bgmManager.prepareBoss(context.signal);
       void sound('boss_warning');beat('warning_audio_start');

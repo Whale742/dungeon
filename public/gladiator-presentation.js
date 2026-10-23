@@ -176,26 +176,55 @@ async function playGladiatorAction(step,s){
 }
 async function playGladiatorChallengePresentation(step,s){
   const {owner,animate,wait,emit,fx,sound,burst,reduced,resolve}=s;
-  const actor=owner.positions.get(step.sourceId),motion=owner.cards.get(step.sourceId).querySelector('.gladiator-motion');
-  animate(motion,[{transform:'scale(1)'},{transform:'translateY(12px) scale(.96)',offset:.65},{transform:'scale(1)'}],220);
-  emit('gladiator_challenge_sink');await wait(180);
-  const boss=owner.positions.get('monster'),landing={x:parseFloat(boss.style.left)-95-35,y:parseFloat(boss.style.top)+95};
-  const start={x:parseFloat(actor.style.left)+40,y:parseFloat(actor.style.top)-20};
+  const t=PRESENTATION_CONFIG.gladiator.challenge;
+  const motion=s.actorMotion||owner.cards?.get(step.sourceId)?.querySelector('.gladiator-motion');
+  const geometry=()=>s.challengeGeometry?s.challengeGeometry():(()=>{
+    const actor=owner.positions.get(step.sourceId),boss=owner.positions.get('monster');
+    return {start:{x:parseFloat(actor.style.left)+40,y:parseFloat(actor.style.top)-20},landing:{x:parseFloat(boss.style.left)-130,y:parseFloat(boss.style.top)+95}};
+  })();
+  const settle=async()=>{
+    for(const result of step.results||[])await resolve(result);
+    if(s.applySnapshot)s.applySnapshot();else gladiatorApply(owner,step.hpSnapshot);
+  };
+  const initial=geometry();if(!initial){await settle();return;}
+  const {start}=initial;
   const sword=fx('gladiator-gladius',start.x,start.y,'<svg viewBox="-60 -60 120 120" aria-hidden="true"><g class="gladiator-gladius-motion"><g transform="rotate(-90)"><path d="M-9-32H9V-2L0 58-9-2Z" fill="#c2b9a2" stroke="#745434" stroke-width="2"/><path d="M0-32V51" stroke="#e6d6b1"/><path d="M-22-34H22V-27H-22Z" fill="#bd8c46"/><path d="M-5-57H5V-34H-5Z" fill="#44271c" stroke="#bd8c46" stroke-width="2"/></g></g></svg>');
   const blade=sword.querySelector('.gladiator-gladius-motion');
-  const keys=Array.from({length:25},(_,i)=>{const p=i/24;return{transform:`translate(${(landing.x-start.x)*p}px,${(landing.y-start.y)*p-Math.sin(p*Math.PI)*(reduced?45:220)}px)`};});
-  sound('throw');emit('gladiator_gladius_throw');animate(sword,keys,650);animate(blade,[{transform:'rotate(0)'},{transform:'rotate(865deg)'}],650);
-  for(let i=0;i<(reduced?1:3);i++){
-    const ghost=fx('gladiator-gladius gladiator-gladius-ghost',start.x-i*12,start.y+i*5,sword.innerHTML);
-    animate(ghost,keys.map((key,index)=>({...key,opacity:index<18?.18:0})),610+i*24);
+  emit('gladiator_challenge_sink');
+  if(motion)animate(motion,[{transform:'translateY(0)'},{transform:`translateY(${reduced?2:12}px) scale(.96)`}],t.prepare);
+  animate(sword,[{transform:'translate(0,0) rotate(-12deg)'},{transform:`translate(0,${reduced?-3:-22}px) rotate(-28deg)`}],t.prepare);
+  await wait(t.prepare);
+  if(motion)animate(motion,[{transform:`translateY(${reduced?2:12}px) scale(.96)`},{transform:'translateY(0) scale(1)'}],t.impact);
+  const flightPoint=p=>{
+    // Fast release, readable apex, then acceleration into the ground.
+    const q=p<.3?p/.3*.42:p<.7?.42+(p-.3)/.4*.18:.6+Math.pow((p-.7)/.3,1.6)*.4;
+    const g=geometry();if(!g){sword.hidden=true;return null;}sword.hidden=false;
+    return {x:g.start.x+(g.landing.x-g.start.x)*q,y:g.start.y+(g.landing.y-g.start.y)*q-(reduced?3:22)*(1-q)-Math.sin(q*Math.PI)*(reduced?24:220)};
+  };
+  for(const a of sword.getAnimations())a.cancel();sword.style.transform='none';
+  sound('throw');emit('gladiator_gladius_throw');
+  // One readable turn instead of 865 degrees; final orientation matches planting.
+  animate(blade,[{transform:'rotate(-28deg)'},{transform:`rotate(${reduced?90:450}deg)`}],t.flight);
+  if(s.tick){let spun=false;await s.tick(t.flight,p=>{if(!spun&&p>=.45){sound('spin',.2);spun=true;}const point=flightPoint(p);if(point){sword.style.left=point.x+'px';sword.style.top=point.y+'px';sword.style.transform='none';}});}
+  else {
+    const keys=Array.from({length:49},(_,i)=>{const point=flightPoint(i/48);return {transform:`translate(${point.x-start.x}px,${point.y-start.y}px)`};});
+    animate(sword,keys,t.flight);
+    await wait(t.flight*.45);sound('spin',.2);await wait(t.flight*.55);
   }
-  await wait(300);sound('spin',.2);await wait(350);
-  for(const a of sword.getAnimations())a.cancel();sword.style.left=landing.x+'px';sword.style.top=landing.y+'px';
-  sword.classList.add('gladiator-gladius-planted');blade.style.transform='rotate(145deg)';
-  sound('ground');burst(landing.x,landing.y,'sand',9);
-  fx('gladiator-ground-crack',landing.x,landing.y,'<svg viewBox="0 0 100 30"><path d="M50 0L22 9 5 5M50 0L70 7 96 2M50 0L53 20 40 29"/></svg>');
-  emit('gladius_landing');for(const result of step.results||[])await resolve(result);
-  gladiatorApply(owner,step.hpSnapshot);await wait(340);
+  for(const a of sword.getAnimations())a.cancel();for(const a of blade.getAnimations())a.cancel();
+  const landed=geometry();if(!landed){await settle();return;}const landing=landed.landing;
+  sword.style.left=landing.x+'px';sword.style.top=(landing.y-35)+'px';sword.style.transform='none';
+  sword.classList.add('gladiator-gladius-planted');blade.style.transform='rotate(90deg)';
+  const crack=fx('gladiator-ground-crack',landing.x,landing.y,'<svg viewBox="0 0 100 30"><path d="M50 0L22 9 5 5M50 0L70 7 96 2M50 0L53 20 40 29"/></svg>');
+  s.followLanding?.(sword,crack);
+  sound('ground');sound('stone',.3);burst(landing.x,landing.y,'sand',9);
+  animate(blade,[{transform:'rotate(90deg)'},{transform:`rotate(${reduced?90:93}deg)`,offset:.25},{transform:'rotate(89deg)',offset:.6},{transform:'rotate(90deg)'}],t.impact);
+  emit('gladius_landing');await wait(t.impact);
+  await settle();
+  emit('gladiator_challenge_established');await wait(t.hold);
+  emit('gladiator_challenge_fade');
+  for(const node of [sword,crack])animate(node,[{opacity:1},{opacity:0}],t.fade);
+  await wait(t.fade);sword.remove();crack.remove();
 }
 async function playGladiatorArenaEnter(step,s){
   const {owner,animate,wait,emit,sound,burst,reduced}=s,t=PRESENTATION_CONFIG.gladiator;

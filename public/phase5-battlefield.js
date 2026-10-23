@@ -222,7 +222,7 @@ async function playBattlefieldOnmyoji(step,context) {
 
 async function playBattlefieldGladiator(step,context) {
   await preloadPhase5Art([PHASE5_ART.slash,PHASE5_ART.spark,PHASE5_ART.blood],context.signal);
-  await withBattlefieldSkillStage(step,context,async s=>{
+  await withBattlefieldSkillStage(step,{...context,skipCastAudio:step.actionId==='g_arena'&&step.outcome?.type==='challenge'},async s=>{
     const audio=s.local.audioScope,meta={...step.gladiatorPresentation,...step.arenaPresentation};
     if(step.type==='arena_enter') {
       // Isolation is established only by the server's arena snapshot.
@@ -230,8 +230,29 @@ async function playBattlefieldGladiator(step,context) {
       await s.wait(250);
     }
     if(step.actionId==='g_arena'&&step.outcome?.type==='challenge') {
-      phase5Pulse(s,PHASE5_ART.slash,battlefieldPlayerTarget(step),'strike',260);
-      audio.play('air_pass',{noHold:true});await s.wait(220);
+      const targetId=step.targetEnemyId||step.hpSnapshotBefore?.monster?.instanceId||battlefieldPlayerTarget(step),pace=PRESENTATION_CONFIG.gladiator.pace;
+      const geometry=()=>{
+        const a=getBattleEffectAnchor(step.sourceId),b=getBattleEffectAnchor(targetId);
+        if(!a||!b)return null;
+        const scale=Math.min(innerWidth/1440,innerHeight/810)||1,left=(innerWidth-1440*scale)/2,top=(innerHeight-810*scale)/2;
+        return {start:{x:(a.x-left)/scale,y:(a.y-top)/scale-20},landing:{x:(b.x-left-b.rect.width*.24)/scale,y:(b.rect.bottom-top)/scale-8}};
+      };
+      const fx=(cls,x,y,html)=>{const n=s.el('div',cls,html);s.position(n,x,y);return n;};
+      await playGladiatorChallengePresentation(step,{
+        owner:{},actorMotion:s.actor,reduced:s.reduced,challengeGeometry:geometry,
+        animate:(n,keys,ms)=>s.animate(n,keys,ms*pace),wait:ms=>s.wait(ms*pace),
+        tick:(ms,update)=>s.tick(ms*pace,update),fx,
+        emit:beat=>context.onTiming?.(beat,{step}),
+        sound:(cue,volume=.5)=>audio.play(GLADIATOR_SFX[cue],{noHold:true,volume,maxDuration:.28}),
+        burst:(x,y)=>{for(let i=0;i<(s.reduced?2:9);i++){
+          const n=fx('gladiator-fragment gladiator-fragment-sand',x,y);
+          s.animate(n,[{opacity:.8,transform:'translate(0,0)'},{opacity:0,transform:`translate(${(i*47%90)-45}px,${-12-i%3*10}px)`}],300*pace);
+        }},
+        followLanding:(...nodes)=>s.startRenderer(()=>{const g=geometry();for(const n of nodes){n.hidden=!g;if(g)s.position(n,g.landing.x,g.landing.y-(n===nodes[0]?35:0));}}),
+        resolve:result=>{commitBattlefieldPlayerResult(result,step,s.local);},
+        applySnapshot:()=>{if(!s.signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);}
+      });
+      return;
     }
     for(const result of step.results||[]) {
       const id=resolvePresentationTarget(result,step),damage=result.kind==='damage';

@@ -50,4 +50,6 @@ body.is-exploring .main-content,
 }
 
 .encounter-scene-held { pointer-events: none; }
+/* Retain the scene backdrop without competing event text or controls. */
+.encounter-scene-held > * { visibility:hidden; }
 .boss-encounter-stage { background: transparent; }

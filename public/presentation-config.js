@@ -118,11 +118,13 @@ const PRESENTATION_CONFIG = Object.freeze({
   },
   gladiator: {
     pace: 1.12,
+    challenge: { prepare: 360, flight: 1000, impact: 300, hold: 800, fade: 250 },
     selfSlash: 180, selfBlood: 120, warRoar: 280,
     arenaDarken: 300, arenaWalls: 350, arenaWalk: 300, arenaSettle: 200,
     rageConsume: 240, triumphTransfer: 240, arenaExit: 500
   },
   bossEncounter: {
+    storyHold: 850,
     darkenDuration: 2000,
     warningRevealAt: 3000,
     warningEntry: 460,

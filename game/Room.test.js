@@ -1344,20 +1344,20 @@ test('Shop departure waits for all connected players and normal/prep/wandering b
   const normal=fixture(t,'assassin');normal.room.handleShopEvent({col:2});assert.equal(normal.room.currentEvent.canSteal,false);assert.doesNotMatch(normal.room.handleShopAction('solo','steal').message,/奸商|黑市/);
 });
 function encounterOpeningHarness({abortAt=Infinity}={}){
-  const beats=[],sounds=[],controller=new AbortController();let waits=0;
+  const beats=[],sounds=[],durations=[],controller=new AbortController();let waits=0;
   class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){},remove(){}};this.hidden=true;this.textContent='';}appendChild(n){this.children.push(n);}replaceChildren(){this.children=[];}querySelector(selector){return this.parts?.[selector]||null;}remove(){this.removed=true;}}
   const stage=new Node(),story=new Node(),storySection=new Node(),warning=new Node(),impact=new Node(),art=new Node(),name=new Node();name.parts={h1:new Node(),span:new Node()};stage.parts={'.boss-encounter-story':story,'.boss-encounter-story-section':storySection,'.boss-warning':warning,'.boss-encounter-impact-stage':impact,'.boss-encounter-art':art,'.boss-encounter-name':name,'.boss-encounter-resistances':new Node()};
-  const scope={DOMException,AbortController,performance:{now:()=>waits},document:{createElement:()=>new Node(),createTextNode:text=>({textContent:text})},PRESENTATION_CONFIG:{bossEncounter:{warningRevealAt:3000,warningEntry:460,warningHold:750,warningExit:360,preBossBeat:180,bossSettle:560,bossHold:100}},sfxManager:{preload:async()=>{},duck(){}},createSfxPresentationScope:()=>({play(){},hold:async()=>{}}),waitForPresentation:async()=>{if(++waits===abortAt)controller.abort();if(controller.signal.aborted)throw new DOMException('cancelled','AbortError');}};
+  const scope={DOMException,AbortController,performance:{now:()=>waits},document:{createElement:()=>new Node(),createTextNode:text=>({textContent:text})},PRESENTATION_CONFIG:{bossEncounter:{warningRevealAt:3000,warningEntry:460,warningHold:750,warningExit:360,preBossBeat:180,bossSettle:560,bossHold:100}},sfxManager:{preload:async()=>{},duck(){}},createSfxPresentationScope:()=>({play(){},hold:async()=>{}}),waitForPresentation:async ms=>{durations.push(ms);if(++waits===abortAt)controller.abort();if(controller.signal.aborted)throw new DOMException('cancelled','AbortError');}};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-phase.js',import.meta.url),'utf8'),scope);
   scope.createBattlePhaseStage=()=>stage;scope.handoffBossPortrait=async(s,a,ctx)=>{await ctx.revealHud();return;};
   const context={encounter:true,signal:controller.signal,onTiming:name=>beats.push(name),playSound:name=>{sounds.push(name);if(name==='boss_warning')assert.equal(story.children.map(p=>p.children.map(c=>c.textContent).join('')).join(''),'第一段。第二段！');},revealEncounterScene:()=>beats.push('scene_released'),revealHud:()=>beats.push('hud')};
-  return {scope,context,stage,beats,sounds,controller};
+  return {scope,context,stage,beats,sounds,controller,durations};
 }
 test('Encounter story completes before warning, entrance, HUD and Round 1; abort never reveals the battle',async()=>{
   const h=encounterOpeningHarness();h.scope.playRoundStartBanner=async()=>h.beats.push('round');
   await h.scope.playBattlePhaseOpening({name:'Boss',encounterStory:'第一段。\n\n第二段！'},1,h.context);
   const names=['encounter_story_complete','encounter_darken','warning_audio_start','warning_entry','warning_complete','scene_released','boss_art_entry','boss_portrait_handoff','hud','round'];
-  for(let i=1;i<names.length;i++)assert.ok(h.beats.indexOf(names[i])>h.beats.indexOf(names[i-1]),names.join(' -> '));assert.ok(h.stage.removed);
+  for(let i=1;i<names.length;i++)assert.ok(h.beats.indexOf(names[i])>h.beats.indexOf(names[i-1]),names.join(' -> '));assert.ok(h.stage.removed);assert.ok(h.durations.includes(850));assert.doesNotMatch(h.stage.innerHTML,/exploration-trap/);
   const aborted=encounterOpeningHarness({abortAt:2});await assert.rejects(aborted.scope.playBattlePhaseOpening({name:'Boss',encounterStory:'第一段。\n\n第二段！'},1,aborted.context),{name:'AbortError'});assert.ok(aborted.stage.removed);assert.ok(!aborted.beats.includes('hud'));assert.equal(aborted.sounds.length,0);
 });
 test('Same-round room updates cannot reveal a gated encounter, and abort releases the inert previous view',async()=>{
@@ -1383,4 +1383,44 @@ test('Mimic ambush keeps its real two-or-three enemy formation and uses the shar
   const {room}=fixture(t);room.handleChestEvent({isMimic:true,col:2});assert.equal(room.currentEvent.isMimic,true);
   const result=room.handleChestAction('solo','open');assert.equal(result.isMimic,true);assert.equal(room.state,'IN_BATTLE');assert.equal(room.currentEvent,null);
   assert.ok(room.enemies.length>=2&&room.enemies.length<=3);assert.ok(room.enemies.every(e=>e.isMimicAmbush));assert.match(room.currentMonster.encounterStory,/寶箱猛然張開/);assert.equal(room.getClientState().battleRound,1);
+});
+
+
+test('Gladiator challenge has five readable beats, lands before authority and scales only its own timing',async()=>{
+  for(const reduced of [false,true])for(const abortAt of [Infinity,1,2,3]){
+    const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/presentation-config.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/gladiator-presentation.js',import.meta.url),'utf8'),scope);
+    const beats=[],waits=[],nodes=[],animations=[];let elapsed=0,count=0;
+    const blade={style:{},getAnimations:()=>[]};
+    const fx=(cls,x,y)=>{const n={cls,style:{left:x+'px',top:y+'px'},classList:{add(){}},querySelector:()=>blade,getAnimations:()=>[],remove(){this.removed=true;}};nodes.push(n);return n;};
+    const s={owner:{},actorMotion:{},reduced,challengeGeometry:()=>({start:{x:100,y:300},landing:{x:700,y:400}}),fx,
+      animate:(node,keys,ms)=>animations.push({node,keys,ms}),emit:name=>beats.push([name,elapsed]),sound(){},burst(){},
+      wait:async ms=>{waits.push(ms);elapsed+=ms;if(++count===abortAt)throw new DOMException('cancelled','AbortError');},
+      resolve:async()=>beats.push(['resolve',elapsed]),applySnapshot:()=>beats.push(['snapshot',elapsed])};
+    const play=scope.playGladiatorChallengePresentation({sourceId:'hero',results:[{kind:'status'}]},s);
+    if(abortAt!==Infinity){await assert.rejects(play,{name:'AbortError'});assert.ok(!beats.some(([name])=>name==='resolve'));continue;}
+    await play;
+    assert.equal(elapsed,2710);assert.equal(Math.round(elapsed*scope.PRESENTATION_CONFIG.gladiator.pace),3035);
+    const index=name=>beats.findIndex(([n])=>n===name);
+    assert.ok(index('gladius_landing')<index('resolve'));assert.ok(index('resolve')<index('gladiator_challenge_established'));assert.ok(index('gladiator_challenge_established')<index('gladiator_challenge_fade'));
+    assert.equal(beats.find(([n])=>n==='resolve')[1]-beats.find(([n])=>n==='gladius_landing')[1],300);
+    assert.ok(nodes.every(n=>n.removed));assert.equal(scope.PRESENTATION_CONFIG.gladiator.arenaWalk,300);assert.equal(scope.PRESENTATION_CONFIG.gladiator.selfSlash,180);
+    assert.ok(animations.some(a=>a.ms===1000&&a.node===blade));
+  }
+});
+
+test('Live challenge uses the chosen enemy anchor, follows its movement and commits each result only after landing',async()=>{
+  const anchors={hero:{x:100,y:400,rect:{width:80,bottom:450}},enemy_1:{x:800,y:300,rect:{width:200,bottom:420}}},renderers=[],calls=[],source={style:{}},result={kind:'status',targetId:'hero'};
+  const scope={AugurPresentationEngine:class{},innerWidth:1440,innerHeight:810,Image:class{decode(){return Promise.resolve();}},PRESENTATION_CONFIG:{gladiator:{pace:1.12}},GLADIATOR_SFX:{ground:'physical_hit'},
+    getBattleEffectAnchor:id=>anchors[id],battlefieldPlayerTarget:()=> 'hero',commitBattlefieldPlayerResult:r=>calls.push(r),applyHpSnapshot:s=>calls.push(s)};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8'),scope);
+  scope.withBattlefieldSkillStage=async(step,context,play)=>{assert.equal(context.skipCastAudio,true);return play({actor:source,reduced:false,signal:new AbortController().signal,local:{audioScope:{play(){}}},el:()=>({}),position:(n,x,y)=>Object.assign(n,{x,y}),startRenderer:f=>renderers.push(f),animate(){},wait:async()=>{},tick:async()=>{}});};
+  scope.playGladiatorChallengePresentation=async(step,s)=>{
+    assert.equal(calls.length,0);assert.equal(s.actorMotion,source);
+    assert.deepEqual({...s.challengeGeometry().landing},{x:752,y:412});
+    const sword={},crack={};s.followLanding(sword,crack);anchors.enemy_1.x=900;renderers[0]();assert.equal(sword.x,852);assert.equal(sword.y,377);assert.equal(crack.y,412);
+    delete anchors.enemy_1;renderers[0]();assert.equal(sword.hidden,true);assert.equal(s.challengeGeometry(),null);
+    await s.resolve(result);s.applySnapshot();
+  };
+  const snapshot={players:[]};await scope.playBattlefieldGladiator({actionId:'g_arena',outcome:{type:'challenge'},sourceId:'hero',targetEnemyId:'enemy_1',results:[result],hpSnapshot:snapshot},{});
+  assert.deepEqual(calls,[result,snapshot]);
 });
