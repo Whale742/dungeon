@@ -80,7 +80,7 @@ function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {
   const duration=reduced?650:baseDuration,contact=reduced?.35:baseContact;
   const sourceId=step.presentation.visualOriginId||result.sourceId||step.sourceId,targetId=resolvePresentationTarget(result,step);
   const layer=document.createElement('div');layer.className='enemy-choreography enemy-choreography-'+id;layer.dataset.ultimate=String(ultimate);layer.setAttribute('aria-hidden','true');root.appendChild(layer);
-  const images=paths.map(path=>{const n=document.createElement('img');n.src='/assets/combat-fx/'+path;n.alt='';n.className='enemy-official-art';n.setAttribute('aria-hidden','true');layer.appendChild(n);return n;});
+  const images=paths.map(path=>{const n=document.createElement('img');n.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath('/assets/combat-fx/'+path):'/assets/combat-fx/'+path;n.alt='';n.className='enemy-official-art';n.setAttribute('aria-hidden','true');layer.appendChild(n);return n;});
   const clamp=n=>Math.max(0,Math.min(1,n)),out=n=>1-Math.pow(1-clamp(n),3);
   let actorAnimated=false;
   const render=p=>{
@@ -158,7 +158,7 @@ function createSixEnemyChoreography(step,result,root,{reduced,animations,speed})
   const base={gel_slime:[800,1350],abyss_watcher:[1000,1450],abyss_stargazer:[1150,1800],abyss_dreamweaver:[1000,1700],abyss_onmyoji:[1050,1600],abyss_sage:[1100,1850]};
   const duration=reduced?500:cover?1000:base[id][ultimate?1:0],contact=reduced?.35:ultimate?.66:.53;
   const layer=document.createElement('div');layer.className='enemy-choreography enemy-six-'+id;layer.dataset.mode=mode;root.appendChild(layer);
-  const make=(path,part)=>{const n=document.createElement('img');n.className='enemy-official-art';n.src='/assets/combat-fx/'+path;n.alt='';n.dataset.part=part;layer.appendChild(n);return n;};
+  const make=(path,part)=>{const n=document.createElement('img');n.className='enemy-official-art';n.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath('/assets/combat-fx/'+path):'/assets/combat-fx/'+path;n.alt='';n.dataset.part=part;layer.appendChild(n);return n;};
   const art=ENEMY_PAINTED_ART[id],path=art[ultimate||cover?1:0];
   const main=Array.from({length:id==='abyss_dreamweaver'&&ultimate?5:id==='abyss_stargazer'||id==='abyss_sage'||id==='abyss_watcher'&&ultimate?3:1},(_,i)=>make(path,'cast-'+i));
   const members=step.enemyCastMembers||[step],hits=[];

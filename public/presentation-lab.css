@@ -435,13 +435,13 @@ body.lab-body {
   max-width: 1100px !important;
 }
 .lab-stage[data-bg="dungeon"] {
-  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.82) 0%, rgba(3, 7, 18, 0.96) 100%), url('/icon/background.webp') center/cover no-repeat;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.82) 0%, rgba(3, 7, 18, 0.96) 100%), var(--studio-game-background, url('/icon/background.webp')) center/cover no-repeat;
 }
 .lab-stage[data-bg="black"] {
   background: #000000;
 }
 .lab-stage[data-bg="battle"] {
-  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.8) 0%, rgba(3, 7, 18, 0.96) 100%), url('/photo/Battle.webp') center/cover no-repeat;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.8) 0%, rgba(3, 7, 18, 0.96) 100%), var(--studio-battle-background, url('/photo/Battle.webp')) center/cover no-repeat;
 }
 .lab-stage[data-bg="minimal"] {
   background: #0f172a;

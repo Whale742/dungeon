@@ -97,7 +97,7 @@ export function buildCatalog() {
     addStory(storyKey('equip', item.role, item.id), 'equipment', item.name, item.desc || '');
   }
   addStory(storyKey('equip', 'stargazer', 'sg_kepler'), 'equipment', '克卜勒的深空天眼', '同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。');
-  const mime = {'.mp3':'audio/mpeg','.wav':'audio/wav','.ogg':'audio/ogg','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml'};
+  const mime = {'.mp3':'audio/mpeg','.wav':'audio/wav','.ogg':'audio/ogg','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.avif':'image/avif','.ico':'image/x-icon','.svg':'image/svg+xml'};
   const localAsset = (url, category, binding) => {
     let stat; try { stat=fs.statSync(new URL('.'+url, publicDir)); } catch { return; }
     if(!stat.isFile())return;
@@ -120,7 +120,7 @@ export function buildCatalog() {
   (usage[assetKeyForPath('/assets/bag2.webp')] ||= []).push('index.html', 'app.js', 'bag-presentation.js');
   const files=fs.readdirSync(publicDir).filter(f=>/\.(js|css|html)$/.test(f));
   for(const name of files) {
-    const source=read(name); const urls=[...source.matchAll(/["'`](\/(?:photo|BOSS|sound|assets|icon)\/[^"'`<>\r\n$]+?\.(?:webp|png|svg|jpg|jpeg|mp3|wav|ogg))["'`]/g)].map(m=>m[1]);
+    const source=read(name); const urls=[...source.matchAll(/["'`](\/(?:photo|BOSS|sound|assets|icon|buff icon)\/[^"'`<>\r\n$]+?\.(?:webp|png|svg|jpg|jpeg|mp3|wav|ogg))["'`]/g)].map(m=>m[1]);
     for(const url of urls) { localAsset(url,url.startsWith('/BOSS/')?'bosses':url.startsWith('/photo/')?'roles':url.startsWith('/sound/')?'sfx':url.includes('background')?'backgrounds':'effects','path.'+assetKeyForPath(url)); (usage[assetKeyForPath(url)] ||= []).push(name); }
   }
   // Register every actual media file, including ones with no current binding.
@@ -128,7 +128,7 @@ export function buildCatalog() {
     if(entry.isDirectory()){ if(entry.name!=='temp')walk(path.join(dir,entry.name),url); }
     else if(mime[path.extname(entry.name)])localAsset(url,prefix.startsWith('/sound')?(entry.name.startsWith('bgm-')?'bgm':'sfx'):prefix.startsWith('/BOSS')?'bosses':prefix.startsWith('/photo')?'roles':entry.name.includes('background')?'backgrounds':'effects','path.'+assetKeyForPath(url));
   }}
-  for(const dir of ['photo','BOSS','sound','assets','icon'])if(fs.existsSync(new URL(dir,publicDir)))walk(fileURLToPath(new URL(dir,publicDir)),'/'+dir);
+  for(const dir of ['photo','BOSS','sound','assets','icon','buff icon'])if(fs.existsSync(new URL(dir,publicDir)))walk(fileURLToPath(new URL(dir,publicDir)),'/'+dir);
   const scenes=Object.entries(fixture).map(([id,s])=>({id,label:s.label,role:s.role,skills:[...new Set((s.steps||[]).map(x=>x.actionId).filter(Boolean))]}));
   return {schemaVersion:1,role_profiles:roles,skill_copies:[...skills.values()],story_copies:stories,game_assets:[...assets.values()],asset_bindings:[...bindings.values()],skillMeta,usage,scenes,sfxProfiles:sfx.profiles};
 }

@@ -1460,3 +1460,40 @@ test('Arena HUD snapshots retain isolation through partial updates and explicitl
   scope.applyHpSnapshot({arena:null});assert.equal(calls.at(-1),null);assert.equal(scope.roomState.arena,null);
   const forced={...arena,enemyForced:true};scope.applyHpSnapshot({arena:forced});assert.equal(scope.roomState.enemyArena,forced);assert.equal(scope.roomState.arena,null);
 });
+
+test('Every official local image including status icons and JPEG has a cloud-migratable catalog entry',async()=>{
+  const {catalog}=await import('../studio/catalog.js'),fs=await import('node:fs'),path=await import('node:path'),{fileURLToPath}=await import('node:url');
+  const known=new Map(catalog.game_assets.filter(a=>a.kind==='image').map(a=>[a.local_path,a]));
+  const visit=(dir,prefix)=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(entry.name.startsWith('.')||entry.name==='temp')continue;const local=prefix+'/'+entry.name,file=path.join(dir,entry.name);if(entry.isDirectory())visit(file,local);else if(/\.(webp|png|jpe?g|svg|gif|avif|ico)$/i.test(entry.name)){assert.ok(known.has(local),local);assert.ok(known.get(local).mime_type?.startsWith('image/'));}}};
+  for(const dir of ['photo','BOSS','assets','icon','buff icon'])visit(fileURLToPath(new URL('../public/'+dir,import.meta.url)),'/'+dir);
+  assert.equal(known.get('/assets/job.jpeg').mime_type,'image/jpeg');assert.ok(known.has('/buff icon/中毒.webp'));
+});
+test('Image migration updates verified image paths while preserving remote semantic art and unrelated audio/drafts',async()=>{
+  const {imageBindingPlan,publicImageUrl}=await import('../scripts/sync-assets-supabase.mjs');
+  const image={asset_key:'local.test',local_path:'/photo/Warrior.webp',kind:'image',preload_group:'roles'},remote={asset_key:'storage.test',kind:'image',source_type:'storage',preload_group:'roles',storage_path:'images/roles/圖.webp'},custom={asset_key:'custom',source_type:'external'};
+  const bindings=[{binding_key:'role.warrior.avatar',asset_key:'custom',status:'published',fallback_path:image.local_path},{binding_key:'sfx.test',asset_key:'audio',status:'published'},{binding_key:'path.local.test',asset_key:'draft',status:'draft'}];
+  const plan=imageBindingPlan([image],new Map([[image.local_path,remote]]),bindings,[custom]);
+  assert.ok(plan.some(b=>b.binding_key==='path.local.test'));assert.ok(plan.every(b=>b.binding_key.startsWith('path.')));assert.equal(plan[0].asset_key,remote.asset_key);assert.equal(plan[0].status,'published');assert.equal(bindings[2].asset_key,'draft');assert.equal(imageBindingPlan([image],new Map([[image.local_path,remote]]),[...bindings,...plan],[custom,remote]).length,0);
+  assert.match(publicImageUrl('https://assets.example.test/',remote),/images\/roles\/%E5%9C%96.webp$/);
+  assert.throws(()=>imageBindingPlan([image],new Map(),bindings,[]),/Unverified image/);
+});
+test('Cloud image registry resolves encoded and relative paths, SVG images, backgrounds and detached preloads',async()=>{
+  const domEvents={},events={},css=new Map(),nodes=[];
+  class Node{constructor(tag='img'){this.tagName=tag;this.dataset={};this.attrs={};this.style={};}getAttribute(k){return this.attrs[k]??null;}setAttribute(k,v){this.attrs[k]=v;}querySelectorAll(){return [];}}
+  class ImageNode extends Node{get src(){return this.attrs.src;}set src(v){this.attrs.src=v;}async decode(){if(this.src?.includes('broken'))throw Error('missing');}}
+  const local=['/assets/example.png','/buff icon/中毒.webp','/BOSS/深淵/test.png','/icon/background.webp','/photo/Battle.webp'];
+  const assets=local.map((p,i)=>({asset_key:'storage.'+i,source_type:'storage',storage_bucket:'game-assets',storage_path:'images/'+i+'.png',is_public:true})),bindings=local.map((p,i)=>({binding_key:'path.'+i,asset_key:'storage.'+i,fallback_path:p}));
+  const body=new Node('body');body.querySelectorAll=()=>nodes;
+  const scope={URL,Image:ImageNode,HTMLImageElement:ImageNode,location:{origin:'http://localhost:3106',href:'http://localhost:3106/dev'},MutationObserver:class{observe(){}},
+    document:{body,querySelectorAll:()=>nodes.filter(n=>n.tagName==='link'),documentElement:{style:{setProperty:(k,v)=>css.set(k,v)}},addEventListener:(k,v)=>domEvents[k]=v},
+    StudioContent:{rows:t=>t==='game_assets'?assets:bindings,state:{config:{SUPABASE_URL:'https://assets.example.test'}},load:async()=>{}}};
+  scope.window={StudioContent:scope.StudioContent,addEventListener:(k,v)=>events[k]=v};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/studio/asset-registry.js',import.meta.url),'utf8'),scope);
+  const img=new ImageNode();img.src='assets/example.png';const svg=new Node('image');svg.attrs.href='/BOSS/深淵/test.png';const icon=new Node('link');icon.attrs.rel='icon';icon.attrs.href='/assets/example.png';nodes.push(img,svg,icon);domEvents.DOMContentLoaded();
+  const registry=scope.window.assetRegistry;
+  assert.equal(registry.resolvePath('/buff%20icon/%E4%B8%AD%E6%AF%92.webp?v=2'),'https://assets.example.test/storage/v1/object/public/game-assets/images/1.png');
+  assert.match(icon.attrs.href,/images\/0.png$/);assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.match(css.get('--studio-battle-background'),/images\/4.png/);
+  const detached=await registry.preloadImage('/assets/example.png');assert.match(detached.src,/images\/0.png$/);assert.equal(detached.crossOrigin,'anonymous');
+  assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');
+  assert.equal(registry.resolvePath('https://other.example.test/assets/example.png'),'https://other.example.test/assets/example.png');
+});

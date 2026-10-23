@@ -12,7 +12,7 @@ const ALCHEMIST_BATTLEFIELD_ART=Object.freeze({
   right:'/assets/combat-fx/alchemist/mixing-hand-right.png',orb:'/assets/combat-fx/alchemist/transmutation-orb.png'
 });
 function battlefieldPaintedImage(parent,src,className){
-  const image=document.createElement('img');image.src=src;image.alt='';image.className=className;image.setAttribute('aria-hidden','true');parent.appendChild(image);return image;
+  const image=document.createElement('img');image.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(src):src;image.alt='';image.className=className;image.setAttribute('aria-hidden','true');parent.appendChild(image);return image;
 }
 function isBattlefieldPlayerStep(step) {return (typeof isPhase6TimedStep==='function'&&isPhase6TimedStep(step))||['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type));}
 function battlefieldPlayerTarget(step) {

@@ -1,6 +1,6 @@
 /* Azure Ruins — Exploration Immersive Scene Layer */
 body.is-exploring {
-  background-image: url('/icon/background.webp');
+  background-image: var(--studio-game-background, url('/icon/background.webp'));
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

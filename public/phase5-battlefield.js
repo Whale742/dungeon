@@ -13,17 +13,18 @@ const phase5ArtLoads=new Map();
 async function preloadPhase5Art(paths,signal) {
   await Promise.all(paths.map(src=>{
     if(!phase5ArtLoads.has(src)){
-      const image=new Image();image.src=src;
-      const load=image.decode().catch(error=>{phase5ArtLoads.delete(src);throw new Error('Required combat art unavailable: '+src,{cause:error});});
+      const image=typeof window!=='undefined'&&window.assetRegistry?null:new Image();if(image)image.src=src;
+      const load=(image?image.decode():window.assetRegistry.preloadImage(src)).catch(error=>{phase5ArtLoads.delete(src);throw new Error('Required combat art unavailable: '+src,{cause:error});});
       phase5ArtLoads.set(src,load);
     }
     return phase5ArtLoads.get(src);
   }));
   if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
 }
+if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>phase5ArtLoads.clear());
 function phase5Image(s,src,id,kind='strike') {
   const node=document.createElement('img');node.className='phase5-art phase5-'+kind;
-  node.src=src;node.alt='';node.setAttribute('aria-hidden','true');s.root.appendChild(node);s.follow(node,id);
+  node.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(src):src;node.alt='';node.setAttribute('aria-hidden','true');s.root.appendChild(node);s.follow(node,id);
   if(['roots','strike','spark','triumph'].includes(kind)&&getActorAnchor(id))s.startRenderer(()=>{
     const anchor=getBattleEffectAnchor(id);if(!anchor)return;
     // Ally art fits the portrait; adjacent HP and status rows stay readable.

@@ -7,7 +7,7 @@
   const categories={all:'全部',roles:'職業頭像',bosses:'BOSS 頭像',ui:'UI 介面素材',sfx:'SFX',bgm:'BGM',effects:'技能特效圖片',backgrounds:'背景圖片',other:'其他素材'};
   const sourceLabels={local:'Local 本地',storage:'Supabase Storage',external:'External URL'};
 
-  function assetUrl(asset){return assetRegistry.url(asset);}
+  function assetUrl(asset){const url=assetRegistry.url(asset);return asset.kind==='image'?assetRegistry.resolvePath(url):url;}
   function refreshMap(){
     assets.clear();
     for(const asset of StudioContent.rows('game_assets'))assets.set(asset.asset_key,asset);

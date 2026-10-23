@@ -218,8 +218,8 @@ let combatFxPreload = null;
 const failedCombatFxAssets = new Set();
 function preloadCombatFxAssets() {
   if (!combatFxPreload) combatFxPreload = Promise.all([...new Set(Object.values(COMBAT_FX_ASSETS).filter(Boolean))].map(src => {
-    const image = new Image(); image.src = src;
-    return image.decode().catch(() => { failedCombatFxAssets.add(src); });
+    const image = typeof window!=='undefined'&&window.assetRegistry?null:new Image();if(image)image.src=src;
+    return (image?image.decode():window.assetRegistry.preloadImage(src)).catch(() => { failedCombatFxAssets.add(src); });
   }));
   return typeof preloadSamuraiFxAssets === "function" ? Promise.all([combatFxPreload, preloadSamuraiFxAssets()]) : combatFxPreload;
 }
