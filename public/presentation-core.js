@@ -1155,6 +1155,13 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
   }
   if (descriptor.entityType === 'monster') {
     const fallback = descriptor.avatar || '/BOSS/Ancient Guardian Golem_fullbody.webp';
+    const enemyForm=descriptor.mechanics?.form||descriptor.presentation?.form;
+    if((descriptor.id==='abyss_druid'||descriptor.presentation?.mechanicId==='abyss_druid')&&['werewolf','treant'].includes(enemyForm)){
+      const legacyForm=enemyForm==='werewolf'?'/photo/狼人.webp':'/photo/遠古樹精.webp';
+      const formArt=descriptor.battleFormAvatars?.[enemyForm];
+      return {src:formArt||legacyForm,fallbackSrc:formArt?legacyForm:descriptor.battleAvatar||fallback,name:descriptor.name||'深淵德魯伊',transformed:true,fullBody:!!formArt};
+    }
+    if(descriptor.battleAvatar)return {src:descriptor.battleAvatar,fallbackSrc:fallback,name:descriptor.name||'深淵首領',fullBody:true};
     const bossKey = descriptor.name ? 'boss.' + descriptor.name + '.avatar' : null;
     let src = fallback;
     if (typeof window !== 'undefined' && window.assetRegistry) {
@@ -1171,6 +1178,32 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
   const info = (typeof classesData !== 'undefined' && classesData[role]) || DEFAULT_ROLE_AVATARS[role] || DEFAULT_ROLE_AVATARS.warrior;
   const fallback=descriptor.avatarOverride || (options.allowCustom && descriptor.avatar) || info.avatar;
   return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.'+role+'.avatar',fallback):fallback, name: descriptor.name || info.name };
+}
+// Keep the same image node through hits, death, form changes and state updates.
+// A failed full-body URL falls back once, without retrying on every HP update.
+function syncBattlePortrait(image,descriptor,options={}) {
+  if(!image)return;
+  image.dataset.portraitRole=descriptor.role||'';
+  const portrait=resolveBattlePortrait(descriptor,options);
+  // Ordinary battlefield enemies retain their existing avatar URL.
+  if(descriptor.entityType==='monster'&&!descriptor.battleAvatar&&!portrait.transformed)portrait.src=descriptor.avatar||portrait.src;
+  const key=portrait.src+'|'+(portrait.fallbackSrc||'');
+  if(image.dataset.portraitRequest===key){image.closest?.('.battle-enemy-slot')?.classList.toggle('is-abyss-fullbody',image.dataset.fullBody==='true');return;}
+  image.dataset.portraitRequest=key;image.dataset.portraitLoaded='false';
+  image.onload=()=>{image.dataset.portraitLoaded='true';};
+  const mark=full=>{image.dataset.fullBody=String(!!full);image.classList.toggle('abyss-fullbody-image',!!full);image.closest?.('.battle-enemy-slot')?.classList.toggle('is-abyss-fullbody',!!full);};
+  mark(portrait.fullBody);image.alt=portrait.name||'';
+  image.onerror=portrait.fallbackSrc&&portrait.fallbackSrc!==portrait.src?()=>{
+    // The registry's capture listener retries a failed remote binding locally.
+    // Let that retry finish before considering the original portrait fallback.
+    if(image.dataset.studioOriginal===portrait.src&&image.dataset.studioResolved&&image.dataset.studioResolved!==image.dataset.studioOriginal)return;
+    image.onerror=null;mark(portrait.fallbackSrc===descriptor.battleAvatar);image.src=portrait.fallbackSrc;
+    console.error('[Battle portrait unavailable]',portrait.src,'using',portrait.fallbackSrc);
+  }:null;
+  image.src=portrait.src;
+}
+function syncAbyssDialoguePortrait(image,abyss) {
+  syncBattlePortrait(image,{id:abyss.bossTemplate?.id,role:abyss.bossRole,name:abyss.bossName,entityType:'monster',avatar:abyss.bossAvatar||'/photo/Warrior.webp',battleAvatar:abyss.bossBattleAvatar});
 }
 function battlePortraitHtml(descriptor, className = 'combat-banner-portrait', options = {}) {
   const portrait = resolveBattlePortrait(descriptor, options);

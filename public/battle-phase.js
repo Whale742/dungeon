@@ -179,7 +179,7 @@ async function playBossIntro(monster, context = {}) {
   stage.querySelector('.boss-encounter-resistances').textContent = '本次抗性 · 物理 ' + (resistance.physical ?? monster.physicalResistance ?? 0) + '% · 魔法 ' + (resistance.magic ?? monster.magicResistance ?? 0) + '% · 效果 ' + (resistance.effect ?? monster.effectResistance ?? 0) + '%';
   if (monster.avatar) {
     const image = document.createElement('img');
-    image.src = monster.avatar; image.alt = monster.name || 'Boss';
+    syncBattlePortrait(image,{...monster,entityType:'monster'});
     art.appendChild(image);
   }
   try {

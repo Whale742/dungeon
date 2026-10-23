@@ -2476,7 +2476,7 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const cdText = isReady ? '!' : `CD ${cdTurns}`;
 
     let slot = elements.battleEnemiesStage.querySelector(`.battle-enemy-slot[data-enemy-id="${eid}"]`);
-    const avatarSrc = en.avatar || '';
+    const avatarSrc = en.battleAvatar ? resolveBattlePortrait({...en,entityType:'monster'}).src : en.avatar || '';
     if (!slot) {
       slot = document.createElement('div');
       slot.className = `battle-enemy-slot ${sizeClass}`;
@@ -2566,9 +2566,8 @@ function renderBattleEnemiesStage(enemies, monster, me) {
       let spriteImg = slot.querySelector('.enemy-sprite-img');
       if (avatarSrc) {
         if (spriteImg) {
-          if (spriteImg.getAttribute('src') !== avatarSrc) {
-            spriteImg.src = avatarSrc;
-          }
+          // Full-body and Druid form updates belong to the shared resolver.
+          if(!en.battleAvatar&&en.presentation?.mechanicId!=='abyss_druid'&&spriteImg.getAttribute('src')!==avatarSrc)spriteImg.src=avatarSrc;
           spriteImg.alt = en.name || '';
         } else if (spriteWrap) {
           const newImg = document.createElement('img');
@@ -2696,7 +2695,8 @@ function renderBattle(me, isLeader) {
 
   if (elements.monsterAvatar) {
     if (monster.avatar) {
-      elements.monsterAvatar.innerHTML = `<img src="${monster.avatar}" class="monster-avatar-img portrait-image" alt="${escapeHtml(monster.name)}">`;
+      elements.monsterAvatar.innerHTML = `<img class="monster-avatar-img portrait-image" alt="${escapeHtml(monster.name)}">`;
+      syncBattlePortrait(elements.monsterAvatar.querySelector('img'),{...monster,entityType:'monster'});
       if (typeof syncPortraitStatusFx === 'function') {
         syncPortraitStatusFx(monster, elements.monsterAvatarWrap || elements.monsterAvatar, { scale: 1.1 });
       }
@@ -9239,7 +9239,7 @@ function renderAbyssDialogue(me, isLeader) {
   if (!abyss) return;
 
   if (elements.abyssBossAvatar) {
-    elements.abyssBossAvatar.src = abyss.bossAvatar || '/photo/Warrior.webp';
+    syncAbyssDialoguePortrait(elements.abyssBossAvatar,abyss);
   }
   if (elements.abyssBossName) {
     elements.abyssBossName.textContent = abyss.bossName || '深淵化身';

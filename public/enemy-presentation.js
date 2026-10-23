@@ -121,10 +121,7 @@ function syncEnemyMechanicVisual(enemy, node) {
   }
   if(enemy.hp>0&&states.length>3){const extra=document.createElement('span');extra.className='enemy-status-badge enemy-status-overflow';extra.textContent='+'+(states.length-3);badge.appendChild(extra);}
   badge.hidden=enemy.hp<=0||!states.length;badge.setAttribute('aria-label',states.length+' 項狀態，開啟敵人資訊查看');
-  if(enemy.mechanics?.form==='werewolf'||enemy.mechanics?.form==='treant'){
-    const img=node.querySelector('.enemy-sprite-img');
-    if(img)img.src=enemy.mechanics.form==='werewolf'?'/photo/狼人.webp':'/photo/遠古樹精.webp';
-  }
+  if((enemy.battleAvatar||enemy.presentation?.mechanicId==='abyss_druid')&&typeof syncBattlePortrait==='function')syncBattlePortrait(node.querySelector('.enemy-sprite-img'),{...enemy,entityType:'monster'});
 }
 function renderEnemyTelegraphs(enemies) {
   const stage=document.getElementById('battleEnemiesStage');

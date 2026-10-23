@@ -39,7 +39,7 @@ function resultPortrait(result) {
   if (isEnemy) {
     const avatar = target.avatar || result.monsterAvatar || (typeof roomState !== 'undefined' && roomState?.currentMonster?.avatar) || '/BOSS/Ancient Guardian Golem.webp';
     const name = target.name || result.monsterName || (typeof roomState !== 'undefined' && roomState?.currentMonster?.name) || '魔物';
-    return battlePortraitHtml({ entityType: 'monster', avatar, name }, 'presentation-support-image');
+    return battlePortraitHtml({ ...target, entityType: 'monster', avatar, name }, 'presentation-support-image');
   }
   if (result.kind === 'intercept' || target.type === 'wolf' || target.type === 'treant') {
     const minion = result.minion || target;

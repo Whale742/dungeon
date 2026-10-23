@@ -664,3 +664,11 @@ body.lab-body {
 .lab-battlefield-preview .lab-sage-portrait img{width:100%;height:100%;object-fit:contain}
 .lab-minion-hud{display:flex;gap:4px;justify-content:center}
 .lab-minion-hud img{width:28px;height:32px;object-fit:contain}
+/* Full-body acceptance uses the official enemy slots and their production sizes. */
+.lab-abyss-portraits{width:auto;inset:3% 5% 31%;align-items:end;min-height:0;padding:6px;margin:0;border:0;background:none;box-shadow:none;gap:8px}
+.lab-abyss-portraits .enemy-sprite-wrap img{width:100%;height:100%;object-fit:contain}
+.lab-abyss-portraits .tos-enemy-name{font-size:12px;text-align:center}
+.lab-abyss-portraits small{font-size:12px;white-space:nowrap}
+.lab-abyss-dialogue{position:absolute;inset:8%;margin:auto;height:fit-content;padding:24px;box-sizing:border-box}
+@media(max-width:600px){.lab-abyss-dialogue{inset:4%;flex-direction:column;gap:12px;padding:16px}.lab-abyss-dialogue .abyss-boss-portrait-wrap{width:160px;height:210px}}
+@media(max-height:480px){.lab-abyss-portraits .is-abyss-slot{width:110px}.lab-abyss-dialogue{inset:4%;gap:16px;padding:12px}.lab-abyss-dialogue .abyss-boss-portrait-wrap{width:140px;height:180px}}

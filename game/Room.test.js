@@ -1,10 +1,11 @@
+import { DEV_ENEMIES } from './DevEncounter.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildActionResults, normalizeCombatQueue, snapshotTarget, sequenceAugurDamageResults } from './combat-schema.js';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { Room } from './Room.js';
-import { TIER1_EQUIPMENTS } from './constants.js';
+import { ABYSS_BOSS_PORTRAITS, ABYSS_DRUID_FORM_PORTRAITS, ABYSS_AUGUR_EASTER_EGG, TIER1_EQUIPMENTS } from './constants.js';
 import { ENCOUNTERS, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS, SPECIAL_ELITES, ABYSS_BOSSES } from './constants.js';
 import { ENEMY_BALANCE, mechanicId, enemyRoundStart, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, afterPlayerDamage, sweepEnemyDeaths, enemyEffect, syncEnemySupport } from './enemy-mechanics.js';
 import { getBossResistance } from './boss-resistance.js';
@@ -1213,4 +1214,62 @@ test('Shared six-enemy casts keep Paladin grace art without replaying the enemy 
   const root=h.scope.document.createElement('div'),guard=h.scope.createPhase6Incoming(step,result,root,{castOwnsEnemyArt:true,reduced:false});
   assert.ok(guard);guard.render(.5);guard.render(guard.contact);assert.equal(enemyCasts,0);assert.equal(images.length,2);assert.equal(images[0].dataset.reaction,'grace-intercept');
   guard.remove();assert.ok(images.every(n=>!n.isConnected));assert.equal(h.commits.length,0);
+});
+
+test('Fourteen canonical Abyss full bodies survive factory, weakened, snapshot, dialogue and Dev selection without changing stats',t=>{
+  assert.equal(Object.keys(ABYSS_BOSS_PORTRAITS).length,14);assert.equal(Object.keys(ABYSS_BOSSES).length,14);
+  const {room}=fixture(t);
+  for(const [role,template] of Object.entries(ABYSS_BOSSES)){
+    const path=ABYSS_BOSS_PORTRAITS[template.id];assert.equal(template.battleAvatar,path);assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length>1000);
+    assert.equal(DEV_ENEMIES.find(e=>e.id===template.id).template,template);
+    for(const isWeakened of [false,true]){
+      const enemy=room.createEnemyInstance(template,0,{tier:'ABYSS',isWeakened,rng:()=>.5});
+      const legacy=room.createEnemyInstance({...template,battleAvatar:undefined,battleFormAvatars:undefined},0,{tier:'ABYSS',isWeakened,rng:()=>.5});
+      const {battleAvatar,battleFormAvatars,...rest}=enemy;assert.equal(battleAvatar,path);assert.deepEqual(rest,legacy,'only presentation metadata changes');
+      const snapshot=room.formatEnemySnapshot(enemy);assert.equal(snapshot.battleAvatar,path);assert.equal(snapshot.avatar,template.avatar);assert.deepEqual(snapshot.battleFormAvatars,template.battleFormAvatars);
+    }
+    room.startAbyssDialogue(template,{col:5});assert.equal(room.abyssState.bossBattleAvatar,path);assert.equal(room.abyssState.bossAvatar,template.avatar);
+    assert.equal(room.advanceAbyssDialogue('solo').stage,2);assert.equal(room.abyssState.bossRole,role);assert.equal(room.abyssState.bossBattleAvatar,path);
+  }
+  assert.ok(!Object.keys(ABYSS_BOSS_PORTRAITS).some(id=>id.includes('augur')));assert.ok(!DEV_ENEMIES.some(e=>e.template.role==='augur'));
+  assert.ok(!room.getUnpickedAbyssBossPool().some(e=>e.role==='augur'));
+  assert.equal(ABYSS_AUGUR_EASTER_EGG.avatar,'/photo/卜者.webp');assert.equal(ABYSS_AUGUR_EASTER_EGG.triggerChance,.08);assert.equal(ABYSS_AUGUR_EASTER_EGG.excludedFromAbyssPool,true);
+});
+function abyssPortraitHarness(){
+  const scope={console:{error(){}},escapeHtml:s=>String(s)};vm.createContext(scope);
+  const core=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');vm.runInContext(core.slice(core.indexOf('const DEFAULT_ROLE_AVATARS'),core.indexOf('function getClassPortraitHtml')),scope);
+  const classes=new Set(),slot={classList:{toggle(k,on){if(on)classes.add(k);else classes.delete(k);}}};let writes=0;
+  const image={dataset:{},classList:{toggle(){}},closest:()=>slot,set src(value){this.url=value;writes++;},get src(){return this.url;}};
+  return {scope,image,classes,writes:()=>writes};
+}
+test('Abyss body parser follows authoritative Druid forms and restores new natural art; ordinary roles and Augur retain old images',t=>{
+  const h=abyssPortraitHarness(),{room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.druid]);
+  const natural=room.formatEnemySnapshot(enemy);h.scope.syncBattlePortrait(h.image,{...natural,entityType:'monster'});assert.equal(h.image.src,ABYSS_BOSS_PORTRAITS.abyss_druid);assert.ok(h.classes.has('is-abyss-fullbody'));
+  mechanismRound(room,3);actMechanism(room,enemy);const event=mechanismRound(room,4).find(s=>['狼人變形','遠古樹精變形'].includes(s.actionId));
+  const transformed=event.results[0].targetAfter;h.scope.syncBattlePortrait(h.image,{...transformed,entityType:'monster'});
+  assert.equal(h.image.src,ABYSS_DRUID_FORM_PORTRAITS[transformed.mechanics.form]);assert.ok(h.classes.has('is-abyss-fullbody'));
+  for(const [form,path] of Object.entries(ABYSS_DRUID_FORM_PORTRAITS)){
+    assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length>1000);
+    assert.equal(h.scope.resolveBattlePortrait({...natural,mechanics:{form},entityType:'monster'}).src,path);
+    assert.equal(h.scope.resolveBattlePortrait({role:'druid',druidForm:form}).src,form==='werewolf'?'/photo/狼人.webp':'/photo/遠古樹精.webp');
+  }
+  h.scope.syncBattlePortrait(h.image,{...natural,entityType:'monster'});assert.equal(h.image.src,ABYSS_BOSS_PORTRAITS.abyss_druid);assert.ok(h.classes.has('is-abyss-fullbody'));
+  assert.equal(h.scope.resolveBattlePortrait({role:'druid'}).src,'/photo/Druid.webp');assert.equal(h.scope.resolveBattlePortrait({role:'augur'}).src,'/photo/Augur.webp');
+  for(const e of [...ENCOUNTERS,...GENERAL_MINIONS])assert.equal(h.scope.resolveBattlePortrait({...e,entityType:'monster'}).src,e.avatar);
+});
+test('A missing full-body image falls back once; HP updates cannot restore a failed URL or replace the real image node',()=>{
+  const h=abyssPortraitHarness(),descriptor={...ABYSS_BOSSES.paladin,entityType:'monster'};
+  h.scope.syncBattlePortrait(h.image,descriptor);assert.equal(h.image.src,ABYSS_BOSS_PORTRAITS.abyss_paladin);assert.equal(h.image.dataset.fullBody,'true');
+  h.image.onerror();assert.equal(h.image.src,descriptor.avatar);assert.equal(h.image.onerror,null);assert.equal(h.image.dataset.fullBody,'false');
+  const writes=h.writes();h.scope.syncBattlePortrait(h.image,{...descriptor,hp:1});assert.equal(h.writes(),writes);assert.equal(h.image.src,descriptor.avatar);
+  h.scope.syncAbyssDialoguePortrait(h.image,{bossName:descriptor.name,bossAvatar:descriptor.avatar,bossBattleAvatar:descriptor.battleAvatar});assert.equal(h.writes(),writes);
+});
+
+test('Remote asset retry cannot prematurely replace an Abyss portrait, and a missing Druid form falls back to its matching legacy form',()=>{
+  const h=abyssPortraitHarness(),descriptor={...ABYSS_BOSSES.druid,entityType:'monster',mechanics:{form:'treant'}};
+  h.scope.syncBattlePortrait(h.image,descriptor);assert.equal(h.image.src,ABYSS_DRUID_FORM_PORTRAITS.treant);
+  h.image.dataset.studioOriginal=h.image.src;h.image.dataset.studioResolved='https://example.invalid/remote-form.webp';
+  const writes=h.writes();h.image.onerror();assert.equal(h.writes(),writes,'allow existing registry local retry');
+  h.image.dataset.studioResolved=h.image.dataset.studioOriginal;h.image.onerror();assert.equal(h.image.src,'/photo/遠古樹精.webp');assert.notEqual(h.image.src,descriptor.avatar);assert.ok(!h.classes.has('is-abyss-fullbody'));
+  h.image.onload();assert.equal(h.image.dataset.portraitLoaded,'true');
 });

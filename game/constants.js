@@ -1618,9 +1618,33 @@ export const SPECIAL_ELITES = {
 // Module 5：深淵化職業設定 (整合自 public/assets/深淵.md)
 // ==========================================
 
+// Full-body artwork is separate from the original portrait, retained for load failure.
+export const ABYSS_BOSS_PORTRAITS = Object.freeze({
+  abyss_warrior: '/BOSS/深淵/深淵戰士.png',
+  abyss_paladin: '/BOSS/深淵/深淵聖騎士.png',
+  abyss_mage: '/BOSS/深淵/深淵法師.png',
+  abyss_archer: '/BOSS/深淵/深淵弓箭手.png',
+  abyss_assassin: '/BOSS/深淵/深淵刺客.png',
+  abyss_bard: '/BOSS/深淵/深淵吟遊詩人.png',
+  abyss_alchemist: '/BOSS/深淵/深淵煉金術士.png',
+  abyss_druid: '/BOSS/深淵/深淵德魯伊.png',
+  abyss_gladiator: '/BOSS/深淵/深淵角鬥士.png',
+  abyss_samurai: '/BOSS/深淵/深淵武士.png',
+  abyss_sage: '/BOSS/深淵/深淵智者.png',
+  abyss_stargazer: '/BOSS/深淵/深淵觀星者.png',
+  abyss_dreamweaver: '/BOSS/深淵/深淵織夢術士.png',
+  abyss_onmyoji: '/BOSS/深淵/深淵陰陽師.png',
+});
+
+export const ABYSS_DRUID_FORM_PORTRAITS = Object.freeze({
+  werewolf: '/BOSS/深淵/深淵狼王.png',
+  treant: '/BOSS/深淵/深淵遠古樹精.png',
+});
+
 export const ABYSS_BOSSES = {
   warrior: {
     id: 'abyss_warrior',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_warrior,
     role: 'warrior',
     name: '深淵戰士',
     avatar: '/photo/Warrior.webp',
@@ -1641,6 +1665,7 @@ export const ABYSS_BOSSES = {
   },
   mage: {
     id: 'abyss_mage',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_mage,
     role: 'mage',
     name: '深淵法師',
     avatar: '/photo/Mage.webp',
@@ -1662,6 +1687,7 @@ export const ABYSS_BOSSES = {
   },
   archer: {
     id: 'abyss_archer',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_archer,
     role: 'archer',
     name: '深淵弓箭手',
     avatar: '/photo/Archer.webp',
@@ -1682,6 +1708,7 @@ export const ABYSS_BOSSES = {
   },
   assassin: {
     id: 'abyss_assassin',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_assassin,
     role: 'assassin',
     name: '深淵刺客',
     avatar: '/photo/Assassin.webp',
@@ -1702,6 +1729,7 @@ export const ABYSS_BOSSES = {
   },
   bard: {
     id: 'abyss_bard',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_bard,
     role: 'bard',
     name: '深淵吟遊詩人',
     avatar: '/photo/Bard.webp',
@@ -1722,6 +1750,7 @@ export const ABYSS_BOSSES = {
   },
   alchemist: {
     id: 'abyss_alchemist',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_alchemist,
     role: 'alchemist',
     name: '深淵煉金術士',
     avatar: '/photo/Alchemist.webp',
@@ -1744,6 +1773,8 @@ export const ABYSS_BOSSES = {
   },
   druid: {
     id: 'abyss_druid',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_druid,
+    battleFormAvatars: ABYSS_DRUID_FORM_PORTRAITS,
     role: 'druid',
     name: '深淵德魯伊',
     avatar: '/photo/Druid.webp',
@@ -1766,6 +1797,7 @@ export const ABYSS_BOSSES = {
   },
   paladin: {
     id: 'abyss_paladin',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_paladin,
     role: 'paladin',
     name: '深淵聖騎士',
     avatar: '/photo/Paladin.webp',
@@ -1788,6 +1820,7 @@ export const ABYSS_BOSSES = {
   },
   gladiator: {
     id: 'abyss_gladiator',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_gladiator,
     role: 'gladiator',
     name: '深淵角鬥士',
     avatar: '/photo/Gladiator.webp',
@@ -1809,6 +1842,7 @@ export const ABYSS_BOSSES = {
   },
   stargazer: {
     id: 'abyss_stargazer',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_stargazer,
     role: 'stargazer',
     name: '深淵觀星者',
     avatar: '/photo/Stargazer.webp',
@@ -1830,6 +1864,7 @@ export const ABYSS_BOSSES = {
   },
   dreamweaver: {
     id: 'abyss_dreamweaver',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_dreamweaver,
     role: 'dreamweaver',
     name: '深淵織夢術士',
     avatar: '/photo/Dreamweaver.webp',
@@ -1850,6 +1885,7 @@ export const ABYSS_BOSSES = {
   },
   samurai: {
     id: 'abyss_samurai',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_samurai,
     role: 'samurai',
     name: '深淵武士',
     avatar: '/photo/武士.webp',
@@ -1872,6 +1908,7 @@ export const ABYSS_BOSSES = {
   },
   onmyoji: {
     id: 'abyss_onmyoji',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_onmyoji,
     role: 'onmyoji',
     name: '深淵陰陽師',
     avatar: '/photo/Onmyoji.webp',
@@ -1892,6 +1929,7 @@ export const ABYSS_BOSSES = {
   },
   sage: {
     id: 'abyss_sage',
+    battleAvatar: ABYSS_BOSS_PORTRAITS.abyss_sage,
     role: 'sage',
     name: '深淵智者 - 無解的方程',
     avatar: '/photo/智者.webp',
