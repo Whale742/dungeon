@@ -15,3 +15,5 @@
 #dev-message { color: #f1c887; }
 #dev-drawer :focus-visible, #dev-toggle:focus-visible { outline: 2px solid #f1c887; outline-offset: 2px; }
 #dev-drawer input[type=checkbox] { display: inline-block; width: auto; margin-right: 8px; }
+#dungeon-dev-tools #dev-random-hint{color:#a6afbf;line-height:1.5}
+#dungeon-dev-tools #dev-random-pending,#dungeon-dev-tools #dev-random-last{overflow-wrap:anywhere;line-height:1.5}

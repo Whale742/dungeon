@@ -284,6 +284,7 @@ async function playBattlefieldDruid(step,context) {
       } else if(result.kind==='transform') {
         // The authority commit swaps the existing portrait and keeps its form.
         phase5Pulse(s,form==='treant'||form==='tree'?PHASE5_ART.roots:PHASE5_ART.claw,id,form==='treant'||form==='tree'?'roots':'strike',400);
+        if(form==='bear')phase5Pulse(s,PHASE5_ART.spark,id,'strike',450);
         audio.play(form==='werewolf'?'transform_wolf':form==='bear'?'boss_roar':'transform_treant',{noHold:true});
         await s.wait(180);commitBattlefieldPlayerResult(result,step,s.local);await s.wait(180);
       } else if(result.kind==='summon') {

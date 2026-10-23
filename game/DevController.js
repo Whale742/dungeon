@@ -1,6 +1,7 @@
 import { TIER1_EQUIPMENTS, TIER2_EQUIPMENTS, LOOT_TABLE } from './constants.js';
 import { DEV_ENEMIES, DEV_EVENTS, validEncounter } from './DevEncounter.js';
 import { DEV_ROLE_POLICY, roleResources, validRoleResource, setRoleResource } from './DevRoleResources.js';
+import { registerRoleRandom, randomRoleOptions, reserveRoleRandom, clearRoleRandom, roleRandomSnapshot, restoreRoleRandom } from './DevRoleRandom.js';
 
 const equipment = [...new Map([...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS, ...LOOT_TABLE].map(e => [e.id, e])).values()];
 const dots = ['poison', 'burn', 'fracture', 'chill'];
@@ -46,15 +47,22 @@ export class DevController {
       r.getLivingEnemies().some(e => e.instanceId === p.enemyId && integer(p.value, 1, e.maxHp)),
       run: (r, p) => { r.enemies.find(e => e.instanceId === p.enemyId).hp = p.value; } });
     this.commands.set('role.resource', { keys: ['playerId', 'resource', 'value'], validate: (p, r) => validRoleResource(r, p), run: setRoleResource });
+    this.commands.set('role.random.reserve', { keys:['playerId','skill','outcome'], validate:p=>[p.playerId,p.skill,p.outcome].every(v=>typeof v==='string'&&v.length<=80), run:reserveRoleRandom });
+    this.commands.set('role.random.clear', { keys:['playerId'], validate:(p,r)=>Object.hasOwn(r.players,p.playerId), run:(r,p)=>clearRoleRandom(r,p.playerId) });
   }
 
   register(room, socket) {
     const record = { revision: 0, busy: false, results: new Map(), audit: [] };
     this.rooms.set(room, record);
+    registerRoleRandom(room,()=>this.access.authorized(socket,room),(playerId,result)=>{
+      record.audit.push({command:'role.random.consume',playerId,result,success:true,context:this.context(room)});
+      if(record.audit.length>100)record.audit.shift();
+    });
     const broadcast = room.broadcastState.bind(room);
     room.broadcastState = () => {
       if (record.busy) return; // Commit once, after invariant checks.
       if (room.state === 'LOBBY') room.devEncounter = null;
+      if (room.state === 'LOBBY'||!this.access.authorized(socket,room)) clearRoleRandom(room);
       record.revision++;
       broadcast();
       if (this.access.authorized(socket, room)) socket.emit('dev:update', this.inspect(socket, room));
@@ -82,14 +90,15 @@ export class DevController {
       locked: record.busy || Boolean(this.lockReason(room)), reason: this.lockReason(room),
       commands: [...this.commands.keys()], equipment: equipment.map(e => ({ id: e.id, name: e.name, role: e.role, slot: e.slot })),
       encounter: room.devEncounter || null, events: DEV_EVENTS,
+      roleRandom: roleRandomSnapshot(room),
       enemyTemplates: DEV_ENEMIES.map(e => ({ id: e.id, name: e.name })),
-      roles: Object.values(room.players).map(p => ({ playerId: p.id, policy: DEV_ROLE_POLICY[p.role] || '職業狀態唯讀', resources: roleResources(p) })),
+      roles: Object.values(room.players).map(p => ({ playerId: p.id, policy: DEV_ROLE_POLICY[p.role] || '職業狀態唯讀', resources: roleResources(p), random:randomRoleOptions(room,p) })),
       audit: record.audit };
   }
 
   snapshot(room) {
     return structuredClone({ gold: room.gold, players: room.players, squadInventory: room.squadInventory,
-      enemies: room.enemies, logs: room.logs, devEncounter: room.devEncounter });
+      enemies: room.enemies, logs: room.logs, devEncounter: room.devEncounter, roleRandom:roleRandomSnapshot(room) });
   }
 
   invariant(room) {
@@ -128,7 +137,9 @@ export class DevController {
       result = { success: true };
     } catch (error) {
       if (before) {
-        Object.assign(room, before);
+        const {roleRandom,...publicBefore}=before;
+        Object.assign(room, publicBefore);
+        restoreRoleRandom(room,roleRandom);
         room.setEnemies(before.enemies);
       }
       result = fail(error.message || 'Dev 操作失敗');

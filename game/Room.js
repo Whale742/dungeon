@@ -1,3 +1,5 @@
+import { resolveRoleRandom, clearRoleRandom } from './DevRoleRandom.js';
+import { rollDruidForm, enterBearForm, restoreBearForm } from './druid.js';
 import { enemyPresentationInfo, enemyCanParticipate, mechanicState, mechanicStatuses, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, redirectEnemyDamage, afterPlayerDamage, onPlayerHealed, enemyEffect } from './enemy-mechanics.js';
 import { resolveStats, resolveSkillAttack, skillValue, basicDamageType, mitigateDirectDamage, crossbowAllocations } from './stats.js';
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
@@ -766,6 +768,7 @@ export class Room {
 
   clearPlayerDebuffs(player) {
     if (!player) return;
+    if(player.hp<=0&&player.druidForm==='bear'){restoreBearForm(player);player.druidForm=null;player.druidFormTurns=0;}
     player.enemyEffects={};
     player.bleedTurns = 0;
     player.poisonTurns = 0;
@@ -1476,6 +1479,8 @@ export class Room {
   // 計算玩家實際有效攻擊加成（鍊金強酸裝備減半期間，戰士雙手劍及詩人精靈木提琴免疫減半）
   getAssassinFollowUpCap(player) { return getAssassinFollowUpCap(player); }
 
+  roleRandom(p,key,fallback) { return resolveRoleRandom(this,p,key,fallback); }
+
   statMultiplier(p) { return p.corrosionTurns>0 ? .5 : (this.roundModifiers?.equipmentEffectMultiplier ?? 1); }
   skillValue(p,key,options={}) { return skillValue(p,key,{equipmentMultiplier:this.statMultiplier(p),...options}); }
   resolveSkillAttack(p,damageType) { return resolveSkillAttack({actor:p,damageType,equipmentMultiplier:this.statMultiplier(p)}); }
@@ -1487,11 +1492,11 @@ export class Room {
     for (const p of Object.values(this.players)) {
       if (p.id === ally.id || !p.connected || !isAssassinHidden(p) || p.stunnedNextTurn || p.nextTurnStunFlag ||
           (p.followUpsThisRound || 0) >= getAssassinFollowUpCap(p) || this.currentMonster.hp <= 0) continue;
-      if (Math.random() >= ASSASSIN_BALANCE.followUpChance) continue;
+      if(this.roleRandom(p,'follow_up',()=>Math.random()<ASSASSIN_BALANCE.followUpChance?'success':'failure')!=='success')continue;
       const before = this.getHpSnapshot();
       const augurReactionIndex = this.augurReactions?.length || 0;
       const isGuaranteedCrit = (this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit && !p.cannotCrit);
-      const critical = isGuaranteedCrit || this.intervenePositive(p,'追擊・暴擊',ASSASSIN_BALANCE.followUpCritChance * 100).success;
+      const critical = isGuaranteedCrit || (this.roleRandom(p,'follow_up_crit',()=>this.intervenePositive(p,'追擊・暴擊',ASSASSIN_BALANCE.followUpCritChance * 100).success?'success':'failure')==='success');
       if (critical) {
         p.hasDealtFirstBattleCrit = true;
       }
@@ -2074,6 +2079,7 @@ export class Room {
         p.maxHp += p.werewolfMaxHpDeducted;
         p.werewolfMaxHpDeducted = 0;
       }
+      restoreBearForm(p);
       p.druidForm = null;
       p.druidFormTurns = 0;
       p.minions = [];
@@ -2262,6 +2268,7 @@ export class Room {
     if(player.hp<=0 && boundary) {player.hp=1;if(boundary.barrier)boundary.barrier=false;}
     const result={actualDmg:hpBefore-player.hp+tempAbsorbed,hpDmg:Math.max(0,hpBefore-player.hp),tempAbsorbed};
     this.p8ConsumeShield(player,tempAbsorbed);this.p8RecordDamage(player,result,context);
+    if(player.hp<=0&&player.druidForm==='bear'){restoreBearForm(player);player.druidForm=null;player.druidFormTurns=0;}
     return result;
   }
 
@@ -2994,6 +3001,7 @@ export class Room {
         p.maxHp += p.werewolfMaxHpDeducted;
         p.werewolfMaxHpDeducted = 0;
       }
+      restoreBearForm(p);
       p.druidForm = null;
       p.druidFormTurns = 0;
       p.minions = [];
@@ -5685,7 +5693,7 @@ export class Room {
           let basicCrit = (p.role === 'assassin' && this.battleCount === 1 && this.battleRound === 1 && !p.hasDealtFirstBattleCrit && !p.cannotCrit);
           if (!basicCrit && p.role === 'assassin') {
             const baseRate = Math.round(assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier) * 100);
-            basicCrit = this.intervenePositive(p, '普通攻擊・暴擊', baseRate).success;
+            basicCrit = this.roleRandom(p,'basic',()=>this.intervenePositive(p, '普通攻擊・暴擊', baseRate).success?'success':'failure')==='success';
           }
           if (p.role === 'assassin' && basicCrit) {
             p.hasDealtFirstBattleCrit = true;
@@ -5747,7 +5755,7 @@ export class Room {
                 monster.talismans = monster.talismans || [];
                 if (monster.talismans.length < 10) {
                   const TALISMANS = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
-                  const talisman = p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)];
+                  const talisman = this.roleRandom(p,'onm_brush_type',()=>p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)]);
                   monster.talismans.push(talisman);
                   const count = monster.talismans.length;
                   const TALISMAN_NAMES = { blind: '障目符', seal: '封勁符', corrode: '蝕體符', confuse: '惑心符', drain: '抽髓符' };
@@ -5775,7 +5783,7 @@ export class Room {
           this.p8Effect(p,'warrior_resolve','堅定・減傷 60%',3,{icon:'guard'});
           const hasGreatsword = (p.equips || []).some(e => e.id === 'w_greatsword' || e.name === '雙手劍');
           const normalBase = this.applyFateBlessing(p, this.skillValue(p,'w_strike'));
-          const isUnbalanced = this.interveneNegative(p, '堅定斬擊・揮砍失衡', 20).failed;
+          const isUnbalanced = (this.roleRandom(p,'w_strike',()=>this.interveneNegative(p, '堅定斬擊・揮砍失衡', 20).failed?'negative':'normal')==='negative');
           if (isUnbalanced) actionOutcome = { type: 'imbalance', label: '失衡', secondary: '下回合易傷' };
           if (isUnbalanced) {
             const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'w_miss'))) * bardDmgMultiplier);
@@ -5798,7 +5806,7 @@ export class Room {
         case 'w_shield': {
           const baseShield = this.applyFateBlessing(p, this.skillValue(p,'w_shield'));
           for(const ally of Object.values(this.players).filter(x=>x.hp>0))this.p8GrantShield(ally,baseShield,1,'warrior');
-          const isCracked = this.interveneNegative(p, '壁壘守護・盾牌龜裂', 25).failed;
+          const isCracked = (this.roleRandom(p,'w_shield',()=>this.interveneNegative(p, '壁壘守護・盾牌龜裂', 25).failed?'negative':'normal')==='negative');
           p.shieldCrackedThisTurn = isCracked;
           if (isCracked) actionOutcome = { type: 'shield_crack', label: '盾牌龜裂', secondary: '冷卻延長' };
           if (isCracked) {
@@ -5819,7 +5827,7 @@ export class Room {
           break;
         }
         case 'm_blast': {
-          const isBackfire = this.interveneNegative(p, '奧術爆破・法力走火', 25).failed;
+          const isBackfire = (this.roleRandom(p,'m_blast',()=>this.interveneNegative(p, '奧術爆破・法力走火', 25).failed?'negative':'normal')==='negative');
           if (isBackfire) actionOutcome = { type: 'misfire', label: '法力走火' };
           const secTargets = this.getLivingEnemies().filter(t => t !== monster);
           if (isBackfire) {
@@ -5877,7 +5885,7 @@ export class Room {
           break;
         }
         case 'm_drain': {
-          const rawBase = Math.floor(Math.random() * this.skillValue(p,'m_drain_max')) + 1; // 1~40 極端浮動
+          const rawBase = Number(this.roleRandom(p,'m_drain',()=>Math.floor(Math.random() * this.skillValue(p,'m_drain_max')) + 1)); // 正式浮動範圍：1..m_drain_max
           const raw = Math.floor((this.applyFateBlessing(p, rawBase)) * bardDmgMultiplier);
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
@@ -5935,6 +5943,7 @@ export class Room {
           const targetDmgMap = new Map();
           const targetHitsMap = new Map();
 
+          const reservedArrows=this.roleRandom(p,'a_rain',()=>null);
           for (let i = 0; i < totalArrows; i++) {
             const currentLiving = this.getLivingEnemies().filter(e => e.hp > 0);
             if (currentLiving.length === 0) {
@@ -5946,7 +5955,7 @@ export class Room {
             const flawStacks = Math.min(5, target.flawMarks || 0);
             // 破綻印記：每層提高 10% 受到攻擊命中率（基礎 50%）
             const hitChance = Math.min(1.0, 0.50 + 0.10 * flawStacks);
-            const isHit = Math.random() < hitChance;
+            const isHit = reservedArrows===null?Math.random()<hitChance:reservedArrows==='hit';
 
             if (isHit) {
               hitsCount++;
@@ -6027,7 +6036,7 @@ export class Room {
           const reloadCount = Math.max(1, 1 - acidLayers);
           let newAmmo = null;
           if (p.ammo.length < 3 && reloadCount > 0) {
-            newAmmo = rollCrossbowAmmo();
+            newAmmo = this.roleRandom(p,'a_reload',()=>rollCrossbowAmmo());
             p.ammo.push(newAmmo);
           }
           p.isCrouchedThisRound = true;
@@ -6047,7 +6056,7 @@ export class Room {
           const reloadCount = Math.min(missing, Math.max(1, missing - acidLayers));
           const rolledList = [];
           for (let i = 0; i < reloadCount; i++) {
-            const a = rollCrossbowAmmo();
+            const a = i===0?this.roleRandom(p,'a_frenzy_reload',()=>rollCrossbowAmmo()):rollCrossbowAmmo();
             p.ammo.push(a);
             rolledList.push(a);
           }
@@ -6068,7 +6077,7 @@ export class Room {
           let isCrit = isGuaranteedCrit;
           if (!isCrit) {
             const baseCritRate = Math.round(assassinCritRate(p, this.roundModifiers.equipmentEffectMultiplier) * 100);
-            isCrit = this.intervenePositive(p, '暗影刺殺・暴擊', baseCritRate).success;
+            isCrit = this.roleRandom(p,'s_stab',()=>this.intervenePositive(p, '暗影刺殺・暴擊', baseCritRate).success?'success':'failure')==='success';
           }
           if (isCrit) {
             p.hasDealtFirstBattleCrit = true;
@@ -6094,7 +6103,7 @@ export class Room {
         case 'b_heal': {
           const harpCount = (p.equips || []).filter(e => e.id === 'b_harp' || e.name === '精靈木豎琴').length;
           const harpMult = 1 + 0.10 * harpCount;
-          const isOffKey = this.interveneNegative(p, '治癒頌歌・走音', 20).failed;
+          const isOffKey = (this.roleRandom(p,'b_heal',()=>this.interveneNegative(p, '治癒頌歌・走音', 20).failed?'negative':'normal')==='negative');
           if (isOffKey) actionOutcome = { type: 'off_key', label: '走音' };
 
           if (isOffKey) {
@@ -6130,7 +6139,7 @@ export class Room {
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
-          const isStun = this.intervenePositive(p, '催眠夜曲・深度催眠', 30).success && this.monsterAllowsEffect('催眠', monster);
+          const isStun = (this.roleRandom(p,'b_nocturne',()=>this.intervenePositive(p, '催眠夜曲・深度催眠', 30).success?'success':'failure')==='success') && this.monsterAllowsEffect('催眠', monster);
           if (isStun) {
             actionOutcome = { type: 'sleep', label: '催眠成功' };
             monster.stunnedThisRound = true;
@@ -6180,7 +6189,7 @@ export class Room {
           monster.hp -= dmg;
 
           const DOTS = ['poison', 'burn', 'fracture', 'chill'];
-          let chosenDot = p.rolledFlaskDot || p.rolledFlaskType;
+          let chosenDot = this.roleRandom(p,'alc_flask',()=>p.rolledFlaskDot || p.rolledFlaskType);
           if (!chosenDot || !DOTS.includes(chosenDot)) {
             const r = Math.random();
             if (r < 0.25) chosenDot = 'poison';
@@ -6198,7 +6207,7 @@ export class Room {
           const dotCfg = DOT_CONFIGS[chosenDot] || DOT_CONFIGS.poison;
           const bossApplied = dotCfg.applyMonster(dotCfg.dmg);
 
-          const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (this.interveneNegative(p, '不穩定試劑瓶・全體同染', 40).failed);
+          const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (this.roleRandom(p,'alc_team',()=>this.interveneNegative(p, '不穩定試劑瓶・全體同染', 40).failed?'success':'failure')==='success');
           if (rollTeam) {
             for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
               this.applyDotToAlly(ally, chosenDot, p);
@@ -6334,6 +6343,7 @@ export class Room {
         case 'alc_fate': {
           const hasAbnormalStatus = (Object.values(p.enemyEffects||{}).some(e=>e.until>=this.battleRound) || (this.roundModifiers?.acidFlaskCount||0)>0 || (this.roundModifiers?.equipmentEffectMultiplier??1)<1 || p.alcAcidStack>0 || p.poisonTurns > 0 || p.burnTurns > 0 || p.fractureTurns > 0 || p.chillTurns > 0 || p.corrosionTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
 
+          const reservedFate=hasAbnormalStatus?this.roleRandom(p,'alc_fate',()=>null):null;
           for (const ally of Object.values(this.players).filter(ally => ally.hp > 0)) {
             ally.enemyEffects={};
             ally.bleedTurns = 0; ally.poisonTurns = 0; ally.poisonDmg = 0;
@@ -6381,7 +6391,7 @@ export class Room {
               pl.corrosionTurns = 0;
             }
             const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
-            const isSuccess = !augurs.length ? (Math.random() < 0.50) : !this.interveneNegative(p, '命運煉成試劑・煉金失敗', 50).failed;
+            const isSuccess = (reservedFate ?? ( (!augurs.length ? (Math.random() < 0.50) : !this.interveneNegative(p, '命運煉成試劑・煉金失敗', 50).failed)?'success':'failure'))==='success';
             actionOutcome = { type: isSuccess ? 'alchemy_success' : 'alchemy_failure', label: isSuccess ? '煉成成功' : '煉成失敗' };
             if (isSuccess) {
               for (const pl of Object.values(this.players)) {
@@ -6403,8 +6413,10 @@ export class Room {
 
         // 德魯伊技能
         case 'dru_transform': {
-          const isWerewolf = Math.random() < 0.5;
-          actionOutcome = { type: isWerewolf ? 'transform_wolf' : 'transform_treant', label: isWerewolf ? '狼人形態' : '遠古樹精形態' };
+          if(p.druidFormTurns>0)break;
+          const form=this.roleRandom(p,'dru_transform',()=>rollDruidForm(p));
+          const isWerewolf=form==='werewolf';
+          actionOutcome = { type: 'transform_'+(isWerewolf?'wolf':form), label: {werewolf:'狼人形態',treant:'遠古樹精形態',bear:'巨熊形態'}[form] };
           p.druidFormTurns = 2;
           if (isWerewolf) {
             p.druidForm = 'werewolf';
@@ -6435,6 +6447,10 @@ export class Room {
               const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'dru_claw'))) * bardDmgMultiplier);
               pendingWerewolfAttack = applyResistanceDamage(raw, 'phys');
             }
+          } else if(form==='bear') {
+            enterBearForm(p,this.statMultiplier(p));
+            log.push({text:`${p.name}化身巨熊：暫時生命 +${p.bearMaxHpAdded}（200% 防禦），普攻 ${this.skillValue(p,'dru_bear_claw')}（10+100%物理攻擊），持續2回合。`,type:'buff'});
+            visualEvents.push({type:'transform_bear',sourceId:p.id});
           } else {
             p.druidForm = 'treant';
             this.p8GrantShield(p, this.applyFateBlessing(p, this.skillValue(p,'dru_shield')), 2, 'treant');
@@ -6566,7 +6582,7 @@ export class Room {
             break;
           }
           const TALISMANS = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
-          const talisman = p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)];
+          const talisman = this.roleRandom(p,'onm_talisman',()=>p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)]);
           monster.talismans.push(talisman);
           const count = monster.talismans.length;
 
@@ -7623,8 +7639,9 @@ export class Room {
               p.maxHp += p.werewolfMaxHpDeducted;
               p.werewolfMaxHpDeducted = 0;
             }
-            const formName = p.druidForm === 'tree' ? '沉睡古樹' : (p.druidForm === 'werewolf' ? '狼人' : '樹精');
+            const formName = p.druidForm === 'tree' ? '沉睡古樹' : (p.druidForm === 'werewolf' ? '狼人' : p.druidForm==='bear'?'巨熊':'樹精');
             log.push({ text: `🌿 **${p.name}** 的【${formName}】形態結束，解除變身回復正常人身狀態。`, type: 'info' });
+            restoreBearForm(p);
             p.druidForm = null;
             visualEvents.push({ type: 'transform_end', sourceId: p.id, role: 'druid' });
           }
@@ -7822,6 +7839,7 @@ export class Room {
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能重啟冒險！' };
     this.clearTimer();
     if (this.state === 'PROLOGUE' || this.state === 'CHOOSING_ROUTE') this.pendingPresentationAcks.clear();
+    clearRoleRandom(this);
     this.state = 'LOBBY';
     this.selectionState = 'SELECTING';
     this.floor = 1;
@@ -7845,6 +7863,7 @@ export class Room {
     this.scoutedCols = new Set();
 
     for (const p of Object.values(this.players)) {
+      restoreBearForm(p);
       p.hp = p.role ? CLASSES[p.role].maxHp : 100;
       p.maxHp = p.hp;
       p.tempHp = 0;

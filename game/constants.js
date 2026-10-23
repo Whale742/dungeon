@@ -1056,6 +1056,12 @@ export function getPlayerSkills(player) {
       Object.assign(skill,{desc:copy.full_copy,shortDesc:copy.short_copy,copyKey:key,label:keepLabel ? skill.label : copy.display_name});
     }
   }
+  if(player.role==='druid'&&equips.some(e=>e.id==='dru_beast')) {
+    const transform=baseSkills.find(s=>s.id==='dru_transform');
+    if(transform)Object.assign(transform,{contextualCopy:true,copyKey:null,
+      shortDesc:'狼人、遠古樹精、巨熊各 1/3；持續 2 回合。巨熊普攻 10+100%A物，暫時生命增加 200%D。',
+      desc:'裝備野獸招喚時，形態轉變隨機成為狼人、遠古樹精或巨熊，各 1/3。持續 2 回合，期間不能重複變身。狼人與樹精維持原有能力；巨熊普攻為 10+100%A物，當次變身依有效防禦 D 暫時增加 200%D 的最大生命及目前生命，退出時扣回該次增加量，存活者最低保留 1 HP，倒下者不因此復活。'});
+  }
   return baseSkills;
 }
 

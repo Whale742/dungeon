@@ -25,6 +25,16 @@ export function mountDevTools(socket) {
             <form data-command="status"><label>基本狀態<select name="status"><option value="poison">中毒</option><option value="burn">燃燒</option><option value="fracture">碎裂</option><option value="chill">寒冷</option></select></label><button name="apply">施加正式效果</button><button name="clear">清除此狀態</button></form>
             <pre id="dev-role-info"></pre><p id="dev-role-policy"></p><form data-command="resource"><label>安全職業資源<select name="resource" id="dev-resource"></select></label><label>資源數值<input name="value" type="number" min="0" value="0" required></label><button>設定職業資源</button></form>
           </section>
+          <section><h2>職業測試 → 下一次隨機結果</h2>
+            <p id="dev-random-player"></p>
+            <form data-command="random">
+              <label>正式隨機判定<select name="skill" id="dev-random-skill"></select></label>
+              <label>合法結果<select name="outcome" id="dev-random-outcome"></select></label>
+              <p id="dev-random-hint"></p>
+              <button name="reserve" id="dev-random-reserve">預約下一次</button><button name="clear" id="dev-random-clear">取消預約</button>
+            </form>
+            <p id="dev-random-pending" role="status"></p><p id="dev-random-last" role="status"></p>
+          </section>
           <section><h2>戰鬥</h2><pre id="dev-enemies"></pre><form data-command="enemy"><label>指定存活敵人<select name="enemyId" id="dev-enemy"></select></label><label>敵人目前 HP（1–最大 HP）<input name="value" type="number" min="1" value="1" required></label><button>設定敵人 HP</button></form></section>
         </fieldset>
         <section><h2>系統</h2><p>單人測試；演出及操作提交後鎖定。通行碼僅授權目前連線。</p><button id="dev-refresh">更新權威狀態</button><details><summary>操作紀錄（最近 100 筆）</summary><pre id="dev-audit"></pre></details></section>
@@ -61,6 +71,7 @@ export function mountDevTools(socket) {
     options($('#dev-enemy'), (state.enemies || []).filter(e => e.hp > 0), 'instanceId', e => `${e.name} (${e.hp}/${e.maxHp})`);
     const p = state.players.find(p => p.id === $('#dev-player').value);
     const role = status.roles?.find(r => r.playerId === p?.id);
+    renderRandom(p,role);
     options($('#dev-resource'), role?.resources || [], 'key', r => `${r.label}：${r.value} (${r.min}–${r.max})`);
     $('#dev-role-policy').textContent = role?.policy || '職業狀態唯讀';
     root.querySelector('[data-command="resource"]').hidden = !role?.resources.length;
@@ -68,6 +79,19 @@ export function mountDevTools(socket) {
     $('#dev-role-info').textContent = p ? `HP ${p.hp}/${p.maxHp} · 護盾 ${p.tempHp}\n冷卻 ${JSON.stringify(p.cooldowns)}\n職業資源 ${p.resourceSummary || ''}\nX ${p.sageX ?? '—'} · 運算元 ${p.sageOperand ?? '—'} · 演算 ${p.sagePhase ?? '—'}\n層數：戰士 ${p.warriorStacks ?? 0} · 怒氣 ${p.rage ?? 0} · 匿蹤 ${p.stealthStacks ?? 0}\n${p.role === 'augur' ? `觀測 ${p.observedTargetId || '自身'} · 牌象 ${p.augurCardState} · 命債 ${JSON.stringify(p.augurFateDebts)}\n` : ''}${JSON.stringify(p.statuses || [])}` : '';
     $('#dev-enemies').textContent = (state.enemies || []).map(e => `${e.instanceId}: ${e.name} HP ${e.hp}/${e.maxHp}`).join('\n');
     $('#dev-audit').textContent = JSON.stringify(status.audit, null, 2);
+  }
+  function renderRandom(p,role) {
+    const selected=role?.random||[];
+    options($('#dev-random-skill'),selected,'key',s=>`${s.label}（${s.category}）`);
+    const skill=selected.find(s=>s.key===$('#dev-random-skill').value);
+    options($('#dev-random-outcome'),skill?.outcomes||[],'value',o=>o.label);
+    $('#dev-random-player').textContent=p?`目前玩家：${p.name} · ${p.role}（可於上方「指定角色」切換）`:'';
+    $('#dev-random-hint').textContent=skill?.hint||(p?.role==='gladiator'?'此職業目前沒有獨立隨機戰鬥分支。':p?.role==='augur'?'諭示牌由真正的正／逆位感應判定產生，沒有獨立抽牌技能；目前不開放覆蓋他人判定。':'目前沒有可指定的隨機技能。');
+    $('#dev-random-reserve').disabled=!p||p.hp<=0||!skill?.outcomes.length;
+    const pending=status.roleRandom?.pending?.[p?.id],last=status.roleRandom?.last?.[p?.id];
+    $('#dev-random-clear').disabled=!pending;
+    $('#dev-random-pending').textContent=pending?`已預約：下一次${pending.label} → ${pending.outcomeLabel}（等待觸發）`:'尚未預約。每位玩家最多一項，重新預約會取代上一項。';
+    $('#dev-random-last').textContent=last?`已消耗：${last.label} → ${last.outcomeLabel}（回合 ${last.round}；仍依正式抗性與效果條件結算）`:'尚無已消耗紀錄。';
   }
   function close() { $('#dev-drawer').hidden = true; $('#dev-toggle').setAttribute('aria-expanded', 'false'); $('#dev-token').value = ''; }
   function emit(event, data) {
@@ -96,6 +120,10 @@ export function mountDevTools(socket) {
   };
   $('#dev-refresh').onclick = () => refresh().catch(e => message(e.message));
   $('#dev-player').onchange = render;
+  $('#dev-random-skill').onchange = () => {
+    const p=state?.players.find(p=>p.id===$('#dev-player').value);
+    renderRandom(p,status?.roles?.find(r=>r.playerId===p?.id));
+  };
   root.addEventListener('submit', async event => {
     const form = event.target;
     if (!form.dataset.command) return;
@@ -113,6 +141,7 @@ export function mountDevTools(socket) {
       case 'encounter': command = event.submitter?.name === 'clear' ? 'encounter.clear' : 'encounter.reserve'; params = command === 'encounter.clear' ? {} : { type: data.get('type'), enemyId: data.get('enemyId'), weakened: data.has('weakened') }; break;
       case 'enemy': command = 'enemy.hp'; params = { enemyId: data.get('enemyId'), value: Number(data.get('value')) }; break;
       case 'resource': command = 'role.resource'; params = { playerId, resource: data.get('resource'), value: Number(data.get('value')) }; break;
+      case 'random': command=event.submitter?.name==='clear'?'role.random.clear':'role.random.reserve'; params=command==='role.random.clear'?{playerId}:{playerId,skill:data.get('skill'),outcome:data.get('outcome')};break;
       default: return;
     }
     busy = true; render();

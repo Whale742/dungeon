@@ -34,6 +34,7 @@ export function playerStatuses(player, room, balance) {
   if (player.stunnedNextTurn || player.nextTurnStunFlag) add('exhausted', 'EXHAUSTED', 'exhausted', 1);
   if (player.druidForm === 'tree') add('sleep', '沉睡古樹', 'sleep', player.druidFormTurns);
   if (player.druidForm === 'treant' || player.druidForm === 'tree') add('treant_guard', 'DR ' + balance.treantDamageReduction * 100 + '%', 'guard', player.druidFormTurns);
+  if (player.druidForm === 'bear') add('bear', '巨熊形態', 'transform', player.druidFormTurns);
   if (player.druidForm === 'werewolf') add('wolf', '狼人形態', 'transform', player.druidFormTurns);
   if (player.warriorVulnerableTurns || player.warriorVulnerableNextTurn) add('vulnerable', 'VULNERABLE', 'debuff', 1);
   if (player.stealthStacks) add('stealth_stack', '匿蹤', 'stealth', 0, { stacks: player.stealthStacks });

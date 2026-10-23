@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { clearRoleRandom } from './DevRoleRandom.js';
 
 // Grants are private server state, bound to the socket object and exact Room instance.
 export class DevAccess {
@@ -20,7 +21,7 @@ export class DevAccess {
     return this.owns(socket, room) && this.grants.get(socket) === room;
   }
 
-  revoke(socket) { this.grants.delete(socket); }
+  revoke(socket) { clearRoleRandom(this.grants.get(socket)); this.grants.delete(socket); }
 
   authorize(socket, room, token) {
     if (!this.owns(socket, room) || room.state === 'LOBBY') return { success: false, message: 'Dev 授權僅限已出發的單人 Dev 房間' };
