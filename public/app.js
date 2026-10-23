@@ -4113,12 +4113,12 @@ function openRoleDetailModal(roleKey) {
     }
 
     if(roomState?.state!=='LOBBY'&&details.equipment?.length) {
-      const noImgNames = new Set(['荊棘重鎧', '大天使重弓', '粗糙研磨的黃銅目鏡', '生鏽卡死的伸縮鏡筒', '傾角失準的赤道儀基座', '墜星隕鐵護腕']);
+      const noImgNames = new Set(['荊棘重鎧', '大天使重弓']);
       html+='<details><summary>專屬裝備</summary>'+details.equipment.map(e=>{
         const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key.startsWith('equip.'+roleKey+'.')&&(s.title===e.name||s.story_key.endsWith('.'+e.id)));
         const name = override?.title || e.name;
         const desc = override?.body || e.desc;
-        const iconSrc = e.icon || (!noImgNames.has(e.name) ? `/assets/專屬裝備/${e.name === '流浪占星師的粗呢斗篷' ? '流浪占星師的斗篷' : e.name}.webp` : '');
+        const iconSrc = e.icon || (!noImgNames.has(e.name) ? `/assets/專屬裝備/${e.name}.webp` : '');
         const iconHtml = iconSrc ? `<img src="${iconSrc}" alt="${escapeHtml(name)}" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:4px;" onerror="this.style.display='none';">` : '';
         return '<p style="display:flex;align-items:flex-start;gap:4px;">'+iconHtml+'<span><strong>'+escapeHtml(name)+'</strong>：'+escapeHtml(desc)+'</span></p>';
       }).join('')+'</details>';
@@ -6571,8 +6571,8 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
     const meRole = (typeof roomState !== 'undefined' && roomState?.players?.[window.currentSocketId]?.role) || (typeof me !== 'undefined' && me?.role);
     const roleKey = item.role || meRole || 'warrior';
     const svg = CLASS_EXCLUSIVE_SVGS[roleKey] || CLASS_EXCLUSIVE_SVGS.warrior || '';
-    const exclusiveImgMap = { '流浪占星師的粗呢斗篷': '/assets/專屬裝備/流浪占星師的斗篷.webp' };
-    const noImgNames = new Set(['荊棘重鎧', '大天使重弓', '粗糙研磨的黃銅目鏡', '生鏽卡死的伸縮鏡筒', '傾角失準的赤道儀基座', '墜星隕鐵護腕']);
+    const exclusiveImgMap = {};
+    const noImgNames = new Set(['荊棘重鎧', '大天使重弓']);
     let imgUrl = (item.icon && item.icon.startsWith('/'))
       ? item.icon.replace(/^\/?assets\/assets\//, '/assets/')
       : (item.name && !noImgNames.has(item.name) ? (exclusiveImgMap[item.name] || `/assets/專屬裝備/${encodeURIComponent(item.name)}.webp`) : '');

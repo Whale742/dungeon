@@ -96,7 +96,6 @@ export function buildCatalog() {
   for (const item of LOOT_TABLE) {
     addStory(storyKey('equip', item.role, item.id), 'equipment', item.name, item.desc || '');
   }
-  addStory(storyKey('equip', 'stargazer', 'sg_kepler'), 'equipment', '克卜勒的深空天眼', '同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。');
   const mime = {'.mp3':'audio/mpeg','.wav':'audio/wav','.ogg':'audio/ogg','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.avif':'image/avif','.ico':'image/x-icon','.svg':'image/svg+xml'};
   const localAsset = (url, category, binding) => {
     let stat; try { stat=fs.statSync(new URL('.'+url, publicDir)); } catch { return; }

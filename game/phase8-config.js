@@ -9,9 +9,9 @@ export const NEW_CLASSES = {
       skill('dw_butterfly', '清醒夢・薛丁格之蝶', 2, null, '指定隊友或魔物，持續 1 回合。施放時抽定夢境：60%【美夢化生】將傷害轉為等額治療，40%【夢魘成真】將傷害轉為無視抗性的真實傷害；狀態期間受擊沿用所選夢境。', 'BUFF'),
       skill('dw_false_dream', '虛構歷史', 3, null, '魔物 1 回合計算覆寫：淺夢為樓層區段起點，深夢為終點，孤影為存活人數 -3（至少 1），群影為存活人數 +3；等機率。', 'DEBUFF')] },
   stargazer: { name: '觀星者', avatar: '/photo/Stargazer.webp', maxHp: 70,
-    desc: '探索深空，重塑星軌與時間。', passive: '無隨機普攻被動。三件望遠鏡零件必須同時裝備，才能啟動克卜勒的深空天眼。',
+    desc: '探索深空，重塑星軌與時間。', passive: '無隨機普攻被動。裝備克卜勒的深空天眼可重塑天體觀測；星盤懷錶重塑時計機率，斗篷在首領攻擊後追加魔法傷害。',
     skills: [skill('basic', '星光引導', 0, 'mag', '10 魔法傷害。'),
-      skill('sg_observe', '天體觀測・深空探索', 2, 'mag', '恆星 60%：15 魔法；行星 10%：25 魔法、10% 當輪暈眩；銀河 10%：全隊每次合法命中 +5（1 回合）；黑洞 10%：全場存活者 5 真傷；邊界 10%：最低當前生命隊友鎖血 1，不限制回合且不可疊加。天眼改為四種各 25%：行星 35／30% 暈眩、銀河 +10、黑洞僅魔物 10 真傷、邊界目標已滿血時另抵擋一次致命傷。', 'BUFF'),
+      skill('sg_observe', '天體觀測・深空探索', 2, 'mag', '恆星 60%：15 魔法；行星 10%：25 魔法、10% 當輪暈眩；銀河 10%：全隊每次合法命中 +5（1 回合）；黑洞 10%：全場存活者 5 真傷；邊界 10%：最低當前生命隊友鎖血 1，不限制回合且不可疊加。天眼改為四種各 25%：行星 round(2 + 300% × A魔)／30% 暈眩、銀河每次合法命中追加 round(1 + 75% × A魔) 魔法傷害、黑洞僅首領 10 真傷、邊界保護兩名最低生命存活隊友。', 'BUFF'),
       skill('sg_clock', '星軌干涉・時計重塑', 3, null, '70% 存活全隊冷卻 -1；10% 冷卻歸零；10% 超負荷（技能基礎傷害 +5，1 回合，冷卻中的技能 +1）；10% 無效果。', 'BUFF')] },
   gladiator: { name: '角鬥士', avatar: '/photo/Gladiator.webp', maxHp: 85,
     desc: '以鮮血積累怒氣，挑戰死亡角鬥場。', passive: '實際受傷獲得 1 怒氣，每回合最多一次。鮮血獻祭另獲 1 怒氣。競技場只允許自己與魔物行動，雙方忽略減傷；自己的最大與當前生命按 0.6 ×（隊伍人數 +1）等比例縮放，退出依剩餘生命比例恢復。',
@@ -51,18 +51,13 @@ export const NEW_CLASSES = {
       skill('onm_detonate', '急急如律令・百符引爆', 2, 'mag', '引爆目標身上所有未掉落的符咒。若目標身上沒有符咒（0 張），不造成任何傷害。若目標身上有符咒，啟動基礎傷害 10 點，每張符咒額外增加 3 點傷害。單次引爆上限為 10 張符咒（滿 10 張時造成 40 點傷害）。引爆結算：技能結算後，目標身上所有符咒全數脫落並銷毀。', 'OFFENSIVE')] }
 
 };
-const NO_EXCLUSIVE_IMG_IDS = new Set(['sg_eyepiece', 'sg_tube', 'sg_mount', 'sg_bracer']);
-const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', ...(NO_EXCLUSIVE_IMG_IDS.has(id) ? {} : { icon: `/assets/專屬裝備/${id === 'sg_cloak' ? '流浪占星師的斗篷' : name}.webp` }), ...stats, unique });
+const item = (id, role, name, desc, stats = {}, unique = false) => ({ id, role, name, desc, slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', icon: `/assets/專屬裝備/${name}.webp`, ...stats, unique });
 export const NEW_LOOT = [
   item('dw_spindle','dreamweaver','命運的紡錘','使【潛意識混淆】觸發機率提高25%（至75%），裝備不可疊加。',{},true),
   item('dw_loom','dreamweaver','莫比烏斯的織機','提高我方全體20生命上限。當我方角色觸發【夢魘成真】效果受到傷害後，恢復生命上限5%生命。可疊加。'),
   item('dw_history','dreamweaver','偽史古卷','自己施加的夢境狀態持續 +1 回合。',{},true),
-  item('sg_eyepiece','stargazer','粗糙研磨的黃銅目鏡','生命 +3、魔法 +1；天眼零件。',{bonusHp:3,bonusAtk:1}),
-  item('sg_tube','stargazer','生鏽卡死的伸縮鏡筒','魔法 +1；天眼零件。',{bonusAtk:1}),
-  item('sg_mount','stargazer','傾角失準的赤道儀基座','生命 +5；天眼零件。',{bonusHp:5}),
-  item('sg_cloak','stargazer','流浪占星師的粗呢斗篷','生命 +10。',{bonusHp:10}),
-  item('sg_watch','stargazer','赫密斯的星盤懷錶','魔法 +6。',{bonusAtk:6}),
-  item('sg_bracer','stargazer','墜星隕鐵護腕','魔法 +10。',{bonusAtk:10}),
+  item('sg_cloak','stargazer','流浪占星師的斗篷','【星塵回響】：本輪我方對首領的獨立傷害段數，在首領攻擊完成後追加 10 + 段數 點魔法傷害；每輪一次，斗篷自身傷害不計入。'),
+  item('sg_watch','stargazer','赫密斯的星盤懷錶','【星軌干涉・時計重塑】：軌道微調 50%、超新星重啟 25%、過載躍遷 25%，不再出現星軌虛耗；保留各結果原有功能及代價。'),
   item('sg_eye','stargazer','克卜勒的深空天眼','【天體觀測・深空探索】：移除【發現星座】，其餘各25%。【發現星球】：數值更改2 + 300% × A的魔法傷害、30%機率當輪暈眩；【發現星系】：數值更改為1 + 75% × A；【發現黑洞】：數值改造成10點真實傷害；【發現宇宙邊界】：目標更變成兩位隊友。',{},true),
   item('g_xiphos','gladiator','斯巴達破陣短劍','【血債血償】：每次【鮮血獻祭】扣除生命時獲得【血祭】，每層物理傷害 +2；【死亡角鬥場】結束清空；效果不可疊加，完全免疫腐蝕。',{},true),
   item('g_cuirass','gladiator','染血的赤銅戰鎧','生命 +35。【死線喘息】：生命低於30時，使用【鮮血獻祭】後獲得治療量 +20%，持續2回合。被動不可疊加，只有生命值受腐蝕瓶影響。',{bonusHp:35}),
@@ -94,5 +89,5 @@ export const NEW_ROLE_DETAILS = Object.fromEntries(Object.entries(NEW_CLASSES).m
   roleName:c.name, enName:id==='onmyoji'?'Onmyōji':id[0].toUpperCase()+id.slice(1), avatar:c.avatar, hp:c.maxHp,
   type: ['dreamweaver','stargazer'].includes(id) ? '魔法 / 輔助' : id === 'augur' ? '魔法 / 功能型輔助 / 機率干涉 / 命運觀測' : id === 'onmyoji' ? '魔法 / 咒術 / 削弱' : id === 'sage' ? '演算主 C / 長期成長 / 戰術爆發 / 低生存' : id === 'paladin' ? '物理 / 坦鋒 / 守護' : '物理 / 戰術', passive:c.passive,
   skills:c.skills.map((s,i)=>({ type:i ? `${i} 技能`:'普攻', name:s.label, cd:`CD ${s.cd}`, dmgType:s.dmgType==='mag'?'【魔法】':s.dmgType==='phys'?'【物理】':'【輔助】', desc:s.desc })),
-  equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc,icon:e.icon})).concat(id==='stargazer'?[{name:'克卜勒的深空天眼',icon:'/assets/專屬裝備/克卜勒的深空天眼.webp',desc:'同時裝備望遠鏡三件零件時啟動，徹底重構【天體觀測・深空探索】：完全移除60%的【發現星座】，其餘各25%。【發現星球】：35點魔法傷害、30%機率當輪暈眩；【發現星系】：全隊每次合法命中追擊10點；【發現黑洞】：對Boss造成10點真實傷害；【發現宇宙邊界】：若鎖血目標當前已為滿血，額外賦予抵擋一次致死打擊的【星光壁壘】。'}]:[])
+  equipment:NEW_LOOT.filter(e=>e.role===id).map(e=>({name:e.name,desc:e.desc,icon:e.icon}))
 }]));

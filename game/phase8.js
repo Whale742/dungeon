@@ -553,16 +553,63 @@ export const phase8Methods = {
     return n;
   },
   p8DamageMonster(p,raw,type,resistance,extra={}) {
+    const enemy=extra.enemy||this.currentMonster;
+    if(!enemy||enemy.hp<=0)return 0;
     const before=this.getHpSnapshot();
-    // A completed solving attack can already be lethal. Keep the equation event
-    // and its resource effects, without allowing a dream to resurrect the Boss.
-    if(extra.equation&&this.currentMonster.hp<=0)this.p8BossOutcome=null;
-    const {dmg}=extra.equation&&this.currentMonster.hp<=0?{dmg:0}:resistance(raw,type,{...extra,actor:p});
-    const actual=Math.min(this.currentMonster.hp,dmg);this.currentMonster.hp=Math.max(0,this.currentMonster.hp-dmg);
-    const after=this.getHpSnapshot();const outcome={type:this.p8BossOutcome|| (extra.critical?'critical':'normal')};
-    const result={kind:this.p8BossOutcome==='dream_heal'?'heal':'damage',targetId:'monster',actualHeal:Math.max(0,after.monster.hp-before.monster.hp),finalDamage:actual,damageType:this.p8BossOutcome==='nightmare'?'true':type==='mag'?'magic':type==='true'?'true':'physical',outcome,targetBefore:before.monster,targetAfter:after.monster,hpSnapshot:after};
-    this.p8Results?.push(result);this.p8Visuals?.push({type:'player_attack',sourceId:p.id,target:'monster',dmgType:type,value:actual,isCrit:!!extra.critical});
+    const target=snap=>snap.enemies?.find(e=>e.instanceId===enemy.instanceId)||snap.monster;
+    const {dmg}=resistance(raw,type,{...extra,enemy,actor:p});
+    const actual=Math.min(enemy.hp,dmg);enemy.hp=Math.max(0,enemy.hp-dmg);
+    const after=this.getHpSnapshot(),dream=this.p8BossOutcome;
+    const result={kind:dream==='dream_heal'?'heal':'damage',sourceId:p.id,targetId:enemy.instanceId,targetEnemyId:enemy.instanceId,
+      actualHeal:Math.max(0,target(after).hp-target(before).hp),finalDamage:actual,
+      damageType:dream==='nightmare'?'true':type==='mag'?'magic':type==='true'?'true':'physical',
+      outcome:{type:dream||(extra.critical?'critical':'normal')},targetBefore:target(before),targetAfter:target(after),hpSnapshot:after};
+    this.p8Results?.push(result);this.p8Visuals?.push({type:'player_attack',sourceId:p.id,target:enemy.instanceId,targetEnemyId:enemy.instanceId,dmgType:type,value:actual,isCrit:!!extra.critical});
     return actual;
+  },
+  // Enhanced galaxy remains a hit-triggered effect, never an actor attack stat.
+  // A result object can trigger once, and its own follow-up cannot recurse.
+  p8GalaxyFollowups(queue,resistance,seen) {
+    for(const step of [...queue])for(const hit of step.results||[]) {
+      if(seen.has(hit))continue;seen.add(hit);
+      const actor=this.players[hit.ownerId||hit.sourceId||step.sourceId];
+      const galaxy=this.p8Has(actor,'galaxy');
+      const targetId=hit.targetEnemyId||hit.targetBefore?.instanceId|| (hit.targetId==='monster'?step.targetEnemyId:hit.targetId);
+      const enemy=this.enemies.find(e=>e.instanceId===targetId);
+      if(!galaxy?.separate||hit.kind!=='damage'||!(hit.finalDamage>0)||!enemy||enemy.hp<=0||step.actionId==='sg_galaxy')continue;
+      const before=this.getHpSnapshot();this.p8Results=[];this.p8Visuals=[];
+      this.p8DamageMonster(actor,galaxy.value,'mag',resistance,{enemy,kind:'galaxy'});
+      queue.push({type:'player_action',category:'FOLLOW_UP',sourceId:actor.id,sourceName:actor.name,sourceRole:'stargazer',
+        actionId:'sg_galaxy',skillName:'星系追擊',targetId:enemy.instanceId,targetEnemyId:enemy.instanceId,
+        damageType:'magic',outcome:{type:'galaxy'},hpSnapshotBefore:before,hpSnapshot:this.getHpSnapshot(),results:this.p8Results});
+      afterPlayerDamage(this,queue.at(-1));drainEnemyEvents(this,queue);
+      this.p8Results=null;this.p8Visuals=null;
+    }
+  },
+  p8CloakRound(queue,resistance,bardMultiplier=1) {
+    const boss=this.getLivingEnemies().find(e=>['ELITE','ABYSS'].includes(e.tier));
+    if(!boss||!queue.some(s=>s.type==='boss_action'&&(s.enemyId||s.sourceId)===boss.instanceId))return;
+    const results=new Set();
+    for(const step of queue)for(const [index,r] of (step.results||[]).entries()) {
+      const target=r.targetEnemyId||r.targetBefore?.instanceId||(r.targetId==='monster'?step.targetEnemyId:r.targetId);
+      const owner=r.ownerId||r.sourceId||step.sourceId;
+      // Include player-owned summons/follow-ups. Unattributed environmental DoT
+      // is excluded; animation-only visuals are never consulted.
+      if(step.actionId!=='sg_cloak'&&r.kind==='damage'&&r.finalDamage>0&&target===boss.instanceId&&this.players[owner])
+        results.add(r.resultId||r);
+    }
+    for(const p of alive(this)) {
+      if(p.role!=='stargazer'||!countEquip(p,'sg_cloak')||p.sgCloakRound===`${this.battleCount}:${this.battleRound}`||boss.hp<=0)continue;
+      if((this.arena||this.enemyArena)&&(this.arena||this.enemyArena).playerId!==p.id)continue;
+      p.sgCloakRound=`${this.battleCount}:${this.battleRound}`;
+      const before=this.getHpSnapshot();this.p8Results=[];this.p8Visuals=[];
+      this.p8DamageMonster(p,Math.floor(this.applyFateBlessing(p,10+results.size)*bardMultiplier),'mag',resistance,{enemy:boss,kind:'cloak'});
+      queue.push({type:'player_action',category:'FOLLOW_UP',sourceId:p.id,sourceName:p.name,sourceRole:p.role,actionId:'sg_cloak',skillName:'星塵回響',
+        targetId:boss.instanceId,targetEnemyId:boss.instanceId,damageType:'magic',outcome:{type:'normal',damageSegments:results.size},
+        hpSnapshotBefore:before,hpSnapshot:this.getHpSnapshot(),results:this.p8Results});
+      afterPlayerDamage(this,queue.at(-1));drainEnemyEvents(this,queue);
+      this.p8Results=null;this.p8Visuals=null;
+    }
   },
   p8ResolveBossHits(p,rawParts,mitigate,hits,treant) {
     for(let i=0;i<rawParts.length && p.hp>0;i++) {
@@ -641,29 +688,30 @@ export const phase8Methods = {
     } else if(p.role==='stargazer') {
       if(p.action==='basic')damage(Math.floor(value('basic')*bardMultiplier),'mag');
       else if(p.action==='sg_observe') {
-        const enhanced=['sg_eyepiece','sg_tube','sg_mount'].every(id=>countEquip(p,id));const r=Math.random();
+        const enhanced=!!countEquip(p,'sg_eye');const r=Math.random();
         const id=this.roleRandom(p,'sg_observe',()=>enhanced?['planet','galaxy','blackhole','boundary'][Math.min(3,Math.floor(r*4))]:r<.6?'star':r<.7?'planet':r<.8?'galaxy':r<.9?'blackhole':'boundary');
         outcome={type:id,label:{star:'發現星座',planet:'發現星球',galaxy:'發現星系',blackhole:'發現黑洞',boundary:'發現宇宙邊界'}[id],enhanced};
         if (id === 'boundary' && this.getEffectiveLeaderRole?.() === 'stargazer') {
           this.stargazerBoundaryScoutedNext = true;
           this.p8Log('🌌 【界外星圖】觀星者隊長勘破宇宙邊界！次回合路線中的三條路事件全數洞悉揭曉！');
         }
-        if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':'sg_planet')+(enhanced?10:0))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
-        if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:enhanced?10:this.skillValue(p,'sg_bonus'),sourceId:p.id});
+        if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':enhanced?'sg_eye_planet':'sg_planet'))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
+        if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:this.skillValue(p,enhanced?'sg_eye_galaxy':'sg_bonus'),separate:enhanced,sourceId:p.id});
         if(id==='blackhole') {
-          damage(enhanced?10:5,'true');
+          const boss=enhanced?this.getLivingEnemies().find(e=>['ELITE','ABYSS'].includes(e.tier)):m;
+          if(boss)damage(enhanced?10:5,'true',{enemy:boss});
           if(!enhanced)for(const ally of alive(this)) {
             const before=this.getHpSnapshot(),res=this.applyDamageToPlayer(ally,5,{kind:'friendly',trueDamage:true});const after=this.getHpSnapshot();
             this.p8Results.push({kind:'damage',targetId:ally.id,finalDamage:res.hpDmg+res.tempAbsorbed,hpDmg:res.hpDmg,absorbed:res.tempAbsorbed,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===ally.id),targetAfter:after.players.find(x=>x.id===ally.id),hpSnapshot:after});
           }
         }
         if(id==='boundary') {
-          const ally=alive(this).sort((a,b)=>a.hp-b.hp)[0];
-          if(ally&&!this.p8Has(ally,'boundary'))effect(ally,'boundary','邊界鎖定',Infinity,{permanent:true,barrier:enhanced&&ally.hp===ally.maxHp});
+          const targets=alive(this).sort((a,b)=>a.hp-b.hp).slice(0,enhanced?2:1);
+          for(const ally of targets)if(!this.p8Has(ally,'boundary'))effect(ally,'boundary','邊界鎖定',Infinity,{permanent:true});
         }
         this.p8Log(`${p.name}完成天體觀測：【${outcome.label}】${enhanced?'・克卜勒的深空天眼':''}${outcome.stunned?'，魔物本輪暈眩':''}。`);
       } else if(p.action==='sg_clock') {
-        const r=Math.random(),id=this.roleRandom(p,'sg_clock',()=>r<.7?'accelerate':r<.8?'reset':r<.9?'overload':'nothing');outcome={type:id,label:{accelerate:'軌道微調',reset:'超新星重啟',overload:'過載躍遷',nothing:'星軌虛耗'}[id]};
+        const r=Math.random(),id=this.roleRandom(p,'sg_clock',()=>countEquip(p,'sg_watch')?(r<.5?'accelerate':r<.75?'reset':'overload'):(r<.7?'accelerate':r<.8?'reset':r<.9?'overload':'nothing'));outcome={type:id,label:{accelerate:'軌道微調',reset:'超新星重啟',overload:'過載躍遷',nothing:'星軌虛耗'}[id]};
         // Deferred until the common cooldown owner has charged this round's casts.
         (this.p8ClockEvents ||= []).push(id);if(id==='overload')for(const ally of alive(this))effect(ally,'overload','過載躍遷',1,{value:this.skillValue(p,'sg_bonus'),sourceId:p.id});
         this.p8Log(`${p.name}重塑時計：【${outcome.label}】。`);

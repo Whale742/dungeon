@@ -258,7 +258,7 @@ function buildLabHexGrid(items, isMerchant = false, selectedIdx = null) {
                 ${priceTag}
                 <div class="item-layer">
                   <div class="item-layer-icon-box">
-                    <img src="${(item.icon && item.icon.startsWith('/')) ? item.icon : (isExclusive ? `/assets/專屬裝備/${encodeURIComponent(item.name === '流浪占星師的粗呢斗篷' ? '流浪占星師的斗篷' : item.name)}.webp` : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`)}" class="item-equipment-img" alt="${item.name}" onerror="this.onerror=null; this.src='/assets/Equipments/通用裝備.webp';">
+                    <img src="${(item.icon && item.icon.startsWith('/')) ? item.icon : (isExclusive ? `/assets/專屬裝備/${encodeURIComponent(item.name)}.webp` : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`)}" class="item-equipment-img" alt="${item.name}" onerror="this.onerror=null; this.src='/assets/Equipments/通用裝備.webp';">
                   </div>
                   <div class="item-layer-name">${item.name}</div>
                 </div>

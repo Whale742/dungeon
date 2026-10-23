@@ -3176,22 +3176,9 @@ export class Room {
       return { success: false, message: '無效的裝備欄位' };
     }
 
-    const removed = unequipItemFromPlayer(player, equipIndex);
-    this.p8RefreshEquipment();
-    if (removed) {
-      if (player.equipSlots) {
-        for (const [k, v] of Object.entries(player.equipSlots)) {
-          if (v === removed) {
-            player.equipSlots[k] = null;
-            break;
-          }
-        }
-      }
-      this.addLog(`📦 **${player.name}** 手動卸下了【${removed.name}】。(${formatPlayerEquips(player)})`, 'info');
-      this.broadcastState();
-      return { success: true };
-    }
-    return { success: false, message: '卸下裝備失敗' };
+    const item = player.equips[equipIndex];
+    const slot = Object.keys(player.equipSlots || {}).find(key => player.equipSlots[key] === item);
+    return slot ? this.unequipItemToBag(socketId, slot) : {success:false,message:'裝備欄位不同步，無法卸下'};
   }
 
   // ==========================================
@@ -3544,9 +3531,6 @@ export class Room {
     }
 
     // 目標格為空格或未指定時的正常卸下
-    if (slotKey === 'CLASS_EXCLUSIVE' && (item.isClassExclusive || item.tier === 'CLASS_EXCLUSIVE')) {
-      return { success: false, message: '專屬裝備無法卸下！' };
-    }
     const currentBagCount = player.bag.filter(Boolean).length;
     if (currentBagCount >= 4 && (targetBagIndex === null || !player.bag[targetBagIndex])) {
       return { success: false, message: '個人背包已滿（上限 4 格）！' };
@@ -3621,9 +3605,6 @@ export class Room {
     }
 
     // 目標格為空格或未指定時的正常卸下
-    if (slotKey === 'CLASS_EXCLUSIVE' && (item.isClassExclusive || item.tier === 'CLASS_EXCLUSIVE')) {
-      return { success: false, message: '專屬裝備無法卸下！' };
-    }
     const currentSquadCount = this.squadInventory.filter(Boolean).length;
     if (currentSquadCount >= 19 && (targetSquadIndex === null || !this.squadInventory[targetSquadIndex])) {
       return { success: false, message: '小隊背包已滿（上限 19 格）！' };
@@ -4173,6 +4154,7 @@ export class Room {
         if (item.type === 'CONSUMABLE' || item.slot === 'CONSUMABLE' || item.effectType === 'HEALING_POTION' || item.effectType === 'ANTIDOTE' || item.effectType === 'REST_TENT') {
           return { success: false, message: '補血藥、解毒劑與修整帳篷只能丟棄，不能販售！' };
         }
+        removeEquipStats(player, item);
         player.equipSlots[slotKey] = null;
         this.syncPlayerEquips(player);
       } else {
@@ -4398,6 +4380,7 @@ export class Room {
         return { success: false, message: '欲丟棄之裝備不存在' };
       }
       item = player.equipSlots[slotKey];
+      removeEquipStats(player, item);
       player.equipSlots[slotKey] = null;
       this.syncPlayerEquips(player);
     } else {
@@ -5325,6 +5308,7 @@ export class Room {
       }
     }
 
+    const galaxyResolved=new WeakSet();
     let phase8Actor = null;
     const applyResistanceDamage = (rawDmg, dmgType, options = {}) => {
       const targetEnemy = options.enemy || monster;
@@ -5334,7 +5318,8 @@ export class Room {
       const presentationCue={};this.p8DamagePresentationOutcomes?.push(presentationCue);
       if (!options.equation && dmgType!=='true') {
         const actor=options.actor||phase8Actor;
-        rawDmg += this.p8Has(actor,'galaxy')?.value || 0;
+        const galaxy=this.p8Has(actor,'galaxy');
+        rawDmg += galaxy?.separate ? 0 : galaxy?.value || 0;
         if(actor?.action!=='basic' && !options.kind && !actor?.overloadAppliedThisAction) { rawDmg += this.p8Has(actor,'overload')?.value || 0; if(actor)actor.overloadAppliedThisAction=true; }
       }
       if(!options.equation) {
@@ -6956,6 +6941,7 @@ export class Room {
       this.resolveAssassinFollowUps(p, presentationQueue, log, bardDmgMultiplier, applyResistanceDamage);
       for(const follow of presentationQueue.slice(followStart))afterPlayerDamage(this,follow);
       drainEnemyEvents(this,presentationQueue);
+      this.p8GalaxyFollowups(presentationQueue,applyResistanceDamage,galaxyResolved);
 
       if (monster.hp <= 0) {
         if (this.getLivingEnemies().length === 0) {
@@ -7634,7 +7620,7 @@ export class Room {
     } // 結束怪物存活時的反擊結算 (else 區塊)
 
     if(this.arena&&this.players[this.arena.playerId]?.hp<=0)this.p8ExitArena(presentationQueue,'gladiator_dead');
-    phase8Actor=null;this.enemyCounterResolution=true;this.p8EndRound(presentationQueue,log,applyResistanceDamage,bardDmgMultiplier);this.enemyCounterResolution=false;
+    phase8Actor=null;this.enemyCounterResolution=true;this.p8EndRound(presentationQueue,log,applyResistanceDamage,bardDmgMultiplier);this.p8CloakRound(presentationQueue,applyResistanceDamage,bardDmgMultiplier);this.enemyCounterResolution=false;
     for(const p of Object.values(this.players)){
       // 德魯伊變身持續時間處理
       if (p.role === 'druid') {

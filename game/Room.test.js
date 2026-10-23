@@ -1497,3 +1497,277 @@ test('Cloud image registry resolves encoded and relative paths, SVG images, back
   assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');
   assert.equal(registry.resolvePath('https://other.example.test/assets/example.png'),'https://other.example.test/assets/example.png');
 });
+
+test('All 15 roles can unequip exclusive equipment to bag or squad, sell in shop, discard, with exact stat reversal and cross-role guard', t => {
+  const allRoles = ['warrior', 'mage', 'archer', 'assassin', 'bard', 'alchemist', 'druid', 'paladin', 'gladiator', 'samurai', 'sage', 'augur', 'onmyoji', 'dreamweaver', 'stargazer'];
+  for (const role of allRoles) {
+    const { room } = fixture(t, role);
+    const exclusive = TIER1_EQUIPMENTS.find(i => i.role === role) || room.squadInventory.find(i => i?.role === role);
+    const item = exclusive ? { ...exclusive } : { id: `test_${role}`, role, name: `測試專屬_${role}`, slot: 'CLASS_EXCLUSIVE', tier: 'CLASS_EXCLUSIVE', bonusHp: 20, bonusDef: 5 };
+    
+    // Equip from personal bag
+    room.players.solo.bag = [{ ...item }];
+    const equipRes = room.equipItemFromBag('solo', 0);
+    assert.equal(equipRes.success, true, `Role ${role} failed to equip exclusive item from bag`);
+    assert.equal(room.players.solo.equipSlots.CLASS_EXCLUSIVE.id, item.id);
+    
+    // Unequip to personal bag
+    const unequipBagRes = room.unequipItemToBag('solo', 'CLASS_EXCLUSIVE');
+    assert.equal(unequipBagRes.success, true, `Role ${role} failed to unequip exclusive item to bag`);
+    assert.equal(room.players.solo.equipSlots.CLASS_EXCLUSIVE, null);
+    assert.equal(room.players.solo.bag[0].id, item.id);
+    
+    // Re-equip from bag
+    assert.equal(room.equipItemFromBag('solo', 0).success, true);
+    
+    // Unequip to squad inventory
+    const unequipSquadRes = room.unequipItemToSquad('solo', 'CLASS_EXCLUSIVE');
+    assert.equal(unequipSquadRes.success, true, `Role ${role} failed to unequip exclusive item to squad`);
+    assert.equal(room.players.solo.equipSlots.CLASS_EXCLUSIVE, null);
+    const squadIdx = room.squadInventory.findIndex(i => i && i.id === item.id);
+    assert.ok(squadIdx >= 0, `Item ${item.id} not found in squad inventory`);
+    
+    // Re-equip from squad inventory
+    assert.equal(room.equipItemFromSquad('solo', squadIdx).success, true);
+    assert.equal(room.players.solo.equipSlots.CLASS_EXCLUSIVE.id, item.id);
+
+    // Cross-role protection: another role cannot equip this item
+    const otherRole = role === 'warrior' ? 'mage' : 'warrior';
+    const { room: otherRoom } = fixture(t, otherRole);
+    otherRoom.players.solo.bag = [{ ...item }];
+    const crossRes = otherRoom.equipItemFromBag('solo', 0);
+    assert.equal(crossRes.success, false, `Other role ${otherRole} should not be allowed to equip ${role}'s exclusive item`);
+    assert.match(crossRes.message, /專屬裝備/);
+
+    // Stat reversal on discard
+    const hpBeforeDiscard = room.players.solo.maxHp;
+    const discardRes = room.discardItem('solo', { fromArea: 'equip', slotKey: 'CLASS_EXCLUSIVE' });
+    assert.equal(discardRes.success, true);
+    assert.equal(room.players.solo.equipSlots.CLASS_EXCLUSIVE, null);
+    if (item.bonusHp) {
+      assert.equal(room.players.solo.maxHp, hpBeforeDiscard - item.bonusHp);
+    }
+
+    // Stat reversal on sell in shop
+    room.state = 'EVENT';
+    room.currentEvent = { type: 'shop', items: [], col: 2 };
+    room.players.solo.bag = [{ ...item }];
+    room.equipItemFromBag('solo', 0);
+    const hpBeforeSell = room.players.solo.maxHp;
+    const goldBeforeSell = room.gold || 0;
+    const sellRes = room.handleShopAction('solo', 'sell', { fromArea: 'equip', slotKey: 'CLASS_EXCLUSIVE' });
+    assert.equal(sellRes.success, true);
+    assert.equal(room.players.solo.equipSlots.CLASS_EXCLUSIVE, null);
+    assert.ok(room.gold > goldBeforeSell);
+    if (item.bonusHp) {
+      assert.equal(room.players.solo.maxHp, hpBeforeSell - item.bonusHp);
+    }
+  }
+});
+
+test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanics and unequipped fallback', async t => {
+  const { LOOT_TABLE } = await import('./constants.js');
+  const { NEW_LOOT } = await import('./phase8-config.js');
+  const sgEye = NEW_LOOT.find(i => i.id === 'sg_eye');
+  const sgWatch = NEW_LOOT.find(i => i.id === 'sg_watch');
+  const sgCloak = NEW_LOOT.find(i => i.id === 'sg_cloak');
+
+  // Verify only 3 exclusive items exist for stargazer in loot
+  const sgLoot = LOOT_TABLE.filter(i => i.role === 'stargazer');
+  assert.equal(sgLoot.length, 3);
+  assert.deepEqual(sgLoot.map(i => i.id).sort(), ['sg_cloak', 'sg_eye', 'sg_watch']);
+
+  function makeBattle() {
+    const events = [];
+    const socket = { id: 'solo', join() {}, emit() {} };
+    const io = { to: () => ({ emit: (...args) => events.push(args) }) };
+    const room = new Room('TEST1', socket, 'Tester', io);
+    room.selectRole('solo', 'stargazer');
+    room.handleBattleEvent(null, false, { col: 1 });
+    const template = room.currentMonster;
+    room.enemies = ['ABYSS', 'MINION', 'MINION'].map((tier, i) =>
+      room.createEnemyInstance(template, i, { tier, rng: () => .5 }));
+    for (const enemy of room.enemies) { enemy.hp = 500; enemy.maxHp = 500; }
+    room.currentMonster = room.enemies[0];
+    room.players.solo.targetEnemyId = room.enemies[0].instanceId;
+    return { room, events };
+  }
+
+  // sg_eye mechanics: 4 outcomes, no star
+  {
+    const outcomes = new Set();
+    const rolls = [[0.1, 'planet'], [0.35, 'galaxy'], [0.6, 'blackhole'], [0.85, 'boundary']];
+    for (const [r, expected] of rolls) {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      p.equipSlots.CLASS_EXCLUSIVE = { ...sgEye };
+      room.syncPlayerEquips(p);
+
+      const origRandom = Math.random;
+      Math.random = () => r;
+      p.action = 'sg_observe';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step = queue.find(s => s.actionId === 'sg_observe');
+      assert.equal(step.outcome.type, expected);
+      assert.equal(step.outcome.enhanced, true);
+      outcomes.add(step.outcome.type);
+    }
+    assert.deepEqual([...outcomes].sort(), ['blackhole', 'boundary', 'galaxy', 'planet']);
+
+    // Black hole with sg_eye: deals 10 true damage to Boss only, 0 to allies
+    {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      p.equipSlots.CLASS_EXCLUSIVE = { ...sgEye };
+      room.syncPlayerEquips(p);
+
+      const origRandom = Math.random;
+      Math.random = () => 0.6; // blackhole
+      p.action = 'sg_observe';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step = queue.find(s => s.actionId === 'sg_observe');
+      const allyDamage = step.results.filter(r => r.kind === 'damage' && r.targetId === p.id);
+      assert.equal(allyDamage.length, 0, 'sg_eye blackhole must not harm allies');
+      const bossDamage = step.results.find(r => r.damageType === 'true' && r.targetId === room.enemies[0].instanceId);
+      assert.ok(bossDamage, 'Should deal true damage to Boss');
+      assert.equal(bossDamage.finalDamage, 10);
+    }
+
+    // Boundary with sg_eye: selects 2 distinct allies when available
+    {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      p.equipSlots.CLASS_EXCLUSIVE = { ...sgEye };
+      room.syncPlayerEquips(p);
+
+      room.players.p2 = { id: 'p2', name: 'Ally2', role: 'mage', hp: 50, maxHp: 100, isDead: false, equipSlots: { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null }, equips: [], cooldowns: {}, statuses: [] };
+      room.memberIds.push('p2');
+
+      const origRandom = Math.random;
+      Math.random = () => 0.85; // boundary
+      p.action = 'sg_observe';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      assert.ok(room.p8Has(p, 'boundary'), 'Player should have boundary buff');
+      assert.ok(room.p8Has(room.players.p2, 'boundary'), 'Ally2 should have boundary buff');
+    }
+
+    // Unequipped: restores star (發現星座)
+    {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      p.equipSlots.CLASS_EXCLUSIVE = null;
+      room.syncPlayerEquips(p);
+
+      const origRandom = Math.random;
+      Math.random = () => 0.1; // < 0.6 -> star
+      p.action = 'sg_observe';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step = queue.find(s => s.actionId === 'sg_observe');
+      assert.equal(step.outcome.type, 'star');
+      assert.equal(step.outcome.enhanced, false);
+    }
+  }
+
+  // sg_watch mechanics: 50% accelerate, 25% reset, 25% overload, 0% nothing
+  {
+    const outcomes = new Set();
+    const testRolls = [[0.1, 'accelerate'], [0.49, 'accelerate'], [0.55, 'reset'], [0.74, 'reset'], [0.76, 'overload'], [0.99, 'overload']];
+    for (const [r, expected] of testRolls) {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      p.equipSlots.CLASS_EXCLUSIVE = { ...sgWatch };
+      room.syncPlayerEquips(p);
+
+      const origRandom = Math.random;
+      Math.random = () => r;
+      p.action = 'sg_clock';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step = queue.find(s => s.actionId === 'sg_clock');
+      assert.equal(step.outcome.type, expected);
+      assert.notEqual(step.outcome.type, 'nothing', 'sg_watch must NOT produce nothing');
+      outcomes.add(step.outcome.type);
+    }
+    assert.deepEqual([...outcomes].sort(), ['accelerate', 'overload', 'reset']);
+
+    // Unequipped: allows nothing (星軌虛耗)
+    {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      p.equipSlots.CLASS_EXCLUSIVE = null;
+      room.syncPlayerEquips(p);
+
+      const origRandom = Math.random;
+      Math.random = () => 0.95; // >= 0.9 -> nothing
+      p.action = 'sg_clock';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step = queue.find(s => s.actionId === 'sg_clock');
+      assert.equal(step.outcome.type, 'nothing');
+    }
+  }
+
+  // sg_cloak mechanics: 星塵回響 deals 10 + segments * 1 magic damage to Boss after Boss round
+  {
+    const { room } = fixture(t, 'stargazer');
+    room.handleBattleEvent(null, false, { col: 1 });
+    const p = room.players.solo;
+    p.equipSlots.CLASS_EXCLUSIVE = { ...sgCloak };
+    room.syncPlayerEquips(p);
+
+    const boss = room.getLivingEnemies()[0];
+    boss.tier = 'ABYSS';
+    boss.hp = 200;
+    boss.maxHp = 200;
+
+    const presentationQueue = [
+      {
+        type: 'player_action',
+        sourceId: 'solo',
+        actionId: 'basic',
+        targetEnemyId: boss.instanceId,
+        results: [
+          { kind: 'damage', finalDamage: 12, targetEnemyId: boss.instanceId, resultId: 'dmg_1' },
+          { kind: 'damage', finalDamage: 8, targetEnemyId: boss.instanceId, resultId: 'dmg_2' }
+        ]
+      },
+      {
+        type: 'boss_action',
+        enemyId: boss.instanceId,
+        sourceId: boss.instanceId,
+        results: []
+      }
+    ];
+
+    room.battleCount = 1;
+    room.battleRound = 1;
+    room.p8CloakRound(presentationQueue, (dmg) => ({ dmg }), 1);
+
+    const cloakAction = presentationQueue.find(step => step.actionId === 'sg_cloak');
+    assert.ok(cloakAction, 'p8CloakRound should add sg_cloak follow-up action to presentationQueue');
+    assert.equal(cloakAction.skillName, '星塵回響');
+    // 2 damage segments dealt to Boss -> 10 + 2 = 12 magic damage
+    assert.equal(cloakAction.outcome.damageSegments, 2);
+    assert.equal(cloakAction.results[0].finalDamage, 12);
+
+    // Once per round: running again in same round does not duplicate
+    const initialLen = presentationQueue.length;
+    room.p8CloakRound(presentationQueue, (dmg) => ({ dmg }), 1);
+    assert.equal(presentationQueue.length, initialLen, 'sg_cloak must trigger at most once per round');
+  }
+});

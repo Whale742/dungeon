@@ -870,7 +870,7 @@ export function removeEquipStats(player, item) {
   if (item.bonusHp) {
     player.maxHp -= item.bonusHp;
     player.hp = Math.min(player.hp, player.maxHp);
-    player.hp = Math.max(1, player.hp);
+    player.hp = Math.max(0, player.hp);
   }
   if (item.bonusDef) player.bonusDef = Math.max(0, (player.bonusDef || 0) - item.bonusDef);
   if (item.regenPerRound) player.regenPerRound = Math.max(0, (player.regenPerRound || 0) - item.regenPerRound);
