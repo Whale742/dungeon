@@ -1,0 +1,21 @@
+/* Isolation only: enemy and party geometry remains owned by production CSS. */
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{background:#08121a var(--lab-backdrop,none) center/cover no-repeat}
+#viewBattle .battle-sidebar,#viewBattle #playerActionCard{display:none}
+#viewBattle .arena-top{top:26px}
+#viewBattle .round-count .soft-tag{display:none}
+/* Production's mobile cap reserves a command dock absent from this viewport.
+   Give that space back without replacing its tier sizes or formation rules. */
+#viewBattle #battleEnemiesStage{--enemy-cap:42vh;inset:17% 7% max(44%,var(--lab-party-clearance,0px))}
+#viewBattle #battleLogCard{display:none}
+#floatingEnemyTooltip:empty,#battleSkillTooltip:empty{display:none}
+#viewBattle[data-lab-idle=true] .teammates-card{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+#viewBattle[data-lab-idle=true] .battle-hud-notice{display:none}
+/* Preserve production card sizes when ten actors exceed the preview width. */
+#viewBattle #battleTeammatesGrid:has(>.teammate-card:nth-child(5)){width:100%;justify-content:flex-start;overflow-x:auto;scrollbar-width:thin;scroll-padding:8px}
+#viewBattle #battleTeammatesGrid:has(>.teammate-card:nth-child(5))>.teammate-card{flex-shrink:0}
+dialog{color:var(--light);background:var(--deep);border:1px solid var(--border);max-width:90vw}
+dialog::backdrop{background:#03080bc9}
+dialog img{width:80px;height:100px;object-fit:contain}
+@media(max-width:650px){#viewBattle .arena-top{top:18px;left:16px;right:16px}}
+@media(max-width:650px){#viewBattle #battleEnemiesStage{--enemy-cap:34vh;top:14%;bottom:max(48%,var(--lab-party-clearance,0px))}}

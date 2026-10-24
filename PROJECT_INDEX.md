@@ -7,7 +7,8 @@ game/                  權威遊戲邏輯、常數、回合資料與相鄰測試
 studio/                Studio API、內容目錄、發布快取與 Supabase 存取
 public/
   index.html           正式遊戲及 /dev 共用頁面
-  presentation-lab.html /lab 演出測試頁（舊 HTML URL 仍轉址到 /lab）
+  presentation-lab.html /lab Combat FX 工作台（舊 HTML URL 仍轉址到 /lab）
+  combat-fx-stage.html  Lab iframe：正式戰鬥 DOM、共用渲染與演出，無正式 socket
   studio-editor.html   /edit 文案編輯器
   studio-assets.html   /asset 素材管理器
   js/                  依功能分類的前端程式
@@ -26,6 +27,7 @@ specs/                 設計參考、提案及演出原稿
 | `game/constants.js` | 職業、敵人、裝備與遊戲常數 |
 | `studio/router.js` | `/lab`、`/edit`、`/asset` 與 Studio API |
 | `studio/catalog.js` | 本地文案、素材、綁定及 Lab 場景目錄 |
+| `studio/combat-lab.js` | 唯讀正式職業／敵人／裝備目錄與固定演出結果樣本 |
 | `studio/content.js` | Supabase 發布內容快取與房間快照 |
 | `studio/migration.js` | 素材遷移規劃與 Storage 同步 |
 | `DEV_MODE.md` | 既有開發模式實作與驗證紀錄，保留原位置 |
@@ -36,7 +38,7 @@ specs/                 設計參考、提案及演出原稿
 | --- | --- | --- |
 | 前端連線、房間狀態、共用畫面更新 | [app.js](public/js/core/app.js) | [base.css](public/css/shared/base.css)、[design-tokens.css](public/css/shared/design-tokens.css) |
 | 招募、大廳、職業選擇 | [lobby.js](public/js/lobby/lobby.js)、[recruit-copy.js](public/js/lobby/recruit-copy.js) | [lobby.css](public/css/lobby/lobby.css) |
-| 戰鬥 UI、階段、日誌 | [battle-hud.js](public/js/combat/battle-hud.js)、[battle-phase.js](public/js/combat/battle-phase.js)、[battle-log.js](public/js/combat/battle-log.js) | `public/css/combat/`；[battle-overlays.css](public/css/combat/battle-overlays.css) 含角色狀態、競技場及日誌覆蓋樣式 |
+| 戰鬥 UI、階段、日誌 | [battle-renderers.js](public/js/combat/battle-renderers.js) 共用敵人／隊友渲染與 HUD 快照更新；[battle-hud.js](public/js/combat/battle-hud.js)、[battle-phase.js](public/js/combat/battle-phase.js)、[battle-log.js](public/js/combat/battle-log.js) | `public/css/combat/`；[battle-overlays.css](public/css/combat/battle-overlays.css) 含角色狀態、競技場及日誌覆蓋樣式 |
 | 角色／敵人戰場錨點與立繪 | [player-battlefield.js](public/js/combat/player-battlefield.js)、[enemy-presentation.js](public/js/combat/enemy-presentation.js) | 同名檔案位於 `public/css/combat/` |
 | 技能演出入口與時序 | [combat.js](public/js/combat/combat.js)、[combat-expansion.js](public/js/combat/combat-expansion.js)、[presentation-core.js](public/js/presentation/presentation-core.js) | [presentation-config.js](public/js/presentation/presentation-config.js)、[skill-production.css](public/css/presentation/skill-production.css) |
 | 共用及職業戰場技能演出 | [core-role-effects.js](public/js/presentation/core-role-effects.js)（戰士、法師、聖騎士、吟遊詩人、刺客）、[extended-role-effects.js](public/js/presentation/extended-role-effects.js)（弓箭手、煉金術士、德魯伊等） | [core-role-effects.css](public/css/presentation/core-role-effects.css)；部分共用樣式仍由 `skill-production.css` 提供 |
@@ -47,7 +49,8 @@ specs/                 設計參考、提案及演出原稿
 | BGM、音效與音量 | [bgm.js](public/js/audio/bgm.js)、[sfx-assets.js](public/js/audio/sfx-assets.js)；SFXManager 在 `presentation-core.js` | [audio-controls.css](public/css/audio/audio-controls.css) |
 | 模態視窗動態、技能文案 | [modal-motion.js](public/js/shared/modal-motion.js)、[skill-copy.js](public/js/shared/skill-copy.js) | [modal-motion.css](public/css/shared/modal-motion.css) |
 | Dev 控制與技能文案工具 | `public/js/dev/`、`game/Dev*.js` | [dev-tools.css](public/css/dev/dev-tools.css)；`/dev` 仍由環境旗標控制 |
-| Lab 場景與回歸示範 | [presentation-lab.js](public/js/lab/presentation-lab.js)、`public/js/lab/*-scenes.js` | [presentation-lab.css](public/css/lab/presentation-lab.css)、[lab-layout.css](public/css/studio/lab-layout.css) |
+| Combat FX Lab 工作台 | [combat-fx-lab.js](public/js/lab/combat-fx-lab.js) 情境與操作；[combat-fx-stage.js](public/js/lab/combat-fx-stage.js) 隔離播放；[combat-fx-model.js](public/js/lab/combat-fx-model.js) 固定結果轉接 | [combat-fx-lab.css](public/css/lab/combat-fx-lab.css)、[combat-fx-stage.css](public/css/lab/combat-fx-stage.css)；技能演出直接共用正式腳本 |
+| Lab 結果樣本 | [presentation-lab.js](public/js/lab/presentation-lab.js) 僅保留契約與驗收資料；`public/js/lab/*-scenes.js` | 由 `studio/combat-lab.js` 提供唯讀 API，不載入舊 Lab 控制器 |
 
 ## 素材位置
 
@@ -80,12 +83,12 @@ specs/                 設計參考、提案及演出原稿
 
 ## 容易混淆的依賴
 
-- HTML 中傳統 Script 與 CSS 的先後順序仍是相依關係的一部分；此次只改載入位置，沒有改成模組或拆解大型檔案。
+- HTML 中傳統 Script 與 CSS 的先後順序仍是相依關係的一部分。`battle-renderers.js` 的正式渲染／HUD 函式從 `app.js` 原樣移出，兩個頁面都在各自控制器前載入；Lab 控制器與結果轉接為獨立 ES 模組。
 - [public/js/shared/local-paths.cjs](public/js/shared/local-paths.cjs) 是瀏覽器與 Node 共用的舊路徑對照。Express 保留舊靜態 URL；Studio 沿用舊路徑所產生的素材 ID，並讓新舊 fallback 路徑都能命中已發布綁定。`.cjs` 同時供 Node 匯入及傳統 Script 載入。
 - 素材本地分類與 Supabase Storage 目錄分屬不同用途。既有雲端 URL、Storage 物件及資料格式保留；本次沒有執行雲端資料遷移。
 - `phase8Methods`、`P8_ROLES`、`phase8Statuses` 等既有內部名稱與資料欄位仍保留，檔名改為功能名稱不代表資料契約也改名。
 - `scripts/split_exclusive_equipments.py` 從 `equipment/source-sheets/` 讀取原圖，輸出至 `equipment/exclusive/`；`scripts/convert-buff-icons.cjs` 接受選用的來源目錄參數，輸出至 `icons/status/`。
-- 既有測試使用 `node --test game/*.test.js server.test.js`；`server.test.js` 包含多人／Dev 隔離與靜態舊 URL 相容性驗證。
+- 測試使用 `node --test game/*.test.js server.test.js studio/combat-lab.test.js`；`server.test.js` 包含多人／Dev 隔離與靜態舊 URL 相容性驗證，Lab 測試涵蓋目標轉接、重播資料隔離與正式演出共用。
 
 ## 設計資料
 

@@ -1,0 +1,97 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { combatLabCatalog as catalog, combatLabFixture } from './combat-lab.js';
+import { preparePlayback } from '../public/js/lab/combat-fx-model.js';
+
+function scenario(role='samurai',count=4,enemyCount=3){
+  const party=Array.from({length:count},(_,i)=>{
+    const key=i===0?role:'warrior',c=catalog.classes[key];
+    return {id:'configured-player-'+i,role:key,name:'角色 '+i,hp:c.maxHp,maxHp:c.maxHp,statuses:[],minions:[],equips:[]};
+  });
+  const enemies=catalog.enemies.slice(0,enemyCount).map((e,i)=>({...structuredClone(e),instanceId:'configured-enemy-'+i,statuses:[]}));
+  return {party,enemies,actorId:party[0].id,primaryId:enemies.at(-1).instanceId,partyTargetId:party.at(-1).id,round:1};
+}
+const entry=(id,action)=>catalog.scenes.find(s=>s.id===id&&(!action||s.actionId===action));
+
+test('four-hit Tsubame retains all hits, selected enemy and immutable replay inputs',()=>{
+  const config=scenario(),fixture=combatLabFixture('samurai_tsubame');
+  const saved=structuredClone(config),savedFixture=JSON.stringify(fixture);
+  const run=()=>preparePlayback(config,fixture,entry('samurai_tsubame'));
+  const playback=run();
+  assert.equal(playback.steps.length,1);assert.equal(playback.steps[0].results.length,4);
+  for(const r of playback.steps[0].results){assert.equal(r.targetId,config.primaryId);assert.equal(r.targetAfter.name,config.enemies.at(-1).name);}
+  assert.deepEqual(config,saved);assert.equal(JSON.stringify(fixture),savedFixture);assert.deepEqual(run(),playback);
+});
+
+test('party shield preview covers ten configured allies without phantom fixture actors',()=>{
+  const config=scenario('warrior',10),selected=entry('phase6_warrior_w_shield_normal_single','w_shield');
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.equal(steps[0].results.length,10);
+  assert.deepEqual(new Set(steps[0].results.map(r=>r.targetId)),new Set(config.party.map(p=>p.id)));
+  for(const step of steps)assert.deepEqual(step.hpSnapshot.players.map(p=>p.id),config.party.map(p=>p.id));
+});
+
+test('observation remaps its nested target even when the recorded ally role is absent',()=>{
+  const config=scenario('augur',2),selected=entry('augur_observe');
+  config.party[1].role='sage';
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.equal(steps[0].outcome.targetId,config.partyTargetId);
+  assert.equal(steps[0].targetId,config.partyTargetId);
+  assert.equal(steps[0].results.length,0);
+});
+
+test('a recorded butterfly cocoon can target a chosen ally without also changing the caster',()=>{
+  const config=scenario('dreamweaver',2),selected=entry('p8_butterfly_heal');
+  config.party[0].hp=10;config.party[1].hp=1;
+  assert.equal(selected.skillId,'dw_butterfly');
+  assert.equal(selected.targetMode,'selected');
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.ok(steps[0].results.every(r=>r.targetId===config.partyTargetId));
+  assert.equal(steps[0].hpSnapshot.players[0].hp,10);
+  assert.notDeepEqual(steps[0].hpSnapshot.players[1].statuses,config.party[1].statuses);
+});
+
+test('solve previews include the dependent equation and maintain the selected enemy',()=>{
+  const config=scenario('sage'),selected=entry('sage_sge_induce_solve','sge_induce');
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.deepEqual(steps.map(s=>s.actionId),['sge_induce','sge_equation']);
+  assert.ok(steps.every(s=>s.results.filter(r=>r.kind==='damage').every(r=>r.targetEnemyId===config.primaryId)));
+});
+
+test('transform uses the production result and updates only the configured druid',()=>{
+  const config=scenario('druid'),selected=entry('p6_wolf_transform','dru_transform');
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.equal(steps[0].hpSnapshot.players[0].druidForm,'werewolf');
+  assert.equal(steps[0].results[0].targetId,config.actorId);
+  assert.equal(config.party[0].druidForm,undefined);
+});
+
+test('arena sequence retains entry, assault and exit with configured ownership',()=>{
+  const config=scenario('gladiator'),selected=entry('gladiator_full','g_arena');
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.deepEqual(steps.map(s=>s.type),['player_action','player_action','arena_enter','player_action','arena_exit']);
+  assert.equal(steps[2].hpSnapshot.arena.playerId,config.actorId);
+  assert.equal(steps[2].hpSnapshot.arena.enemyId,config.primaryId);
+  assert.equal(steps[3].results[0].targetId,config.primaryId);
+  assert.equal(steps.at(-1).hpSnapshot.arena,null);
+});
+
+test('an enemy performer retains its identity when a different enemy is primary',()=>{
+  const selected=catalog.scenes.find(s=>!s.role&&s.targetSide==='party');
+  const config=scenario('warrior',2,3);
+  const enemy=catalog.enemies.find(e=>e.name===selected.enemyName);
+  config.enemies[0]={...structuredClone(enemy),instanceId:'configured-enemy-0'};
+  config.actorId=config.enemies[0].instanceId;
+  const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  assert.ok(steps.every(s=>s.sourceId===config.actorId&&s.monsterName===enemy.name&&s.monsterAvatar===enemy.avatar));
+});
+
+test('the iframe loads shared production renderers and contains no live game socket',()=>{
+  const html=readFileSync(new URL('../public/combat-fx-stage.html',import.meta.url),'utf8');
+  const official=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+  assert.ok(html.includes('/js/combat/battle-renderers.js'));
+  assert.ok(official.includes('js/combat/battle-renderers.js'));
+  assert.ok(!html.includes('js/core/app.js'));assert.ok(!html.includes('socket.io'));
+  for(const role of Object.keys(catalog.classes))assert.ok(catalog.scenes.some(s=>s.role===role),role);
+});

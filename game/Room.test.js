@@ -926,7 +926,7 @@ test('Enemy strip caps three icons while the existing tooltip keeps full statuse
   const strip=row.children[0];assert.equal(strip.children.length,4);assert.equal(strip.children[3].textContent,'+1');
   const tooltip=h.scope.document.createElement('div');tooltip.classList={add(){}};
   Object.assign(h.scope,{elements:{floatingEnemyTooltip:tooltip},roomState:{battleRound:2},escapeHtml:s=>String(s??''),positionFloatingTooltip(){}});
-  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
+  const app=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8');vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
   h.scope.showEnemyTooltip(en,node);
   for(const label of ['POISON','BURN','FRACTURE','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
   assert.ok(tooltip.innerHTML.includes('2/2'));assert.ok(tooltip.innerHTML.includes('3 回合'));
@@ -1375,7 +1375,7 @@ test('Arena participants keep their own painted profession renderer',async()=>{
 
 
 test('Production and Lab load painted enemy choreography before its dispatcher',()=>{
-  for(const page of ['index.html','presentation-lab.html']){
+  for(const page of ['index.html','combat-fx-stage.html']){
     const html=readFileSync(new URL('../public/'+page,import.meta.url),'utf8');
     const choreography=html.indexOf('<script src="js/combat/enemy-choreography.js"'),dispatch=html.indexOf('<script src="js/combat/enemy-presentation.js"');
     assert.ok(choreography>=0&&choreography<dispatch,page+' must not silently run the placeholder renderer');
@@ -1925,7 +1925,7 @@ test('Arena presentation centers its authoritative enemy, removes outsiders from
   h.scope.syncEnemyArenaVisual({playerId:'hero',enemyId:'enemy_1'});
   assert.ok(stage.classList.contains('is-duel-arena'));assert.ok(view.classList.contains('is-duel-arena'));assert.equal(nodes[0].attrs['aria-hidden'],'true');assert.equal(nodes[0].tabIndex,-1);assert.ok(nodes[0].blurred);assert.equal(nodes[1].attrs['aria-disabled'],'false');
   h.scope.syncEnemyArenaVisual(null);assert.ok(!stage.classList.contains('is-duel-arena'));assert.ok(!view.classList.contains('is-duel-arena'));assert.ok(nodes.every(n=>n.attrs['aria-hidden']==='false'&&n.tabIndex===0));
-  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8'),scope={roomState:{enemies:nodes.map(n=>({instanceId:n.dataset.enemyId,hp:10})),arena:{playerId:'hero',enemyId:'enemy_1'}},myId:'hero'};
+  const app=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),scope={roomState:{enemies:nodes.map(n=>({instanceId:n.dataset.enemyId,hp:10})),arena:{playerId:'hero',enemyId:'enemy_1'}},myId:'hero'};
   vm.createContext(scope);vm.runInContext(app.slice(app.indexOf('function isBattleEnemySelectable'),app.indexOf('// 神魔之塔風格敵方排佈舞台渲染')),scope);
   assert.equal(scope.isBattleEnemySelectable('enemy_0'),false);assert.equal(scope.isBattleEnemySelectable('enemy_1'),true);scope.myId='ally';assert.equal(scope.isBattleEnemySelectable('enemy_1'),false);scope.roomState.arena=null;assert.equal(scope.isBattleEnemySelectable('enemy_0'),true);
 });

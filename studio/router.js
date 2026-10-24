@@ -8,6 +8,7 @@ import { refreshPublished } from './content.js';
 import { kinds, validateIdentity, validateDraft, validateAsset, validateUpload, requireValid, assetFields } from './validation.js';
 import { getMigrationStatus, migrateAssets, migrateBindings } from './migration.js';
 import localPaths from '../public/js/shared/local-paths.cjs';
+import { combatLabCatalog, combatLabFixture } from './combat-lab.js';
 
 export function tokenMatches(supplied, expected) {
   const hash=v=>crypto.createHash('sha256').update(v||'').digest();
@@ -17,6 +18,12 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
   const router=express.Router(), rates=new Map();
   router.get('/config',(_req,res)=>res.json({SUPABASE_URL:env.SUPABASE_URL||'',SUPABASE_PUBLISHABLE_KEY:env.SUPABASE_PUBLISHABLE_KEY||''}));
   router.get('/defaults',(_req,res)=>res.json(catalog));
+  router.get('/combat-lab', (_req,res)=>res.json(combatLabCatalog));
+  router.get('/combat-lab/scenes/:id', (req,res)=>{
+    const fixture=combatLabFixture(req.params.id);
+    if(!fixture)return res.status(404).json({error:'找不到正式演出樣本'});
+    res.json(fixture);
+  });
   router.use((req,res,next)=>{
     res.set('Cache-Control','no-store');
     const now=Date.now(),id=req.ip;
