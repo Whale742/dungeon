@@ -55,7 +55,7 @@ test('Dev route shares HTML; isolated solo rooms and socket-scoped authorization
   const home=await (await fetch(url + '/')).text();
   assert.equal(await (await fetch(url + '/dev')).text(), home);
   assert.ok(!home.includes('href="battle-hud.css"'));
-  const combatStyles=await fetch(url+'/combat.css');assert.equal(combatStyles.status,200);assert.match(combatStyles.headers.get('content-type'),/text\/css/);
+  const combatStyles=await fetch(url+'/css/combat/combat.css');assert.equal(combatStyles.status,200);assert.match(combatStyles.headers.get('content-type'),/text\/css/);
   assert.equal((await fetch(url + '/dev/', { redirect: 'manual' })).status, 302);
   const normal = await connect();
   const dev = await connect(true);

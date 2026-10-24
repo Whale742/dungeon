@@ -2,7 +2,7 @@ import {v2Copy, v2SkillCopy, v2SkillKey} from './v2-content.js';
 import {SPECIAL_EVENT_ASSETS} from './special-event-assets.js';
 import {SPECIAL_EVENT_COPY} from './special-event-content.js';
 import { INITIAL_STATS, resolveStats } from './stats.js';
-import { NEW_CLASSES, NEW_LOOT, NEW_ROLE_DETAILS } from './phase8-config.js';
+import { NEW_CLASSES, NEW_LOOT, NEW_ROLE_DETAILS } from './role-config.js';
 // 遊戲常數與數值定義 (100% 完整移植自 index.js)
 
 export const CLASSES = {

@@ -208,9 +208,9 @@ test('A real bear transform result reaches the existing Phase 5 renderer and exa
   const scope={AugurPresentationEngine:class{},document:{createElement:makeNode},getActorAnchor:()=>null,resolvePresentationTarget:r=>r.targetId,
     applyHpSnapshot(){},commitBattlefieldPlayerResult:r=>commits.push({r,elapsed})};
   vm.createContext(scope);
-  const core=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');
+  const core=readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');
   vm.runInContext(core.slice(core.indexOf('function resolveBattlePortrait('),core.indexOf('function battlePortraitHtml(')),scope);
-  vm.runInContext(readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/extended-role-effects.js',import.meta.url),'utf8'),scope);
   scope.preloadPhase5Art=async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
   scope.withBattlefieldSkillStage=async(s,c,play)=>play({root:makeNode(),local:{audioScope:{play:key=>sounds.push(key),hold:async()=>{}}},signal:new AbortController().signal,
     follow(){},animate(){return {finished:Promise.resolve()};},wait:async ms=>{elapsed+=ms;}});

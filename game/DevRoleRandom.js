@@ -1,6 +1,6 @@
 import { getPlayerSkills } from './constants.js';
 import { skillValue } from './stats.js';
-import { sageConfusionChance, sageGrowth } from './phase8.js';
+import { sageConfusionChance, sageGrowth } from './role-mechanics.js';
 
 // Deliberately named decision points, never a replacement for Math.random.
 // Private, per-Room state cannot enter room:update or player snapshots.

@@ -1,6 +1,6 @@
 import { mechanicStatuses } from './enemy-mechanics.js';
-import { NEW_CLASSES } from './phase8-config.js';
-import { p8State } from './phase8.js';
+import { NEW_CLASSES } from './role-config.js';
+import { p8State } from './role-mechanics.js';
 // Wire contract: gameplay decides every outcome and value before presentation.
 export const ACTION_CATEGORIES = Object.freeze([
   'OFFENSIVE', 'AOE_OFFENSIVE', 'HEAL', 'DEFENSE', 'SHIELD', 'BUFF', 'DEBUFF',

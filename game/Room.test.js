@@ -11,10 +11,10 @@ import { ENEMY_BALANCE, mechanicId, enemyRoundStart, drainEnemyEvents, runEnemyA
 import { getBossResistance } from './boss-resistance.js';
 import { resolveStats } from './stats.js';
 import { enemyPresentationInfo } from './enemy-mechanics.js';
-import { splitEquationDamage, sageEquationPreview } from './phase8.js';
+import { splitEquationDamage, sageEquationPreview } from './role-mechanics.js';
 test('HUD distinguishes enemy STATUS_TICK attacks from the next-round passive queue',()=>{
   const scope={document:{addEventListener(){}},isBattlefieldPlayerStep:s=>s.type==='player_action'};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
   const enemy={type:'enemy_mechanic',category:'STATUS_TICK'};
   assert.equal(scope.hud.phaseFor(enemy,false),'ENEMY_ACTIONS');
   assert.equal(scope.hud.phaseFor(enemy,true),'ROUND_TICK');
@@ -28,7 +28,7 @@ test('HUD holds basic attacks and skill names equally before starting their effe
     const scope={AbortController,document:{addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,{classList:{add:()=>trace.push('show'),remove:()=>trace.push('hide')}});return nodes.get(id);}},
       isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getClassDisplayName:()=> '武士',
       waitForPresentation:async(ms,_signal,speed)=>{trace.push({ms,speed});}};
-    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
     await scope.hud.announce({type:'player_action',actionId,skillName:'測試技能',sourceRole:'samurai'},{speed:2});trace.push('attack');
     assert.deepEqual(trace.slice(0,5),['show',{ms:1100,speed:2},'hide',{ms:180,speed:2},'hide']);
     assert.equal(trace.at(-1),'attack');
@@ -42,7 +42,7 @@ test('HUD conceals actual Samurai counters until their turn after enemy attacks'
   const host={style:{setProperty(){}},children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}},scope={
     document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(key,value){this[key]=value;}})},
     isBattlefieldPlayerStep:s=>s.type==='player_action',roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
   scope.hud.begin(queue);
   assert.ok(!host.children.some(n=>n['aria-label'].includes('狂刀反擊')));
   for(const step of queue.slice(0,queue.indexOf(counter)))scope.hud.start(step);
@@ -57,7 +57,7 @@ test('HUD defers transformed and newly summoned portraits until the Druid result
   const host={style:{setProperty(){}},children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}};
   const scope={document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(k,v){this[k]=v;}})},
     isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getPlayerAvatarHtml:p=>p.druidForm||p.role,escapeHtml:s=>s};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
   const cast={sourceId:'druid',sourceRole:'druid',skillName:'變身',hpSnapshotBefore:{players:[{id:'druid',role:'druid'}]},results:[{kind:'transform'}]};
   const bear={sourceId:'druid',sourceRole:'druid',skillName:'巨熊攻擊',hpSnapshotBefore:{players:[{id:'druid',role:'druid',druidForm:'bear'}]}};
   const mage={sourceId:'mage',sourceRole:'mage',skillName:'法師攻擊'};
@@ -83,7 +83,7 @@ test('Audio context waits for a real browser activation before creation or resum
   }
   const scope={window:{AudioContext},navigator:{userActivation:{isActive:false,hasBeenActive:false}}};
   vm.createContext(scope);
-  const source=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');
   vm.runInContext(source.slice(0,source.indexOf('const sfxManager = new SFXManager();'))+'\nglobalThis.Manager=SFXManager;',scope);
   const manager=new scope.Manager();manager.init();manager.init(false);
   assert.equal(await manager.loadAsset({src:'test.mp3'}),null);assert.equal(created,0);assert.equal(resumed,0);
@@ -101,7 +101,7 @@ test('Live Stargazer observation completes without a legacy cast title and commi
   const scope={DOMException,window:{document:{createElement:tag=>{created.push(tag);return new Node();},createElementNS:()=>new Node()}}};
   scope.withSkillPresentationStage=async(_step,_context,play)=>play({root:new Node(),frame:new Node(),cards:new Map(),signal:new AbortController().signal,
     el:()=>new Node(),wait:async()=>{},tick:async(_ms,render)=>render(1),resolveResults:async()=>{committed++;}});
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/stargazer-presentation.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/stargazer-presentation.js',import.meta.url),'utf8'),scope);
   await scope.playStargazerPresentation({actionId:'sg_observe',outcome:{type:'star',label:'星座'}},{battlefield:true,audioScope:{play:key=>sounds.push(key)}});
   assert.deepEqual(created,['div']);assert.equal(committed,1);assert.equal(paused,1);
   assert.deepEqual(sounds,['stargazer_obv','stargazer_confir']);
@@ -111,8 +111,8 @@ test('Shared battlefield healing plays the existing recording once per cast and 
   const sounds=[],waits=[],applied=new Set(),scope={performance:{now:()=>100},sfxManager:{play:(key,options)=>sounds.push({key,options})},
     waitForPresentation:async ms=>waits.push(ms),applyAuthoritativeResult:r=>{if(applied.has(r.resultId))return false;applied.add(r.resultId);return true;},
     resolvePresentationTarget:r=>r.targetId,getVisualAnchor:()=>null,battleFeedbackEntries:()=>[]};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/sfx-assets.js',import.meta.url),'utf8'),scope);
-  vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/audio/sfx-assets.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
   const context={audioScope:scope.createSfxPresentationScope({}),numberCounts:new Map()};
   const result={resultId:'heal-1',targetId:'ally',actualHeal:12};
   scope.commitBattlefieldPlayerResult(result,{sourceRole:'druid'},context);
@@ -127,8 +127,8 @@ test('Druid summons, companion attacks and forms retain their own existing sound
   const sounds=[],scope={AugurPresentationEngine:class{},resolveBattlePortrait:()=>({src:null}),preloadPhase5Art:async()=>{},
     resolvePresentationTarget:r=>r.targetId,getVisualAnchor:()=>null,commitBattlefieldPlayerResult(){},applyHpSnapshot(){},
     phase5Pulse(){},phase5Result:async()=>{}};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/sfx-assets.js',import.meta.url),'utf8'),scope);
-  const source=readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8');
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/audio/sfx-assets.js',import.meta.url),'utf8'),scope);
+  const source=readFileSync(new URL('../public/js/presentation/extended-role-effects.js',import.meta.url),'utf8');
   vm.runInContext("const PHASE5_ART={};\n"+source.slice(source.indexOf('async function phase5DruidWhiteGlow(')),scope);
   scope.withBattlefieldSkillStage=async(_step,context,play)=>{
     assert.equal(context.skipCastAudio,true);
@@ -152,7 +152,7 @@ test('Druid self casts glow on the original portrait and reveal results only aft
       commitBattlefieldPlayerResult:()=>trace.push('commit'),applyHpSnapshot:()=>trace.push('snapshot'),
       phase5Pulse:()=>{throw Error('Self cast must not paint roots or claws');}};
     vm.createContext(scope);
-    const source=readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8');
+    const source=readFileSync(new URL('../public/js/presentation/extended-role-effects.js',import.meta.url),'utf8');
     vm.runInContext('const PHASE5_ART={};\n'+source.slice(source.indexOf('async function phase5DruidWhiteGlow(')),scope);
     scope.withBattlefieldSkillStage=async(_step,_context,play)=>play({
       local:{audioScope:{play:()=>trace.push('sound'),hold:()=>hold}},signal:new AbortController().signal,
@@ -175,7 +175,7 @@ test('HUD queue retirement respects reduced motion, playback speed and cancellat
       animate(keys,options){let reject;const motion={keys,options,finished:new Promise((_,r)=>{reject=r;}),cancel(){this.cancelled=true;reject(new DOMException('cancelled','AbortError'));}};motions.push(motion);return motion;}});
     const scope={document:{addEventListener(){},querySelector(){return null;},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node},
       matchMedia:()=>({matches:reduced}),isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};
-    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
     const step={type:'player_action',sourceRole:'mage'},controller=new AbortController();
     scope.hud.begin([step]);scope.hud.finish(step,{speed:2,signal:controller.signal});
     assert.equal(motions[0].options.duration,reduced?.5:100);
@@ -187,7 +187,7 @@ test('HUD queue retirement respects reduced motion, playback speed and cancellat
 
 test('Sage feedback follows the battlefield actor and selected enemy in both phases',async()=>{
   const scope={innerWidth:1440,innerHeight:810,getBattleEffectAnchor:()=>({rect:{width:75,height:85}})};vm.createContext(scope);
-  vm.runInContext(readFileSync(new URL('../public/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
   for(const phase of ['hypothesis','solve'])for(const actionId of ['basic','sge_deduce','sge_induce']){
     const actor={x:840,y:680},enemy={x:1100,y:260},renderers=[],positions=[];
     const stage={local:{sourceId:'actor',battlefield:true},anchors:new Map([['actor',actor],['monster',enemy]]),
@@ -213,7 +213,7 @@ test('Painted archer projectile leaves the bow and tracks a moving concrete targ
     class Node{constructor(){this.children=[];this.style={};nodes.push(this);}appendChild(n){this.children.push(n);}setAttribute(){}remove(){this.removed=true;}}
     const scope={innerWidth:1440,innerHeight:900,AMMO_IMAGES:{},document:{createElement:()=>new Node()},
       getBattleEffectAnchor:id=>id==='enemy_2'?target:{x:200,y:600}};
-    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
     const positions=[],s={root:new Node(),reduced,tick:async(ms,render)=>{
       render(0);positions.push({...nodes[1].style});target.x=1080;target.y=310;render(1);positions.push({...nodes[1].style});
     }};
@@ -460,13 +460,13 @@ for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shiel
     if(!['dw_butterfly','dw_false_dream'].includes(action))assert.ok(step.results?.length);
     if(action==='dw_false_dream')assert.ok(resolutionQueue(events).some(s=>s.actionId===action+'_result'&&s.results.length));
     const scope={};vm.createContext(scope);
-    vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
     assert.equal(scope.isBattlefieldPlayerStep(step),true);
     for(const r of step.results){assert.notEqual(r.targetId,'monster');assert.ok(r.resultId&&r.targetBefore&&r.targetAfter);if(['damage','intercept'].includes(r.kind))assert.ok(r.targetBefore.hp>0,'no attack may begin on a dead target');}
     if(action==='dw_butterfly')assert.equal(scope.battlefieldPlayerTarget(step),player.id);
     if(role==='samurai'){
-      vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
-      vm.runInContext(readFileSync(new URL('../public/samurai-presentation.js',import.meta.url),'utf8'),scope);
+      vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+      vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
       const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
       const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId===player.targetEnemyId);
       assert.equal(plan.hits.length,hits.length);assert.equal(plan.slashes.length,plan.hits.filter(h=>!['miss','dodge'].includes(h.result.outcome?.type)).length);
@@ -524,8 +524,8 @@ test('Phase 4 lethal Tsubame never creates the remaining three visual hits',t=>{
   const {room,player,events}=phase1Battle(t,'samurai',1);player.soul=8;player.action='sa_tsubame';room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sa_tsubame');
   const scope={};vm.createContext(scope);
-  vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
-  vm.runInContext(readFileSync(new URL('../public/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
   const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
   assert.equal(plan.hits.length,1);assert.equal(plan.slashes.length,1);
 });
@@ -541,7 +541,7 @@ test('Phase 4 dream target picker submits each living instance and respects aren
   const state={...room.getClientState(),isNarrating:false,selectionState:'SELECTING'};
   const scope={roomState:state,isPlayingBattleNarrative:false,openTargetModal:(type,list)=>{assert.equal(type,'dream');targets=list;}};
   vm.createContext(scope);
-  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');
   vm.runInContext('function handleSkillClick('+source.split('function handleSkillClick(')[1].split('// 目標選擇 Modal')[0],scope);
   scope.handleSkillClick('dw_butterfly',{...player,isLocked:false});
   assert.deepEqual(Array.from(targets,t=>t.id),[player.id,...room.enemies.map(e=>e.instanceId)]);
@@ -581,7 +581,7 @@ test('Phase 4 battlefield scope owns no portraits and cleans abort, replay and q
     getVisualAnchor:id=>({id,x:100,y:200,element:new Node()}),getBattleEffectAnchor:id=>({id,x:100,y:200,element:new Node()}),battleFeedbackEntries:()=>[],positionBattleFeedback(){},resolvePresentationTarget:r=>r.targetId,requestAnimationFrame:()=>{frames.add(++seq);return seq;},cancelAnimationFrame:id=>frames.delete(id),
     presentationFrame:async()=>{},waitForPresentation:async()=>{},createSfxPresentationScope:()=>({hold:async()=>{}}),enemyEventFeedback:()=>'',applyHpSnapshot:()=>{},
     applyAuthoritativeResult:r=>{if(committed.has(r.resultId))return false;committed.add(r.resultId);return true;}};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
   const controller=new AbortController();
   const context={signal:controller.signal,speed:4,reducedMotion:true};
   await scope.withBattlefieldSkillStage(step,context,async s=>{assert.ok(context.audioScope);assert.equal(committed.size,0);await s.tick(400,()=>{});await s.resolveResults();await s.resolveResults();});
@@ -600,9 +600,9 @@ test('Phase 4 Samurai renderer completes real four-hit choreography without a po
   }
   const actor=new Node(),target=new Node(),scope={devicePixelRatio:1,document:{createElement:()=>new Node()},battlefieldVisualElement:id=>id===player.id?actor:target};
   vm.createContext(scope);
-  vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
-  vm.runInContext(readFileSync(new URL('../public/samurai-presentation.js',import.meta.url),'utf8'),scope);
-  vm.runInContext(readFileSync(new URL('../public/samurai-prototype-fx.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-animation.js',import.meta.url),'utf8'),scope);
   const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{}),root=new Node();
   const engine=scope.createSamuraiPrototypeRenderer(root,new Node(),new Node(),plan,{battlefield:true,actorId:player.id,targetId:player.targetEnemyId});
   for(const time of [0,240,740,1140,1215,1290,1365,1950]){engine.measure();engine.render(time);engine.reduceFlash();}
@@ -670,7 +670,7 @@ test('Phase 1 aliases, reaction order and secondary HP stay independent', () => 
 });
 
 test('Phase 1 DOM anchors use concrete targets and apply each result once', () => {
-  const source=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');
   const node={isConnected:true,dataset:{enemyId:'small'},getBoundingClientRect:()=>({left:20,top:40,width:70,height:80})};
   const calls=[];
   const scope={roomState:{currentMonster:{instanceId:'elite'},players:[]},document:{querySelectorAll:selector=>selector.includes('battle-enemy')?[node]:[]},applyHpSnapshot:s=>calls.push(s)};
@@ -692,7 +692,7 @@ for (const tiers of [['MINION'], ['MINION','MINION','MINION'], ['ELITE'], ['ELIT
   test('Phase 1 production formation: ' + tiers.join('+'), t => {
     const {room}=fixture(t);room.handleBattleEvent(null,false,{col:1});
     const enemies=tiers.map((tier,i)=>room.createEnemyInstance(room.currentMonster,i,{tier}));
-    const source=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');
+    const source=readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');
     const scope={};vm.createContext(scope);vm.runInContext(source.slice(source.indexOf('function getBattleFormation')),scope);
     const layout=scope.getBattleFormation(enemies);
     assert.equal(layout.displayOrder.length,tiers.length);
@@ -836,7 +836,7 @@ function enemyPresentationHarness() {
     resolvePresentationTarget:r=>r.targetId,
     applyAuthoritativeResult:r=>{if(scope.appliedBattleResults.has(r.resultId))return false;scope.appliedBattleResults.add(r.resultId);commits.push(r);return true;},
     waitForPresentation:async(ms,signal,speed)=>{clock+=ms/(speed||1);waits.push({ms,speed});if(signal?.aborted)throw new DOMException('cancelled','AbortError');}};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/enemy-presentation.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-presentation.js',import.meta.url),'utf8'),scope);
   return {scope,roots,commits,waits,frames};
 }
 
@@ -855,7 +855,7 @@ test('Chest theft captions and icons use the real stolen item and fly from its o
     h.scope.getBattleEffectAnchor=id=>id===enemy.instanceId?{x:700,y:250}:{x:100,y:600};
     h.scope.document.getElementById=id=>id==='btnOpenInventory'?{getBoundingClientRect:()=>({left:10,top:20,width:40,height:40})}:null;
     h.scope.announceBattleFeedback=text=>captions.push(text);
-    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
     const root=h.scope.document.createElement('div'),fx=h.scope.createEnemyChoreography(step,result,root,{reduced:false,animations:[],speed:1});
     const layer=root.children[0],caption=layer.children[0],icon=layer.children[1];
     assert.match(caption.textContent,kind==='gold'?/50 枚金幣/:/被偷的劍/);
@@ -874,7 +874,7 @@ test('Chest theft captions and icons use the real stolen item and fly from its o
 test('Theft artwork resolves explicit, ordinary and exclusive equipment through cloud bindings',()=>{
   const urls={normal:'https://test.supabase.co/normal.webp',exclusive:'https://test.supabase.co/exclusive.webp',custom:'https://test.supabase.co/custom.webp'};
   const scope={window:{assetRegistry:{resolve:key=>key==='equip.warrior.w_sword.icon'?urls.exclusive:'',resolvePath:path=>path===`/assets/Equipments/${encodeURIComponent('精煉短劍')}.webp`?urls.normal:path===`/assets/專屬裝備/${encodeURIComponent('鋼鐵聖劍')}.webp`?urls.exclusive:path}}};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),scope);
   const resolve=item=>scope.mimicTheftEquipmentUrl({kind:'equipment',item});
   assert.equal(resolve({name:'精煉短劍'}),urls.normal);
   assert.equal(resolve({id:'w_sword',name:'鋼鐵聖劍',role:'warrior'}),urls.exclusive);
@@ -891,8 +891,8 @@ test('Recovered equipment and gold fly from the chest to their independent origi
     h.scope.document.getElementById=id=>id==='btnOpenInventory'?{getBoundingClientRect:()=>({left:10,top:20,width:40,height:40})}:null;
     h.scope.BattleHud={phase:'ALLY_ACTIONS',setPhase:value=>phases.push(value)};
     h.scope.preloadPhase5Art=async()=>{};
-    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
-    vm.runInContext(readFileSync(new URL('../public/victory.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/js/inventory/victory.js',import.meta.url),'utf8'),h.scope);
     const recoveredLoot=[
       {kind:'equipment',ownerId:'first',sourceEnemyId:'enemy',destination:'character',item:{name:'原主一的劍',icon:'https://test.supabase.co/first.webp'}},
       {kind:'equipment',ownerId:'second',sourceEnemyId:'enemy',destination:'character',item:{name:'原主二的盾',icon:'https://test.supabase.co/second.webp'}},
@@ -926,7 +926,7 @@ test('Enemy strip caps three icons while the existing tooltip keeps full statuse
   const strip=row.children[0];assert.equal(strip.children.length,4);assert.equal(strip.children[3].textContent,'+1');
   const tooltip=h.scope.document.createElement('div');tooltip.classList={add(){}};
   Object.assign(h.scope,{elements:{floatingEnemyTooltip:tooltip},roomState:{battleRound:2},escapeHtml:s=>String(s??''),positionFloatingTooltip(){}});
-  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
+  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
   h.scope.showEnemyTooltip(en,node);
   for(const label of ['POISON','BURN','FRACTURE','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
   assert.ok(tooltip.innerHTML.includes('2/2'));assert.ok(tooltip.innerHTML.includes('3 回合'));
@@ -981,7 +981,7 @@ test('Original rain choreography plays five staggered nine-arrow waves per real 
   const step=resolutionQueue(events).find(s=>s.actionId==='a_rain'),nodes=[],beats=[],commits=new Set(),delays=[];
   class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};nodes.push(this);}appendChild(n){this.children.push(n);}setAttribute(){}remove(){this.removed=true;}}
   const scope={document:{createElement:()=>new Node()},preloadPhase5Art:async()=>{},resolvePresentationTarget:r=>r.targetId,getBattleEffectAnchor:()=>({rect:{width:100}})};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/combat-expansion.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/combat-expansion.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
   scope.commitBattlefieldPlayerResult=r=>{assert.ok(!commits.has(r.resultId));commits.add(r.resultId);};
   scope.withBattlefieldSkillStage=async(_step,_context,play)=>play({root:new Node(),local:{audioScope:{play(){}}},follow(){},wait:async()=>{},reduced:false,animate:(_n,_k,_ms,o)=>{if(o?.delay!==undefined)delays.push(o.delay);},resolveResults:async()=>{},el:()=>new Node()});
   await scope.playBattlefieldArrowRain(step,{speed:2,onTiming:(beat,detail)=>beats.push([beat,detail])});
@@ -999,7 +999,7 @@ for(const index of [0,1,7])test('Painted enemy choreography uses distinct real b
   for(const round of [1,3]){
     mechanismRound(room,round);const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'painted-'+index+'-'+round);
     const step=queue.find(s=>s.results.some(r=>r.kind==='damage')),h=enemyPresentationHarness();
-    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
     const root=h.scope.document.createElement('div'),animations=[];
     const fx=h.scope.createEnemyChoreography(step,step.results[0],root,{animations,speed:1,reduced:false});assert.ok(fx);
     for(const p of [0,.2,fx.contact,.8,1])fx.render(p);
@@ -1043,7 +1043,7 @@ for(const template of allEnemyTemplates)test('Phase 2 factory, action, snapshots
   const display=room.formatEnemySnapshot(enemy).presentation;
   assert.equal(display.mechanicId,mechanicId(template));
   assert.ok(display.passiveName && display.passiveDesc && display.counter && display.ultimateDesc);
-  const front={};vm.createContext(front);vm.runInContext(readFileSync(new URL('../public/enemy-presentation.js',import.meta.url),'utf8'),front);
+  const front={};vm.createContext(front);vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-presentation.js',import.meta.url),'utf8'),front);
   assert.ok(vm.runInContext(`ENEMY_FX_PROFILES[${JSON.stringify(display.family)}]`,front));
   enemy.hp=Math.max(1,Math.floor(enemy.maxHp/2));
   let queue=mechanismRound(room,1);queue.push(...actMechanism(room,enemy));
@@ -1315,7 +1315,7 @@ test('Phase 2 true damage bypasses mitigation, while guard and immunity still ha
 
 
 test('Every painted enemy recipe uses existing art, true anchors, no SVG and no settlement',t=>{
-  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
   const recipes=vm.runInContext('ENEMY_PAINTED_ART',h.scope);
   for(const [id,paths] of Object.entries(recipes).filter(([id])=>!vm.runInContext('SIX_ENEMY_IDS',h.scope).has(id))){
     for(const path of paths)assert.ok(readFileSync(new URL('../public/assets/combat-fx/'+path,import.meta.url)).length>100,path);
@@ -1342,7 +1342,7 @@ test('Alchemist painted vial leaves the hand and tracks the true target with red
     const nodes=[],target={x:800,y:200};
     class Node{constructor(){this.style={};this.children=[];nodes.push(this);}appendChild(n){this.children.push(n);}setAttribute(){}remove(){this.removed=true;}}
     const scope={innerWidth:1440,innerHeight:900,AMMO_IMAGES:{},document:{createElement:()=>new Node()},getBattleEffectAnchor:id=>id==='enemy_2'?target:{x:50,y:600}};
-    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
     const samples=[],stage={root:new Node(),reduced,tick:async(ms,render)=>{render(0);samples.push({...nodes[1].style});target.x=930;render(1);samples.push({...nodes[1].style});}};
     await scope.battlefieldProjectile(stage,'hero','enemy_2','bottle',{getBoundingClientRect:()=>({left:200,top:400,width:300,height:200})});
     assert.equal(nodes[2].src,'/assets/combat-fx/alchemist/reagent-bottle.png');assert.equal(samples[0].left,reduced?'800px':'446px');assert.equal(samples[1].left,'930px');assert.equal(nodes[1].removed,true);
@@ -1354,7 +1354,7 @@ test('All real enemy queues retain one settlement per result with painted choreo
   for(const template of allEnemyTemplates){
     const {room,enemy}=mechanismBattle(t,[template]);room.checkDodge=()=>false;const queue=mechanismRound(room,3);queue.push(...actMechanism(room,enemy));normalizeCombatQueue(queue,'official-art-'+enemy.instanceId);
     for(const reducedMotion of [false,true]){
-      const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+      const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
       const preloaded=[];h.scope.preloadPhase5Art=async paths=>{for(const path of paths){if(path.startsWith('https://'))assert.match(path,/^https:\/\/.+\.supabase.co\/storage\/v1\/object\/public\/game-assets\//);else assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
       for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion,speed:1.5});
       assert.equal(h.commits.length,queue.flatMap(s=>s.results).length,template.name);assert.equal(h.frames.size,0);assert.ok(h.roots.filter(root=>root.className==='enemy-effect-overlay').every(root=>!root.isConnected));
@@ -1367,7 +1367,7 @@ test('All real enemy queues retain one settlement per result with painted choreo
 
 
 test('Arena participants keep their own painted profession renderer',async()=>{
-  const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
   const calls=[];scope.playBattlefieldPaintedRole=async step=>calls.push(step.sourceRole);scope.playBattlefieldRanged=async step=>calls.push(step.sourceRole);scope.playPhase5BattlefieldPresentation=async()=>{throw Error('An unrelated profession must not use Gladiator art');};
   for(const sourceRole of ['alchemist','archer','warrior','mage','assassin','bard','paladin'])await scope.playBattlefieldPlayerPresentation({type:'player_action',sourceRole,actionId:'basic',hpSnapshotBefore:{arena:{playerId:'hero',enemyId:'enemy_2'}}},{});
   assert.equal(calls.length,7);
@@ -1377,13 +1377,13 @@ test('Arena participants keep their own painted profession renderer',async()=>{
 test('Production and Lab load painted enemy choreography before its dispatcher',()=>{
   for(const page of ['index.html','presentation-lab.html']){
     const html=readFileSync(new URL('../public/'+page,import.meta.url),'utf8');
-    const choreography=html.indexOf('<script src="enemy-choreography.js"'),dispatch=html.indexOf('<script src="enemy-presentation.js"');
+    const choreography=html.indexOf('<script src="js/combat/enemy-choreography.js"'),dispatch=html.indexOf('<script src="js/combat/enemy-presentation.js"');
     assert.ok(choreography>=0&&choreography<dispatch,page+' must not silently run the placeholder renderer');
   }
 });
 
 test('A dead lava source still paints its authoritative explosion on the living target',()=>{
-  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
   const root=h.scope.document.createElement('div');h.scope.getBattleEffectAnchor=id=>id==='dead-larva'?null:{x:360,y:240,rect:{width:80,height:90},element:root};
   const fx=h.scope.createEnemyChoreography({sourceId:'dead-larva',presentation:{mechanicId:'lava_larva',family:'lava'}},{kind:'damage',targetId:'ally',actualDamage:4},root,{reduced:false,animations:[],speed:1});
   fx.render(0);assert.equal(root.children[0].hidden,true);fx.render(fx.contact+.1);assert.equal(root.children[0].hidden,false);assert.equal(root.children[0].children[0].style.left,'360px');assert.equal(h.commits.length,0);fx.remove();
@@ -1391,7 +1391,7 @@ test('A dead lava source still paints its authoritative explosion on the living 
 
 
 function phase6Fixtures(){
-  const source=readFileSync(new URL('../public/presentation-lab.js',import.meta.url),'utf8'),marker='const PHASE5_ACCEPTANCE_SCENES=Object.freeze(';
+  const source=readFileSync(new URL('../public/js/lab/presentation-lab.js',import.meta.url),'utf8'),marker='const PHASE5_ACCEPTANCE_SCENES=Object.freeze(';
   const start=source.indexOf(marker)+marker.length,end=source.indexOf('\n});',start)+2;
   return structuredClone(Object.fromEntries(Object.entries(vm.runInNewContext('('+source.slice(start,end)+')')).filter(([id])=>id.startsWith('phase6_'))));
 }
@@ -1408,10 +1408,10 @@ function phase6Harness(step,{reduced=false,missing=false,abortAt=Infinity}={}){
     preloadPhase5Art:async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length,path);preloaded.push(path);}},
     commitBattlefieldPlayerResult(r,_step,context){if(context.signal.aborted)return false;if(commits.includes(r.resultId))return false;commits.push(r.resultId);commitTimes.push({id:r.resultId,time:clock});return true;}};
   vm.createContext(scope);
-  const shared=readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8');
+  const shared=readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8');
   vm.runInContext(shared.slice(shared.indexOf('function battlefieldFormationAnchor('),shared.indexOf('async function playBattlefieldTick(')),scope);
   scope.battlefieldVisualElement=()=>null;
-  vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/core-role-effects.js',import.meta.url),'utf8'),scope);
   const signal=controller.signal,audioScope={play:(...a)=>sounds.push(a),playResult:(...a)=>sounds.push(a)};
   const advance=ms=>{clock+=ms;if(clock>=abortAt)controller.abort();if(signal.aborted)throw new DOMException('cancelled','AbortError');};
   let root;
@@ -1442,7 +1442,7 @@ test('Alchemist emits exactly one bottle for the real primary/splash results of 
     const scope={document:{createElement:()=>new Node()},innerWidth:1440,innerHeight:810,
       preloadPhase5Art:async()=>{},resolvePresentationTarget:r=>r.targetEnemyId||r.targetId,
       getBattleEffectAnchor:()=>({x:800,y:350,rect:{left:750,right:850,height:180}})};
-    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
     scope.commitBattlefieldPlayerResult=r=>{if(commits.includes(r.resultId))return false;commits.push(r.resultId);times.push({id:r.resultId,time:clock});return true;};
     scope.battlefieldProjectile=async(_s,_source,target,type)=>{projectiles.push({target,type});clock+=440;};
     scope.withBattlefieldSkillStage=async(_step,_context,play)=>{
@@ -1493,8 +1493,8 @@ test('Phase 6 incoming growth, fatal protection and grace never add a damage res
   const fixtures=phase6Fixtures();
   for(const name of ['growth','growth_shield','growth_cap','fatal','grace_hit']){
     const fixture=fixtures['phase6_event_'+name];const h=enemyPresentationHarness();
-    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
-    vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/js/presentation/core-role-effects.js',import.meta.url),'utf8'),h.scope);
     h.scope.battlefieldPaintedImage=(parent,src,cls)=>{const n=h.scope.document.createElement('img');n.src=src;n.className=cls;parent.appendChild(n);return n;};
     for(const step of fixture.steps)await h.scope.playEnemyMechanicPresentation(step,{speed:1.5,reducedMotion:true});
     assert.equal(h.commits.length,fixture.steps.flatMap(s=>s.results).length,name);assert.equal(h.frames.size,0);
@@ -1512,7 +1512,7 @@ test('Phase 6 incoming growth, fatal protection and grace never add a damage res
 
 
 test('Phase 6 feedback never labels a resource/status update as a second critical hit',()=>{
-  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),h.scope);
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/presentation/core-role-effects.js',import.meta.url),'utf8'),h.scope);
   assert.equal(h.scope.phase6FeedbackEntries({kind:'status',outcome:{type:'critical'}}).length,0);
   assert.ok(h.scope.phase6FeedbackEntries({kind:'damage',actualDamage:12,actualHpDamage:12,outcome:{type:'critical'}}).some(e=>e.text==='暴擊'));
   assert.ok(!h.scope.phase6FeedbackEntries({kind:'damage',actualDamage:0,outcome:{type:'critical'}}).some(e=>e.text==='暴擊'));
@@ -1533,7 +1533,7 @@ test('Six new enemy recipes route real basic, ultimate and zero-damage status ev
     mechanismRound(room,ultimate?(mechanicId(template)==='abyss_sage'?2:3):1);
     const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'six-'+enemy.instanceId+'-'+ultimate);
     for(const reducedMotion of [false,true]){
-      const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+      const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
       const casts=h.scope.groupEnemyPresentationSteps(queue),sounds=[];h.scope.sfxManager={play:id=>sounds.push(id)};
       const routed=queue.flatMap(s=>s.results.map(r=>h.scope.enemyPaintedPaths(s,r))).filter(Boolean).flat();assert.ok(routed.length,template.name);
       for(const path of routed)assert.ok(readFileSync(new URL('../public/assets/combat-fx/'+path,import.meta.url)).length);
@@ -1556,7 +1556,7 @@ test('Watcher support uses the beneficiary resistance delta and clears without e
   const {room}=mechanismBattle(t,[ABYSS_BOSSES.sage,ABYSS_MINIONS[1],ABYSS_MINIONS[1]]);
   syncEnemySupport(room);const queue=[];drainEnemyEvents(room,queue);
   room.enemies[1].hp=0;room.enemies[2].hp=0;syncEnemySupport(room);drainEnemyEvents(room,queue);queue.splice(0,queue.length,...queue.filter(s=>s.targetId===room.enemies[0].instanceId));normalizeCombatQueue(queue,'cover');
-  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
   assert.equal(queue.length,2);assert.equal(h.scope.sixEnemyEventMode(queue[0],queue[0].results[0]).mode,'cover');assert.equal(h.scope.sixEnemyEventMode(queue[1],queue[1].results[0]).removing,true);
   for(const step of queue){assert.ok(h.scope.enemyPaintedPaths(step,step.results[0])[0].endsWith('watcher-void-cover.png'));await h.scope.playEnemyMechanicPresentation(step,{reducedMotion:true});}
   assert.equal(h.commits.length,2);assert.ok(h.commits.every(r=>r.kind==='status'&&!r.actualDamage));
@@ -1565,7 +1565,7 @@ test('Watcher support uses the beneficiary resistance delta and clears without e
 test('Six-enemy missing image is reported and completes authority; abort and missing anchors clean the timeline',async t=>{
   const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.sage]);mechanismRound(room,2);const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'six-cleanup');
   for(const failure of ['image','anchor','abort']){
-    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
     const errors=[];h.scope.console={error:(...args)=>errors.push(args)};
     const controller=new AbortController();
     if(failure==='image')h.scope.preloadPhase5Art=async()=>{throw Error('missing PNG');};
@@ -1579,10 +1579,10 @@ test('Six-enemy missing image is reported and completes authority; abort and mis
 });
 
 test('Six-enemy Lab captures retain their engine snapshots, exact order and single cast cleanup',async()=>{
-  const source=readFileSync(new URL('../public/presentation-lab.js',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../public/js/lab/presentation-lab.js',import.meta.url),'utf8');
   const scenes=Object.fromEntries(source.split('\n').map(line=>line.trimEnd()).filter(line=>line.startsWith('"six_enemy_')).map(line=>{const at=line.indexOf(':');return [JSON.parse(line.slice(0,at)),JSON.parse(line.slice(at+1,-1))];}));
   for(const [id,scene] of Object.entries(scenes).filter(([id])=>id.startsWith('six_enemy_'))){
-    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
     for(const cast of h.scope.groupEnemyPresentationSteps(scene.steps))await h.scope.playEnemyMechanicPresentation(cast,{reducedMotion:true});
     assert.deepEqual(h.commits.map(r=>r.resultId),scene.steps.flatMap(s=>s.results.map(r=>r.resultId)),id);
     for(const r of h.commits){assert.equal(r.actualHpDamage||0,Math.max(0,(r.targetBefore.hp||0)-(r.targetAfter.hp||0)),id);}
@@ -1596,7 +1596,7 @@ test('Shared six-enemy casts keep Paladin grace art without replaying the enemy 
   const result=step.results.find(r=>r.sharedFrom&&r.targetBefore?.role==='paladin');
   const h=enemyPresentationHarness();let enemyCasts=0;const images=[];
   Object.assign(h.scope,{createEnemyChoreography(){enemyCasts++;return null;},battlefieldPaintedImage(parent,src,cls){const image=h.scope.document.createElement('img');image.src=src;image.className=cls;parent.appendChild(image);images.push(image);return image;}});
-  vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),h.scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/core-role-effects.js',import.meta.url),'utf8'),h.scope);
   const root=h.scope.document.createElement('div'),guard=h.scope.createPhase6Incoming(step,result,root,{castOwnsEnemyArt:true,reduced:false});
   assert.ok(guard);guard.render(.5);guard.render(guard.contact);assert.equal(enemyCasts,0);assert.equal(images.length,2);assert.equal(images[0].dataset.reaction,'grace-intercept');
   guard.remove();assert.ok(images.every(n=>!n.isConnected));assert.equal(h.commits.length,0);
@@ -1623,7 +1623,7 @@ test('Fourteen canonical Abyss full bodies survive factory, weakened, snapshot, 
 });
 function abyssPortraitHarness(){
   const scope={console:{error(){}},escapeHtml:s=>String(s)};vm.createContext(scope);
-  const core=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');vm.runInContext(core.slice(core.indexOf('const DEFAULT_ROLE_AVATARS'),core.indexOf('function getClassPortraitHtml')),scope);
+  const core=readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');vm.runInContext(core.slice(core.indexOf('const DEFAULT_ROLE_AVATARS'),core.indexOf('function getClassPortraitHtml')),scope);
   const classes=new Set(),slot={classList:{toggle(k,on){if(on)classes.add(k);else classes.delete(k);}}};let writes=0;
   const image={dataset:{},classList:{toggle(){}},closest:()=>slot,set src(value){this.url=value;writes++;},get src(){return this.url;}};
   return {scope,image,classes,writes:()=>writes};
@@ -1662,7 +1662,7 @@ test('Remote asset retry cannot prematurely replace an Abyss portrait, and a mis
 
 
 test('Enemy state routing keeps transformations, costs and shield consumption out of attack art',()=>{
-  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+  const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
   const state={sourceId:'enemy',presentation:{mechanicId:'abyss_druid',family:'nature'},actionId:'狼人變形'};
   const cost={kind:'damage',sourceId:'enemy',targetId:'enemy',actualDamage:4,targetBefore:{mechanics:{form:null}},targetAfter:{mechanics:{form:'werewolf'}}};
   assert.equal(h.scope.enemyEventKind(cost,state),'transform');assert.equal(h.scope.enemyPaintedPaths(state,cost),null);
@@ -1680,7 +1680,7 @@ test('Enemy state routing keeps transformations, costs and shield consumption ou
 });
 test('Unpainted status and unknown attacks settle once with plain feedback, never fabricated art, and abort cleans owned nodes',async()=>{
   for(const reducedMotion of [false,true]){
-    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
     const sounds=[];h.scope.sfxManager={play:id=>sounds.push(id)};
     const result={kind:'status',resultId:'status',targetId:'enemy',targetBefore:{statuses:[]},targetAfter:{statuses:[{id:'mark'}]}};
     const step={sourceId:'enemy',actionId:'獵物標記',presentation:{mechanicId:'shadow_alpha',family:'shadow'},results:[result]};
@@ -1695,7 +1695,7 @@ test('Unpainted status and unknown attacks settle once with plain feedback, neve
   }
 });
 test('Enemy persistent overlays omit avatar rings, wound slashes and guard plates while retaining role geometry and player status effects',()=>{
-  const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/portrait-status-fx.js',import.meta.url),'utf8'),scope);
+  const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/portrait-status-fx.js',import.meta.url),'utf8'),scope);
   const entity={hp:20,tempHp:5,bleedTurns:2,statuses:['frenzy','guard','vulnerable','sage_equation','galaxy']};
   const enemy=scope.getEntityActiveFxProfiles({...entity,instanceId:'enemy_0'}),player=scope.getEntityActiveFxProfiles({...entity,id:'hero'});
   for(const id of ['frenzy','bleed','shield','guard']){assert.ok(player.has(id));assert.ok(!enemy.has(id));}
@@ -1732,7 +1732,7 @@ function encounterOpeningHarness({abortAt=Infinity}={}){
   class Node{constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){},remove(){}};this.hidden=true;this.textContent='';}appendChild(n){this.children.push(n);}replaceChildren(){this.children=[];}querySelector(selector){return this.parts?.[selector]||null;}remove(){this.removed=true;}}
   const stage=new Node(),story=new Node(),storySection=new Node(),warning=new Node(),impact=new Node(),art=new Node(),name=new Node();name.parts={h1:new Node(),span:new Node()};stage.parts={'.boss-encounter-story':story,'.boss-encounter-story-section':storySection,'.boss-warning':warning,'.boss-encounter-impact-stage':impact,'.boss-encounter-art':art,'.boss-encounter-name':name,'.boss-encounter-resistances':new Node()};
   const scope={DOMException,AbortController,performance:{now:()=>waits},document:{createElement:()=>new Node(),createTextNode:text=>({textContent:text})},PRESENTATION_CONFIG:{bossEncounter:{warningRevealAt:3000,warningEntry:460,warningHold:750,warningExit:360,preBossBeat:180,bossSettle:560,bossHold:100}},sfxManager:{preload:async()=>{},duck(){}},createSfxPresentationScope:()=>({play(){},hold:async()=>{}}),waitForPresentation:async ms=>{durations.push(ms);if(++waits===abortAt)controller.abort();if(controller.signal.aborted)throw new DOMException('cancelled','AbortError');}};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-phase.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-phase.js',import.meta.url),'utf8'),scope);
   scope.createBattlePhaseStage=()=>stage;scope.handoffBossPortrait=async(s,a,ctx)=>{await ctx.revealHud();return;};
   const context={encounter:true,signal:controller.signal,onTiming:name=>beats.push(name),playSound:name=>{sounds.push(name);if(name==='boss_warning')assert.equal(story.children.map(p=>p.children.map(c=>c.textContent).join('')).join(''),'第一段。第二段！');},revealEncounterScene:()=>beats.push('scene_released'),revealHud:()=>beats.push('hud')};
   return {scope,context,stage,beats,sounds,controller,durations};
@@ -1745,7 +1745,7 @@ test('Encounter story completes before warning, entrance, HUD and Round 1; abort
   const aborted=encounterOpeningHarness({abortAt:2});await assert.rejects(aborted.scope.playBattlePhaseOpening({name:'Boss',encounterStory:'第一段。\n\n第二段！'},1,aborted.context),{name:'AbortError'});assert.ok(aborted.stage.removed);assert.ok(!aborted.beats.includes('hud'));assert.equal(aborted.sounds.length,0);
 });
 test('Same-round room updates cannot reveal a gated encounter, and abort releases the inert previous view',async()=>{
-  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');
   const node=()=>{const classes=new Set();return {inert:false,classes,classList:{add:k=>classes.add(k),remove:k=>classes.delete(k),contains:k=>classes.has(k),toggle(k,on){if(on)classes.add(k);else classes.delete(k);}},getAttribute:()=>null,setAttribute(){},removeAttribute(){}};};
   for(const abort of [false,true]){
     const route=node(),battle=node(),body=node(),action=node();route.classList.add('active');const played=new Set();
@@ -1854,7 +1854,7 @@ test('Formation handoff matches every instance, restores each node and cleans fl
     const art={querySelectorAll:()=>targets.map(t=>image(t.dataset.enemyId))};
     const stage={dataset:{reducedMotion:'false'},appendChild:f=>flights.push(f),querySelector:()=>({animate})};
     const scope={DOMException,document:{querySelectorAll:()=>slots,createElement:()=>({dataset:{},appendChild(){},animate,remove(){this.removed=true;}})},waitForPresentation:async()=>{if(abort){controller.abort();throw new DOMException('cancelled','AbortError');}}};
-    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-phase.js',import.meta.url),'utf8'),scope);
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-phase.js',import.meta.url),'utf8'),scope);
     const run=scope.handoffEnemyFormation(stage,art,{signal:controller.signal,revealHud:async()=>{}});
     if(abort)await assert.rejects(run,{name:'AbortError'});else await run;
     assert.deepEqual(flights.map(f=>f.dataset.enemyId),targets.map(t=>t.dataset.enemyId));
@@ -1865,7 +1865,7 @@ test('Formation handoff matches every instance, restores each node and cleans fl
 
 test('Gladiator challenge has five readable beats, lands before authority and scales only its own timing',async()=>{
   for(const reduced of [false,true])for(const abortAt of [Infinity,1,2,3]){
-    const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/presentation-config.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/gladiator-presentation.js',import.meta.url),'utf8'),scope);
+    const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-config.js',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/gladiator-presentation.js',import.meta.url),'utf8'),scope);
     const beats=[],waits=[],nodes=[],animations=[];let elapsed=0,count=0;
     const blade={style:{},getAnimations:()=>[]};
     const fx=(cls,x,y)=>{const n={cls,style:{left:x+'px',top:y+'px'},classList:{add(){}},querySelector:()=>blade,getAnimations:()=>[],remove(){this.removed=true;}};nodes.push(n);return n;};
@@ -1889,7 +1889,7 @@ test('Live challenge uses the chosen enemy anchor, follows its movement and comm
   const anchors={hero:{x:100,y:400,rect:{width:80,bottom:450}},enemy_1:{x:800,y:300,rect:{width:200,bottom:420}}},renderers=[],calls=[],source={style:{}},result={kind:'status',targetId:'hero'};
   const scope={AugurPresentationEngine:class{},innerWidth:1440,innerHeight:810,Image:class{decode(){return Promise.resolve();}},PRESENTATION_CONFIG:{gladiator:{pace:1.12}},GLADIATOR_SFX:{ground:'physical_hit'},
     getBattleEffectAnchor:id=>anchors[id],battlefieldPlayerTarget:()=> 'hero',commitBattlefieldPlayerResult:r=>calls.push(r),applyHpSnapshot:s=>calls.push(s)};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/extended-role-effects.js',import.meta.url),'utf8'),scope);
   scope.withBattlefieldSkillStage=async(step,context,play)=>{assert.equal(context.skipCastAudio,true);return play({actor:source,reduced:false,signal:new AbortController().signal,local:{audioScope:{play(){}}},el:()=>({}),position:(n,x,y)=>Object.assign(n,{x,y}),startRenderer:f=>renderers.push(f),animate(){},wait:async()=>{},tick:async()=>{}});};
   scope.playGladiatorChallengePresentation=async(step,s)=>{
     assert.equal(calls.length,0);assert.equal(s.actorMotion,source);
@@ -1925,14 +1925,14 @@ test('Arena presentation centers its authoritative enemy, removes outsiders from
   h.scope.syncEnemyArenaVisual({playerId:'hero',enemyId:'enemy_1'});
   assert.ok(stage.classList.contains('is-duel-arena'));assert.ok(view.classList.contains('is-duel-arena'));assert.equal(nodes[0].attrs['aria-hidden'],'true');assert.equal(nodes[0].tabIndex,-1);assert.ok(nodes[0].blurred);assert.equal(nodes[1].attrs['aria-disabled'],'false');
   h.scope.syncEnemyArenaVisual(null);assert.ok(!stage.classList.contains('is-duel-arena'));assert.ok(!view.classList.contains('is-duel-arena'));assert.ok(nodes.every(n=>n.attrs['aria-hidden']==='false'&&n.tabIndex===0));
-  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),scope={roomState:{enemies:nodes.map(n=>({instanceId:n.dataset.enemyId,hp:10})),arena:{playerId:'hero',enemyId:'enemy_1'}},myId:'hero'};
+  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8'),scope={roomState:{enemies:nodes.map(n=>({instanceId:n.dataset.enemyId,hp:10})),arena:{playerId:'hero',enemyId:'enemy_1'}},myId:'hero'};
   vm.createContext(scope);vm.runInContext(app.slice(app.indexOf('function isBattleEnemySelectable'),app.indexOf('// 神魔之塔風格敵方排佈舞台渲染')),scope);
   assert.equal(scope.isBattleEnemySelectable('enemy_0'),false);assert.equal(scope.isBattleEnemySelectable('enemy_1'),true);scope.myId='ally';assert.equal(scope.isBattleEnemySelectable('enemy_1'),false);scope.roomState.arena=null;assert.equal(scope.isBattleEnemySelectable('enemy_0'),true);
 });
 
 
 test('Arena HUD snapshots retain isolation through partial updates and explicitly clear it at exit',()=>{
-  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),calls=[],scope={expandedDisplay:null,roomState:{},updateBattleHudFromSnapshot(){},syncEnemyArenaVisual:a=>calls.push(a)};
+  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8'),calls=[],scope={expandedDisplay:null,roomState:{},updateBattleHudFromSnapshot(){},syncEnemyArenaVisual:a=>calls.push(a)};
   vm.createContext(scope);vm.runInContext(app.slice(app.indexOf('function applyHpSnapshot(snapshot)'),app.indexOf('// 單一步驟演出')),scope);
   const arena={enemyId:'enemy_1',playerId:'hero'};scope.applyHpSnapshot({arena});assert.equal(scope.roomState.arena,arena);scope.applyHpSnapshot({players:[]});assert.equal(calls.length,1);assert.equal(scope.roomState.arena,arena);
   scope.applyHpSnapshot({arena:null});assert.equal(calls.at(-1),null);assert.equal(scope.roomState.arena,null);
@@ -1966,7 +1966,7 @@ test('Cloud image registry resolves encoded and relative paths, SVG images, back
     document:{body,querySelectorAll:()=>nodes.filter(n=>n.tagName==='link'),documentElement:{style:{setProperty:(k,v)=>css.set(k,v)}},addEventListener:(k,v)=>domEvents[k]=v},
     StudioContent:{rows:t=>t==='game_assets'?assets:bindings,state:{config:{SUPABASE_URL:'https://assets.example.test'}},load:async()=>{}}};
   scope.window={StudioContent:scope.StudioContent,addEventListener:(k,v)=>events[k]=v};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/studio/asset-registry.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/studio/asset-registry.js',import.meta.url),'utf8'),scope);
   const img=new ImageNode();img.src='assets/example.png';const svg=new Node('image');svg.attrs.href='/BOSS/深淵/test.png';const icon=new Node('link');icon.attrs.rel='icon';icon.attrs.href='/assets/example.png';nodes.push(img,svg,icon);domEvents.DOMContentLoaded();
   const registry=scope.window.assetRegistry;
   assert.equal(registry.resolvePath('/buff%20icon/%E4%B8%AD%E6%AF%92.webp?v=2'),'https://assets.example.test/storage/v1/object/public/game-assets/images/1.png');
@@ -2045,7 +2045,7 @@ test('All 15 roles can unequip exclusive equipment to bag or squad, sell in shop
 
 test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanics and unequipped fallback', async t => {
   const { LOOT_TABLE } = await import('./constants.js');
-  const { NEW_LOOT } = await import('./phase8-config.js');
+  const { NEW_LOOT } = await import('./role-config.js');
   const sgEye = NEW_LOOT.find(i => i.id === 'sg_eye');
   const sgWatch = NEW_LOOT.find(i => i.id === 'sg_watch');
   const sgCloak = NEW_LOOT.find(i => i.id === 'sg_cloak');

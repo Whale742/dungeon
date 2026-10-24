@@ -1,4 +1,4 @@
-import {PHASE81_COPY} from './phase81-copy.js';
+import {PHASE81_COPY} from './role-copy.js';
 // Data consumed by the existing constants/config owners.
 const skill = (id, label, cd, dmgType, desc, category = 'OFFENSIVE') => ({ id, label, cd, dmgType, desc, category,
   tags: [dmgType === 'mag' ? '魔法' : dmgType === 'phys' ? '物理' : '輔助'] });

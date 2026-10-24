@@ -7,7 +7,7 @@ import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { createRoomContent } from '../studio/content.js';
 import { normalizeAvatar } from './avatar.js';
 import { consumeEncounter, encounterBattleOptions } from './DevEncounter.js';
-import { phase8Methods, p8State, P8_ROLES } from './phase8.js';
+import { phase8Methods, p8State, P8_ROLES } from './role-mechanics.js';
 import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRate, isAssassinHidden, addAssassinCritical } from './assassin.js';
 // 遊戲房間管理核心 (Game Room Engine)
 // 100% 完整移植 index.js 中的戰鬥演算法、職業技能、裝備、怪物抗性與傷害拆分機制

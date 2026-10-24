@@ -1,6 +1,6 @@
 export function mountDevTools(socket) {
   const style = document.createElement('link');
-  style.rel = 'stylesheet'; style.href = '/dev-tools.css'; document.head.append(style);
+  style.rel = 'stylesheet'; style.href = '/css/dev/dev-tools.css'; document.head.append(style);
   const root = document.createElement('div');
   root.id = 'dungeon-dev-tools';
   root.innerHTML = `

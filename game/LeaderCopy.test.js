@@ -34,8 +34,8 @@ test('leader drafts accept custom text and keep exactly one required prefix', ()
 test('class archive and room panel read published leader text in both copy modes', () => {
   const nodes = Object.fromEntries(['lobbyRoleDetailed','lobbySkillName','lobbySkillMeta','lobbySkillCopy','lobbyRoleDescription'].map(id => [id,{checked:false,classList:{toggle(){}}}]));
   const context = vm.createContext({localStorage:{getItem(){return null;}},window:{StudioContent:{skill(role,skill){return skill.id === 'leader_warrior' ? {display_name:'雲端隊長名',short_copy:'雲端精簡',full_copy:LEADER_COPY_PREFIX+'雲端完整'} : null;}}},document:{getElementById(id){return nodes[id];},querySelectorAll(){return [];}}});
-  vm.runInContext(fs.readFileSync(new URL('../public/skill-copy.js', import.meta.url),'utf8'),context);
-  vm.runInContext(fs.readFileSync(new URL('../public/lobby.js', import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../public/js/shared/skill-copy.js', import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../public/js/lobby/lobby.js', import.meta.url),'utf8'),context);
   context.classes=Object.fromEntries(Object.entries(CLASSES).map(([role,value]) => [role,{...value,leaderSkill:leaderSkillCopy(role)}]));
   vm.runInContext('registerSkillCopies(classes); lobbyRoleUi.data={classes,details:{}}; lobbyRoleUi.tab="leader";',context);
   for (const role of Object.keys(CLASSES)) {

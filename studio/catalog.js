@@ -14,11 +14,11 @@ const read = name => fs.readFileSync(new URL(name, publicDir), 'utf8');
 function localConfig(source, expression, globals = {}) {
   return vm.runInNewContext(source + '\n' + expression, globals, { timeout: 4000 });
 }
-const profiles = localConfig(read('lobby.js').split('const LOBBY_ROLE_ORDER')[0], 'LOBBY_ROLE_PROFILES');
-const recruitFields = localConfig(read('recruit-copy.js'), 'RecruitCopy.fields');
-const sfx = localConfig(read('sfx-assets.js'), '({assets:SFX_ASSETS, aliases:SFX_ALIASES, profiles:SFX_PRESENTATION_PROFILES})');
-const bgm = localConfig(read('bgm.js').split('// Music')[0], 'BGM_TRACKS');
-const fixture = localConfig(read('lab-combat-scenes.js'), 'PHASE6_LAB_SCENES');
+const profiles = localConfig(read('js/lobby/lobby.js').split('const LOBBY_ROLE_ORDER')[0], 'LOBBY_ROLE_PROFILES');
+const recruitFields = localConfig(read('js/lobby/recruit-copy.js'), 'RecruitCopy.fields');
+const sfx = localConfig(read('js/audio/sfx-assets.js'), '({assets:SFX_ASSETS, aliases:SFX_ALIASES, profiles:SFX_PRESENTATION_PROFILES})');
+const bgm = localConfig(read('js/audio/bgm.js').split('// Music')[0], 'BGM_TRACKS');
+const fixture = localConfig(read('js/lab/lab-combat-scenes.js'), 'PHASE6_LAB_SCENES');
 const grades = { S:5, A:4, B:3, C:2, D:1 };
 export const radarFields = ['radar_output','radar_survival','radar_team','radar_stability','radar_difficulty'];
 export const assetKeyForPath = value => 'local.' + createHash('sha256').update(value).digest('hex').slice(0, 20);
@@ -123,12 +123,12 @@ export function buildCatalog() {
   for(const item of LOOT_TABLE)if(item.icon)localAsset(item.icon,'effects',`equip.${item.role}.${item.id}.icon`);
   for(const boss of ENCOUNTERS)localAsset(boss.avatar,'bosses','boss.'+encodeURIComponent(boss.name)+'.avatar');
   for(const minion of [...EXCLUSIVE_MINIONS, ...GENERAL_MINIONS, ...ABYSS_MINIONS])localAsset(minion.avatar,'bosses','minion.'+encodeURIComponent(minion.name)+'.avatar');
-  for(const [key,p] of Object.entries(sfx.assets)){localAsset(p.src,'sfx','sfx.'+key);usage[assetKeyForPath(p.src)]=['sfx-assets.js','presentation-core.js'];}
-  for(const [key,p] of Object.entries(bgm)){localAsset(p.src,'bgm','bgm.'+key);usage[assetKeyForPath(p.src)]=['bgm.js'];}
+  for(const [key,p] of Object.entries(sfx.assets)){localAsset(p.src,'sfx','sfx.'+key);usage[assetKeyForPath(p.src)]=['js/audio/sfx-assets.js','js/presentation/presentation-core.js'];}
+  for(const [key,p] of Object.entries(bgm)){localAsset(p.src,'bgm','bgm.'+key);usage[assetKeyForPath(p.src)]=['js/audio/bgm.js'];}
   localAsset('/assets/bag1.webp','ui','ui.bag.closed');
   localAsset('/assets/bag2.webp','ui','ui.bag.open');
-  (usage[assetKeyForPath('/assets/bag1.webp')] ||= []).push('index.html', 'app.js', 'bag-presentation.js');
-  (usage[assetKeyForPath('/assets/bag2.webp')] ||= []).push('index.html', 'app.js', 'bag-presentation.js');
+  (usage[assetKeyForPath('/assets/bag1.webp')] ||= []).push('index.html', 'js/core/app.js', 'js/inventory/bag-presentation.js');
+  (usage[assetKeyForPath('/assets/bag2.webp')] ||= []).push('index.html', 'js/core/app.js', 'js/inventory/bag-presentation.js');
   const files=fs.readdirSync(publicDir).filter(f=>/\.(js|css|html)$/.test(f));
   for(const name of files) {
     const source=read(name); const urls=[...source.matchAll(/["'`](\/(?:photo|BOSS|sound|assets|icon|buff icon)\/[^"'`<>\r\n$]+?\.(?:webp|png|svg|jpg|jpeg|mp3|wav|ogg))["'`]/g)].map(m=>m[1]);

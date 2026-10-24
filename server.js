@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import localPaths from './public/js/shared/local-paths.cjs';
 import { Room } from './game/Room.js';
 import { DevAccess } from './game/DevAccess.js';
 import { DevController } from './game/DevController.js';
@@ -36,6 +37,15 @@ mountStudio(app, path.join(__dirname, 'public'),{onPublish:async()=>syncLobbyCon
 // Published reads never prevent server startup or authoritative gameplay.
 void refreshPublished().then(syncLobbyContent);
 setInterval(() => { void refreshPublished().then(syncLobbyContent); }, 60000).unref();
+// Saved URLs and published Studio rows can still refer to pre-reorganization paths.
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  let oldPath;
+  try { oldPath = decodeURIComponent(req.path); } catch { return next(); }
+  const target = localPaths.canonical(oldPath);
+  if (target === oldPath) return next();
+  res.sendFile(target.slice(1), { root: path.join(__dirname, 'public') });
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/dev', (req, res) => {
   if (!devAccess.enabled) return res.sendStatus(404);

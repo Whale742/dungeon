@@ -6,30 +6,30 @@
   <title>地城深淵 (Dungeon Abyss) - 多人連線 RPG</title>
   <link rel="icon" type="image/webp" href="/icon/icon.webp">
   <link rel="apple-touch-icon" href="/icon/icon.webp">
-  <link rel="stylesheet" href="design-tokens.css">
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="phase8.css">
-  <link rel="stylesheet" href="lobby.css">
-  <link rel="stylesheet" href="skill-production.css">
-  <link rel="stylesheet" href="samurai-presentation.css">
-  <link rel="stylesheet" href="augur-presentation.css">
-  <link rel="stylesheet" href="onmyoji-presentation.css">
-  <link rel="stylesheet" href="exploration.css">
-  <link rel="stylesheet" href="trap.css">
-  <link rel="stylesheet" href="chest.css">
-  <link rel="stylesheet" href="bag-presentation.css">
-  <link rel="stylesheet" href="combat.css">
-  <link rel="stylesheet" href="combat-expansion.css">
-  <link rel="stylesheet" href="enemy-presentation.css">
-  <link rel="stylesheet" href="player-battlefield.css">
-  <link rel="stylesheet" href="phase6-battlefield.css">
-  <link rel="stylesheet" href="portrait-status-fx.css">
-  <link rel="stylesheet" href="battle-phase.css">
-  <link rel="stylesheet" href="exploration-immersive.css">
-  <link rel="stylesheet" href="inventory-shop.css">
-  <link rel="stylesheet" href="settlement-reward.css">
-  <link rel="stylesheet" href="audio-controls.css">
-  <link rel="stylesheet" href="modal-motion.css">
+  <link rel="stylesheet" href="css/shared/design-tokens.css">
+  <link rel="stylesheet" href="css/shared/base.css">
+  <link rel="stylesheet" href="css/combat/battle-overlays.css">
+  <link rel="stylesheet" href="css/lobby/lobby.css">
+  <link rel="stylesheet" href="css/presentation/skill-production.css">
+  <link rel="stylesheet" href="css/presentation/samurai-presentation.css">
+  <link rel="stylesheet" href="css/presentation/augur-presentation.css">
+  <link rel="stylesheet" href="css/presentation/onmyoji-presentation.css">
+  <link rel="stylesheet" href="css/exploration/exploration.css">
+  <link rel="stylesheet" href="css/exploration/trap.css">
+  <link rel="stylesheet" href="css/exploration/chest.css">
+  <link rel="stylesheet" href="css/inventory/bag-presentation.css">
+  <link rel="stylesheet" href="css/combat/combat.css">
+  <link rel="stylesheet" href="css/combat/combat-expansion.css">
+  <link rel="stylesheet" href="css/combat/enemy-presentation.css">
+  <link rel="stylesheet" href="css/combat/player-battlefield.css">
+  <link rel="stylesheet" href="css/presentation/core-role-effects.css">
+  <link rel="stylesheet" href="css/combat/portrait-status-fx.css">
+  <link rel="stylesheet" href="css/combat/battle-phase.css">
+  <link rel="stylesheet" href="css/exploration/exploration-immersive.css">
+  <link rel="stylesheet" href="css/inventory/inventory-shop.css">
+  <link rel="stylesheet" href="css/inventory/settlement-reward.css">
+  <link rel="stylesheet" href="css/audio/audio-controls.css">
+  <link rel="stylesheet" href="css/shared/modal-motion.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&family=VT323&display=swap" rel="stylesheet">
@@ -1444,51 +1444,51 @@
   <script src="/socket.io/socket.io.js"></script>
   <!-- 主應用邏輯腳本 -->
   <!-- Presentation 核心與設定腳本 (Single Source of Truth) -->
-  <script src="/studio/content-store.js"></script>
-  <script src="/studio/asset-registry.js"></script>
-  <script src="/studio/radar-renderer.js"></script>
-  <script src="skill-copy.js"></script>
-  <script src="/studio/game-bridge.js"></script>
-  <script src="battle-log.js"></script>
-  <script src="presentation-config.js"></script>
-  <script src="sfx-assets.js"></script>
-  <script src="narrative-controls.js"></script>
-  <script src="presentation-core.js"></script>
-  <script src="bgm.js"></script>
-  <script src="recruit-copy.js"></script>
-  <script src="battle-phase.js"></script>
-  <script src="exploration.js"></script>
-  <script src="trap.js"></script>
-  <script src="bag-presentation.js"></script>
-  <script src="chest.js"></script>
-  <script src="combat.js"></script>
-  <script src="combat-expansion.js"></script>
-  <script src="enemy-choreography.js"></script>
-  <script src="enemy-presentation.js"></script>
-  <script src="player-battlefield.js"></script>
-  <script src="phase6-battlefield.js"></script>
-  <script src="skill-presentation-stage.js"></script>
-  <script src="sage-snap-background.js"></script>
-  <script src="sage-skill-presentation.js"></script>
-  <script src="sage-equation-presentation.js"></script>
-  <script src="dreamweaver-fx.js"></script>
-  <script src="dreamweaver-presentation.js"></script>
-  <script src="gladiator-presentation.js"></script>
-  <script src="stargazer-presentation.js"></script>
-  <script src="samurai-prototype-fx.js"></script>
-  <script src="samurai-presentation.js"></script>
-  <script src="augur-presentation.js"></script>
-  <script src="phase5-battlefield.js"></script>
-  <script src="onmyoji-presentation.js"></script>
-  <script src="victory.js"></script>
-  <script src="portrait-status-fx.js"></script>
-  <script src="lobby.js"></script>
+  <script src="/js/studio/content-store.js"></script>
+  <script src="/js/studio/asset-registry.js"></script>
+  <script src="/js/studio/radar-renderer.js"></script>
+  <script src="js/shared/skill-copy.js"></script>
+  <script src="/js/studio/game-bridge.js"></script>
+  <script src="js/combat/battle-log.js"></script>
+  <script src="js/presentation/presentation-config.js"></script>
+  <script src="js/audio/sfx-assets.js"></script>
+  <script src="js/exploration/narrative-controls.js"></script>
+  <script src="js/presentation/presentation-core.js"></script>
+  <script src="js/audio/bgm.js"></script>
+  <script src="js/lobby/recruit-copy.js"></script>
+  <script src="js/combat/battle-phase.js"></script>
+  <script src="js/exploration/exploration.js"></script>
+  <script src="js/exploration/trap.js"></script>
+  <script src="js/inventory/bag-presentation.js"></script>
+  <script src="js/exploration/chest.js"></script>
+  <script src="js/combat/combat.js"></script>
+  <script src="js/combat/combat-expansion.js"></script>
+  <script src="js/combat/enemy-choreography.js"></script>
+  <script src="js/combat/enemy-presentation.js"></script>
+  <script src="js/combat/player-battlefield.js"></script>
+  <script src="js/presentation/core-role-effects.js"></script>
+  <script src="js/presentation/skill-presentation-stage.js"></script>
+  <script src="js/presentation/sage-snap-background.js"></script>
+  <script src="js/presentation/sage-skill-presentation.js"></script>
+  <script src="js/presentation/sage-equation-presentation.js"></script>
+  <script src="js/presentation/dreamweaver-fx.js"></script>
+  <script src="js/presentation/dreamweaver-presentation.js"></script>
+  <script src="js/presentation/gladiator-presentation.js"></script>
+  <script src="js/presentation/stargazer-presentation.js"></script>
+  <script src="js/presentation/samurai-animation.js"></script>
+  <script src="js/presentation/samurai-presentation.js"></script>
+  <script src="js/presentation/augur-presentation.js"></script>
+  <script src="js/presentation/extended-role-effects.js"></script>
+  <script src="js/presentation/onmyoji-presentation.js"></script>
+  <script src="js/inventory/victory.js"></script>
+  <script src="js/combat/portrait-status-fx.js"></script>
+  <script src="js/lobby/lobby.js"></script>
   <div id="floatingEnemyTooltip" class="floating-status-tooltip" role="tooltip" aria-hidden="true"></div>
   <div id="floatingItemTooltip" class="floating-item-tooltip" role="tooltip" aria-hidden="true"></div>
   <div id="battleSkillTooltip" class="floating-status-tooltip battle-skill-tooltip" role="tooltip" aria-hidden="true"></div>
-  <script src="reward-presentation.js"></script>
-  <script src="modal-motion.js"></script>
-  <script src="battle-hud.js"></script>
-  <script src="app.js"></script>
+  <script src="js/inventory/reward-presentation.js"></script>
+  <script src="js/shared/modal-motion.js"></script>
+  <script src="js/combat/battle-hud.js"></script>
+  <script src="js/core/app.js"></script>
 </body>
 </html>

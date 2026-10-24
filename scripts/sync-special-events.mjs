@@ -30,7 +30,7 @@ for(const [id,local,mime] of [
   console.log('Verified cloud asset: '+id);
 }
 fs.writeFileSync(new URL('../game/special-event-assets.js',import.meta.url),'// Verified public Supabase assets. Regenerate with scripts/sync-special-events.mjs.\nexport const SPECIAL_EVENT_ASSETS = Object.freeze('+JSON.stringify(urls,null,2)+');\n');
-const choreography=new URL('../public/enemy-choreography.js',import.meta.url);
+const choreography=new URL('../public/js/combat/enemy-choreography.js',import.meta.url);
 fs.writeFileSync(choreography,fs.readFileSync(choreography,'utf8').replace(/https:\/\/[^'"\s]+\/images\/effects\/special-bite-[a-f0-9]+\.png/g,urls.bite));
 if(process.argv.includes('--assets-only'))process.exit(0);
 const {catalog}=await import('../studio/catalog.js');
