@@ -14,17 +14,27 @@ export const sageGrowth = {
   sge_deduce:{base:14,success:.5,bonus:o=>Math.round(7+o*.30)},
   sge_induce:{base:4,success:.4,bonus:o=>Math.round(2+o*.15)}
 };
+// The stable server formation order owns remainder allocation, before mitigation.
+export function splitEquationDamage(total, enemies) {
+  const amount=Math.max(0,Math.round(total));
+  if(!enemies.length)return [];
+  const each=Math.floor(amount/enemies.length),remainder=amount%enemies.length;
+  return enemies.map((enemy,index)=>({enemyId:enemy.instanceId,name:enemy.name,damage:each+(index<remainder?1:0)}));
+}
 export function sageEquationPreview(p,room) {
   const x=Math.max(0,p.sageX??30),operand=p.sageOperand||0;
   const corrosion=room.roundModifiers?.equipmentEffectMultiplier??1;
   const rule=countEquip(p,'sge_rule'),lens=countEquip(p,'sge_lens');
   const ruleMultiplier=1+(rule ? .10+(rule-1)*.05 : 0)*corrosion;
   const confusionChance=sageConfusionChance(x),lensBonus=(lens ? .10+(lens-1)*.05 : 0)*corrosion;
-  return {eta:eta(x),confusionChance,decayAmount:sageDecay(x),options:Object.entries(sageGrowth).map(([id,growth])=>{
+  const enemies=room.getAttackableEnemies(p);
+  return {eta:eta(x),confusionChance,decayAmount:sageDecay(x),livingEnemyCount:enemies.length,options:Object.entries(sageGrowth).map(([id,growth])=>{
     const op=operand+(id==='sge_induce'?(operand%2===0?9:8):id==='sge_deduce'?5:2);
     const baseEquationDamage=Math.round(Math.abs(op*eta(x)));
     return {id,operand:op,properties:[op%2===0?'EVEN':'ODD',...(isPrime(op)?['PRIME']:[]),...(Number.isInteger(Math.sqrt(op))?['SQUARE']:[])],
       baseEquationDamage,damageAfterEquipment:Math.round(baseEquationDamage*ruleMultiplier),damageAfterConfusion:Math.round(baseEquationDamage*ruleMultiplier*.8),
+      livingEnemyCount:enemies.length,distribution:splitEquationDamage(Math.round(baseEquationDamage*ruleMultiplier),enemies),
+      confusionDistribution:splitEquationDamage(Math.round(baseEquationDamage*ruleMultiplier*.8),enemies),primeDistribution:isPrime(op)?splitEquationDamage(15,enemies):[],
       blocked:id===p.sagePreviousAction,cooldown:p.cooldowns?.[id]||0,baseXGain:growth.base,bonusXGain:growth.bonus(op),
       successChance:Math.min(growth.success+lensBonus,1-confusionChance),debtScheduled:id==='sge_induce'?20:0};
   })};
@@ -146,8 +156,8 @@ export const phase8Methods = {
   getAugurTotalDebt(augur) {
     return (augur?.augurFateDebts || []).reduce((sum, d) => sum + d.amount, 0);
   },
-  augmentOmenDamage(amount) {
-    const bonus = this.currentMonster?.reversedOmenRemaining > 0 ? this.currentMonster.reversedOmenBonus || 10 : 0;
+  augmentOmenDamage(amount,enemy=this.currentMonster) {
+    const bonus = enemy?.reversedOmenRemaining > 0 ? enemy.reversedOmenBonus || 10 : 0;
     return Math.max(0, Math.floor(amount * (1 + bonus / 100)));
   },
   clearAugurBattleDebts() {
@@ -554,7 +564,7 @@ export const phase8Methods = {
   },
   p8DamageMonster(p,raw,type,resistance,extra={}) {
     const enemy=extra.enemy||this.currentMonster;
-    if(!enemy||enemy.hp<=0)return 0;
+    if(!enemy||!this.getAttackableEnemies(p).includes(enemy)||raw<=0)return 0;
     const before=this.getHpSnapshot();
     const target=snap=>snap.enemies?.find(e=>e.instanceId===enemy.instanceId)||snap.monster;
     const {dmg}=resistance(raw,type,{...extra,enemy,actor:p});
@@ -854,9 +864,9 @@ export const phase8Methods = {
     let equationBefore, fateResults=[];
     const event=(p,name,id,resolve,outcome={type:'normal'})=>{
       const before=equationBefore || this.getHpSnapshot();this.p8Results=[...fateResults];this.p8Visuals=[];resolve();const after=this.getHpSnapshot();
-      queue.push({type:'player_action',category:'OFFENSIVE',sourceId:p.id,sourceName:p.name,sourceRole:p.role,actionId:id,skillName:name,monsterName:m.name,monsterAvatar:m.avatar,
+      queue.push({type:'player_action',category:'OFFENSIVE',sourceId:p.id,sourceName:p.name,sourceRole:p.role,actionId:id,skillName:name,monsterName:m?.name,monsterAvatar:m?.avatar,
         augurReactions:(this.augurReactions || []).slice(augurReactionIndex),
-        targetId:'monster',targetName:m.name,hpSnapshotBefore:before,hpSnapshot:after,results:this.p8Results,finalDamage:this.p8Results.filter(r=>r.targetId==='monster'&&r.kind==='damage').reduce((n,r)=>n+r.finalDamage,0),damageType:'physical',outcome,detail:name});
+        targetId:m?.instanceId,targetEnemyId:m?.instanceId,targetName:m?.name,hpSnapshotBefore:before,hpSnapshot:after,results:this.p8Results,finalDamage:this.p8Results.filter(r=>r.targetEnemyId&&r.kind==='damage').reduce((n,r)=>n+r.finalDamage,0),damageType:'physical',outcome,detail:name});
       this.p8Results=null;this.p8Visuals=null;
     };
       if(p.role==='sage' && (!this.arena||this.arena.playerId===p.id)) {
@@ -902,7 +912,15 @@ export const phase8Methods = {
           // Claim before resolving so the round-end fallback cannot replay this event.
           p.sageEquationResolved=true;
           event(p,'方程結算','sge_equation',()=>{
-            const actual=this.p8DamageMonster(p,raw,'phys',resistance,{penetration:even?0.4:1,equation:true});
+            const targets=this.getAttackableEnemies(p);
+            outcome.distribution=splitEquationDamage(raw,targets);
+            let actual=0;
+            for(const share of outcome.distribution){
+              const enemy=targets.find(e=>e.instanceId===share.enemyId);
+              actual+=this.p8DamageMonster(p,share.damage,'phys',resistance,{enemy,penetration:even?0.4:1,equation:true});
+              const result=this.p8Results.at(-1);
+              if(result?.targetEnemyId===share.enemyId)Object.assign(result,{presentationBeat:'equation_main',equationShare:share.damage});
+            }
             outcome.actualBossDamage=actual;
             if(resolution==='CONFUSION') {
               const candidates=alive(this).filter(ally=>ally.id!==p.id),target=candidates.length?roll(candidates):p;
@@ -915,7 +933,16 @@ export const phase8Methods = {
                 outcome:{type:'sage_confusion'},targetBefore:before.players.find(a=>a.id===target.id),targetAfter:after.players.find(a=>a.id===target.id),hpSnapshot:after});
               this.p8Effect(p,'sage_confusion','思緒紊亂・本次方程 -20%',1,{icon:'debuff'});
             }
-            if(prime){this.p8DamageMonster(p,15,'true',resistance,{equation:true});for(const key of Object.keys(p.cooldowns))p.cooldowns[key]=0;p.sagePrimeResetPending=true;}
+            if(prime){
+              const remaining=this.getAttackableEnemies(p);
+              outcome.primeDistribution=splitEquationDamage(15,remaining);
+              for(const share of outcome.primeDistribution){
+                this.p8DamageMonster(p,share.damage,'true',resistance,{enemy:remaining.find(e=>e.instanceId===share.enemyId),equation:true});
+                const result=this.p8Results.at(-1);
+                if(result?.targetEnemyId===share.enemyId)Object.assign(result,{presentationBeat:'equation_prime',equationShare:share.damage});
+              }
+              for(const key of Object.keys(p.cooldowns))p.cooldowns[key]=0;p.sagePrimeResetPending=true;
+            }
             if(even) {
               const allies=alive(this),totalShield=Math.floor(actual*.4),cap=Math.floor(p.maxHp*.20);
               const each=allies.length?Math.floor(totalShield/allies.length):0,remainder=allies.length?totalShield%allies.length:0;
@@ -928,12 +955,16 @@ export const phase8Methods = {
                   targetBefore:before.players.find(a=>a.id===ally.id),targetAfter:after.players.find(a=>a.id===ally.id),hpSnapshot:after});
               });
             } else {
-              const active=this.p8Has(m,'sage_exposed');
-              this.p8Effect(m,'sage_exposed','ODD 承傷 +10%',2,{starts:active?.starts<=this.battleRound?active.starts:this.battleRound+1});
+              for(const enemy of targets.filter(e=>this.getAttackableEnemies(p).includes(e))){
+                const active=this.p8Has(enemy,'sage_exposed');
+                this.p8Effect(enemy,'sage_exposed','ODD 承傷 +10%',2,{starts:active?.starts<=this.battleRound?active.starts:this.battleRound+1});
+              }
             }
             if(square){
-              const active=this.p8Has(m,'sage_square');
-              this.p8Effect(m,'sage_square','SQUARE 直接傷害 -25%',2,{starts:active?.starts<=this.battleRound?active.starts:this.battleRound+1});
+              for(const enemy of targets.filter(e=>this.getAttackableEnemies(p).includes(e))){
+                const active=this.p8Has(enemy,'sage_square');
+                this.p8Effect(enemy,'sage_square','SQUARE 直接傷害 -25%',2,{starts:active?.starts<=this.battleRound?active.starts:this.battleRound+1});
+              }
             }
             // Finish all combat effects before paying decay and granting growth.
             outcome.decayAmount=sageDecay(x);outcome.baseXGain=growth.base;

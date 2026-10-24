@@ -2,6 +2,7 @@
 .battlefield-player-effects.battlefield-universe{background:#000!important}
 .battlefield-geometry{display:none}
 .battlefield-player-number{text-align:center}
+.battlefield-group-splash{position:absolute;translate:-50% -50%;object-fit:contain;pointer-events:none}
 .battlefield-hit-host{position:absolute;width:100px;height:100px;transform:translate(-50%,-50%);pointer-events:none}
 .battlefield-hit-host .archer-arrow-impact{animation:player-arrow-impact .3s ease-out both}
 @keyframes player-arrow-impact{from{opacity:0;scale:.35}20%{opacity:.9;scale:1}to{opacity:0;scale:1.6}}

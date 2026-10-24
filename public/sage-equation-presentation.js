@@ -115,15 +115,20 @@ async function playSageEquationPresentation(step,context) {
       await wait(240);
     }
     animate(answer,[{opacity:1,transform:'scale(1)'},{opacity:1,transform:'scale(.02)'}],540);await wait(540);await wait(100);
-    const target=s.anchors.get('monster')||SKILL_STAGE.target,dx=target.x-720,dy=target.y-405;
-    beam.style.width=Math.hypot(dx,dy)+'px';beam.style.rotate=Math.atan2(dy,dx)+'rad';
-    animate(beam,confusion?[
+    const mainResults=(step.results||[]).filter(r=>r.kind==='damage'&&r.targetEnemyId&&r.presentationBeat!=='equation_prime');
+    const targets=context.battlefield?[...new Set(mainResults.map(r=>resolvePresentationTarget(r,step)))].map(id=>s.anchors.get(id)).filter(Boolean):[s.anchors.get('monster')||SKILL_STAGE.target];
+    for(const [index,target] of targets.entries()){
+    const ray=index===0?beam:el('div','sage-beam'),dx=target.x-720,dy=target.y-405;
+    ray.style.width=Math.hypot(dx,dy)+'px';ray.style.rotate=Math.atan2(dy,dx)+'rad';
+    animate(ray,confusion?[
       {opacity:.8,transform:'scaleX(.01)'},
       {opacity:.7,transform:'scaleX(.55) translateY(1px)',offset:.35},
       {opacity:.8,transform:'scaleX(1) translateY(-1px)',offset:.65},
       {opacity:0,transform:'scaleX(1)'}
     ]:[{opacity:1,transform:'scaleX(.01)'},{opacity:1,transform:'scaleX(1)',offset:.65},{opacity:0,transform:'scaleX(1)'}],180);
+    }
     answer.style.visibility='hidden';context.audioScope.play('sage_laser',{noHold:true});context.onTiming?.('sage_laser',{step});await wait(120);
+    if(context.battlefield)commitBattlefieldGroup(s,step,mainResults);
     await s.resolveResults({applyFinalSnapshot:false,beforeResult:async result=>{
       if(result.presentationBeat!=='sage_confusion')return;
       await playSageConfusionBranch(s,step,context);

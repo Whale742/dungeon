@@ -494,6 +494,15 @@ export class Room {
     return (this.enemies || []).filter(e => e && e.hp > 0);
   }
 
+  // Selection and delayed damage share the same legal battlefield population.
+  // Keep getLivingEnemies for victory checks, including temporarily immune units.
+  getAttackableEnemies(actor = null) {
+    const arena = this.arena || this.enemyArena;
+    if (arena && actor && arena.playerId !== actor.id) return [];
+    return this.getLivingEnemies().filter(enemy => !enemy.untargetableThisRound &&
+      (!arena || enemy.instanceId === arena.enemyId));
+  }
+
   getPrimaryEnemy() {
     const arena=this.arena || this.enemyArena;
     if(arena?.enemyId){const locked=this.enemies?.find(e=>e.instanceId===arena.enemyId);if(locked)return locked;}
@@ -507,9 +516,9 @@ export class Room {
 
   getTargetEnemy(targetEnemyId = null) {
     const living = this.getLivingEnemies();
-    if (living.length === 0) return this._currentMonster || this.enemies?.[0] || null;
+    if (living.length === 0) return null;
     const arena=this.arena || this.enemyArena;
-    if(arena?.enemyId){const locked=living.find(e=>e.instanceId===arena.enemyId);if(locked)return locked;}
+    if(arena?.enemyId)return living.find(e=>e.instanceId===arena.enemyId)||null;
     if (targetEnemyId && targetEnemyId !== 'monster') {
       const found = living.find(e => e.instanceId === targetEnemyId || e.id === targetEnemyId);
       if (found) return found;
@@ -5334,7 +5343,7 @@ export class Room {
       }
       rawDmg=beforeEnemyDamage(this,targetEnemy,rawDmg,dmgType,options.actor||phase8Actor,options.kind||(this.enemyCounterResolution?'reaction':undefined),false);
       if(rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
-      rawDmg=this.augmentOmenDamage(rawDmg);
+      rawDmg=options.equation?this.augmentOmenDamage(rawDmg,targetEnemy):this.augmentOmenDamage(rawDmg);
       if(options.equation&&rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
       const dream=this.p8DreamDamage(targetEnemy,rawDmg);
       if(dream) {
@@ -5823,7 +5832,7 @@ export class Room {
         case 'm_blast': {
           const isBackfire = (this.roleRandom(p,'m_blast',()=>this.interveneNegative(p, '奧術爆破・法力走火', 25).failed?'negative':'normal')==='negative');
           if (isBackfire) actionOutcome = { type: 'misfire', label: '法力走火' };
-          const secTargets = this.getLivingEnemies().filter(t => t !== monster);
+          const secTargets = this.getAttackableEnemies(p).filter(t => t !== monster);
           if (isBackfire) {
             const raw = Math.floor((this.applyFateBlessing(p, this.skillValue(p,'m_miss'))) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
@@ -5939,7 +5948,7 @@ export class Room {
 
           const reservedArrows=this.roleRandom(p,'a_rain',()=>null);
           for (let i = 0; i < totalArrows; i++) {
-            const currentLiving = this.getLivingEnemies().filter(e => e.hp > 0);
+            const currentLiving = this.getAttackableEnemies(p);
             if (currentLiving.length === 0) {
               missCount += (totalArrows - i);
               break;
@@ -6232,7 +6241,7 @@ export class Room {
             isCrit: false,
             label: `不穩定試劑瓶(${dotCfg.name})`
           });
-          for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
+          for (const otherEnemy of this.getAttackableEnemies(p).filter(e => e !== monster)) {
             const nonPrimaryRaw = Math.floor(raw * 0.5);
             const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(nonPrimaryRaw, 'mag', { enemy: otherEnemy });
             otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);
@@ -6263,7 +6272,7 @@ export class Room {
           const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
           monster.hp -= dmg;
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '腐蝕強酸瓶' });
-          for (const otherEnemy of this.getLivingEnemies().filter(e => e !== monster)) {
+          for (const otherEnemy of this.getAttackableEnemies(p).filter(e => e !== monster)) {
             const nonPrimaryRaw = Math.floor(raw * 0.5);
             const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(nonPrimaryRaw, 'mag', { enemy: otherEnemy });
             otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);

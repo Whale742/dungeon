@@ -1323,10 +1323,22 @@ function adaptLegacyPresentationStep(step) {
       targetId: resolvePresentationTarget(result, step) === primaryId ? 'monster' : result.targetId })) };
 }
 const appliedBattleResults = new Set();
+function isLivingPresentationResult(result,step={}) {
+  if(!['damage','intercept'].includes(result.kind))return true;
+  const id=resolvePresentationTarget(result,step);
+  const before=result.targetBefore || (step.hpSnapshotBefore?.enemies||[]).find(e=>e.instanceId===id) ||
+    (step.hpSnapshotBefore?.players||[]).find(p=>p.id===id);
+  // Snapshot-before retains a lethal hit even if the room is already at zero.
+  return !before || typeof before.hp!=='number' || before.hp>0;
+}
+function filterLivingPresentationResults(step) {
+  const results=(step.results||[]).filter(r=>isLivingPresentationResult(r,step));
+  return {...step,results,skipInvalidAttack:!!step.results?.length&&!results.length};
+}
 function applyAuthoritativeResult(result) {
   const key = result.resultId || result;
   const id = resolvePresentationTarget(result);
-  if (!id || appliedBattleResults.has(key) || !result.targetAfter) return false;
+  if (!id || appliedBattleResults.has(key) || !result.targetAfter || !isLivingPresentationResult(result)) return false;
   appliedBattleResults.add(key);
   const target = result.targetAfter;
   if (result.targetEnemyId || target.instanceId) {

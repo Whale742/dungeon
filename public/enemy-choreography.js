@@ -148,7 +148,14 @@ function groupEnemyPresentationSteps(queue){
     const previous=grouped.at(-1),key=recipe&&recipe.mode!=='quiet'?step.sourceId+':'+recipe.id+':'+recipe.mode:null;
     if(key&&previous?._sixCastKey===key){previous.results.push(...step.results);previous.enemyCastMembers.push(step);}
     else if(key)grouped.push({...step,results:[...step.results],enemyCastMembers:[step],_sixCastKey:key});
-    else grouped.push(step);
+    else if(previous&&previous.results?.length&&step.results?.length&&!previous._sixCastKey&&previous.type==='enemy_mechanic'&&step.type==='enemy_mechanic'&&
+      previous.sourceId===step.sourceId&&previous.actionId===step.actionId&&
+      (previous.presentation?.hitIndex||1)===(step.presentation?.hitIndex||1)&&
+      [...previous.results,...(step.results||[])].every(r=>r.kind==='damage'&&!r.sharedFrom)&&
+      new Set([...previous.results,...step.results].map(r=>r.targetId)).size===previous.results.length+step.results.length){
+      previous.results.push(...step.results);previous.hpSnapshot=step.hpSnapshot;
+    }
+    else grouped.push({...step,results:step.results?[...step.results]:[]});
   }
   return grouped;
 }

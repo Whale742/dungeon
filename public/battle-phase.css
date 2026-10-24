@@ -64,10 +64,9 @@
 .round-start-overlay.is-exiting .round-start-main { animation: phaseToRight calc(180ms / var(--phase-speed)) calc(90ms / var(--phase-speed)) ease-in both; }
 .round-start-overlay.is-exiting .round-start-strip { animation: phaseToRight calc(180ms / var(--phase-speed)) calc(180ms / var(--phase-speed)) ease-in both; }
 .battle-phase-pending #playerActionCard { visibility: hidden; opacity: 0; pointer-events: none; }
-#playerActionCard.is-phase-entering { animation: battleControlsEntry 300ms ease-out both; pointer-events: none; }
-@keyframes battleControlsEntry { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+#playerActionCard.is-phase-entering { pointer-events: none; }
 @keyframes battleBossHpReveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.is-battle-hud-revealing { animation: phaseDarken 350ms ease-out both; }
+.is-battle-hud-revealing { opacity:1; }
 .is-battle-hud-revealing #monsterHpFill { transform-origin: left; animation: battleBossHpReveal 400ms ease-out both; }
 [data-reduced-motion="true"] .boss-warning-strip, [data-reduced-motion="true"] .boss-warning-copy { --phase-distance: 10px; }
 [data-reduced-motion="true"] .round-start-strip, [data-reduced-motion="true"] .round-start-main, [data-reduced-motion="true"] .round-start-sub { --phase-distance: 12px; }

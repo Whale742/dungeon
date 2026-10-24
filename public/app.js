@@ -360,6 +360,7 @@ let editingNameValue = '';
 
 // 本回合暫存選擇
 let currentPendingAction = null;
+let pendingActionRoundKey = null;
 let currentPendingTarget = null;
 
 // 打字機與戰鬥敘述鎖定狀態
@@ -858,6 +859,11 @@ socket.on('connect', () => {
   console.log('連線至伺服器，ID:', myId);
 });
 socket.on('disconnect', () => {
+  battlePhaseController?.abort();
+  combatQueueController?.abort();
+  BattleHud.reset('ROUND_TICK');
+  releaseBattleEncounterScene();
+  document.body.classList.remove('battle-intro-active');
   window.RecruitCopy?.setPlayerId(null);
   if (window.RewardPresentation?.isPlaying) window.RewardPresentation.cancel();
 });
@@ -889,6 +895,8 @@ let pendingAuthoritativeState = null;
 socket.on('room:update', (state) => {
   const amIInRoom = Boolean(myId && state.players && state.players.some(p => p.id === myId));
   if (!amIInRoom) {
+    combatQueueController?.abort();
+    BattleHud.reset();
     battlePhaseController?.abort();
     releaseBattleEncounterScene();
     document.body.classList.remove('battle-intro-active');
@@ -905,7 +913,7 @@ socket.on('room:update', (state) => {
     document.body.classList.remove('battle-intro-active');
     battleControlsReadyKey = null;
   }
-  if (combatQueueController && state.state !== 'IN_BATTLE') { combatQueueController.abort(); pendingAuthoritativeState = null; }
+  if (combatQueueController && (state.state !== 'IN_BATTLE' || combatQueueController.battleKey !== battleSceneKey(state))) { combatQueueController.abort(); pendingAuthoritativeState = null; }
   // 若目前正透過 Presentation Queue 逐步演出戰鬥交鋒（A5 規範）
   // 嚴禁以權威狀態直接提前覆蓋演出中的 HP / tempHp / bossHp / death state！
   if (isProcessingPresentationQueue) {
@@ -2293,6 +2301,7 @@ function ensureBattlePhase(round, state = roomState) {
   lastAnnouncedBattleRound = round;
   battleControlsReadyKey = null;
   elements.views.battle.classList.add('battle-phase-pending');
+  if(!encounter&&typeof BattleHud!=='undefined')BattleHud.setPhase('ROUND_TICK');
   document.getElementById('playerActionCard').inert = true;
   if (encounter) {gateDestinationView('battle');document.body.classList.add('battle-intro-active');}
   presentationManager.setBlocking(true);
@@ -2300,6 +2309,7 @@ function ensureBattlePhase(round, state = roomState) {
     try {
       await playBattlePhaseOpening(monster, round, {
         encounter, controller, signal: controller.signal,
+        enemies: state.enemies || [monster], arena: state.enemyArena || state.arena,
         routeId: state?.currentMonster?.routeId || state?.currentTransition?.routeId,
         revealEncounterScene(){releaseBattleEncounterScene();switchView('battle');},
         revealHud() {
@@ -2330,10 +2340,11 @@ async function revealBattleControls() {
       battlePhaseController || isProcessingPresentationQueue || battleControlsReadyKey === key || battleControlsEntryPromise) return;
   const card = document.getElementById('playerActionCard');
   elements.views.battle.classList.remove('battle-phase-pending');
+  BattleHud.setPhase('SELECTING');
   card.inert = true;
   card.classList.add('is-phase-entering');
   battleControlsEntryPromise = (async () => {
-    await sleep(300);
+    await sleep(matchMedia('(prefers-reduced-motion: reduce)').matches?1:420);
     card.classList.remove('is-phase-entering');
     if (battleRoundKey() !== key || roomState.state !== 'IN_BATTLE' || roomState.selectionState !== 'SELECTING' || battlePhaseController || isProcessingPresentationQueue) return;
     battleControlsReadyKey = key;
@@ -2856,6 +2867,8 @@ function renderBattle(me, isLeader) {
 
   // 渲染我的專屬操作列
   renderMyActionBar(me);
+  BattleHud.updatePlayer(me);
+  if (!isProcessingPresentationQueue && roomState.selectionState === 'SELECTING') BattleHud.setPhase('SELECTING');
 }
 
 // Buff / Debuff 圖示對應表 (使用 /buff icon 資料夾中的 webp 圖示)
@@ -3115,7 +3128,7 @@ function renderTeammatesGrid(me) {
       <!-- 第1行：職業頭像 名字 選擇中 -->
       <div class="teammate-top">
         <span class="teammate-name-group">
-          <span class="teammate-avatar-wrap portrait-root" title="點擊或停留檢視詳細數值">
+          <span class="teammate-avatar-wrap portrait-root" tabindex="0" role="button" aria-label="查看角色詳細資訊">
             ${getPlayerAvatarHtml(p, 'teammate-avatar-img portrait-image')}
           </span>
           <span class="teammate-name-text">${escapeHtml(p.name)}</span>
@@ -3148,6 +3161,10 @@ function renderTeammatesGrid(me) {
       avatarWrap.addEventListener('mouseenter', (ev) => showPlayerTooltip(p, ev));
       avatarWrap.addEventListener('mousemove', (ev) => positionFloatingTooltip(ev, elements.floatingEnemyTooltip));
       avatarWrap.addEventListener('mouseleave', () => hideEnemyTooltip());
+      avatarWrap.addEventListener('click', () => showPlayerTooltip(p,avatarWrap));
+      avatarWrap.addEventListener('focus', () => showPlayerTooltip(p,avatarWrap));
+      avatarWrap.addEventListener('blur',hideEnemyTooltip);
+      avatarWrap.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();showPlayerTooltip(p,avatarWrap);}});
     }
 
     // 德魯伊夥伴暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
@@ -3211,45 +3228,16 @@ function renderTeammatesGrid(me) {
 }
 
 function renderSageEquationPreview(me) {
-  let sagePreview = document.getElementById('sageEquationPreview');
-  if (!sagePreview) {
-    sagePreview = document.createElement('div');
-    sagePreview.id = 'sageEquationPreview';
-    if (elements.mySkillsRow && elements.mySkillsRow.parentNode) {
-      elements.mySkillsRow.parentNode.insertBefore(sagePreview, elements.mySkillsRow);
-    }
-  }
-  sagePreview.replaceChildren();
-  if (!me || me.role !== 'sage' || me.hp <= 0 || me.isSurrendered || me.stunnedNextTurn || me.druidForm === 'tree') {
-    sagePreview.className = '';
-    return;
-  }
-  const x = me.sageX ?? 30;
-  const op = me.sageOperand || 0;
-  const phase = me.sagePhase || 'hypothesis';
-  const preview = me.sageEquationPreview;
-  if (phase === 'solve' && preview) {
-    sagePreview.className = 'sage-preview-panel';
-    const header = document.createElement('div');header.className = 'sage-preview-header';
-    header.innerHTML = '<span><svg class="svg-icon" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"><use href="#icon-log"></use></svg> 方程預覽（抗性前）</span><div class="sage-preview-vars"><span>X='+x+'</span><span>η(X)='+preview.eta.toFixed(3)+'</span><span>Op='+op+'</span></div>';
-    const table = document.createElement('table');table.className = 'sage-preview-table';
-    const names={basic:'普通攻擊',sge_deduce:'向量定軌',sge_induce:'動量回授'};
-    const labels={EVEN:'偶數',ODD:'奇數',PRIME:'質數',SQUARE:'平方'};
-    table.innerHTML='<thead><tr><th>求解技能</th><th>運算元</th><th>性質</th><th>正常／紊亂</th><th>狀態</th></tr></thead><tbody>'+preview.options.map(s=>
-      '<tr class="'+(s.blocked||s.cooldown?'sage-preview-blocked':'')+'"><td>'+names[s.id]+'</td><td><b>'+s.operand+'</b></td><td>'+s.properties.map(p=>labels[p]).join(' · ')+'</td><td><b>'+s.damageAfterEquipment+'／'+s.damageAfterConfusion+'</b></td><td>'+(s.blocked?'前輪已使用':s.cooldown?'冷卻 '+s.cooldown:'可選')+'</td></tr>'
-    ).join('')+'</tbody>';
-    const note = document.createElement('div');note.className = 'sage-preview-note';
-    note.textContent='η(X) = 0.4 + (1.75 × X) / (X + 80)。紊亂 '+(preview.confusionChance*100).toFixed(0)+'%；自然衰減 -'+preview.decayAmount+'；待付透支 '+(me.sageDebt||0)+' X。預覽由伺服器提供，實傷依 Boss 抗性／特殊狀態結算；方程不受團隊增傷與通關攻擊加成。';
-    sagePreview.append(header,table,note);
-  } else {
-    sagePreview.className = 'sage-hypothesis-notice';
-    sagePreview.innerHTML = `<span><svg class="svg-icon" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"><use href="#icon-sparkle"></use></svg> <b>目前為假設階段</b>：請先決定運算元建立方式，下回合進入求解階段並結算方程。（當前變量 X = <b>${x}</b>）</span>`;
-  }
+  BattleHud.renderEquation(me,currentPendingAction);
 }
 
 // 玩家專屬技能列
 function renderMyActionBar(me) {
   if (!me || !me.role || !classesData[me.role]) return;
+  const pendingKey=battleRoundKey();
+  if(!isProcessingPresentationQueue&&roomState.selectionState==='SELECTING'&&pendingActionRoundKey!==pendingKey){
+    pendingActionRoundKey=pendingKey;currentPendingAction=null;currentPendingTarget=null;
+  }
 
   const roleConfig = classesData[me.role];
   if (elements.myRoleEmoji) elements.myRoleEmoji.innerHTML = getPlayerAvatarHtml(me, 'my-role-avatar-img');
@@ -3322,6 +3310,7 @@ function renderMyActionBar(me) {
 
   // 狀態提醒
   if (isDead) {
+    elements.btnConfirmLock.disabled=true;
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '你已倒地陣亡，本回合無法行動...';
     elements.mySkillsRow.innerHTML = '<div style="color:#dc2626; font-weight: 600; padding: 10px;">你已倒下，本回合無法行動。</div>';
@@ -3329,6 +3318,7 @@ function renderMyActionBar(me) {
   }
 
   if (isSurrendered) {
+    elements.btnConfirmLock.disabled=true;
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '你陷入【暗影魔狼族長】的血脈壓制臣服狀態，無法行動！';
     elements.mySkillsRow.innerHTML = '<div style="color:#b45309; font-weight: 700; padding: 12px; font-size: 1rem;">源自靈魂深處的始祖狼王威壓讓你跪地臣服，全身無法動彈，直到暗影魔狼族長倒下！</div>';
@@ -3336,6 +3326,7 @@ function renderMyActionBar(me) {
   }
 
   if (isTree) {
+    elements.btnConfirmLock.disabled=true;
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '你受到致命傷化為古樹休眠中，本回合無法行動...';
     elements.mySkillsRow.innerHTML = '<div style="color:#16a34a; font-weight: 700; padding: 12px; font-size: 1rem;">沉睡古樹休眠中，正在凝聚自然生機，本回合無法行動！</div>';
@@ -3343,6 +3334,7 @@ function renderMyActionBar(me) {
   }
 
   if (isStunned) {
+    elements.btnConfirmLock.disabled=true;
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '你處於脫力虛弱狀態，正在喘息休息...';
     elements.mySkillsRow.innerHTML = '<div style="color:#b45309; font-weight: 600; padding: 10px;">脫力後遺症中，本回合無法行動。</div>';
@@ -3413,6 +3405,7 @@ function renderMyActionBar(me) {
 
     const btn = document.createElement('div');
     btn.className = `skill-btn skill ${isSelected ? 'selected' : ''}`;
+    btn.setAttribute('aria-disabled',String(isCoolingDown||isNarrating||isResolving||isLocked));
     if (isCoolingDown || isNarrating || isResolving || isLocked) {
       btn.style.opacity = '0.6';
       btn.style.cursor = 'not-allowed';
@@ -3439,6 +3432,7 @@ function renderMyActionBar(me) {
     });
 
     elements.mySkillsRow.appendChild(btn);
+    BattleHud.bindSkill(btn,getSkillDescription(me.role,skill));
   });
 
   // 吟遊詩人專屬：當有隊友倒地時，動態顯示「甦生之歌」
@@ -3629,9 +3623,15 @@ function renderMyActionBar(me) {
   });
 
   elements.mySkillsRow.appendChild(skipBtn);
+  const bagButton=document.createElement('button');
+  bagButton.type='button';bagButton.className='skill-btn skill';bagButton.textContent='背包 / INVENTORY';
+  bagButton.disabled=isNarrating||isResolving||isLocked;bagButton.onclick=openInventoryModal;
+  elements.mySkillsRow.appendChild(bagButton);
+  BattleHud.renderEquation(me,currentPendingAction);
 
   // 更新下方確認/鎖定操作列
   updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, isNarrating, isResolving, isLocked, activeSkills);
+  for(const button of elements.mySkillsRow.querySelectorAll('.skill-btn:not([role])'))BattleHud.bindSkill(button,button.textContent.trim());
 }
 
 // 相容別名：確保任何地方呼叫 renderBattleSkills 皆可正常執行
@@ -3859,9 +3859,6 @@ function openTargetModal(type, targetList) {
         currentPendingTarget = p.id;
         const me = getMyPlayer();
         if (me) renderMyActionBar(me);
-        socket.emit('battle:lock', { actionId: currentPendingAction, targetPlayerId: p.id }, (res) => {
-          if (res && !res.success) alert(res.message);
-        });
         return;
       }
       if (type === 'inv_potion' || type === 'inv_antidote') {
@@ -5661,6 +5658,7 @@ function applyHpSnapshot(snapshot) {
   if (!snapshot) return;
   if (expandedDisplay) expandedDisplay.snapshot = mergePresentationSnapshot(expandedDisplay.snapshot, snapshot);
   updateBattleHudFromSnapshot(snapshot);
+  if (typeof BattleHud !== 'undefined') BattleHud.updatePlayer(getMyPlayer());
   if(Object.hasOwn(snapshot,'arena')){
     if(roomState){roomState.arena=snapshot.arena?.enemyForced?null:snapshot.arena;roomState.enemyArena=snapshot.arena?.enemyForced?snapshot.arena:null;}
     syncEnemyArenaVisual(snapshot.arena);
@@ -5670,6 +5668,9 @@ function applyHpSnapshot(snapshot) {
 // 單一步驟演出 (P2-R1.1 Section 8-11: 14 步嚴格演出順序)
 async function playPresentationStep(step, round) {
   if (!step) return;
+  if(step.type==='enemy_mechanic')return playEnemyMechanicPresentation(step,activeCombatContext);
+  if(step.category==='STATUS_TICK'&&!isPhase6TimedStep(step))return playBattlefieldTick(step,activeCombatContext);
+  if(step.type==='boss_action'&&!step.hpSnapshotBefore?.arena)return playEnemyMechanicPresentation(step,activeCombatContext);
 
   // 1. 更新戰況交鋒字幕
   if (step.narrative && elements.battleNarrativeText) {
@@ -5681,10 +5682,6 @@ async function playPresentationStep(step, round) {
 
   if (isBattlefieldPlayerStep(step)) {
     await playBattlefieldPlayerPresentation(step, activeCombatContext);
-    return;
-  }
-  if (step.type === 'enemy_mechanic') {
-    await playEnemyMechanicPresentation(step, activeCombatContext);
     return;
   }
   if (step.category) {
@@ -5754,8 +5751,11 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   if (!queue?.length || queueKey === lastCombatPresentationId) return;
   combatQueueController?.abort();
   const controller = new AbortController();
+  controller.battleKey = battleSceneKey();
   combatQueueController = controller;
   lastCombatPresentationId = queueKey;
+  const roundStartPresentation=lastAnnouncedBattleRound!==round || queue.some(step=>
+    step.type==='status_action'&&step.category==='STATUS_TICK'&&step.skillName===`ROUND ${round}`);
   activeCombatContext = {
     controller,
     signal: controller.signal,
@@ -5795,6 +5795,9 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
         stage?.replaceChildren();stage?.classList.remove('is-active','is-exiting');
       }
       document.getElementById('app').inert = false;
+      BattleHud.reset(roomState?.selectionState==='SELECTING'?'SELECTING':'ROUND_TICK');
+      // The authoritative SELECTING update/reveal owns reopening controls.
+      if (roomState?.selectionState !== 'SELECTING') elements.views.battle.classList.add('battle-phase-pending');
     }
   };
   controller.signal.addEventListener('abort', cleanup, { once: true });
@@ -5814,18 +5817,25 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
     appliedBattleResults.clear();
     if (queue[0]?.hpSnapshotBefore) applyHpSnapshot(queue[0].hpSnapshotBefore);
-    let legacyStageEntered = false, battlefieldFocused = false;
-    for (const step of groupEnemyPresentationSteps(queue)) {
+    const steps = groupEnemyPresentationSteps(queue).map(filterLivingPresentationResults);
+    BattleHud.begin(steps);
+    let legacyStageEntered = false;
+    for (const step of steps) {
       if (controller.signal.aborted) throw new DOMException('Presentation cancelled', 'AbortError');
-      const official = isBattlefieldPlayerStep(step) || step.type === 'enemy_mechanic' || ['kill','status_cleanup'].includes(step.type);
+      if (step.skipInvalidAttack) {if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);BattleHud.finish(step,activeCombatContext);continue;}
+      const official = isBattlefieldPlayerStep(step) || step.category==='STATUS_TICK' || ['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type);
       // Choosing a skill can scroll the actual actors out of view. Bring the
       // official stage back once, before its choreography begins.
-      if(official&&!battlefieldFocused){elements.monsterCard?.scrollIntoView({block:'start',behavior:'instant'});battlefieldFocused=true;}
       if (!official && !legacyStageEntered) { await enterCombatStage(activeCombatContext); legacyStageEntered = true; }
       const legacyStage = document.getElementById('presentationCombatStage');
       if (legacyStage) legacyStage.style.visibility = official ? 'hidden' : '';
       document.getElementById('app').inert = true;
+      const previousHudPhase=BattleHud.phase;
+      BattleHud.setPhase(BattleHud.phaseFor(step,roundStartPresentation));
+      await BattleHud.announce(step,activeCombatContext);
       await playPresentationStep(step, round);
+      BattleHud.finish(step,activeCombatContext);
+      if(['sa_counter','w_counter'].includes(step.actionId)&&previousHudPhase==='ENEMY_ACTIONS')BattleHud.setPhase(previousHudPhase);
     }
     if (legacyStageEntered) await exitCombatStage(activeCombatContext);
     const legacyStage = document.getElementById('presentationCombatStage');

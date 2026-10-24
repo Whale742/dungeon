@@ -40,6 +40,25 @@ function commitBattlefieldPlayerResult(result,step,context) {
   context.onTiming?.('impact',{result,targetId:id});context.onTiming?.('hp_update',{result,targetId:id});
   return true;
 }
+function battlefieldFormationAnchor(results,step) {
+  const anchors=[...new Set(results.map(r=>resolvePresentationTarget(r,step)))].map(getBattleEffectAnchor).filter(Boolean);
+  if(!anchors.length)return null;
+  return {x:anchors.reduce((n,a)=>n+a.x,0)/anchors.length,y:anchors.reduce((n,a)=>n+a.y,0)/anchors.length,
+    width:Math.max(...anchors.map(a=>a.rect.right))-Math.min(...anchors.map(a=>a.rect.left)),
+    height:Math.max(...anchors.map(a=>a.rect.height))};
+}
+// Synchronous commits preserve each result's before/after state and dedup key.
+// No await between targets: all HP transitions begin in the same paint frame.
+function commitBattlefieldGroup(s,step,results,commit=commitBattlefieldPlayerResult) {
+  for(const result of results)commit===commitBattlefieldPlayerResult?commit(result,step,s.local):commit(s,step,result);
+}
+async function playBattlefieldTick(step,context) {
+  return withBattlefieldSkillStage(step,{...context,skipCastAudio:true},async s=>{
+    commitBattlefieldGroup(s,step,step.results||[]);
+    if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);
+    await s.wait(500);
+  });
+}
 async function withBattlefieldSkillStage(step,context,play) {
   const signal=context.signal||context.controller?.signal;
   if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
@@ -69,7 +88,12 @@ async function withBattlefieldSkillStage(step,context,play) {
     scale=Math.min(innerWidth/1440,innerHeight/810)||1;
     const left=(innerWidth-1440*scale)/2,top=(innerHeight-810*scale)/2;
     frame.style.transform=`translate(${left}px,${top}px) scale(${scale})`;
-    for(const [id,p] of anchors){const a=getBattleEffectAnchor(id==='monster'?targetId:id);if(a){p.x=(a.x-left)/scale;p.y=(a.y-top)/scale;}}
+    for(const [id,p] of anchors){
+      // Source geometry belongs to the scene; receiver feedback still follows
+      // real enemy/party anchors through follow() below.
+      const a=id===step.sourceId&&!(typeof getEnemyAnchor==='function'&&getEnemyAnchor(id))?{x:innerWidth*.18,y:innerHeight*.48}:getBattleEffectAnchor(id==='monster'?targetId:id);
+      if(a){p.x=(a.x-left)/scale;p.y=(a.y-top)/scale;}
+    }
     const occupied=[];
     for(const f of followers){
       if(performance.now()>=f.expires){f.node.remove();continue;}
@@ -89,7 +113,6 @@ async function withBattlefieldSkillStage(step,context,play) {
   const animate=(node,keys,ms,options={})=>{const a=node.animate(keys,{duration:(reduced?Math.min(ms,120):ms)/speed,fill:'forwards',...options});animations.add(a);a.finished.catch(()=>{});return a;};
   const local={...context,signal,speed,reducedMotion:reduced,effectRoot:root,follow,audioScope:audio,numberCounts:new Map(),battlefield:true};
   const resolveResults=async(options={})=>{for(const result of step.results||[]){if(signal?.aborted)return;await options.beforeResult?.(result);commitBattlefieldPlayerResult(result,step,local);}if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);};
-  const title=el('div','skill-production-title',null,root);title.textContent=step.skillName||'';
   const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,
     startRenderer:render=>renderers.push(render),unfollow:node=>{for(let i=followers.length-1;i>=0;i--)if(followers[i].node===node)followers.splice(i,1);},debug:()=>{}};
   const cleanup=()=>{cancelAnimationFrame(raf);for(const a of animations)a.cancel();root.remove();};
@@ -154,6 +177,25 @@ async function playBattlefieldRanged(step,context) {
     if(!alchemy&&step.actionId==='a_shot'){const profile=resolveCombatSfxProfile(step);if(profile.key)audio.play(profile.key,{noHold:true});}
     if(step.actionId!=='a_trap')audio.play(alchemy?'bottle_throw':step.actionId==='a_rain'?'archer_rain':'archer_twang');
     let chemicalPlayed=false,bowReleased=false;
+    if(alchemy){
+      const seen=new Set(),main=[];
+      for(const result of step.results||[])if(result.kind==='damage'&&result.targetEnemyId&&!seen.has(resolvePresentationTarget(result,step))){seen.add(resolvePresentationTarget(result,step));main.push(result);}
+      if(main.length){
+        const primary=main.find(r=>!r.isSecondaryEnemy)||main[0];
+        if(bow){bowReleased=true;s.animate(bow,[{opacity:1},{opacity:0}],240);}
+        audio.play('acid_throw');
+        await battlefieldProjectile(s,null,resolvePresentationTarget(primary,step),'bottle',bow||true);
+        audio.play('acid_splash');
+        if(step.actionId==='alc_flask')audio.play('alchemy_skill1',{noHold:true});
+        const splash=battlefieldPaintedImage(s.root,ALCHEMIST_BATTLEFIELD_ART.burst,'battlefield-group-splash');
+        const place=()=>{const a=battlefieldFormationAnchor(main,step);if(a){splash.style.left=a.x+'px';splash.style.top=a.y+'px';splash.style.width=Math.max(180,a.width)+'px';splash.style.height=Math.max(180,a.height*.9)+'px';}};
+        place();s.startRenderer(place);s.animate(splash,[{opacity:0,scale:'.2'},{opacity:.85,scale:'1',offset:.3},{opacity:0,scale:'1.2'}],450);
+        commitBattlefieldGroup(s,step,main);
+        await s.wait(160);
+        commitBattlefieldGroup(s,step,(step.results||[]).filter(r=>!main.includes(r)));
+        await s.resolveResults();await s.wait(280);return;
+      }
+    }
     for(const result of step.results||[]){
       const id=resolvePresentationTarget(result,step);
       if(result.kind==='damage'&&result.targetEnemyId){
@@ -202,7 +244,7 @@ async function battlefieldProjectile(s,sourceId,targetId,type,central) {
   await s.tick(440,p=>{
     const source=sourceId&&getBattleEffectAnchor(sourceId),target=getBattleEffectAnchor(targetId);if(!target){projectile.hidden=true;return;}
     const bow=central?.getBoundingClientRect?.();
-    const from=bow?{x:bow.left+bow.width*(type==='bottle'?.82:['healing','reagent'].includes(type)?.5:.25),y:bow.top+bow.height*(type==='bottle'?.2:['healing','reagent'].includes(type)?.5:.37)}:central||!source?{x:innerWidth/2,y:innerHeight*.75}:source;
+    const from=bow?{x:bow.left+bow.width*(type==='bottle'?.82:['healing','reagent'].includes(type)?.5:.25),y:bow.top+bow.height*(type==='bottle'?.2:['healing','reagent'].includes(type)?.5:.37)}:{x:innerWidth*.52,y:innerHeight*.85};
     const start=from;
     const travel=s.reduced?1:p;
     projectile.style.left=(start.x+(target.x-start.x)*travel)+'px';projectile.style.top=(start.y+(target.y-start.y)*travel-Math.sin(travel*Math.PI)*(type==='bottle'?70:0))+'px';

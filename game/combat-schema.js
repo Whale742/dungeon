@@ -150,7 +150,7 @@ export function buildActionResults(step, before, after, visuals, heals = []) {
     if(event.outcome?.type==='dream_heal'&&event.value===0)continue;
     const id = event.targetEnemyId || (event.target !== 'monster' ? event.target : null) || before.monster?.instanceId || 'monster';
     const current = snapshotTarget(display, id);
-    if (!current) continue;
+    if (!current || current.hp<=0) continue;
     const value = Math.max(0, Number(event.value) || 0);
     const absorbed=Math.min(current.tempHp||0,event.absorbed||0);
     const next = { ...current, hp: Math.max(0, current.hp - value),tempHp:Math.max(0,(current.tempHp||0)-absorbed) };
@@ -258,7 +258,12 @@ export function normalizeCombatQueue(queue, presentationId) {
     if (step.targetId === primaryId) step.targetEnemyId = primaryId;
     step.sourceId = resolve(step.sourceId || (step.type === 'boss_action' ? step.enemyId || primaryId : null));
     const display = structuredClone(step.hpSnapshotBefore || { players: [], enemies: [] });
-    step.results = (step.results || []).map((result, index) => {
+    step.results = (step.results || []).filter(result=>{
+      if(!['damage','intercept'].includes(result.kind))return true;
+      const id=resolve(result.targetId,result.targetEnemyId||result.targetBefore?.instanceId);
+      const before=result.targetBefore||snapshotTarget(display,id);
+      return !before||before.hp>0;
+    }).map((result, index) => {
       const targetId = resolve(result.targetId, result.targetEnemyId || result.targetBefore?.instanceId);
       const before = result.targetBefore || structuredClone(snapshotTarget(display, targetId));
       const after = result.targetAfter || snapshotTarget(result.hpSnapshot || step.hpSnapshot, targetId) || before;

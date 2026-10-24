@@ -45,7 +45,7 @@ async function phase5Fly(s,node,fromId,toId,ms=300,spin=0) {
   // Re-measure on every frame, so scroll / resize / target removal cannot leave
   // a projectile attached to an obsolete viewport coordinate.
   await s.tick(ms,p=>{
-    const a=getBattleEffectAnchor(fromId),b=getBattleEffectAnchor(toId);
+    const b=getBattleEffectAnchor(toId),a=typeof getEnemyAnchor==='function'&&getEnemyAnchor(toId)&&!getEnemyAnchor(fromId)?{x:innerWidth*.5,y:innerHeight*.82}:getBattleEffectAnchor(fromId);
     node.hidden=!a||!b;if(!a||!b)return;
     const t=s.reduced?1:p*p;
     node.style.left=(a.x+(b.x-a.x)*t)+'px';node.style.top=(a.y+(b.y-a.y)*t)+'px';
@@ -64,7 +64,9 @@ async function phase5VineLink(s,fromId,toId) {
   const node=phase5Image(s,PHASE5_ART.vine,toId,'link');
   s.unfollow(node);
   await s.tick(s.reduced?100:260,p=>{
-    const a=getBattleEffectAnchor(fromId),b=getBattleEffectAnchor(toId);node.hidden=!a||!b;if(!a||!b)return;
+    const source=getBattleEffectAnchor(fromId),b=getBattleEffectAnchor(toId);
+    const a=source&&typeof getActorAnchor==='function'&&getActorAnchor(fromId)?{x:innerWidth*.5,rect:{top:innerHeight*.58,height:12}}:source;
+    node.hidden=!a||!b;if(!a||!b)return;
     const ay=a.rect.top+Math.min(12,a.rect.height*.2),by=b.rect.top+Math.min(12,b.rect.height*.2);
     node.style.left=(a.x+b.x)/2+'px';node.style.top=(ay+by)/2+'px';
     node.style.width=Math.hypot(b.x-a.x,by-ay)+'px';node.style.height='32px';node.style.objectFit='fill';
@@ -233,10 +235,10 @@ async function playBattlefieldGladiator(step,context) {
     if(step.actionId==='g_arena'&&step.outcome?.type==='challenge') {
       const targetId=step.targetEnemyId||step.hpSnapshotBefore?.monster?.instanceId||battlefieldPlayerTarget(step),pace=PRESENTATION_CONFIG.gladiator.pace;
       const geometry=()=>{
-        const a=getBattleEffectAnchor(step.sourceId),b=getBattleEffectAnchor(targetId);
-        if(!a||!b)return null;
+        const b=getBattleEffectAnchor(targetId);
+        if(!b)return null;
         const scale=Math.min(innerWidth/1440,innerHeight/810)||1,left=(innerWidth-1440*scale)/2,top=(innerHeight-810*scale)/2;
-        return {start:{x:(a.x-left)/scale,y:(a.y-top)/scale-20},landing:{x:(b.x-left-b.rect.width*.24)/scale,y:(b.rect.bottom-top)/scale-8}};
+        return {start:{x:(innerWidth*.38-left)/scale,y:(innerHeight*.82-top)/scale},landing:{x:(b.x-left-b.rect.width*.24)/scale,y:(b.rect.bottom-top)/scale-8}};
       };
       const fx=(cls,x,y,html)=>{const n=s.el('div',cls,html);s.position(n,x,y);return n;};
       await playGladiatorChallengePresentation(step,{

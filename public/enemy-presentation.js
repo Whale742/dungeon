@@ -170,15 +170,18 @@ async function playEnemyMechanicPresentation(step, context={}) {
     await preloadPhase5Art([...paths.map(p=>'/assets/combat-fx/'+p),...(typeof phase6IncomingArt==='function'?phase6IncomingArt(step):[])],signal);
   }
   const root=document.createElement('div');root.className='enemy-effect-overlay';root.dataset.action=step.actionId;root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
-  let frame=0;const animations=[];
-  const cleanup=()=>{cancelAnimationFrame(frame);for(const a of animations)a.cancel();root.remove();};
+  const frames=new Set(),animations=[];
+  const cleanup=()=>{for(const frame of frames)cancelAnimationFrame(frame);frames.clear();for(const a of animations)a.cancel();root.remove();};
   signal?.addEventListener('abort',cleanup,{once:true});
   const firstCue=firstEnemyCastCue(step,context);
+  const sounds=new Set();
+  const playCue=(key,options)=>{if(!key||sounds.has(key)||typeof sfxManager==='undefined')return;sounds.add(key);sfxManager.play(key,{signal,...options});};
   if(step.presentation?.isUltimate&&firstCue){const cue=document.createElement('div');cue.className='enemy-effect-caption';cue.textContent=step.skillName||step.actionId;cue.style.animationDuration=900/speed+'ms';root.appendChild(cue);}
   try{
-    for(const result of step.results||[]){
+    const presentResult=async result=>{
+      let frame=0;
       if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
-      if(appliedBattleResults.has(result.resultId||result))continue;
+      if(appliedBattleResults.has(result.resultId||result))return;
       // Establish the actual guard before starting this hit's timeline, so
       // loading / playing its vine never delays the damage past contact.
       if(result.sharedFrom&&typeof playPhase5DruidGuard==='function')await playPhase5DruidGuard(result,context);
@@ -192,10 +195,10 @@ async function playEnemyMechanicPresentation(step, context={}) {
         phase6Reaction?.render((performance.now()-impactTime)/1000*speed);
         const occupied=[];
         numbers.forEach((n,i)=>{if(performance.now()-impactTime<750/speed)positionBattleFeedback(n,targetId,i,occupied);else n.hidden=true;});
-        frame=requestAnimationFrame(place);
+        frames.delete(frame);frame=requestAnimationFrame(place);frames.add(frame);
       };
       place();
-      if(custom?.windupSfx&&typeof sfxManager!=='undefined')sfxManager.play(custom.windupSfx,{signal,volume:.3});
+      playCue(custom?.windupSfx,{volume:.3});
       await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
         impactTime=performance.now();
@@ -203,7 +206,7 @@ async function playEnemyMechanicPresentation(step, context={}) {
         const initialPositions=[];
         for(const entry of [...battleFeedbackEntries(result),...enemyStateFeedback(result,step)]){const n=document.createElement('div');n.className='enemy-effect-value battle-feedback';n.dataset.kind=entry.type;n.textContent=entry.text;n.style.animationDuration=750/speed+'ms';n.hidden=true;owned.appendChild(n);numbers.push(n);positionBattleFeedback(n,targetId,numbers.length-1,initialPositions);}
         const impactSound=custom?.impactSfx||(result.actualHeal>0?'heal':result.actualShield>0?'shield_cast':result.kind==='cleanse'?'cleanse':result.actualDamage>0?profile[2]:null);
-        if(impactSound&&typeof sfxManager!=='undefined')sfxManager.play(impactSound,{signal,instance:step.sourceId});
+        playCue(impactSound,{instance:step.sourceId});
         if(result.outcome?.parry&&result.targetBefore?.role==='samurai'){if(typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});}
         if(step.presentation&&Object.hasOwn(step.presentation,'arenaAfter'))syncEnemyArenaVisual(step.presentation.arenaAfter);
         const anchor=getEnemyAnchor(targetId);if(anchor)syncEnemyMechanicVisual(result.targetAfter,anchor.element);
@@ -217,8 +220,13 @@ async function playEnemyMechanicPresentation(step, context={}) {
         if(result.sageMomentumCapture&&target&&typeof playSageMomentumCapture==='function')await playSageMomentumCapture(result,target,context);
       }
       await waitForPresentation(Math.max(duration*(1-contact),numbers.length?750:0),signal,speed);
-      cancelAnimationFrame(frame);custom?.remove();owned.remove();
-    }
+      cancelAnimationFrame(frame);frames.delete(frame);custom?.remove();owned.remove();
+    };
+    const results=step.results||[];
+    // A single AoE hit has independent targets, never a repeated target/segment.
+    const simultaneous=results.length>1&&results.every(r=>r.kind==='damage'&&!r.sharedFrom)&&new Set(results.map(r=>resolvePresentationTarget(r,step))).size===results.length;
+    if(simultaneous)await Promise.all(results.map(presentResult));
+    else for(const result of results)await presentResult(result);
     if(firstCue){
       const audible=(step.results||[]).filter(r=>battleFeedbackEntries(r).length),targets=new Set(audible.map(r=>resolvePresentationTarget(r,step)));
       if(audible.length)announceBattleFeedback((step.presentation?.isUltimate?step.skillName+' · ':'')+(targets.size>1?targets.size+' 個目標受影響':(audible[0].targetAfter?.name||'目標')+' '+battleFeedbackEntries(audible[0]).slice(0,2).map(e=>e.text).join(' ')));

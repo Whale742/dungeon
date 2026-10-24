@@ -9,7 +9,9 @@ async function playStargazerPresentation(step, context = {}) {
     fx.setAttribute('viewBox', '0 0 1440 810'); fx.classList.add('skill-fx-layer', 'stargazer-prototype-fx'); s.frame.appendChild(fx);
     const document = {getElementById: id => fx.querySelector('#' + id)};
     const targetUnit = s.cards.get('monster')?.parentElement || s.el('div', 'stargazer-empty-target');
-    const skillName = s.frame.querySelector('.skill-production-title');
+    // The live HUD owns the cast title. Keep the legacy title API detached
+    // while retaining the complete deep-space choreography and result labels.
+    const skillName = s.frame.querySelector('.skill-production-title') || window.document.createElement('div');
     const strip = s.el('div', 'stargazer-action-strip');
     const reveal = s.el('div', 'skill-reveal');
     // Display authoritative result names, including the original special terminology.

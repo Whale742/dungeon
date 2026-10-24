@@ -7207,9 +7207,6 @@ body.presentation-opening .narrative-controls,
 .battle-enemy-slot:hover:not(.is-dead) {
   transform: translateY(-4px);
 }
-.battle-enemy-slot.is-target {
-  filter: drop-shadow(0 0 12px rgba(228, 188, 117, 0.85));
-}
 .battle-enemy-slot.is-dead {
   opacity: 0.35;
   filter: grayscale(80%);
@@ -7340,7 +7337,6 @@ body.presentation-opening .narrative-controls,
 .battle-enemy-slot .enemy-cd-badge.ult-ready,
 .battle-enemy-slot .enemy-target-reticle { animation: none; }
 .battle-enemy-slot .enemy-target-reticle { top: 4px; right: 4px; }
-.battle-enemy-slot.is-target .enemy-sprite-wrap { outline: 1px solid var(--color-focus); border-radius: 8px; }
 @media (max-width: 640px), (max-height: 480px) {
   .battle-enemy-slot.is-minion-slot { width: 70px; }
   .battle-enemy-slot.is-boss-slot { width: 155px; }

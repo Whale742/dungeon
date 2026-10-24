@@ -34,7 +34,9 @@ function phase6Pulse(s,key,id,{heavy=false,secondary=false,collapse=false,rotate
 async function phase6Flight(s,key,fromId,toId,ms=230,{lanes=1,returning=false,variant=''}={}){
   const images=Array.from({length:lanes},()=>phase6Image(s,key,null,'phase6-flight '+variant));
   await s.tick(ms,p=>{
-    const from=getBattleEffectAnchor(fromId),to=getBattleEffectAnchor(toId);
+    const to=getBattleEffectAnchor(toId),enemyTarget=typeof getEnemyAnchor==='function'&&getEnemyAnchor(toId);
+    const from=enemyTarget?{x:['sword','fatal','shadow'].includes(key)?-80:to?.x,y:['sword','fatal','shadow'].includes(key)?(to?.y||0)-70:to?.y}:
+      typeof getActorAnchor==='function'&&getActorAnchor(fromId)?{x:innerWidth*.5,y:innerHeight*.58}:getBattleEffectAnchor(fromId);
     for(const [i,image] of images.entries()){
       image.hidden=!to||(!from&&p<1);if(image.hidden)continue;
       const a=from?{...from,y:from.y-(variant==='phase6-core-flight'?90:variant==='phase6-fragment-flight'?65:0)}:to,q=s.reduced?1:p,dx=to.x-a.x,dy=to.y-a.y;
@@ -132,26 +134,17 @@ async function playPhase6Mage(s,step){
   const blast=step.actionId==='m_blast',misfire=step.outcome?.type==='misfire',drain=step.actionId==='m_drain';
   s.root.dataset.phase='windup';s.root.dataset.misfire=String(misfire);
   if(blast){
-    const core=phase6Image(s,'core',step.sourceId,'phase6-charge');
-    const orbit=phase6Image(s,'core',step.sourceId,'phase6-orbit');
-    s.animate(core,s.reduced?[{opacity:0},{opacity:1}]:[{scale:'.35',opacity:0},{scale:'1',opacity:1,rotate:'30deg'}],390);
-    s.animate(orbit,s.reduced?[{opacity:0},{opacity:.35}]:[{scale:'.5',opacity:0,rotate:'0deg'},{scale:'1.2',opacity:.4,rotate:'150deg'}],390);
-    await s.wait(195);s.root.dataset.phase='charge';await s.wait(195);
-    if(misfire){s.animate(core,s.reduced?[{opacity:1},{opacity:0}]:[{scale:'1',opacity:1},{scale:'.18',rotate:'-65deg',opacity:0}],180);await s.wait(180);}
-    core.remove();orbit.remove();
+    await playPhase6ArcaneBlast(s,step,misfire);return;
   }else await s.wait(100);
   let primary=null;
   for(const result of step.results||[]){
     const id=resolvePresentationTarget(result,step);
     if(result.kind==='damage'&&result.targetEnemyId){
       const secondary=!!result.isSecondaryEnemy||!!primary&&primary!==id;
-      if(!secondary){primary=id;s.root.dataset.phase='action';await phase6Flight(s,drain?'blood':'core',step.sourceId,id,blast?260:180,{variant:blast?'phase6-core-flight':''});}
+      if(!secondary){primary=id;s.root.dataset.phase='action';await phase6Flight(s,drain?'blood':'core',step.sourceId,id,180);}
       else await s.wait(55);
       s.root.dataset.phase='contact';
-      if(result.actualDamage>0){
-        phase6Pulse(s,'core',id,{heavy:blast&&!secondary,secondary});
-        if(blast){const echo=phase6Pulse(s,'core',id,{secondary,collapse:misfire,rotate:45});echo.classList.add('phase6-burst-echo');}
-      }
+      if(result.actualDamage>0)phase6Pulse(s,'core',id,{secondary});
       phase6Commit(s,step,result);if(result.actualDamage>0)s.local.audioScope.play('magic_impact',{volume:.28});
     }else if(result.kind==='damage'&&result.actualDamage>0){
       phase6Pulse(s,'core',id,{collapse:true}).classList.add('phase6-self-impact');phase6Commit(s,step,result);
@@ -160,11 +153,38 @@ async function playPhase6Mage(s,step){
       await phase6Support(s,step,result,null);
     }else phase6Commit(s,step,result);
   }
-  await s.wait(blast?270:150);
+  await s.wait(150);
+}
+async function playPhase6ArcaneBlast(s,step,misfire){
+    const hits=(step.results||[]).filter(r=>r.kind==='damage'&&r.targetEnemyId);
+    const main=[],later=[];const seen=new Set();
+    for(const result of hits){const id=resolvePresentationTarget(result,step);if(seen.has(id))later.push(result);else{seen.add(id);main.push(result);}}
+    if(!main.length){await s.resolveResults();return;}
+    const core=phase6Image(s,'core',null,'phase6-charge');
+    const orbit=phase6Image(s,'core',null,'phase6-orbit');
+    const place=node=>{const center=battlefieldFormationAnchor(main,step);if(!center)return;node.style.left=center.x+'px';node.style.top=center.y+'px';node.style.width=Math.min(innerWidth*.95,Math.max(220,center.width*1.2))+'px';node.style.height=Math.min(innerHeight*.65,Math.max(220,center.height*1.2))+'px';};
+    s.startRenderer(()=>{place(core);place(orbit);});place(core);place(orbit);
+    s.animate(core,s.reduced?[{opacity:0},{opacity:1}]:[{scale:'.35',opacity:0},{scale:'1',opacity:1,rotate:'30deg'}],390);
+    s.animate(orbit,s.reduced?[{opacity:0},{opacity:.35}]:[{scale:'.5',opacity:0,rotate:'0deg'},{scale:'1.2',opacity:.4,rotate:'150deg'}],390);
+    await s.wait(195);s.root.dataset.phase='charge';await s.wait(195);
+    s.animate(core,s.reduced?[{opacity:1},{opacity:.8}]:[{scale:'1',opacity:1},{scale:'.28',opacity:1}],120);await s.wait(120);
+    s.root.dataset.phase='contact';orbit.remove();
+    s.animate(core,s.reduced?[{opacity:1},{opacity:0}]:[{scale:'.28',opacity:1},{scale:'1.3',opacity:1,offset:.28},{scale:'1.6',opacity:0}],430);
+    s.local.audioScope.play('magic_impact',{volume:.4});
+    commitBattlefieldGroup(s,step,main,phase6Commit);
+    for(const result of main){const target=battlefieldVisualElement(resolvePresentationTarget(result,step));if(target)s.animate(target,[{filter:'brightness(2)'},{filter:'brightness(1)'}],260);}
+    // Equipment hits and self-backlash retain their own authoritative beats.
+    await s.wait(200);
+    for(const result of (step.results||[]).filter(r=>!main.includes(r))){
+      if(result.kind==='damage'&&!result.targetEnemyId&&result.actualDamage>0)phase6Pulse(s,'core',resolvePresentationTarget(result,step),{collapse:true});
+      phase6Commit(s,step,result);
+    }
+    await s.wait(270);core.remove();
 }
 async function phase6BardInstrument(s,step){
   const basic=step.actionId==='basic',slow=['b_nocturne','b_revive'].includes(step.actionId),off=step.outcome?.type==='off_key';
-  const instrument=s.el('div','phase6-instrument',null,s.root);s.follow(instrument,step.sourceId,0,-65);
+  const instrument=s.el('div','phase6-instrument',null,s.root);
+  s.startRenderer(()=>{instrument.style.left=innerWidth*.42+'px';instrument.style.top=innerHeight*.65+'px';});
   instrument.dataset.offKey=String(off);instrument.dataset.song=step.actionId;
   // Four clipped copies preserve the painted strings and let each string vibrate independently.
   for(let i=0;i<4;i++){

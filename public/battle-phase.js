@@ -159,15 +159,26 @@ async function playBossIntro(monster, context = {}) {
   const warning = stage.querySelector('.boss-warning');
   const impact = stage.querySelector('.boss-encounter-impact-stage');
   const art = stage.querySelector('.boss-encounter-art');
+  const formation = typeof getBattleFormation === 'function'
+    ? getBattleFormation((context.enemies || [monster]).filter(e=>e.hp>0 || e.hp===undefined).filter(e=>!context.arena || e.instanceId===context.arena.enemyId)).displayOrder
+    : [monster];
   const name = stage.querySelector('.boss-encounter-name');
   name.querySelector('h1').textContent = monster.name || 'ABYSS LORD';
   name.querySelector('span').textContent = monster.isWeakened ? 'WOUNDED' : 'ABYSS LORD';
   const resistance = monster.resistances || {};
   stage.querySelector('.boss-encounter-resistances').textContent = '本次抗性 · 物理 ' + (resistance.physical ?? monster.physicalResistance ?? 0) + '% · 魔法 ' + (resistance.magic ?? monster.magicResistance ?? 0) + '% · 效果 ' + (resistance.effect ?? monster.effectResistance ?? 0) + '%';
-  if (monster.avatar) {
+  if (context.enemies) art.classList.add('is-formation');
+  for (const enemy of formation) if (enemy.avatar || enemy.battleAvatar) {
     const image = document.createElement('img');
-    syncBattlePortrait(image,{...monster,entityType:'monster'});
+    syncBattlePortrait(image,{...enemy,entityType:'monster'});
+    image.dataset.enemyId = enemy.instanceId || enemy.id;
+    image.dataset.tier = enemy.tier || (enemy.isBoss?'ELITE':'MINION');
     art.appendChild(image);
+  }
+  if (formation.length>1) {
+    name.querySelector('h1').textContent=formation.map(e=>e.name).join(' · ');
+    name.querySelector('span').textContent=`ENEMY FORMATION / ${formation.length}`;
+    stage.querySelector('.boss-encounter-resistances').textContent='';
   }
   try {
     if (context.segment !== 'reveal') {
@@ -260,6 +271,7 @@ async function playBattlePhaseOpening(monster, round, context = {}) {
 
 // Fade the encounter scenery while the same portrait settles into the battle HUD.
 async function handoffBossPortrait(stage,art,context){
+ if(context.enemies)return handoffEnemyFormation(stage,art,context);
  const source=art.querySelector('img'),from=source?.getBoundingClientRect();
  await context.revealHud?.();
  const target=document.querySelector('#battleEnemiesStage .battle-enemy-slot.is-boss-slot .enemy-sprite-img, #battleEnemiesStage .battle-enemy-slot.is-target .enemy-sprite-img, #battleEnemiesStage .battle-enemy-slot.is-single-slot .enemy-sprite-img, #battleEnemiesStage .battle-enemy-slot .enemy-sprite-img') || document.getElementById('monsterAvatar') || document.getElementById('battleEnemiesStage');
@@ -285,5 +297,36 @@ async function handoffBossPortrait(stage,art,context){
  }finally{
   context.signal?.removeEventListener('abort',abort);abort();flight?.remove();
   if(target)target.style.visibility=visibility;
+ }
+}
+
+// Match by instanceId, never by boss tier or the currently selected target.
+async function handoffEnemyFormation(stage,art,context){
+ const animations=[],flights=[],hidden=[];
+ const duration=(stage.dataset.reducedMotion==='true'?220:800)/(context.speed||1);
+ const animate=(node,frames)=>{if(node)animations.push(node.animate(frames,{duration,easing:'cubic-bezier(.22,.61,.36,1)',fill:'forwards'}));};
+ const abort=()=>animations.forEach(a=>a.cancel());
+ context.signal?.addEventListener('abort',abort,{once:true});
+ try{
+  if(context.signal?.aborted)throw new DOMException('Aborted','AbortError');
+  await context.revealHud?.();
+  for(const source of art.querySelectorAll('img[data-enemy-id]')){
+   const slot=[...document.querySelectorAll('#battleEnemiesStage .battle-enemy-slot')].find(n=>n.dataset.enemyId===source.dataset.enemyId);
+   const target=slot?.querySelector('.enemy-sprite-img');
+   if(!target || slot.classList.contains('enemy-arena-absent'))continue;
+   const from=source.getBoundingClientRect(),to=target.getBoundingClientRect();
+   hidden.push([target,target.style.visibility]);target.style.visibility='hidden';
+   const flight=document.createElement('div');flight.className='boss-portrait-flight';flight.dataset.enemyId=source.dataset.enemyId;
+   flight.appendChild(source.cloneNode(true));stage.appendChild(flight);flights.push(flight);
+   source.style.visibility='hidden';
+   animate(flight,[{left:from.left+'px',top:from.top+'px',width:from.width+'px',height:from.height+'px',opacity:1},
+    {left:to.left+'px',top:to.top+'px',width:to.width+'px',height:to.height+'px',opacity:1}]);
+  }
+  animate(stage.querySelector('.boss-encounter-backdrop'),[{opacity:1},{opacity:0}]);
+  animate(stage.querySelector('.boss-encounter-impact-stage'),[{opacity:1},{opacity:0}]);
+  await waitForPresentation(duration,context.signal);
+ }finally{
+  context.signal?.removeEventListener('abort',abort);abort();flights.forEach(f=>f.remove());
+  hidden.forEach(([node,visibility])=>{node.style.visibility=visibility;});
  }
 }

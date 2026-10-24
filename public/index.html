@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="settlement-reward.css">
   <link rel="stylesheet" href="audio-controls.css">
   <link rel="stylesheet" href="modal-motion.css">
+  <link rel="stylesheet" href="battle-hud.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Cinzel:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@600;700;900&family=Silkscreen:wght@400;700&family=Syne:wght@600;700;800;900&family=VT323&display=swap" rel="stylesheet">
@@ -666,23 +667,15 @@
       </section>
 
       <!-- 視圖 5：戰鬥畫面 -->
-      <section id="viewBattle" class="view-panel view-battle">
+      <section id="viewBattle" class="view-panel view-battle" data-hud-phase="SELECTING">
         <div class="battle-layout">
           <!-- 左側即時戰鬥紀事 (Live Battle Chronicle) -->
-          <aside class="card battle-feed glass-panel battle-log-card" id="battleLogCard">
-            <div class="section-topline">
-              <h2 class="section-title">
-                <svg class="ico"><use href="#icon-log"/></svg>
-                戰鬥紀事
-              </h2>
-              <span class="eyebrow">LIVE</span>
-            </div>
+          <aside class="battle-log-card" id="battleLogCard">
             <div id="battleRoundSummary" class="battle-round-summary" aria-live="polite"></div>
             <div id="combatLogWindow" class="feed-list log-window battle-log-window">
               <div class="feed-item log-line info"><span class="feed-time">TURN 01 / 01</span><div class="feed-msg">戰鬥開始！請全體隊員下達行動指令。</div></div>
             </div>
             <div class="feed-footer">
-              <span class="feed-state">紀錄同步中</span>
               <button class="btn ghost small log-drawer-handle" id="logDrawerHandle" title="展開/收合戰況日誌" aria-expanded="false" aria-controls="combatLogWindow">
                 完整紀錄 <svg class="ico sm"><use href="#icon-arrow-down"/></svg>
               </button>
@@ -692,7 +685,7 @@
           <!-- 右側中央主戰場 (Main Arena) -->
           <div class="battle-main">
             <!-- 上方：怪物與戰場舞台 (Enemies Stage) -->
-            <div class="card monster-card battle-arena glass-panel" id="monsterCard">
+            <div class="monster-card battle-arena" id="monsterCard">
               <div class="arena-granules"></div>
               <div class="arena-top">
                 <span class="eyebrow" id="battleEncounterTitle">ENCOUNTER / THE FORGOTTEN HALL</span>
@@ -717,10 +710,9 @@
             </div>
 
             <!-- 中間：隊友全員即時狀態欄 (Party Strip) -->
-            <div class="card teammates-card party-strip-container glass-panel">
+            <div class="teammates-card party-strip-container">
               <div class="party-strip-topline">
                 <div class="section-topline-mini">
-                  <h4 class="section-title-mini"><svg class="ico sm"><use href="#icon-users"/></svg> 冒險隊友</h4>
                   <span id="shieldNoticeBadge" class="soft-tag badge-amber hidden"><svg class="ico sm"><use href="#icon-shield"/></svg> 壁壘守護生效</span>
                 </div>
               </div>
@@ -730,7 +722,7 @@
             </div>
 
             <!-- 下方：蒼藍遺跡指令台 (Azure Command Dock) -->
-            <div class="card player-action-card command-panel glass-panel" id="playerActionCard">
+            <div class="player-action-card command-panel" id="playerActionCard">
               <div class="command-top">
                 <h2>指令選擇 <span>SELECT ACTION</span></h2>
                 <div class="command-player-tags">
@@ -767,6 +759,24 @@
               </div>
             </div>
           </div>
+        </div>
+        <section id="hudPlayerInfo" class="battle-hud-player" aria-label="我的角色狀態">
+          <button id="hudPlayerAvatar" type="button" aria-label="查看角色詳細資訊"></button>
+          <div class="hud-player-copy"><small id="hudPlayerRole"></small><strong id="hudPlayerName"></strong>
+            <div class="hud-player-hp"><i id="hudPlayerHpFill"></i></div><span id="hudPlayerHpText"></span>
+            <p id="hudPlayerResource"></p><div id="hudPlayerStatuses" class="combat-status-list"></div>
+          </div>
+        </section>
+        <section id="sageEquationTerminal" class="sage-equation-terminal" hidden>
+          <details><summary><strong id="sageTerminalPhase">∑ 假設階段</strong><span id="sageTerminalSummary"></span><small>展開演算 / EQUATION TERMINAL</small></summary>
+            <div id="sageTerminalDetails"></div>
+          </details>
+        </section>
+        <div id="hudActionQueue" class="battle-hud-queue" aria-label="伺服器行動順序"></div>
+        <div id="hudPhaseNotice" class="battle-hud-notice" aria-live="polite"></div>
+        <div id="cinematicSkillBanner" class="cinematic-skill-banner" aria-live="polite">
+          <small><span id="cinematicActorName"></span> · <span id="cinematicActorRole"></span></small>
+          <strong id="cinematicSkillName"></strong><span>SKILL ACTIVATED</span>
         </div>
       </section>
 
@@ -1476,8 +1486,10 @@
   <script src="lobby.js"></script>
   <div id="floatingEnemyTooltip" class="floating-status-tooltip" role="tooltip" aria-hidden="true"></div>
   <div id="floatingItemTooltip" class="floating-item-tooltip" role="tooltip" aria-hidden="true"></div>
+  <div id="battleSkillTooltip" class="floating-status-tooltip battle-skill-tooltip" role="tooltip" aria-hidden="true"></div>
   <script src="reward-presentation.js"></script>
   <script src="modal-motion.js"></script>
+  <script src="battle-hud.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

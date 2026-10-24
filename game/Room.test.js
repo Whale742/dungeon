@@ -11,6 +11,48 @@ import { ENEMY_BALANCE, mechanicId, enemyRoundStart, drainEnemyEvents, runEnemyA
 import { getBossResistance } from './boss-resistance.js';
 import { resolveStats } from './stats.js';
 import { enemyPresentationInfo } from './enemy-mechanics.js';
+import { splitEquationDamage, sageEquationPreview } from './phase8.js';
+test('HUD distinguishes enemy STATUS_TICK attacks from the next-round passive queue',()=>{
+  const scope={document:{addEventListener(){}},isBattlefieldPlayerStep:s=>s.type==='player_action'};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  const enemy={type:'enemy_mechanic',category:'STATUS_TICK'};
+  assert.equal(scope.hud.phaseFor(enemy,false),'ENEMY_ACTIONS');
+  assert.equal(scope.hud.phaseFor(enemy,true),'ROUND_TICK');
+  assert.equal(scope.hud.phaseFor({type:'status_action',category:'STATUS_TICK'}),'ROUND_TICK');
+  assert.equal(scope.hud.phaseFor({type:'player_action',category:'OFFENSIVE'}),'ALLY_ACTIONS');
+});
+
+test('Live Stargazer observation completes without a legacy cast title and commits once',async()=>{
+  const sounds=[],created=[];let committed=0,paused=0;
+  class Node{
+    constructor(){this.style={setProperty(){}};this.classList={add(){},remove(){}};}
+    querySelector(){return null;}appendChild(){}setAttribute(){}pauseAnimations(){paused++;}
+  }
+  const scope={DOMException,window:{document:{createElement:tag=>{created.push(tag);return new Node();},createElementNS:()=>new Node()}}};
+  scope.withSkillPresentationStage=async(_step,_context,play)=>play({root:new Node(),frame:new Node(),cards:new Map(),signal:new AbortController().signal,
+    el:()=>new Node(),wait:async()=>{},tick:async(_ms,render)=>render(1),resolveResults:async()=>{committed++;}});
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/stargazer-presentation.js',import.meta.url),'utf8'),scope);
+  await scope.playStargazerPresentation({actionId:'sg_observe',outcome:{type:'star',label:'星座'}},{battlefield:true,audioScope:{play:key=>sounds.push(key)}});
+  assert.deepEqual(created,['div']);assert.equal(committed,1);assert.equal(paused,1);
+  assert.deepEqual(sounds,['stargazer_obv','stargazer_confir']);
+});
+
+test('HUD queue retirement respects reduced motion, playback speed and cancellation',async()=>{
+  for(const reduced of [false,true]){
+    const nodes=new Map(),motions=[];
+    const node=()=>({dataset:{},style:{},classList:{add(){},remove(){}},appendChild(){},replaceChildren(){},setAttribute(){},remove(){this.removed=true;},
+      animate(keys,options){let reject;const motion={keys,options,finished:new Promise((_,r)=>{reject=r;}),cancel(){this.cancelled=true;reject(new DOMException('cancelled','AbortError'));}};motions.push(motion);return motion;}});
+    const scope={document:{addEventListener(){},querySelector(){return null;},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node},
+      matchMedia:()=>({matches:reduced}),isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+    const step={type:'player_action',sourceRole:'mage'},controller=new AbortController();
+    scope.hud.begin([step]);scope.hud.finish(step,{speed:2,signal:controller.signal});
+    assert.equal(motions[0].options.duration,reduced?.5:100);
+    assert.equal(motions[0].keys.some(k=>k.translate!==undefined),!reduced);
+    controller.abort();await Promise.resolve();await Promise.resolve();assert.equal(motions[0].cancelled,true);
+    scope.hud.begin([step]);scope.hud.finish(step);scope.hud.reset();assert.equal(motions[1].cancelled,true);
+  }
+});
 
 test('Sage feedback follows the battlefield actor and selected enemy in both phases',async()=>{
   const scope={innerWidth:1440,innerHeight:810,getBattleEffectAnchor:()=>({rect:{width:75,height:85}})};vm.createContext(scope);
@@ -113,6 +155,18 @@ test('combat uses presentation ACK, rejects stale ACK and advances one round', t
   room.handlePresentationComplete('solo', id, 1);
   assert.equal(room.battlePresentationId, next);
 });
+test('Multiplayer shares priority-ordered authority and waits for every matching presentation ACK',t=>{
+  const {room,player,events}=fixture(t,'mage');room.addPlayer({id:'bard',join(){},emit(){}},'Bard');room.selectRole('bard','bard');
+  room.handleBattleEvent(null,false,{col:1});for(const enemy of room.enemies){enemy.hp=1000;enemy.maxHp=1000;}
+  player.action='basic';room.players.bard.action='b_heal';room.resolveTurnActions();
+  const queue=resolutionQueue(events),actions=queue.filter(s=>s.type==='player_action'&&['solo','bard'].includes(s.sourceId));
+  assert.equal(actions[0].sourceId,'bard','heal priority precedes the earlier joined attacker');
+  const ids=queue.flatMap(s=>(s.results||[]).map(r=>r.resultId));assert.equal(new Set(ids).size,ids.length);
+  const id=room.battlePresentationId,round=room.battleRound;
+  room.handlePresentationComplete('solo',id,round);assert.equal(room.battleRound,round);assert.equal(room.pendingPresentationAcks.size,1);
+  room.handlePresentationComplete('bard',id-1,round);assert.equal(room.pendingPresentationAcks.size,1);
+  room.handlePresentationComplete('bard',id,round);assert.equal(room.battleRound,round+1);
+});
 
 test('victory reward ACK and continuation return to exploration', t => {
   const { room } = fixture(t);
@@ -167,6 +221,100 @@ function phase1Battle(t, role, hp = 500) {
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
+test('Equation integer shares conserve the total in stable server formation order',()=>{
+  for(const [total,count,expected] of [[30,1,[30]],[30,2,[15,15]],[30,3,[10,10,10]],[31,3,[11,10,10]],[15,4,[4,4,4,3]]]){
+    const enemies=Array.from({length:count},(_,i)=>({instanceId:'enemy_'+i}));
+    const shares=splitEquationDamage(total,enemies);
+    assert.deepEqual(shares.map(s=>s.damage),expected);
+    assert.deepEqual(shares.map(s=>s.enemyId),enemies.map(e=>e.instanceId));
+    assert.equal(shares.reduce((n,s)=>n+s.damage,0),total);
+  }
+  assert.deepEqual(splitEquationDamage(31,[]),[]);
+});
+function equationBattle(t,operand=75){
+  const f=phase1Battle(t,'sage',1000),{room,player}=f;
+  room.battleRound=2;player.sagePhase='solve';player.sageOperand=operand;player.sageX=0;
+  player.sageLastAction='basic';player.sageEquationResolved=false;
+  room.roleRandom=()=> 'NOTHING';
+  room.monsterAllowsEffect=()=>true;
+  return f;
+}
+test('Equation resolves once across legal enemies, independently mitigates and previews server shares',t=>{
+  const {room,player}=equationBattle(t);const queue=[],calls=[];
+  room.enemies[1].resistances.physical=50;room.enemies[2].hp=0;
+  const preview=sageEquationPreview(player,room);assert.equal(preview.livingEnemyCount,2);
+  assert.equal(preview.options[0].distribution.reduce((n,s)=>n+s.damage,0),preview.options[0].damageAfterEquipment);
+  const resistance=(raw,type,{enemy})=>{calls.push({id:enemy.instanceId,raw,type});return {dmg:Math.floor(raw*(1-(enemy.resistances?.physical||0)/100))};};
+  room.p8ResolveEquation(player,queue,[],resistance);
+  assert.deepEqual(calls.map(c=>c.raw),[15,15]);
+  assert.equal(queue.length,1);assert.equal(queue[0].results.filter(r=>r.kind==='damage').length,2);
+  assert.ok(room.enemies.slice(0,2).every(e=>e.p8Effects.sage_exposed));
+  assert.equal(room.enemies[2].p8Effects?.sage_exposed,undefined);
+  assert.equal(player.sageX,10);room.p8ResolveEquation(player,queue,[],resistance);assert.equal(queue.length,1);
+});
+test('PRIME reallocates its total 15 only after lethal main hits; cooldown reset and growth occur once',t=>{
+  const {room,player}=equationBattle(t,79);const queue=[];room.enemies[0].hp=1;
+  player.cooldowns.sge_deduce=3;
+  room.p8ResolveEquation(player,queue,[],raw=>({dmg:raw}));
+  const step=queue[0],main=step.results.filter(r=>r.presentationBeat==='equation_main'),prime=step.results.filter(r=>r.presentationBeat==='equation_prime');
+  assert.equal(main.reduce((n,r)=>n+r.equationShare,0),32);
+  assert.deepEqual(prime.map(r=>r.equationShare),[8,7]);assert.ok(prime.every(r=>r.targetBefore.hp>0));
+  assert.equal(player.cooldowns.sge_deduce,0);assert.equal(player.sageX,10);
+});
+test('EVEN shield uses summed actual main damage once; SQUARE independently marks survivors',t=>{
+  const {room,player}=equationBattle(t,100);const queue=[];
+  room.p8ResolveEquation(player,queue,[],raw=>({dmg:raw}));
+  assert.equal(queue[0].outcome.totalShield,16);assert.equal(queue[0].outcome.shields.length,1);
+  assert.ok(room.enemies.every(e=>e.p8Effects.sage_square));
+  assert.equal(player.tempHp,Math.min(16,Math.floor(player.maxHp*.2)));
+});
+test('Equation excludes immunity and arena outsiders at resolution; no dead-target damage survives normalization',t=>{
+  const {room,player}=equationBattle(t);room.enemies[0].untargetableThisRound=true;
+  room.enemyArena={playerId:player.id,enemyId:room.enemies[1].instanceId};
+  assert.deepEqual(room.getAttackableEnemies(player).map(e=>e.instanceId),[room.enemies[1].instanceId]);
+  const queue=[];room.p8ResolveEquation(player,queue,[],raw=>({dmg:raw}));
+  assert.equal(queue[0].results.filter(r=>r.kind==='damage').length,1);
+  for(const e of room.enemies)e.hp=0;
+  assert.equal(room.getTargetEnemy(),null);room.p8Results=[];
+  assert.equal(room.p8DamageMonster(player,20,'phys',()=>{throw Error('dead enemy reached resistance');}),0);
+  assert.equal(room.p8Results.length,0);
+  const before={instanceId:'dead',hp:0,maxHp:20},lethal={instanceId:'live',hp:5,maxHp:20};
+  const wire=[{hpSnapshotBefore:{players:[],enemies:[before,lethal]},results:[{kind:'damage',targetId:'dead',targetBefore:before,targetAfter:before},{kind:'damage',targetId:'live',targetBefore:lethal,targetAfter:{...lethal,hp:0}}]}];
+  normalizeCombatQueue(wire,'corpse-regression');assert.equal(wire[0].results.length,1);assert.equal(wire[0].results[0].actualDamage,5);
+});
+test('Lethal party hit suppresses later allies, assassin pursuit and druid companions without losing the killing hit',t=>{
+  for(const role of ['warrior','druid']){
+    const {room,player,events}=fixture(t,role);
+    room.addPlayer({id:'shadow',join(){},emit(){}},'Shadow');room.selectRole('shadow','assassin');
+    room.handleBattleEvent(null,false,{col:1});room.setEnemies([room.enemies[0]]);room.currentMonster.hp=1;
+    const shadow=room.players.shadow;shadow.action='basic';shadow.isHiddenThisRound=true;
+    player.action='basic';
+    if(role==='druid')player.minions=[{id:'wolf',type:'wolf',name:'Wolf',hp:20,maxHp:20,atk:10}];
+    t.mock.method(Math,'random',()=>0);room.resolveTurnActions();
+    const queue=resolutionQueue(events),hits=queue.flatMap(s=>s.results||[]).filter(r=>r.kind==='damage'&&r.targetEnemyId);
+    assert.equal(hits.length,1);assert.equal(hits[0].targetBefore.hp,1);assert.equal(hits[0].targetAfter.hp,0);
+    assert.ok(!queue.some(s=>s.category==='FOLLOW_UP'||s.category==='MINION_ATTACK'||s.sourceId==='shadow'));
+  }
+});
+test('Next ally retargets a killed selection using the existing stable living-target rule',t=>{
+  const {room,player,events}=fixture(t,'warrior');room.addPlayer({id:'second',join(){},emit(){}},'Second');room.selectRole('second','mage');
+  room.handleBattleEvent(null,false,{col:1});const template=room.currentMonster;
+  room.setEnemies([room.createEnemyInstance(template,0,{tier:'MINION'}),room.createEnemyInstance(template,1,{tier:'MINION'})]);
+  room.enemies[0].hp=1;room.enemies[1].hp=1000;room.enemies[1].maxHp=1000;
+  for(const actor of [player,room.players.second]){actor.action='basic';actor.targetEnemyId=room.enemies[0].instanceId;}
+  room.resolveTurnActions();
+  const second=resolutionQueue(events).find(s=>s.sourceId==='second'&&s.actionId==='basic');
+  assert.ok(second);assert.ok(second.results.filter(r=>r.kind==='damage'&&r.targetEnemyId).every(r=>r.targetEnemyId===room.enemies[1].instanceId&&r.targetBefore.hp>0));
+});
+test('Equation confusion, decay and scheduled debt remain one resolution even with three enemies',t=>{
+  const {room,player}=equationBattle(t,79),queue=[];player.sageX=100;player.sageLastAction='sge_induce';room.roleRandom=()=> 'CONFUSION';
+  room.p8ResolveEquation(player,queue,[],raw=>({dmg:raw}));
+  const outcome=queue[0].outcome;
+  assert.equal(outcome.equationDamage,Math.round(Math.round(79*(.4+1.75*100/180))*.8));
+  assert.equal(outcome.distribution.reduce((n,s)=>n+s.damage,0),outcome.equationDamage);
+  assert.equal(queue[0].results.filter(r=>r.presentationBeat==='sage_confusion').length,1);
+  assert.equal(player.sageX,96);assert.equal(player.sageDebt,20);assert.equal(outcome.baseXGain,4);
+});
 for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shield'],mage:['basic','m_blast','m_drain'],assassin:['basic','s_stab','s_smoke'],bard:['basic','b_heal','b_buff'],paladin:['basic','pal_glory','pal_grace'],alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame'],sage:['basic','sge_deduce','sge_induce'],augur:['basic','aug_bind','aug_reckon'],onmyoji:['basic','onm_talisman','onm_detonate'],gladiator:['basic','g_sacrifice','g_arena'],druid:['basic','dru_transform','dru_summon_wolf','dru_summon_treant']})){
   for(const action of actions)test('Phase 4 production battlefield dispatch: '+role+' '+action,t=>{
     const {room,player,events}=phase1Battle(t,role);t.mock.method(Math,'random',()=>.5);
@@ -183,7 +331,7 @@ for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shiel
     const scope={};vm.createContext(scope);
     vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
     assert.equal(scope.isBattlefieldPlayerStep(step),true);
-    for(const r of step.results){assert.notEqual(r.targetId,'monster');assert.ok(r.resultId&&r.targetBefore&&r.targetAfter);}
+    for(const r of step.results){assert.notEqual(r.targetId,'monster');assert.ok(r.resultId&&r.targetBefore&&r.targetAfter);if(['damage','intercept'].includes(r.kind))assert.ok(r.targetBefore.hp>0,'no attack may begin on a dead target');}
     if(action==='dw_butterfly')assert.equal(scope.battlefieldPlayerTarget(step),player.id);
     if(role==='samurai'){
       vm.runInContext(readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
@@ -1047,7 +1195,7 @@ function phase6Fixtures(){
   return structuredClone(Object.fromEntries(Object.entries(vm.runInNewContext('('+source.slice(start,end)+')')).filter(([id])=>id.startsWith('phase6_'))));
 }
 function phase6Harness(step,{reduced=false,missing=false,abortAt=Infinity}={}){
-  const nodes=[],commits=[],animations=[],preloaded=[],positions=[],sounds=[],controller=new AbortController();let clock=0;
+  const nodes=[],commits=[],commitTimes=[],animations=[],preloaded=[],positions=[],sounds=[],controller=new AbortController();let clock=0;
   class Node{
     constructor(){this.children=[];this.dataset={};this.style={setProperty(){}};this.classList={add(){}};nodes.push(this);}
     appendChild(n){this.children.push(n);return n;}setAttribute(){}remove(){this.removed=true;}
@@ -1057,8 +1205,12 @@ function phase6Harness(step,{reduced=false,missing=false,abortAt=Infinity}={}){
     positionBattleFeedback(n,id){n.style.left=anchor(id)?.x+'px';},resolvePresentationTarget:r=>r.targetEnemyId||r.targetId,
     resolveCombatSfxProfile:()=>({key:'original-recording'}),battlefieldPaintedImage(parent,src,cls){const n=new Node();n.src=src;n.className=cls;parent.appendChild(n);return n;},
     preloadPhase5Art:async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length,path);preloaded.push(path);}},
-    commitBattlefieldPlayerResult(r,_step,context){if(context.signal.aborted)return false;if(commits.includes(r.resultId))return false;commits.push(r.resultId);return true;}};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),scope);
+    commitBattlefieldPlayerResult(r,_step,context){if(context.signal.aborted)return false;if(commits.includes(r.resultId))return false;commits.push(r.resultId);commitTimes.push({id:r.resultId,time:clock});return true;}};
+  vm.createContext(scope);
+  const shared=readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8');
+  vm.runInContext(shared.slice(shared.indexOf('function battlefieldFormationAnchor('),shared.indexOf('async function playBattlefieldTick(')),scope);
+  scope.battlefieldVisualElement=()=>null;
+  vm.runInContext(readFileSync(new URL('../public/phase6-battlefield.js',import.meta.url),'utf8'),scope);
   const signal=controller.signal,audioScope={play:(...a)=>sounds.push(a),playResult:(...a)=>sounds.push(a)};
   const advance=ms=>{clock+=ms;if(clock>=abortAt)controller.abort();if(signal.aborted)throw new DOMException('cancelled','AbortError');};
   let root;
@@ -1070,8 +1222,39 @@ function phase6Harness(step,{reduced=false,missing=false,abortAt=Infinity}={}){
       resolveResults:async()=>{for(const r of step.results||[])scope.commitBattlefieldPlayerResult(r,step,{signal});}};
     try{await play(stage);}finally{root.remove();}
   };
-  return {scope,nodes,commits,animations,preloaded,positions,sounds,signal,getRoot:()=>root};
+  return {scope,nodes,commits,commitTimes,animations,preloaded,positions,sounds,signal,getRoot:()=>root};
 }
+test('Mage group contact commits unique target hits in one frame, preserving self recoil and equipment IDs',async t=>{
+  const {room,player,events}=phase1Battle(t,'mage');player.action='m_blast';room.roleRandom=()=> 'negative';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='m_blast');
+  const h=phase6Harness(step);await h.scope.playPhase6BattlefieldPresentation(step,{});
+  const main=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
+  assert.equal(new Set(main.map(r=>h.commitTimes.find(c=>c.id===r.resultId).time)).size,1);
+  assert.equal(h.sounds.filter(s=>s[0]==='magic_impact').length,1);
+  assert.deepEqual(h.commits,step.results.map(r=>r.resultId));
+});
+test('Alchemist emits exactly one bottle for the real primary/splash results of flask and acid',async t=>{
+  for(const action of ['alc_flask','alc_acid']){
+    const {room,player,events}=phase1Battle(t,'alchemist');player.action=action;room.resolveTurnActions();
+    const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId===action),projectiles=[],commits=[],times=[],sounds=[];let clock=0;
+    class Node{constructor(){this.style={setProperty(){}};this.dataset={};this.classList={add(){}};}appendChild(){}setAttribute(){}remove(){}}
+    const scope={document:{createElement:()=>new Node()},innerWidth:1440,innerHeight:810,
+      preloadPhase5Art:async()=>{},resolvePresentationTarget:r=>r.targetEnemyId||r.targetId,
+      getBattleEffectAnchor:()=>({x:800,y:350,rect:{left:750,right:850,height:180}})};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+    scope.commitBattlefieldPlayerResult=r=>{if(commits.includes(r.resultId))return false;commits.push(r.resultId);times.push({id:r.resultId,time:clock});return true;};
+    scope.battlefieldProjectile=async(_s,_source,target,type)=>{projectiles.push({target,type});clock+=440;};
+    scope.withBattlefieldSkillStage=async(_step,_context,play)=>{
+      const s={root:new Node(),reduced:false,local:{audioScope:{play:key=>sounds.push(key)}},animate(){},startRenderer(){},el:()=>new Node(),wait:async ms=>{clock+=ms;},resolveResults:async()=>{for(const r of step.results)scope.commitBattlefieldPlayerResult(r);}};
+      await play(s);
+    };
+    await scope.playBattlefieldRanged(step,{});
+    assert.equal(projectiles.length,1);assert.equal(projectiles[0].type,'bottle');
+    const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
+    assert.equal(new Set(hits.map(r=>times.find(c=>c.id===r.resultId).time)).size,1);
+    assert.equal(sounds.filter(s=>s==='acid_splash').length,1);assert.equal(commits.length,step.results.length);
+  }
+});
 test('Phase 6 real engine fixtures keep exact result order, assets and reduced motion',async()=>{
   const fixtures=phase6Fixtures();assert.equal(Object.keys(fixtures).length,114);
   for(const [id,fixture] of Object.entries(fixtures))for(const step of fixture.steps){
@@ -1196,7 +1379,7 @@ test('Six-enemy missing image is reported and completes authority; abort and mis
 
 test('Six-enemy Lab captures retain their engine snapshots, exact order and single cast cleanup',async()=>{
   const source=readFileSync(new URL('../public/presentation-lab.js',import.meta.url),'utf8');
-  const scenes=Object.fromEntries(source.split('\n').filter(line=>line.startsWith('"six_enemy_')).map(line=>{const at=line.indexOf(':');return [JSON.parse(line.slice(0,at)),JSON.parse(line.slice(at+1,-1))];}));
+  const scenes=Object.fromEntries(source.split('\n').map(line=>line.trimEnd()).filter(line=>line.startsWith('"six_enemy_')).map(line=>{const at=line.indexOf(':');return [JSON.parse(line.slice(0,at)),JSON.parse(line.slice(at+1,-1))];}));
   for(const [id,scene] of Object.entries(scenes).filter(([id])=>id.startsWith('six_enemy_'))){
     const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
     for(const cast of h.scope.groupEnemyPresentationSteps(scene.steps))await h.scope.playEnemyMechanicPresentation(cast,{reducedMotion:true});
@@ -1384,6 +1567,23 @@ test('Mimic ambush keeps its real two-or-three enemy formation and uses the shar
   const result=room.handleChestAction('solo','open');assert.equal(result.isMimic,true);assert.equal(room.state,'IN_BATTLE');assert.equal(room.currentEvent,null);
   assert.ok(room.enemies.length>=2&&room.enemies.length<=3);assert.ok(room.enemies.every(e=>e.isMimicAmbush));assert.match(room.currentMonster.encounterStory,/寶箱猛然張開/);assert.equal(room.getClientState().battleRound,1);
 });
+test('Formation handoff matches every instance, restores each node and cleans flights on abort',async()=>{
+  for(const count of [1,2,3,4])for(const abort of [false,true]){
+    const animations=[],flights=[],controller=new AbortController();
+    const image=id=>({dataset:{enemyId:id},style:{visibility:''},getBoundingClientRect:()=>({left:20,top:40,width:180,height:200}),cloneNode(){return image(id);}});
+    const targets=Array.from({length:count},(_,i)=>image('enemy_'+i));
+    const slots=[...targets].reverse().map(target=>({dataset:{enemyId:target.dataset.enemyId},classList:{contains:()=>false},querySelector:()=>target}));
+    const animate=()=>{const a={cancelled:false,cancel(){this.cancelled=true;}};animations.push(a);return a;};
+    const art={querySelectorAll:()=>targets.map(t=>image(t.dataset.enemyId))};
+    const stage={dataset:{reducedMotion:'false'},appendChild:f=>flights.push(f),querySelector:()=>({animate})};
+    const scope={DOMException,document:{querySelectorAll:()=>slots,createElement:()=>({dataset:{},appendChild(){},animate,remove(){this.removed=true;}})},waitForPresentation:async()=>{if(abort){controller.abort();throw new DOMException('cancelled','AbortError');}}};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-phase.js',import.meta.url),'utf8'),scope);
+    const run=scope.handoffEnemyFormation(stage,art,{signal:controller.signal,revealHud:async()=>{}});
+    if(abort)await assert.rejects(run,{name:'AbortError'});else await run;
+    assert.deepEqual(flights.map(f=>f.dataset.enemyId),targets.map(t=>t.dataset.enemyId));
+    assert.ok(flights.every(f=>f.removed));assert.ok(targets.every(t=>t.style.visibility===''));assert.ok(animations.every(a=>a.cancelled));
+  }
+});
 
 
 test('Gladiator challenge has five readable beats, lands before authority and scales only its own timing',async()=>{
@@ -1416,6 +1616,7 @@ test('Live challenge uses the chosen enemy anchor, follows its movement and comm
   scope.withBattlefieldSkillStage=async(step,context,play)=>{assert.equal(context.skipCastAudio,true);return play({actor:source,reduced:false,signal:new AbortController().signal,local:{audioScope:{play(){}}},el:()=>({}),position:(n,x,y)=>Object.assign(n,{x,y}),startRenderer:f=>renderers.push(f),animate(){},wait:async()=>{},tick:async()=>{}});};
   scope.playGladiatorChallengePresentation=async(step,s)=>{
     assert.equal(calls.length,0);assert.equal(s.actorMotion,source);
+    assert.notEqual(s.challengeGeometry().start.x,anchors.hero.x,'the challenge launches from the scene, not the HUD');
     assert.deepEqual({...s.challengeGeometry().landing},{x:752,y:412});
     const sword={},crack={};s.followLanding(sword,crack);anchors.enemy_1.x=900;renderers[0]();assert.equal(sword.x,852);assert.equal(sword.y,377);assert.equal(crack.y,412);
     delete anchors.enemy_1;renderers[0]();assert.equal(sword.hidden,true);assert.equal(s.challengeGeometry(),null);
