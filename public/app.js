@@ -5831,6 +5831,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       if (legacyStage) legacyStage.style.visibility = official ? 'hidden' : '';
       document.getElementById('app').inert = true;
       const previousHudPhase=BattleHud.phase;
+      BattleHud.start(step);
       BattleHud.setPhase(BattleHud.phaseFor(step,roundStartPresentation));
       await BattleHud.announce(step,activeCombatContext);
       await playPresentationStep(step, round);

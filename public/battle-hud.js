@@ -4,6 +4,8 @@ const BattleHud = (() => {
   const queueAnimations = new Set();
   let analyzedAction = null, selectedAction = null;
   const byId = id => document.getElementById(id);
+  const isReaction = step => ['sa_counter','w_counter'].includes(step.actionId || step.skillId);
+  const announcementHoldMs = 1100;
   const allyStep = step => isBattlefieldPlayerStep(step) && step.category !== 'STATUS_TICK' &&
     !['arena_enter','arena_exit'].includes(step.type);
   function setPhase(next) {
@@ -32,21 +34,31 @@ const BattleHud = (() => {
   function begin(queue) {
     entries.clear();
     const host = byId('hudActionQueue'); host.replaceChildren();
-    queue.filter(allyStep).forEach((step, index) => {
-      const player = step.hpSnapshotBefore?.players?.find(p => p.id === step.sourceId) ||
-        roomState.players.find(p => p.id === step.sourceId) || {role: step.sourceRole};
-      const node = document.createElement('div'); node.className = 'queue-avatar-item';
-      const minion = step.results?.find(r => r.minion)?.minion;
-      node.innerHTML = minion?.avatar ? `<img src="${escapeHtml(minion.avatar)}" alt="${escapeHtml(minion.name)}">` : getPlayerAvatarHtml(player, 'queue-avatar');
-      node.setAttribute('aria-label', `${step.sourceName || player.name || ''} · ${step.skillName || ''}`);
-      node.style.zIndex = String(1000-index);
-      host.appendChild(node); entries.set(step, node);
-    });
+    // Reactive attacks must stay undisclosed until the queue actually reaches them.
+    queue.filter(step=>allyStep(step)&&!isReaction(step)).forEach(step=>addEntry(step));
     positionQueue();
+  }
+  function addEntry(step,first=false) {
+    const player = step.hpSnapshotBefore?.players?.find(p => p.id === step.sourceId) ||
+      roomState.players.find(p => p.id === step.sourceId) || {role: step.sourceRole};
+    const node = document.createElement('div'); node.className = 'queue-avatar-item';
+    const minion = step.results?.find(r => r.minion)?.minion;
+    node.innerHTML = minion?.avatar ? `<img src="${escapeHtml(minion.avatar)}" alt="${escapeHtml(minion.name)}">` : getPlayerAvatarHtml(player, 'queue-avatar');
+    node.setAttribute('aria-label', `${step.sourceName || player.name || ''} · ${step.skillName || ''}`);
+    byId('hudActionQueue').appendChild(node);
+    if(first)entries=new Map([[step,node],...entries]);else entries.set(step,node);
+  }
+  function start(step) {
+    if(allyStep(step)&&isReaction(step)&&!entries.has(step)){
+      addEntry(step,true);positionQueue();
+    }
   }
   function positionQueue() {
     let index = 0;
-    for (const node of entries.values()) node.style.transform = `translateX(${index++ * 36}px)`;
+    for (const node of entries.values()) {
+      node.style.zIndex=String(1000-index);
+      node.style.transform = `translateX(${index++ * 36}px)`;
+    }
   }
   function finish(step,context={}) {
     const node = entries.get(step); if (!node) return;
@@ -77,7 +89,7 @@ const BattleHud = (() => {
     byId('cinematicSkillName').textContent = step.skillName;
     banner.classList.add('is-active');
     try {
-      await waitForPresentation(step.actionId === 'basic' ? 290 : 650,controller.signal,context.speed || 1);
+      await waitForPresentation(announcementHoldMs,controller.signal,context.speed || 1);
       banner.classList.remove('is-active');
       await waitForPresentation(180,controller.signal,context.speed || 1);
     } finally {
@@ -153,5 +165,5 @@ const BattleHud = (() => {
   }
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('#mySkillsRow,#battleSkillTooltip'))hideTooltip();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){hideTooltip();hideEnemyTooltip();}});
-  return {setPhase,reset,begin,finish,phaseFor,announce,updatePlayer,renderEquation,bindSkill,get phase(){return phase;}};
+  return {setPhase,reset,begin,start,finish,phaseFor,announce,updatePlayer,renderEquation,bindSkill,get phase(){return phase;}};
 })();

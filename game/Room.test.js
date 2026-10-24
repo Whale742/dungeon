@@ -22,6 +22,37 @@ test('HUD distinguishes enemy STATUS_TICK attacks from the next-round passive qu
   assert.equal(scope.hud.phaseFor({type:'player_action',category:'OFFENSIVE'}),'ALLY_ACTIONS');
 });
 
+test('HUD holds basic attacks and skill names equally before starting their effects',async()=>{
+  for(const actionId of ['basic','sa_cut','sa_counter','m_blast']){
+    const nodes=new Map(),trace=[];
+    const scope={AbortController,document:{addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,{classList:{add:()=>trace.push('show'),remove:()=>trace.push('hide')}});return nodes.get(id);}},
+      isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getClassDisplayName:()=> '武士',
+      waitForPresentation:async(ms,_signal,speed)=>{trace.push({ms,speed});}};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+    await scope.hud.announce({type:'player_action',actionId,skillName:'測試技能',sourceRole:'samurai'},{speed:2});trace.push('attack');
+    assert.deepEqual(trace.slice(0,5),['show',{ms:1100,speed:2},'hide',{ms:180,speed:2},'hide']);
+    assert.equal(trace.at(-1),'attack');
+  }
+});
+
+test('HUD conceals actual Samurai counters until their turn after enemy attacks',t=>{
+  const {room,player,events}=phase1Battle(t,'samurai');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
+  player.action='basic';room.resolveTurnActions();const queue=resolutionQueue(events),counter=queue.find(s=>s.actionId==='sa_counter');
+  assert.ok(counter);assert.ok(queue.slice(0,queue.indexOf(counter)).some(s=>['boss_action','enemy_mechanic'].includes(s.type)));
+  const host={children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}},scope={
+    document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(key,value){this[key]=value;}})},
+    isBattlefieldPlayerStep:s=>s.type==='player_action',roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  scope.hud.begin(queue);
+  assert.ok(!host.children.some(n=>n['aria-label'].includes('狂刀反擊')));
+  for(const step of queue.slice(0,queue.indexOf(counter)))scope.hud.start(step);
+  assert.ok(!host.children.some(n=>n['aria-label'].includes('狂刀反擊')));
+  scope.hud.start(counter);
+  const reaction=host.children.find(n=>n['aria-label'].includes('狂刀反擊'));
+  assert.ok(reaction);assert.equal(reaction.style.transform,'translateX(0px)');assert.equal(reaction.style.zIndex,'1000');
+  scope.hud.start(counter);assert.equal(host.children.filter(n=>n===reaction).length,1);
+});
+
 test('Live Stargazer observation completes without a legacy cast title and commits once',async()=>{
   const sounds=[],created=[];let committed=0,paused=0;
   class Node{
