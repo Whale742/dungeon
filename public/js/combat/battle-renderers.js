@@ -1,4 +1,47 @@
 // Shared production battlefield renderers. Moved unchanged from app.js; both game and Lab use these functions.
+function battleVitals(player) {
+  const max=Math.max(1,Number(player.maxHp)||1),hp=Math.max(0,Number(player.hp)||0);
+  const total=Math.max(0,Number(player.tempHp)||0);
+  const recordedShield=Array.isArray(player.presentationShields)?player.presentationShields.reduce((n,s)=>n+(Number(s.value)||0),0):null;
+  const overheal=Math.min(total,Math.max(0,Number(player.temporaryOverheal ?? (recordedShield===null?0:total-recordedShield))||0));
+  const shield=Math.max(0,Number(player.shieldHp ?? total-overheal)||0);
+  const debt=(player.augurFateDebts||[]).reduce((n,d)=>n+Math.max(0,Number(d.amount)||0),0);
+  return {max,hp,shield,overheal,debt,hpPct:Math.min(100,hp/max*100),shieldPct:Math.min(100,shield/max*100),overhealPct:Math.min(100,overheal/max*100),debtPct:Math.min(hp,debt)/max*100};
+}
+function syncBattleVitals(host,player) {
+  if(!host)return;
+  const v=battleVitals(player);host.classList.add('combat-vital-bar');
+  for(const kind of ['shield','overheal','debt']){
+    let layer=host.querySelector('.vital-'+kind);
+    if(!layer){layer=document.createElement('i');layer.className='vital-'+kind;layer.setAttribute('aria-hidden','true');host.appendChild(layer);}
+    layer.style.width=v[kind+'Pct']+'%';layer.hidden=v[kind]<=0;
+    if(kind==='debt')layer.style.left=Math.max(0,v.hpPct-v.debtPct)+'%';
+  }
+  host.setAttribute('role','progressbar');host.setAttribute('aria-valuemin','0');host.setAttribute('aria-valuemax',String(v.max));host.setAttribute('aria-valuenow',String(v.hp));
+  host.setAttribute('aria-valuetext',`生命 ${v.hp}/${v.max}，護盾 ${v.shield}，暫存生命 ${v.overheal}，命債 ${v.debt}`);
+  host.querySelector('.hp-bar-overheal')?.remove();
+}
+function battleVitalsMarkup(player) {
+  const v=battleVitals(player);
+  return `<div class="combat-vital-bar target-vital-bar" role="progressbar" aria-label="${escapeHtml(player.name||'')}生命" aria-valuemin="0" aria-valuemax="${v.max}" aria-valuenow="${v.hp}"><i class="vital-hp" style="width:${v.hpPct}%"></i><i class="vital-shield" style="width:${v.shieldPct}%" ${v.shield?'':'hidden'}></i><i class="vital-overheal" style="width:${v.overhealPct}%" ${v.overheal?'':'hidden'}></i><i class="vital-debt" style="left:${v.hpPct-v.debtPct}%;width:${v.debtPct}%" ${v.debt?'':'hidden'}></i></div>`;
+}
+function syncEnemyTargetIndicators() {
+  const me=getMyPlayer(),action=typeof currentPendingAction==='undefined'?null:currentPendingAction;
+  const skill=classesData[me?.role]?.skills?.find(s=>s.id===action);
+  const firstLine=skill?.desc?.split('\n')[0]||'';
+  const friendly=!!action&&!firstLine.includes('敵')&&(/我方|隊友|自身|自己|召喚/.test(firstLine)||/^dru_(transform|summon)/.test(action));
+  const group=!friendly&&(['m_blast','a_rain','w_cleave','alc_flask','alc_acid','alc_poison','onm_all_talismans'].includes(action)||skill?.tags?.some(t=>/群攻|群體|全體|範圍/.test(t)));
+  const primary=currentSelectedEnemyId||me?.targetEnemyId;
+  for(const slot of document.querySelectorAll('#battleEnemiesStage .battle-enemy-slot')){
+    const mark=slot.querySelector('.enemy-target-reticle');if(!mark)continue;
+    const selected=slot.dataset.enemyId===primary,eligible=slot._currentEnemy?.hp>0&&isBattleEnemySelectable(slot.dataset.enemyId);
+    const visible=!friendly&&eligible&&(group||selected),key=[visible,selected,action].join(':');
+    mark.style.display=visible?'':'none';mark.classList.toggle('is-group-target',!!group);mark.classList.toggle('is-primary-target',!!group&&selected&&action==='m_blast');
+    mark.classList.toggle('is-secondary-target',!!group&&!selected&&action==='m_blast');
+    if(visible&&mark.dataset.selection!==key&&typeof mark.animate==='function')mark.animate([{scale:1.6,opacity:0},{scale:1,opacity:1}],{duration:240,easing:'ease-out'});
+    mark.dataset.selection=key;
+  }
+}
 // 取得玩家頭貼 HTML (變身形態 > 自訂頭貼 > 職業預設 > 預設頭像)
 function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   if (!player) return `<div class="${className} member-avatar-placeholder">${getIconSvg('user')}</div>`;
@@ -349,7 +392,9 @@ function renderBattleEnemiesStage(enemies, monster, me) {
 
     // The shared strip owns the three-icon limit, including mechanic states.
     syncEnemyMechanicVisual(en, slot);
+    syncBattleVitals(slot.querySelector('.tos-enemy-hp-bar'),en);
   });
+  syncEnemyTargetIndicators();
 }
 
 const BUFF_ICON_MAP = {
@@ -632,6 +677,7 @@ function renderTeammatesGrid(me) {
       <div class="teammate-buffs-row combat-status-list">${renderTeammateBuffIcons(p.statuses || [])}</div>
     `;
     elements.battleTeammatesGrid.appendChild(card);
+    syncBattleVitals(card.querySelector('.teammate-hp-bg'),p);
 
     const avatarWrap = card.querySelector('.teammate-avatar-wrap');
     if (avatarWrap) {
@@ -717,6 +763,7 @@ function updateMonsterHpDisplay(hp, maxHp, enemyId = null) {
   const slot = enemyId ? getEnemyAnchor(enemyId)?.element : document.querySelector('.battle-enemy-slot.is-target');
 
   if (slot) {
+    syncBattleVitals(slot.querySelector('.tos-enemy-hp-bar'),slot._currentEnemy||{hp,maxHp});
     const fill = slot.querySelector('.tos-hp-fill');
     if (fill) {
       fill.style.width = `${pct}%`;
@@ -890,6 +937,7 @@ function updateBattleHudFromSnapshot(snapshot) {
         }
 
         const avatarWrap = card.querySelector('.teammate-avatar-wrap');
+        syncBattleVitals(card.querySelector('.teammate-hp-bg'),p);
         if (avatarWrap && typeof syncPortraitStatusFx === 'function') {
           syncPortraitStatusFx(p, avatarWrap, { scale: 0.28 });
         }

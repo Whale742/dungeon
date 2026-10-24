@@ -318,6 +318,7 @@ export const phase8Methods = {
     this.p8ExitArena(); this.arenaPending=null;this.enemyArena=null;this.enemyMechanicQueue=[];this.enemyReactionSteps=new WeakSet();
     for(const p of Object.values(this.players)) {
       p.enemyEffects={};p.enemyActionMultiplier=1;
+      p.tempHp=Math.max(0,(p.tempHp||0)-(p.temporaryOverheal||0));p.temporaryOverheal=0;
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
       p.rage=0;p.bloodStacks=0;p.soul=0;p.kyoutou=false;p.parryChecked=false;
       p.paladinGrace=null;p.paladinGloryTrackedDamage=0;p.paladinGloryCastedRound=0;
@@ -519,12 +520,13 @@ export const phase8Methods = {
   },
   p8RecordDamage(p,result,context={}) {
     if(context.kind==='sage_confusion')return;
-    if(result.hpDmg>0&&p.role==='warrior') {
+    const received=(result.hpDmg||0)+(result.tempAbsorbed||0);
+    if(received>0&&p.role==='warrior') {
       p.warriorStacks=Math.min(15,(p.warriorStacks||0)+(context.hpEvents||1));
       this.p8Log(`${p.name}受傷積累攻擊 +${p.warriorStacks}/15。`);
     }
     if(this.p8Has(p,'warrior_resolve'))p.warriorRoundDamage=(p.warriorRoundDamage||0)+result.hpDmg+result.tempAbsorbed;
-    if(result.hpDmg>0&&p.role==='gladiator'&&!p.rageRoundGain) {p.rage=(p.rage||0)+1;p.rageRoundGain=true;this.p8Log(`${p.name}實際受傷，怒氣 ${p.rage}。`);}
+    if(received>0&&p.role==='gladiator'&&!p.rageRoundGain) {p.rage=(p.rage||0)+1;p.rageRoundGain=true;this.p8Log(`${p.name}受到命中，怒氣 ${p.rage}。`);}
     if(context.kind==='enemy_direct'&&p.sageInduction) {
       const operandBefore=p.sageOperand;
       p.sageOperand+=result.hpDmg+result.tempAbsorbed;

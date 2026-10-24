@@ -1,6 +1,7 @@
 /* The iframe owns only local display snapshots. It never creates a game socket. */
 var roomState = {players:[],enemies:[],battleRound:1}, classesData = {}, myId = null;
 var currentSelectedEnemyId = null, activeViewingMinionOwnerId = null;
+var currentPendingAction = null;
 var CLASS_EXCLUSIVE_SVGS = {};
 var elements = Object.fromEntries([...document.querySelectorAll('[id]')].map(n=>[n.id,n]));
 const stageView=document.getElementById('viewBattle');
@@ -26,6 +27,7 @@ function renderInitial(config){
   displayConfig=structuredClone(config);classesData=config.classes;
   myId=config.party.some(p=>p.id===config.actorId)?config.actorId:config.partyTargetId;
   currentSelectedEnemyId=config.primaryId;
+  currentPendingAction=config.previewAction||null;
   roomState={players:structuredClone(config.party),enemies:structuredClone(config.enemies),battleRound:config.round||1,arena:null};
   roomState.currentMonster=roomState.enemies.find(e=>e.instanceId===config.primaryId)||roomState.enemies[0];
   roomState.monster=roomState.currentMonster;
@@ -100,7 +102,8 @@ async function play(config,fixture,entry,options,runId){
         applyHpSnapshot(step.hpSnapshotBefore);
         BattleHud.start(step);BattleHud.setPhase(BattleHud.phaseFor(step));
         if(entry.role)await BattleHud.announce(step,context);
-        if(['boss_action','enemy_mechanic'].includes(step.type))await playEnemyMechanicPresentation(step,context);
+        if(step.actionId==='a_trap')await playBattlefieldTick(step,context);
+        else if(['boss_action','enemy_mechanic'].includes(step.type))await playEnemyMechanicPresentation(step,context);
         else await playBattlefieldPlayerPresentation(step,{...context,battlefield:true});
         if(context.signal.aborted)return;
         if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);

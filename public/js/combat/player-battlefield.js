@@ -14,7 +14,7 @@ const ALCHEMIST_BATTLEFIELD_ART=Object.freeze({
 function battlefieldPaintedImage(parent,src,className){
   const image=document.createElement('img');image.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(src):src;image.alt='';image.className=className;image.setAttribute('aria-hidden','true');parent.appendChild(image);return image;
 }
-function isBattlefieldPlayerStep(step) {return (typeof isPhase6TimedStep==='function'&&isPhase6TimedStep(step))||['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type));}
+function isBattlefieldPlayerStep(step) {return step?.actionId!=='a_trap'&&((typeof isPhase6TimedStep==='function'&&isPhase6TimedStep(step))||['arena_enter','arena_exit'].includes(step?.type)||(!!step?.hpSnapshotBefore?.arena&&step.type==='boss_action')||(BATTLEFIELD_PLAYER_ROLES.has(step?.sourceRole)&&!['boss_action','enemy_mechanic','kill','status_cleanup','overheal_cleanup'].includes(step.type)));}
 function battlefieldPlayerTarget(step) {
   if(step.targetId&&!['all','all_enemies','monster'].includes(step.targetId))return step.targetId;
   return resolvePresentationTarget(step.results?.find(r=>r.targetEnemyId)||step.results?.find(r=>r.targetId===step.targetId)||{targetId:step.targetId,targetEnemyId:step.targetEnemyId},step);
@@ -200,11 +200,14 @@ async function playBattlefieldRanged(step,context) {
         const primary=main.find(r=>!r.isSecondaryEnemy)||main[0];
         if(bow){bowReleased=true;s.animate(bow,[{opacity:1},{opacity:0}],240);}
         audio.play('acid_throw');
-        await battlefieldProjectile(s,null,resolvePresentationTarget(primary,step),'bottle',bow||true);
+        const formation=(step.hpSnapshotBefore?.enemies||[]).filter(e=>e.hp>0).map(e=>({targetId:e.instanceId,targetEnemyId:e.instanceId}));
+        const landing=()=>{const a=battlefieldFormationAnchor(formation.length?formation:main,step);return a?{...a,y:a.y+a.height*.35}:null;};
+        await battlefieldProjectile(s,null,resolvePresentationTarget(primary,step),'bottle',bow||true,landing);
+        audio.play('bottle_impact');
         audio.play('acid_splash');
         if(step.actionId==='alc_flask')audio.play('alchemy_skill1',{noHold:true});
         const splash=battlefieldPaintedImage(s.root,ALCHEMIST_BATTLEFIELD_ART.burst,'battlefield-group-splash');
-        const place=()=>{const a=battlefieldFormationAnchor(main,step);if(a){splash.style.left=a.x+'px';splash.style.top=a.y+'px';splash.style.width=Math.max(180,a.width)+'px';splash.style.height=Math.max(180,a.height*.9)+'px';}};
+        const place=()=>{const a=landing();if(a){splash.style.left=a.x+'px';splash.style.top=a.y+'px';splash.style.width=Math.max(180,a.width)+'px';splash.style.height=Math.max(180,a.height*.9)+'px';}};
         place();s.startRenderer(place);s.animate(splash,[{opacity:0,scale:'.2'},{opacity:.85,scale:'1',offset:.3},{opacity:0,scale:'1.2'}],450);
         commitBattlefieldGroup(s,step,main);
         await s.wait(160);
@@ -219,7 +222,7 @@ async function playBattlefieldRanged(step,context) {
         if(bow&&!bowReleased){bowReleased=true;s.animate(bow,s.reduced?[{opacity:1},{opacity:0}]:[{opacity:1,scale:'1'},{opacity:.8,scale:'1.025',offset:.25},{opacity:0,scale:'1'}],240);}
         if(!trap)audio.play(alchemy?'acid_throw':'arrow_flight');
         if(trap){const spikes=document.createElement('img');spikes.src=ARCHER_BATTLEFIELD_ART.ground;spikes.alt='';spikes.className='battlefield-trap-art';spikes.setAttribute('aria-hidden','true');s.root.appendChild(spikes);s.follow(spikes,id,0,25);s.animate(spikes,[{opacity:0},{opacity:1,offset:.3},{opacity:0}],400);await s.wait(180);}
-        else await battlefieldProjectile(s,step.sourceId,id,alchemy?'bottle':ammo||'arrow',bow||firstPerson);
+        else {await battlefieldProjectile(s,step.sourceId,id,alchemy?'bottle':ammo||'arrow',bow||firstPerson);if(alchemy)audio.play('bottle_impact');}
         commitBattlefieldPlayerResult(result,step,s.local);
         if(step.actionId==='alc_flask'&&!chemicalPlayed){chemicalPlayed=true;await s.wait(80);audio.play('alchemy_skill1',{noHold:true});}
         audio.play(alchemy?'acid_splash':'arrow_impact');
@@ -251,14 +254,14 @@ async function playBattlefieldArrowRain(step,context) {
     await s.wait(400);
   });
 }
-async function battlefieldProjectile(s,sourceId,targetId,type,central) {
+async function battlefieldProjectile(s,sourceId,targetId,type,central,targetAnchor) {
   const projectile=document.createElement('div');projectile.className='battlefield-projectile '+type;s.root.appendChild(projectile);
   if(AMMO_IMAGES[type])projectile.innerHTML=ammoArrowHtml(type);
   else if(['bottle','healing','reagent'].includes(type))battlefieldPaintedImage(projectile,type==='bottle'?ALCHEMIST_BATTLEFIELD_ART.bottle:ALCHEMIST_BATTLEFIELD_ART.orb,'alchemy-projectile-art');
   else if(type==='arrow'){const image=document.createElement('img');image.src=ARCHER_BATTLEFIELD_ART.arrow;image.alt='';image.className='archer-projectile-art';image.setAttribute('aria-hidden','true');projectile.appendChild(image);}
   if(AMMO_IMAGES[type])await samuraiAbortable(Promise.all([...projectile.querySelectorAll('img')].map(img=>img.decode().catch(()=>{}))),s.signal);
   await s.tick(440,p=>{
-    const target=getBattleEffectAnchor(targetId);if(!target){projectile.hidden=true;return;}
+    const target=targetAnchor?.()||getBattleEffectAnchor(targetId);if(!target){projectile.hidden=true;return;}
     const bow=central?.getBoundingClientRect?.();
     const from=bow?{x:bow.left+bow.width*(type==='bottle'?.82:['healing','reagent'].includes(type)?.5:.25),y:bow.top+bow.height*(type==='bottle'?.2:['healing','reagent'].includes(type)?.5:.37)}:{x:innerWidth*.52,y:innerHeight*.85};
     const start=from;

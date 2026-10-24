@@ -2525,6 +2525,7 @@ function renderSageEquationPreview(me) {
 
 // 玩家專屬技能列
 function renderMyActionBar(me) {
+  syncEnemyTargetIndicators();
   if (!me || !me.role || !classesData[me.role]) return;
   const pendingKey=battleRoundKey();
   if(!isProcessingPresentationQueue&&roomState.selectionState==='SELECTING'&&pendingActionRoundKey!==pendingKey){
@@ -3096,8 +3097,14 @@ function handleSkillClick(actionId, me) {
   renderMyActionBar(me);
 }
 
+function canUseBattleItem(player) {
+  return !!player && player.hp>0 && !player.isLocked && !player.stunnedNextTurn && !player.isSurrendered && player.druidForm!=='tree' && roomState?.state==='IN_BATTLE' && roomState.selectionState==='SELECTING' && !roomState.isNarrating && !isPlayingBattleNarrative;
+}
+
 // 目標選擇 Modal (治癒額外目標 / 甦生之歌目標 / 代受恩典目標 / 命運繫結目標)
 function openTargetModal(type, targetList) {
+  const me = getMyPlayer();
+  if(elements.inventoryModal&&!elements.inventoryModal.classList.contains('hidden'))ModalMotion.hide(elements.inventoryModal);
   ModalMotion.show(elements.targetModal);
   elements.targetModalList.innerHTML = '';
 
@@ -3140,7 +3147,7 @@ function openTargetModal(type, targetList) {
         ${getPlayerAvatarHtml(p, 'target-role-avatar')}
         <span>${escapeHtml(p.name)}</span>
       </span>
-      <span style="font-size:0.85rem; color:var(--text-secondary); font-weight: 600;">${p.hp > 0 ? `HP ${p.hp}/${p.maxHp}` : `${getIconSvg('death')} 倒地`}</span>
+      ${battleVitalsMarkup(p)}${p.hp>0?'':'<small>倒地</small>'}
     `;
 
     btn.addEventListener('click', () => {
@@ -4763,6 +4770,7 @@ function applyHpSnapshot(snapshot) {
 // 單一步驟演出 (P2-R1.1 Section 8-11: 14 步嚴格演出順序)
 async function playPresentationStep(step, round) {
   if (!step) return;
+  if(step.actionId==='a_trap')return playBattlefieldTick(step,activeCombatContext);
   if(step.type==='enemy_mechanic')return playEnemyMechanicPresentation(step,activeCombatContext);
   if(step.category==='STATUS_TICK'&&!isPhase6TimedStep(step))return playBattlefieldTick(step,activeCombatContext);
   if(step.type==='boss_action'&&!step.hpSnapshotBefore?.arena)return playEnemyMechanicPresentation(step,activeCombatContext);
@@ -6110,7 +6118,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
             alert('本回合已鎖定行動，不可再施放其他技能或使用道具！');
             return;
           }
-          if (me.hp <= 0 || me.stunnedNextTurn || me.isSurrendered || me.druidForm === 'tree' || roomState?.selectionState !== 'SELECTING' || isNarrating || isPlayingBattleNarrative) {
+          if (!canUseBattleItem(me)) {
             alert('當前狀態本回合無法行動！');
             return;
           }
@@ -6724,7 +6732,7 @@ function renderInventoryModal() {
             alert('本回合已鎖定行動，不可再施放其他技能或使用道具！');
             return;
           }
-          if (me.hp <= 0 || me.stunnedNextTurn || me.isSurrendered || me.druidForm === 'tree' || roomState?.selectionState !== 'SELECTING' || isNarrating || isPlayingBattleNarrative) {
+          if (!canUseBattleItem(me)) {
             alert('當前狀態本回合無法行動！');
             return;
           }

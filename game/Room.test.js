@@ -566,6 +566,7 @@ test('Phase 4 arrow traps publish one actual lethal result per enemy',t=>{
   const traps=resolutionQueue(events).filter(s=>s.actionId==='a_trap');
   assert.equal(traps.length,3);assert.equal(new Set(traps.map(s=>s.targetEnemyId)).size,3);
   assert.ok(traps.every(s=>s.results[0].actualHpDamage===1&&s.results[0].targetAfter.hp===0));
+  assert.ok(traps.every(s=>s.category==='STATUS_TICK'&&s.type==='status_action'));
 });
 for(const action of ['a_reload','a_frenzy_reload'])test('Phase 4 reload changes actual ammunition without damage: '+action,t=>{
   const {room,player,events}=phase1Battle(t,'archer');player.equips=[{id:'a_crossbow',name:'改良型重弩'}];player.ammo=[];player.action=action;
@@ -1444,13 +1445,15 @@ test('Alchemist emits exactly one bottle for the real primary/splash results of 
       getBattleEffectAnchor:()=>({x:800,y:350,rect:{left:750,right:850,height:180}})};
     vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
     scope.commitBattlefieldPlayerResult=r=>{if(commits.includes(r.resultId))return false;commits.push(r.resultId);times.push({id:r.resultId,time:clock});return true;};
-    scope.battlefieldProjectile=async(_s,_source,target,type)=>{projectiles.push({target,type});clock+=440;};
+    scope.battlefieldProjectile=async(_s,_source,target,type,_central,anchor)=>{projectiles.push({target,type,landing:anchor?.()});clock+=440;};
     scope.withBattlefieldSkillStage=async(_step,_context,play)=>{
       const s={root:new Node(),reduced:false,local:{audioScope:{play:key=>sounds.push(key)}},animate(){},startRenderer(){},el:()=>new Node(),wait:async ms=>{clock+=ms;},resolveResults:async()=>{for(const r of step.results)scope.commitBattlefieldPlayerResult(r);}};
       await play(s);
     };
     await scope.playBattlefieldRanged(step,{});
     assert.equal(projectiles.length,1);assert.equal(projectiles[0].type,'bottle');
+    assert.equal(projectiles[0].landing.x,800);assert.equal(projectiles[0].landing.y,413);
+    assert.equal(sounds.filter(s=>s==='bottle_impact').length,1);
     const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
     assert.equal(new Set(hits.map(r=>times.find(c=>c.id===r.resultId).time)).size,1);
     assert.equal(sounds.filter(s=>s==='acid_splash').length,1);assert.equal(commits.length,step.results.length);
@@ -2250,4 +2253,104 @@ test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanic
     room.p8CloakRound(presentationQueue, (dmg) => ({ dmg }), 1);
     assert.equal(presentationQueue.length, initialLen, 'sg_cloak must trigger at most once per round');
   }
+});
+
+test('health costs and DOT bypass both shield pools; direct hits consume them and still trigger passives',t=>{
+  for(const role of ['warrior','gladiator']){
+    const {room,player}=fixture(t,role);room.battleRound=1;player.hp=player.maxHp;player.DEF=0;
+    room.p8GrantShield(player,40,3);room.applyHealWithOverheal(player,20);
+    const hp=player.hp;
+    const hit=room.applyDamageToPlayer(player,12,{kind:'enemy_direct',trueDamage:true});
+    assert.equal(hit.hpDmg,0);assert.equal(hit.tempAbsorbed,12);assert.equal(player.hp,hp);
+    assert.equal(role==='warrior'?player.warriorStacks:player.rage,1);
+    for(const kind of ['dot','friendly','sage_confusion']){
+      const before=player.hp,temp=player.tempHp;
+      const result=room.applyDamageToPlayer(player,5,{kind,trueDamage:true});
+      assert.equal(player.hp,before-5,kind);assert.equal(result.tempAbsorbed,0);assert.equal(player.tempHp,temp);
+    }
+    const snap=room.getHpSnapshot().players[0];assert.equal(snap.shieldHp,28);assert.equal(snap.temporaryOverheal,20);
+    room.clearTemporaryOverheal();assert.equal(player.tempHp,28);assert.equal(player.temporaryOverheal,0);
+  }
+});
+
+test('gladiator sacrifice pays real HP and gains blood stacks even with a full shield',t=>{
+  const {room,player,events}=phase1Battle(t,'gladiator');
+  player.equips=[{id:'g_xiphos',name:'斯巴達破陣短劍'}];player.action='g_sacrifice';
+  room.p8GrantShield(player,300,3);for(const e of room.enemies)e.stunnedNextTurn=true;
+  room.resolveTurnActions();const step=resolutionQueue(events).find(s=>s.actionId==='g_sacrifice');
+  const payment=step.results.find(r=>r.presentationBeat==='self_damage');
+  assert.ok(payment.targetAfter.hp<payment.targetBefore.hp);
+  assert.equal(payment.targetAfter.tempHp,payment.targetBefore.tempHp);
+  assert.ok(step.hpSnapshot.players.find(p=>p.id===player.id).rage>=1);assert.equal(player.bloodStacks,1);
+});
+
+test('Augur debt expiry pays HP without consuming an existing shield',t=>{
+  const {room,player}=phase1Battle(t,'augur');room.battleRound=3;player.hp=50;
+  room.p8GrantShield(player,80,3);player.augurFateDebts=[{amount:20,dueRound:3}];
+  room.p8EndRound([],[],{});assert.equal(player.hp,30);assert.equal(player.tempHp,80);
+});
+
+for(const intercept of [false,true])test('mimic theft survives '+(intercept?'a companion intercept and targets its owner':'full shield absorption'),t=>{
+  const {room,enemy,player}=mechanismBattle(t,[SPECIAL_ELITES.treasure_mimic],intercept?'druid':'warrior');
+  t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;room.gold=100;
+  player.equipSlots.WEAPON={id:'sword',name:'測試劍',bonusAtk:0};
+  if(intercept)player.minions=[{id:'wolf',type:'wolf',name:'幼狼',hp:10000,maxHp:10000}];
+  else room.p8GrantShield(player,10000,3);
+  mechanismRound(room,3);const hp=player.hp,queue=actMechanism(room,enemy);
+  assert.equal(player.hp,hp);assert.equal(player.equipSlots.WEAPON,null);
+  const result=queue.flatMap(s=>s.results).find(r=>r.theft);assert.equal(result.theft.ownerId,player.id);
+  assert.equal(result.targetId,player.id);assert.equal(enemy.stolenLoot.equipment[0].ownerId,player.id);
+});
+
+test('vital layers use maximum HP, separate overheal and clamp the debt to current health',()=>{
+  const scope={document:{addEventListener(){}}};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),scope);
+  const v=scope.battleVitals({hp:30,maxHp:100,tempHp:70,shieldHp:50,temporaryOverheal:20,augurFateDebts:[{amount:40}]});
+  assert.equal(v.hpPct,30);assert.equal(v.shieldPct,50);assert.equal(v.overhealPct,20);assert.equal(v.debtPct,30);
+});
+
+test('multiplayer potion target modal resolves its own player and creates visual HP choices',()=>{
+  const nodes=[],hidden=[],players=[{id:'me',role:'warrior',name:'我',hp:50,maxHp:120},{id:'ally',role:'warrior',name:'隊友',hp:40,maxHp:120}];
+  const scope={roomState:{players},getMyPlayer:()=>players[0],classesData:{warrior:{avatar:'warrior.webp'}},escapeHtml:s=>String(s??''),getIconSvg:()=>'',
+    ModalMotion:{show(){},hide:n=>hidden.push(n)},elements:{inventoryModal:{classList:{contains:()=>false}},targetModal:{},targetModalList:{innerHTML:'',appendChild:n=>nodes.push(n)},targetModalTitle:{},targetModalDesc:{}},document:{addEventListener(){},createElement:()=>({addEventListener(){}})}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),scope);
+  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');
+  vm.runInContext(app.slice(app.indexOf('function openTargetModal('),app.indexOf('// 技能確認鎖定')),scope);
+  for(const type of ['item_potion','inv_potion'])scope.openTargetModal(type,players);
+  assert.equal(hidden.length,2);assert.equal(nodes.length,4);assert.ok(nodes.every(n=>n.innerHTML.includes('role="progressbar"')));
+  assert.ok(nodes.every(n=>!n.innerHTML.includes('HP 50/120')));
+});
+
+test('all profession announcements remove parenthesized damage annotations',async()=>{
+  const nodes=new Map(),scope={AbortController,document:{addEventListener(){},getElementById:id=>{if(!nodes.has(id))nodes.set(id,{classList:{add(){},remove(){}}});return nodes.get(id);}},
+    isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getClassDisplayName:()=>'',waitForPresentation:async()=>{}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  for(const role of ['mage','archer','druid','augur']){
+    await scope.hud.announce({sourceRole:role,skillName:'技能名稱（魔法） (群體)',type:'player_action'},{speed:1});
+    assert.equal(nodes.get('cinematicSkillName').textContent,'技能名稱');
+  }
+});
+
+test('group target markers cover living enemies, distinguish the primary and clear on a single-target selection',()=>{
+  const marks=Array.from({length:3},()=>({style:{},dataset:{},classes:new Set(),animate(){this.animated=true;}}));
+  marks.forEach(m=>m.classList={toggle:(c,on)=>on?m.classes.add(c):m.classes.delete(c)});
+  const slots=marks.map((m,i)=>({dataset:{enemyId:'e'+i},_currentEnemy:{hp:30},querySelector:()=>m}));
+  const scope={currentPendingAction:'m_blast',currentSelectedEnemyId:'e1',myId:'hero',classesData:{mage:{skills:[]}},roomState:{players:[],enemies:slots.map(s=>({instanceId:s.dataset.enemyId,hp:30}))},getMyPlayer:()=>({id:'hero',role:'mage'}),document:{addEventListener(){},querySelectorAll:()=>slots}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),scope);
+  scope.syncEnemyTargetIndicators();assert.ok(marks.every(m=>m.style.display===''));
+  assert.ok(marks[1].classes.has('is-primary-target'));assert.ok(marks[0].classes.has('is-secondary-target'));assert.ok(marks.every(m=>m.animated));
+  scope.currentPendingAction='basic';scope.syncEnemyTargetIndicators();
+  assert.deepEqual(marks.map(m=>m.style.display),['none','','none']);
+  scope.currentSelectedEnemyId='e2';scope.syncEnemyTargetIndicators();assert.deepEqual(marks.map(m=>m.style.display),['none','none','']);
+  slots[2]._currentEnemy.hp=0;scope.syncEnemyTargetIndicators();assert.ok(marks.every(m=>m.style.display==='none'));
+});
+
+test('both inventory battle-item entries use live scoped narration and player eligibility',()=>{
+  const app=readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');
+  const scope={roomState:{state:'IN_BATTLE',selectionState:'SELECTING',isNarrating:false,players:[{id:'a'},{id:'b'}]},isPlayingBattleNarrative:false};
+  vm.createContext(scope);vm.runInContext(app.slice(app.indexOf('function canUseBattleItem('),app.indexOf('// 目標選擇 Modal')),scope);
+  const player={id:'a',hp:40};assert.equal(scope.canUseBattleItem(player),true);
+  scope.roomState.isNarrating=true;assert.equal(scope.canUseBattleItem(player),false);
+  scope.roomState.isNarrating=false;assert.equal(scope.canUseBattleItem({...player,isLocked:true}),false);
+  assert.equal(scope.canUseBattleItem({...player,hp:0}),false);
+  assert.equal((app.match(/if \(!canUseBattleItem\(me\)\)/g)||[]).length,2);
 });

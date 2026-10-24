@@ -20,6 +20,9 @@ const BattleHud = (() => {
     }
     byId('hudPhaseNotice').textContent = next === 'ALLY_ACTIONS' ? '我方行動中…' : next === 'ENEMY_ACTIONS' ? '敵方行動中…' : '';
     hideTooltip();
+    const overview=byId('partyOverview'),toggle=byId('partyOverviewToggle');
+    if(toggle)toggle.hidden=next!=='SELECTING';
+    if(next!=='SELECTING'&&overview){overview.hidden=true;toggle?.setAttribute('aria-expanded','false');}
     if(next!=='SELECTING'){
       if(typeof closeInventoryModal==='function'&&typeof elements!=='undefined'&&!elements.inventoryModal?.classList.contains('hidden'))closeInventoryModal();
       if(typeof elements!=='undefined'&&elements.targetModal&&!elements.targetModal.classList.contains('hidden'))ModalMotion.hide(elements.targetModal);
@@ -95,8 +98,7 @@ const BattleHud = (() => {
     const banner = byId('cinematicSkillBanner');
     byId('cinematicActorName').textContent = step.sourceName || roomState.players.find(p=>p.id===step.sourceId)?.name || '';
     byId('cinematicActorRole').textContent = getClassDisplayName(step.sourceRole);
-    byId('cinematicSkillName').textContent = step.sourceRole==='archer'&&step.actionId==='a_rain'
-      ? step.skillName.replace(/\s*[（(]物理群攻[）)]/g,'').trim() : step.skillName;
+    byId('cinematicSkillName').textContent = step.skillName.replace(/\s*[（(][^）)]*[）)]/g,'').trim();
     banner.classList.add('is-active');
     try {
       await waitForPresentation(announcementHoldMs,controller.signal,context.speed || 1);
@@ -113,8 +115,11 @@ const BattleHud = (() => {
     byId('hudPlayerAvatar').innerHTML = getPlayerAvatarHtml(player,'hud-player-avatar');
     byId('hudPlayerName').textContent = player.name;
     byId('hudPlayerRole').textContent = getClassDisplayName(player.role);
-    byId('hudPlayerHpText').textContent = `${player.hp} / ${player.maxHp}${player.tempHp>0?' · 護盾 '+player.tempHp:''}`;
+    const vitals=battleVitals(player);
+    byId('hudPlayerHpText').textContent = `${player.hp} / ${player.maxHp}${vitals.shield?' · 護盾 '+vitals.shield:''}${vitals.overheal?' · 暫存 '+vitals.overheal:''}`;
     byId('hudPlayerHpFill').style.width = `${Math.max(0,Math.min(100,player.hp/Math.max(1,player.maxHp)*100))}%`;
+    syncBattleVitals(byId('hudPlayerHpFill').parentElement,player);
+    renderCompanions(hud,player);renderPartyOverview();
     byId('hudPlayerResource').textContent = [player.resourceSummary,`DEF ${player.DEF || 0}`].filter(Boolean).join(' · ');
     const statusHost=byId('hudPlayerStatuses');
     statusHost.innerHTML = (player.statuses||[]).map(status=>{
@@ -134,6 +139,23 @@ const BattleHud = (() => {
       for (const event of ['mouseenter','focus','click']) avatar.addEventListener(event,()=>showPlayerTooltip(avatar._player,avatar));
       avatar.addEventListener('mouseleave',hideEnemyTooltip);avatar.addEventListener('blur',hideEnemyTooltip);
     }
+  }
+  function renderCompanions(hud,player) {
+    let row=byId('hudCompanions');
+    if(!row){row=document.createElement('div');row.id='hudCompanions';row.className='hud-companions';row.setAttribute('aria-label','德魯伊夥伴');hud.appendChild(row);}
+    row.hidden=player.role!=='druid'||!(player.minions||[]).length;
+    row.innerHTML=row.hidden?'':player.minions.map(m=>`<div class="hud-companion"><img src="${escapeHtml(m.avatar||'/assets/characters/summons/druid/'+(m.type==='wolf'?'幼狼'+(m.minionIndex||1):'小樹精'+(m.minionIndex||1))+'.webp')}" alt="${escapeHtml(m.name)}">${battleVitalsMarkup(m)}<span>${m.hp}/${m.maxHp}</span></div>`).join('');
+  }
+  function renderPartyOverview() {
+    const view=byId('viewBattle');let toggle=byId('partyOverviewToggle'),panel=byId('partyOverview');
+    if(!toggle){
+      toggle=document.createElement('button');toggle.id='partyOverviewToggle';toggle.type='button';toggle.setAttribute('aria-controls','partyOverview');toggle.setAttribute('aria-expanded','false');view.appendChild(toggle);
+      panel=document.createElement('section');panel.id='partyOverview';panel.hidden=true;panel.setAttribute('aria-label','隊伍狀態總覽');view.appendChild(panel);
+      toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));});
+    }
+    toggle.textContent=`隊伍狀態 (${roomState.players.length})`;toggle.hidden=phase!=='SELECTING';
+    panel.innerHTML=roomState.players.map(p=>`<div class="party-overview-unit ${p.hp<=0?'is-dead':''}" data-overview-player="${escapeHtml(p.id)}"><button type="button" aria-label="查看${escapeHtml(p.name)}狀態">${getPlayerAvatarHtml(p,'overview-avatar')}</button><span>${escapeHtml(p.name)}${p.hp<=0?' · 倒下':''}<small style="display:block">${escapeHtml(p.resourceSummary||'')}</small></span>${battleVitalsMarkup(p)}<div class="combat-status-list">${renderTeammateBuffIcons(p.statuses||[])}</div></div>`).join('');
+    for(const card of panel.querySelectorAll('[data-overview-player]'))card.querySelector('button').addEventListener('click',()=>showPlayerTooltip(roomState.players.find(p=>p.id===card.dataset.overviewPlayer),card));
   }
   const propertyText = {
     EVEN:'偶數 EVEN：保留 40% 穿透；以方程主傷害實傷總和的 40% 均分全隊護盾，每人上限為智者最大 HP 的 20%，持續 2 回合。',

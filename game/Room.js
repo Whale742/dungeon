@@ -794,7 +794,7 @@ export class Room {
     player.archerNoDodgeNextTurn = false;
     player.alcAcidEquipHalvedTurns = 0;
     player.alcAcidStack = 0;
-    player.tempHp = 0;player.p8Shields=[];
+    player.tempHp = 0;player.temporaryOverheal=0;player.p8Shields=[];
     player.isCrouchedThisRound = false;
     player.isLocked = false;
   }
@@ -1114,7 +1114,7 @@ export class Room {
     const initialCooldowns = {};
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
     player.cooldowns = initialCooldowns;
-    Object.assign(player,{p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+    Object.assign(player,{p8Effects:{},p8Shields:[],temporaryOverheal:0,p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
     delete player.sagePreviousAction;delete player.sageLastAction;delete player.sageDebtScheduledRound;
     player.stealthStacks=roleKey==='assassin'?1:0;
     delete player.noReviveFloor;
@@ -2150,6 +2150,7 @@ export class Room {
       }
     }
     const normalMax = player.maxHp;
+    const oldTempHp = player.tempHp || 0;
     const oldEffective = player.hp + (player.tempHp || 0);
     if (player.hp < normalMax) {
       const needed = normalMax - player.hp;
@@ -2166,6 +2167,7 @@ export class Room {
       player.tempHp = (player.tempHp || 0) + Math.floor(healAmount*(1-decay));
     }
     const newEffective = player.hp + (player.tempHp || 0);
+    player.temporaryOverheal = Math.min(oldTempHp,player.temporaryOverheal || 0) + Math.max(0,(player.tempHp || 0)-oldTempHp);
     const actualHeal = newEffective - oldEffective;
     if (this.actionHeals) this.actionHeals.push({ targetId: player.id, actualHeal,absorbedDebt,
       targetAfter: snapshotTarget(this.getHpSnapshot(), player.id) });
@@ -2220,15 +2222,16 @@ export class Room {
     return actualHeal;
   }
 
-  // 扣除傷害 (優先消耗 Temporary Overheal，再扣除真實 HP)
+  // Only incoming direct enemy hits may consume shields / temporary overheal.
   applyDamageToPlayer(player, dmg, context = {}) {
+    const directHit=!context.kind || ['enemy_direct','grace_redirect','secondary','abyss_counter'].includes(context.kind);
     if (!context.trueDamage && !context.ignoreReduction && !context.defMitigated && !this.arena && ['enemy_direct','grace_redirect','secondary'].includes(context.kind)) {
       dmg=mitigateDirectDamage(dmg,{damageType:context.damageType||'phys',defense:resolveStats(player,this.statMultiplier(player)).DEF});
     }
     const hpBefore=player.hp;
     if (dmg <= 0) return { actualDmg: 0, hpDmg: 0, tempAbsorbed: 0 };
     const protection=context.kind==='sage_confusion'?null:this.p8Has(player,'boundary');
-    if(protection?.barrier && dmg>=(player.hp+(player.tempHp||0))) {
+    if(protection?.barrier && dmg>=(player.hp+(directHit?(player.tempHp||0):0))) {
       protection.barrier=false;
       this.p8Log(`${player.name}的星光屏障抵擋一次致命傷。`);
       return {actualDmg:0,hpDmg:0,tempAbsorbed:0};
@@ -2236,18 +2239,18 @@ export class Room {
     let remaining = dmg;
 
     // 煉金隊長藥劑 15% 減傷
-    if (!context.trueDamage && !context.ignoreReduction && player.alcPotionDefTurns > 0) {
+    if (directHit && !context.trueDamage && !context.ignoreReduction && player.alcPotionDefTurns > 0) {
       remaining = Math.max(1, Math.floor(remaining * 0.85));
     }
 
     // 智者隊長技【守勢推演】：在假設階段獲得 20% 減傷
-    if (!context.trueDamage && !context.ignoreReduction && this.getEffectiveLeaderRole() === 'sage' && player.role === 'sage' && player.sagePhase === 'hypothesis') {
+    if (directHit && !context.trueDamage && !context.ignoreReduction && this.getEffectiveLeaderRole() === 'sage' && player.role === 'sage' && player.sagePhase === 'hypothesis') {
       remaining = Math.max(1, Math.floor(remaining * 0.80));
       this.p8Log(`📐 【守勢推演】智者隊長處於假設階段，獲得 20% 傷害減免！`);
     }
 
     // 織夢術士隊長技：50% 傷害延後至下一回合
-    if (player.dreamDamageDelayActive) {
+    if (directHit && player.dreamDamageDelayActive) {
       player.dreamDamageDelayActive = false;
       const delayed = Math.floor(remaining * 0.5);
       player.delayedDreamDmg = (player.delayedDreamDmg || 0) + delayed;
@@ -2256,7 +2259,9 @@ export class Room {
     }
 
     let tempAbsorbed = 0;
-    if ((player.tempHp || 0) > 0) {
+    const overhealBefore=Math.min(player.tempHp||0,player.temporaryOverheal||0);
+    const shieldBefore=Math.max(0,(player.tempHp||0)-overhealBefore);
+    if (directHit && (player.tempHp || 0) > 0) {
       if (player.tempHp >= remaining) {
         player.tempHp -= remaining;
         tempAbsorbed = remaining;
@@ -2281,7 +2286,8 @@ export class Room {
     const boundary=context.kind==='sage_confusion'?null:this.p8Has(player,'boundary');
     if(player.hp<=0 && boundary) {player.hp=1;if(boundary.barrier)boundary.barrier=false;}
     const result={actualDmg:hpBefore-player.hp+tempAbsorbed,hpDmg:Math.max(0,hpBefore-player.hp),tempAbsorbed};
-    this.p8ConsumeShield(player,tempAbsorbed);this.p8RecordDamage(player,result,context);
+    player.temporaryOverheal=Math.max(0,overhealBefore-Math.max(0,tempAbsorbed-shieldBefore));
+    this.p8ConsumeShield(player,Math.min(tempAbsorbed,shieldBefore));this.p8RecordDamage(player,result,context);
     if(player.hp<=0&&player.druidForm==='bear'){restoreBearForm(player);player.druidForm=null;player.druidFormTurns=0;}
     return result;
   }
@@ -2293,9 +2299,11 @@ export class Room {
       const shield=(p.p8Shields||[]).reduce((n,s)=>n+s.value,0);
       if ((p.tempHp || 0) > shield) {
         p.tempHp = shield;
+        p.temporaryOverheal = 0;
         p.hp = Math.min(p.hp, p.maxHp);
         anyCleared = true;
       }
+      p.temporaryOverheal = 0;
     }
     return anyCleared;
   }
@@ -2320,6 +2328,8 @@ export class Room {
         ammo: [...(p.ammo || [])], isCrouchedThisRound: !!p.isCrouchedThisRound,
         maxHp: p.maxHp,
         tempHp: p.tempHp || 0,
+        temporaryOverheal: Math.min(p.tempHp || 0,p.temporaryOverheal || 0),
+        shieldHp: Math.max(0,(p.tempHp || 0)-(p.temporaryOverheal || 0)),
         displayHp: p.hp + (p.tempHp || 0),
         displayMaxHp: p.maxHp + (p.tempHp || 0)
       }))
@@ -2995,7 +3005,7 @@ export class Room {
     this.p8ExitArena();
     const victoryBefore = this.getHpSnapshot();
     this.enemyArena=null;
-    for(const p of Object.values(this.players)){p.enemyEffects={};p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;}
+    for(const p of Object.values(this.players)){p.enemyEffects={};p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;}
     monster.hp = 0;
     const col = this.currentHex?.col || this.floor || 1;
     const isGladiatorCaptain = this.getEffectiveLeaderRole() === 'gladiator';
@@ -7092,7 +7102,7 @@ export class Room {
           const trapBefore=this.getHpSnapshot();
           actingEnemy.hp = Math.max(0, actingEnemy.hp - trapDmg);
           const trapAfter=this.getHpSnapshot();
-          presentationQueue.push({type:'player_action',category:'OFFENSIVE',sourceId:this.arrowTrap.sourceId,sourceRole:'archer',actionId:'a_trap',skillName:'箭刺陷阱',targetId:actingEnemy.instanceId,targetEnemyId:actingEnemy.instanceId,
+          presentationQueue.push({type:'status_action',category:'STATUS_TICK',sourceId:this.arrowTrap.sourceId,sourceRole:'archer',actionId:'a_trap',skillName:'箭刺陷阱',targetId:actingEnemy.instanceId,targetEnemyId:actingEnemy.instanceId,
             hpSnapshotBefore:trapBefore,hpSnapshot:trapAfter,results:[{kind:'damage',sourceId:this.arrowTrap.sourceId,targetId:actingEnemy.instanceId,targetEnemyId:actingEnemy.instanceId,finalDamage:trapDmg,damageType:'physical',outcome:{type:'normal'},targetBefore:snapshotTarget(trapBefore,actingEnemy.instanceId),targetAfter:snapshotTarget(trapAfter,actingEnemy.instanceId)}]});
           log.push({
             text: `🏹💥 **${actingEnemy.name}** 行動時踏入【箭刺陷阱區域】，受到 **${trapDmg}** 點【物理】傷害！（❤️ ${actingEnemy.hp}/${actingEnemy.maxHp}）`,
@@ -7861,7 +7871,7 @@ export class Room {
   handleGameOver() {
     this.clearAugurBattleDebts();
     this.p8ExitArena();
-    for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;}
+    for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;}
     this.clearTimer();
     this.state = 'GAME_OVER';
     this.gameOverReason = 'wipe';
@@ -7905,7 +7915,7 @@ export class Room {
       p.bonusAtk = 0; p.statsVersion=2; p.victoryAtkBonus = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       p.equips = [];
       p.equipCounts = {};
-      Object.assign(p, {p8Effects:{},p8Shields:[],p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+      Object.assign(p, {p8Effects:{},p8Shields:[],temporaryOverheal:0,p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
       delete p.sagePreviousAction;delete p.sageLastAction;delete p.sageDebtScheduledRound;
       delete p.noReviveFloor;
       p.cooldowns = {};
@@ -8166,6 +8176,8 @@ export class Room {
         customAvatar: p.customAvatar || null,
         hp: p.hp,
         tempHp: p.tempHp || 0,
+        temporaryOverheal: Math.min(p.tempHp || 0,p.temporaryOverheal || 0),
+        shieldHp: Math.max(0,(p.tempHp || 0)-(p.temporaryOverheal || 0)),
         displayHp: p.hp + (p.tempHp || 0),
         displayMaxHp: p.maxHp + (p.tempHp || 0),
         maxHp: p.maxHp,

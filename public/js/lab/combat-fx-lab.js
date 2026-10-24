@@ -28,7 +28,7 @@ function currentEntries(){
   return actorEntries().filter(s=>s.skillId===skillId&&(!gear||s.equipmentIds.includes(gear))&&(!filter||String(s.actor?.[filter.key]??'')===filter.value));
 }
 function chooseEntry(){const entries=currentEntries();entry=entries.find(s=>s.id===variantId)||entries.find(s=>s.id==='samurai_tsubame')||entries.find(s=>s.id.startsWith('basic_'))||entries[0]||null;variantId=entry?.id||'';}
-function configForStage(){return {...clone(config),classes:catalog.classes};}
+function configForStage(){return {...clone(config),classes:catalog.classes,previewAction:skillId};}
 function send(type,payload={}){ui.stage.contentWindow.postMessage({source:'combat-fx-lab',type,runId,...payload},location.origin);}
 function resetExecution(){
   ++runId;ui.progress.value=0;ui.progressText.textContent='準備播放';ui.timing.textContent='依正式演出時序播放';

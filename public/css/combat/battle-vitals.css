@@ -1,0 +1,32 @@
+/* Vitals share one scale: every layer is a percentage of maximum HP. */
+.combat-vital-bar{position:relative;isolation:isolate;overflow:visible!important;background:#071017;min-height:5px}
+.combat-vital-bar>i{position:absolute;left:0;top:0;height:100%;pointer-events:none;box-sizing:border-box}
+.combat-vital-bar>[hidden]{display:none!important}
+.combat-vital-bar .vital-hp{background:#91b099;transition:width 250ms}
+.combat-vital-bar .vital-shield{top:-4px;height:calc(100% + 8px);border:2px solid #d9f3ff;background:transparent;z-index:3;filter:drop-shadow(0 0 2px #b1e9ff66);transition:width 250ms}
+.combat-vital-bar .vital-overheal{top:-7px;height:calc(100% + 14px);border:2px solid #7cddaa;background:transparent;z-index:2;transition:width 250ms}
+.combat-vital-bar .vital-debt{background:repeating-linear-gradient(120deg,#9e263d 0 5px,#47202a 5px 9px);z-index:1;animation:vitalDebtPulse 1.3s ease-in-out infinite}
+.target-vital-bar{width:100%;height:8px;margin:13px 0 7px}
+#targetModalList .target-btn{gap:8px;min-height:148px}
+@keyframes vitalDebtPulse{50%{filter:brightness(1.65);opacity:.65}}
+#viewBattle .enemy-target-reticle{color:#ff4c59;opacity:1;filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px #fff8);width:44px;height:44px}
+#viewBattle .enemy-target-reticle:after{display:none;content:none}
+#viewBattle .enemy-target-reticle svg{width:100%;height:100%;animation:targetGlyphPulse 1.4s ease-in-out infinite}
+#viewBattle .enemy-target-reticle.is-group-target{width:38px;height:38px}
+#viewBattle .enemy-target-reticle.is-primary-target{width:60px;height:60px}
+#viewBattle .enemy-target-reticle.is-secondary-target{width:28px;height:28px}
+@keyframes targetGlyphPulse{50%{opacity:.48;scale:.92}}
+.hud-companions{position:absolute;left:0;bottom:calc(100% + 16px);display:flex;gap:10px;max-width:100%;pointer-events:auto}
+.hud-companions[hidden]{display:none}
+.hud-companion{width:64px;display:flex;flex-direction:column;gap:8px;align-items:stretch;color:#d7ded9;font-size:10px;text-align:center}
+.hud-companion img{width:64px;height:64px;object-fit:cover;border:1px solid #779385}
+.hud-companion .target-vital-bar{margin:2px 0;height:5px}
+#partyOverviewToggle{position:absolute;left:4vw;top:108px;z-index:30;border:1px solid #92a39c66;background:#0a1722dd;color:#dbe5df;padding:8px 12px;font:12px var(--font-body);cursor:pointer}
+#partyOverview{position:absolute;left:4vw;right:calc(4vw + clamp(230px,24vw,340px) + 24px);top:154px;max-height:45vh;overflow:auto;z-index:30;padding:14px;background:#08131af2;border:1px solid #6d8a8577;display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:18px}
+#partyOverview[hidden],#partyOverviewToggle[hidden]{display:none}
+.party-overview-unit{display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;align-items:center;font-size:12px;min-width:0}
+.party-overview-unit button{padding:0;background:none;border:0;width:42px;height:42px;cursor:pointer}.party-overview-unit img{width:42px;height:42px;object-fit:cover}
+.party-overview-unit .target-vital-bar{grid-column:1/-1;margin:2px 0 5px}.party-overview-unit .combat-status-list{grid-column:1/-1;min-height:18px;display:flex;flex-wrap:wrap;gap:4px}
+.party-overview-unit.is-dead{opacity:.55}.party-overview-unit.is-dead img{filter:grayscale(1)}
+@media(max-width:650px){.hud-companion{width:50px}.hud-companion img{width:50px;height:50px}.hud-companions{gap:8px;bottom:calc(100% + 12px)}#partyOverviewToggle{left:12px;top:96px}#partyOverview{left:12px;right:12px;top:142px;max-height:38vh;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
+@media(prefers-reduced-motion:reduce){.combat-vital-bar .vital-debt,#viewBattle .enemy-target-reticle svg{animation:none}}

@@ -442,7 +442,7 @@ export function runEnemyAction(room,enemy,queue) {
   }
   const devour = () => {
     if(!ult || id!=='glutton' || target.hp<=0)return;
-    const amount=Math.min(B.devourCap,Math.floor((target.tempHp||0)*B.devourRatio));
+    const amount=Math.min(B.devourCap,Math.floor(Math.max(0,(target.tempHp||0)-(target.temporaryOverheal||0))*B.devourRatio));
     if(amount>0){record(room,enemy,target,'吞噬護盾','damage',()=>{target.tempHp-=amount;room.p8ConsumeShield(target,amount);});heal(room,enemy,enemy,amount,'暴食回復');}
   };
   const trueDamage=!!script?.basicTrueDamage&&!ult;
@@ -453,11 +453,13 @@ export function runEnemyAction(room,enemy,queue) {
   const targets=ult&&id==='abyss_sage'?players(room):focused?[target]:players(room);
   const assignments=new Map(targets.map(p=>[p.id,focused || id==='abyss_sage' ? raw||0 : Math.floor((raw||0)*B.scatterAoeRatio)]));
   let scatter=focused?0:Math.max(0,(raw||0)-Math.floor((raw||0)*B.scatterAoeRatio));
+  const interceptedOwners=new Set();
   const intercept=(damage)=>{
     if(lockedArena(room))return damage;
     for(const owner of Object.values(room.players))for(const minion of owner.minions||[]) {
       if(minion.hp<=0||damage<=0)continue;
       const amount=Math.min(minion.hp,damage);
+      if(amount>0)interceptedOwners.add(owner.id);
       record(room,enemy,minion,'召喚物攔截','intercept',()=>{minion.hp-=amount;},{ownerId:owner.id,minion:structuredClone(minion)});damage-=amount;
       if(minion.hp<=0)owner.minions=owner.minions.filter(m=>m.hp>0);
     }
@@ -481,8 +483,8 @@ export function runEnemyAction(room,enemy,queue) {
   }
   // Debuffs apply only after an actual nonzero hit, never after dodge or block.
   const hitIds=new Set((room.enemyMechanicQueue||[]).slice(eventStart).filter(step=>step.sourceId===enemy.instanceId&&step.actionId===label).flatMap(step=>step.results).filter(r=>r.kind==='damage'&&r.finalDamage>0&&room.players[r.targetId]).map(r=>r.targetId));
-  if(ult && id==='treasure_mimic' && hitIds.size){
-    const victim=room.players[hitIds.has(target.id)?target.id:hitIds.values().next().value];
+  if(ult && id==='treasure_mimic' && (hitIds.size||interceptedOwners.size)){
+    const victim=room.players[interceptedOwners.values().next().value || (hitIds.has(target.id)?target.id:hitIds.values().next().value)];
     let theft;
     const result=record(room,enemy,victim,'貪婪竊取','status',()=>{theft=room.stealMimicLoot(enemy,victim);return !!theft;});
     if(theft)result.theft=theft;
