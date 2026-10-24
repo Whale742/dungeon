@@ -1,5 +1,13 @@
 // Enemy events use only official battlefield nodes. The fixed overlay contains
 // painted choreography, captions and numbers, never a second health model.
+function animatePartyPortraitHit(target,animations,speed) {
+  const portrait=target?.querySelector('.teammate-avatar-wrap');
+  if(!portrait?.animate)return false;
+  animations.push(portrait.animate([{transform:'none'},{transform:'translateY(-8px) scale(1.08)',offset:.3},{transform:'none'}],{duration:360/speed}));
+  const hp=target.querySelector('.teammate-hp-bg');
+  if(hp?.animate)animations.push(hp.animate([{filter:'brightness(1)'},{filter:'brightness(2)',boxShadow:'0 0 10px #dccb91',offset:.3},{filter:'brightness(1)',boxShadow:'none'}],{duration:360/speed}));
+  return true;
+}
 const ENEMY_FX_PROFILES = Object.freeze({
   lava:['#fb923c','heavy','physical_hit',760], shadow:['#a78bfa','claw','claw_slash',520],
   arc:['#67e8f9','arc','magic_impact',620], blood:['#fb7185','drain','magic_impact',660],
@@ -211,7 +219,7 @@ async function playEnemyMechanicPresentation(step, context={}) {
         if(step.presentation&&Object.hasOwn(step.presentation,'arenaAfter'))syncEnemyArenaVisual(step.presentation.arenaAfter);
         const anchor=getEnemyAnchor(targetId);if(anchor)syncEnemyMechanicVisual(result.targetAfter,anchor.element);
         const target=getBattleEffectAnchor(targetId)?.element;
-        if(target?.animate&&!reduced&&(result.actualDamage>0||result.kind==='death')){
+        if(target?.animate&&!reduced&&(result.actualDamage>0||result.kind==='death')&&!(result.kind!=='death'&&animatePartyPortraitHit(target,animations,speed))){
           const image=target.querySelector('.enemy-sprite-img,.teammate-avatar-wrap')||target;
           const keys=result.kind==='death'?[{filter:'brightness(2)',opacity:1},{filter:'grayscale(1)',opacity:.25}]:custom&&step.presentation.mechanicId==='banshee'?[{transform:'translateX(-3px) skewX(2deg)',filter:'saturate(.2)'},{transform:'translateX(3px) skewX(-2deg)',offset:.3},{transform:'none',filter:'none'}]:['claw','shadow'].includes(step.presentation?.family)?[{transform:'translateX(-5px)'},{transform:'translateX(4px)'},{transform:'none'}]:[{filter:'brightness(1.5)'},{filter:'brightness(1)'}];
           animations.push(image.animate(keys,{duration:Math.min(480,duration*.5)/speed}));
@@ -268,7 +276,7 @@ async function playSixEnemyCastPresentation(step,context={}){
       entries.forEach((entry,lane)=>{const node=document.createElement('div');node.className='enemy-effect-value battle-feedback';node.dataset.kind=entry.type;node.textContent=entry.text;node.style.animationDuration=750/speed+'ms';root.appendChild(node);numbers.push({node,id,lane});});
       if(member.presentation&&Object.hasOwn(member.presentation,'arenaAfter'))syncEnemyArenaVisual(member.presentation.arenaAfter);
       const enemy=getEnemyAnchor(id);if(enemy)syncEnemyMechanicVisual(result.targetAfter,enemy.element);
-      if(target?.animate&&!reduced&&result.actualDamage>0){const sprite=target.querySelector('.enemy-sprite-img,.teammate-avatar-wrap')||target;animations.push(sprite.animate([{transform:'translateX(-3px)',filter:'brightness(1.5)'},{transform:'translateX(3px)',offset:.35},{transform:'none',filter:'none'}],{duration:260/speed}));}
+      if(target?.animate&&!reduced&&result.actualDamage>0&&!animatePartyPortraitHit(target,animations,speed)){const sprite=target.querySelector('.enemy-sprite-img,.teammate-avatar-wrap')||target;animations.push(sprite.animate([{transform:'translateX(-3px)',filter:'brightness(1.5)'},{transform:'translateX(3px)',offset:.35},{transform:'none',filter:'none'}],{duration:260/speed}));}
       if(result.outcome?.parry&&result.targetBefore?.role==='samurai'&&typeof sfxManager!=='undefined')sfxManager.play('samurai_parry',{signal,noHold:true});
       if(typeof playPhase5DruidSleep==='function')await playPhase5DruidSleep(result,context);
       if(result.sageMomentumCapture&&target&&typeof playSageMomentumCapture==='function')await playSageMomentumCapture(result,target,context);

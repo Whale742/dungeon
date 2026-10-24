@@ -10,7 +10,9 @@ import { CLASSES, ROUTES, ROLE_DETAILS } from './game/constants.js';
 import { loadEnv } from './studio/env.js';
 import { mountStudio } from './studio/router.js';
 import { refreshPublished,createRoomContent,contentCache } from './studio/content.js';
+import { leaderSkillCopy } from './studio/leader-copy.js';
 loadEnv();
+const displayClasses = Object.fromEntries(Object.entries(CLASSES).map(([role, value]) => [role, { ...value, leaderSkill: leaderSkillCopy(role) }]));
 const devAccess = new DevAccess();
 const devController = new DevController(devAccess);
 
@@ -48,7 +50,7 @@ app.use('/sound', express.static(path.join(__dirname, 'public', 'sound')));
 app.use('/buff icon', express.static(path.join(__dirname, 'buff icon')));
 app.use('/buff%20icon', express.static(path.join(__dirname, 'buff icon')));
 
-app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(CLASSES).map(([id,c])=>[id,{...c,skills:c.skills.map((skill,index)=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.[index]?.desc??skill.desc}))}]))));
+app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(displayClasses).map(([id,c])=>[id,{...c,skills:c.skills.map((skill,index)=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.[index]?.desc??skill.desc}))}]))));
 
 // 遊戲房間登錄表 (code -> Room)
 const rooms = new Map();
@@ -78,7 +80,7 @@ io.on('connection', (socket) => {
   console.log(`[連線] 玩家連接：${socket.id}`);
 
   // 發送職業與基礎資料給新客戶端
-  socket.emit('init:constants', { classes: CLASSES, routes: ROUTES, roleDetails: ROLE_DETAILS });
+  socket.emit('init:constants', { classes: displayClasses, routes: ROUTES, roleDetails: ROLE_DETAILS });
 
   socket.on('dev:authorize', (request, callback) => {
     const room = rooms.get(socketToRoom.get(socket.id));

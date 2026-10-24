@@ -1,4 +1,5 @@
 import {v2Copy,v2SkillCopy} from '../game/v2-content.js';
+import {leaderSkillCopy} from './leader-copy.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -60,6 +61,11 @@ export function buildCatalog() {
       const key = skillCopyKey(p,s); addSkill(role,s,key,key !== s.id ? key.slice(s.id.length + 2) : '');
     }
     addSkill(role,{id:'passive',label:'被動與特性',desc:ROLE_DETAILS[role]?.passive || c.passive || c.desc});
+    const leader = leaderSkillCopy(role);
+    if (leader) {
+      addSkill(role, leader);
+      skillMeta[role + ':' + leader.id].leader = true;
+    }
   }
   // Additional non-selectable action IDs are taken from real production fixtures.
   for(const scene of Object.values(fixture))for(const step of scene.steps||[])if(step.sourceRole&&CLASSES[step.sourceRole]&&step.actionId&&step.actionId!=='skip')addSkill(step.sourceRole,{id:step.actionId,label:step.skillName||step.actionId,desc:step.narrative||step.detail||''});
@@ -71,7 +77,7 @@ export function buildCatalog() {
   for (const [route, bosses] of Object.entries(ROUTE_BOSS_STORIES)) for (const [boss,text] of Object.entries(bosses)) addStory(storyKey('boss',route,boss),'boss',boss,text);
   for (const [boss, actions] of Object.entries(BATTLE_NARRATIVES.monsters)) for (const [action,text] of Object.entries(actions)) addStory(storyKey('battle','monster',boss,action),'battle',boss+' '+action,text);
   for (const [role,c] of Object.entries(CLASSES)) {
-    const ids = [...new Set([...skills.values()].filter(s=>s.role_id===role).map(s=>skillMeta[role+':'+s.skill_id].actionId))].filter(id=>id!=='passive');
+    const ids = [...new Set([...skills.values()].filter(s=>s.role_id===role).map(s=>skillMeta[role+':'+s.skill_id].actionId))].filter(id=>id!=='passive'&&!skillMeta[role+':'+id]?.leader);
     const variants = [{role,name:'{player}',equips:[]}];
     if(role==='druid') for(const druidForm of ['werewolf','treant','bear'])variants.push({role,name:'{player}',equips:[],druidForm});
     if(role==='archer')variants.push({role,name:'{player}',equips:[{id:'a_crossbow',name:'改良型重弩'}]});

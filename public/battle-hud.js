@@ -54,10 +54,11 @@ const BattleHud = (() => {
     }
   }
   function positionQueue() {
+    byId('hudActionQueue').style.setProperty('--queue-count',Math.max(1,entries.size));
     let index = 0;
     for (const node of entries.values()) {
       node.style.zIndex=String(1000-index);
-      node.style.transform = `translateX(${index++ * 36}px)`;
+      node.style.transform = `translateX(calc(${index++} * var(--queue-size) * .58))`;
     }
   }
   function finish(step,context={}) {

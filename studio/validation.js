@@ -1,4 +1,5 @@
 import { catalog, radarFields } from './catalog.js';
+import { leaderDescription } from './leader-copy.js';
 export const kinds = {role:{table:'role_profiles',key:'role_id',fields:['name_zh','name_en','short_intro','full_intro','position_label','tags','passive_short','passive_full',...radarFields]},skill:{table:'skill_copies',key:'skill_id',fields:['display_name','short_copy','full_copy']},story:{table:'story_copies',key:'story_key',fields:['category','title','body','paragraphs']},binding:{table:'asset_bindings',key:'binding_key',fields:['asset_key','fallback_path','preload_group','volume_override']}};
 export class ValidationError extends Error { constructor(message) { super(message); this.status=400; } }
 export function requireValid(condition,message) { if(!condition)throw new ValidationError(message); }
@@ -27,7 +28,7 @@ export function validateDraft(item) {
     if(f==='fallback_path'&&v)safePath(v,true);
     if(f==='asset_key'&&v)requireValid(/^[a-zA-Z0-9._-]{1,180}$/.test(v),'無效 asset_key');
     if(['body','title','short_copy','full_copy'].includes(f))for(const token of (v||'').matchAll(/\{([^{}]+)\}/g))requireValid(['player','floor','boss','route','rageMultiplier'].includes(token[1]),'未知模板佔位符 '+token[1]);
-    row[f]=v;
+    row[f]=item.kind==='skill'&&catalog.skillMeta[item.role_id+':'+item.key]?.leader&&['short_copy','full_copy'].includes(f)?leaderDescription(v):v;
   } return row;
 }
 export const uploadTypes={ 'image/png':['png'],'image/jpeg':['jpg','jpeg'],'image/webp':['webp'],'image/gif':['gif'],'audio/mpeg':['mp3'],'audio/wav':['wav'],'audio/x-wav':['wav'],'audio/ogg':['ogg'],'audio/mp4':['m4a'],'audio/flac':['flac'] };

@@ -39,7 +39,7 @@ test('HUD conceals actual Samurai counters until their turn after enemy attacks'
   const {room,player,events}=phase1Battle(t,'samurai');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
   player.action='basic';room.resolveTurnActions();const queue=resolutionQueue(events),counter=queue.find(s=>s.actionId==='sa_counter');
   assert.ok(counter);assert.ok(queue.slice(0,queue.indexOf(counter)).some(s=>['boss_action','enemy_mechanic'].includes(s.type)));
-  const host={children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}},scope={
+  const host={style:{setProperty(){}},children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}},scope={
     document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(key,value){this[key]=value;}})},
     isBattlefieldPlayerStep:s=>s.type==='player_action',roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
@@ -49,7 +49,7 @@ test('HUD conceals actual Samurai counters until their turn after enemy attacks'
   assert.ok(!host.children.some(n=>n['aria-label'].includes('狂刀反擊')));
   scope.hud.start(counter);
   const reaction=host.children.find(n=>n['aria-label'].includes('狂刀反擊'));
-  assert.ok(reaction);assert.equal(reaction.style.transform,'translateX(0px)');assert.equal(reaction.style.zIndex,'1000');
+  assert.ok(reaction);assert.equal(reaction.style.transform,'translateX(calc(0 * var(--queue-size) * .58))');assert.equal(reaction.style.zIndex,'1000');
   scope.hud.start(counter);assert.equal(host.children.filter(n=>n===reaction).length,1);
 });
 
@@ -71,7 +71,7 @@ test('Live Stargazer observation completes without a legacy cast title and commi
 test('HUD queue retirement respects reduced motion, playback speed and cancellation',async()=>{
   for(const reduced of [false,true]){
     const nodes=new Map(),motions=[];
-    const node=()=>({dataset:{},style:{},classList:{add(){},remove(){}},appendChild(){},replaceChildren(){},setAttribute(){},remove(){this.removed=true;},
+    const node=()=>({dataset:{},style:{setProperty(){}},classList:{add(){},remove(){}},appendChild(){},replaceChildren(){},setAttribute(){},remove(){this.removed=true;},
       animate(keys,options){let reject;const motion={keys,options,finished:new Promise((_,r)=>{reject=r;}),cancel(){this.cancelled=true;reject(new DOMException('cancelled','AbortError'));}};motions.push(motion);return motion;}});
     const scope={document:{addEventListener(){},querySelector(){return null;},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node},
       matchMedia:()=>({matches:reduced}),isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};

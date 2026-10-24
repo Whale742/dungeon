@@ -4043,6 +4043,20 @@ function openRoleDetailModal(roleKey) {
       `;
     }
 
+    const leaderSkill = getLeaderSkill(roleKey);
+    if (leaderSkill) {
+      html += `<div class="role-detail-section role-detail-leader">
+        <div class="role-detail-section-title"><span>隊長技</span></div>
+        <div class="role-detail-skill-item">
+          <div class="role-detail-skill-head">
+            <span class="role-detail-skill-title"><strong>隊長技【${escapeHtml(getSkillDisplayName(roleKey,leaderSkill))}】</strong></span>
+            <span class="role-detail-tag tag-buff">${leaderSkill.type==='ACTIVE'?'主動 · 每場戰鬥限一次':'被動'}</span>
+          </div>
+          <div class="role-detail-skill-desc">${escapeHtml(getSkillDescription(roleKey,leaderSkill))}</div>
+        </div>
+      </div>`;
+    }
+
     // 技能清單
     if (details.skills && details.skills.length > 0) {
       html += `

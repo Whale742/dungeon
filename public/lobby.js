@@ -55,11 +55,11 @@ function renderRadarChart(role) {
 function updateRoleDescriptionPanel() {
   const {classes,details}=lobbyRoleUi.data||{},role=lobbyRoleUi.role;
   if(!classes?.[role])return;
-  const detail=details?.[role],conf=classes[role],isPassive=lobbyRoleUi.tab==='passive',skill=isPassive?null:conf.skills[Number(lobbyRoleUi.tab)];
+  const detail=details?.[role],conf=classes[role],isPassive=lobbyRoleUi.tab==='passive',isLeader=lobbyRoleUi.tab==='leader',skill=isLeader?conf.leaderSkill:isPassive?null:conf.skills[Number(lobbyRoleUi.tab)];
   const detailed=document.getElementById('lobbyRoleDetailed').checked;
   document.querySelectorAll('[data-role-tab]').forEach(button=>{const active=button.dataset.roleTab===lobbyRoleUi.tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;button.classList.toggle('parchment-btn-crimson',active);});
-  document.getElementById('lobbySkillName').textContent=isPassive?'被動與特性':skill?.label||'普通攻擊';
-  document.getElementById('lobbySkillMeta').textContent=isPassive?'核心機制':[(skill?.dmgType==='mag'?'魔法':skill?.dmgType==='phys'?'物理':'輔助'),skill?.cd!=null?'CD '+skill.cd+' 回合':''].filter(Boolean).join(' · ');
+  document.getElementById('lobbySkillName').textContent=isPassive?'被動與特性':getSkillDisplayName(role,skill||{})||'普通攻擊';
+  document.getElementById('lobbySkillMeta').textContent=isLeader?'隊長技 · '+(skill?.type==='ACTIVE'?'主動 · 每場戰鬥限一次':'被動'):isPassive?'核心機制':[(skill?.dmgType==='mag'?'魔法':skill?.dmgType==='phys'?'物理':'輔助'),skill?.cd!=null?'CD '+skill.cd+' 回合':''].filter(Boolean).join(' · ');
   const copy=isPassive?(detailed?(detail?.passive||conf.passive||conf.desc):getLobbyProfile(role).passiveSummary):getSkillDescription(role,skill||{},detailed);
   document.getElementById('lobbySkillCopy').textContent=copy;
   document.getElementById('lobbyRoleDescription').classList.toggle('is-detailed',detailed);
@@ -121,7 +121,7 @@ function renderRoleLobby(data) {
     const tabs=Array.from(document.querySelectorAll('[data-role-tab]'));
     tabs.forEach((button,index)=>{
       button.addEventListener('click',()=>{lobbyRoleUi.tab=button.dataset.roleTab;updateRoleDescriptionPanel();});
-      button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?3:(index+(event.key==='ArrowRight'?1:3))%4;tabs[next].click();tabs[next].focus();});
+      button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length;tabs[next].click();tabs[next].focus();});
     });
   }
   renderRolePortraitStrip();renderRoleDetailPanel();
