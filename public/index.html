@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>地城深淵 (Dungeon Abyss) - 多人連線 RPG</title>
-  <link rel="icon" type="image/webp" href="/icon/icon.webp">
-  <link rel="apple-touch-icon" href="/icon/icon.webp">
+  <link rel="icon" type="image/webp" href="/assets/icons/ui/icon.webp">
+  <link rel="apple-touch-icon" href="/assets/icons/ui/icon.webp">
   <link rel="stylesheet" href="css/shared/design-tokens.css">
   <link rel="stylesheet" href="css/shared/base.css">
   <link rel="stylesheet" href="css/combat/battle-overlays.css">
@@ -232,7 +232,7 @@
     <!-- 頂部導航欄 (Azure Ruins Top Header) -->
     <header class="app-header top-header">
       <div class="logo brand">
-        <span class="icon brandmark"><img src="/icon/icon.webp" alt="Dungeon Abyss" class="logo-img"></span>
+        <span class="icon brandmark"><img src="/assets/icons/ui/icon.webp" alt="Dungeon Abyss" class="logo-img"></span>
         <div class="title-group">
           <h1 class="brand-name">地城深淵 <span class="en-sub">DUNGEON ABYSS</span></h1>
           <p class="subtitle brand-caption">AZURE RUINS · 深淵探索</p>
@@ -254,7 +254,7 @@
       </div>
       <div class="header-status header-actions">
         <button id="btnOpenInventory" class="btn-icon btn-hud-bag hidden" title="查看行囊與裝備鍛造" aria-label="行囊" aria-expanded="false">
-          <img id="hudBagIcon" class="hud-bag-icon" src="/assets/bag1.webp" alt="" width="20" height="24" /> <span>行囊</span>
+          <img id="hudBagIcon" class="hud-bag-icon" src="/assets/ui/inventory/bag1.webp" alt="" width="20" height="24" /> <span>行囊</span>
         </button>
         <button id="btnPauseGame" class="btn-icon hidden" title="暫停 / 恢復遊戲">
           <svg class="svg-icon"><use href="#icon-pause"></use></svg> <span>暫停</span>
@@ -527,7 +527,7 @@
             <div class="role-panel-main">
               <div class="role-overview">
                 <div class="role-identity">
-                  <div class="role-hero-portrait"><img id="lobbyRoleAvatar" src="/photo/Warrior.webp" alt="戰士"></div>
+                  <div class="role-hero-portrait"><img id="lobbyRoleAvatar" src="/assets/characters/portraits/Warrior.webp" alt="戰士"></div>
                   <div class="role-identity-copy"><span class="role-eyebrow">深淵遠征 / CLASS PROFILE</span><h2 id="lobbyRoleName">戰士</h2><div id="lobbyRoleEnglish" class="role-english">WARRIOR</div><div id="lobbyRoleTags" class="role-profile-tags"></div><div id="lobbyRoleHp" class="role-hp-meta"></div></div>
                 </div>
                 <figure class="role-radar"><svg id="lobbyRoleRadar" viewBox="0 0 280 240" role="img" aria-label="職業特性圖譜"></svg><figcaption>公會能力評判 • 極限五星評級</figcaption></figure>
@@ -640,7 +640,7 @@
       <section id="viewAbyssDialogue" class="view-panel abyss-view-panel">
         <div class="abyss-dialogue-card glass-panel">
           <div class="abyss-boss-portrait-wrap">
-            <img id="abyssBossAvatar" src="/photo/Warrior.webp" alt="深淵化身" class="abyss-boss-avatar">
+            <img id="abyssBossAvatar" src="/assets/characters/portraits/Warrior.webp" alt="深淵化身" class="abyss-boss-avatar">
             <div id="abyssRedEyeOverlay" class="abyss-red-eye-overlay hidden"></div>
           </div>
           <div class="abyss-dialogue-content">
@@ -1104,7 +1104,7 @@
 
     <!-- 右下角圓形聊天按鈕 -->
     <button id="floatingChatBtn" class="floating-chat-btn" title="開啟小隊聊天室">
-      <img src="/icon/chat.svg" alt="Chat" class="floating-chat-icon">
+      <img src="/assets/icons/ui/chat.svg" alt="Chat" class="floating-chat-icon">
       <span id="chatUnreadBadge" class="chat-unread-badge hidden">0</span>
     </button>
   </div>
@@ -1445,7 +1445,7 @@
   <!-- 主應用邏輯腳本 -->
   <!-- Presentation 核心與設定腳本 (Single Source of Truth) -->
   <script src="/js/studio/content-store.js"></script>
-  <script src="/js/studio/asset-registry.js"></script>
+  <script src="/js/shared/local-paths.cjs"></script><script src="/js/studio/asset-registry.js"></script>
   <script src="/js/studio/radar-renderer.js"></script>
   <script src="js/shared/skill-copy.js"></script>
   <script src="/js/studio/game-bridge.js"></script>

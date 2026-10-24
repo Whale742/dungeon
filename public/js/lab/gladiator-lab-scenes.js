@@ -7,7 +7,7 @@ const GLADIATOR_LAB_SCENES=(()=>{
   const result=(id,kind,before,after,value)=>({targetId:id,kind,targetBefore:gladiatorTarget(before,id),targetAfter:gladiatorTarget(after,id),
     hpSnapshot:after,...(kind==='damage'?{finalDamage:value,damageType:id===g.id?'true':'physical'}:{}),outcome:{type:'normal'}});
   const step=(action,name,before,after,results,extra={})=>({type:'player_action',category:'OFFENSIVE',sourceId:g.id,sourceRole:'gladiator',sourceName:g.name,
-    actionId:action,skillName:name,monsterName:monster.name,monsterAvatar:'/BOSS/Ancient Guardian Golem.webp',hpSnapshotBefore:before,hpSnapshot:after,results,
+    actionId:action,skillName:name,monsterName:monster.name,monsterAvatar:'/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp',hpSnapshotBefore:before,hpSnapshot:after,results,
     outcome:{type:'normal'},...extra});
   const base=snapshot(),basicAfter=snapshot({}, {hp:790});
   const basic=step('basic','普通攻擊',base,basicAfter,[result('monster','damage',base,basicAfter,10)]);

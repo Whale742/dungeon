@@ -35,9 +35,9 @@ function resultPortrait(result) {
     String(result.targetId || '').startsWith('enemy_') ||
     String(target.instanceId || '').startsWith('enemy_') ||
     target.entityType === 'monster' ||
-    Boolean(target.avatar && (target.avatar.startsWith('/BOSS/') || target.avatar.includes('BOSS')));
+    Boolean(target.avatar && (target.avatar.startsWith('/assets/enemies/') || target.avatar.startsWith('/BOSS/') || target.avatar.includes('BOSS')));
   if (isEnemy) {
-    const avatar = target.avatar || result.monsterAvatar || (typeof roomState !== 'undefined' && roomState?.currentMonster?.avatar) || '/BOSS/Ancient Guardian Golem.webp';
+    const avatar = target.avatar || result.monsterAvatar || (typeof roomState !== 'undefined' && roomState?.currentMonster?.avatar) || '/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp';
     const name = target.name || result.monsterName || (typeof roomState !== 'undefined' && roomState?.currentMonster?.name) || '魔物';
     return battlePortraitHtml({ ...target, entityType: 'monster', avatar, name }, 'presentation-support-image');
   }
@@ -345,7 +345,7 @@ async function playTransformPresentation(step, context) {
   });
 }
 const AMMO_NAMES = Object.freeze({ pierce: '穿甲箭', elemental: '元素箭', burst: '爆裂箭' });
-const AMMO_IMAGES = Object.freeze({ pierce: '/assets/archer-special-1.webp', elemental: '/assets/archer-special-2.webp', burst: '/assets/archer-special-3.webp' });
+const AMMO_IMAGES = Object.freeze({ pierce: '/assets/combat-fx/archer/archer-special-1.webp', elemental: '/assets/combat-fx/archer/archer-special-2.webp', burst: '/assets/combat-fx/archer/archer-special-3.webp' });
 function ammoArrowHtml(ammo) {
   return '<span class="presentation-ammo-arrow" data-ammo="' + escapeHtml(ammo) + '"><img src="' + escapeHtml(AMMO_IMAGES[ammo] || AMMO_IMAGES.pierce) + '" alt="' + escapeHtml(AMMO_NAMES[ammo] || '弩箭') + '"></span>';
 }

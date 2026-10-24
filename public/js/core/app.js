@@ -104,7 +104,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '戰士',
     enName: 'Warrior',
     emoji: '🛡️',
-    avatar: '/photo/Warrior.webp',
+    avatar: '/assets/characters/portraits/Warrior.webp',
     hp: 120,
     type: '物理 / 前排坦鋒',
     passive: '前排坦鋒，擁有全職業最高的基礎生命值（120 HP）與強大減傷防護。',
@@ -118,7 +118,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '法師',
     enName: 'Mage',
     emoji: '🧙‍♂️',
-    avatar: '/photo/Mage.webp',
+    avatar: '/assets/characters/portraits/Mage.webp',
     hp: 80,
     type: '魔法 / 遠程爆發',
     passive: '站樁高爆發與生命汲取，全技能與普攻皆為魔法傷害。',
@@ -132,7 +132,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '弓箭手',
     enName: 'Archer',
     emoji: '🏹',
-    avatar: '/photo/Archer.webp',
+    avatar: '/assets/characters/portraits/Archer.webp',
     hp: 80,
     type: '物理 / 遠程敏捷',
     passive: '常駐 40% 閃避率（可完全閃避單體物理打擊與怪物反擊）。',
@@ -146,7 +146,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '刺客',
     enName: 'Assassin',
     emoji: '🗡️',
-    avatar: '/photo/Assassin.webp',
+    avatar: '/assets/characters/portraits/Assassin.webp',
     hp: 50,
     type: '物理 / 近戰刺殺',
     passive: '常駐 60% 暴擊，輕甲承傷 +25%。每次有效暴擊獲得 1 層匿蹤（跨戰鬥保留）。初始獲得 1 層匿蹤；每 3 回合開始減 1 層（第 3 回合起），再判定隱身；隱身免傷，主動攻擊解除當回合隱身。隱身時其他玩家每次正式行動有 50% 機率追擊，基礎上限 2 次、追擊暴擊率 50%。100% 避開陷阱。',
@@ -178,7 +178,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '吟遊詩人',
     enName: 'Bard',
     emoji: '🪕',
-    avatar: '/photo/Bard.webp',
+    avatar: '/assets/characters/portraits/Bard.webp',
     hp: 70,
     type: '魔法 / 團隊核心輔助',
     passive: '團隊核心輔助，精通全體群療與增傷減傷，全技能皆為魔法傷害。',
@@ -192,7 +192,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '鍊金術士',
     enName: 'Alchemist',
     emoji: '🧪',
-    avatar: '/photo/Alchemist.webp',
+    avatar: '/assets/characters/portraits/Alchemist.webp',
     hp: 70,
     type: '魔法 / 調和煉成',
     passive: '【異常調和】\n・腐蝕：Boss 的血量上限與傷害減少 5%，玩家觸發時裝備效果減半（持續 1 回合）。\n・中毒：每回合開始時造成 8 點傷害，持續 2 回合（重複釋放可疊加）。\n・燃燒：每回合開始時造成 10 點傷害，持續 1 回合（重複釋放可疊加）。\n・骨折：每回合開始時造成 5 點傷害，持續 3 回合（重複釋放可疊加）。\n・寒冷：每回合開始時造成 6 點傷害，持續 2 回合（重複釋放可疊加）。',
@@ -206,26 +206,26 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '德魯伊',
     enName: 'Druid',
     emoji: '🌿',
-    avatar: '/photo/Druid.webp',
+    avatar: '/assets/characters/portraits/Druid.webp',
     hp: 85,
     type: '物理 / 自然變形',
     passive: '自然之子，擅長形態轉變（狼人/遠古樹精）與自然夥伴召喚（小樹精/幼狼）。',
     forms: {
-      werewolf: { name: '狼人', avatar: '/photo/狼人.webp' },
-      treant: { name: '遠古樹精', avatar: '/photo/遠古樹精.webp' },
-      tree: { name: '沉睡古樹', avatar: '/photo/遠古樹精.webp' },
-      bear: { name: '巨熊', avatar: '/photo/巨熊.webp' }
+      werewolf: { name: '狼人', avatar: '/assets/characters/forms/druid/狼人.webp' },
+      treant: { name: '遠古樹精', avatar: '/assets/characters/forms/druid/遠古樹精.webp' },
+      tree: { name: '沉睡古樹', avatar: '/assets/characters/forms/druid/遠古樹精.webp' },
+      bear: { name: '巨熊', avatar: '/assets/characters/forms/druid/巨熊.webp' }
     },
     summons: {
       treant: [
-        { name: '小樹精1', avatar: '/photo/小樹精1.webp' },
-        { name: '小樹精2', avatar: '/photo/小樹精2.webp' },
-        { name: '小樹精3', avatar: '/photo/小樹精3.webp' }
+        { name: '小樹精1', avatar: '/assets/characters/summons/druid/小樹精1.webp' },
+        { name: '小樹精2', avatar: '/assets/characters/summons/druid/小樹精2.webp' },
+        { name: '小樹精3', avatar: '/assets/characters/summons/druid/小樹精3.webp' }
       ],
       wolf: [
-        { name: '幼狼1', avatar: '/photo/幼狼1.webp' },
-        { name: '幼狼2', avatar: '/photo/幼狼2.webp' },
-        { name: '幼狼3', avatar: '/photo/幼狼3.webp' }
+        { name: '幼狼1', avatar: '/assets/characters/summons/druid/幼狼1.webp' },
+        { name: '幼狼2', avatar: '/assets/characters/summons/druid/幼狼2.webp' },
+        { name: '幼狼3', avatar: '/assets/characters/summons/druid/幼狼3.webp' }
       ]
     },
     skills: [
@@ -239,7 +239,7 @@ const DEFAULT_ROLE_DETAILS = {
   sage: {
   "roleName": "智者",
   "enName": "Sage",
-  "avatar": "/photo/智者.webp",
+  "avatar": "/assets/characters/portraits/智者.webp",
   "hp": 70,
   "type": "演算主 C / 長期成長 / 戰術爆發 / 低生存",
   "passive": "智者於冒險開始時擁有 30 點「變量 X」。\n變量 X 無硬上限，在整趟冒險中持續累積，跨戰鬥、樓層、休息站、冷卻刷新及死亡復活保留。\n戰鬥中，以兩回合為一個【演算週期】，依序進行「假設」與「求解」。\n每輪開始時，隨機獲得 1～30 的基礎擾動常數，作為初始「運算元」。\n\n【假設】階段\n透過技能建立與改變本輪運算元。\n\n【求解】階段\n上一回合使用的技能暫時無法再次使用，其他技能會依照各自的演算方式改變運算元。\n求解攻擊結束後，立即觸發獨立的【方程結算】，依據運算元與變量 X 造成物理傷害。\n方程不享受全隊傷害增益、通關永久攻擊成長或通用易傷。\n每次完成方程結算，使用衰減前 X 計算傷害；再將超過 X60 的部分衰減 20%，無條件進位，最後獲得固定與成功額外 X 成長。\n\n【方程結算公式】\n解 = round(| 運算元 × η(變量) |)\nη(變量) = 0.4 + (1.75 × 變量) / (變量 + 80)\n慣性計算尺與思緒紊亂倍率合併後四捨五入，再依物理穿透與 Boss 抗性結算。\n\n依照求解技能，以一次亂數觸發以下三種互斥結果之一：\n【推演成功】依技能效果額外增加變量 X（額外獎勵四捨五入）。\n【思緒紊亂】本次方程主傷害降低 20%，隨機誤傷一名其他存活隊友，造成 10 點真實傷害；無其他存活隊友時改為自傷，可致死。\n誤傷不受增傷、護甲、抗性影響，可被原有護盾吸收，不觸發「受到攻擊時」類被動，也不計入慣性取樣。\n紊亂基礎機率 5%；X 超過 60 後，每超過完整 10 點額外增加 1%，最高 25%。紊亂優先判定，透鏡只將無事發生機率轉為成功。\n【無事發生】沒有額外效果，仍保留本輪基本變量成長。\n紊亂亦保留固定 X 成長，不會同時獲得成功額外 X。\n\n【偶數・彈性碰撞】\n方程獲得 40% 物理穿透；將 Boss 因本次方程主傷害實際失去生命的 40%（無條件捨去）轉為全隊護盾總量，平均分攤給所有存活成員，包含智者，持續 2 回合。\n餘數依固定伺服器玩家順序分配；每人新護盾上限為智者最大生命的 20%（無條件捨去）。不含質數真傷、溢出傷害與技能本體傷害。\n方程護盾不疊加，保留原有剩餘與新護盾中較高者並刷新至 2 回合；多位智者共用此規則，其他來源護盾不受影響。\n\n【奇數・非彈性形變】\n方程傷害無視 100% 物理抗性，使 Boss 下一回合受到的全體傷害提高 10%；智者獨立方程不受此通用易傷增傷。\n\n【質數・固有頻率共振】\n額外造成獨立的 15 點真實傷害，立即刷新智者全部技能冷卻。\n\n【完全平方數・穩定駐波】\n使 Boss 下一回合造成的直接傷害降低 25%。\n運算元可以同時符合多種數學性質，所有符合條件的效果同時觸發。",
@@ -282,7 +282,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '聖騎士',
     enName: 'Paladin',
     emoji: '🛡️',
-    avatar: '/photo/Paladin.webp',
+    avatar: '/assets/characters/portraits/Paladin.webp',
     hp: 90,
     type: '物理 / 坦鋒 / 守護',
     passive: '嘲諷：受到傷害機率提高 30%。',
@@ -319,7 +319,7 @@ const DEFAULT_ROLE_DETAILS = {
     roleName: '陰陽師',
     enName: 'Onmyōji',
     emoji: '📜',
-    avatar: '/photo/Onmyōji.webp',
+    avatar: '/assets/characters/portraits/Onmyōji.webp',
     hp: 70,
     type: '魔法 / 咒術 / 削弱',
     passive: '【符道真解】：擲出的符咒依附於目標身上無回合限制（最多存在 10 張），每回合開始時有 70% 機率符咒掉落（每張獨立計算），沒掉落就再次觸發每一個效果；可藉由【急急如律令・百符引爆】一次性引爆所有符咒造成連鎖巨量傷害並清除符咒。',
@@ -974,11 +974,11 @@ function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   // 德魯伊變身形態優先顯示形態頭貼（狼人 / 遠古樹精）
   if (player.role === 'druid' && player.druidForm) {
     if (player.druidForm === 'werewolf') {
-      return `<img src="/photo/狼人.webp" class="${className} druid-transformed-avatar" alt="狼人">`;
+      return `<img src="/assets/characters/forms/druid/狼人.webp" class="${className} druid-transformed-avatar" alt="狼人">`;
     } else if (player.druidForm === 'treant' || player.druidForm === 'tree') {
-      return `<img src="/photo/遠古樹精.webp" class="${className} druid-transformed-avatar" alt="遠古樹精">`;
+      return `<img src="/assets/characters/forms/druid/遠古樹精.webp" class="${className} druid-transformed-avatar" alt="遠古樹精">`;
     } else if (player.druidForm === 'bear') {
-      return `<img src="/photo/巨熊.webp" class="${className} druid-transformed-avatar" alt="巨熊">`;
+      return `<img src="/assets/characters/forms/druid/巨熊.webp" class="${className} druid-transformed-avatar" alt="巨熊">`;
     }
   }
 
@@ -1017,11 +1017,11 @@ function getClassPortraitHtml(roleOrPlayer, className = 'combat-banner-portrait'
   }
   if (roleKey === 'druid' && druidForm) {
     if (druidForm === 'werewolf') {
-      return `<img src="/photo/狼人.webp" class="${className}" alt="狼人">`;
+      return `<img src="/assets/characters/forms/druid/狼人.webp" class="${className}" alt="狼人">`;
     } else if (druidForm === 'treant' || druidForm === 'tree') {
-      return `<img src="/photo/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
+      return `<img src="/assets/characters/forms/druid/遠古樹精.webp" class="${className}" alt="遠古樹精">`;
     } else if (druidForm === 'bear') {
-      return `<img src="/photo/巨熊.webp" class="${className}" alt="巨熊">`;
+      return `<img src="/assets/characters/forms/druid/巨熊.webp" class="${className}" alt="巨熊">`;
     }
   }
   const roleInfo = roleKey ? classesData[roleKey] : null;
@@ -1974,40 +1974,40 @@ async function preloadPartyClassAssets(state) {
 
     // 3. Image URLs per class
     const urlsToPreload = new Set([
-      '/assets/armor.png',
-      '/assets/book.png',
-      '/assets/ring.png',
-      '/assets/sword.png',
-      '/assets/hex-arrow-curved.png'
+      '/assets/ui/inventory/slots/armor.png',
+      '/assets/ui/inventory/slots/book.png',
+      '/assets/ui/inventory/slots/ring.png',
+      '/assets/ui/inventory/slots/sword.png',
+      '/assets/ui/exploration/hex-arrow-curved.png'
     ]);
 
     const ROLE_ASSET_MAP = {
-      warrior: ['/photo/Warrior.webp'],
-      mage: ['/photo/Mage.webp'],
-      archer: ['/photo/Archer.webp', '/assets/archer-special-1.webp', '/assets/archer-special-2.webp', '/assets/archer-special-3.webp'],
-      assassin: ['/photo/Assassin.webp'],
-      bard: ['/photo/Bard.webp'],
-      alchemist: ['/photo/Alchemist.webp'],
+      warrior: ['/assets/characters/portraits/Warrior.webp'],
+      mage: ['/assets/characters/portraits/Mage.webp'],
+      archer: ['/assets/characters/portraits/Archer.webp', '/assets/combat-fx/archer/archer-special-1.webp', '/assets/combat-fx/archer/archer-special-2.webp', '/assets/combat-fx/archer/archer-special-3.webp'],
+      assassin: ['/assets/characters/portraits/Assassin.webp'],
+      bard: ['/assets/characters/portraits/Bard.webp'],
+      alchemist: ['/assets/characters/portraits/Alchemist.webp'],
       druid: [
-        '/photo/Druid.webp',
-        '/photo/狼人.webp',
-        '/photo/遠古樹精.webp',
-        '/photo/巨熊.webp',
-        '/photo/小樹精1.webp',
-        '/photo/小樹精2.webp',
-        '/photo/小樹精3.webp',
-        '/photo/幼狼1.webp',
-        '/photo/幼狼2.webp',
-        '/photo/幼狼3.webp'
+        '/assets/characters/portraits/Druid.webp',
+        '/assets/characters/forms/druid/狼人.webp',
+        '/assets/characters/forms/druid/遠古樹精.webp',
+        '/assets/characters/forms/druid/巨熊.webp',
+        '/assets/characters/summons/druid/小樹精1.webp',
+        '/assets/characters/summons/druid/小樹精2.webp',
+        '/assets/characters/summons/druid/小樹精3.webp',
+        '/assets/characters/summons/druid/幼狼1.webp',
+        '/assets/characters/summons/druid/幼狼2.webp',
+        '/assets/characters/summons/druid/幼狼3.webp'
       ],
-      paladin: ['/photo/Paladin.webp'],
-      onmyoji: ['/photo/Onmyōji.webp', '/photo/Onmyoji.webp', '/assets/Onmyoji-1.png', '/assets/Onmyoji-2.png'],
-      samurai: ['/photo/武士.webp', '/assets/samurai-eye.png', '/assets/samurai-skill1.png', '/assets/samurai-skill2.png'],
-      sage: ['/photo/智者.webp', '/assets/sage-error.png', '/assets/sage-snap-1.png', '/assets/sage-snap-2.png'],
-      augur: ['/photo/Augur.webp', '/assets/augur1.png', '/assets/augur2.png'],
-      dreamweaver: ['/photo/Dreamweaver.webp'],
-      gladiator: ['/photo/Gladiator.webp'],
-      stargazer: ['/photo/Stargazer.webp']
+      paladin: ['/assets/characters/portraits/Paladin.webp'],
+      onmyoji: ['/assets/characters/portraits/Onmyōji.webp', '/assets/characters/portraits/Onmyoji.webp', '/assets/combat-fx/onmyoji/Onmyoji-1.png', '/assets/combat-fx/onmyoji/Onmyoji-2.png'],
+      samurai: ['/assets/characters/portraits/武士.webp', '/assets/combat-fx/samurai/samurai-eye.png', '/assets/combat-fx/samurai/samurai-skill1.png', '/assets/combat-fx/samurai/samurai-skill2.png'],
+      sage: ['/assets/characters/portraits/智者.webp', '/assets/combat-fx/sage/sage-error.png', '/assets/combat-fx/sage/sage-snap-1.png', '/assets/combat-fx/sage/sage-snap-2.png'],
+      augur: ['/assets/characters/portraits/Augur.webp', '/assets/combat-fx/augur/augur1.png', '/assets/combat-fx/augur/augur2.png'],
+      dreamweaver: ['/assets/characters/portraits/Dreamweaver.webp'],
+      gladiator: ['/assets/characters/portraits/Gladiator.webp'],
+      stargazer: ['/assets/characters/portraits/Stargazer.webp']
     };
 
     for (const p of players) {
@@ -2816,10 +2816,10 @@ function renderBattle(me, isLeader) {
     if (monster.talismans && monster.talismans.length > 0) {
       const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
       const details = monster.talismans.map(t => TALISMAN_NAMES[t] || t).join('、');
-      buffHtml += `<span class="buff-badge tag-talismans" style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fbbf24;"><img src="/buff icon/符咒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 符咒 (${monster.talismans.length} 張: ${details})</span>`;
+      buffHtml += `<span class="buff-badge tag-talismans" style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fbbf24;"><img src="/assets/icons/status/符咒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 符咒 (${monster.talismans.length} 張: ${details})</span>`;
     }
     if (monster.flawMarks > 0) {
-      buffHtml += `<span class="buff-badge tag-flaw" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5;"><img src="/buff icon/破綻印記.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 破綻印記 (${monster.flawMarks}/5 層 · 受傷+${monster.flawMarks * 10}% / 敵命中-${monster.flawMarks * 10}%)</span>`;
+      buffHtml += `<span class="buff-badge tag-flaw" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5;"><img src="/assets/icons/status/破綻印記.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 破綻印記 (${monster.flawMarks}/5 層 · 受傷+${monster.flawMarks * 10}% / 敵命中-${monster.flawMarks * 10}%)</span>`;
     }
     if (roomState?.arrowTrapTurns > 0 || roomState?.arrowTrap?.turns > 0) {
       const trapTurns = roomState?.arrowTrapTurns || roomState?.arrowTrap?.turns || 1;
@@ -2873,56 +2873,56 @@ function renderBattle(me, isLeader) {
 
 // Buff / Debuff 圖示對應表 (使用 /buff icon 資料夾中的 webp 圖示)
 const BUFF_ICON_MAP = {
-  poison: '/buff icon/中毒.webp',
-  alc_poison: '/buff icon/中毒.webp',
-  burn: '/buff icon/燃燒.webp',
-  fire: '/buff icon/燃燒.webp',
-  bleed: '/buff icon/流血.webp',
-  fracture: '/buff icon/骨折.webp',
-  chill: '/buff icon/寒冷.webp',
-  freeze: '/buff icon/寒冷.webp',
-  corrosion: '/buff icon/腐蝕.webp',
-  alc_acid: '/buff icon/腐蝕.webp',
-  alchemy_corrosion: '/buff icon/腐蝕.webp',
-  corruption: '/buff icon/腐蝕.webp',
-  shield: '/buff icon/護盾.webp',
-  temp_hp: '/buff icon/護盾.webp',
-  sage_shield: '/buff icon/護盾.webp',
-  barrier: '/buff icon/護盾.webp',
-  guard: '/buff icon/減傷.webp',
-  treant_guard: '/buff icon/減傷.webp',
-  crouch: '/buff icon/減傷.webp',
-  vulnerable: '/buff icon/易傷.webp',
-  alchemy_vulnerable: '/buff icon/易傷.webp',
-  dodge: '/buff icon/閃避加成.webp',
-  dodge_bonus: '/buff icon/閃避加成.webp',
-  stealth: '/buff icon/隱身.webp',
-  stealth_stack: '/buff icon/隱身.webp',
-  hidden: '/buff icon/隱身.webp',
-  follow_up: '/buff icon/隱身.webp',
-  sleep: '/buff icon/休眠.webp',
-  exhausted: '/buff icon/休眠.webp',
-  downed: '/buff icon/休眠.webp',
-  frenzy: '/buff icon/狂熱.webp',
-  frenzy_buff: '/buff icon/狂熱.webp',
-  b_frenzy: '/buff icon/狂熱.webp',
-  galaxy: '/buff icon/星系追擊.webp',
-  astronomy: '/buff icon/星系追擊.webp',
-  boundary: '/buff icon/邊界鎖血.webp',
-  crit_lock: '/buff icon/邊界鎖血.webp',
-  surrender: '/buff icon/邊界鎖血.webp',
-  lock: '/buff icon/邊界鎖血.webp',
-  fate_blessing: '/buff icon/命運加護.webp',
-  fate_binding: '/buff icon/命運加護.webp',
-  blessing: '/buff icon/命運加護.webp',
-  fate_debt: '/buff icon/命債.webp',
-  sage_debt: '/buff icon/命債.webp',
-  talisman: '/buff icon/符咒.webp',
-  talismans: '/buff icon/符咒.webp',
-  equation: '/buff icon/方程特性.webp',
-  sage_equation: '/buff icon/方程特性.webp',
-  flaw_mark: '/buff icon/破綻印記.webp',
-  flaw: '/buff icon/破綻印記.webp'
+  poison: '/assets/icons/status/中毒.webp',
+  alc_poison: '/assets/icons/status/中毒.webp',
+  burn: '/assets/icons/status/燃燒.webp',
+  fire: '/assets/icons/status/燃燒.webp',
+  bleed: '/assets/icons/status/流血.webp',
+  fracture: '/assets/icons/status/骨折.webp',
+  chill: '/assets/icons/status/寒冷.webp',
+  freeze: '/assets/icons/status/寒冷.webp',
+  corrosion: '/assets/icons/status/腐蝕.webp',
+  alc_acid: '/assets/icons/status/腐蝕.webp',
+  alchemy_corrosion: '/assets/icons/status/腐蝕.webp',
+  corruption: '/assets/icons/status/腐蝕.webp',
+  shield: '/assets/icons/status/護盾.webp',
+  temp_hp: '/assets/icons/status/護盾.webp',
+  sage_shield: '/assets/icons/status/護盾.webp',
+  barrier: '/assets/icons/status/護盾.webp',
+  guard: '/assets/icons/status/減傷.webp',
+  treant_guard: '/assets/icons/status/減傷.webp',
+  crouch: '/assets/icons/status/減傷.webp',
+  vulnerable: '/assets/icons/status/易傷.webp',
+  alchemy_vulnerable: '/assets/icons/status/易傷.webp',
+  dodge: '/assets/icons/status/閃避加成.webp',
+  dodge_bonus: '/assets/icons/status/閃避加成.webp',
+  stealth: '/assets/icons/status/隱身.webp',
+  stealth_stack: '/assets/icons/status/隱身.webp',
+  hidden: '/assets/icons/status/隱身.webp',
+  follow_up: '/assets/icons/status/隱身.webp',
+  sleep: '/assets/icons/status/休眠.webp',
+  exhausted: '/assets/icons/status/休眠.webp',
+  downed: '/assets/icons/status/休眠.webp',
+  frenzy: '/assets/icons/status/狂熱.webp',
+  frenzy_buff: '/assets/icons/status/狂熱.webp',
+  b_frenzy: '/assets/icons/status/狂熱.webp',
+  galaxy: '/assets/icons/status/星系追擊.webp',
+  astronomy: '/assets/icons/status/星系追擊.webp',
+  boundary: '/assets/icons/status/邊界鎖血.webp',
+  crit_lock: '/assets/icons/status/邊界鎖血.webp',
+  surrender: '/assets/icons/status/邊界鎖血.webp',
+  lock: '/assets/icons/status/邊界鎖血.webp',
+  fate_blessing: '/assets/icons/status/命運加護.webp',
+  fate_binding: '/assets/icons/status/命運加護.webp',
+  blessing: '/assets/icons/status/命運加護.webp',
+  fate_debt: '/assets/icons/status/命債.webp',
+  sage_debt: '/assets/icons/status/命債.webp',
+  talisman: '/assets/icons/status/符咒.webp',
+  talismans: '/assets/icons/status/符咒.webp',
+  equation: '/assets/icons/status/方程特性.webp',
+  sage_equation: '/assets/icons/status/方程特性.webp',
+  flaw_mark: '/assets/icons/status/破綻印記.webp',
+  flaw: '/assets/icons/status/破綻印記.webp'
 };
 
 function getBuffIconUrl(status) {
@@ -2934,28 +2934,28 @@ function getBuffIconUrl(status) {
   if (BUFF_ICON_MAP[id]) return BUFF_ICON_MAP[id];
   if (BUFF_ICON_MAP[icon]) return BUFF_ICON_MAP[icon];
 
-  if (label.includes('中毒')) return '/buff icon/中毒.webp';
-  if (label.includes('燃燒')) return '/buff icon/燃燒.webp';
-  if (label.includes('流血')) return '/buff icon/流血.webp';
-  if (label.includes('骨折')) return '/buff icon/骨折.webp';
-  if (label.includes('寒冷') || label.includes('冰')) return '/buff icon/寒冷.webp';
-  if (label.includes('腐蝕') || label.includes('強酸') || label.includes('腐化')) return '/buff icon/腐蝕.webp';
-  if (label.includes('護盾') || label.includes('TEMP HP') || label.includes('壁壘')) return '/buff icon/護盾.webp';
-  if (label.includes('減傷') || label.includes('堅守') || label.includes('GUARD') || label.includes('DR ')) return '/buff icon/減傷.webp';
-  if (label.includes('易傷') || label.includes('VULNERABLE')) return '/buff icon/易傷.webp';
-  if (label.includes('閃避') || label.includes('DODGE')) return '/buff icon/閃避加成.webp';
-  if (label.includes('隱身') || label.includes('匿蹤') || label.includes('追擊')) return '/buff icon/隱身.webp';
-  if (label.includes('休眠') || label.includes('沉睡') || label.includes('虛弱') || label.includes('倒下')) return '/buff icon/休眠.webp';
-  if (label.includes('狂熱') || label.includes('DMG +')) return '/buff icon/狂熱.webp';
-  if (label.includes('星系')) return '/buff icon/星系追擊.webp';
-  if (label.includes('鎖血') || label.includes('臣服') || label.includes('LOCK')) return '/buff icon/邊界鎖血.webp';
-  if (label.includes('命運加護') || label.includes('命運繫結')) return '/buff icon/命運加護.webp';
-  if (label.includes('命債') || label.includes('透支')) return '/buff icon/命債.webp';
-  if (label.includes('符')) return '/buff icon/符咒.webp';
-  if (label.includes('方程') || label.includes('假設') || label.includes('求解')) return '/buff icon/方程特性.webp';
-  if (label.includes('破綻') || label.includes('印記')) return '/buff icon/破綻印記.webp';
+  if (label.includes('中毒')) return '/assets/icons/status/中毒.webp';
+  if (label.includes('燃燒')) return '/assets/icons/status/燃燒.webp';
+  if (label.includes('流血')) return '/assets/icons/status/流血.webp';
+  if (label.includes('骨折')) return '/assets/icons/status/骨折.webp';
+  if (label.includes('寒冷') || label.includes('冰')) return '/assets/icons/status/寒冷.webp';
+  if (label.includes('腐蝕') || label.includes('強酸') || label.includes('腐化')) return '/assets/icons/status/腐蝕.webp';
+  if (label.includes('護盾') || label.includes('TEMP HP') || label.includes('壁壘')) return '/assets/icons/status/護盾.webp';
+  if (label.includes('減傷') || label.includes('堅守') || label.includes('GUARD') || label.includes('DR ')) return '/assets/icons/status/減傷.webp';
+  if (label.includes('易傷') || label.includes('VULNERABLE')) return '/assets/icons/status/易傷.webp';
+  if (label.includes('閃避') || label.includes('DODGE')) return '/assets/icons/status/閃避加成.webp';
+  if (label.includes('隱身') || label.includes('匿蹤') || label.includes('追擊')) return '/assets/icons/status/隱身.webp';
+  if (label.includes('休眠') || label.includes('沉睡') || label.includes('虛弱') || label.includes('倒下')) return '/assets/icons/status/休眠.webp';
+  if (label.includes('狂熱') || label.includes('DMG +')) return '/assets/icons/status/狂熱.webp';
+  if (label.includes('星系')) return '/assets/icons/status/星系追擊.webp';
+  if (label.includes('鎖血') || label.includes('臣服') || label.includes('LOCK')) return '/assets/icons/status/邊界鎖血.webp';
+  if (label.includes('命運加護') || label.includes('命運繫結')) return '/assets/icons/status/命運加護.webp';
+  if (label.includes('命債') || label.includes('透支')) return '/assets/icons/status/命債.webp';
+  if (label.includes('符')) return '/assets/icons/status/符咒.webp';
+  if (label.includes('方程') || label.includes('假設') || label.includes('求解')) return '/assets/icons/status/方程特性.webp';
+  if (label.includes('破綻') || label.includes('印記')) return '/assets/icons/status/破綻印記.webp';
 
-  return '/buff icon/方程特性.webp';
+  return '/assets/icons/status/方程特性.webp';
 }
 
 // 判斷是否為職業特殊機制/疊層（已於第3行特殊疊層呈現，不在第4行 buff 欄重複顯示）
@@ -3181,7 +3181,7 @@ function renderTeammatesGrid(me) {
       const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
 
       const minionPortraitsHtml = p.minions.map((m, idx) => {
-        const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+        const imgSrc = m.avatar || (m.type === 'wolf' ? `/assets/characters/summons/druid/幼狼${m.minionIndex || (idx + 1)}.webp` : `/assets/characters/summons/druid/小樹精${m.minionIndex || (idx + 1)}.webp`);
         return `<img src="${imgSrc}" class="minion-bar-thumb" data-minion-id="${escapeHtml(m.id)}" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
       }).join('');
 
@@ -3942,7 +3942,7 @@ function showMinionDetailModal(player) {
       const mHpPct = Math.max(0, Math.min(100, Math.round((m.hp / m.maxHp) * 100)));
       const isWolf = m.type === 'wolf';
       const typeBadge = isWolf ? '<span class="minion-detail-badge wolf">幼狼</span>' : '<span class="minion-detail-badge">小樹精</span>';
-      const minionAvatar = m.avatar || (isWolf ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+      const minionAvatar = m.avatar || (isWolf ? `/assets/characters/summons/druid/幼狼${m.minionIndex || (idx + 1)}.webp` : `/assets/characters/summons/druid/小樹精${m.minionIndex || (idx + 1)}.webp`);
       const desc = isWolf 
         ? '<strong>每回合自動攻擊 10 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。' 
         : '<strong>每回合自動攻擊 1 點傷害</strong>，並優先替全體隊友吸收怪物的彈射傷害。';
@@ -4094,27 +4094,27 @@ function openRoleDetailModal(roleKey) {
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 8px;">
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/狼人.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="狼人形態">
+              <img src="/assets/characters/forms/druid/狼人.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="狼人形態">
               <div style="font-weight: 700; font-size: 13px; color: #f87171;">狼人形態</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">降低20%生命上限，普攻35傷</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/遠古樹精.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="遠古樹精形態">
+              <img src="/assets/characters/forms/druid/遠古樹精.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="遠古樹精形態">
               <div style="font-weight: 700; font-size: 13px; color: #86efac;">遠古樹精形態</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">護盾85%，減傷30%，分攤50%</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/巨熊.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="巨熊形態">
+              <img src="/assets/characters/forms/druid/巨熊.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="巨熊形態">
               <div style="font-weight: 700; font-size: 13px; color: #facc15;">巨熊形態 (野獸招喚)</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">血量+200%D，普攻10+100%A</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：小樹精">
+              <img src="/assets/characters/summons/druid/小樹精1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：小樹精">
               <div style="font-weight: 700; font-size: 13px; color: #4ade80;">夥伴：小樹精</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">肉盾守護，替隊伍吸收彈射傷</div>
             </div>
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(249, 115, 22, 0.4); border-radius: 6px; padding: 10px 8px; text-align: center;">
-              <img src="/photo/幼狼1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：幼狼">
+              <img src="/assets/characters/summons/druid/幼狼1.webp" style="width: 54px; height: 54px; object-fit: contain; border-radius: 4px; margin: 0 auto 6px; display: block;" alt="夥伴：幼狼">
               <div style="font-weight: 700; font-size: 13px; color: #fb923c;">夥伴：幼狼</div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">敏捷撕咬，高攻擊夥伴</div>
             </div>
@@ -4129,7 +4129,7 @@ function openRoleDetailModal(roleKey) {
         const override = window.StudioContent?.rows('story_copies').find(s=>s.category==='equipment'&&s.story_key.startsWith('equip.'+roleKey+'.')&&(s.title===e.name||s.story_key.endsWith('.'+e.id)));
         const name = override?.title || e.name;
         const desc = override?.body || e.desc;
-        const iconSrc = e.icon || (!noImgNames.has(e.name) ? `/assets/專屬裝備/${e.name}.webp` : '');
+        const iconSrc = e.icon || (!noImgNames.has(e.name) ? `/assets/equipment/exclusive/${e.name}.webp` : '');
         const iconHtml = iconSrc ? `<img src="${iconSrc}" alt="${escapeHtml(name)}" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:4px;" onerror="this.style.display='none';">` : '';
         return '<p style="display:flex;align-items:flex-start;gap:4px;">'+iconHtml+'<span><strong>'+escapeHtml(name)+'</strong>：'+escapeHtml(desc)+'</span></p>';
       }).join('')+'</details>';
@@ -5279,7 +5279,7 @@ function playSinglePlayerVisualEvent(ev) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身狼人!', 'buff');
       playPixelFx(card, 'wolf-claw');
       const avatarImg = card.querySelector('.teammate-avatar-img');
-      if (avatarImg) avatarImg.src = '/photo/狼人.webp';
+      if (avatarImg) avatarImg.src = '/assets/characters/forms/druid/狼人.webp';
     }
     playSound('wolf_howl');
   } else if (ev.type === 'transform_treant') {
@@ -5288,7 +5288,7 @@ function playSinglePlayerVisualEvent(ev) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身樹精!', 'heal');
       playPixelFx(card, 'treant-vine');
       const avatarImg = card.querySelector('.teammate-avatar-img');
-      if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
+      if (avatarImg) avatarImg.src = '/assets/characters/forms/druid/遠古樹精.webp';
     }
     playSound('treant_creak');
   } else if (ev.type === 'transform_bear') {
@@ -5297,7 +5297,7 @@ function playSinglePlayerVisualEvent(ev) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '變身巨熊!', 'buff');
       playPixelFx(card, 'wolf-claw');
       const avatarImg = card.querySelector('.teammate-avatar-img');
-      if (avatarImg) avatarImg.src = '/photo/巨熊.webp';
+      if (avatarImg) avatarImg.src = '/assets/characters/forms/druid/巨熊.webp';
     }
     playSound('wolf_howl');
   } else if (ev.type === 'transform_tree') {
@@ -5305,7 +5305,7 @@ function playSinglePlayerVisualEvent(ev) {
     if (card) {
       spawnFloatingText(card.querySelector('.floating-text-container'), '化身古樹(免死)!', 'heal');
       const avatarImg = card.querySelector('.teammate-avatar-img');
-      if (avatarImg) avatarImg.src = '/photo/遠古樹精.webp';
+      if (avatarImg) avatarImg.src = '/assets/characters/forms/druid/遠古樹精.webp';
     }
     playSound('heal_chime');
   } else if (ev.type === 'transform_end') {
@@ -5315,7 +5315,7 @@ function playSinglePlayerVisualEvent(ev) {
       const avatarImg = card.querySelector('.teammate-avatar-img');
       if (avatarImg) {
         const p = (roomState && roomState.players && roomState.players.find(x => x.id === ev.sourceId));
-        const originalAvatar = (p && p.customAvatar) || (p && p.avatar) || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+        const originalAvatar = (p && p.customAvatar) || (p && p.avatar) || (classesData['druid']?.avatar) || '/assets/characters/portraits/Druid.webp';
         avatarImg.src = originalAvatar;
         avatarImg.alt = (p && p.name) || '德魯伊';
         avatarImg.classList.remove('druid-transformed-avatar');
@@ -5610,7 +5610,7 @@ function updateBattleHudFromSnapshot(snapshot) {
           if (avatarEl) {
             const isEmoji = p.customAvatar && !p.customAvatar.startsWith('data:image/') && !p.customAvatar.startsWith('http') && !p.customAvatar.startsWith('/');
             if (p.druidForm === 'werewolf' || p.druidForm === 'treant' || p.druidForm === 'tree' || p.druidForm === 'bear') {
-              const formSrc = p.druidForm === 'werewolf' ? '/photo/狼人.webp' : (p.druidForm === 'bear' ? '/photo/巨熊.webp' : '/photo/遠古樹精.webp');
+              const formSrc = p.druidForm === 'werewolf' ? '/assets/characters/forms/druid/狼人.webp' : (p.druidForm === 'bear' ? '/assets/characters/forms/druid/巨熊.webp' : '/assets/characters/forms/druid/遠古樹精.webp');
               const formAlt = p.druidForm === 'werewolf' ? '狼人' : (p.druidForm === 'bear' ? '巨熊' : '遠古樹精');
               if (avatarEl.tagName === 'IMG') {
                 if (!avatarEl.src || !avatarEl.src.endsWith(formSrc)) avatarEl.src = formSrc;
@@ -5629,7 +5629,7 @@ function updateBattleHudFromSnapshot(snapshot) {
                   if (temp.firstElementChild) avatarEl.replaceWith(temp.firstElementChild);
                 }
               } else if (avatarEl.tagName === 'IMG') {
-                const origSrc = p.customAvatar || p.avatar || (classesData['druid']?.avatar) || '/photo/Druid.webp';
+                const origSrc = p.customAvatar || p.avatar || (classesData['druid']?.avatar) || '/assets/characters/portraits/Druid.webp';
                 if (!avatarEl.src || !avatarEl.src.endsWith(origSrc)) avatarEl.src = origSrc;
                 avatarEl.alt = p.name || '德魯伊';
                 avatarEl.classList.remove('druid-transformed-avatar');
@@ -5658,7 +5658,7 @@ function updateBattleHudFromSnapshot(snapshot) {
         const iconWrap = minionCard.querySelector('.minion-icon-wrap');
         if (iconWrap && druid.minions.length > 0) {
           iconWrap.innerHTML = druid.minions.map((m, idx) => {
-            const imgSrc = m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || (idx + 1)}.webp` : `/photo/小樹精${m.minionIndex || (idx + 1)}.webp`);
+            const imgSrc = m.avatar || (m.type === 'wolf' ? `/assets/characters/summons/druid/幼狼${m.minionIndex || (idx + 1)}.webp` : `/assets/characters/summons/druid/小樹精${m.minionIndex || (idx + 1)}.webp`);
             return `<img src="${imgSrc}" class="minion-bar-thumb" data-minion-id="${escapeHtml(m.id)}" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
           }).join('');
         }
@@ -6023,7 +6023,7 @@ function getMyPlayer() {
 function updateEntryAvatarPreview() {
   let savedAvatar = localStorage.getItem('dungeon_custom_avatar');
   // Older choices stored local paths, including two nonexistent English filenames.
-  const canonicalPath = savedAvatar === '/photo/Sage.webp' ? '/photo/智者.webp' : savedAvatar === '/photo/Samurai.webp' ? '/photo/武士.webp' : savedAvatar;
+  const canonicalPath = savedAvatar === '/photo/Sage.webp' ? '/assets/characters/portraits/智者.webp' : savedAvatar === '/photo/Samurai.webp' ? '/assets/characters/portraits/武士.webp' : (window.LocalPaths?.canonical(savedAvatar) || savedAvatar);
   const hero = HERO_CLASS_PORTRAITS.find(h => h.photo === canonicalPath);
   if (hero) {
     savedAvatar = window.assetRegistry?.resolve('role.'+hero.key+'.avatar',hero.photo)||hero.photo;
@@ -6103,20 +6103,20 @@ function updateHeroRoleOptionUI() {
 }
 
 const HERO_CLASS_PORTRAITS = [
-  { key: 'warrior', name: '戰士', photo: '/photo/Warrior.webp' },
-  { key: 'mage', name: '法師', photo: '/photo/Mage.webp' },
-  { key: 'archer', name: '弓手', photo: '/photo/Archer.webp' },
-  { key: 'assassin', name: '刺客', photo: '/photo/Assassin.webp' },
-  { key: 'bard', name: '吟遊詩人', photo: '/photo/Bard.webp' },
-  { key: 'alchemist', name: '鍊金術士', photo: '/photo/Alchemist.webp' },
-  { key: 'druid', name: '德魯伊', photo: '/photo/Druid.webp' },
-  { key: 'paladin', name: '聖騎士', photo: '/photo/Paladin.webp' },
-  { key: 'gladiator', name: '角鬥士', photo: '/photo/Gladiator.webp' },
-  { key: 'stargazer', name: '觀星者', photo: '/photo/Stargazer.webp' },
-  { key: 'dreamweaver', name: '織夢術士', photo: '/photo/Dreamweaver.webp' },
-  { key: 'samurai', name: '武士', photo: '/photo/武士.webp' },
-  { key: 'sage', name: '智者', photo: '/photo/智者.webp' },
-  { key: 'onmyoji', name: '陰陽師', photo: '/photo/Onmyōji.webp' }
+  { key: 'warrior', name: '戰士', photo: '/assets/characters/portraits/Warrior.webp' },
+  { key: 'mage', name: '法師', photo: '/assets/characters/portraits/Mage.webp' },
+  { key: 'archer', name: '弓手', photo: '/assets/characters/portraits/Archer.webp' },
+  { key: 'assassin', name: '刺客', photo: '/assets/characters/portraits/Assassin.webp' },
+  { key: 'bard', name: '吟遊詩人', photo: '/assets/characters/portraits/Bard.webp' },
+  { key: 'alchemist', name: '鍊金術士', photo: '/assets/characters/portraits/Alchemist.webp' },
+  { key: 'druid', name: '德魯伊', photo: '/assets/characters/portraits/Druid.webp' },
+  { key: 'paladin', name: '聖騎士', photo: '/assets/characters/portraits/Paladin.webp' },
+  { key: 'gladiator', name: '角鬥士', photo: '/assets/characters/portraits/Gladiator.webp' },
+  { key: 'stargazer', name: '觀星者', photo: '/assets/characters/portraits/Stargazer.webp' },
+  { key: 'dreamweaver', name: '織夢術士', photo: '/assets/characters/portraits/Dreamweaver.webp' },
+  { key: 'samurai', name: '武士', photo: '/assets/characters/portraits/武士.webp' },
+  { key: 'sage', name: '智者', photo: '/assets/characters/portraits/智者.webp' },
+  { key: 'onmyoji', name: '陰陽師', photo: '/assets/characters/portraits/Onmyōji.webp' }
 ];
 
 function openAvatarChoiceModal() {
@@ -6576,15 +6576,15 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
     let fallbackImg = '';
     if (item.effectType === 'ANTIDOTE' || item.id === 'consumable_antidote') {
       svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="m9 15 2 2 4-4"/></svg>`;
-      fallbackImg = '/assets/Equipments/解毒劑.webp';
+      fallbackImg = '/assets/equipment/general/解毒劑.webp';
     } else if (item.effectType === 'HEALING_POTION' || item.id === 'consumable_healing_potion') {
       svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="rgba(244,63,94,0.3)"/><path d="M12 7v6M9 10h6"/></svg>`;
-      fallbackImg = '/assets/Equipments/補血藥.webp';
+      fallbackImg = '/assets/equipment/general/補血藥.webp';
     } else if (item.effectType === 'REST_TENT' || item.id === 'consumable_rest_tent') {
       svg = `<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M3.5 21 12 3l8.5 18H3.5Z" fill="rgba(251,191,36,0.2)"/><path d="M12 3v18M8.5 21l3.5-7 3.5 7"/></svg>`;
-      fallbackImg = '/assets/Equipments/修整帳篷.webp';
+      fallbackImg = '/assets/equipment/general/修整帳篷.webp';
     }
-    let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : (fallbackImg || `/assets/Equipments/${encodeURIComponent(item.name)}.webp`);
+    let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : (fallbackImg || `/assets/equipment/general/${encodeURIComponent(item.name)}.webp`);
     imgUrl = imgUrl.replace(/^\/?assets\/assets\//, '/assets/');
     return `
       <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name || '')}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
@@ -6600,7 +6600,7 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
     const noImgNames = new Set(['荊棘重鎧', '大天使重弓']);
     let imgUrl = (item.icon && item.icon.startsWith('/'))
       ? item.icon.replace(/^\/?assets\/assets\//, '/assets/')
-      : (item.name && !noImgNames.has(item.name) ? (exclusiveImgMap[item.name] || `/assets/專屬裝備/${encodeURIComponent(item.name)}.webp`) : '');
+      : (item.name && !noImgNames.has(item.name) ? (exclusiveImgMap[item.name] || `/assets/equipment/exclusive/${encodeURIComponent(item.name)}.webp`) : '');
     if (imgUrl) {
       return `
         <img src="${imgUrl}" class="${iconClass}" alt="${escapeHtml(item.name || '')}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" />
@@ -6609,7 +6609,7 @@ function renderItemIconHtml(item, iconClass = 'item-equipment-img') {
     }
     return `<div class="exclusive-equip-svg-wrap ${iconClass}-svg">${svg}</div>`;
   }
-  let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`;
+  let imgUrl = (item.icon && item.icon.startsWith('/')) ? item.icon : `/assets/equipment/general/${encodeURIComponent(item.name)}.webp`;
   imgUrl = imgUrl.replace(/^\/?assets\/assets\//, '/assets/');
   const fallbackSvgId = item.slot === 'WEAPON' ? '#icon-sword' : (item.slot === 'ARMOR' ? '#icon-shield' : '#icon-chest');
   return `
@@ -6658,7 +6658,7 @@ function updateHudInventoryButtonState() {
   btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 
   const targetKey = isOpen ? 'ui.bag.open' : 'ui.bag.closed';
-  const fallbackPath = isOpen ? '/assets/bag2.webp' : '/assets/bag1.webp';
+  const fallbackPath = isOpen ? '/assets/ui/inventory/bag2.webp' : '/assets/ui/inventory/bag1.webp';
   const resolved = window.assetRegistry ? window.assetRegistry.resolve(targetKey, fallbackPath) : fallbackPath;
   if (img.getAttribute('src') !== resolved) {
     img.src = resolved;
@@ -6667,8 +6667,8 @@ function updateHudInventoryButtonState() {
 window.updateHudInventoryButtonState = updateHudInventoryButtonState;
 
 function preloadBagAssets() {
-  const closedSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.closed', '/assets/bag1.webp') : '/assets/bag1.webp';
-  const openSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.open', '/assets/bag2.webp') : '/assets/bag2.webp';
+  const closedSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.closed', '/assets/ui/inventory/bag1.webp') : '/assets/ui/inventory/bag1.webp';
+  const openSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.open', '/assets/ui/inventory/bag2.webp') : '/assets/ui/inventory/bag2.webp';
   [closedSrc, openSrc].forEach(src => {
     if (!src) return;
     const img = new Image();
@@ -8220,7 +8220,7 @@ function renderGambleEvent(ev) {
           <div id="gambleParticleContainer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
           <div class="d20-stage">
             <div id="gambleD20Wrapper" class="d20-wrapper">
-              <img id="gambleD20Img" class="d20-img" src="/assets/d20.webp" alt="二十面骰" />
+              <img id="gambleD20Img" class="d20-img" src="/assets/ui/events/d20.webp" alt="二十面骰" />
             </div>
             <div id="gambleBigNumber" class="gamble-big-number font-cinzel hidden">20</div>
           </div>
@@ -8486,9 +8486,9 @@ function renderInteractiveEvent(ev) {
 
   // 隨機事件背景插圖（鑄造台、賭博、獻祭台）
   const eventIllustrations = {
-    'REFORGE': '/assets/鑄造台.webp',
-    'GAMBLE': '/assets/賭博.webp',
-    'ALTAR': '/assets/獻祭台.webp'
+    'REFORGE': '/assets/environments/events/鑄造台.webp',
+    'GAMBLE': '/assets/environments/events/賭博.webp',
+    'ALTAR': '/assets/environments/events/獻祭台.webp'
   };
   const illustSrc = (ev.type === 'random_event' && eventIllustrations[ev.subType]) ? eventIllustrations[ev.subType] : null;
   let bgImg = elements.eventCardBox.querySelector('.event-bg-illustration');

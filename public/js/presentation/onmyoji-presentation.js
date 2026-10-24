@@ -1,9 +1,9 @@
 /* ======================================================================
    陰陽師 ONMYOJI · Combat Presentation Engine & Production Hook
    Faithfully implemented based on public/assets/Onmyoji.html:
-   - Talisman Image: public/assets/Onmyoji-1.png
-   - Ling ("令") Image: public/assets/Onmyoji-2.png
-   - Avatar: public/photo/Onmyoji.webp
+   - Talisman Image: public/assets/combat-fx/onmyoji/Onmyoji-1.png
+   - Ling ("令") Image: public/assets/combat-fx/onmyoji/Onmyoji-2.png
+   - Avatar: public/assets/characters/portraits/Onmyoji.webp
    All effects, keyframes, timing, audio synthesis and visual styling preserved 1:1.
    ====================================================================== */
 
@@ -74,12 +74,12 @@ function onmyojiAsset(path) {
 function getOnmyojiPortrait(descriptor = {}) {
   if (descriptor.entityType === 'monster') {
     return {
-      src: onmyojiAsset(descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp'),
+      src: onmyojiAsset(descriptor.avatar || '/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp'),
       name: descriptor.name || '荒神鬼王・羅剎'
     };
   }
   return {
-    src: onmyojiAsset('/photo/Onmyōji.webp'),
+    src: onmyojiAsset('/assets/characters/portraits/Onmyōji.webp'),
     name: descriptor.name || '陰陽師'
   };
 }
@@ -120,12 +120,12 @@ function getAuraRibbonOverlaySVG() {
 }
 
 function getOnmyojiTalismanVisualHTML(accentColor = '#f59e0b', isMini = false) {
-  const talismanUrl = onmyojiAsset('/assets/Onmyoji-1.png');
+  const talismanUrl = onmyojiAsset('/assets/combat-fx/onmyoji/Onmyoji-1.png');
   return `
     <div class="relative w-full h-full flex items-center justify-center select-none"
          style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;filter: drop-shadow(0 4px ${isMini ? '5px' : '12px'} rgba(0,0,0,0.82)) drop-shadow(0 0 ${isMini ? '6px' : '15px'} ${accentColor});">
       ${!isMini ? getAuraRibbonOverlaySVG() : ''}
-      <img src="${talismanUrl}" class="relative z-10 w-full h-full object-contain pointer-events-none" style="position:relative;z-index:10;width:100%;height:100%;object-fit:contain;pointer-events:none;" alt="符咒" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='public/assets/Onmyoji-1.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='Onmyoji-1.png';}"/>
+      <img src="${talismanUrl}" class="relative z-10 w-full h-full object-contain pointer-events-none" style="position:relative;z-index:10;width:100%;height:100%;object-fit:contain;pointer-events:none;" alt="符咒" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='public/assets/combat-fx/onmyoji/Onmyoji-1.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='Onmyoji-1.png';}"/>
     </div>
   `;
 }
@@ -292,7 +292,7 @@ class OnmyojiPresentationEngine {
         <div class="onmyoji-combatant caster-side">
           <div class="caster-avatar-box" id="onmCasterAvatarBox">
             <div class="inner-frame">
-              <img id="onmCasterImg" src="${onmyojiAsset('/photo/Onmyoji.webp')}" alt="陰陽師" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='/photo/Onmyoji.webp';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='/photo/Onmyōji.webp';}"/>
+              <img id="onmCasterImg" src="${onmyojiAsset('/assets/characters/portraits/Onmyoji.webp')}" alt="陰陽師" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='/assets/characters/portraits/Onmyoji.webp';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='/assets/characters/portraits/Onmyōji.webp';}"/>
             </div>
           </div>
           <div class="combatant-info">
@@ -311,13 +311,13 @@ class OnmyojiPresentationEngine {
 
           <div class="boss-avatar-box" id="onmBossAvatarBox">
             <div class="inner-frame">
-              <img id="onmBossImg" src="${onmyojiAsset('/BOSS/Ancient Guardian Golem.webp')}" alt="首領"/>
+              <img id="onmBossImg" src="${onmyojiAsset('/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp')}" alt="首領"/>
               <div class="boss-hit-flash-overlay" id="onmBossHitFlash"></div>
             </div>
 
             <!-- 核心特效掛載元件 -->
             <div class="caster-ling-overlay" id="onmLingOverlay">
-              <img id="onmLingImg" src="${onmyojiAsset('/assets/Onmyoji-2.png')}" alt="令" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='public/assets/Onmyoji-2.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='Onmyoji-2.png';}"/>
+              <img id="onmLingImg" src="${onmyojiAsset('/assets/combat-fx/onmyoji/Onmyoji-2.png')}" alt="令" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='public/assets/combat-fx/onmyoji/Onmyoji-2.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='Onmyoji-2.png';}"/>
             </div>
             <div class="active-talisman-actor" id="onmActiveTalisman"></div>
             <div class="slam-shockwave-ring" id="onmShockwaveRing"></div>
@@ -873,9 +873,9 @@ let onmyojiPreloadPromise = null;
 function preloadOnmyojiAssets() {
   if (typeof window === 'undefined') return Promise.resolve();
   return onmyojiPreloadPromise ||= Promise.all([
-    '/assets/Onmyoji-1.png',
-    '/assets/Onmyoji-2.png',
-    '/photo/Onmyōji.webp'
+    '/assets/combat-fx/onmyoji/Onmyoji-1.png',
+    '/assets/combat-fx/onmyoji/Onmyoji-2.png',
+    '/assets/characters/portraits/Onmyōji.webp'
   ].map(p => {
     return new Promise(resolve => {
       const img = new Image();

@@ -3,8 +3,8 @@
   const failed=new Set(),backgrounds=new WeakMap();let bindings=new Map(),assets=new Map(),paths=new Map();
   function rebuild(){
     bindings=new Map(StudioContent.rows('asset_bindings').map(row=>[row.binding_key,row]));assets=new Map(StudioContent.rows('game_assets').map(row=>[row.asset_key,row]));paths=new Map();
-    for(const row of bindings.values())if(row.fallback_path){const prev=paths.get(row.fallback_path);if(!prev||/^(role|boss|equip)\./.test(row.binding_key))paths.set(row.fallback_path,row.binding_key);}
-    if(document.documentElement?.style)for(const [name,path] of [['--studio-game-background','/icon/background.webp'],['--studio-battle-background','/photo/Battle.webp']]){
+    for(const row of bindings.values())if(row.fallback_path){const path=canonical(row.fallback_path),prev=paths.get(path);if(!prev||/^(role|boss|equip)\./.test(row.binding_key))paths.set(path,row.binding_key);}
+    if(document.documentElement?.style)for(const [name,path] of [['--studio-game-background','/assets/environments/backgrounds/background.webp'],['--studio-battle-background','/photo/Battle.webp']]){
       document.documentElement.style.setProperty(name,'url("'+resolvePath(path)+'")');
       if(resolvePath(path)!==path)preloadImage(path).then(image=>document.documentElement.style.setProperty(name,'url("'+image.src+'")')).catch(()=>{});
     }
@@ -13,7 +13,8 @@
   function binding(key){return bindings.get(key);}
   function resolve(key,fallback){const b=binding(key),asset=b&&assets.get(b.asset_key);const target=asset?.is_public?url(asset):null;return target&&!failed.has(target)?target:fallback||b?.fallback_path||'';}
   function localPath(value){if(typeof value!=='string')return value;try{const parsed=new URL(value,location.href);return parsed.origin===location.origin?decodeURIComponent(parsed.pathname):value;}catch{return value;}}
-  function resolvePath(path){const key=paths.get(localPath(path));return key?resolve(key,path):path;}
+  function canonical(path){return global.LocalPaths?global.LocalPaths.canonical(path):path;}
+  function resolvePath(path){const key=paths.get(canonical(localPath(path)));return key?resolve(key,path):path;}
   async function preloadImage(path){
     if(global.StudioContent?.load)await StudioContent.load();
     const target=resolvePath(path),image=new Image();image.crossOrigin='anonymous';image.src=target;

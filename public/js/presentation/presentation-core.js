@@ -1142,17 +1142,17 @@ function getIconSvg(name, extraClass = '') {
 }
 
 const DEFAULT_ROLE_AVATARS = {
-  augur:{name:'卜者',avatar:'/photo/Augur.webp',icon:'sparkle'},
-  dreamweaver:{name:'織夢術士',avatar:'/photo/Dreamweaver.webp'},stargazer:{name:'觀星者',avatar:'/photo/Stargazer.webp'},gladiator:{name:'角鬥士',avatar:'/photo/Gladiator.webp'},samurai:{name:'武士',avatar:'/photo/武士.webp'},sage:{name:'智者',avatar:'/photo/智者.webp'},
-  paladin: { name: '聖騎士', avatar: '/photo/Paladin.webp', icon: 'shield' },
-  warrior: { name: '戰士', avatar: '/photo/Warrior.webp', icon: 'shield' },
-  mage: { name: '法師', avatar: '/photo/Mage.webp', icon: 'sparkle' },
-  archer: { name: '弓箭手', avatar: '/photo/Archer.webp', icon: 'target' },
-  assassin: { name: '刺客', avatar: '/photo/Assassin.webp', icon: 'sword' },
-  bard: { name: '吟遊詩人', avatar: '/photo/Bard.webp', icon: 'volume-on' },
-  alchemist: { name: '鍊金術士', avatar: '/photo/Alchemist.webp', icon: 'flask' },
-  druid: { name: '德魯伊', avatar: '/photo/Druid.webp', icon: 'paw' },
-  onmyoji: { name: '陰陽師', avatar: '/photo/Onmyōji.webp', icon: 'sparkle' }
+  augur:{name:'卜者',avatar:'/assets/characters/portraits/Augur.webp',icon:'sparkle'},
+  dreamweaver:{name:'織夢術士',avatar:'/assets/characters/portraits/Dreamweaver.webp'},stargazer:{name:'觀星者',avatar:'/assets/characters/portraits/Stargazer.webp'},gladiator:{name:'角鬥士',avatar:'/assets/characters/portraits/Gladiator.webp'},samurai:{name:'武士',avatar:'/assets/characters/portraits/武士.webp'},sage:{name:'智者',avatar:'/assets/characters/portraits/智者.webp'},
+  paladin: { name: '聖騎士', avatar: '/assets/characters/portraits/Paladin.webp', icon: 'shield' },
+  warrior: { name: '戰士', avatar: '/assets/characters/portraits/Warrior.webp', icon: 'shield' },
+  mage: { name: '法師', avatar: '/assets/characters/portraits/Mage.webp', icon: 'sparkle' },
+  archer: { name: '弓箭手', avatar: '/assets/characters/portraits/Archer.webp', icon: 'target' },
+  assassin: { name: '刺客', avatar: '/assets/characters/portraits/Assassin.webp', icon: 'sword' },
+  bard: { name: '吟遊詩人', avatar: '/assets/characters/portraits/Bard.webp', icon: 'volume-on' },
+  alchemist: { name: '鍊金術士', avatar: '/assets/characters/portraits/Alchemist.webp', icon: 'flask' },
+  druid: { name: '德魯伊', avatar: '/assets/characters/portraits/Druid.webp', icon: 'paw' },
+  onmyoji: { name: '陰陽師', avatar: '/assets/characters/portraits/Onmyōji.webp', icon: 'sparkle' }
 };
 
 // One resolver for HUD, cast, attacks, results and Lab. Explicit form always wins.
@@ -1160,18 +1160,18 @@ function resolveBattlePortrait(descriptor = {}, options = {}) {
   if (typeof descriptor === 'string') descriptor = { role: descriptor };
   const role = descriptor.role || descriptor.sourceRole || 'warrior';
   const form = descriptor.druidForm;
-  if (role === 'druid' && form === 'werewolf') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.werewolf','/photo/狼人.webp'):'/photo/狼人.webp', name: '狼人', transformed: true };
-  if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.'+form,'/photo/遠古樹精.webp'):'/photo/遠古樹精.webp', name: '遠古樹精', transformed: true };
-  if (role === 'druid' && form === 'bear') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.bear','/photo/巨熊.webp'):'/photo/巨熊.webp', name: '巨熊', transformed: true };
+  if (role === 'druid' && form === 'werewolf') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.werewolf','/assets/characters/forms/druid/狼人.webp'):'/assets/characters/forms/druid/狼人.webp', name: '狼人', transformed: true };
+  if (role === 'druid' && (form === 'treant' || form === 'tree')) return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.'+form,'/assets/characters/forms/druid/遠古樹精.webp'):'/assets/characters/forms/druid/遠古樹精.webp', name: '遠古樹精', transformed: true };
+  if (role === 'druid' && form === 'bear') return { src: typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolve('role.druid.form.bear','/assets/characters/forms/druid/巨熊.webp'):'/assets/characters/forms/druid/巨熊.webp', name: '巨熊', transformed: true };
   if (descriptor.entityType === 'minion' || descriptor.type === 'wolf' || descriptor.type === 'treant') {
     const index = descriptor.minionIndex || 1;
-    return { src: descriptor.avatar || `/photo/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然夥伴' };
+    return { src: descriptor.avatar || `/assets/characters/summons/druid/${descriptor.type === 'wolf' ? '幼狼' : '小樹精'}${index}.webp`, name: descriptor.name || '自然夥伴' };
   }
   if (descriptor.entityType === 'monster') {
-    const fallback = descriptor.avatar || '/BOSS/Ancient Guardian Golem_fullbody.webp';
+    const fallback = descriptor.avatar || '/assets/enemies/bosses/fullbody/Ancient Guardian Golem_fullbody.webp';
     const enemyForm=descriptor.mechanics?.form||descriptor.presentation?.form;
     if((descriptor.id==='abyss_druid'||descriptor.presentation?.mechanicId==='abyss_druid')&&['werewolf','treant'].includes(enemyForm)){
-      const legacyForm=enemyForm==='werewolf'?'/photo/狼人.webp':'/photo/遠古樹精.webp';
+      const legacyForm=enemyForm==='werewolf'?'/assets/characters/forms/druid/狼人.webp':'/assets/characters/forms/druid/遠古樹精.webp';
       const formArt=descriptor.battleFormAvatars?.[enemyForm];
       return {src:formArt||legacyForm,fallbackSrc:formArt?legacyForm:descriptor.battleAvatar||fallback,name:descriptor.name||'深淵德魯伊',transformed:true,fullBody:!!formArt};
     }
@@ -1217,7 +1217,7 @@ function syncBattlePortrait(image,descriptor,options={}) {
   image.src=portrait.src;
 }
 function syncAbyssDialoguePortrait(image,abyss) {
-  syncBattlePortrait(image,{id:abyss.bossTemplate?.id,role:abyss.bossRole,name:abyss.bossName,entityType:'monster',avatar:abyss.bossAvatar||'/photo/Warrior.webp',battleAvatar:abyss.bossBattleAvatar});
+  syncBattlePortrait(image,{id:abyss.bossTemplate?.id,role:abyss.bossRole,name:abyss.bossName,entityType:'monster',avatar:abyss.bossAvatar||'/assets/characters/portraits/Warrior.webp',battleAvatar:abyss.bossBattleAvatar});
 }
 function battlePortraitHtml(descriptor, className = 'combat-banner-portrait', options = {}) {
   const portrait = resolveBattlePortrait(descriptor, options);

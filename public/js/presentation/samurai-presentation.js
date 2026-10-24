@@ -1,6 +1,6 @@
 // Production adapter for the approved fixed_v4 choreography. No combat rolls or damage calculations.
-const SAMURAI_FX_URLS=Object.freeze(['/assets/samurai-eye.png','/assets/samurai-skill1.png','/assets/samurai-skill2.png',
- '/assets/samurai-fx/zan-full.png','/assets/samurai-fx/zan-split.png','/assets/samurai-fx/swallow-title.png']);
+const SAMURAI_FX_URLS=Object.freeze(['/assets/combat-fx/samurai/samurai-eye.png','/assets/combat-fx/samurai/samurai-skill1.png','/assets/combat-fx/samurai/samurai-skill2.png',
+ '/assets/combat-fx/samurai/zan-full.png','/assets/combat-fx/samurai/zan-split.png','/assets/combat-fx/samurai/swallow-title.png']);
 let samuraiFxAssets;
 function preloadSamuraiFxAssets(){
  return samuraiFxAssets ||= Promise.all(SAMURAI_FX_URLS.map(src=>{if(window.assetRegistry)return assetRegistry.preloadImage(src);const image=new Image();image.src=src;return image.decode().then(()=>image);})).catch(error=>{samuraiFxAssets=null;throw error;});

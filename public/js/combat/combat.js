@@ -205,7 +205,7 @@ const COMBAT_SKILL_PROFILES = Object.freeze({
 });
 
 const COMBAT_FX_ASSETS = Object.freeze({
-  werewolfClaw: '/assets/beast-claw-scratch.svg', bossClaw: '/assets/beast-claw-scratch.svg',
+  werewolfClaw: '/assets/combat-fx/druid/beast-claw-scratch.svg', bossClaw: '/assets/combat-fx/druid/beast-claw-scratch.svg',
   swordSlash: '/assets/combat-fx/common/sword-slash.png', vineStrike: '/assets/combat-fx/common/vine-strike.png', impactSpark: '/assets/combat-fx/common/impact-spark.png', acidSplash: '/assets/combat-fx/common/acid-splash.png', slashTexture: '/assets/combat-fx/common/slash-texture.png', acidBottle:'/assets/combat-fx/alchemist/reagent-bottle.png', arrow:'/assets/combat-fx/archer/magic-arrow.png'
 });
 const COMBAT_FORM_PROFILES = Object.freeze({
@@ -370,7 +370,7 @@ async function playCombatActionPresentation(step, context = {}) {
     actorPortraitHtml = getClassPortraitHtml(actorEntity, 'presentation-combat-portrait-img');
     actorName = getClassDisplayName(roleKey);
 
-    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
+    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
     targetEntity = primary?.targetBefore || (typeof roomState !== 'undefined' && (roomState?.currentMonster || roomState?.monster)) || step.hpSnapshot?.monster || { name: mName, avatar: mAvatar };
     targetPortraitHtml = battlePortraitHtml({ entityType: 'monster', avatar: mAvatar, name: mName }, 'presentation-combat-portrait-img');
@@ -381,7 +381,7 @@ async function playCombatActionPresentation(step, context = {}) {
     targetHpAfter = step.targetHpAfter !== undefined ? step.targetHpAfter : (step.hpSnapshot?.monster?.hp ?? targetHpBefore);
   } else {
     // Boss 攻擊玩家
-    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/BOSS/Ancient Guardian Golem.webp';
+    const mAvatar = step.monsterAvatar || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.avatar || roomState?.monster?.avatar)) || '/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp';
     const mName = step.monsterName || (typeof roomState !== 'undefined' && (roomState?.currentMonster?.name || roomState?.monster?.name)) || '首領魔物';
     actorEntity = (typeof roomState !== 'undefined' && (roomState?.currentMonster || roomState?.monster)) || step.hpSnapshot?.monster || { name: mName, avatar: mAvatar };
     actorPortraitHtml = battlePortraitHtml({ entityType: 'monster', avatar: mAvatar, name: mName }, 'presentation-combat-portrait-img');

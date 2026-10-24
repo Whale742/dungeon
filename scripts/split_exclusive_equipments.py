@@ -22,13 +22,14 @@ classes = [
     ('陰陽師', ['硃砂引靈筆', '退魔水引狩衣', '八咫靈犀鏡']),
 ]
 
-out_dir = 'public/assets/專屬裝備'
+out_dir = 'public/assets/equipment/exclusive'
+source_dir = 'public/assets/equipment/source-sheets'
 os.makedirs(out_dir, exist_ok=True)
 
 success_count = 0
 
 for role, items in classes:
-    src_path = os.path.join(out_dir, f'{role}.png')
+    src_path = os.path.join(source_dir, f'{role}.png')
     if not os.path.exists(src_path):
         raise FileNotFoundError(f'Missing {src_path}')
         

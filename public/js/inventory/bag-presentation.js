@@ -2,8 +2,8 @@
   'use strict';
   function getBagUrls() {
     return {
-      closed: global.assetRegistry?.resolve('ui.bag.closed', '/assets/bag1.webp') || '/assets/bag1.webp',
-      open: global.assetRegistry?.resolve('ui.bag.open', '/assets/bag2.webp') || '/assets/bag2.webp'
+      closed: global.assetRegistry?.resolve('ui.bag.closed', '/assets/ui/inventory/bag1.webp') || '/assets/ui/inventory/bag1.webp',
+      open: global.assetRegistry?.resolve('ui.bag.open', '/assets/ui/inventory/bag2.webp') || '/assets/ui/inventory/bag2.webp'
     };
   }
   function wait(ms, signal) {
@@ -39,7 +39,7 @@
     if (!source || signal?.aborted) return;
     const urls = getBagUrls();
     const [closed, open] = await Promise.all([
-      preload(urls.closed, '/assets/bag1.webp', signal), preload(urls.open, '/assets/bag2.webp', signal)
+      preload(urls.closed, '/assets/ui/inventory/bag1.webp', signal), preload(urls.open, '/assets/ui/inventory/bag2.webp', signal)
     ]);
     if (!closed || !open || signal?.aborted) return;
     const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)').matches : false;

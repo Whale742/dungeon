@@ -120,7 +120,7 @@ test('Shared battlefield healing plays the existing recording once per cast and 
   scope.commitBattlefieldPlayerResult({...result,resultId:'heal-2',targetId:'other'},{sourceRole:'druid'},context);
   await context.audioScope.hold();
   assert.deepEqual(sounds.map(s=>s.key),['healing_result']);assert.deepEqual(waits,[1400]);
-  assert.ok(readFileSync(new URL('../public/sound/healing.mp3',import.meta.url)).length);
+  assert.ok(readFileSync(new URL('../public/assets/sound/sfx/healing.mp3',import.meta.url)).length);
 });
 
 test('Druid summons, companion attacks and forms retain their own existing sound cues',async()=>{
@@ -138,7 +138,7 @@ test('Druid summons, companion attacks and forms retain their own existing sound
   await scope.playBattlefieldDruid({results:[{kind:'summon',minions:[{id:'wolf',type:'wolf'},{id:'tree',type:'treant'}]}]},{});
   for(const form of ['werewolf','treant'])await scope.playBattlefieldDruid({results:[{kind:'transform',targetAfter:{druidForm:form}}]},{});
   assert.deepEqual(sounds,['wolf_pup_attack','treant_action','wolf_action','treant_action','transform_wolf','transform_treant']);
-  for(const file of ['druid-wolf-action-short','druid-wolf-action','druid-treant-action','druid-transform-wolf','druid-transform-treant'])assert.ok(readFileSync(new URL('../public/sound/'+file+'.mp3',import.meta.url)).length);
+  for(const file of ['druid-wolf-action-short','druid-wolf-action','druid-treant-action','druid-transform-wolf','druid-transform-treant'])assert.ok(readFileSync(new URL('../public/assets/sound/sfx/'+file+'.mp3',import.meta.url)).length);
   assert.match(vm.runInContext('SFX_ASSETS.wolf_pup_attack.src',scope),/^https:\/\/.+\.supabase.co\/storage\/v1\/object\/public\//);
 });
 
@@ -844,13 +844,13 @@ test('Chest theft captions and icons use the real stolen item and fly from its o
   for(const kind of ['equipment','gold']) {
     const {room,enemy,player}=mechanismBattle(t,[SPECIAL_ELITES.treasure_mimic]);
     room.checkDodge=()=>false;room.gold=100;
-    if(kind==='equipment')player.equipSlots.WEAPON={id:'sword',name:'被偷的劍',icon:'/assets/Equipments/精煉短劍.webp',bonusAtk:0};
+    if(kind==='equipment')player.equipSlots.WEAPON={id:'sword',name:'被偷的劍',icon:'/assets/equipment/general/精煉短劍.webp',bonusAtk:0};
     t.mock.method(Math,'random',()=>kind==='equipment'?0:.99);
     mechanismRound(room,3);const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'theft-'+kind);
     const step=queue.find(s=>s.results.some(r=>r.theft)),result=step.results.find(r=>r.theft);
     const h=enemyPresentationHarness(),captions=[],preloaded=[];
     const cloudImage='https://test.supabase.co/storage/v1/object/public/game-assets/images/stolen-sword.webp';
-    h.scope.window={assetRegistry:{resolvePath:path=>path==='/assets/Equipments/精煉短劍.webp'?cloudImage:path}};
+    h.scope.window={assetRegistry:{resolvePath:path=>path==='/assets/equipment/general/精煉短劍.webp'?cloudImage:path}};
     h.scope.preloadPhase5Art=async paths=>preloaded.push(...paths);
     h.scope.getBattleEffectAnchor=id=>id===enemy.instanceId?{x:700,y:250}:{x:100,y:600};
     h.scope.document.getElementById=id=>id==='btnOpenInventory'?{getBoundingClientRect:()=>({left:10,top:20,width:40,height:40})}:null;
@@ -873,7 +873,7 @@ test('Chest theft captions and icons use the real stolen item and fly from its o
 
 test('Theft artwork resolves explicit, ordinary and exclusive equipment through cloud bindings',()=>{
   const urls={normal:'https://test.supabase.co/normal.webp',exclusive:'https://test.supabase.co/exclusive.webp',custom:'https://test.supabase.co/custom.webp'};
-  const scope={window:{assetRegistry:{resolve:key=>key==='equip.warrior.w_sword.icon'?urls.exclusive:'',resolvePath:path=>path===`/assets/Equipments/${encodeURIComponent('精煉短劍')}.webp`?urls.normal:path===`/assets/專屬裝備/${encodeURIComponent('鋼鐵聖劍')}.webp`?urls.exclusive:path}}};
+  const scope={window:{assetRegistry:{resolve:key=>key==='equip.warrior.w_sword.icon'?urls.exclusive:'',resolvePath:path=>path===`/assets/equipment/general/${encodeURIComponent('精煉短劍')}.webp`?urls.normal:path===`/assets/equipment/exclusive/${encodeURIComponent('鋼鐵聖劍')}.webp`?urls.exclusive:path}}};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/enemy-choreography.js',import.meta.url),'utf8'),scope);
   const resolve=item=>scope.mimicTheftEquipmentUrl({kind:'equipment',item});
   assert.equal(resolve({name:'精煉短劍'}),urls.normal);
@@ -1637,10 +1637,10 @@ test('Abyss body parser follows authoritative Druid forms and restores new natur
   for(const [form,path] of Object.entries(ABYSS_DRUID_FORM_PORTRAITS)){
     assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length>1000);
     assert.equal(h.scope.resolveBattlePortrait({...natural,mechanics:{form},entityType:'monster'}).src,path);
-    assert.equal(h.scope.resolveBattlePortrait({role:'druid',druidForm:form}).src,form==='werewolf'?'/photo/狼人.webp':'/photo/遠古樹精.webp');
+    assert.equal(h.scope.resolveBattlePortrait({role:'druid',druidForm:form}).src,form==='werewolf'?'/assets/characters/forms/druid/狼人.webp':'/assets/characters/forms/druid/遠古樹精.webp');
   }
   h.scope.syncBattlePortrait(h.image,{...natural,entityType:'monster'});assert.equal(h.image.src,ABYSS_BOSS_PORTRAITS.abyss_druid);assert.ok(h.classes.has('is-abyss-fullbody'));
-  assert.equal(h.scope.resolveBattlePortrait({role:'druid'}).src,'/photo/Druid.webp');assert.equal(h.scope.resolveBattlePortrait({role:'augur'}).src,'/photo/Augur.webp');
+  assert.equal(h.scope.resolveBattlePortrait({role:'druid'}).src,'/assets/characters/portraits/Druid.webp');assert.equal(h.scope.resolveBattlePortrait({role:'augur'}).src,'/assets/characters/portraits/Augur.webp');
   for(const e of [...ENCOUNTERS,...GENERAL_MINIONS])assert.equal(h.scope.resolveBattlePortrait({...e,entityType:'monster'}).src,e.avatar);
 });
 test('A missing full-body image falls back once; HP updates cannot restore a failed URL or replace the real image node',()=>{
@@ -1656,7 +1656,7 @@ test('Remote asset retry cannot prematurely replace an Abyss portrait, and a mis
   h.scope.syncBattlePortrait(h.image,descriptor);assert.equal(h.image.src,ABYSS_DRUID_FORM_PORTRAITS.treant);
   h.image.dataset.studioOriginal=h.image.src;h.image.dataset.studioResolved='https://example.invalid/remote-form.webp';
   const writes=h.writes();h.image.onerror();assert.equal(h.writes(),writes,'allow existing registry local retry');
-  h.image.dataset.studioResolved=h.image.dataset.studioOriginal;h.image.onerror();assert.equal(h.image.src,'/photo/遠古樹精.webp');assert.notEqual(h.image.src,descriptor.avatar);assert.ok(!h.classes.has('is-abyss-fullbody'));
+  h.image.dataset.studioResolved=h.image.dataset.studioOriginal;h.image.onerror();assert.equal(h.image.src,'/assets/characters/forms/druid/遠古樹精.webp');assert.notEqual(h.image.src,descriptor.avatar);assert.ok(!h.classes.has('is-abyss-fullbody'));
   h.image.onload();assert.equal(h.image.dataset.portraitLoaded,'true');
 });
 
@@ -1943,12 +1943,12 @@ test('Every official local image including status icons and JPEG has a cloud-mig
   const {catalog}=await import('../studio/catalog.js'),fs=await import('node:fs'),path=await import('node:path'),{fileURLToPath}=await import('node:url');
   const known=new Map(catalog.game_assets.filter(a=>a.kind==='image').map(a=>[a.local_path,a]));
   const visit=(dir,prefix)=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(entry.name.startsWith('.')||entry.name==='temp')continue;const local=prefix+'/'+entry.name,file=path.join(dir,entry.name);if(entry.isDirectory())visit(file,local);else if(/\.(webp|png|jpe?g|svg|gif|avif|ico)$/i.test(entry.name)){assert.ok(known.has(local),local);assert.ok(known.get(local).mime_type?.startsWith('image/'));}}};
-  for(const dir of ['photo','BOSS','assets','icon','buff icon'])visit(fileURLToPath(new URL('../public/'+dir,import.meta.url)),'/'+dir);
-  assert.equal(known.get('/assets/job.jpeg').mime_type,'image/jpeg');assert.ok(known.has('/buff icon/中毒.webp'));
+  for(const dir of ['assets'])visit(fileURLToPath(new URL('../public/'+dir,import.meta.url)),'/'+dir);
+  assert.equal(known.get('/assets/ui/lobby/job.jpeg').mime_type,'image/jpeg');assert.ok(known.has('/assets/icons/status/中毒.webp'));
 });
 test('Image migration updates verified image paths while preserving remote semantic art and unrelated audio/drafts',async()=>{
   const {imageBindingPlan,publicImageUrl}=await import('../scripts/sync-assets-supabase.mjs');
-  const image={asset_key:'local.test',local_path:'/photo/Warrior.webp',kind:'image',preload_group:'roles'},remote={asset_key:'storage.test',kind:'image',source_type:'storage',preload_group:'roles',storage_path:'images/roles/圖.webp'},custom={asset_key:'custom',source_type:'external'};
+  const image={asset_key:'local.test',local_path:'/assets/characters/portraits/Warrior.webp',kind:'image',preload_group:'roles'},remote={asset_key:'storage.test',kind:'image',source_type:'storage',preload_group:'roles',storage_path:'images/roles/圖.webp'},custom={asset_key:'custom',source_type:'external'};
   const bindings=[{binding_key:'role.warrior.avatar',asset_key:'custom',status:'published',fallback_path:image.local_path},{binding_key:'sfx.test',asset_key:'audio',status:'published'},{binding_key:'path.local.test',asset_key:'draft',status:'draft'}];
   const plan=imageBindingPlan([image],new Map([[image.local_path,remote]]),bindings,[custom]);
   assert.ok(plan.some(b=>b.binding_key==='path.local.test'));assert.ok(plan.every(b=>b.binding_key.startsWith('path.')));assert.equal(plan[0].asset_key,remote.asset_key);assert.equal(plan[0].status,'published');assert.equal(bindings[2].asset_key,'draft');assert.equal(imageBindingPlan([image],new Map([[image.local_path,remote]]),[...bindings,...plan],[custom,remote]).length,0);
@@ -1959,17 +1959,19 @@ test('Cloud image registry resolves encoded and relative paths, SVG images, back
   const domEvents={},events={},css=new Map(),nodes=[];
   class Node{constructor(tag='img'){this.tagName=tag;this.dataset={};this.attrs={};this.style={};}getAttribute(k){return this.attrs[k]??null;}setAttribute(k,v){this.attrs[k]=v;}querySelectorAll(){return [];}}
   class ImageNode extends Node{get src(){return this.attrs.src;}set src(v){this.attrs.src=v;}async decode(){if(this.src?.includes('broken'))throw Error('missing');}}
-  const local=['/assets/example.png','/buff icon/中毒.webp','/BOSS/深淵/test.png','/icon/background.webp','/photo/Battle.webp'];
+  const local=['/assets/example.png','/assets/icons/status/中毒.webp','/BOSS/深淵/test.png','/assets/environments/backgrounds/background.webp','/photo/Battle.webp'];
   const assets=local.map((p,i)=>({asset_key:'storage.'+i,source_type:'storage',storage_bucket:'game-assets',storage_path:'images/'+i+'.png',is_public:true})),bindings=local.map((p,i)=>({binding_key:'path.'+i,asset_key:'storage.'+i,fallback_path:p}));
   const body=new Node('body');body.querySelectorAll=()=>nodes;
   const scope={URL,Image:ImageNode,HTMLImageElement:ImageNode,location:{origin:'http://localhost:3106',href:'http://localhost:3106/dev'},MutationObserver:class{observe(){}},
     document:{body,querySelectorAll:()=>nodes.filter(n=>n.tagName==='link'),documentElement:{style:{setProperty:(k,v)=>css.set(k,v)}},addEventListener:(k,v)=>domEvents[k]=v},
     StudioContent:{rows:t=>t==='game_assets'?assets:bindings,state:{config:{SUPABASE_URL:'https://assets.example.test'}},load:async()=>{}}};
   scope.window={StudioContent:scope.StudioContent,addEventListener:(k,v)=>events[k]=v};
-  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/studio/asset-registry.js',import.meta.url),'utf8'),scope);
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/shared/local-paths.cjs',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/js/studio/asset-registry.js',import.meta.url),'utf8'),scope);
   const img=new ImageNode();img.src='assets/example.png';const svg=new Node('image');svg.attrs.href='/BOSS/深淵/test.png';const icon=new Node('link');icon.attrs.rel='icon';icon.attrs.href='/assets/example.png';nodes.push(img,svg,icon);domEvents.DOMContentLoaded();
   const registry=scope.window.assetRegistry;
   assert.equal(registry.resolvePath('/buff%20icon/%E4%B8%AD%E6%AF%92.webp?v=2'),'https://assets.example.test/storage/v1/object/public/game-assets/images/1.png');
+  bindings[1].fallback_path='/buff icon/中毒.webp';events['studio:content-ready']();
+  assert.equal(registry.resolvePath('/assets/icons/status/中毒.webp'),'https://assets.example.test/storage/v1/object/public/game-assets/images/1.png');
   assert.match(icon.attrs.href,/images\/0.png$/);assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.match(css.get('--studio-battle-background'),/images\/4.png/);
   const detached=await registry.preloadImage('/assets/example.png');assert.match(detached.src,/images\/0.png$/);assert.equal(detached.crossOrigin,'anonymous');
   assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');

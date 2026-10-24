@@ -2,7 +2,7 @@
    卜者 AUGUR · Combat Presentation Engine & Production Hook
    Faithfully implemented based on specs/prototypes/augur_skill_prototype.html
    with specific visual assets and timing requirements:
-   - Avatar: public/photo/Augur.webp
+   - Avatar: public/assets/characters/portraits/Augur.webp
    - Skill 1 (aug_bind) & intro observation: augur1.png with index finger
      hovering ~10px above crystal ball, target avatar inside orbTarget.
    - Skill 2 (aug_reckon): ONE single augur2.png beneath crystal ball,
@@ -371,7 +371,7 @@ class AugurPresentationEngine {
   // The index finger hovers ~10px above the top of the crystal ball
   async sweepHand(duration = 1000) {
     const hand=document.createElement('div');hand.className='observing-hand';
-    const img=document.createElement('img');img.src=augurAsset('/assets/augur1.png');img.alt='';hand.appendChild(img);
+    const img=document.createElement('img');img.src=augurAsset('/assets/combat-fx/augur/augur1.png');img.alt='';hand.appendChild(img);
     this.container.querySelector('#augurEffectLayer').appendChild(hand);
     const o=this.bounds.orb,width=o.w*1.35,height=width*836/1454;
     hand.style.width=width+'px';
@@ -387,7 +387,7 @@ class AugurPresentationEngine {
 
   async reckonHands(duration = 2600) {
     const hand=document.createElement('div');hand.className='cupping-hand';
-    const img=document.createElement('img');img.src=augurAsset('/assets/augur2.png');img.alt='';hand.appendChild(img);
+    const img=document.createElement('img');img.src=augurAsset('/assets/combat-fx/augur/augur2.png');img.alt='';hand.appendChild(img);
     this.container.querySelector('#augurUnderOrbLayer').appendChild(hand);
     const o=this.bounds.orb,width=o.w*1.85,height=width*692/894;
     hand.style.width=width+'px';hand.style.left=(o.x-width/2)+'px';
@@ -541,10 +541,10 @@ class AugurPresentationEngine {
 function augurAsset(path) {return typeof window!=='undefined' && window.assetRegistry?window.assetRegistry.resolvePath(path):path;}
 function augurPortrait(descriptor={}) {
   if(typeof resolveBattlePortrait==='function')return resolveBattlePortrait(descriptor);
-  if(descriptor.entityType==='monster')return {src:augurAsset(descriptor.avatar || '/BOSS/Ancient Guardian Golem.webp'),name:descriptor.name || '首領'};
+  if(descriptor.entityType==='monster')return {src:augurAsset(descriptor.avatar || '/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp'),name:descriptor.name || '首領'};
   const names={sage:'智者',samurai:'武士'};
   const role=descriptor.role || 'augur';
-  return {src:augurAsset(`/photo/${names[role] || role.charAt(0).toUpperCase()+role.slice(1)}.webp`),name:descriptor.name || role};
+  return {src:augurAsset(`/assets/characters/portraits/${names[role] || role.charAt(0).toUpperCase()+role.slice(1)}.webp`),name:descriptor.name || role};
 }
 function augurEquipment(equips) {
   return {amethyst:equips.filter(e=>e.id==='aug_amethyst').length,gilded:equips.some(e=>e.id==='aug_gilded_box'),forbidden:equips.some(e=>e.id==='aug_forbidden_tome')};
@@ -564,7 +564,7 @@ function buildAugurPresentationPlan(step) {
 }
 let augurPreloadPromise=null;
 function preloadAugurAssets() {
-  return augurPreloadPromise ||= Promise.all(['/assets/augur1.png','/assets/augur2.png','/photo/Augur.webp'].map(path=>{
+  return augurPreloadPromise ||= Promise.all(['/assets/combat-fx/augur/augur1.png','/assets/combat-fx/augur/augur2.png','/assets/characters/portraits/Augur.webp'].map(path=>{
     if(typeof window!=='undefined' && window.assetRegistry)return window.assetRegistry.preloadImage(path).catch(()=>null);
     return new Promise(resolve=>{const img=new Image();img.onload=img.onerror=resolve;img.src=path;});
   }));

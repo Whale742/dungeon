@@ -94,7 +94,7 @@
       } else {
         const fallback = reward.item?.icon?.startsWith('/')
           ? reward.item.icon.replace(/^\/?assets\/assets\//, '/assets/')
-          : '/assets/Equipments/' + encodeURIComponent(reward.item?.name || '') + '.webp';
+          : '/assets/equipment/general/' + encodeURIComponent(reward.item?.name || '') + '.webp';
         const url = global.assetRegistry?.resolvePath(fallback) || fallback;
         const loaded = await global.BagPresentation.preload(url, fallback, signal);
         visualEl.replaceChildren();

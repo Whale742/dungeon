@@ -61,7 +61,7 @@ async function main() {
   // 1. Files to upload
   const filesToUpload = [
     {
-      localPath: 'photo/Augur.webp',
+      localPath: 'assets/characters/portraits/Augur.webp',
       category: 'roles',
       kind: 'image',
       mimeType: 'image/webp',
@@ -70,7 +70,7 @@ async function main() {
       preloadGroup: 'roles'
     },
     {
-      localPath: 'assets/augur1.png',
+      localPath: 'assets/combat-fx/augur/augur1.png',
       category: 'effects',
       kind: 'image',
       mimeType: 'image/png',
@@ -79,7 +79,7 @@ async function main() {
       preloadGroup: 'effects'
     },
     {
-      localPath: 'assets/augur2.png',
+      localPath: 'assets/combat-fx/augur/augur2.png',
       category: 'effects',
       kind: 'image',
       mimeType: 'image/png',

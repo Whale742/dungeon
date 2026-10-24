@@ -258,7 +258,7 @@ function buildLabHexGrid(items, isMerchant = false, selectedIdx = null) {
                 ${priceTag}
                 <div class="item-layer">
                   <div class="item-layer-icon-box">
-                    <img src="${(item.icon && item.icon.startsWith('/')) ? item.icon : (isExclusive ? `/assets/專屬裝備/${encodeURIComponent(item.name)}.webp` : `/assets/Equipments/${encodeURIComponent(item.name)}.webp`)}" class="item-equipment-img" alt="${item.name}" onerror="this.onerror=null; this.src='/assets/Equipments/通用裝備.webp';">
+                    <img src="${(item.icon && item.icon.startsWith('/')) ? item.icon : (isExclusive ? `/assets/equipment/exclusive/${encodeURIComponent(item.name)}.webp` : `/assets/equipment/general/${encodeURIComponent(item.name)}.webp`)}" class="item-equipment-img" alt="${item.name}" onerror="this.onerror=null; this.src='/assets/equipment/general/通用裝備.webp';">
                   </div>
                   <div class="item-layer-name">${item.name}</div>
                 </div>
@@ -309,7 +309,7 @@ function playLabGambleScene(context) {
     bgImg.alt = '';
     cardBox.prepend(bgImg);
   }
-  bgImg.src = '/assets/賭博.webp';
+  bgImg.src = '/assets/environments/events/賭博.webp';
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-dice"></use></svg>`;
   eventTitle.textContent = '命運賭局 (20面骰)';
@@ -420,7 +420,7 @@ function playLabGambleScene(context) {
             <div id="labGambleParticleBox" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
             <div class="d20-stage">
               <div id="labGambleD20Wrapper" class="d20-wrapper">
-                <img id="labGambleD20Img" class="d20-img" src="/assets/d20.webp" alt="二十面骰" />
+                <img id="labGambleD20Img" class="d20-img" src="/assets/ui/events/d20.webp" alt="二十面骰" />
               </div>
               <div id="labGambleBigNumber" class="gamble-big-number font-cinzel hidden">20</div>
             </div>
@@ -686,7 +686,7 @@ function playLabReforgeScene(context) {
     bgImg.alt = '';
     cardBox.prepend(bgImg);
   }
-  bgImg.src = '/assets/鑄造台.webp';
+  bgImg.src = '/assets/environments/events/鑄造台.webp';
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-anvil"></use></svg>`;
   eventTitle.textContent = '矮人鑄造工坊 (裝備重鑄)';
@@ -744,7 +744,7 @@ function playLabReforgeScene(context) {
               ${selectedItem ? `
                 <div class="reforge-slotted-preview">
                   <div class="reforge-slotted-icon">
-                    <img src="/assets/Equipments/${encodeURIComponent(selectedItem.name)}.webp" class="reforge-preview-img" onerror="this.onerror=null; this.src='/assets/Equipments/通用裝備.webp';">
+                    <img src="/assets/equipment/general/${encodeURIComponent(selectedItem.name)}.webp" class="reforge-preview-img" onerror="this.onerror=null; this.src='/assets/equipment/general/通用裝備.webp';">
                   </div>
                   <div class="reforge-slotted-name">${selectedItem.name}</div>
                   <div class="reforge-slotted-stats">
@@ -886,7 +886,7 @@ function playLabAltarScene(context) {
     bgImg.alt = '';
     cardBox.prepend(bgImg);
   }
-  bgImg.src = '/assets/獻祭台.webp';
+  bgImg.src = '/assets/environments/events/獻祭台.webp';
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-torii"></use></svg>`;
   eventTitle.textContent = '古老深淵祭壇';

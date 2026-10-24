@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { SupabaseRest } from '../studio/supabase.js';
 import { catalog } from '../studio/catalog.js';
 import { getStorageAssetKey, getStoragePath } from '../studio/migration.js';
+import localPaths from '../public/js/shared/local-paths.cjs';
 
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 export const publicImageUrl = (base, asset) => base.replace(/\/$/, '') + '/storage/v1/object/public/game-assets/' + asset.storage_path.split('/').map(encodeURIComponent).join('/');
@@ -22,8 +23,8 @@ export function imageBindingPlan(images, selected, existingBindings, existingAss
   };
   for(const image of images)add('path.'+image.asset_key,image.local_path,image);
   // Keep intentionally customized remote semantic bindings; replace local image sources only.
-  for(const b of catalog.asset_bindings){if(!paths.has(b.fallback_path))continue;const current=bindings.get(b.binding_key),asset=current&&byKey.get(current.asset_key);if(current&&asset?.source_type!=='local')continue;add(b.binding_key,b.fallback_path,current||b);}
-  for(const b of bindings.values()){const asset=byKey.get(b.asset_key);if(asset?.kind==='image'&&asset.source_type==='local'&&paths.has(asset.local_path))add(b.binding_key,asset.local_path,b);}
+  for(const b of catalog.asset_bindings){const local=localPaths.canonical(b.fallback_path);if(!paths.has(local))continue;const current=bindings.get(b.binding_key),asset=current&&byKey.get(current.asset_key);if(current&&asset?.source_type!=='local')continue;add(b.binding_key,local,current||b);}
+  for(const b of bindings.values()){const asset=byKey.get(b.asset_key),local=localPaths.canonical(asset?.local_path);if(asset?.kind==='image'&&asset.source_type==='local'&&paths.has(local))add(b.binding_key,local,b);}
   return [...planned.values()];
 }
 export async function syncImages({apply=false,env=process.env,cloud=new SupabaseRest(env)}={}) {

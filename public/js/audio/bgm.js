@@ -1,6 +1,6 @@
 const BGM_TRACKS=Object.freeze({
- normal:{src:'/sound/bgm-normal.mp3',bindingKey:'bgm.normal',volume:.22,loadTimeoutMs:30000},
- boss:{src:'/sound/bgm-boss.mp3',bindingKey:'bgm.boss',volume:.25,loadTimeoutMs:30000}
+ normal:{src:'/assets/sound/bgm/bgm-normal.mp3',bindingKey:'bgm.normal',volume:.22,loadTimeoutMs:30000},
+ boss:{src:'/assets/sound/bgm/bgm-boss.mp3',bindingKey:'bgm.boss',volume:.25,loadTimeoutMs:30000}
 });
 // Music uses the shared AudioContext/master mute, with its own looping voices.
 class BGMManager {

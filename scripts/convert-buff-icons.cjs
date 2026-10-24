@@ -3,8 +3,8 @@ const path = require('path');
 const sharp = require('sharp');
 
 async function processIcons() {
-  const dir = path.join(__dirname, '..', 'buff icon');
-  const pubDir = path.join(__dirname, '..', 'public', 'buff icon');
+  const pubDir = path.join(__dirname, '..', 'public', 'assets', 'icons', 'status');
+  const dir = process.argv[2] ? path.resolve(process.argv[2]) : pubDir;
 
   if (!fs.existsSync(pubDir)) {
     fs.mkdirSync(pubDir, { recursive: true });

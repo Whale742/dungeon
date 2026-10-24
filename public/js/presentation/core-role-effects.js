@@ -1,7 +1,7 @@
 // Presentation only: pictures never calculate a hit, heal, shield or chance.
 const PHASE6_ART=Object.freeze({
   sword:'/assets/combat-fx/common/sword-slash.png',spark:'/assets/combat-fx/common/impact-spark.png',
-  slash:'/assets/combat-fx/common/slash-texture.png',steel:'/assets/專屬裝備/荊棘重盾.webp',
+  slash:'/assets/combat-fx/common/slash-texture.png',steel:'/assets/equipment/exclusive/荊棘重盾.webp',
   holy:'/assets/combat-fx/paladin/holy-shield.png',core:'/assets/combat-fx/mage/arcane-core.png',
   blood:'/assets/combat-fx/enemies/blood-energy-stream.png',link:'/assets/combat-fx/common/arcane-energy-link.png',
   strings:'/assets/combat-fx/bard/glowing-strings.png',pluck:'/assets/combat-fx/bard/pluck-streak.png',

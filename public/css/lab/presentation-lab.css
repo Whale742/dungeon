@@ -435,7 +435,7 @@ body.lab-body {
   max-width: 1100px !important;
 }
 .lab-stage[data-bg="dungeon"] {
-  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.82) 0%, rgba(3, 7, 18, 0.96) 100%), var(--studio-game-background, url('/icon/background.webp')) center/cover no-repeat;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.82) 0%, rgba(3, 7, 18, 0.96) 100%), var(--studio-game-background, url('/assets/environments/backgrounds/background.webp')) center/cover no-repeat;
 }
 .lab-stage[data-bg="black"] {
   background: #000000;

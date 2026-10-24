@@ -38,17 +38,17 @@ const canvas=node('vfx','vfx',world,'canvas'),ctx=canvas.getContext('2d',{alpha:
 const damageLayer=node('damageLayer','damage-layer');
 const eye=node('eyeCutin','eye-cutin'),art=node('eyeArt','eye-art',eye);
 function imageNode(id,cls,src,parent){const img=node(id,cls,parent,'img');const target=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(src):src;img.src=target;img.dataset.studioOriginal=src;img.dataset.studioResolved=target;img.alt='';img.draggable=false;return img;}
-imageNode('eyeClosed','eye-closed','/assets/samurai-eye.png',art);
-imageNode('eyeOpen','eye-open','/assets/samurai-eye.png',art);
+imageNode('eyeClosed','eye-closed','/assets/combat-fx/samurai/samurai-eye.png',art);
+imageNode('eyeOpen','eye-open','/assets/combat-fx/samurai/samurai-eye.png',art);
 node('eyeFlare','eye-flare',art);node('eyeSweep','eye-sweep',art);
 node('pupilLeft','eye-pupil samurai-left',art);node('pupilRight','eye-pupil samurai-right',art);
 node('eyeRule','eye-rule',eye);node('eyeCaption','eye-caption',eye).textContent='秘劍 • 燕返';
 node('screenFlash','screen-flash');node('screenSlice','screen-slice');
 const zan=node('zanOverlay','zan-overlay');
-imageNode('zanFull','zan-mark samurai-zan-full','/assets/samurai-fx/zan-full.png',zan);
-imageNode('zanSplit','zan-mark samurai-zan-split','/assets/samurai-fx/zan-split.png',zan);
+imageNode('zanFull','zan-mark samurai-zan-full','/assets/combat-fx/samurai/zan-full.png',zan);
+imageNode('zanSplit','zan-mark samurai-zan-split','/assets/combat-fx/samurai/zan-split.png',zan);
 node('zanSlash','zan-slash',zan);
-imageNode('titleImage','title-image','/assets/samurai-fx/swallow-title.png',node('swallowTitleIcon','swallow-title-icon'));
+imageNode('titleImage','title-image','/assets/combat-fx/samurai/swallow-title.png',node('swallowTitleIcon','swallow-title-icon'));
 node('guardTag','guard-tag',player).textContent='狂刀';node('guardSub','guard-sub',player);node('soulGain','floating-gain',player);
 const soulWrap=node('soulWrap','soul-wrap',player),soulPips=node('soulPips','soul-pips',soulWrap);
 const pips=Array.from({length:8},()=>node('pip','soul-pip',soulPips));node('soulCount','soul-count',soulWrap);

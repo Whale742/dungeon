@@ -215,7 +215,7 @@ test('A real bear transform result reaches the existing Phase 5 renderer and exa
   scope.withBattlefieldSkillStage=async(s,c,play)=>play({root:makeNode(),local:{audioScope:{play:key=>sounds.push(key),hold:async()=>{}}},signal:new AbortController().signal,
     follow(){},animate(){return {finished:Promise.resolve()};},wait:async ms=>{elapsed+=ms;}});
   await scope.playBattlefieldDruid(step,{});
-  assert.ok(preloaded.includes('/photo/巨熊.webp'));assert.ok(sounds.includes('boss_roar'));
+  assert.ok(preloaded.includes('/assets/characters/forms/druid/巨熊.webp'));assert.ok(sounds.includes('boss_roar'));
   const transform=commits.find(c=>c.r.kind==='transform');assert.equal(transform.r.targetAfter.druidForm,'bear');assert.equal(transform.elapsed,600);
   assert.equal(commits.filter(c=>c.r.kind==='transform').length,1);
   const copy=getPlayerSkills(f.player).find(s=>s.id==='dru_transform');assert.ok(copy.desc.includes('各 1/3'));assert.equal(copy.contextualCopy,true);

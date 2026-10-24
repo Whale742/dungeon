@@ -273,7 +273,7 @@ function buildHexRouteArrowHtml(currentCol, currentRow, targetNode, centerRow) {
       'data-to="' + targetNode.col + ',' + targetNode.row + '" ' +
       'data-direction="' + direction + '" ' +
       'style="left:' + (x1 - anchorX).toFixed(1) + 'px;top:' + (y1 - anchorY).toFixed(1) + 'px;width:' + imgW.toFixed(1) + 'px;height:' + imgH.toFixed(1) + 'px;transform-origin:6% 88%;transform:rotate(' + angleDeg.toFixed(2) + 'deg) scaleY(' + (isFlipDown ? -1 : 1) + ');">' +
-      '<img class="hex-curved-arrow-img" src="/assets/hex-arrow-curved.png" alt="" draggable="false" />' +
+      '<img class="hex-curved-arrow-img" src="/assets/ui/exploration/hex-arrow-curved.png" alt="" draggable="false" />' +
     '</div>' +
   '</div>';
 }

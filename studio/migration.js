@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseRest, CloudError } from './supabase.js';
+import localPaths from '../public/js/shared/local-paths.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,7 +53,7 @@ export async function getMigrationStatus({
   let unmigratedSize = 0;
   let missingFilesCount = 0;
   for (const a of unmigratedLocal) {
-    const filePath = path.join(publicDir, a.local_path);
+    const filePath = path.join(publicDir, localPaths.canonical(a.local_path));
     if (fs.existsSync(filePath)) {
       unmigratedSize += fs.statSync(filePath).size;
     } else {
@@ -107,7 +108,7 @@ export async function migrateAssets({
     processed++;
     const storageKey = getStorageAssetKey(localAsset.asset_key);
     const storagePath = getStoragePath(localAsset);
-    const filePath = path.join(publicDir, localAsset.local_path);
+    const filePath = path.join(publicDir, localPaths.canonical(localAsset.local_path));
 
     const itemReport = {
       local_asset_key: localAsset.asset_key,

@@ -41,10 +41,13 @@ setInterval(() => { void refreshPublished().then(syncLobbyContent); }, 60000).un
 app.use((req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   let oldPath;
-  try { oldPath = decodeURIComponent(req.path); } catch { return next(); }
+  try { oldPath = decodeURIComponent(req.path).replace(/^\/boss\//i, '/BOSS/'); } catch { return next(); }
   const target = localPaths.canonical(oldPath);
   if (target === oldPath) return next();
   res.sendFile(target.slice(1), { root: path.join(__dirname, 'public') });
+});
+app.get('/js/shared/local-paths.cjs', (_req, res) => {
+  res.type('application/javascript').sendFile(path.join(__dirname, 'public/js/shared/local-paths.cjs'));
 });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/dev', (req, res) => {
@@ -52,13 +55,6 @@ app.get('/dev', (req, res) => {
   if (req.path !== '/dev') return res.redirect('/dev');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-app.use('/photo', express.static(path.join(__dirname, 'photo')));
-app.use('/BOSS', express.static(path.join(__dirname, 'public', 'BOSS')));
-app.use('/boss', express.static(path.join(__dirname, 'public', 'BOSS')));
-app.use('/icon', express.static(path.join(__dirname, 'public', 'icon')));
-app.use('/sound', express.static(path.join(__dirname, 'public', 'sound')));
-app.use('/buff icon', express.static(path.join(__dirname, 'buff icon')));
-app.use('/buff%20icon', express.static(path.join(__dirname, 'buff icon')));
 
 app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries(displayClasses).map(([id,c])=>[id,{...c,skills:c.skills.map((skill,index)=>({...skill,shortDesc:skill.shortDesc??skill.desc,desc:ROLE_DETAILS[id]?.skills?.[index]?.desc??skill.desc}))}]))));
 

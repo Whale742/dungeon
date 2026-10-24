@@ -6509,7 +6509,7 @@ export class Room {
           const usedIndices = new Set(p.minions.filter(m => m.type === 'treant').map(m => m.minionIndex).filter(Boolean));
           let minionIndex = [1, 2, 3].find(idx => !usedIndices.has(idx)) || ((p.minions.length % 3) + 1);
           const minionName = `小樹精${minionIndex}`;
-          const minionAvatar = `/photo/小樹精${minionIndex}.webp`;
+          const minionAvatar = `/assets/characters/summons/druid/小樹精${minionIndex}.webp`;
           const newTreant = {
             id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             type: 'treant',
@@ -6548,7 +6548,7 @@ export class Room {
           const usedIndices = new Set(p.minions.filter(m => m.type === 'wolf').map(m => m.minionIndex).filter(Boolean));
           let minionIndex = [1, 2, 3].find(idx => !usedIndices.has(idx)) || ((p.minions.length % 3) + 1);
           const minionName = `幼狼${minionIndex}`;
-          const minionAvatar = `/photo/幼狼${minionIndex}.webp`;
+          const minionAvatar = `/assets/characters/summons/druid/幼狼${minionIndex}.webp`;
           const newWolf = {
             id: 'minion_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             type: 'wolf',
@@ -8223,7 +8223,7 @@ export class Room {
           type: m.type,
           name: m.name,
           minionIndex: m.minionIndex,
-          avatar: m.avatar || (m.type === 'wolf' ? `/photo/幼狼${m.minionIndex || 1}.webp` : `/photo/小樹精${m.minionIndex || 1}.webp`),
+          avatar: m.avatar || (m.type === 'wolf' ? `/assets/characters/summons/druid/幼狼${m.minionIndex || 1}.webp` : `/assets/characters/summons/druid/小樹精${m.minionIndex || 1}.webp`),
           hp: m.hp,
           maxHp: m.maxHp,
           attack: m.attack ?? m.atk,
@@ -8234,7 +8234,7 @@ export class Room {
         })),
         minion: (p.minions && p.minions[0]) ? {
           ...p.minions[0],
-          avatar: p.minions[0].avatar || (p.minions[0].type === 'wolf' ? `/photo/幼狼${p.minions[0].minionIndex || 1}.webp` : `/photo/小樹精${p.minions[0].minionIndex || 1}.webp`),
+          avatar: p.minions[0].avatar || (p.minions[0].type === 'wolf' ? `/assets/characters/summons/druid/幼狼${p.minions[0].minionIndex || 1}.webp` : `/assets/characters/summons/druid/小樹精${p.minions[0].minionIndex || 1}.webp`),
           attack: p.minions[0].attack ?? p.minions[0].atk,
           atk: p.minions[0].attack ?? p.minions[0].atk,
           owner: p.name,
@@ -8242,7 +8242,7 @@ export class Room {
           alive: p.minions[0].hp > 0
         } : (p.minion ? {
           ...p.minion,
-          avatar: p.minion.avatar || (p.minion.type === 'wolf' ? `/photo/幼狼${p.minion.minionIndex || 1}.webp` : `/photo/小樹精${p.minion.minionIndex || 1}.webp`),
+          avatar: p.minion.avatar || (p.minion.type === 'wolf' ? `/assets/characters/summons/druid/幼狼${p.minion.minionIndex || 1}.webp` : `/assets/characters/summons/druid/小樹精${p.minion.minionIndex || 1}.webp`),
           attack: p.minion.attack ?? p.minion.atk,
           atk: p.minion.attack ?? p.minion.atk,
           owner: p.name,

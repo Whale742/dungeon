@@ -522,10 +522,10 @@
               <div class="relative w-full h-full rounded-xl overflow-hidden bg-[#181520] border border-amber-200/30">
                 <img
                   id="onmyoji-portrait-img"
-                  src="../photo/Onmyoji.webp"
+                  src="../../public/assets/characters/portraits/Onmyoji.webp"
                   alt="陰陽師頭像"
                   class="w-full h-full object-cover object-center transition-transform duration-500"
-                  onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='/photo/Onmyoji.webp';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='../photo/Onmyōji.webp';}else{this.style.display='none';document.getElementById('onmyoji-fallback-svg').classList.remove('hidden');}"
+                  onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='../../public/assets/characters/portraits/Onmyoji.webp';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='../../public/assets/characters/portraits/Onmyōji.webp';}else{this.style.display='none';document.getElementById('onmyoji-fallback-svg').classList.remove('hidden');}"
                 />
 
                 <!-- 高還原度內建 SVG 陰陽師少年畫像 -->
@@ -763,7 +763,7 @@
                    ============================================================ -->
               <div id="caster-ling-overlay" class="opacity-0 pointer-events-none absolute left-1/2 top-1/2 z-30 w-36 h-36 sm:w-40 sm:h-40 flex items-center justify-center">
                 <canvas id="caster-ling-canvas" class="hidden w-full h-full object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]"></canvas>
-                <img id="caster-ling-img" src="Onmyoji-2.png" class="w-full h-full object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]" alt="令" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='public/assets/Onmyoji-2.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='/assets/Onmyoji-2.png';}else{this.style.display='none';document.getElementById('caster-ling-svg')?.classList.remove('hidden');}" />
+                <img id="caster-ling-img" src="../../public/assets/combat-fx/onmyoji/Onmyoji-2.png" class="w-full h-full object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]" alt="令" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='../../public/assets/combat-fx/onmyoji/Onmyoji-2.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='../../public/assets/combat-fx/onmyoji/Onmyoji-2.png';}else{this.style.display='none';document.getElementById('caster-ling-svg')?.classList.remove('hidden');}" />
                 <svg id="caster-ling-svg" class="hidden w-full h-full overflow-visible drop-shadow-[0_0_20px_rgba(251,191,36,0.95)]" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="100" cy="100" r="78" fill="none" stroke="#dc2626" stroke-width="5" stroke-dasharray="18 8" opacity="0.85"/>
                   <text x="100" y="138" text-anchor="middle" fill="#09090b" stroke="#fde047" stroke-width="3" font-family="'Noto Serif TC', serif" font-size="118" font-weight="900">令</text>
@@ -1471,8 +1471,8 @@
       const lingImg = document.getElementById('caster-ling-img');
       const candidateFiles = [
         'Onmyoji-2.png',
-        'public/assets/Onmyoji-2.png',
-        '/assets/Onmyoji-2.png'
+        '../../public/assets/combat-fx/onmyoji/Onmyoji-2.png',
+        '../../public/assets/combat-fx/onmyoji/Onmyoji-2.png'
       ];
       let tried = 0;
       function tryNext() {

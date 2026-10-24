@@ -95,3 +95,29 @@ test('disabled Dev leaves normal room flow available', async t => {
   await request(normal, 'player:select_role', { roleKey: 'warrior' });
   assert.equal((await request(normal, 'game:start')).success, true);
 });
+
+test('Saved static URLs and canonical paths serve identical files, including encoded names and HEAD', async t => {
+  const { url } = await launch(t);
+  const shared = await fetch(url + '/js/shared/local-paths.cjs');
+  assert.equal(shared.status, 200);
+  assert.match(shared.headers.get('content-type'), /javascript/);
+  for (const [old, current] of [
+    ['/photo/Warrior.webp', '/assets/characters/portraits/Warrior.webp'],
+    ['/boss/奇怪的寶箱.webp', '/assets/enemies/elites/奇怪的寶箱.webp'],
+    ['/buff%20icon/中毒.webp', '/assets/icons/status/中毒.webp'],
+    ['/assets/samurai-fx/zan-full.png', '/assets/combat-fx/samurai/zan-full.png'],
+    ['/sound/bgm-normal.mp3', '/assets/sound/bgm/bgm-normal.mp3'],
+    ['/phase6-battlefield.css', '/css/presentation/core-role-effects.css'],
+    ['/dev-tools.js', '/js/dev/dev-tools.js']
+  ]) {
+    const before = await fetch(url + old + '?saved=1'), after = await fetch(url + current);
+    assert.equal(before.status, 200, old);
+    assert.equal(after.status, 200, current);
+    assert.equal(before.headers.get('content-type'), after.headers.get('content-type'));
+    assert.deepEqual(Buffer.from(await before.arrayBuffer()), Buffer.from(await after.arrayBuffer()));
+    const head = await fetch(url + old, { method: 'HEAD' });
+    assert.equal(head.status, 200);
+    assert.equal((await head.arrayBuffer()).byteLength, 0);
+  }
+  assert.equal((await fetch(url + '/photo/not-an-asset.webp')).status, 404);
+});

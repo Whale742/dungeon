@@ -7,6 +7,7 @@ import { catalog } from './catalog.js';
 import { refreshPublished } from './content.js';
 import { kinds, validateIdentity, validateDraft, validateAsset, validateUpload, requireValid, assetFields } from './validation.js';
 import { getMigrationStatus, migrateAssets, migrateBindings } from './migration.js';
+import localPaths from '../public/js/shared/local-paths.cjs';
 
 export function tokenMatches(supplied, expected) {
   const hash=v=>crypto.createHash('sha256').update(v||'').digest();
@@ -87,9 +88,9 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
   router.post('/assets/register',route(async(req,res)=>{
     let input=validateAsset(req.body.asset||req.body);
     if(input.source_type==='storage')input=await confirmUpload(input,req.body.receipt);
-    if(input.source_type==='local')requireValid(catalog.game_assets.some(a=>a.local_path===input.local_path),'本地素材不存在');
+    if(input.source_type==='local')requireValid(catalog.game_assets.some(a=>a.local_path===localPaths.canonical(input.local_path)),'本地素材不存在');
     const existing=await cloud.rows('game_assets','asset_key=eq.'+encodeURIComponent(input.asset_key));
-    if(existing.length){requireValid(['source_type','local_path','storage_bucket','storage_path','external_url'].every(field=>(existing[0][field]??null)===(input[field]??null)),'asset_key 已存在；請建立新版素材');return res.json(existing[0]);}
+    if(existing.length){requireValid(['source_type','local_path','storage_bucket','storage_path','external_url'].every(field=>field==='local_path'?localPaths.canonical(existing[0][field]??null)===localPaths.canonical(input[field]??null):(existing[0][field]??null)===(input[field]??null)),'asset_key 已存在；請建立新版素材');return res.json(existing[0]);}
     const saved=await cloud.request('/rest/v1/game_assets',{method:'POST',body:input,headers:{Prefer:'return=representation'}});res.status(201).json(saved[0]);
   }));
   router.patch('/assets/:assetKey',route(async(req,res)=>{

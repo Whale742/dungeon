@@ -7,7 +7,7 @@ const PHASE5_ART = Object.freeze({
   vine:'/assets/combat-fx/common/vine-strike.png',
   roots:'/assets/combat-fx/druid/entangling-roots.png',
   claw:'/assets/combat-fx/enemies/shadow-claw.png',
-  talisman:'/assets/Onmyoji-1.png', decree:'/assets/Onmyoji-2.png'
+  talisman:'/assets/combat-fx/onmyoji/Onmyoji-1.png', decree:'/assets/combat-fx/onmyoji/Onmyoji-2.png'
 });
 const phase5ArtLoads=new Map();
 async function preloadPhase5Art(paths,signal) {
@@ -146,7 +146,7 @@ class BattlefieldAugurEngine extends AugurPresentationEngine {
   }
 }
 async function playBattlefieldAugur(step,context) {
-  await preloadPhase5Art(['/assets/augur1.png','/assets/augur2.png'],context.signal);
+  await preloadPhase5Art(['/assets/combat-fx/augur/augur1.png','/assets/combat-fx/augur/augur2.png'],context.signal);
   await withBattlefieldSkillStage(step,context,async s=>{
     const engine=new BattlefieldAugurEngine(s.root,{step,signal:s.signal,speed:context.speed||1,reduced:s.reduced,audioScope:s.local.audioScope});
     const plan=buildAugurPresentationPlan(step);engine.syncSnapshot(plan.before);

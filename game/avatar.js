@@ -1,11 +1,12 @@
 import { CLASSES } from './constants.js';
+import localPaths from '../public/js/shared/local-paths.cjs';
 
 // Preserve official portraits as URLs; emoji choices retain their existing limit.
 export function normalizeAvatar(value, snapshot = {}, supabaseUrl = process.env.SUPABASE_URL) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (trimmed.startsWith('data:image/')) return trimmed.length <= 350000 ? trimmed : null;
-  if (Object.values(CLASSES).some(role => role.avatar === trimmed)) return trimmed;
+  if (Object.values(CLASSES).some(role => role.avatar === localPaths.canonical(trimmed))) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) {
     if (!supabaseUrl) return null;
     const base = supabaseUrl.replace(/\/$/, '') + '/storage/v1/object/public/game-assets/';

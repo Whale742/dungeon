@@ -7,7 +7,7 @@ import {createClient} from '@supabase/supabase-js';
 loadEnv();
 const cloud=new SupabaseRest();
 if(!cloud.configured)throw Error('Supabase credentials missing');
-const bytes=fs.readFileSync(new URL('../public/sound/druid-wolf-action-short.mp3',import.meta.url));
+const bytes=fs.readFileSync(new URL('../public/assets/sound/sfx/druid-wolf-action-short.mp3',import.meta.url));
 const hash=crypto.createHash('sha256').update(bytes).digest('hex');
 const storage_path=`audio/sfx/druid-wolf-action-short-${hash.slice(0,16)}.mp3`;
 const storage=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}}).storage.from('game-assets');

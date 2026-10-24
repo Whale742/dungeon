@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import {loadEnv} from '../studio/env.js';
 import {SupabaseRest} from '../studio/supabase.js';
 import {createClient} from '@supabase/supabase-js';
+import localPaths from '../public/js/shared/local-paths.cjs';
 
 loadEnv();
 const cloud=new SupabaseRest();
@@ -10,8 +11,8 @@ if(!cloud.configured)throw Error('Supabase credentials missing');
 const storage=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}}).storage.from('game-assets');
 const urls={};
 for(const [id,local,mime] of [
-  ['merchant','/BOSS/奸商.webp','image/webp'],
-  ['chest','/BOSS/奇怪的寶箱.webp','image/webp'],
+  ['merchant','/assets/enemies/elites/奸商.webp','image/webp'],
+  ['chest','/assets/enemies/elites/奇怪的寶箱.webp','image/webp'],
   ['bite','/assets/combat-fx/enemies/strange_chest_bite.png','image/png']
 ]){
   const bytes=fs.readFileSync(new URL('../public'+local,import.meta.url));
@@ -25,7 +26,7 @@ for(const [id,local,mime] of [
   urls[id]=url;
   const asset_key='storage.special.'+id;
   await cloud.upsert('game_assets',[{asset_key,display_name:local.split('/').pop(),kind:'image',category:id==='bite'?'effects':'bosses',source_type:'storage',local_path:null,storage_bucket:'game-assets',storage_path:storagePath,external_url:null,mime_type:mime,size_bytes:bytes.length,preload_group:id==='bite'?'effects':'bosses',volume:1,is_public:true}],'asset_key');
-  const localKey='local.'+crypto.createHash('sha256').update(local).digest('hex').slice(0,20);
+  const localKey='local.'+crypto.createHash('sha256').update(localPaths.legacy(local)).digest('hex').slice(0,20);
   for(const status of ['draft','published'])await cloud.upsert('asset_bindings',[{binding_key:'path.'+localKey,status,asset_key,fallback_path:null,preload_group:id==='bite'?'effects':'bosses',volume_override:null}],'binding_key,status');
   console.log('Verified cloud asset: '+id);
 }

@@ -19,14 +19,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 10,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 490, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 490, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -57,14 +57,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 0,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -95,14 +95,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 0,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -133,14 +133,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 0,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -171,14 +171,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 0,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode", "confuse"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode", "confuse"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -209,14 +209,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 10,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode", "confuse"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode", "confuse"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 490, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode", "confuse", "drain"] },
+          monster: { hp: 490, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "corrode", "confuse", "drain"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -248,14 +248,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 0,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [],
@@ -284,14 +284,14 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 25,
         hpSnapshotBefore: {
-          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "confuse", "drain", "drain"] },
+          monster: { hp: 500, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: ["blind", "seal", "confuse", "drain", "drain"] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 475, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 475, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [
@@ -322,20 +322,20 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
         targetId: "monster",
         targetName: "荒神鬼王・羅剎",
         monsterName: "荒神鬼王・羅剎",
-        monsterAvatar: "/BOSS/Ancient Guardian Golem.webp",
+        monsterAvatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
         finalDamage: 40,
         hpSnapshotBefore: {
           monster: {
             hp: 500,
             maxHp: 500,
             name: "荒神鬼王・羅剎",
-            avatar: "/BOSS/Ancient Guardian Golem.webp",
+            avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp",
             talismans: ["blind", "seal", "corrode", "confuse", "drain", "blind", "seal", "corrode", "confuse", "drain"]
           },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         hpSnapshot: {
-          monster: { hp: 460, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/BOSS/Ancient Guardian Golem.webp", talismans: [] },
+          monster: { hp: 460, maxHp: 500, name: "荒神鬼王・羅剎", avatar: "/assets/enemies/bosses/portraits/Ancient Guardian Golem.webp", talismans: [] },
           players: [{ id: "p0", name: "陰陽師", role: "onmyoji", hp: 70, maxHp: 70 }]
         },
         results: [

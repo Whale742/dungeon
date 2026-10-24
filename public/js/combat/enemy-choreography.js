@@ -81,7 +81,7 @@ function mimicTheftEquipmentUrl(theft) {
   const item=theft.item,registry=typeof window!=='undefined'?window.assetRegistry:null;
   if(item.icon?.startsWith('https://'))return item.icon;
   const exclusive=!!item.role||item.slot==='CLASS_EXCLUSIVE'||theft.slot==='CLASS_EXCLUSIVE'||item.tier==='CLASS_EXCLUSIVE';
-  const path=(item.icon?.startsWith('/')?item.icon:`/assets/${exclusive?'專屬裝備':'Equipments'}/${encodeURIComponent(item.name)}.webp`).replace(/^\/?assets\/assets\//,'/assets/');
+  const path=(item.icon?.startsWith('/')?item.icon:`/assets/equipment/${exclusive?'exclusive':'general'}/${encodeURIComponent(item.name)}.webp`).replace(/^\/?assets\/assets\//,'/assets/');
   const semantic=item.role?registry?.resolve(`equip.${item.role}.${item.id}.icon`,''):null;
   const url=semantic?.startsWith('https://')?semantic:registry?.resolvePath(path);
   return url?.startsWith('https://')?url:null;
