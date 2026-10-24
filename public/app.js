@@ -3422,7 +3422,7 @@ function renderMyActionBar(me) {
           <span>${escapeHtml(skill.label)}</span>
           <span style="font-size:10.5px;color:#94a3b8;">${escapeHtml(skill.dmgType || '')}</span>
         </div>
-        <div class="skill-popover-desc">${escapeHtml(getSkillDescription(me.role,skill))}</div>
+        <div class="skill-popover-desc">${escapeHtml(getSkillDescription(me.role,skill,false))}</div>
       </div>
     `;
 
@@ -3432,7 +3432,7 @@ function renderMyActionBar(me) {
     });
 
     elements.mySkillsRow.appendChild(btn);
-    BattleHud.bindSkill(btn,getSkillDescription(me.role,skill));
+    BattleHud.bindSkill(btn,getSkillDescription(me.role,skill,false));
   });
 
   // 吟遊詩人專屬：當有隊友倒地時，動態顯示「甦生之歌」
