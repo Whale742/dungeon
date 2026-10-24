@@ -1,6 +1,6 @@
 /* ======================================================================
    卜者 AUGUR · Combat Presentation Engine & Production Hook
-   Faithfully implemented based on public/assets/augur_skill_prototype.html
+   Faithfully implemented based on specs/prototypes/augur_skill_prototype.html
    with specific visual assets and timing requirements:
    - Avatar: public/photo/Augur.webp
    - Skill 1 (aug_bind) & intro observation: augur1.png with index finger

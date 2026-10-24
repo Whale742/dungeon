@@ -1,4 +1,4 @@
-// Directly transplanted visual routines from assets/temp/sage_equation_mock.html.
+// Directly transplanted visual routines from specs/prototypes/sage_equation_mock.html.
 // These backfx/frontfx routines also come from golden_snap.html. Do not redesign them.
 // Only the canvases, logical viewport, playback clock and cleanup belong to production.
 function createSageSnapBackground(back,front,goldWash) {
