@@ -212,11 +212,11 @@ test('A real bear transform result reaches the existing Phase 5 renderer and exa
   vm.runInContext(core.slice(core.indexOf('function resolveBattlePortrait('),core.indexOf('function battlePortraitHtml(')),scope);
   vm.runInContext(readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8'),scope);
   scope.preloadPhase5Art=async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
-  scope.withBattlefieldSkillStage=async(s,c,play)=>play({root:makeNode(),local:{audioScope:{play:key=>sounds.push(key)}},signal:new AbortController().signal,
+  scope.withBattlefieldSkillStage=async(s,c,play)=>play({root:makeNode(),local:{audioScope:{play:key=>sounds.push(key),hold:async()=>{}}},signal:new AbortController().signal,
     follow(){},animate(){return {finished:Promise.resolve()};},wait:async ms=>{elapsed+=ms;}});
   await scope.playBattlefieldDruid(step,{});
   assert.ok(preloaded.includes('/photo/巨熊.webp'));assert.ok(sounds.includes('boss_roar'));
-  const transform=commits.find(c=>c.r.kind==='transform');assert.equal(transform.r.targetAfter.druidForm,'bear');assert.equal(transform.elapsed,180);
+  const transform=commits.find(c=>c.r.kind==='transform');assert.equal(transform.r.targetAfter.druidForm,'bear');assert.equal(transform.elapsed,600);
   assert.equal(commits.filter(c=>c.r.kind==='transform').length,1);
   const copy=getPlayerSkills(f.player).find(s=>s.id==='dru_transform');assert.ok(copy.desc.includes('各 1/3'));assert.equal(copy.contextualCopy,true);
 });
@@ -316,7 +316,7 @@ test('HP bounds, tracked shields and supported dots survive next round settlemen
 });
 
 test('reserved events use original route transition and consume exactly once', t => {
-  for (const type of ['battle', 'shop', 'black_market', 'chest', 'ALTAR', 'GAMBLE', 'REFORGE', 'WANDERING_MERCHANT']) {
+  for (const type of ['battle', 'shop', 'black_market', 'chest', 'mimic_chest', 'ALTAR', 'GAMBLE', 'REFORGE', 'WANDERING_MERCHANT']) {
     const { room, socket, controller: c, request } = setup(t);
     assert.equal(c.execute(socket, room, request('encounter.reserve', { type, enemyId: '', weakened: false })).success, true);
     assert.equal(room.state, 'CHOOSING_ROUTE');
@@ -329,7 +329,7 @@ test('reserved events use original route transition and consume exactly once', t
     transition();
     if (type === 'battle') { assert.equal(room.state, 'IN_BATTLE'); assert.ok(room.enemies.every(e => e.tier === 'MINION')); }
     else if (type === 'shop' || type === 'black_market') { assert.equal(room.currentEvent.type, 'shop'); assert.equal(room.currentEvent.isShady, type === 'black_market'); }
-    else if (type === 'chest') { assert.equal(room.currentEvent.type, 'chest'); assert.equal(room.currentEvent.isMimic, false); }
+    else if (type === 'chest' || type === 'mimic_chest') { assert.equal(room.currentEvent.type, 'chest'); assert.equal(room.currentEvent.isMimic, type === 'mimic_chest'); }
     else if (type === 'WANDERING_MERCHANT') assert.equal(room.currentEvent.type, 'shop');
     else { assert.equal(room.currentEvent.subType, type); assert.equal(room.currentEvent.col, room.currentHex.col); }
     room.startRouteSelection({ skipIntro: true });
@@ -392,6 +392,40 @@ test('every exposed boss template uses the original enemy factory and initialize
     assert.equal(room.currentMonster.tier, enemy.tier);
     assert.ok(room.currentMonster.maxHp > 0);
     assert.equal(room.devEncounter, null);
+  }
+});
+
+test('Dev guarantees chest ambush independently of RNG and preserves the opening attack', t => {
+  for (const random of [0, .99]) {
+    const { room, socket, controller: c, request } = setup(t);
+    t.mock.method(Math, 'random', () => random);
+    room.checkDodge = () => false;
+    assert.equal(c.execute(socket, room, request('encounter.reserve', {type:'mimic_chest',enemyId:'',weakened:false})).success,true);
+    room.resolveRouteChoice(room.currentRoutes[0]);
+    const transition=room.timerCallback;room.clearTimer();transition();
+    assert.equal(room.currentEvent.isMimic,true);
+    const hp=room.players.solo.hp;
+    assert.equal(room.handleChestAction('solo','open').isMimic,true);
+    assert.equal(room.enemies.length,1);assert.equal(room.currentMonster.id,'treasure_mimic');
+    assert.match(room.currentMonster.encounterStory,/金黃眼睛/);
+    assert.equal(room.currentMonster.mechanics.ambushed,true);assert.ok(room.players.solo.hp<hp);
+    assert.ok(room.currentMonster.chestTreasure.drop);assert.equal(room.devEncounter,null);
+  }
+});
+
+test('Dev exposes both special elites for direct combat with their production stories and cloud portraits', t => {
+  for (const enemyId of ['shady_merchant','treasure_mimic']) {
+    const { room, socket, controller: c, request } = setup(t);
+    const status=c.inspect(socket,room);
+    assert.ok(status.enemyTemplates.some(e=>e.id===enemyId));
+    assert.equal(c.execute(socket,room,request('encounter.reserve',{type:'elite',enemyId,weakened:false})).success,true);
+    room.resolveRouteChoice(room.currentRoutes[0]);const transition=room.timerCallback;room.clearTimer();transition();
+    const enemy=room.currentMonster;
+    assert.equal(enemy.id,enemyId);assert.equal(room.enemies.length,1);assert.equal(enemy.tier,'ELITE');
+    assert.match(enemy.avatar,/^https:\/\/.+\.supabase.co\//);
+    assert.match(enemy.encounterStory,enemyId==='treasure_mimic'?/金黃眼睛/:/攔住了小隊/);
+    if(enemyId==='treasure_mimic')assert.ok(enemy.chestTreasure.drop);
+    else assert.equal(enemy.isShadyMerchant,true);
   }
 });
 

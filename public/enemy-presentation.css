@@ -1,4 +1,9 @@
 .enemy-effect-overlay{position:fixed;inset:0;pointer-events:none;z-index:15000;overflow:hidden;color:var(--enemy-fx-color)}
+.mimic-theft-effects{position:fixed;inset:0;pointer-events:none}
+.mimic-theft-caption{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:max-content;max-width:88vw;padding:12px 20px;border:1px solid #c5a25b;background:#100d08ed;color:#ffe0a0;font-size:clamp(16px,2vw,25px);font-weight:800;text-align:center;text-shadow:0 2px 3px #000}
+.mimic-theft-icon{position:absolute;width:46px;height:46px;padding:0;box-sizing:border-box;color:#ffe29a;background:none;border:0;border-radius:0;box-shadow:none}
+.mimic-theft-icon svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8}
+.mimic-theft-equipment{display:block;width:100%;height:100%;object-fit:contain}
 .enemy-effect-caption{position:absolute;left:50%;top:16px;transform:translateX(-50%);max-width:85vw;padding:5px 14px;border-bottom:1px solid #ad9463;background:#171c20e8;color:#e6d5ac;text-align:center;font-size:16px;letter-spacing:.08em;animation:enemy-cast-cue .9s ease-out both}
 .battle-feedback{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:19px;line-height:22px;font-weight:800;color:#f8eee0;text-shadow:0 2px 3px #000,1px 0 2px #000,-1px 0 2px #000;pointer-events:none;animation:battle-number-fade .75s ease-out both}
 .battle-feedback[data-kind=heal]{color:#b9d7a2}.battle-feedback[data-kind=shield]{color:#b8cfdf}.battle-feedback[data-kind=outcome]{color:#e8d3a0;font-size:16px}

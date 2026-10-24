@@ -82,8 +82,7 @@ async function phase6Support(s,step,result,key,origin=step.sourceId){
   const id=resolvePresentationTarget(result,step);
   if(key){if(origin!==id)await phase6Flight(s,key,origin,id,170);phase6Pulse(s,key,id,{heavy:result.kind==='revive'});}
   phase6Commit(s,step,result);
-  if(result.actualHeal>0)s.local.audioScope.playResult('healing_result',{noHold:true,volume:step.sourceRole==='bard'?.7:1});
-  else if(result.actualShield>0)s.local.audioScope.play('shield_cast');
+  if(result.actualShield>0)s.local.audioScope.play('shield_cast');
 }
 function phase6ActorMotion(s,keys,ms){if(s.actor&&!s.reduced)s.animate(s.actor,keys,ms);}
 async function playPhase6Warrior(s,step){
@@ -95,7 +94,8 @@ async function playPhase6Warrior(s,step){
   for(const result of step.results||[]){
     const id=resolvePresentationTarget(result,step);
     if(result.kind==='damage'&&result.targetEnemyId){
-      s.root.dataset.phase='action';await phase6Flight(s,'sword',step.sourceId,id,heavy?230:170,{variant:vertical?'phase6-vertical':''});
+      // Keep the contact beat, with the slash appearing directly on the enemy.
+      s.root.dataset.phase='action';await s.wait(s.reduced?120:heavy?230:170);
       s.root.dataset.phase='contact';
       if(result.actualDamage>0){phase6Pulse(s,'sword',id,{heavy,rotate:vertical?80:counter?-30:0});phase6Pulse(s,'spark',id);}
       phase6Commit(s,step,result);if(result.actualDamage>0)s.local.audioScope.play('physical_hit',{volume:.28});
@@ -218,7 +218,6 @@ async function playPhase6Bard(s,step){
       const a=getBattleEffectAnchor(id);s.follow(hint,id,-(a?.rect.width||80)*.35,-(a?.rect.height||90)*.35);
       s.animate(hint,[{opacity:0},{opacity:.85},{opacity:0}],450);
     }
-    if(result.actualHeal>0)s.local.audioScope.playResult('healing_result',{volume:.7,noHold:true});
     if(damage&&result.actualDamage>0)s.local.audioScope.play('magic_impact',{volume:.3});
   }
   s.animate(instrument,[{opacity:1},{opacity:0}],160);await s.wait(180);

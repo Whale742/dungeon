@@ -12,7 +12,7 @@ export function mountDevTools(socket) {
       <div id="dev-controls" hidden>
         <section><h2>總覽</h2><pre id="dev-overview"></pre></section>
         <fieldset id="dev-mutations">
-          <section><h2>事件</h2><p id="dev-event-info"></p><form data-command="encounter"><label>下一次合法路線遭遇<select name="type" id="dev-event-type"></select></label><label>指定精英／Boss<select name="enemyId" id="dev-boss"></select></label><label><input name="weakened" type="checkbox">負傷版本（僅指定精英／Boss）</label><button name="reserve">預約一次</button><button name="clear">取消預約</button></form></section>
+          <section><h2>事件</h2><p id="dev-event-info"></p><form data-command="encounter"><label>下一次合法路線遭遇<select name="type" id="dev-event-type"></select></label><label>指定精英／Boss<select name="enemyId" id="dev-boss"></select></label><label><input name="weakened" type="checkbox">負傷版本（僅指定精英／Boss）</label><button name="reserve">預約一次</button><button name="clear">取消預約</button><p>快捷預約：下一次選擇路線後，直接進入指定戰鬥。</p><button name="merchant">奸商戰鬥</button><button name="mimic">奇怪的寶箱戰鬥</button></form></section>
           <section><h2>資源</h2>
             <form data-command="gold"><label>金幣（0–1000000）<input name="value" type="number" value="100" min="-1000000" max="1000000" required></label><button name="set">設定</button><button name="add">增減</button></form>
             <form data-command="grant"><label>既有裝備模板<select name="item" id="dev-items"></select></label><label>發放背包<select name="bag"><option value="squad">小隊</option><option value="personal">角色</option></select></label><button>發放裝備</button></form>
@@ -43,7 +43,14 @@ export function mountDevTools(socket) {
   document.body.append(root);
   const $ = selector => root.querySelector(selector);
   let state = null, status = null, busy = false, catalogLoaded = false;
+  const eventLabels = { battle: '一般戰鬥', elite: '指定精英／Boss', shop: '一般商店', black_market: '奸商商店', chest: '一般寶箱（必定安全）', mimic_chest: '奇怪的寶箱（必定伏擊，需開箱）', ALTAR: '深淵祭壇', GAMBLE: '命運賭局', REFORGE: '重鑄工坊', WANDERING_MERCHANT: '流浪商人' };
   const message = value => { $('#dev-message').textContent = value || ''; };
+  function syncEncounterInputs() {
+    const elite = $('#dev-event-type').value === 'elite';
+    $('#dev-boss').disabled = !elite;
+    root.querySelector('[data-command="encounter"] [name="weakened"]').disabled = !elite;
+  }
+  $('#dev-event-type').addEventListener('change', syncEncounterInputs);
   function options(select, rows, key, label) {
     const selected = select.value;
     select.replaceChildren(...rows.map(row => new Option(label(row), row[key])));
@@ -59,15 +66,15 @@ export function mountDevTools(socket) {
     options($('#dev-player'), state.players, 'id', p => `${p.name} · ${p.role}`);
     if (!catalogLoaded) {
       options($('#dev-items'), status.equipment, 'id', e => `${e.name}${e.role ? ` (${e.role})` : ''}`);
-      const labels = { battle: '一般戰鬥', elite: '指定精英／Boss', shop: '商店', black_market: '黑市', chest: '寶箱', ALTAR: '深淵祭壇', GAMBLE: '命運賭局', REFORGE: '重鑄工坊', WANDERING_MERCHANT: '流浪商人' };
-      options($('#dev-event-type'), status.events.map(id => ({ id })), 'id', e => labels[e.id] || e.id);
+      options($('#dev-event-type'), status.events.map(id => ({ id })), 'id', e => eventLabels[e.id] || e.id);
       options($('#dev-boss'), [{ id: '', name: '未指定' }, ...status.enemyTemplates], 'id', e => e.name);
       catalogLoaded = true;
     }
     $('#dev-overview').textContent = `房間 ${state.code || status.roomCode} · 樓層 ${state.floor}\n階段 ${state.state} / ${state.selectionState || ''}\n回合 ${state.battleRound} · 版本 ${status.context.revision}\n${status.locked ? '鎖定：' + status.reason : busy ? '操作中' : '可操作'}\n金幣 ${state.gold}`;
     $('#dev-mutations').disabled = busy || status.locked;
     for (const name of ['shield', 'status', 'enemy', 'resource']) for (const input of root.querySelectorAll(`[data-command="${name}"] input, [data-command="${name}"] select, [data-command="${name}"] button`)) input.disabled = state.state !== 'IN_BATTLE';
-    $('#dev-event-info').textContent = status.encounter ? `已預約：${status.encounter.type} ${status.encounter.enemyId} ${status.encounter.weakened ? '負傷' : ''}` : '尚未預約；僅於下一次路線結算消耗一次。';
+    syncEncounterInputs();
+    $('#dev-event-info').textContent = status.encounter ? `已預約：${eventLabels[status.encounter.type] || status.encounter.type} ${status.enemyTemplates.find(e => e.id === status.encounter.enemyId)?.name || ''} ${status.encounter.weakened ? '負傷' : ''}` : '尚未預約；僅於下一次路線結算消耗一次。';
     options($('#dev-enemy'), (state.enemies || []).filter(e => e.hp > 0), 'instanceId', e => `${e.name} (${e.hp}/${e.maxHp})`);
     const p = state.players.find(p => p.id === $('#dev-player').value);
     const role = status.roles?.find(r => r.playerId === p?.id);
@@ -138,7 +145,13 @@ export function mountDevTools(socket) {
       case 'hp': command = 'player.hp'; params = { playerId, value: Number(data.get('value')) }; break;
       case 'shield': command = 'player.shield'; params = { playerId, value: Number(data.get('value')) }; break;
       case 'status': command = 'player.status'; params = { playerId, status: data.get('status'), apply: event.submitter?.name !== 'clear' }; break;
-      case 'encounter': command = event.submitter?.name === 'clear' ? 'encounter.clear' : 'encounter.reserve'; params = command === 'encounter.clear' ? {} : { type: data.get('type'), enemyId: data.get('enemyId'), weakened: data.has('weakened') }; break;
+      case 'encounter': {
+        command = event.submitter?.name === 'clear' ? 'encounter.clear' : 'encounter.reserve';
+        const shortcut = {merchant:'shady_merchant',mimic:'treasure_mimic'}[event.submitter?.name];
+        const type = shortcut ? 'elite' : data.get('type');
+        params = command === 'encounter.clear' ? {} : {type, enemyId:shortcut || (type === 'elite' ? data.get('enemyId') || '' : ''), weakened:!shortcut && type === 'elite' && data.has('weakened')};
+        break;
+      }
       case 'enemy': command = 'enemy.hp'; params = { enemyId: data.get('enemyId'), value: Number(data.get('value')) }; break;
       case 'resource': command = 'role.resource'; params = { playerId, resource: data.get('resource'), value: Number(data.get('value')) }; break;
       case 'random': command=event.submitter?.name==='clear'?'role.random.clear':'role.random.reserve'; params=command==='role.random.clear'?{playerId}:{playerId,skill:data.get('skill'),outcome:data.get('outcome')};break;

@@ -1,5 +1,6 @@
 import {v2Copy,v2SkillCopy} from '../game/v2-content.js';
 import {leaderSkillCopy} from './leader-copy.js';
+import {SPECIAL_EVENT_COPY} from '../game/special-event-content.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,6 +95,11 @@ export function buildCatalog() {
   addStory('event.shop.shady','event','迷宮行商據點','迷宮深處，一名披著舊斗篷的商人向冒險小隊招手，攤位上擺滿各式裝備與補給品。他熱情地邀請眾人停下腳步。');
   addStory('event.shop.prep','event','出發備戰據點・後勤物資處','在邁向深淵未知迷霧前，後勤物資官向小隊展示了可用物資，整裝待發！');
   addStory('event.chest','event','發現古老寶箱！','在陰暗的地城角落，靜靜佇立著一具裝飾精美、未被開啟的神秘寶箱。');
+  addStory('event.chest.mimic','event','奇怪的寶箱',SPECIAL_EVENT_COPY.ambush);
+  addStory('event.shop.shady.leave','event','奸商攔路',SPECIAL_EVENT_COPY.merchantLeave);
+  addStory('event.shop.shady.theft','event','奸商識破行竊',SPECIAL_EVENT_COPY.merchantTheft);
+  addStory('enemy.shady_merchant','battle','奸商',SPECIAL_EVENT_COPY.merchant);
+  addStory('enemy.treasure_mimic','battle','奇怪的寶箱',SPECIAL_EVENT_COPY.mimic);
   addStory('event.trap','event','致命陷阱','地面傳來機關被觸發的清脆聲響，致命的尖刺與毒霧瞬間噴湧而出！');
   addStory('event.random.wandering_merchant','event','迷途流浪商人','一名背負巨大行囊的流浪行者向你們招手，願意以物易物或分享前方情報。');
   addStory('event.random.altar','event','古老深淵祭壇','一座刻滿禁忌古代銘文的石質祭壇，散發著令人心悸的威壓。');

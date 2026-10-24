@@ -24,6 +24,7 @@ class SFXManager {
     this.assets = new Map();
     this.activeVoices = new Set();
     this.generation = 0;
+    this.userActivated = false;
   }
 
   get soundEnabled() { return this._soundEnabled; }
@@ -37,6 +38,9 @@ class SFXManager {
     }
   }
   init(unlock = true) {
+    const activation = typeof navigator !== 'undefined' ? navigator.userActivation : null;
+    if (activation?.isActive || activation?.hasBeenActive) this.userActivated = true;
+    if (!this.userActivated) return;
     if (!this.ctx && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
@@ -51,6 +55,7 @@ class SFXManager {
     if(typeof window!=='undefined'&&window.assetRegistry)profile=window.assetRegistry.audioProfile(profile);
     if (this.assets.has(profile.src)) return this.assets.get(profile.src).promise;
     this.init(false);
+    if (!this.ctx) return Promise.resolve(null);
     const entry = { buffer: null, failed: false, promise: null };
     entry.promise = (async () => {
       const controller = new AbortController();
@@ -86,9 +91,9 @@ class SFXManager {
   preloadRole(role) {
     if(typeof SFX_ASSETS==='undefined')return Promise.resolve([]);
     const prefix=role==='dreamweaver'?'dream':role==='samurai'?'samurai':role==='sage'?'sage':role;
-    const keys=new Set(Object.values(typeof SFX_PRESENTATION_PROFILES!=='undefined'?SFX_PRESENTATION_PROFILES[role]||{}:{}).filter(Boolean));
+    const keys=new Set(['healing_result',...Object.values(typeof SFX_PRESENTATION_PROFILES!=='undefined'?SFX_PRESENTATION_PROFILES[role]||{}:{}).filter(Boolean)]);
     for(const key of Object.keys(SFX_ASSETS))if(key.startsWith(prefix))keys.add(key);
-    if(role==='druid')for(const key of ['transform_wolf','transform_treant','transform_bear','treant_action','wolf_action','claw_slash'])keys.add(key);
+    if(role==='druid')for(const key of ['transform_wolf','transform_treant','transform_bear','treant_action','wolf_action','wolf_pup_attack','claw_slash'])keys.add(key);
     return Promise.all([...keys].map(key=>SFX_ASSETS[key]).filter(Boolean).map(profile=>this.loadAsset(profile)));
   }
   stopAll({preserveTails=false}={}) {
@@ -1015,9 +1020,18 @@ if (typeof window !== 'undefined') {
 
 if (typeof window !== 'undefined') {
   sfxManager.preload();
-  const unlockAudio = () => sfxManager.init();
-  window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
-  window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+  const unlockAudio = event => {
+    if (!event.isTrusted) return;
+    const activation = window.navigator?.userActivation;
+    if (activation && !activation.isActive && !activation.hasBeenActive) return;
+    sfxManager.userActivated = true;
+    sfxManager.init();
+    if (sfxManager.ctx) {
+      for (const type of ['pointerup','click','keydown']) window.removeEventListener(type, unlockAudio, true);
+      sfxManager.preload();
+    }
+  };
+  for (const type of ['pointerup','click','keydown']) window.addEventListener(type, unlockAudio, { capture: true });
   window.addEventListener('pagehide', () => sfxManager.stopAll());
 }
 

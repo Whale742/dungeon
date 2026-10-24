@@ -92,7 +92,7 @@ const MECHANIC_HELP = Object.freeze({
   abyss_remnant:['shadow','攻擊帶負面狀態的隊友時追加固定少量傷害。','淨化負面狀態，增傷不隨數量疊加。'],
   abyss_watcher:['void','存活時為首領提供效果抗性，最多2層。','擊倒凝視者即可解除其抗性支援。'],
   shady_merchant:['arrow','每隔3回合指定懸賞，攻擊優先威脅該角色。','預先保護懸賞對象，嘲諷及援護有效。'],
-  treasure_mimic:['devour','閉箱時每回合首次受傷降低30%；攻擊後開箱降低防禦。','趁開箱破綻集中攻擊。']
+  treasure_mimic:['devour','開箱時優先咬擊全隊；CD3：單體1.35倍攻擊，命中後偷取一件裝備或至多現有50%的金幣。閉箱首次受傷降低30%，攻擊後開箱降低防禦。','擊敗後可取回失物與箱內財寶；趁開箱破綻集中攻擊。']
 });
 const ABYSS_FAMILIES = ['heavy','arc','arrow','shadow','wave','acid','nature','crystal','blood','void','wave','claw','curse','equation'];
 const ABYSS_IDS = ['warrior','mage','archer','assassin','bard','alchemist','druid','paladin','gladiator','stargazer','dreamweaver','samurai','onmyoji','sage'];
@@ -384,6 +384,12 @@ export function onPlayerHealed(room,p,actual) {
 }
 
 // Returns false only for an unknown custom template, retaining the legacy path.
+export function runMimicAmbush(room, enemy) {
+  if (state(enemy).id !== 'treasure_mimic' || state(enemy).ambushed || enemy.hp <= 0) return;
+  state(enemy).ambushed = true;
+  for (const target of players(room)) strike(room,enemy,target,enemy.attack,'開箱伏擊・全體猛咬');
+}
+
 export function runEnemyAction(room,enemy,queue) {
   const s=state(enemy),id=s.id,script=enemy.script;
   const eventStart=(room.enemyMechanicQueue||[]).length;
@@ -443,7 +449,7 @@ export function runEnemyAction(room,enemy,queue) {
   const hitCount=ult&&script?.specialMultiHits?script.specialMultiHits:1;
   if(ult&&script?.specialMultiHits)raw=script.specialHitDamage;
   if(script)raw=Math.floor(raw*(enemy.scriptDamageScale||1));
-  const focused=!!script || ['shadow_alpha','shadow_wolf_pup','cave_goblin_rogue','labyrinth_crossbowman','shady_merchant'].includes(id);
+  const focused=!!script || ['shadow_alpha','shadow_wolf_pup','cave_goblin_rogue','labyrinth_crossbowman','shady_merchant','treasure_mimic'].includes(id);
   const targets=ult&&id==='abyss_sage'?players(room):focused?[target]:players(room);
   const assignments=new Map(targets.map(p=>[p.id,focused || id==='abyss_sage' ? raw||0 : Math.floor((raw||0)*B.scatterAoeRatio)]));
   let scatter=focused?0:Math.max(0,(raw||0)-Math.floor((raw||0)*B.scatterAoeRatio));
@@ -475,6 +481,12 @@ export function runEnemyAction(room,enemy,queue) {
   }
   // Debuffs apply only after an actual nonzero hit, never after dodge or block.
   const hitIds=new Set((room.enemyMechanicQueue||[]).slice(eventStart).filter(step=>step.sourceId===enemy.instanceId&&step.actionId===label).flatMap(step=>step.results).filter(r=>r.kind==='damage'&&r.finalDamage>0&&room.players[r.targetId]).map(r=>r.targetId));
+  if(ult && id==='treasure_mimic' && hitIds.size){
+    const victim=room.players[hitIds.has(target.id)?target.id:hitIds.values().next().value];
+    let theft;
+    const result=record(room,enemy,victim,'貪婪竊取','status',()=>{theft=room.stealMimicLoot(enemy,victim);return !!theft;});
+    if(theft)result.theft=theft;
+  }
   for(const targetId of hitIds) {
     const target=room.players[targetId];
     if((ult&&id==='lava_colossus')||id==='hellfire_imp')status(room,enemy,target,'ember','熔岩灼燒',B.burnDamage,B.burnTurns);

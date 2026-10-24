@@ -43,6 +43,7 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['transform_treant', 'druid-transform-treant', .7, 'transform_treant', 0, 450],
   ['treant_action', 'druid-treant-action', .7, 'vine_strike', 0, 400],
   ['wolf_action', 'druid-wolf-action', .5, 'minion_attack', .05, 800],
+  ['wolf_pup_attack', 'https://xhuckxmagojrpfurcmbf.supabase.co/storage/v1/object/public/game-assets/audio/sfx/druid-wolf-action-short-973cb5bb9331b109.mp3', .5, null, 0, 800],
   ['logo_intro', 'logo-intro', .4, 'round_start', 0, 5800, Infinity],
   ['chest_reveal', 'chest-reveal', .46, 'chest_open', .25, 1900],
   ['boss_warning', 'warning', .55, 'boss_warning', 0, 4700],
@@ -50,12 +51,13 @@ const SFX_ASSETS = Object.freeze(Object.fromEntries([
   ['walk', 'walk', .4, null, 0, 2000, 120],
   ['victory', 'victory', .16, 'victory', 0, 3900]
 ].map(([key, file, volume, fallback, offset, identityBeatMs, maxDuration]) => [key, Object.freeze({
-  src: '/sound/' + file + '.mp3', bindingKey:'sfx.'+key, volume, fallback, offset, identityBeatMs,
+  src: file.startsWith('https://') ? file : '/sound/' + file + '.mp3', bindingKey:'sfx.'+key, volume, fallback, offset, identityBeatMs,
   // A short fade preserves the tail without waiting for silence/file ended.
   maxDuration: maxDuration ?? (identityBeatMs + 200) / 1000
 })])));
 
 const SFX_ALIASES = Object.freeze({
+  heal: 'healing_result',
   panel_sweep: 'fight', panel_shoo: 'fight', action_whoosh: 'fight', combat_skill_sweep: 'fight',
   'assassin-pursuit': 'assassin_pursuit', 'sword-slash-light': 'warrior_basic', 'sword-slash-heavy': 'warrior_skill1',
   warrior_xing: 'warrior_skill1', sword_slash: 'warrior_skill1', sword_whoosh: 'warrior_skill1',
@@ -99,10 +101,10 @@ function resolveCombatSfxProfile(step) {
 }
 
 function minionSound(minion, phase = 'attack', index = 0) {
-  return { key: minion?.type === 'wolf' ? 'wolf_action' : 'treant_action',
+  return { key: minion?.type === 'wolf' ? (phase === 'attack' ? 'wolf_pup_attack' : 'wolf_action') : 'treant_action',
     instance: 'minion-' + minion?.id + '-' + phase,
     volume: (phase === 'hurt' ? .55 : index ? .9 : 1),
-    offset: minion?.type === 'wolf' ? (phase === 'hurt' ? 2.35 : phase === 'summon' ? .05 : .5) : 0 };
+    offset: minion?.type === 'wolf' ? (phase === 'hurt' ? 2.35 : phase === 'summon' ? .05 : 0) : 0 };
 }
 
 // This hold uses the presentation clock; Lab speed never changes MP3 pitch/rate.

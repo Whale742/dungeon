@@ -79,7 +79,7 @@ async function playPhase5DruidGuard(result,context) {
   const id=resolvePresentationTarget(result);
   await preloadPhase5Art([PHASE5_ART.vine],context.signal);
   await withBattlefieldSkillStage({sourceRole:'druid',sourceId:id,targetId:result.sharedFrom,actionId:'dru_guard',results:[]},
-    {...context,skipCastAudio:true},async s=>{s.local.audioScope.play('vine_strike',{noHold:true});await phase5VineLink(s,id,result.sharedFrom);});
+    {...context,skipCastAudio:true},async s=>{s.local.audioScope.play('treant_action');await phase5VineLink(s,id,result.sharedFrom);});
 }
 async function playPhase5DruidSleep(result,context) {
   const before=result.targetBefore,after=result.targetAfter;
@@ -89,6 +89,7 @@ async function playPhase5DruidSleep(result,context) {
   await preloadPhase5Art([PHASE5_ART.roots,PHASE5_ART.vine],context.signal);
   await withBattlefieldSkillStage({sourceRole:'druid',sourceId:id,targetId:id,actionId:'dru_sleep',results:[]},
     {...context,skipCastAudio:true},async s=>{
+      s.local.audioScope.play(sleeping?'transform_treant':'treant_action');
       phase5Pulse(s,sleeping?PHASE5_ART.roots:PHASE5_ART.vine,id,'roots',320);
       await s.wait(s.reduced?100:240);
     });
@@ -278,18 +279,31 @@ async function playBattlefieldGladiator(step,context) {
   });
 }
 
+async function phase5DruidWhiteGlow(s,step,ms) {
+  const portrait=(typeof BattleHud!=='undefined'?BattleHud.actorPortrait?.(step):null) || s.actor?.querySelector?.('img') || s.actor;
+  const animation=portrait?s.animate(portrait,[
+    {filter:'brightness(1) drop-shadow(0 0 0 transparent)'},
+    {filter:'brightness(0) invert(1) drop-shadow(0 0 18px white)',offset:.35},
+    {filter:'brightness(0) invert(1) drop-shadow(0 0 28px white)',offset:.75},
+    {filter:'brightness(0) invert(1) drop-shadow(0 0 18px white)'}
+  ],ms):null;
+  try { await s.wait(ms); await s.local.audioScope.hold(); }
+  finally { animation?.cancel(); }
+}
+
 async function playBattlefieldDruid(step,context) {
   const portraits=(step.results||[]).flatMap(result=>[
     ...(result.kind==='transform'&&result.targetAfter?[resolveBattlePortrait(result.targetAfter).src]:[]),
     ...(result.minions||[]).slice(0,3).map((minion,index)=>resolveBattlePortrait({...minion,minionIndex:minion.minionIndex||index+1,entityType:'minion'}).src)
   ]).filter(Boolean);
   await preloadPhase5Art([PHASE5_ART.vine,PHASE5_ART.roots,PHASE5_ART.claw,PHASE5_ART.spark,...portraits],context.signal);
-  await withBattlefieldSkillStage(step,context,async s=>{
+  await withBattlefieldSkillStage(step,{...context,skipCastAudio:true},async s=>{
     const audio=s.local.audioScope;
     for(const result of step.results||[]) {
       const id=resolvePresentationTarget(result,step),form=result.targetAfter?.druidForm;
       if(result.minion&&result.kind==='damage') {
         const minion=result.minion,origin=getVisualAnchor(minion.id);
+        const cue=minionSound(minion,'attack');audio.play(cue.key,cue);
         if(origin&&minion.type==='wolf') {
           const original=origin.element.matches('img')?origin.element:origin.element.querySelector('img');
           if(original?.currentSrc||original?.src) {
@@ -306,27 +320,30 @@ async function playBattlefieldDruid(step,context) {
         }
         await phase5Result(s,step,result,minion.type==='treant'?PHASE5_ART.vine:PHASE5_ART.claw);
       } else if(result.kind==='transform') {
-        // The authority commit swaps the existing portrait and keeps its form.
-        phase5Pulse(s,form==='treant'||form==='tree'?PHASE5_ART.roots:PHASE5_ART.claw,id,form==='treant'||form==='tree'?'roots':'strike',400);
-        if(form==='bear')phase5Pulse(s,PHASE5_ART.spark,id,'strike',450);
-        audio.play(form==='werewolf'?'transform_wolf':form==='bear'?'boss_roar':'transform_treant',{noHold:true});
-        await s.wait(180);commitBattlefieldPlayerResult(result,step,s.local);await s.wait(180);
-      } else if(result.kind==='summon') {
-        phase5Pulse(s,result.minions?.some(m=>m.type==='wolf')?PHASE5_ART.claw:PHASE5_ART.roots,id,'roots',350);
+        audio.play(form==='werewolf'?'transform_wolf':form==='bear'?'boss_roar':'transform_treant');
+        await phase5DruidWhiteGlow(s,step,form==='werewolf'?2900:form==='bear'?600:450);
+        if(s.signal?.aborted)return;
         commitBattlefieldPlayerResult(result,step,s.local);
-        // Existing HUD is the only persistent summon display.
-        for(const minion of (result.minions||[]).slice(0,3)) {
-          const a=getVisualAnchor(minion.id)?.element;if(!a)continue;
-          const animation=s.animate(a,s.reduced?[{opacity:.5},{opacity:1}]:[{opacity:0,transform:'scale(.65)'},{opacity:1,transform:'scale(1)'}],220);
-          await animation.finished.catch(()=>{});
+        if(typeof BattleHud!=='undefined')BattleHud.updateActorPortrait?.(step,result.targetAfter);
+        if(typeof BattleHud!=='undefined')BattleHud.revealDruidResult?.(step);
+        s.revealRecipient?.(id);
+        await s.wait(180);
+      } else if(result.kind==='summon') {
+        for(const [index,minion] of (result.minions||[]).slice(0,3).entries()) {
+          const cue=minionSound(minion,'summon',index);audio.play(cue.key,cue);
         }
+        await phase5DruidWhiteGlow(s,step,450);
+        if(s.signal?.aborted)return;
+        commitBattlefieldPlayerResult(result,step,s.local);
+        if(typeof BattleHud!=='undefined')BattleHud.revealDruidResult?.(step);
+        s.revealRecipient?.(id);
       } else {
         const actor=step.hpSnapshotBefore?.players?.find(p=>p.id===step.sourceId);
         const currentForm=step.druidForm||actor?.druidForm;
         const nature=['treant','tree'].includes(currentForm);
         const art=nature?PHASE5_ART.vine:currentForm==='bear'?PHASE5_ART.spark:currentForm==='werewolf'?PHASE5_ART.claw:PHASE5_ART.vine;
         if(result.sharedFrom)await phase5VineLink(s,result.sharedFrom,id);
-        if(result.kind==='damage')audio.play(nature?'vine_strike':'physical_hit',{noHold:true});
+        if(result.kind==='damage')audio.playResult(nature?'treant_action':currentForm==='werewolf'?'wolf_action':'physical_hit');
         await phase5Result(s,step,result,result.kind==='damage'?art:null,nature?'roots':'strike');
       }
     }

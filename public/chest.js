@@ -613,7 +613,7 @@ async function playChestPresentation(ev, context = {}) {
         };
         const onClick = () => act('open');
         if (['chest', 'treasure'].includes(ev.type) && !context.onOpen) {
-          for (const [action,label,allowed] of [['pacify','安撫寶箱',ev.canPacify],['leave','繞道而行',ev.canLeave !== false]]) {
+          for (const [action,label,allowed] of [['leave','繞道而行',ev.canLeave !== false]]) {
             if (!allowed) continue;
             const button=document.createElement('button'); button.type='button'; button.className=btnOpenChest.className;
             button.textContent=label; button.addEventListener('click',()=>act(action));

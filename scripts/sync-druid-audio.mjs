@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import {loadEnv} from '../studio/env.js';
+import {SupabaseRest} from '../studio/supabase.js';
+import {createClient} from '@supabase/supabase-js';
+
+loadEnv();
+const cloud=new SupabaseRest();
+if(!cloud.configured)throw Error('Supabase credentials missing');
+const bytes=fs.readFileSync(new URL('../public/sound/druid-wolf-action-short.mp3',import.meta.url));
+const hash=crypto.createHash('sha256').update(bytes).digest('hex');
+const storage_path=`audio/sfx/druid-wolf-action-short-${hash.slice(0,16)}.mp3`;
+const storage=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}}).storage.from('game-assets');
+const {error}=await storage.upload(storage_path,bytes,{contentType:'audio/mpeg',upsert:true});
+if(error)throw error;
+const url=storage.getPublicUrl(storage_path).data.publicUrl;
+const response=await fetch(url);
+if(!response.ok||!response.headers.get('content-type')?.startsWith('audio/')||crypto.createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex')!==hash)throw Error('Public audio verification failed');
+const asset_key='storage.sfx.wolf_pup_attack';
+await cloud.upsert('game_assets',[{asset_key,display_name:'druid-wolf-action-short.mp3',kind:'audio',category:'sfx',source_type:'storage',local_path:null,storage_bucket:'game-assets',storage_path,external_url:null,mime_type:'audio/mpeg',size_bytes:bytes.length,preload_group:'sfx',volume:.5,is_public:true}],'asset_key');
+for(const status of ['draft','published'])await cloud.upsert('asset_bindings',[{binding_key:'sfx.wolf_pup_attack',status,asset_key,fallback_path:null,preload_group:'sfx',volume_override:null}],'binding_key,status');
+const file=new URL('../public/sfx-assets.js',import.meta.url);
+fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace(/\['wolf_pup_attack', '[^']+'/g,`['wolf_pup_attack', '${url}'`));
+const rows=await cloud.rows('asset_bindings','binding_key=eq.sfx.wolf_pup_attack');
+if(rows.length!==2||rows.some(r=>r.asset_key!==asset_key))throw Error('Audio binding verification failed');
+console.log('Verified public wolf pup attack MP3 and published/draft Supabase bindings.');

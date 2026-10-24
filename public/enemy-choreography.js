@@ -19,7 +19,7 @@ const ENEMY_PAINTED_ART=Object.freeze({
   blood_sorcerer:['enemies/blood-ribbon.png','enemies/blood-pierce.png','enemies/blood-moon.png','enemies/blood-energy-stream.png'],
   corrosive_serpent:['enemies/acid-projectile.png','enemies/acid-pool.png'],
   frost_knight:['common/ice-projectile-volley.png','common/frost-slash.png','common/ice-eruption.png'],
-  glutton:['enemies/gluttonous-bite.png'],banshee:['enemies/whispering-spirits.png','enemies/banshee-scream.png'],
+  glutton:['enemies/strange_chest_bite.png'],banshee:['enemies/whispering-spirits.png','enemies/banshee-scream.png'],
   crystal_scorpion:['enemies/crystal-pierce.png','enemies/crystal-burst.png'],
   hellstrider:['common/fireball.png','common/meteor-shower.png','common/rock-impact.png'],
   lava_larva:['enemies/lava-debris.png','enemies/lava-eruption.png'],
@@ -31,13 +31,16 @@ const ENEMY_PAINTED_ART=Object.freeze({
   carrion_crawler:['enemies/parasitic-vortex.png'],whispering_apparition:['enemies/whispering-spirits.png'],
   crystal_beetle:['enemies/crystal-pierce.png','enemies/crystal-burst.png'],hellfire_imp:['common/fireball.png'],
   labyrinth_crossbowman:['archer/magic-arrow.png'],cave_goblin_rogue:['common/slash-texture.png'],
-  shady_merchant:['common/gold-coin-burst.png'],treasure_mimic:['enemies/gluttonous-bite.png'],
+  shady_merchant:['common/gold-coin-burst.png'],treasure_mimic:['enemies/strange_chest_bite.png'],
   abyss_remnant:['enemies/whispering-spirits.png'],
   abyss_warrior:['common/sword-slash.png'],abyss_mage:['mage/arcane-core.png'],abyss_archer:['archer/magic-arrow.png'],
   abyss_assassin:['assassin/shadow-step.png','assassin/fatal-slash.png'],abyss_bard:['bard/pluck-streak.png','bard/melody-ribbon.png'],
   abyss_alchemist:['common/acid-orb.png','common/acid-splash.png'],abyss_druid:['common/vine-strike.png'],
   abyss_paladin:['common/sword-slash.png'],abyss_gladiator:['common/slash-texture.png'],abyss_samurai:['common/sword-slash.png']
 });
+function enemyPaintedAssetUrl(path){
+  return path==='enemies/strange_chest_bite.png'?'https://xhuckxmagojrpfurcmbf.supabase.co/storage/v1/object/public/game-assets/images/effects/special-bite-b699902fe4b93dab.png':'/assets/combat-fx/'+path;
+}
 function enemyPaintedPaths(step,result){
   // Self HP costs, shield consumption and form bookkeeping are not attacks.
   const kind=enemyEventKind(result,step);
@@ -70,7 +73,50 @@ function enemyPaintedPaths(step,result){
     (result.targetAfter?.mechanics?.charge||0)>(result.targetBefore?.mechanics?.charge||0))return ['enemies/automaton-energy-core.png'];
   return null;
 }
+function mimicTheftCaption(theft) {
+  return theft.kind==='gold'?`奇怪的寶箱偷走了小隊 ${theft.amount} 枚金幣！`:`奇怪的寶箱偷走了${theft.targetName||'隊員'}的【${theft.item?.name||'裝備'}】！`;
+}
+function mimicTheftEquipmentUrl(theft) {
+  if(theft?.kind!=='equipment'||!theft.item)return null;
+  const item=theft.item,registry=typeof window!=='undefined'?window.assetRegistry:null;
+  if(item.icon?.startsWith('https://'))return item.icon;
+  const exclusive=!!item.role||item.slot==='CLASS_EXCLUSIVE'||theft.slot==='CLASS_EXCLUSIVE'||item.tier==='CLASS_EXCLUSIVE';
+  const path=(item.icon?.startsWith('/')?item.icon:`/assets/${exclusive?'專屬裝備':'Equipments'}/${encodeURIComponent(item.name)}.webp`).replace(/^\/?assets\/assets\//,'/assets/');
+  const semantic=item.role?registry?.resolve(`equip.${item.role}.${item.id}.icon`,''):null;
+  const url=semantic?.startsWith('https://')?semantic:registry?.resolvePath(path);
+  return url?.startsWith('https://')?url:null;
+}
+function createMimicTheftChoreography(step,result,root,{reduced}) {
+  const theft=result.theft;if(!theft)return null;
+  const returning=result.returning===true;
+  const layer=document.createElement('div');layer.className='mimic-theft-effects';root.appendChild(layer);
+  const caption=document.createElement('div');caption.className='mimic-theft-caption';caption.textContent=returning?(theft.kind==='gold'?`奪回 ${theft.amount} 枚金幣，放回小隊背包！`:`奪回【${theft.item?.name||'裝備'}】，歸還${theft.destination==='bag'?'背包':theft.targetName||'原主'}！`):mimicTheftCaption(theft);layer.appendChild(caption);
+  caption.hidden=returning;
+  const icon=document.createElement('div');icon.className='mimic-theft-icon';
+  const imageUrl=mimicTheftEquipmentUrl(theft);
+  if(imageUrl){
+    const image=document.createElement('img');image.src=imageUrl;image.alt=theft.item.name;image.className='mimic-theft-equipment';icon.appendChild(image);
+  }else icon.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-${theft.kind==='gold'?'gold':'sword'}"></use></svg>`;
+  icon.setAttribute('aria-label',theft.kind==='gold'?`${theft.amount} 枚金幣`:theft.item?.name||'裝備');layer.appendChild(icon);
+  const sourceId=theft.ownerId||result.targetId,enemyId=step.sourceId;
+  return {duration:reduced?950:1600,contact:.82,
+    render(p){
+      const enemy=getBattleEffectAnchor(enemyId),owner=getBattleEffectAnchor(sourceId);
+      const bag=theft.kind==='gold'||returning&&theft.destination==='bag'?document.getElementById('btnOpenInventory'):null;
+      const rect=bag?.getBoundingClientRect();
+      const recipient=rect?.width&&rect?.height?{x:rect.left+rect.width/2,y:rect.top+rect.height/2}:owner;
+      if(!enemy||!recipient){icon.hidden=true;return;}icon.hidden=false;
+      const origin=returning?enemy:recipient,destination=returning?recipient:enemy;
+      const q=Math.max(0,Math.min(1,(p-.12)/.7)),ease=q*q*(3-2*q);
+      const x=origin.x+(destination.x-origin.x)*ease,y=origin.y+(destination.y-origin.y)*ease-(reduced?0:Math.sin(q*Math.PI)*85);
+      const scale=returning ? .4+.6*Math.min(1,q/.25) : q<.72?1:Math.max(0,(1-q)/.28);
+      icon.style.left=x+'px';icon.style.top=y+'px';icon.style.opacity=String(p<.08?p/.08:returning&&p>.92?(1-p)/.08:1);
+      icon.style.transform=`translate(-50%,-50%) scale(${scale}) rotate(${reduced?0:q*160}deg)`;
+      caption.style.opacity=String(p<.08?p/.08:p>.92?(1-p)/.08:1);
+    },remove:()=>layer.remove()};
+}
 function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {
+  if(result.theft)return createMimicTheftChoreography(step,result,root,{reduced});
   if(sixEnemyEventMode(step,result))return createSixEnemyChoreography(step,result,root,{reduced,animations,speed});
   const paths=enemyPaintedPaths(step,result);if(!paths)return null;
   const id=step.presentation.mechanicId,ultimate=!!step.presentation.isUltimate;
@@ -80,7 +126,7 @@ function createEnemyChoreography(step,result,root,{reduced,animations,speed}) {
   const duration=reduced?650:baseDuration,contact=reduced?.35:baseContact;
   const sourceId=step.presentation.visualOriginId||result.sourceId||step.sourceId,targetId=resolvePresentationTarget(result,step);
   const layer=document.createElement('div');layer.className='enemy-choreography enemy-choreography-'+id;layer.dataset.ultimate=String(ultimate);layer.setAttribute('aria-hidden','true');root.appendChild(layer);
-  const images=paths.map(path=>{const n=document.createElement('img');n.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath('/assets/combat-fx/'+path):'/assets/combat-fx/'+path;n.alt='';n.className='enemy-official-art';n.setAttribute('aria-hidden','true');layer.appendChild(n);return n;});
+  const images=paths.map(path=>{const n=document.createElement('img'),url=enemyPaintedAssetUrl(path);n.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(url):url;n.alt='';n.className='enemy-official-art';n.setAttribute('aria-hidden','true');layer.appendChild(n);return n;});
   const clamp=n=>Math.max(0,Math.min(1,n)),out=n=>1-Math.pow(1-clamp(n),3);
   let actorAnimated=false;
   const render=p=>{

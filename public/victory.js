@@ -30,6 +30,35 @@ function refreshVictoryControls() {
     socket.emit('victory:continue', { presentationId: roomState.currentVictory?.presentationId });
   }
 }
+async function playMimicLootReturns(victory,context={}) {
+  const recovered=victory.recoveredLoot||[];
+  if(!recovered.length)return;
+  const signal=context.signal||context.controller?.signal,speed=context.speed||1;
+  if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
+  const images=[...new Set(recovered.map(mimicTheftEquipmentUrl).filter(Boolean))];
+  if(images.length)await preloadPhase5Art(images,signal);
+  if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
+  const root=document.createElement('div');root.className='enemy-effect-overlay mimic-loot-return';document.body.appendChild(root);
+  const previousPhase=typeof BattleHud!=='undefined'?BattleHud.phase:null;
+  if(previousPhase)BattleHud.setPhase('ENEMY_ACTIONS');
+  const reduced=!!context.reducedMotion||!!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const flights=recovered.map((theft,index)=>({theft,delay:index*100,fx:createMimicTheftChoreography({sourceId:theft.sourceEnemyId},{theft,returning:true},root,{reduced})}));
+  // Stagger the recovered items while preserving each original destination.
+  const duration=Math.max(...flights.map(f=>f.delay+f.fx.duration)),start=performance.now();let frame,cleaned=false;
+  const cleanup=()=>{if(cleaned)return;cleaned=true;if(frame!==undefined)cancelAnimationFrame(frame);for(const {fx} of flights)fx.remove();root.remove();if(previousPhase)BattleHud.setPhase(previousPhase);};
+  const render=()=>{
+    const elapsed=(performance.now()-start)*speed;
+    for(const {fx,delay} of flights)fx.render(Math.max(0,Math.min(1,(elapsed-delay)/fx.duration)));
+    frame=requestAnimationFrame(render);
+  };
+  signal?.addEventListener('abort',cleanup,{once:true});
+  try{
+    render();context.onTiming?.('mimic_loot_return',{recoveredLoot:recovered});
+    await waitForPresentation(duration,signal,speed);
+    for(const {fx} of flights)fx.render(1);
+  }finally{signal?.removeEventListener('abort',cleanup);cleanup();}
+}
+
 async function playVictoryPresentation(victory, context = {}) {
   const controller = context.controller || new AbortController();
   const signal = context.signal || controller.signal;
@@ -63,6 +92,7 @@ async function playVictoryPresentation(victory, context = {}) {
     if(typeof bgmManager!=='undefined'){
       void bgmManager.bossDefeated().then(()=>{if(!signal.aborted)return bgmManager.resumeNormal();}).catch(error=>console.warn('[Victory:BGM]',error));
     }
+    await playMimicLootReturns(victory,{...context,signal});
     // Fatal action already completed death hold before the server enters victory.
     await wait(300);
     const title = document.createElement('div');

@@ -53,6 +53,45 @@ test('HUD conceals actual Samurai counters until their turn after enemy attacks'
   scope.hud.start(counter);assert.equal(host.children.filter(n=>n===reaction).length,1);
 });
 
+test('HUD defers transformed and newly summoned portraits until the Druid result is revealed',()=>{
+  const host={style:{setProperty(){}},children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}};
+  const scope={document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(k,v){this[k]=v;}})},
+    isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getPlayerAvatarHtml:p=>p.druidForm||p.role,escapeHtml:s=>s};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  const cast={sourceId:'druid',sourceRole:'druid',skillName:'變身',hpSnapshotBefore:{players:[{id:'druid',role:'druid'}]},results:[{kind:'transform'}]};
+  const bear={sourceId:'druid',sourceRole:'druid',skillName:'巨熊攻擊',hpSnapshotBefore:{players:[{id:'druid',role:'druid',druidForm:'bear'}]}};
+  const mage={sourceId:'mage',sourceRole:'mage',skillName:'法師攻擊'};
+  const wolf={sourceId:'druid',sourceRole:'druid',skillName:'幼狼攻擊',results:[{minion:{name:'幼狼',avatar:'wolf.webp'}}]};
+  scope.hud.begin([cast,bear,mage,wolf]);
+  assert.equal(host.children.length,2);assert.ok(!host.children.some(n=>/bear|wolf.webp/.test(n.innerHTML)));
+  scope.hud.revealDruidResult(cast);
+  assert.equal(host.children.length,4);
+  assert.equal(host.children.find(n=>n.innerHTML==='bear').style.transform,'translateX(calc(1 * var(--queue-size) * .58))');
+  assert.equal(host.children.find(n=>n['aria-label'].includes('法師攻擊')).style.transform,'translateX(calc(2 * var(--queue-size) * .58))');
+  scope.hud.revealDruidResult(cast);assert.equal(host.children.length,4);
+  const original=host.children[0];assert.equal(original.innerHTML,'druid');
+  scope.hud.updateActorPortrait(cast,{role:'druid',druidForm:'bear'});
+  assert.equal(host.children[0],original);assert.equal(original.innerHTML,'bear');assert.equal(host.children.length,4);
+});
+
+test('Audio context waits for a real browser activation before creation or resume',async()=>{
+  let created=0,resumed=0;
+  class AudioContext {
+    constructor(){created++;this.state='suspended';this.currentTime=0;this.destination={};}
+    createGain(){return {connect(){},gain:{cancelScheduledValues(){}}};}
+    resume(){resumed++;this.state='running';return Promise.resolve();}
+  }
+  const scope={window:{AudioContext},navigator:{userActivation:{isActive:false,hasBeenActive:false}}};
+  vm.createContext(scope);
+  const source=readFileSync(new URL('../public/presentation-core.js',import.meta.url),'utf8');
+  vm.runInContext(source.slice(0,source.indexOf('const sfxManager = new SFXManager();'))+'\nglobalThis.Manager=SFXManager;',scope);
+  const manager=new scope.Manager();manager.init();manager.init(false);
+  assert.equal(await manager.loadAsset({src:'test.mp3'}),null);assert.equal(created,0);assert.equal(resumed,0);
+  scope.navigator.userActivation.isActive=true;manager.init();
+  assert.equal(created,1);assert.equal(resumed,1);
+  scope.navigator.userActivation.isActive=false;manager.init();assert.equal(created,1);
+});
+
 test('Live Stargazer observation completes without a legacy cast title and commits once',async()=>{
   const sounds=[],created=[];let committed=0,paused=0;
   class Node{
@@ -66,6 +105,67 @@ test('Live Stargazer observation completes without a legacy cast title and commi
   await scope.playStargazerPresentation({actionId:'sg_observe',outcome:{type:'star',label:'星座'}},{battlefield:true,audioScope:{play:key=>sounds.push(key)}});
   assert.deepEqual(created,['div']);assert.equal(committed,1);assert.equal(paused,1);
   assert.deepEqual(sounds,['stargazer_obv','stargazer_confir']);
+});
+
+test('Shared battlefield healing plays the existing recording once per cast and holds its audible beat',async()=>{
+  const sounds=[],waits=[],applied=new Set(),scope={performance:{now:()=>100},sfxManager:{play:(key,options)=>sounds.push({key,options})},
+    waitForPresentation:async ms=>waits.push(ms),applyAuthoritativeResult:r=>{if(applied.has(r.resultId))return false;applied.add(r.resultId);return true;},
+    resolvePresentationTarget:r=>r.targetId,getVisualAnchor:()=>null,battleFeedbackEntries:()=>[]};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/sfx-assets.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/player-battlefield.js',import.meta.url),'utf8'),scope);
+  const context={audioScope:scope.createSfxPresentationScope({}),numberCounts:new Map()};
+  const result={resultId:'heal-1',targetId:'ally',actualHeal:12};
+  scope.commitBattlefieldPlayerResult(result,{sourceRole:'druid'},context);
+  scope.commitBattlefieldPlayerResult(result,{sourceRole:'druid'},context);
+  scope.commitBattlefieldPlayerResult({...result,resultId:'heal-2',targetId:'other'},{sourceRole:'druid'},context);
+  await context.audioScope.hold();
+  assert.deepEqual(sounds.map(s=>s.key),['healing_result']);assert.deepEqual(waits,[1400]);
+  assert.ok(readFileSync(new URL('../public/sound/healing.mp3',import.meta.url)).length);
+});
+
+test('Druid summons, companion attacks and forms retain their own existing sound cues',async()=>{
+  const sounds=[],scope={AugurPresentationEngine:class{},resolveBattlePortrait:()=>({src:null}),preloadPhase5Art:async()=>{},
+    resolvePresentationTarget:r=>r.targetId,getVisualAnchor:()=>null,commitBattlefieldPlayerResult(){},applyHpSnapshot(){},
+    phase5Pulse(){},phase5Result:async()=>{}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/sfx-assets.js',import.meta.url),'utf8'),scope);
+  const source=readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8');
+  vm.runInContext("const PHASE5_ART={};\n"+source.slice(source.indexOf('async function phase5DruidWhiteGlow(')),scope);
+  scope.withBattlefieldSkillStage=async(_step,context,play)=>{
+    assert.equal(context.skipCastAudio,true);
+    await play({local:{audioScope:{play:key=>sounds.push(key),playResult:key=>sounds.push(key),hold:async()=>{}}},signal:new AbortController().signal,reduced:true,wait:async()=>{}});
+  };
+  for(const type of ['wolf','treant'])await scope.playBattlefieldDruid({results:[{kind:'damage',minion:{id:type,type}}]},{});
+  await scope.playBattlefieldDruid({results:[{kind:'summon',minions:[{id:'wolf',type:'wolf'},{id:'tree',type:'treant'}]}]},{});
+  for(const form of ['werewolf','treant'])await scope.playBattlefieldDruid({results:[{kind:'transform',targetAfter:{druidForm:form}}]},{});
+  assert.deepEqual(sounds,['wolf_pup_attack','treant_action','wolf_action','treant_action','transform_wolf','transform_treant']);
+  for(const file of ['druid-wolf-action-short','druid-wolf-action','druid-treant-action','druid-transform-wolf','druid-transform-treant'])assert.ok(readFileSync(new URL('../public/sound/'+file+'.mp3',import.meta.url)).length);
+  assert.match(vm.runInContext('SFX_ASSETS.wolf_pup_attack.src',scope),/^https:\/\/.+\.supabase.co\/storage\/v1\/object\/public\//);
+});
+
+test('Druid self casts glow on the original portrait and reveal results only after the full effect',async()=>{
+  for(const form of ['werewolf','treant','bear','summon']) {
+    const trace=[],portrait={id:'original-portrait'};let finishAudio;
+    const hold=new Promise(resolve=>{finishAudio=resolve;});
+    const scope={AugurPresentationEngine:class{},BattleHud:{actorPortrait:()=>portrait},
+      resolveBattlePortrait:()=>({src:null}),preloadPhase5Art:async()=>{},getVisualAnchor:()=>null,
+      resolvePresentationTarget:r=>r.targetId,minionSound:()=>({key:'wolf_action'}),
+      commitBattlefieldPlayerResult:()=>trace.push('commit'),applyHpSnapshot:()=>trace.push('snapshot'),
+      phase5Pulse:()=>{throw Error('Self cast must not paint roots or claws');}};
+    vm.createContext(scope);
+    const source=readFileSync(new URL('../public/phase5-battlefield.js',import.meta.url),'utf8');
+    vm.runInContext('const PHASE5_ART={};\n'+source.slice(source.indexOf('async function phase5DruidWhiteGlow(')),scope);
+    scope.withBattlefieldSkillStage=async(_step,_context,play)=>play({
+      local:{audioScope:{play:()=>trace.push('sound'),hold:()=>hold}},signal:new AbortController().signal,
+      animate(node,keys){assert.equal(node,portrait);assert.ok(keys.some(k=>k.filter.includes('invert(1)')));trace.push('white');return {cancel:()=>trace.push('glow-finished')};},
+      wait:async()=>{},revealRecipient:()=>trace.push('reveal-card')
+    });
+    const result=form==='summon'?{kind:'summon',targetId:'druid',minions:[{id:'wolf',type:'wolf'}]}:{kind:'transform',targetId:'druid',targetAfter:{druidForm:form}};
+    const playback=scope.playBattlefieldDruid({sourceId:'druid',results:[result]},{});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(trace,['sound','white']);
+    finishAudio();await playback;
+    assert.deepEqual(trace,['sound','white','glow-finished','commit','reveal-card']);
+  }
 });
 
 test('HUD queue retirement respects reduced motion, playback speed and cancellation',async()=>{
@@ -739,6 +839,76 @@ function enemyPresentationHarness() {
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/enemy-presentation.js',import.meta.url),'utf8'),scope);
   return {scope,roots,commits,waits,frames};
 }
+
+test('Chest theft captions and icons use the real stolen item and fly from its owner or squad bag into the chest',async t=>{
+  for(const kind of ['equipment','gold']) {
+    const {room,enemy,player}=mechanismBattle(t,[SPECIAL_ELITES.treasure_mimic]);
+    room.checkDodge=()=>false;room.gold=100;
+    if(kind==='equipment')player.equipSlots.WEAPON={id:'sword',name:'被偷的劍',icon:'/assets/Equipments/精煉短劍.webp',bonusAtk:0};
+    t.mock.method(Math,'random',()=>kind==='equipment'?0:.99);
+    mechanismRound(room,3);const queue=actMechanism(room,enemy);normalizeCombatQueue(queue,'theft-'+kind);
+    const step=queue.find(s=>s.results.some(r=>r.theft)),result=step.results.find(r=>r.theft);
+    const h=enemyPresentationHarness(),captions=[],preloaded=[];
+    const cloudImage='https://test.supabase.co/storage/v1/object/public/game-assets/images/stolen-sword.webp';
+    h.scope.window={assetRegistry:{resolvePath:path=>path==='/assets/Equipments/精煉短劍.webp'?cloudImage:path}};
+    h.scope.preloadPhase5Art=async paths=>preloaded.push(...paths);
+    h.scope.getBattleEffectAnchor=id=>id===enemy.instanceId?{x:700,y:250}:{x:100,y:600};
+    h.scope.document.getElementById=id=>id==='btnOpenInventory'?{getBoundingClientRect:()=>({left:10,top:20,width:40,height:40})}:null;
+    h.scope.announceBattleFeedback=text=>captions.push(text);
+    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    const root=h.scope.document.createElement('div'),fx=h.scope.createEnemyChoreography(step,result,root,{reduced:false,animations:[],speed:1});
+    const layer=root.children[0],caption=layer.children[0],icon=layer.children[1];
+    assert.match(caption.textContent,kind==='gold'?/50 枚金幣/:/被偷的劍/);
+    if(kind==='gold')assert.match(icon.innerHTML,/#icon-gold/);
+    else {assert.equal(icon.children[0].src,cloudImage);assert.equal(icon.children[0].alt,'被偷的劍');}
+    fx.render(.12);assert.equal(icon.style.left,kind==='gold'?'30px':'100px');
+    fx.render(1);assert.equal(icon.style.left,'700px');assert.equal(icon.style.top,'250px');assert.match(icon.style.transform,/scale\(0\)/);
+    fx.remove();assert.equal(layer.isConnected,false);
+    await h.scope.playEnemyMechanicPresentation(step,{speed:2});
+    if(kind==='equipment')assert.ok(preloaded.includes(cloudImage));
+    assert.equal(h.commits.length,1);assert.ok(captions.some(text=>text===caption.textContent));assert.equal(h.frames.size,0);
+    await h.scope.playEnemyMechanicPresentation(step,{speed:2});assert.equal(h.commits.length,1);
+  }
+});
+
+test('Theft artwork resolves explicit, ordinary and exclusive equipment through cloud bindings',()=>{
+  const urls={normal:'https://test.supabase.co/normal.webp',exclusive:'https://test.supabase.co/exclusive.webp',custom:'https://test.supabase.co/custom.webp'};
+  const scope={window:{assetRegistry:{resolve:key=>key==='equip.warrior.w_sword.icon'?urls.exclusive:'',resolvePath:path=>path===`/assets/Equipments/${encodeURIComponent('精煉短劍')}.webp`?urls.normal:path===`/assets/專屬裝備/${encodeURIComponent('鋼鐵聖劍')}.webp`?urls.exclusive:path}}};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),scope);
+  const resolve=item=>scope.mimicTheftEquipmentUrl({kind:'equipment',item});
+  assert.equal(resolve({name:'精煉短劍'}),urls.normal);
+  assert.equal(resolve({id:'w_sword',name:'鋼鐵聖劍',role:'warrior'}),urls.exclusive);
+  assert.equal(resolve({name:'鋼鐵聖劍',slot:'CLASS_EXCLUSIVE'}),urls.exclusive);
+  assert.equal(resolve({name:'精煉短劍',icon:urls.custom}),urls.custom);
+  assert.equal(resolve({name:'未知物品',icon:'/assets/missing.webp'}),null,'never use a local image URL');
+  assert.equal(scope.mimicTheftEquipmentUrl({kind:'gold',amount:10}),null);
+});
+
+test('Recovered equipment and gold fly from the chest to their independent original destinations',async()=>{
+  for(const abort of [false,true]) {
+    const h=enemyPresentationHarness(),controller=new AbortController(),phases=[];
+    h.scope.getBattleEffectAnchor=id=>({enemy:{x:700,y:250},first:{x:100,y:600},second:{x:300,y:600}}[id]);
+    h.scope.document.getElementById=id=>id==='btnOpenInventory'?{getBoundingClientRect:()=>({left:10,top:20,width:40,height:40})}:null;
+    h.scope.BattleHud={phase:'ALLY_ACTIONS',setPhase:value=>phases.push(value)};
+    h.scope.preloadPhase5Art=async()=>{};
+    vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
+    vm.runInContext(readFileSync(new URL('../public/victory.js',import.meta.url),'utf8'),h.scope);
+    const recoveredLoot=[
+      {kind:'equipment',ownerId:'first',sourceEnemyId:'enemy',destination:'character',item:{name:'原主一的劍',icon:'https://test.supabase.co/first.webp'}},
+      {kind:'equipment',ownerId:'second',sourceEnemyId:'enemy',destination:'character',item:{name:'原主二的盾',icon:'https://test.supabase.co/second.webp'}},
+      {kind:'gold',amount:50,sourceEnemyId:'enemy',destination:'bag'}
+    ];
+    const root=h.scope.document.createElement('div'),fx=h.scope.createMimicTheftChoreography({sourceId:'enemy'},{theft:recoveredLoot[0],returning:true},root,{reduced:false});
+    const layer=root.children[0],icon=layer.children[1];assert.equal(layer.children[0].hidden,true);
+    fx.render(.12);assert.equal(icon.style.left,'700px');fx.render(.82);assert.equal(icon.style.left,'100px');assert.match(icon.style.transform,/scale\(1\)/);fx.remove();
+    const playback=h.scope.playMimicLootReturns({recoveredLoot},{signal:controller.signal,speed:2,onTiming:()=>{if(abort)controller.abort();}});
+    if(abort)await assert.rejects(playback,{name:'AbortError'});else await playback;
+    assert.equal(h.frames.size,0);assert.equal(h.commits.length,0,'return animation must not repeat server inventory changes');
+    const overlay=h.roots.at(-1);assert.equal(overlay.isConnected,false);
+    assert.deepEqual(phases,['ENEMY_ACTIONS','ALLY_ACTIONS']);
+    if(!abort)assert.deepEqual(overlay.children.map(n=>n.children[1].style.left),['100px','300px','30px']);
+  }
+});
 test('Battle feedback keeps shield and HP as separate short authoritative values',()=>{
   const {scope}=enemyPresentationHarness();
   const entries=scope.battleFeedbackEntries({actualHpDamage:18,actualAbsorbed:10,targetAfter:{statuses:[{label:'不得出現在數字旁的完整狀態',turns:9}]}});
@@ -1185,7 +1355,7 @@ test('All real enemy queues retain one settlement per result with painted choreo
     const {room,enemy}=mechanismBattle(t,[template]);room.checkDodge=()=>false;const queue=mechanismRound(room,3);queue.push(...actMechanism(room,enemy));normalizeCombatQueue(queue,'official-art-'+enemy.instanceId);
     for(const reducedMotion of [false,true]){
       const h=enemyPresentationHarness();vm.runInContext(readFileSync(new URL('../public/enemy-choreography.js',import.meta.url),'utf8'),h.scope);
-      const preloaded=[];h.scope.preloadPhase5Art=async paths=>{for(const path of paths){assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
+      const preloaded=[];h.scope.preloadPhase5Art=async paths=>{for(const path of paths){if(path.startsWith('https://'))assert.match(path,/^https:\/\/.+\.supabase.co\/storage\/v1\/object\/public\/game-assets\//);else assert.ok(readFileSync(new URL('../public'+path,import.meta.url)).length);preloaded.push(path);}};
       for(const step of queue)await h.scope.playEnemyMechanicPresentation(step,{reducedMotion,speed:1.5});
       assert.equal(h.commits.length,queue.flatMap(s=>s.results).length,template.name);assert.equal(h.frames.size,0);assert.ok(h.roots.filter(root=>root.className==='enemy-effect-overlay').every(root=>!root.isConnected));
       const visit=node=>{assert.doesNotMatch(node.className||'',/enemy-effect-(?:shape|arc|arrow|projectile|link|wave|crystal)(?: |$)/);for(const child of node.children||[])visit(child);};
@@ -1593,10 +1763,86 @@ test('Same-round room updates cannot reveal a gated encounter, and abort release
     await pending;assert.equal(route.inert,false);assert.ok(!route.classes.has('encounter-scene-held'));assert.ok(!body.classes.has('battle-intro-active'));
   }
 });
-test('Mimic ambush keeps its real two-or-three enemy formation and uses the shared encounter state',t=>{
+test('Mimic ambush creates one strange chest elite and attacks before skill selection',t=>{
   const {room}=fixture(t);room.handleChestEvent({isMimic:true,col:2});assert.equal(room.currentEvent.isMimic,true);
   const result=room.handleChestAction('solo','open');assert.equal(result.isMimic,true);assert.equal(room.state,'IN_BATTLE');assert.equal(room.currentEvent,null);
-  assert.ok(room.enemies.length>=2&&room.enemies.length<=3);assert.ok(room.enemies.every(e=>e.isMimicAmbush));assert.match(room.currentMonster.encounterStory,/寶箱猛然張開/);assert.equal(room.getClientState().battleRound,1);
+  assert.equal(room.enemies.length,1);assert.equal(room.currentMonster.name,'奇怪的寶箱');assert.equal(room.currentMonster.tier,'ELITE');assert.equal(room.currentMonster.baseHp,100);assert.match(room.currentMonster.avatar,/^https:\/\/.+supabase.co\//);assert.match(room.currentMonster.encounterStory,/金黃眼睛/);assert.equal(room.currentMonster.mechanics.ambushed,true);assert.equal(room.getClientState().battleRound,1);
+});
+
+test('Unopened normal and strange chests have identical options and cannot be pacified',t=>{
+  for(const role of ['warrior','druid']) {
+    const {room,player}=fixture(t,role);let normal;
+    for(const isMimic of [false,true]) {
+      room.handleChestEvent({isMimic,col:1});
+      const event=room.getClientState().currentEvent;
+      assert.equal(Object.hasOwn(event,'isMimic'),false);assert.equal(event.canPacify,false);
+      const {presentationId,...visible}=event;
+      if(!isMimic)normal=visible;else assert.deepEqual(visible,normal);
+      const gold=room.gold,hp=player.hp;
+      assert.equal(room.handleChestAction('solo','pacify').success,false);
+      assert.equal(room.gold,gold);assert.equal(player.hp,hp);assert.equal(room.currentEvent.opened,false);
+    }
+  }
+});
+
+test('Strange chest opening hits every ally once and precedes their first action',t=>{
+  const {room,player,events}=fixture(t);room.addPlayer({id:'second',join(){},emit(){}},'Second');room.selectRole('second','mage');
+  room.checkDodge=()=>false;
+  const before=Object.fromEntries(Object.values(room.players).map(p=>[p.id,p.hp]));
+  room.handleChestEvent({isMimic:true,col:1});room.handleChestAction('solo','open');
+  const hits=events.flatMap(([,data])=>data?.queue||data?.presentationQueue||[]).filter(s=>s.actionId==='開箱伏擊・全體猛咬');
+  assert.deepEqual(new Set(hits.map(s=>s.targetId)),new Set(['solo','second']));
+  assert.ok(Object.values(room.players).every(p=>p.hp<before[p.id]));
+  assert.equal(room.selectionState,'RESOLVING');
+  const hp=player.hp;room.executeTurn();assert.equal(player.hp,hp,'opening cannot repeat');
+  assert.ok(room.currentMonster.chestTreasure.drop);
+});
+
+test('Strange chest CD3 bites one target at 1.35x and steals bounded gold only on a hit',t=>{
+  const {room,enemy,player}=mechanismBattle(t,[SPECIAL_ELITES.treasure_mimic]);
+  room.players.second={...structuredClone(player),id:'second',name:'Second',hp:1000,maxHp:1000};
+  room.checkDodge=()=>false;t.mock.method(Math,'random',()=>.99);room.gold=101;
+  mechanismRound(room,3);const q=actMechanism(room,enemy),hits=q.flatMap(s=>s.results).filter(r=>r.kind==='damage'&&r.finalDamage>0);
+  assert.equal(hits.length,1);assert.equal(hits[0].finalDamage,Math.floor(enemy.attack*1.35));assert.equal(room.gold,51);assert.equal(enemy.stolenLoot.gold,50);
+  const theft=q.flatMap(s=>s.results).find(r=>r.theft)?.theft;
+  assert.equal(theft.kind,'gold');assert.equal(theft.amount,50);assert.equal(theft.ownerId,hits[0].targetId);
+  mechanismRound(room,6);room.checkDodge=()=>true;actMechanism(room,enemy);assert.equal(room.gold,51);
+  room.gold=1;room.checkDodge=()=>false;mechanismRound(room,9);actMechanism(room,enemy);assert.equal(room.gold,1);
+});
+
+test('Strange chest stolen equipment loses its stats and returns with treasure on victory',t=>{
+  const {room,player}=fixture(t);room.checkDodge=()=>false;room.handleChestEvent({isMimic:true,col:1});room.handleChestAction('solo','open');
+  const enemy=room.currentMonster,item={id:'test_sword',name:'測試劍',bonusAtk:7};
+  player.equipSlots.WEAPON=item;player.bonusAtk=(player.bonusAtk||0)+7;room.syncPlayerEquips(player);
+  const atk=player.bonusAtk;room.gold=100;t.mock.method(Math,'random',()=>0);
+  mechanismRound(room,3);actMechanism(room,enemy);
+  assert.equal(player.equipSlots.WEAPON,null);assert.equal(player.bonusAtk,atk-7);assert.equal(enemy.stolenLoot.equipment[0].item,item);
+  room.gold=100;t.mock.method(Math,'random',()=>.99);mechanismRound(room,6);actMechanism(room,enemy);assert.equal(room.gold,50);
+  const treasure=structuredClone(enemy.chestTreasure),log=[];room.handleMonsterVictory(enemy,log,[],true);
+  assert.equal(player.equipSlots.WEAPON,item);assert.equal(player.bonusAtk,atk+5);assert.ok(room.gold>=100+treasure.gold);
+  assert.ok(log.some(l=>l.text.includes(treasure.drop.name)));assert.equal(enemy.stolenLoot.gold,0);assert.equal(enemy.stolenLoot.equipment.length,0);assert.equal(enemy.chestTreasure,null);
+  const recovered=room.currentVictory.recoveredLoot;
+  assert.equal(recovered.find(r=>r.kind==='gold').amount,50);
+  assert.equal(recovered.find(r=>r.kind==='equipment').ownerId,player.id);
+  assert.equal(recovered.find(r=>r.kind==='equipment').destination,'character');
+  assert.ok(recovered.every(r=>r.sourceEnemyId===enemy.instanceId));
+});
+
+test('Chest victory preserves original owners and directs items to the bag when their former slot is occupied',t=>{
+  const {room,player}=fixture(t);room.addPlayer({id:'second',join(){},emit(){}},'Second');room.selectRole('second','mage');
+  room.checkDodge=()=>false;room.handleChestEvent({isMimic:true,col:1});room.handleChestAction('solo','open');
+  const enemy=room.currentMonster,second=room.players.second;
+  const firstItem={id:'first_item',name:'原主一的劍'},secondItem={id:'second_item',name:'原主二的盾'};
+  player.equipSlots.WEAPON=firstItem;second.equipSlots.ARMOR=secondItem;room.gold=0;
+  room.stealMimicLoot(enemy,player);room.stealMimicLoot(enemy,second);
+  player.equipSlots.WEAPON={id:'replacement',name:'替代武器'};
+  room.handleMonsterVictory(enemy,[],[],true);
+  const recovered=room.currentVictory.recoveredLoot;
+  assert.equal(recovered.find(r=>r.item?.id==='first_item').ownerId,player.id);
+  assert.equal(recovered.find(r=>r.item?.id==='first_item').destination,'bag');
+  assert.equal(recovered.find(r=>r.item?.id==='second_item').ownerId,second.id);
+  assert.equal(recovered.find(r=>r.item?.id==='second_item').destination,'character');
+  assert.equal(player.equipSlots.WEAPON.id,'replacement');assert.equal(second.equipSlots.ARMOR,secondItem);
 });
 test('Formation handoff matches every instance, restores each node and cleans flights on abort',async()=>{
   for(const count of [1,2,3,4])for(const abort of [false,true]){

@@ -1,6 +1,7 @@
 // Display state only. The server queue remains the sole owner of action order.
 const BattleHud = (() => {
   let phase = 'SELECTING', entries = new Map(), announcement = null;
+  let queuedSteps = [], deferredSteps = new Set();
   const queueAnimations = new Set();
   let analyzedAction = null, selectedAction = null;
   const byId = id => document.getElementById(id);
@@ -28,14 +29,21 @@ const BattleHud = (() => {
     announcement?.abort(); announcement = null;
     for(const animation of queueAnimations)animation.cancel();queueAnimations.clear();
     entries.clear(); byId('hudActionQueue')?.replaceChildren();
+    queuedSteps = []; deferredSteps.clear();
     byId('cinematicSkillBanner')?.classList.remove('is-active');
     setPhase(next);
   }
   function begin(queue) {
     entries.clear();
+    deferredSteps.clear();
     const host = byId('hudActionQueue'); host.replaceChildren();
     // Reactive attacks must stay undisclosed until the queue actually reaches them.
-    queue.filter(step=>allyStep(step)&&!isReaction(step)).forEach(step=>addEntry(step));
+    queuedSteps=queue.filter(step=>allyStep(step)&&!isReaction(step));
+    const pendingDruids=new Set();
+    for(const step of queuedSteps){
+      if(pendingDruids.has(step.sourceId))deferredSteps.add(step);else addEntry(step);
+      if(step.sourceRole==='druid'&&step.results?.some(r=>['transform','summon'].includes(r.kind)))pendingDruids.add(step.sourceId);
+    }
     positionQueue();
   }
   function addEntry(step,first=false) {
@@ -87,7 +95,8 @@ const BattleHud = (() => {
     const banner = byId('cinematicSkillBanner');
     byId('cinematicActorName').textContent = step.sourceName || roomState.players.find(p=>p.id===step.sourceId)?.name || '';
     byId('cinematicActorRole').textContent = getClassDisplayName(step.sourceRole);
-    byId('cinematicSkillName').textContent = step.skillName;
+    byId('cinematicSkillName').textContent = step.sourceRole==='archer'&&step.actionId==='a_rain'
+      ? step.skillName.replace(/\s*[（(]物理群攻[）)]/g,'').trim() : step.skillName;
     banner.classList.add('is-active');
     try {
       await waitForPresentation(announcementHoldMs,controller.signal,context.speed || 1);
@@ -166,5 +175,18 @@ const BattleHud = (() => {
   }
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('#mySkillsRow,#battleSkillTooltip'))hideTooltip();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){hideTooltip();hideEnemyTooltip();}});
-  return {setPhase,reset,begin,start,finish,phaseFor,announce,updatePlayer,renderEquation,bindSkill,get phase(){return phase;}};
+  function actorPortrait(step) {
+    const entry=entries.get(step);
+    return entry?.querySelector('img,.avatar-emoji-badge') || entry || null;
+  }
+  function updateActorPortrait(step, player) {
+    const entry=entries.get(step);
+    if(entry&&player)entry.innerHTML=getPlayerAvatarHtml(player,'queue-avatar');
+  }
+  function revealDruidResult(step) {
+    for(const pending of deferredSteps)if(pending.sourceId===step.sourceId){addEntry(pending);deferredSteps.delete(pending);}
+    entries=new Map([...entries].sort(([a],[b])=>queuedSteps.indexOf(a)-queuedSteps.indexOf(b)));
+    positionQueue();
+  }
+  return {setPhase,reset,begin,start,finish,phaseFor,announce,updatePlayer,renderEquation,bindSkill,actorPortrait,updateActorPortrait,revealDruidResult,get phase(){return phase;}};
 })();

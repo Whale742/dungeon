@@ -25,6 +25,7 @@ function battlefieldVisualElement(id) {
 }
 function commitBattlefieldPlayerResult(result,step,context) {
   if(context.signal?.aborted||!applyAuthoritativeResult(result))return false;
+  if(result.actualHeal>0)context.audioScope?.playResult('healing_result',{volume:step.sourceRole==='bard'?.7:1});
   const id=resolvePresentationTarget(result,step),anchor=getVisualAnchor(id);
   const count=context.numberCounts?.get(id)||0;
   const entries=context.feedbackEntries?context.feedbackEntries(result):battleFeedbackEntries(result);context.numberCounts?.set(id,count+entries.length);
@@ -69,7 +70,7 @@ async function withBattlefieldSkillStage(step,context,play) {
   if(step.sourceRole==='stargazer'&&step.actionId==='sg_observe')root.classList.add('battlefield-universe');
   const audio=context.audioScope||createSfxPresentationScope({...context,signal});
   context.audioScope=audio;
-  const followers=[],animations=new Set(),anchors=new Map(),cards=new Map(),renderers=[];let raf=0,scale=1;
+  const followers=[],animations=new Set(),anchors=new Map(),cards=new Map(),renderers=[],recipients=[];let raf=0,scale=1;
   const el=(tag,cls,html,parent=frame)=>{const node=document.createElement(tag);node.className=cls;if(html)node.innerHTML=html;parent.appendChild(node);return node;};
   const position=(node,x,y)=>{node.style.left=x+'px';node.style.top=y+'px';};
   const targetId=battlefieldPlayerTarget(step);
@@ -112,12 +113,27 @@ async function withBattlefieldSkillStage(step,context,play) {
   };
   const animate=(node,keys,ms,options={})=>{const a=node.animate(keys,{duration:(reduced?Math.min(ms,120):ms)/speed,fill:'forwards',...options});animations.add(a);a.finished.catch(()=>{});return a;};
   const local={...context,signal,speed,reducedMotion:reduced,effectRoot:root,follow,audioScope:audio,numberCounts:new Map(),battlefield:true};
+  const revealRecipient=id=>{
+    const node=typeof getActorAnchor==='function'?getActorAnchor(id)?.element:null;
+    if(node&&!recipients.includes(node)&&!node.classList.contains('is-skill-recipient')){node.classList.add('is-skill-recipient');recipients.push(node);}
+  };
   const resolveResults=async(options={})=>{for(const result of step.results||[]){if(signal?.aborted)return;await options.beforeResult?.(result);commitBattlefieldPlayerResult(result,step,local);}if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);};
-  const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,
+  const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,revealRecipient,
     startRenderer:render=>renderers.push(render),unfollow:node=>{for(let i=followers.length-1;i>=0;i--)if(followers[i].node===node)followers.splice(i,1);},debug:()=>{}};
-  const cleanup=()=>{cancelAnimationFrame(raf);for(const a of animations)a.cancel();root.remove();};
+  const cleanup=()=>{cancelAnimationFrame(raf);for(const a of animations)a.cancel();for(const node of recipients)node.classList.remove('is-skill-recipient');root.remove();};
   signal?.addEventListener('abort',cleanup,{once:true});
-  try{context.prepareStage?.(api);await Promise.all([...frame.querySelectorAll('img')].map(img=>img.decode().catch(()=>{})));
+  try{
+    // Reveal the existing recipient portraits at the same anchors used by the
+    // effects. Keep unrelated allies hidden and preserve the party's positions.
+    const enemyDamage=(step.results||[]).some(r=>r.kind==='damage'&&r.targetEnemyId);
+    const druidSelfCast=step.sourceRole==='druid'&&(step.results||[]).some(r=>['transform','summon'].includes(r.kind));
+    for(const result of step.results||[]){
+      if(['resource','reload'].includes(result.kind)||(result.kind==='status'&&enemyDamage&&result.presentationBeat!=='sage_shield'))continue;
+      const id=resolvePresentationTarget(result,step),node=typeof getActorAnchor==='function'?getActorAnchor(id)?.element:null;
+      if(druidSelfCast&&id===step.sourceId)continue;
+      if(node&&!recipients.includes(node)&&!node.classList.contains('is-skill-recipient')){node.classList.add('is-skill-recipient');recipients.push(node);}
+    }
+    context.prepareStage?.(api);await Promise.all([...frame.querySelectorAll('img')].map(img=>img.decode().catch(()=>{})));
     if(signal?.aborted)return;
     if(!context.skipCastAudio&&['sage','augur','onmyoji','gladiator','druid'].includes(step.sourceRole)){const profile=resolveCombatSfxProfile(step);if(profile.key)audio.play(profile.key,{noHold:!!context.castAudioNoHold});}
     await play(api);if(!signal?.aborted){await audio.hold();const until=Math.max(0,...followers.filter(f=>Number.isFinite(f.expires)).map(f=>f.expires-performance.now()));if(until>0)await waitForPresentation(until,signal,1);}}
@@ -242,7 +258,7 @@ async function battlefieldProjectile(s,sourceId,targetId,type,central) {
   else if(type==='arrow'){const image=document.createElement('img');image.src=ARCHER_BATTLEFIELD_ART.arrow;image.alt='';image.className='archer-projectile-art';image.setAttribute('aria-hidden','true');projectile.appendChild(image);}
   if(AMMO_IMAGES[type])await samuraiAbortable(Promise.all([...projectile.querySelectorAll('img')].map(img=>img.decode().catch(()=>{}))),s.signal);
   await s.tick(440,p=>{
-    const source=sourceId&&getBattleEffectAnchor(sourceId),target=getBattleEffectAnchor(targetId);if(!target){projectile.hidden=true;return;}
+    const target=getBattleEffectAnchor(targetId);if(!target){projectile.hidden=true;return;}
     const bow=central?.getBoundingClientRect?.();
     const from=bow?{x:bow.left+bow.width*(type==='bottle'?.82:['healing','reagent'].includes(type)?.5:.25),y:bow.top+bow.height*(type==='bottle'?.2:['healing','reagent'].includes(type)?.5:.37)}:{x:innerWidth*.52,y:innerHeight*.85};
     const start=from;

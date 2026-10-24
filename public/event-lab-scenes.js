@@ -47,7 +47,7 @@ const EVENT_LAB_SCENES = Object.freeze({
     tag: "PREP"
   },
   event_mimic_chest: {
-    label: "👾 寶箱事件：擬態怪突襲 (尖牙利齒偽裝、暴力強開、安撫退敵)",
+    label: "👾 寶箱事件：奇怪的寶箱突襲 (開箱伏擊、竊取裝備與金幣)",
     category: "CHEST",
     subType: "MIMIC",
     tag: "MIMIC"
@@ -1021,9 +1021,9 @@ function playLabShopScene(variant = 'standard', context) {
   const isPrep = (variant === 'prep');
 
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-${isPrep ? 'camp' : 'shop'}"></use></svg>`;
-  eventTitle.textContent = isShady ? '深淵黑市商人' : (isPrep ? '出發前行前整備' : '迷宮行商據點');
+  eventTitle.textContent = isShady ? '迷宮行商據點' : (isPrep ? '出發前行前整備' : '迷宮行商據點');
   eventStoryText.textContent = isShady
-    ? '陰暗角落裡一名戴著兜帽的奸商低聲冷笑，眼中閃爍著貪婪的光芒，兜售著來路不明的高價寶物。'
+    ? '迷宮深處，一名披著舊斗篷的商人向冒險小隊招手，攤位上擺滿各式裝備與補給品。他熱情地邀請眾人停下腳步。'
     : (isPrep ? '出發前往深淵前的補給站，冒險者們在此挑選最初的裝備與補給。' : '商隊在此建立了穩固的臨時據點，貨架上整齊陳列著精良兵刃與補給品。');
 
   const shopGoods = isShady
@@ -1216,7 +1216,7 @@ function playLabShopScene(variant = 'standard', context) {
 }
 
 // --------------------------------------------------------------------------
-// 6. 擬態怪寶箱 (MIMIC) 測試場景
+// 6. 奇怪的寶箱 (MIMIC) 測試場景
 // --------------------------------------------------------------------------
 function playLabMimicScene(context) {
   const cardBox = document.getElementById('eventCardBox');
@@ -1228,36 +1228,25 @@ function playLabMimicScene(context) {
   cardBox.classList.remove('hidden', 'is-shop-event');
   cardBox.style.display = 'block';
   eventIcon.innerHTML = `<svg class="ui-icon svg-icon svg-hero-icon" viewBox="0 0 24 24"><use href="#icon-trap"></use></svg>`;
-  eventTitle.textContent = '👾 擬態怪寶箱突襲！';
-  eventStoryText.textContent = '這具寶箱靜靜散發著陰森的寒氣，表面鎖孔突然裂開，長滿利齒的血盆大口朝小隊猛烈咬來！';
+  eventTitle.textContent = '👾 奇怪的寶箱突襲！';
+  eventStoryText.textContent = '眾人滿心期待地掀開寶箱，箱緣卻突然長出兩排巨大的尖牙！箱內一顆顆金黃眼睛同時睜開，濕滑的紫色長舌捲過金幣，根爪撐起沉重箱身，朝小隊猛撲亂咬。眾人閃避不及，被突如其來的獠牙咬傷；這竟是一隻「奇怪的寶箱」！牠仍把財寶含在嘴裡，貪婪地盯著你們的裝備與錢袋……';
 
   eventDetails.innerHTML = `
     <div class="rand-event-container">
       <div class="mimic-actions-row" style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
         <button type="button" class="btn btn-danger btn-mimic-open" id="btnMimicForce" style="background:#b91c1c;color:#fff;padding:12px 20px;font-weight:700;border-radius:8px;">
-          ⚔️ 暴力強開 (強行擊碎寶箱，承受咬擊 20 點傷害並獲取戰利品)
-        </button>
-        <button type="button" class="btn btn-success btn-mimic-pacify" id="btnMimicPacify" style="background:#047857;color:#fff;padding:12px 20px;font-weight:700;border-radius:8px;">
-          🪄 安撫退敵 (投擲食物安撫擬態怪，免傷退敵)
+          ⚔️ 進入戰鬥 (HP100／攻擊10；開場全體咬擊、CD3竊取猛咬)
         </button>
       </div>
     </div>
   `;
 
   document.getElementById('btnMimicForce')?.addEventListener('click', () => {
-    labEventTeamState.players.forEach(p => p.hp = Math.max(1, p.hp - 20));
-    const reward = structuredClone(LAB_REFORGE_POOLS.exclusive[0]);
-    labEventTeamState.squadInventory.push(reward);
-    playLabTick(180);
-    logLab('MIMIC', `⚔️ 小隊強行擊破擬態怪！承受 20 點咬擊撕裂傷害，從怪物腹中奪得【${reward.name}】！`, 'loot');
+    playScene('art_enemy_treasure_mimic_3');
   });
 
-  document.getElementById('btnMimicPacify')?.addEventListener('click', () => {
-    playLabTick(380);
-    logLab('PACIFY', '🪄 投擲肉塊安撫擬態怪，怪物心滿意足閉上大嘴沉沉睡去，留下身後的戰利品！', 'success');
-  });
 
-  logLab('READY', '擬態怪寶箱事件載入完成。');
+  logLab('READY', '奇怪的寶箱事件載入完成。');
 }
 
 // --------------------------------------------------------------------------

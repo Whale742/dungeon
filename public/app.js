@@ -9113,11 +9113,6 @@ function renderInteractiveEvent(ev) {
               ${getIconSvg('sparkle', 'ui-icon--sm')}
               <span>開啟寶箱</span>
             </button>
-            ${ev.canPacify ? `
-            <button type="button" class="btn btn-success btn-chest-action btn-chest-pacify">
-              ${getIconSvg('status', 'ui-icon--sm')}
-              <span>謹慎安撫 (德魯伊)</span>
-            </button>` : ''}
             <button type="button" class="btn btn-ghost btn-chest-action btn-chest-leave">
               ${getIconSvg('leave', 'ui-icon--sm')}
               <span>繞道而行</span>
@@ -9131,15 +9126,6 @@ function renderInteractiveEvent(ev) {
           if (res?.success && window.RewardPresentation) {
             if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
             if (res.drop) RewardPresentation.enqueue({ type: 'item', item: res.drop, title: '寶箱戰利品' });
-          }
-        });
-      });
-      elements.eventDetails.querySelector('.btn-chest-pacify')?.addEventListener('click', (e) => {
-        e.currentTarget.disabled = true;
-        socket.emit('event:chest_action', { action: 'pacify' }, (res) => {
-          if (res?.success && window.RewardPresentation) {
-            if (res.goldGain) RewardPresentation.enqueue({ type: 'gold', amount: res.goldGain });
-            if (res.drop) RewardPresentation.enqueue({ type: 'item', item: res.drop, title: '德魯伊安撫獎勵' });
           }
         });
       });

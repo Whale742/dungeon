@@ -1,6 +1,7 @@
 import { resolveRoleRandom, clearRoleRandom } from './DevRoleRandom.js';
+import {SPECIAL_EVENT_COPY} from './special-event-content.js';
 import { rollDruidForm, enterBearForm, restoreBearForm } from './druid.js';
-import { enemyPresentationInfo, enemyCanParticipate, mechanicState, mechanicStatuses, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, redirectEnemyDamage, afterPlayerDamage, onPlayerHealed, enemyEffect } from './enemy-mechanics.js';
+import { enemyPresentationInfo, enemyCanParticipate, mechanicState, mechanicStatuses, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, runMimicAmbush, beforePlayerAction, beforeEnemyDamage, redirectEnemyDamage, afterPlayerDamage, onPlayerHealed, enemyEffect } from './enemy-mechanics.js';
 import { resolveStats, resolveSkillAttack, skillValue, basicDamageType, mitigateDirectDamage, crossbowAllocations } from './stats.js';
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { createRoomContent } from '../studio/content.js';
@@ -635,6 +636,7 @@ export class Room {
       encounterStory,
       isWeakened,
       isShadyMerchant: Boolean(baseTemplate.isShadyMerchant),
+      isMimic: Boolean(baseTemplate.isMimic),
       avatar: baseTemplate.avatar,
       ...(baseTemplate.battleAvatar ? { battleAvatar: baseTemplate.battleAvatar } : {}),
       ...(baseTemplate.battleFormAvatars ? { battleFormAvatars: baseTemplate.battleFormAvatars } : {}),
@@ -688,22 +690,9 @@ export class Room {
       return [this.createEnemyInstance(options.specialElite, 0, { isWeakened, tier: options.specialElite.tier || 'ELITE', rng })];
     }
 
-    // Mimic Ambush: 寶箱怪伏擊小怪編隊（2~3 隻狂暴雜兵，傷害與血量提升 25%，擊敗後掉落較多金幣）
+    // Backward-compatible encounter option also resolves to the single chest elite.
     if (options.isMimicAmbush) {
-      const count = options.minionCount || (2 + (rng() < 0.5 ? 0 : 1));
-      const list = [];
-      for (let i = 0; i < count; i++) {
-        const pool = (clampedCol >= 4 && rng() < 0.5) ? EXCLUSIVE_MINIONS : GENERAL_MINIONS;
-        const tmpl = pickRandom(pool);
-        const minion = this.createEnemyInstance(tmpl, i, { isWeakened, tier: 'MINION', rng });
-        minion.name = `【狂暴】${minion.name}`;
-        minion.isMimicAmbush = true;
-        minion.hp = Math.round(minion.hp * 1.25);
-        minion.maxHp = minion.hp;
-        minion.attack = Math.round(minion.attack * 1.25);
-        list.push(minion);
-      }
-      return list;
+      return [this.createEnemyInstance(SPECIAL_ELITES.treasure_mimic, 0, {isWeakened, tier:'ELITE', rng})];
     }
 
     // col 1 ~ 3: 100% 遭遇 2~3 隻「泛用雜兵」
@@ -1649,9 +1638,9 @@ export class Room {
     if (devEncounter) {
       outcomeType = ['battle', 'elite'].includes(devEncounter.type) ? 'battle'
         : ['shop', 'black_market'].includes(devEncounter.type) ? 'shop'
-        : devEncounter.type === 'chest' ? 'chest' : 'random_event';
+        : ['chest', 'mimic_chest'].includes(devEncounter.type) ? 'chest' : 'random_event';
       isWeakenedBoss = devEncounter.weakened;
-      hexNode = { ...hexNode, isShadyMerchant: devEncounter.type === 'black_market', isMimic: false };
+      hexNode = { ...hexNode, isShadyMerchant: devEncounter.type === 'black_market', isMimic: devEncounter.type === 'mimic_chest' };
     }
 
     if (outcomeType === 'battle') {
@@ -1981,6 +1970,17 @@ export class Room {
         ? options.enemies.map((e, idx) => (e.maxHp ? e : this.createEnemyInstance(e, idx, { isWeakened, tier: e.tier, rng: options.rng })))
         : this.buildEncounterFormation(col, { ...options, isWeakened });
       this.setEnemies(formationEnemies);
+      for (const enemy of formationEnemies) {
+        if (enemy.isMimic) {
+          enemy.desc = this.studioContent.text('enemy.treasure_mimic', SPECIAL_EVENT_COPY.mimic);
+          const pool = col >= 5 ? [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS] : TIER1_EQUIPMENTS;
+          const drop = structuredClone(pool[Math.floor(Math.random() * pool.length)]);
+          drop.droppedAtCol = col;
+          drop.basePrice = getItemBasePrice(drop);
+          enemy.chestTreasure = {drop, gold:Math.round((30 + Math.floor(Math.random()*21))*getGoldIncomeMultiplier(col))};
+          enemy.stolenLoot = {gold:0, equipment:[]};
+        } else if (enemy.isShadyMerchant) enemy.desc = this.studioContent.text('enemy.shady_merchant', SPECIAL_EVENT_COPY.merchant);
+      }
       if (options.merchantLootPool) {
         this.merchantLootPool = options.merchantLootPool;
       }
@@ -2358,6 +2358,7 @@ export class Room {
 
     const monster = this.currentMonster;
     enemyRoundStart(this);
+    for (const enemy of this.getLivingEnemies()) runMimicAmbush(this, enemy);
     const enemyRoundQueue=[];drainEnemyEvents(this,enemyRoundQueue);
     const roundBefore = this.getHpSnapshot();
     const log = [];
@@ -3064,7 +3065,39 @@ export class Room {
     let drop = null;
     let deposit = null;
     let targetDesc = '';
-    if (this.merchantLootPool && this.merchantLootPool.length > 0) {
+    const recoveredLoot = [];
+    if (monster.isMimic) {
+      for (const enemy of this.enemies.filter(e => e.isMimic)) {
+        const stolen = enemy.stolenLoot || {gold:0,equipment:[]};
+        this.gold += stolen.gold;
+        if(stolen.gold>0)recoveredLoot.push({kind:'gold',amount:stolen.gold,sourceEnemyId:enemy.instanceId,destination:'bag'});
+        for (const {ownerId,slot,item} of stolen.equipment) {
+          const owner = this.players[ownerId];
+          let destination='bag';
+          if (owner && !owner.equipSlots?.[slot]) {
+            owner.equipSlots ||= {};
+            owner.equipSlots[slot] = item;
+            const wasDown = owner.hp <= 0;
+            applyEquipStats(owner,item);
+            if (wasDown) owner.hp = 0;
+            this.syncPlayerEquips(owner);
+            destination='character';
+          } else this.autoDepositLoot(item,ownerId);
+          recoveredLoot.push({kind:'equipment',ownerId,targetName:owner?.name||'',slot,sourceEnemyId:enemy.instanceId,destination,
+            item:{id:item.id,name:item.name,icon:item.icon||null,role:item.role||null,slot:item.slot||slot,tier:item.tier}});
+          log.push({text:`🎒 奪回【${item.name}】，已歸還原主或收納背包！`,type:'loot'});
+        }
+        if (stolen.gold) log.push({text:`💰 奪回被偷走的 ${stolen.gold} 枚小隊金幣！`,type:'loot'});
+        if (enemy.chestTreasure) {
+          this.gold += enemy.chestTreasure.gold;
+          drop = enemy.chestTreasure.drop;
+          deposit = this.autoDepositLoot(drop);
+          log.push({text:`🎁 擊敗奇怪的寶箱！取得箱內原有的【${drop.name}】與 ${enemy.chestTreasure.gold} 枚金幣！`,type:'loot'});
+        }
+        enemy.stolenLoot = {gold:0,equipment:[]};
+        enemy.chestTreasure = null;
+      }
+    } else if (this.merchantLootPool && this.merchantLootPool.length > 0) {
       // 奸商專屬戰利品：隨機獲得一件他商店中的商品(包括專屬裝備)
       const chosen = this.merchantLootPool[Math.floor(Math.random() * this.merchantLootPool.length)];
       drop = structuredClone(chosen);
@@ -3107,7 +3140,7 @@ export class Room {
       story: '巨獸倒下後，籠罩在四周的污染逐漸散去……',
       hpBefore: victoryBefore, hpAfter: victoryAfter, results,
       drop, depositTarget: deposit?.target || null, discarded: false, ownerName: targetDesc,
-      goldGain,
+      goldGain, recoveredLoot,
       recoveryRule: 'HP 上限 +10、ATK +5' };
     this.victoryPendingDrop = null;
     this.pendingDrop = null;
@@ -4293,7 +4326,7 @@ export class Room {
         const col = this.currentEvent.col;
         this.currentEvent.buybackPool = [];
         this.currentEvent = null;
-        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, encounterStory:'行竊失風！原本熱情的商人驟然變臉，怒斥小隊偷取貨物。他掀開斗篷亮出武器，攔住了去路！' });
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, encounterStory:this.studioContent.text('event.shop.shady.theft', SPECIAL_EVENT_COPY.merchantTheft) });
         return { success: false, message: '行竊失敗，觸發戰鬥！' };
       }
     }
@@ -4350,7 +4383,7 @@ export class Room {
         if (this.io && this.code) {
           this.io.to(this.code).emit('event:shop_closed');
         }
-        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, merchantLootPool, encounterStory:'小隊正準備離開，原本熱情的商人突然收起笑容。見眾人一件商品都沒有購買，他猛地掀翻攤位，怒聲斥責你們浪費他的時間。他抄起攤位旁的武器，攔住了小隊的去路……' });
+        this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, merchantLootPool, encounterStory:this.studioContent.text('event.shop.shady.leave', SPECIAL_EVENT_COPY.merchantLeave) });
         return { success: true, allReady: true, combatTriggered: true };
       }
 
@@ -4509,13 +4542,34 @@ export class Room {
     return { success: false, message: '未知消耗品效果' };
   }
 
+  stealMimicLoot(enemy, target) {
+    const loot = enemy.stolenLoot ||= {gold:0,equipment:[]};
+    const equipped = Object.entries(target.equipSlots || {}).filter(([,item]) => item);
+    const cap = Math.floor((this.gold || 0) * .5);
+    if (equipped.length && (cap === 0 || Math.random() < .5)) {
+      const [slot,item] = equipped[Math.floor(Math.random()*equipped.length)];
+      removeEquipStats(target,item);
+      target.equipSlots[slot] = null;
+      this.syncPlayerEquips(target);
+      loot.equipment.push({ownerId:target.id,slot,item});
+      this.addLog(`🎒 奇怪的寶箱咬住 ${target.name} 的【${item.name}】，長舌一捲吞入箱中！擊敗牠即可奪回。`,'warning');
+      return {kind:'equipment',ownerId:target.id,targetName:target.name,slot,item:{id:item.id,name:item.name,icon:item.icon||null,role:item.role||null,slot:item.slot||slot,tier:item.tier}};
+    }
+    if (cap > 0) {
+      const amount = 1 + Math.floor(Math.random()*cap);
+      this.gold -= amount;
+      loot.gold += amount;
+      this.addLog(`💰 奇怪的寶箱偷走了 ${amount} 枚小隊金幣！擊敗牠即可奪回。`,'warning');
+      return {kind:'gold',ownerId:target.id,targetName:target.name,amount};
+    }
+    return false;
+  }
+
   // 寶箱事件 (Module 4)
   handleChestEvent(hexNode) {
     this.clearTimer();
     this.state = 'EVENT';
     const isMimic = typeof hexNode === 'boolean' ? hexNode : Boolean(hexNode?.isMimic);
-    const leaderRole = this.getEffectiveLeaderRole();
-    const canPacify = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
     const col = hexNode?.col ?? (this.currentHex?.col ?? 1);
 
     // 無論是否為寶箱怪，初次探索皆顯示為標準寶箱事件，保持未知與懸念
@@ -4526,9 +4580,9 @@ export class Room {
       opened: false,
       hexId: hexNode?.id,
       col,
-      title: '🎁 發現古老寶箱！',
-      story: '在陰暗的地城角落，靜靜佇立著一具裝飾精美、未被開啟的神秘寶箱。',
-      canPacify,
+      title: this.studioContent.title('event.chest', '🎁 發現古老寶箱！'),
+      story: this.studioContent.text('event.chest', '在陰暗的地城角落，靜靜佇立著一具裝飾精美、未被開啟的神秘寶箱。'),
+      canPacify: false,
       canOpen: true,
       canLeave: true
     };
@@ -4547,36 +4601,12 @@ export class Room {
     if (params.presentationId !== undefined && params.presentationId !== this.currentEvent.presentationId)
       return { success:false, message:'寶箱已變更' };
 
-    if (action === 'pacify') {
-      const leaderRole = this.getEffectiveLeaderRole();
-      const hasDruid = leaderRole === 'druid' || Object.values(this.players).some(p => p.role === 'druid');
-      if (!hasDruid) return { success: false, message: '只有德魯伊隊長能安撫寶箱怪！' };
-      const col = this.currentEvent.col || (this.currentHex?.col ?? 1);
-      const goldGain = Math.round(40 * getGoldIncomeMultiplier(col));
-      this.gold = (this.gold || 0) + goldGain;
-      const dropPool = (col >= 5) ? [...TIER2_EQUIPMENTS] : [...TIER1_EQUIPMENTS, ...TIER2_EQUIPMENTS];
-      const drop = structuredClone(dropPool[Math.floor(Math.random() * dropPool.length)]);
-      drop.droppedAtCol = col;
-      drop.basePrice = getItemBasePrice(drop);
-      const deposit = this.autoDepositLoot(drop, socketId);
-      for (const p of Object.values(this.players)) {
-        if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
-      }
-      this.addLog(`🐾 【群生號令】德魯伊溫柔安撫了寶箱怪，寶箱怪主動吐出【${drop.name}】與 ${goldGain} 金幣後遁入地底！`, 'loot');
-      Object.assign(this.currentEvent, { opened:true, canOpen:false, canPacify:false, canLeave:false,
-        drop, goldGain, depositTarget:deposit.target });
-      this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p=>p.connected).map(p=>p.id));
-      this.broadcastState();
-      return { success:true, opened:true, drop, goldGain, depositTarget:deposit.target };
-    }
-
     if (action === 'open') {
       const col = this.currentEvent.col || (this.currentHex?.col ?? 1);
       if (this.currentEvent.isMimic) {
-        // 寶箱怪觸發：沒拿到任何東西，而是出現狂暴小怪戰鬥事件
-        this.addLog('⚠️ 寶箱猛然張開獠牙巨口！暗藏其中的凶暴小怪破箱而出，撲向了小隊！', 'warning');
+        const encounterStory = this.studioContent.text('event.chest.mimic', SPECIAL_EVENT_COPY.ambush);
         this.currentEvent = null;
-        this.handleBattleEvent(null, false, { isMimicAmbush: true, col, encounterStory:'寶箱猛然張開獠牙巨口！暗藏其中的凶暴小怪破箱而出，撲向了小隊！' });
+        this.handleBattleEvent(null, false, { specialElite:SPECIAL_ELITES.treasure_mimic, col, encounterStory });
         return { success: true, isMimic: true };
       } else {
         // 常規寶箱開啟成功
@@ -8107,7 +8137,9 @@ export class Room {
         talismans: [...(this.currentMonster.talismans || [])],
         permanentTalismans: [...(this.currentMonster.permanentTalismans || [])]
       } : null,
-      currentEvent: this.currentEvent,
+      currentEvent: this.currentEvent?.type === 'chest'
+        ? Object.fromEntries(Object.entries(this.currentEvent).filter(([key]) => key !== 'isMimic'))
+        : this.currentEvent,
       currentTransition: this.currentTransition,
       currentPrologue: (this.state === 'PROLOGUE') ? this.studioContent.storyTexts.prologue : null,
       narrativeControl: this.getNarrativeControl(),

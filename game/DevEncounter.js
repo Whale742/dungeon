@@ -1,10 +1,12 @@
-import { ENCOUNTERS, ABYSS_BOSSES } from './constants.js';
+import { ENCOUNTERS, ABYSS_BOSSES, SPECIAL_ELITES } from './constants.js';
+import { SPECIAL_EVENT_COPY } from './special-event-content.js';
 
 export const DEV_ENEMIES = [
+  ...Object.values(SPECIAL_ELITES).map(template => ({ id: template.id, name: template.name, template, tier: 'ELITE' })),
   ...ENCOUNTERS.map((template, i) => ({ id: `elite_${i}`, name: template.name, template, tier: 'ELITE' })),
   ...Object.values(ABYSS_BOSSES).filter(t => t.role !== 'augur').map(template => ({ id: template.id, name: template.name, template, tier: 'ABYSS' }))
 ];
-export const DEV_EVENTS = ['battle', 'elite', 'shop', 'black_market', 'chest', 'ALTAR', 'GAMBLE', 'REFORGE', 'WANDERING_MERCHANT'];
+export const DEV_EVENTS = ['battle', 'elite', 'shop', 'black_market', 'chest', 'mimic_chest', 'ALTAR', 'GAMBLE', 'REFORGE', 'WANDERING_MERCHANT'];
 
 export function validEncounter(p) {
   if (!DEV_EVENTS.includes(p.type) || typeof p.weakened !== 'boolean' || typeof p.enemyId !== 'string') return false;
@@ -26,6 +28,11 @@ export function consumeEncounter(room, route) {
 export function encounterBattleOptions(room, reservation, col) {
   if (reservation.type === 'battle') return { col, enemies: room.buildEncounterFormation(1) };
   const selected = DEV_ENEMIES.find(e => e.id === reservation.enemyId);
+  const encounterStory = selected.id === 'treasure_mimic'
+    ? room.studioContent.text('event.chest.mimic', SPECIAL_EVENT_COPY.ambush)
+    : selected.id === 'shady_merchant'
+      ? room.studioContent.text('event.shop.shady.leave', SPECIAL_EVENT_COPY.merchantLeave) : null;
   return { col, specialElite: { ...selected.template, tier: selected.tier },
+    ...(encounterStory ? { encounterStory } : {}),
     ...(selected.tier === 'ABYSS' ? { abyssBoss: selected.template } : {}) };
 }

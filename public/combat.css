@@ -878,13 +878,13 @@ body:has(#viewBattle.active) .main-content{padding:0;border:0;box-shadow:none;ba
 .hud-player-hp{width:100%;height:5px;background:#071017;margin:0}.hud-player-hp i{display:block;height:100%;background:#91b099;transition:width 300ms}
 #hudPlayerStatuses{display:flex;gap:4px;flex-wrap:nowrap;min-height:24px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}.hud-status-icon{width:24px;height:24px;flex:0 0 24px;border:0;background:#111a2299;padding:2px;cursor:pointer}.hud-status-icon img,.hud-status-icon svg{width:100%;height:100%;object-fit:contain}
 #viewBattle .enemy-tier-label{position:absolute;top:-46px;font-size:9px;letter-spacing:.16em;color:#b8a47a}
-#viewBattle .teammates-card{position:absolute;left:4vw;right:4vw;bottom:max(72px,calc(env(safe-area-inset-bottom) + 48px));padding:0;margin:0;border:0;background:none;border-radius:0;box-shadow:none;backdrop-filter:none;z-index:10}
+#viewBattle .teammates-card{position:absolute;left:4vw;right:4vw;bottom:max(48px,calc(env(safe-area-inset-bottom) + 24px));padding:0;margin:0;border:0;background:none;border-radius:0;box-shadow:none;backdrop-filter:none;z-index:10}
 #viewBattle .party-strip-topline{position:absolute;bottom:100%;font-size:11px}#viewBattle .party-strip-topline h4{display:none}
-#viewBattle #battleTeammatesGrid{--party-target:200px;display:flex;align-items:flex-end;justify-content:center;gap:clamp(4px,1.2vw,20px);overflow:visible;padding:12px 8px 4px}
+#viewBattle #battleTeammatesGrid{--party-target:200px;display:flex;align-items:flex-end;justify-content:center;gap:clamp(4px,1.2vw,20px);width:80%;margin-inline:auto;overflow:visible;padding:12px 8px 4px}
 #viewBattle #battleTeammatesGrid:has(>.teammate-card:nth-child(2 of .teammate-card:not(.arena-absent))){--party-target:170px}
 #viewBattle #battleTeammatesGrid:has(>.teammate-card:nth-child(3 of .teammate-card:not(.arena-absent))){--party-target:140px}
 #viewBattle #battleTeammatesGrid:has(>.teammate-card:nth-child(4 of .teammate-card:not(.arena-absent))){--party-target:120px}
-#viewBattle .teammate-card{--party-size:min(var(--party-target),22vh);position:relative;display:flex;flex:0 1 var(--party-size);width:var(--party-size);min-width:0;max-width:var(--party-size);margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;gap:0}
+#viewBattle .teammate-card{--party-size:min(calc(var(--party-target)*.8),17.6vh);position:relative;display:flex;flex:0 1 var(--party-size);width:var(--party-size);min-width:0;max-width:var(--party-size);margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;gap:0}
 #viewBattle .teammate-top,#viewBattle .teammate-name-group{display:flex;flex-direction:column;align-items:center;gap:0;width:100%;min-width:0}
 #viewBattle .teammate-avatar-wrap{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:0;border:1px solid #a99a7055;overflow:hidden}
 #viewBattle .teammate-avatar-img{display:block;width:100%;height:100%;border:0;border-radius:0;object-fit:cover}
@@ -898,6 +898,8 @@ body:has(#viewBattle.active) .main-content{padding:0;border:0;box-shadow:none;ba
 #viewBattle .teammate-buff-icon,#viewBattle .teammate-buff-item .exclusive-buff-icon-svg{width:100%;height:100%;object-fit:contain}
 #viewBattle .teammate-card.is-dead img,.battle-hud-player.is-dead img{filter:grayscale(1);opacity:.35}
 #viewBattle .teammate-card.arena-absent{display:none}
+#viewBattle[data-hud-phase=ALLY_ACTIONS] .teammates-card:has(.is-skill-recipient){opacity:1;visibility:visible;transform:translateY(0);transition:opacity 180ms ease,visibility 0s;pointer-events:none}
+#viewBattle[data-hud-phase=ALLY_ACTIONS] .teammates-card:has(.is-skill-recipient) .teammate-card:not(.is-skill-recipient){opacity:0;visibility:hidden;pointer-events:none}
 #viewBattle .teammate-card-minion .minion-bar-thumb{width:24px;height:48px;object-fit:cover;border-radius:0}
 .battle-hud-queue{position:absolute;left:4vw;bottom:30px;height:min(130px,20vh);width:min(72vw,1250px);container-type:inline-size;overflow:hidden;z-index:11}
 .queue-avatar-item{--queue-size:min(120px,18vh,calc(100cqw / (1 + (var(--queue-count,1) - 1)*.58)));position:absolute;left:0;top:4px;width:var(--queue-size);height:var(--queue-size);aspect-ratio:1;border:1px solid #baaa7d88;background:#08121d;transition:transform 260ms ease;box-shadow:-4px 0 12px #0006}
@@ -913,11 +915,13 @@ body:has(#viewBattle.active) .main-content{padding:0;border:0;box-shadow:none;ba
 .sage-equation-terminal h3{font-size:12px;font-weight:600;letter-spacing:.06em;margin:12px 0 8px}
 .sage-paths button[aria-pressed=true]{color:#f3df9c;border-color:#a48a52}.sage-paths small{color:#9d9787}.sage-path-analysis{border-top:1px solid #8e805055;margin-top:12px;padding-top:6px}
 .battle-skill-tooltip{position:fixed;z-index:30000;max-width:min(340px,calc(100vw - 28px));max-height:45vh;overflow:auto;pointer-events:none;white-space:pre-line;padding:14px;color:#e0d9c6;background:#09121af5;border:1px solid #9f8e6455;font-size:12px;line-height:1.8}
-#viewBattle #battleLogCard{position:absolute;left:4vw;top:115px;bottom:auto;width:240px;height:auto;max-height:25vh;display:flex;padding:0;border:0;border-radius:0;background:none;box-shadow:none;backdrop-filter:none;z-index:8}
+#viewBattle #battleLogCard{position:absolute;left:4vw;top:115px;bottom:auto;width:240px;height:auto;max-height:calc(100dvh - 150px);display:flex;flex-direction:column;padding:0;border:0;border-radius:0;background:none;box-shadow:none;backdrop-filter:none;z-index:8}
+#viewBattle #battleLogCard.is-open{width:min(420px,calc(100vw - 32px));display:grid;grid-template-rows:minmax(0,1fr) auto;height:min(52dvh,480px,calc(100dvh - 150px));min-height:min(280px,calc(100dvh - 150px));max-height:calc(100dvh - 150px);overflow:hidden;z-index:45}
 #viewBattle #battleLogCard .section-topline,#viewBattle #battleLogCard .feed-state,#viewBattle #battleRoundSummary{display:none}
-#viewBattle #combatLogWindow{display:none;max-height:22vh;overflow:auto;background:#071017cc;padding:8px;scrollbar-width:thin}
-#viewBattle #battleLogCard.is-open #combatLogWindow{display:block}
-#viewBattle #battleLogCard .feed-footer{border:0;margin:0;padding:0;background:none}
+#viewBattle #combatLogWindow{display:none;flex:1 1 0;height:auto;min-height:0;max-height:none;overflow:auto;background:#071017ed;padding:8px;scrollbar-width:thin}
+#viewBattle #battleLogCard.is-open #combatLogWindow{display:block;height:auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;margin:0}
+#viewBattle #battleLogCard.is-open #combatLogWindow::before{content:none}
+#viewBattle #battleLogCard .feed-footer{border:0;margin:0;padding:0;background:none;flex-shrink:0}
 #viewBattle #logDrawerHandle{display:block;color:#b1b7bc;background:none;border:0;padding:4px 0;font-size:10px}
 body:has(#viewBattle.active) #floatingChatContainer{bottom:auto;top:115px;right:18px}
 #viewBattle .enemy-cd-badge{white-space:nowrap;padding:2px 5px;line-height:1.2}
@@ -949,7 +953,7 @@ body:has(#viewBattle.active) #floatingChatContainer{bottom:auto;top:115px;right:
   body:has(#viewBattle.active):has(#sageEquationTerminal details[open]) #floatingChatContainer{opacity:0;visibility:hidden;pointer-events:none}
   .sage-equation-terminal:not(:has(details[open])){width:calc(51vw - 36px);bottom:154px}
   .cinematic-skill-banner{left:5vw;top:20%;max-width:70vw}.cinematic-skill-banner strong{font-size:28px}
-  #viewBattle .teammates-card{left:12px;right:12px;bottom:64px}
+  #viewBattle .teammates-card{left:12px;right:12px;bottom:40px}
   #viewBattle .teammate-name-text{font-size:10px}
   .battle-hud-notice{right:14px;bottom:22px;font-size:12px}.battle-hud-queue{left:16px;bottom:60px;width:calc(100vw - 32px)}.queue-avatar-item{--queue-size:min(108px,18vh,calc(100cqw / (1 + (var(--queue-count,1) - 1)*.58)))}
   #viewBattle #battleLogCard{left:16px;top:103px;width:min(230px,75vw)}

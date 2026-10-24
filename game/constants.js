@@ -1,4 +1,6 @@
 import {v2Copy, v2SkillCopy, v2SkillKey} from './v2-content.js';
+import {SPECIAL_EVENT_ASSETS} from './special-event-assets.js';
+import {SPECIAL_EVENT_COPY} from './special-event-content.js';
 import { INITIAL_STATS, resolveStats } from './stats.js';
 import { NEW_CLASSES, NEW_LOOT, NEW_ROLE_DETAILS } from './phase8-config.js';
 // 遊戲常數與數值定義 (100% 完整移植自 index.js)
@@ -1590,10 +1592,10 @@ export const SPECIAL_ELITES = {
   shady_merchant: {
     id: 'shady_merchant',
     name: '奸商',
-    avatar: '/BOSS/奸商.webp',
-    hp: 180,
-    desc: '揮舞著算盤與重金錢袋的奸商，因沒買東西而暴跳如雷！',
-    attack: 8,
+    avatar: SPECIAL_EVENT_ASSETS.merchant,
+    hp: 90,
+    desc: SPECIAL_EVENT_COPY.merchant,
+    attack: 12,
     baseResistances: { physical: 0, magic: 0, effect: 0 },
     noBonusResistance: true,
     ultName: '黑金暴利轟炸',
@@ -1602,13 +1604,13 @@ export const SPECIAL_ELITES = {
   },
   treasure_mimic: {
     id: 'treasure_mimic',
-    name: '貪婪噬魂寶箱怪',
-    avatar: '/BOSS/Labyrinth Glutton Demon_fullbody.webp',
-    hp: 125,
-    desc: '偽裝成華麗秘銀寶箱的擬態魔物，箱蓋張開時露出密密麻麻的利齒與血紅長舌！',
-    attack: 15,
+    name: '奇怪的寶箱',
+    avatar: SPECIAL_EVENT_ASSETS.chest,
+    hp: 100,
+    desc: SPECIAL_EVENT_COPY.mimic,
+    attack: 10,
     baseResistances: { physical: 20, magic: 10, effect: 10 },
-    ultName: '貪婪吞噬猛咬',
+    ultName: '貪婪竊取猛咬',
     tier: 'ELITE',
     isMimic: true
   }

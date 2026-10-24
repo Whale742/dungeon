@@ -175,7 +175,8 @@ async function playEnemyMechanicPresentation(step, context={}) {
   const reduced=context.reducedMotion||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if(typeof enemyPaintedPaths==='function'&&typeof preloadPhase5Art==='function'){
     const paths=[...new Set((step.results||[]).flatMap(r=>enemyPaintedPaths(step,r)||[]))];
-    await preloadPhase5Art([...paths.map(p=>'/assets/combat-fx/'+p),...(typeof phase6IncomingArt==='function'?phase6IncomingArt(step):[])],signal);
+    const theftImages=typeof mimicTheftEquipmentUrl==='function'?(step.results||[]).map(r=>mimicTheftEquipmentUrl(r.theft)).filter(Boolean):[];
+    await preloadPhase5Art([...paths.map(p=>enemyPaintedAssetUrl(p)),...theftImages,...(typeof phase6IncomingArt==='function'?phase6IncomingArt(step):[])],signal);
   }
   const root=document.createElement('div');root.className='enemy-effect-overlay';root.dataset.action=step.actionId;root.style.setProperty('--enemy-fx-color',profile[0]);root.setAttribute('aria-hidden','true');document.body.appendChild(root);
   const frames=new Set(),animations=[];
@@ -209,6 +210,7 @@ async function playEnemyMechanicPresentation(step, context={}) {
       playCue(custom?.windupSfx,{volume:.3});
       await waitForPresentation(duration*contact,signal,speed);
       if(applyAuthoritativeResult(result)){
+        if(result.theft&&typeof mimicTheftCaption==='function')announceBattleFeedback(mimicTheftCaption(result.theft));
         impactTime=performance.now();
         if(typeof phase6ResultReaction==='function')phase6Reaction=phase6ResultReaction(result,owned,{reduced,lane:battleFeedbackEntries(result).length,animate:(n,k,ms)=>animations.push(n.animate(k,{duration:ms/speed,fill:'forwards'}))});
         const initialPositions=[];
@@ -251,7 +253,7 @@ async function playSixEnemyCastPresentation(step,context={}){
   const representative=pending.find(({member,result})=>sixEnemyEventMode(member,result)?.mode!=='quiet')||pending[0];
   const recipe=sixEnemyEventMode(representative.member,representative.result);
   let artFailed=false;
-  try{if(typeof preloadPhase5Art==='function')await preloadPhase5Art([...new Set(pending.flatMap(({member,result})=>[...(enemyPaintedPaths(member,result)||[]).map(p=>'/assets/combat-fx/'+p),...(typeof phase6IncomingArt==='function'?phase6IncomingArt({...member,results:[result]}):[])]))],signal);}
+  try{if(typeof preloadPhase5Art==='function')await preloadPhase5Art([...new Set(pending.flatMap(({member,result})=>[...(enemyPaintedPaths(member,result)||[]).map(p=>enemyPaintedAssetUrl(p)),...(typeof phase6IncomingArt==='function'?phase6IncomingArt({...member,results:[result]}):[])]))],signal);}
   catch(error){if(error.name==='AbortError'||signal?.aborted)throw error;artFailed=true;console.error('[Enemy official art unavailable]',step.sourceId,error);announceBattleFeedback('敵方正式圖片載入失敗；戰鬥結果仍正常同步');}
   if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');
   const root=document.createElement('div');root.className='enemy-effect-overlay';root.dataset.cast=step._sixCastKey||step.sourceId;root.setAttribute('aria-hidden','true');document.body.appendChild(root);
