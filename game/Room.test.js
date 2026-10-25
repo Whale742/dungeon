@@ -510,6 +510,118 @@ for(const dot of ['poison','burn','fracture','chill'])test('Phase 4 reagent bran
   assert.ok(step.results.some(r=>r.targetEnemyId===player.targetEnemyId&&r.kind==='damage'));
   assert.ok(!step.results.some(r=>r.targetId===player.id&&r.kind==='damage'));
 });
+const flaskDots = [
+  ['poison', 'applyMonsterPoison', '中毒', 2],
+  ['burn', 'applyMonsterBurn', '燃燒', 1],
+  ['fracture', 'applyMonsterFracture', '骨折', 3],
+  ['chill', 'applyMonsterChill', '寒冷', 2]
+];
+for(const [dot,method,label,turns] of flaskDots){
+  test('DoT makes one effective-resistance check and preserves stacking/refresh: '+dot,t=>{
+    const {room}=fixture(t,'alchemist'),logs=[];
+    t.mock.method(room,'p8Log',text=>logs.push(text));
+    const allows=t.mock.method(room,'monsterAllowsEffect');
+    let roll=.2;
+    const random=t.mock.method(Math,'random',()=>roll);
+    for(const resistance of [0,50,100]){
+      // 65 - 15 (resistance break) - 10 (flaw) + 10 (bonus) = 50 effective resistance.
+      const target={name:'DoT target',hp:100,tier:'ELITE',resistances:{effect:resistance===50?65:resistance},
+        ...(resistance===50?{augurResistanceBreak:2,flawMarks:1,enemyEffectResistanceBonus:10}:{}),
+        [dot+'Dmg']:7,[dot+'Turns']:9};
+      let successes=0;
+      for(let i=0;i<100;i++){
+        roll=(i+.5)/100;
+        const checks=allows.mock.callCount(),draws=random.mock.callCount();
+        const applied=room[method](11,turns,target);
+        assert.equal(allows.mock.callCount()-checks,1);
+        assert.deepEqual(allows.mock.calls.at(-1).arguments,[label,target]);
+        assert.equal(random.mock.callCount()-draws,resistance>0?1:0);
+        assert.equal(applied,roll>=resistance/100);
+        if(applied)successes++;
+        assert.equal(target[dot+'Dmg'],7+11*successes);
+        assert.equal(target[dot+'Turns'],successes?turns:9);
+      }
+      assert.equal(successes,100-resistance);
+    }
+    assert.equal(logs.length,150);
+    assert.ok(logs.every(text=>text.includes('【'+label+'】')));
+  });
+
+  for(const scenario of [
+    {name:'independent splash rolls',rolls:[.49,.5],resistances:[0,0,0]},
+    {name:'opposite splash rolls',rolls:[.5,.49],resistances:[0,0,0]},
+    {name:'resisted primary still allows both splashes',rolls:[.1,.1],resistances:[0,100,0]},
+    {name:'each splash uses its own resistance',rolls:[.1,.1],resistances:[100,0,0]},
+    {name:'untriggered splashes never check resistance or log immunity',rolls:[.5,.99],resistances:[100,0,100]},
+    {name:'single enemy',rolls:[],resistances:[0]}
+  ])test('Flask '+dot+': '+scenario.name,t=>{
+    const {room,player,events}=phase1Battle(t,'alchemist',2000);
+    if(scenario.resistances.length===1)room.setEnemies([room.enemies[1]]);
+    for(const [i,enemy] of room.enemies.entries()){
+      enemy.name='Flask target '+i;
+      enemy.tier='ELITE';
+      enemy.resistances={physical:0,magic:0,effect:scenario.resistances[i]};
+      enemy[dot+'Dmg']=7;enemy[dot+'Turns']=9;
+    }
+    const primary=room.enemies.find(e=>e.instanceId===player.targetEnemyId);
+    const secondary=room.enemies.filter(e=>e!==primary);
+    player.rolledFlaskDot=dot;player.rollTeamDot=false;player.action='alc_flask';
+    const damage=room.skillValue(player,dot),raw=room.skillValue(player,'alc_flask');
+    const attempts=[];
+    let inResistance=false,splashPhase=false,triggerCount=0;
+    const originalAllows=room.monsterAllowsEffect;
+    t.mock.method(room,'monsterAllowsEffect',function(effect,target){
+      attempts.push(target.instanceId);
+      inResistance=true;
+      try{return originalAllows.call(this,effect,target);}
+      finally{inResistance=false;}
+    });
+    const originalApply=room[method];
+    t.mock.method(room,method,function(dmg,duration,target){
+      const result=originalApply.call(this,dmg,duration,target);
+      if(target===primary)splashPhase=true;
+      return result;
+    });
+    t.mock.method(Math,'random',()=>{
+      if(inResistance)return .75;
+      if(splashPhase&&triggerCount<scenario.rolls.length)return scenario.rolls[triggerCount++];
+      return .99;
+    });
+    room.resolveTurnActions();
+    const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='alc_flask');
+    assert.ok(step);
+    assert.equal(triggerCount,scenario.rolls.length);
+    assert.deepEqual(attempts,[primary.instanceId,...secondary.filter((_,i)=>scenario.rolls[i]<.5).map(e=>e.instanceId)]);
+    assert.equal(step.outcome.type,'alchemy_'+dot);
+    for(const enemy of room.enemies){
+      const index=secondary.indexOf(enemy);
+      const attempted=enemy===primary||scenario.rolls[index]<.5;
+      const applied=attempted&&getBossResistance(enemy,'effect')===0;
+      const snap=step.hpSnapshot.enemies.find(e=>e.instanceId===enemy.instanceId);
+      const status=snap.statuses.find(s=>s.id===dot);
+      assert.equal(status.damage,7+(applied?damage:0));
+      assert.equal(status.turns,applied?turns:9);
+      const hit=step.results.find(r=>r.kind==='damage'&&r.targetEnemyId===enemy.instanceId);
+      assert.equal(hit.actualDamage,enemy===primary?raw:Math.floor(raw*.5));
+      assert.equal(step.detail.includes('**'+enemy.name+'** 以 100% 效果抗性免疫【'+label+'】'),attempted&&!applied);
+      if(applied){
+        assert.ok(step.results.some(r=>r.targetEnemyId===enemy.instanceId&&r.targetAfter.statuses.some(s=>s.id===dot&&s.damage===7+damage&&s.turns===turns)));
+        if(enemy!==primary)assert.ok(step.detail.includes('**'+enemy.name+'** 陷入【'+label+'】（每回合 '+damage+' 點，持續 '+turns+' 回合）'));
+      }
+      // Render the authoritative state for every concrete enemy using the existing UI harness.
+      const h=enemyPresentationHarness(),node=h.scope.document.createElement('div'),row=h.scope.document.createElement('div');
+      node.classList={toggle(){}};node.querySelector=s=>s==='.enemy-status-row'?row:null;
+      h.scope.getIconSvg=()=>'<svg></svg>';h.scope.document.addEventListener=()=>{};
+      const tooltip=h.scope.document.createElement('div');tooltip.classList={add(){},remove(){}};
+      Object.assign(h.scope,{window:{innerWidth:1280,innerHeight:720},elements:{floatingEnemyTooltip:tooltip},roomState:{battleRound:room.battleRound},escapeHtml:s=>String(s??'')});
+      vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),h.scope);
+      h.scope.syncEnemyMechanicVisual(snap,node);
+      assert.ok(row.children[0].children.some(b=>b.title?.includes('每回合 '+status.damage+' 傷害｜剩餘 '+status.turns+' 回合')));
+      h.scope.showEnemyTooltip(snap,node);
+      assert.ok(tooltip.innerHTML.includes(status.label+' (每回合 '+status.damage+' 傷害｜剩餘 '+status.turns+' 回合)'));
+    }
+  });
+}
 for(const branch of ['stable','success','failure'])test('Phase 4 fate synthesis uses actual healing and cleansing: '+branch,t=>{
   const {room,player,events}=phase1Battle(t,'alchemist');player.hp=10;player.action='alc_fate';
   if(branch!=='stable'){player.poisonTurns=2;player.poisonDmg=1;}
@@ -934,7 +1046,7 @@ test('Enemy strip caps three icons while the existing tooltip keeps full statuse
   vm.runInContext('const BUFF_ICON_MAP = {'+app.split('const BUFF_ICON_MAP = {')[1].split('// 判斷是否為職業特殊機制/疊層')[0],h.scope);
   vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
   h.scope.showEnemyTooltip(en,node);
-  for(const label of ['POISON','BURN','FRACTURE','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
+  for(const label of ['中毒','燃燒','骨折','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
   assert.ok(tooltip.innerHTML.includes('/assets/icons/status/中毒.webp'));
   assert.ok(tooltip.innerHTML.includes('2/2'));assert.ok(tooltip.innerHTML.includes('3 回合'));
   const expectedNewIcons=[
@@ -2536,8 +2648,8 @@ test('DoT statuses separate damage, stacks, and turns across player, enemy, and 
   assert.equal(stackingBleedFmt.fullTitle,'流血 ×3｜每回合 12 傷害｜剩餘 2 回合');
 
   // Check no fabricated damage when damage is absent
-  const noDmgBleedFmt=h.scope.formatStatusDisplay({id:'bleed',label:'BLEED',isDot:true,turns:2});
-  assert.equal(noDmgBleedFmt.fullTitle,'BLEED｜剩餘 2 回合');
+  const noDmgBleedFmt=h.scope.formatStatusDisplay({id:'bleed',label:'流血',isDot:true,turns:2});
+  assert.equal(noDmgBleedFmt.fullTitle,'流血｜剩餘 2 回合');
   assert.ok(!noDmgBleedFmt.fullTitle.includes('傷害'));
 
   // Check enemy badge strip: DoTs do not render <small> damage numbers, while flaw_mark renders <small>3</small>
@@ -2547,22 +2659,22 @@ test('DoT statuses separate damage, stacks, and turns across player, enemy, and 
   assert.ok(flawBadge);
   assert.ok(flawBadge.title.includes('×3'));
   assert.equal(flawBadge.children[0]?.textContent,'3');
-  const bleedBadge=strip.children.find(c=>c.title?.includes('BLEED'));
+  const bleedBadge=strip.children.find(c=>c.title?.includes('流血'));
   assert.ok(bleedBadge);
-  assert.equal(bleedBadge.title,'BLEED｜每回合 4 傷害｜剩餘 2 回合');
+  assert.equal(bleedBadge.title,'流血｜每回合 4 傷害｜剩餘 2 回合');
   assert.equal(bleedBadge.children.length,0,'DoT without stacks must not render a <small> stack count badge');
 
   // Check enemy, player, and companion tooltips
   h.scope.showEnemyTooltip(snapEnemy,node);
-  assert.ok(tooltip.innerHTML.includes('POISON (每回合 8 傷害｜剩餘 3 回合)'));
-  assert.ok(tooltip.innerHTML.includes('BURN (每回合 12 傷害｜剩餘 2 回合)'));
+  assert.ok(tooltip.innerHTML.includes('中毒 (每回合 8 傷害｜剩餘 3 回合)'));
+  assert.ok(tooltip.innerHTML.includes('燃燒 (每回合 12 傷害｜剩餘 2 回合)'));
   assert.ok(!tooltip.innerHTML.includes('×8'));
   assert.ok(!tooltip.innerHTML.includes('×12'));
   assert.ok(tooltip.innerHTML.includes('×3'));
 
   h.scope.showPlayerTooltip(snapPlayer,node);
-  assert.ok(tooltip.innerHTML.includes('POISON (每回合 8 傷害｜剩餘 3 回合)'));
-  assert.ok(tooltip.innerHTML.includes('BURN (每回合 12 傷害｜剩餘 2 回合)'));
+  assert.ok(tooltip.innerHTML.includes('中毒 (每回合 8 傷害｜剩餘 3 回合)'));
+  assert.ok(tooltip.innerHTML.includes('燃燒 (每回合 12 傷害｜剩餘 2 回合)'));
   assert.ok(!tooltip.innerHTML.includes('×8'));
   assert.ok(!tooltip.innerHTML.includes('×12'));
   assert.ok(tooltip.innerHTML.includes('深淵腐化 ×3'));
@@ -2718,10 +2830,10 @@ test('All 12 leader skills and class Buff/Debuff icons resolve consistently acro
 
   // 8. Other class statuses (Alchemist, Druid, Sage, Augur, Paladin, Samurai, Gladiator, Assassin) match across HUD, Teammate Bar, and Hover
   const classStatuses=[
-    {id:'poison',label:'POISON',icon:'poison',damage:8,turns:2,isDot:true,isNegative:true},
-    {id:'burn',label:'BURN',icon:'burn',damage:12,turns:1,isDot:true,isNegative:true},
-    {id:'fracture',label:'FRACTURE',icon:'fracture',damage:5,turns:3,isDot:true,isNegative:true},
-    {id:'chill',label:'CHILL',icon:'chill',damage:6,turns:2,isDot:true,isNegative:true},
+    {id:'poison',label:'中毒',icon:'poison',damage:8,turns:2,isDot:true,isNegative:true},
+    {id:'burn',label:'燃燒',icon:'burn',damage:12,turns:1,isDot:true,isNegative:true},
+    {id:'fracture',label:'骨折',icon:'fracture',damage:5,turns:3,isDot:true,isNegative:true},
+    {id:'chill',label:'寒冷',icon:'chill',damage:6,turns:2,isDot:true,isNegative:true},
     {id:'alchemy_corrosion',label:'強酸腐蝕・裝備效果降低',icon:'debuff',turns:1,stacks:2,isNegative:true},
     {id:'bear',label:'巨熊形態',icon:'transform',turns:2},
     {id:'wolf',label:'狼人形態',icon:'transform',turns:2},

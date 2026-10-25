@@ -572,12 +572,12 @@ export class Room {
         ...p8State(enemy, this).phase8Statuses,
         ...((enemy.stunnedThisRound || enemy.stunnedNextTurn || (enemy === this.currentMonster && this.monsterStunnedThisRound)) ? [{ id: 'stun', label: '暈眩', icon: 'stun', turns: 1, isNegative: true, category: 'DEBUFF' }] : []),
         ...(enemy.flawMarks && enemy.flawMarks > 0 ? [{ id: 'flaw_mark', label: `破綻印記 (${enemy.flawMarks})`, icon: 'flaw_mark', stacks: enemy.flawMarks, isNegative: true, category: 'DEBUFF', desc: `受傷增加 ${enemy.flawMarks * 10}%，受到攻擊命中率提高 ${enemy.flawMarks * 10}%，效果命中降低 ${enemy.flawMarks * 10}%` }] : []),
-        ...(enemy.bleedTurns ? [{ id: 'bleed', label: 'BLEED', icon: 'bleed', turns: enemy.bleedTurns, ...(enemy.bleedDmg > 0 ? { damage: enemy.bleedDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
-        ...(enemy.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: enemy.poisonTurns, ...(enemy.poisonDmg > 0 ? { damage: enemy.poisonDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
-        ...(enemy.burnTurns ? [{ id: 'burn', label: 'BURN', icon: 'burn', turns: enemy.burnTurns, ...(enemy.burnDmg > 0 ? { damage: enemy.burnDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
-        ...(enemy.fractureTurns ? [{ id: 'fracture', label: 'FRACTURE', icon: 'fracture', turns: enemy.fractureTurns, ...(enemy.fractureDmg > 0 ? { damage: enemy.fractureDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
-        ...(enemy.chillTurns ? [{ id: 'chill', label: 'CHILL', icon: 'chill', turns: enemy.chillTurns, ...(enemy.chillDmg > 0 ? { damage: enemy.chillDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
-        ...(enemy.corrosionTurns ? [{ id: 'corrosion', label: 'CORROSION', icon: 'corrosion', turns: enemy.corrosionTurns, isNegative: true, category: 'DEBUFF' }] : []),
+        ...(enemy.bleedTurns ? [{ id: 'bleed', label: '流血', icon: 'bleed', turns: enemy.bleedTurns, ...(enemy.bleedDmg > 0 ? { damage: enemy.bleedDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.poisonTurns ? [{ id: 'poison', label: '中毒', icon: 'poison', turns: enemy.poisonTurns, ...(enemy.poisonDmg > 0 ? { damage: enemy.poisonDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.burnTurns ? [{ id: 'burn', label: '燃燒', icon: 'burn', turns: enemy.burnTurns, ...(enemy.burnDmg > 0 ? { damage: enemy.burnDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.fractureTurns ? [{ id: 'fracture', label: '骨折', icon: 'fracture', turns: enemy.fractureTurns, ...(enemy.fractureDmg > 0 ? { damage: enemy.fractureDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.chillTurns ? [{ id: 'chill', label: 'CHILL', icon: '寒冷', turns: enemy.chillTurns, ...(enemy.chillDmg > 0 ? { damage: enemy.chillDmg } : {}), isNegative: true, category: 'DEBUFF', isDot: true }] : []),
+        ...(enemy.corrosionTurns ? [{ id: 'corrosion', label: '腐蝕', icon: 'corrosion', turns: enemy.corrosionTurns, isNegative: true, category: 'DEBUFF' }] : []),
         ...(this.roundModifiers?.monsterAttackReduction ? [{ id: 'attack_down', label: 'ATK DOWN', icon: 'debuff', turns: 1, value: this.roundModifiers.monsterAttackReduction }] : []),
         ...(enemy.talismans && enemy.talismans.length > 0 ? [
           { id: 'talismans', label: `符咒 (${enemy.talismans.length})`, icon: 'debuff', stacks: enemy.talismans.length, isNegative: true, category: 'DEBUFF' },
@@ -1879,7 +1879,7 @@ export class Room {
   }
 
   applyMonsterPoison(damage = 8, turns = 2, targetEnemy = this.currentMonster) {
-    if (!this.monsterAllowsEffect('劇毒', targetEnemy) && !this.monsterAllowsEffect('中毒', targetEnemy)) return false;
+    if (!this.monsterAllowsEffect('中毒', targetEnemy)) return false;
     targetEnemy.poisonTurns = turns;
     targetEnemy.poisonDmg = (targetEnemy.poisonDmg || 0) + damage;
     return true;
@@ -6244,13 +6244,13 @@ export class Room {
           }
 
           const DOT_CONFIGS = {
-            poison: { type: 'alchemy_poison', label: '劇毒煙霧', name: '中毒', icon: '🧪', turns: 2, dmg: this.skillValue(p,'poison'), applyMonster: (d) => this.applyMonsterPoison(d, 2) },
-            burn: { type: 'alchemy_burn', label: '燃燒試劑', name: '燃燒', icon: '🔥', turns: 1, dmg: this.skillValue(p,'burn'), applyMonster: (d) => this.applyMonsterBurn(d, 1) },
-            fracture: { type: 'alchemy_fracture', label: '骨折衝擊', name: '骨折', icon: '🦴', turns: 3, dmg: this.skillValue(p,'fracture'), applyMonster: (d) => this.applyMonsterFracture(d, 3) },
-            chill: { type: 'alchemy_chill', label: '極寒冰霜', name: '寒冷', icon: '❄️', turns: 2, dmg: this.skillValue(p,'chill'), applyMonster: (d) => this.applyMonsterChill(d, 2) }
+            poison: { type: 'alchemy_poison', label: '劇毒煙霧', name: '中毒', icon: '🧪', turns: 2, dmg: this.skillValue(p,'poison'), applyMonster: (d, target) => this.applyMonsterPoison(d, 2, target) },
+            burn: { type: 'alchemy_burn', label: '燃燒試劑', name: '燃燒', icon: '🔥', turns: 1, dmg: this.skillValue(p,'burn'), applyMonster: (d, target) => this.applyMonsterBurn(d, 1, target) },
+            fracture: { type: 'alchemy_fracture', label: '骨折衝擊', name: '骨折', icon: '🦴', turns: 3, dmg: this.skillValue(p,'fracture'), applyMonster: (d, target) => this.applyMonsterFracture(d, 3, target) },
+            chill: { type: 'alchemy_chill', label: '極寒冰霜', name: '寒冷', icon: '❄️', turns: 2, dmg: this.skillValue(p,'chill'), applyMonster: (d, target) => this.applyMonsterChill(d, 2, target) }
           };
           const dotCfg = DOT_CONFIGS[chosenDot] || DOT_CONFIGS.poison;
-          const bossApplied = dotCfg.applyMonster(dotCfg.dmg);
+          const bossApplied = dotCfg.applyMonster(dotCfg.dmg, monster);
 
           const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (this.roleRandom(p,'alc_team',()=>this.interveneNegative(p, '不穩定試劑瓶・全體同染', 40).failed?'success':'failure')==='success');
           if (rollTeam) {
@@ -6287,8 +6287,10 @@ export class Room {
             const nonPrimaryRaw = Math.floor(raw * 0.5);
             const { dmg: otherDmg, isResisted: otherResisted, resistPercent: otherResPct } = applyResistanceDamage(nonPrimaryRaw, 'mag', { enemy: otherEnemy });
             otherEnemy.hp = Math.max(0, otherEnemy.hp - otherDmg);
+            const otherApplied = Math.random() < 0.5 && dotCfg.applyMonster(dotCfg.dmg, otherEnemy);
             const otherResNote = otherResisted ? ` (🔮抗性減免${otherResPct}%)` : '';
-            log.push({ text: `${dotCfg.icon} **${p.name}** 的【不穩定試劑瓶】飛濺波及 **${otherEnemy.name}**，造成 **${otherDmg}** 點【魔法】濺射傷害！${otherResNote}`, type: 'combat' });
+            const otherDotNote = otherApplied ? ` **${otherEnemy.name}** 陷入【${dotCfg.name}】（每回合 ${dotCfg.dmg} 點，持續 ${dotCfg.turns} 回合）！` : '';
+            log.push({ text: `${dotCfg.icon} **${p.name}** 的【不穩定試劑瓶】飛濺波及 **${otherEnemy.name}**，造成 **${otherDmg}** 點【魔法】濺射傷害！${otherResNote}${otherDotNote}`, type: 'combat' });
             visualEvents.push({
               type: 'player_attack',
               sourceId: p.id,
