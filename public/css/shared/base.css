@@ -8685,10 +8685,20 @@ body.presentation-opening .narrative-controls,
 /* ==========================================================================
    Leader Skill UI (Skill row button & Class Exclusive Buff Icon)
    ========================================================================== */
-.teammate-buff-item.teammate-buff-exclusive {
+.teammate-buff-item.teammate-buff-exclusive,
+.hud-status-icon.teammate-buff-exclusive {
   background: rgba(30, 41, 59, 0.9);
   border: 1px solid var(--rarity-exclusive, #ffd700);
   box-shadow: 0 0 6px rgba(255, 215, 0, 0.3);
+}
+
+.hud-status-icon .hud-status-icon-inner,
+.hud-status-icon .exclusive-buff-icon-svg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .exclusive-buff-icon-svg {

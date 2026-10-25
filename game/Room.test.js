@@ -2589,3 +2589,163 @@ test('DoT statuses separate damage, stacks, and turns across player, enemy, and 
   assert.equal(enemy.fractureTurns,2);
   assert.equal(enemy.chillTurns,1);
 });
+
+test('All 12 leader skills and class Buff/Debuff icons resolve consistently across HUD, teammate bar, and hover without falling back to equation icon',t=>{
+  const h=enemyPresentationHarness();
+  h.scope.document.addEventListener=()=>{};
+  const hudStatuses=h.scope.document.createElement('div');
+  hudStatuses.id='hudPlayerStatuses';hudStatuses.querySelectorAll=()=>[];
+  const partyOverview=h.scope.document.createElement('div');
+  partyOverview.id='partyOverview';partyOverview.querySelectorAll=()=>[];
+  const tooltip=h.scope.document.createElement('div');
+  tooltip.classList={add(){},remove(){}};
+  const hudNodes=new Map([['hudPlayerStatuses',hudStatuses],['partyOverview',partyOverview]]);
+  h.scope.document.getElementById=id=>{
+    if(!hudNodes.has(id)){const n=h.scope.document.createElement('div');n.id=id;n.querySelectorAll=()=>[];n.addEventListener=()=>{};n.classList={add(){},remove(){},toggle(){}};hudNodes.set(id,n);}
+    return hudNodes.get(id);
+  };
+  Object.assign(h.scope,{
+    window:{innerWidth:1280,innerHeight:720},
+    elements:{floatingEnemyTooltip:tooltip},
+    classesData:{
+      warrior:{name:'戰士'},mage:{name:'法師'},archer:{name:'弓箭手'},bard:{name:'吟遊詩人'},
+      dreamweaver:{name:'織夢術士'},paladin:{name:'聖騎士'},gladiator:{name:'角鬥士'},stargazer:{name:'觀星者'},
+      augur:{name:'卜者'},samurai:{name:'武士'},sage:{name:'智者'},alchemist:{name:'煉金術士'},
+      druid:{name:'德魯伊'},assassin:{name:'刺客'}
+    },
+    isBattlefieldPlayerStep:s=>s.type==='player_action',
+    getIconSvg:()=>'<svg></svg>',
+    getRoleIconName:()=>'warrior',
+    getClassDisplayName:r=>r,
+    getPlayerAvatarHtml:()=>'<img src="avatar.webp">',
+    escapeHtml:s=>String(s??''),
+    roomState:{battleRound:1,players:[]}
+  });
+  const renderersCode=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8');
+  const hudCode=readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.BattleHud=BattleHud;';
+  vm.runInContext(renderersCode,h.scope);
+  vm.runInContext(hudCode,h.scope);
+
+  // 1 & 2. Verify all 12 leader skills under their actual trigger conditions
+  const leaderCases=[
+    {role:'warrior',id:'leader_warrior',label:'堅盾戰意',setup:(room,player)=>{room.p8GrantShield(player,15,2,'warrior');}},
+    {role:'mage',id:'leader_mage',label:'魔力共鳴',setup:()=>{}},
+    {role:'archer',id:'leader_archer',label:'疾風步法',setup:()=>{}},
+    {role:'bard',id:'leader_bard',label:'撫慰樂章',setup:()=>{}},
+    {role:'dreamweaver',id:'leader_dreamweaver',label:'美夢成真',setup:()=>{}},
+    {role:'paladin',id:'leader_paladin',label:'聖光庇護',setup:()=>{}},
+    {role:'gladiator',id:'leader_gladiator',label:'鬥技場之王',setup:(room,player)=>{room.arena={playerId:player.id,enemyId:room.enemies[0].instanceId,until:room.battleRound+2};}},
+    {role:'stargazer',id:'leader_stargazer',label:'界外星圖',setup:(room)=>{room.stargazerBoundaryScoutedNext=true;}},
+    {role:'augur',id:'leader_augur',label:'洞悉虛妄',setup:()=>{}},
+    {role:'samurai',id:'leader_samurai',label:'名刀鑑賞',setup:()=>{}},
+    {role:'sage',id:'leader_sage',label:'守勢推演',setup:(room,player)=>{player.sagePhase='hypothesis';}},
+    {role:'alchemist',id:'leader_alchemist',label:'高產萃取',setup:()=>{}}
+  ];
+
+  for(const c of leaderCases){
+    const {room,player}=mechanismBattle(t,[ENCOUNTERS[0]],c.role);
+    mechanismRound(room,1);
+    c.setup(room,player);
+    const state=room.getClientState();
+    const snapPlayer=state.players.find(p=>p.id===player.id);
+    const leaderStatus=snapPlayer.statuses.find(s=>s.id===c.id);
+    assert.ok(leaderStatus,`Expected ${c.id} (${c.label}) to be active for ${c.role}`);
+    assert.equal(leaderStatus.label,c.label);
+    assert.equal(h.scope.isLeaderSkillStatus(leaderStatus),true);
+    assert.equal(h.scope.resolveLeaderStatusRole(leaderStatus),c.role);
+    assert.equal(h.scope.getBuffIconUrl(leaderStatus),null,'Leader skill must not resolve through BUFF_ICON_MAP or fall back to equation icon');
+
+    const expectedSvg=h.scope.getLeaderStatusSvg(leaderStatus,c.role);
+    assert.ok(expectedSvg&&expectedSvg.includes('<svg'),`Missing SVG for ${c.id}`);
+    assert.equal(expectedSvg,vm.runInContext('DEFAULT_CLASS_EXCLUSIVE_SVGS',h.scope)[c.role],`Expected exact class-exclusive SVG for ${c.role}`);
+    assert.ok(!expectedSvg.includes('方程特性.webp'));
+
+    // Check HUD (#hudPlayerStatuses) and Party Overview (#partyOverview)
+    h.scope.roomState=state;
+    h.scope.myId=snapPlayer.id;
+    h.scope.BattleHud.updatePlayer(snapPlayer);
+    assert.ok(hudStatuses.innerHTML.includes(`aria-label="${c.label}"`),`HUD button missing for ${c.id}`);
+    assert.ok(hudStatuses.innerHTML.includes(expectedSvg),`HUD icon mismatch for ${c.id}`);
+    if(c.role!=='sage'){
+      assert.ok(!hudStatuses.innerHTML.includes('方程特性.webp'),`Unexpected equation icon in HUD for ${c.role}`);
+    }
+
+    // Check Teammate Card / Party Overview (renderTeammateBuffIcons & #partyOverview)
+    const teammateHtml=h.scope.renderTeammateBuffIcons(snapPlayer.statuses);
+    assert.ok(teammateHtml.includes(expectedSvg),`Teammate card icon mismatch for ${c.id}`);
+    assert.ok(!teammateHtml.includes('方程特性.webp'));
+    assert.ok(partyOverview.innerHTML.includes(expectedSvg),`Party overview icon mismatch for ${c.id}`);
+    assert.ok(!partyOverview.innerHTML.includes('方程特性.webp'));
+
+    // Check Player Portrait Hover (showPlayerTooltip)
+    const anchorNode=h.scope.document.createElement('div');
+    h.scope.showPlayerTooltip(snapPlayer,anchorNode);
+    assert.ok(tooltip.innerHTML.includes(c.label),`Tooltip missing label for ${c.id}`);
+    assert.ok(tooltip.innerHTML.includes(expectedSvg),`Hover tooltip icon mismatch for ${c.id}`);
+    assert.ok(!tooltip.innerHTML.includes('方程特性.webp'));
+  }
+
+  // 3 & 4. Leader skill with unknown/missing role uses neutral default SVG, NEVER warrior SVG
+  const unknownLeader={id:'leader_unknown_role',label:'未知隊長技',isLeaderPassive:true,leaderRole:'nonexistent_role'};
+  const warriorSvg=h.scope.getLeaderStatusSvg({id:'leader_warrior',isLeaderPassive:true,leaderRole:'warrior'});
+  const unknownLeaderSvg=h.scope.getLeaderStatusSvg(unknownLeader);
+  assert.notEqual(unknownLeaderSvg,warriorSvg,'Unknown leader role must not impersonate warrior');
+  assert.ok(unknownLeaderSvg.includes('status-default-buff-icon'));
+
+  // 5 & 6. Undefined/unknown Buff and Debuff use neutral default icons, NEVER 方程特性.webp
+  const unknownBuff={id:'custom_unmapped_buff',label:'神秘祝福',category:'BUFF'};
+  const unknownDebuff={id:'custom_unmapped_debuff',label:'神秘詛咒',category:'DEBUFF',isNegative:true};
+  assert.equal(h.scope.getBuffIconUrl(unknownBuff),null);
+  assert.equal(h.scope.getBuffIconUrl(unknownDebuff),null);
+  assert.equal(h.scope.resolveStatusIconUrl(unknownBuff),null);
+  assert.equal(h.scope.resolveStatusIconUrl(unknownDebuff),null);
+
+  const buffMarkup=h.scope.renderStatusIconMarkup(unknownBuff,{variant:'hud'});
+  const debuffMarkup=h.scope.renderStatusIconMarkup(unknownDebuff,{variant:'hud'});
+  assert.ok(buffMarkup.includes('status-default-buff-icon')&&!buffMarkup.includes('方程特性.webp'));
+  assert.ok(debuffMarkup.includes('status-default-debuff-icon')&&!debuffMarkup.includes('方程特性.webp'));
+  assert.notEqual(buffMarkup,debuffMarkup,'Default buff and debuff icons must be distinct');
+
+  // 7. Sage equation statuses still properly use 方程特性.webp
+  for(const sageStatus of [
+    {id:'sage_equation',label:'演算・假設 [12]',icon:'equation'},
+    {id:'sage_confusion',label:'思維紊亂',icon:'debuff'},
+    {id:'abyss_sage',label:'演算誤差 ×6',icon:'equation'}
+  ]){
+    assert.equal(h.scope.getBuffIconUrl(sageStatus),'/assets/icons/status/方程特性.webp');
+    assert.equal(h.scope.resolveStatusIconUrl(sageStatus),'/assets/icons/status/方程特性.webp');
+  }
+
+  // 8. Other class statuses (Alchemist, Druid, Sage, Augur, Paladin, Samurai, Gladiator, Assassin) match across HUD, Teammate Bar, and Hover
+  const classStatuses=[
+    {id:'poison',label:'POISON',icon:'poison',damage:8,turns:2,isDot:true,isNegative:true},
+    {id:'burn',label:'BURN',icon:'burn',damage:12,turns:1,isDot:true,isNegative:true},
+    {id:'fracture',label:'FRACTURE',icon:'fracture',damage:5,turns:3,isDot:true,isNegative:true},
+    {id:'chill',label:'CHILL',icon:'chill',damage:6,turns:2,isDot:true,isNegative:true},
+    {id:'alchemy_corrosion',label:'強酸腐蝕・裝備效果降低',icon:'debuff',turns:1,stacks:2,isNegative:true},
+    {id:'bear',label:'巨熊形態',icon:'transform',turns:2},
+    {id:'wolf',label:'狼人形態',icon:'transform',turns:2},
+    {id:'sleep',label:'沉睡古樹',icon:'sleep',turns:2},
+    {id:'augur_blessing',label:'命運加護 +15%',icon:'buff',turns:1},
+    {id:'augur_debt',label:'命債 20',icon:'debuff',turns:1,isNegative:true},
+    {id:'augur_omen_reversed',label:'凶兆逆位',icon:'debuff',turns:2,isNegative:true},
+    {id:'paladin_target_weight',label:'神聖嘲諷・受擊權重 ↑',icon:'guard',turns:0},
+    {id:'paladin_grace',label:'代受恩典',icon:'guard',turns:2},
+    {id:'paladin_glory',label:'榮耀戰歌・蓄力中',icon:'buff',turns:1},
+    {id:'kyoutou',label:'狂刀',icon:'buff',turns:1},
+    {id:'soul',label:'武魂',icon:'buff',turns:0,stacks:4},
+    {id:'rage',label:'怒氣 40',icon:'buff',turns:0,value:40},
+    {id:'blood_stacks',label:'血祭 2/4',icon:'buff',turns:0,stacks:2},
+    {id:'arena_challenge',label:'死鬥進行中',icon:'arena',turns:2},
+    {id:'hidden',label:'隱身',icon:'stealth',turns:1},
+    {id:'stealth_stack',label:'匿蹤',icon:'stealth',turns:0,stacks:3}
+  ];
+  for(const status of classStatuses){
+    const url=h.scope.getBuffIconUrl(status);
+    assert.ok(url&&!url.includes('方程特性.webp'),`Status ${status.id} should map to a dedicated icon, got ${url}`);
+    const hudHtml=h.scope.renderStatusIconMarkup(status,{variant:'hud'});
+    const teammateHtml=h.scope.renderStatusIconMarkup(status,{variant:'teammate'});
+    const tooltipHtml=h.scope.renderStatusIconMarkup(status,{variant:'tooltip'});
+    assert.ok(hudHtml.includes(url)&&teammateHtml.includes(url)&&tooltipHtml.includes(url),`Inconsistent icon URL for ${status.id}`);
+  }
+});

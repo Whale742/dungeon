@@ -77,23 +77,24 @@ function announceBattleFeedback(text) {
 const ENEMY_STATUS_ICON_MAP = Object.freeze({
   poison:'/assets/icons/status/中毒.webp', alc_poison:'/assets/icons/status/中毒.webp', flask_poison:'/assets/icons/status/中毒.webp',
   burn:'/assets/icons/status/燃燒.webp', fire:'/assets/icons/status/燃燒.webp', ember:'/assets/icons/status/燃燒.webp', flask_burn:'/assets/icons/status/燃燒.webp',
-  bleed:'/assets/icons/status/流血.webp', fracture:'/assets/icons/status/骨折.webp', flask_fracture:'/assets/icons/status/骨折.webp',
+  bleed:'/assets/icons/status/流血.webp', blood_stacks:'/assets/icons/status/流血.webp', blood_stack:'/assets/icons/status/流血.webp',
+  fracture:'/assets/icons/status/骨折.webp', flask_fracture:'/assets/icons/status/骨折.webp',
   chill:'/assets/icons/status/寒冷.webp', freeze:'/assets/icons/status/寒冷.webp', frost:'/assets/icons/status/寒冷.webp', flask_chill:'/assets/icons/status/寒冷.webp',
   corrosion:'/assets/icons/status/腐蝕.webp', alc_acid:'/assets/icons/status/腐蝕.webp', alchemy_corrosion:'/assets/icons/status/腐蝕.webp', shield_decay:'/assets/icons/status/腐蝕.webp', acid_defense:'/assets/icons/status/腐蝕.webp',
   corruption:'/assets/icons/status/深淵腐化.png', abyss_corruption:'/assets/icons/status/深淵腐化.png',
   shield:'/assets/icons/status/護盾.webp', temp_hp:'/assets/icons/status/護盾.webp', sage_shield:'/assets/icons/status/護盾.webp', barrier:'/assets/icons/status/護盾.webp',
-  guard:'/assets/icons/status/減傷.webp', treant_guard:'/assets/icons/status/減傷.webp', crouch:'/assets/icons/status/減傷.webp',
+  guard:'/assets/icons/status/減傷.webp', treant_guard:'/assets/icons/status/減傷.webp', crouch:'/assets/icons/status/減傷.webp', warrior_resolve:'/assets/icons/status/減傷.webp', paladin_grace_target:'/assets/icons/status/減傷.webp', paladin_grace_source:'/assets/icons/status/減傷.webp', kyoutou:'/assets/icons/status/減傷.webp',
   vulnerable:'/assets/icons/status/易傷.webp', alchemy_vulnerable:'/assets/icons/status/易傷.webp', sage_exposed:'/assets/icons/status/易傷.webp', next_vulnerable:'/assets/icons/status/易傷.webp', weakened:'/assets/icons/status/易傷.webp',
   dodge:'/assets/icons/status/閃避加成.webp', dodge_bonus:'/assets/icons/status/閃避加成.webp',
   stealth:'/assets/icons/status/隱身.webp', stealth_stack:'/assets/icons/status/隱身.webp', hidden:'/assets/icons/status/隱身.webp', follow_up:'/assets/icons/status/隱身.webp', void_step:'/assets/icons/status/隱身.webp',
   sleep:'/assets/icons/status/休眠.webp', exhausted:'/assets/icons/status/休眠.webp', downed:'/assets/icons/status/休眠.webp',
-  frenzy:'/assets/icons/status/狂熱.webp', frenzy_buff:'/assets/icons/status/狂熱.webp', b_frenzy:'/assets/icons/status/狂熱.webp',
+  frenzy:'/assets/icons/status/狂熱.webp', frenzy_buff:'/assets/icons/status/狂熱.webp', b_frenzy:'/assets/icons/status/狂熱.webp', triumph:'/assets/icons/status/狂熱.webp', overload:'/assets/icons/status/狂熱.webp', blood_heal:'/assets/icons/status/狂熱.webp', rage:'/assets/icons/status/狂熱.webp', soul:'/assets/icons/status/狂熱.webp',
   galaxy:'/assets/icons/status/星系追擊.webp', astronomy:'/assets/icons/status/星系追擊.webp',
   boundary:'/assets/icons/status/邊界鎖血.webp', crit_lock:'/assets/icons/status/邊界鎖血.webp', surrender:'/assets/icons/status/邊界鎖血.webp', lock:'/assets/icons/status/邊界鎖血.webp',
-  fate_blessing:'/assets/icons/status/命運加護.webp', fate_binding:'/assets/icons/status/命運加護.webp', blessing:'/assets/icons/status/命運加護.webp',
+  fate_blessing:'/assets/icons/status/命運加護.webp', fate_binding:'/assets/icons/status/命運加護.webp', blessing:'/assets/icons/status/命運加護.webp', augur_card:'/assets/icons/status/命運加護.webp',
   fate_debt:'/assets/icons/status/命債.webp', sage_debt:'/assets/icons/status/命債.webp',
   talisman:'/assets/icons/status/符咒.webp', talismans:'/assets/icons/status/符咒.webp', talisman_blind:'/assets/icons/status/符咒.webp', talisman_seal:'/assets/icons/status/符咒.webp', talisman_corrode:'/assets/icons/status/符咒.webp', talisman_confuse:'/assets/icons/status/符咒.webp', talisman_drain:'/assets/icons/status/符咒.webp',
-  equation:'/assets/icons/status/方程特性.webp', sage_equation:'/assets/icons/status/方程特性.webp',
+  equation:'/assets/icons/status/方程特性.webp', sage_equation:'/assets/icons/status/方程特性.webp', sage_confusion:'/assets/icons/status/方程特性.webp', abyss_sage:'/assets/icons/status/方程特性.webp',
   flaw_mark:'/assets/icons/status/破綻印記.webp', flaw:'/assets/icons/status/破綻印記.webp',
   bear:'/assets/icons/status/巨熊型態.png', druid_bear:'/assets/icons/status/巨熊型態.png',
   wolf:'/assets/icons/status/狼人型態.png', werewolf:'/assets/icons/status/狼人型態.png', druid_wolf:'/assets/icons/status/狼人型態.png',
@@ -105,14 +106,16 @@ const ENEMY_STATUS_ICON_MAP = Object.freeze({
   attack_down:'/assets/icons/status/攻擊降低.png', atk_down:'/assets/icons/status/攻擊降低.png', weaken_atk:'/assets/icons/status/攻擊降低.png', sage_square:'/assets/icons/status/攻擊降低.png',
   void_cover:'/assets/icons/status/虛空掩護.png', abyss_watcher:'/assets/icons/status/虛空掩護.png',
   crystal_support:'/assets/icons/status/晶甲共鳴.png', crystal_beetle:'/assets/icons/status/晶甲共鳴.png',
-  stun:'/assets/icons/status/暈眩.png', stunned:'/assets/icons/status/暈眩.png', daze:'/assets/icons/status/暈眩.png', seal_zero:'/assets/icons/status/暈眩.png'
+  stun:'/assets/icons/status/暈眩.png', stunned:'/assets/icons/status/暈眩.png', daze:'/assets/icons/status/暈眩.png', seal_zero:'/assets/icons/status/暈眩.png', confuse:'/assets/icons/status/暈眩.png'
 });
 function resolveStatusIconUrl(status) {
   if (typeof getBuffIconUrl === 'function') return getBuffIconUrl(status);
   if (!status) return null;
-  const toCloud = p => (typeof window !== 'undefined' && window.assetRegistry && typeof window.assetRegistry.resolvePath === 'function') ? window.assetRegistry.resolvePath(p) : p;
   const id = String(status.id || '').toLowerCase(), icon = String(status.icon || '').toLowerCase(), label = String(status.label || ''), val = String(status.value || '');
+  if (status.isLeaderPassive || status.isLeaderSkill || id.startsWith('leader_')) return null;
+  const toCloud = p => (typeof window !== 'undefined' && window.assetRegistry && typeof window.assetRegistry.resolvePath === 'function') ? window.assetRegistry.resolvePath(p) : p;
   if (ENEMY_STATUS_ICON_MAP[id]) return toCloud(ENEMY_STATUS_ICON_MAP[id]);
+  if (id.startsWith('mark_')) return toCloud('/assets/icons/status/破綻印記.webp');
   if (label.includes('巨熊') || val.includes('巨熊')) return toCloud('/assets/icons/status/巨熊型態.png');
   if (label.includes('狼人') || val.includes('狼人')) return toCloud('/assets/icons/status/狼人型態.png');
   if (label.includes('神聖嘲諷') || label.includes('嘲諷')) return toCloud('/assets/icons/status/神聖嘲諷.png');
@@ -124,9 +127,29 @@ function resolveStatusIconUrl(status) {
   if (label.includes('虛空掩護')) return toCloud('/assets/icons/status/虛空掩護.png');
   if (label.includes('晶甲共鳴') || label.includes('晶甲反射')) return toCloud('/assets/icons/status/晶甲共鳴.png');
   if (label.includes('深淵腐化') || label.includes('腐化')) return toCloud('/assets/icons/status/深淵腐化.png');
-  if (label.includes('暈眩') || label.includes('眩暈') || label.includes('STUN') || label.includes('行動受阻')) return toCloud('/assets/icons/status/暈眩.png');
+  if (label.includes('暈眩') || label.includes('眩暈') || label.includes('STUN') || label.includes('行動受阻') || label.includes('惑亂')) return toCloud('/assets/icons/status/暈眩.png');
+  if (label.includes('中毒')) return toCloud('/assets/icons/status/中毒.webp');
+  if (label.includes('燃燒') || label.includes('灼燒') || label.includes('熱度')) return toCloud('/assets/icons/status/燃燒.webp');
+  if (label.includes('流血') || label.includes('血祭')) return toCloud('/assets/icons/status/流血.webp');
+  if (label.includes('骨折')) return toCloud('/assets/icons/status/骨折.webp');
+  if (label.includes('寒冷') || label.includes('寒霜') || label.includes('冰')) return toCloud('/assets/icons/status/寒冷.webp');
+  if (label.includes('腐蝕') || label.includes('強酸') || label.includes('酸液')) return toCloud('/assets/icons/status/腐蝕.webp');
+  if (label.includes('護盾') || label.includes('TEMP HP') || label.includes('壁壘')) return toCloud('/assets/icons/status/護盾.webp');
+  if (label.includes('減傷') || label.includes('堅守') || label.includes('堅定') || label.includes('恩典') || label.includes('GUARD') || label.includes('DR ') || label.includes('狂刀')) return toCloud('/assets/icons/status/減傷.webp');
+  if (label.includes('易傷') || label.includes('VULNERABLE') || label.includes('承傷 +') || label.includes('受傷增加') || label.includes('負傷')) return toCloud('/assets/icons/status/易傷.webp');
+  if (label.includes('閃避') || label.includes('DODGE')) return toCloud('/assets/icons/status/閃避加成.webp');
+  if (label.includes('隱身') || label.includes('匿蹤') || label.includes('追擊') || label.includes('暗影步')) return toCloud('/assets/icons/status/隱身.webp');
+  if (label.includes('休眠') || label.includes('沉睡') || label.includes('虛弱') || label.includes('倒下') || label.includes('EXHAUSTED')) return toCloud('/assets/icons/status/休眠.webp');
+  if (label.includes('狂熱') || label.includes('DMG +') || label.includes('凱旋') || label.includes('過載') || label.includes('充能') || label.includes('怒氣') || label.includes('武魂')) return toCloud('/assets/icons/status/狂熱.webp');
+  if (label.includes('星系')) return toCloud('/assets/icons/status/星系追擊.webp');
+  if (label.includes('鎖血') || label.includes('邊界') || label.includes('臣服') || label.includes('LOCK')) return toCloud('/assets/icons/status/邊界鎖血.webp');
+  if (label.includes('命運加護') || label.includes('命運繫結') || label.includes('諭示牌')) return toCloud('/assets/icons/status/命運加護.webp');
+  if (label.includes('命債') || label.includes('透支')) return toCloud('/assets/icons/status/命債.webp');
+  if (label.includes('符')) return toCloud('/assets/icons/status/符咒.webp');
+  if (label.includes('方程') || label.includes('假設') || label.includes('求解') || label.includes('紊亂') || label.includes('演算')) return toCloud('/assets/icons/status/方程特性.webp');
+  if (label.includes('破綻') || label.includes('印記') || label.includes('標記') || label.includes('懸賞') || label.includes('瞄準') || label.includes('號令')) return toCloud('/assets/icons/status/破綻印記.webp');
   if (ENEMY_STATUS_ICON_MAP[icon]) return toCloud(ENEMY_STATUS_ICON_MAP[icon]);
-  return toCloud('/assets/icons/status/方程特性.webp');
+  return null;
 }
 function enemyDisplayStatuses(enemy) {
   const statuses=new Map((enemy.statuses||[]).map(s=>[s.id,{...s}]));
@@ -214,7 +237,7 @@ function syncEnemyMechanicVisual(enemy, node) {
       icon.innerHTML='↻';
     }else{
       const iconUrl=resolveStatusIconUrl(s);
-      icon.innerHTML=iconUrl?`<img src="${iconUrl}" class="teammate-buff-icon enemy-buff-icon" alt="${String(s.label||'status').replace(/"/g,'&quot;')}" loading="lazy">`:getIconSvg(s.icon||'status','ui-icon--sm');
+      icon.innerHTML=iconUrl?`<img src="${iconUrl}" class="teammate-buff-icon enemy-buff-icon" alt="${String(s.label||'status').replace(/"/g,'&quot;')}" loading="lazy">`:(typeof renderStatusIconMarkup==='function'?renderStatusIconMarkup(s,{variant:'enemy'}):getIconSvg(s.icon||'status','ui-icon--sm'));
     }
     if(count!==null){const n=document.createElement('small');n.textContent=String(count);icon.appendChild(n);}badge.appendChild(icon);
   }

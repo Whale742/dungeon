@@ -192,10 +192,11 @@ function showEnemyTooltip(en, eOrTarget) {
   let buffsHtml = '';
   if (buffs.length > 0) {
     buffsHtml = `<div class="floating-tooltip-buffs">${buffs.map(b => {
-      const iconUrl = typeof getBuffIconUrl === 'function' ? getBuffIconUrl(b) : null;
-      const iconTag = iconUrl
-        ? `<img src="${iconUrl}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">`
-        : getIconSvg(b.icon, 'ui-icon--sm');
+      const iconTag = typeof renderStatusIconMarkup === 'function'
+        ? renderStatusIconMarkup(b, { variant: 'tooltip' })
+        : (typeof getBuffIconUrl === 'function' && getBuffIconUrl(b)
+          ? `<img src="${getBuffIconUrl(b)}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">`
+          : getIconSvg(b.icon, 'ui-icon--sm'));
       return `
       <span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
         ${iconTag} ${escapeHtml(b.label)}${b.desc ? ` (${escapeHtml(b.desc)})` : ''}
@@ -460,6 +461,8 @@ const BUFF_ICON_MAP = {
   ember: '/assets/icons/status/燃燒.webp',
   flask_burn: '/assets/icons/status/燃燒.webp',
   bleed: '/assets/icons/status/流血.webp',
+  blood_stacks: '/assets/icons/status/流血.webp',
+  blood_stack: '/assets/icons/status/流血.webp',
   fracture: '/assets/icons/status/骨折.webp',
   flask_fracture: '/assets/icons/status/骨折.webp',
   chill: '/assets/icons/status/寒冷.webp',
@@ -483,6 +486,7 @@ const BUFF_ICON_MAP = {
   warrior_resolve: '/assets/icons/status/減傷.webp',
   paladin_grace_target: '/assets/icons/status/減傷.webp',
   paladin_grace_source: '/assets/icons/status/減傷.webp',
+  kyoutou: '/assets/icons/status/減傷.webp',
   vulnerable: '/assets/icons/status/易傷.webp',
   alchemy_vulnerable: '/assets/icons/status/易傷.webp',
   sage_exposed: '/assets/icons/status/易傷.webp',
@@ -504,6 +508,8 @@ const BUFF_ICON_MAP = {
   triumph: '/assets/icons/status/狂熱.webp',
   overload: '/assets/icons/status/狂熱.webp',
   blood_heal: '/assets/icons/status/狂熱.webp',
+  rage: '/assets/icons/status/狂熱.webp',
+  soul: '/assets/icons/status/狂熱.webp',
   galaxy: '/assets/icons/status/星系追擊.webp',
   astronomy: '/assets/icons/status/星系追擊.webp',
   boundary: '/assets/icons/status/邊界鎖血.webp',
@@ -513,6 +519,7 @@ const BUFF_ICON_MAP = {
   fate_blessing: '/assets/icons/status/命運加護.webp',
   fate_binding: '/assets/icons/status/命運加護.webp',
   blessing: '/assets/icons/status/命運加護.webp',
+  augur_card: '/assets/icons/status/命運加護.webp',
   fate_debt: '/assets/icons/status/命債.webp',
   sage_debt: '/assets/icons/status/命債.webp',
   talisman: '/assets/icons/status/符咒.webp',
@@ -525,6 +532,7 @@ const BUFF_ICON_MAP = {
   equation: '/assets/icons/status/方程特性.webp',
   sage_equation: '/assets/icons/status/方程特性.webp',
   sage_confusion: '/assets/icons/status/方程特性.webp',
+  abyss_sage: '/assets/icons/status/方程特性.webp',
   flaw_mark: '/assets/icons/status/破綻印記.webp',
   flaw: '/assets/icons/status/破綻印記.webp',
   bear: '/assets/icons/status/巨熊型態.png',
@@ -554,7 +562,28 @@ const BUFF_ICON_MAP = {
   stun: '/assets/icons/status/暈眩.png',
   stunned: '/assets/icons/status/暈眩.png',
   daze: '/assets/icons/status/暈眩.png',
-  seal_zero: '/assets/icons/status/暈眩.png'
+  seal_zero: '/assets/icons/status/暈眩.png',
+  confuse: '/assets/icons/status/暈眩.png'
+};
+
+const DEFAULT_CLASS_EXCLUSIVE_SVGS = {
+  warrior: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20 L30 20 L80 70 L70 80 L20 30 Z" fill="#ffffff"/><path d="M82 20 L70 20 L20 70 L30 80 L80 30 Z" fill="#ffffff"/><line x1="65" y1="85" x2="85" y2="65" stroke-width="7"/><line x1="15" y1="65" x2="35" y2="85" stroke-width="7"/></svg>`,
+  paladin: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><path d="M18 20 L58 20 L58 52 C58 70 38 84 38 84 C38 84 18 70 18 52 Z" fill="#ffffff" fill-opacity="0.25"/><line x1="38" y1="22" x2="38" y2="80" stroke-width="6"/><line x1="20" y1="45" x2="56" y2="45" stroke-width="6"/><rect x="58" y="18" width="28" height="16" rx="3" transform="rotate(15 72 26)" fill="#ffffff"/><line x1="70" y1="34" x2="56" y2="86" stroke-width="6" stroke-linecap="round"/></svg>`,
+  stargazer: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="22" y="34" width="58" height="16" rx="3" transform="rotate(-22 51 42)" fill="#ffffff"/><line x1="50" y1="50" x2="34" y2="86"/><line x1="50" y1="50" x2="66" y2="86"/><line x1="50" y1="50" x2="50" y2="88"/><path d="M24 16 A10 10 0 1 0 34 28 A8 8 0 1 1 24 16 Z" fill="#ffffff" stroke="none"/><circle cx="72" cy="18" r="3" fill="#ffffff"/></svg>`,
+  augur: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="22" y="34" width="58" height="16" rx="3" transform="rotate(-22 51 42)" fill="#ffffff"/><line x1="50" y1="50" x2="34" y2="86"/><line x1="50" y1="50" x2="66" y2="86"/><line x1="50" y1="50" x2="50" y2="88"/><path d="M24 16 A10 10 0 1 0 34 28 A8 8 0 1 1 24 16 Z" fill="#ffffff" stroke="none"/><circle cx="72" cy="18" r="3" fill="#ffffff"/></svg>`,
+  mage: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"><line x1="20" y1="82" x2="68" y2="34"/><circle cx="72" cy="30" r="9" fill="#ffffff"/><line x1="72" y1="10" x2="72" y2="15" stroke-width="4"/><line x1="90" y1="30" x2="85" y2="30" stroke-width="4"/><line x1="85" y1="16" x2="81" y2="20" stroke-width="4"/><path d="M35 28 L38 35 L45 38 L38 41 L35 48 L32 41 L25 38 L32 35 Z" fill="#ffffff" stroke="none"/></svg>`,
+  bard: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 18 C20 18 20 28 26 28 L26 78 L72 78 C78 55 84 35 84 26 C64 26 50 18 26 18 Z"/><line x1="38" y1="22" x2="38" y2="78" stroke-width="3"/><line x1="48" y1="24" x2="48" y2="78" stroke-width="3"/><line x1="58" y1="26" x2="58" y2="78" stroke-width="3"/><line x1="20" y1="82" x2="76" y2="82" stroke-width="7"/></svg>`,
+  alchemist: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><path d="M40 16 L60 16 M44 16 L44 34 A28 28 0 1 0 56 34 L56 16"/><path d="M26 65 Q50 58 74 65 A25 25 0 0 1 26 65 Z" fill="#ffffff"/><circle cx="44" cy="52" r="3" fill="#ffffff"/><circle cx="56" cy="45" r="4" fill="#ffffff"/></svg>`,
+  assassin: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 22 C24 45 36 58 46 68 L54 60 C44 48 32 34 18 22 Z" fill="#ffffff"/><line x1="42" y1="72" x2="58" y2="56" stroke-width="6"/><line x1="50" y1="64" x2="62" y2="78" stroke-width="7"/><path d="M48 30 C58 24 66 30 68 32 C70 30 78 24 88 30 C86 42 76 44 68 38 C60 44 50 42 48 30 Z" fill="#ffffff"/><circle cx="58" cy="34" r="3" fill="#0c2144" stroke="none"/><circle cx="78" cy="34" r="3" fill="#0c2144" stroke="none"/></svg>`,
+  druid: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M40 46 C26 42 18 28 22 14 M26 34 L16 28 M32 40 L30 24"/><path d="M60 46 C74 42 82 28 78 14 M74 34 L84 28 M68 40 L70 24"/><path d="M35 55 C55 50 70 65 68 84 C48 86 33 72 35 55 Z" fill="#ffffff"/><line x1="35" y1="55" x2="65" y2="82" stroke="#0c2144" stroke-width="3"/></svg>`,
+  onmyoji: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="4"><circle cx="50" cy="50" r="36" stroke-opacity="0.6"/><rect x="34" y="16" width="32" height="68" rx="2" transform="rotate(8 50 50)" fill="#ffffff"/><path d="M48 28 L56 28 M46 40 L56 40 L48 54 L56 54 M44 68 L56 68 M50 24 L46 74" stroke="#0c2144" stroke-width="4" stroke-linecap="round"/></svg>`,
+  dreamweaver: `<svg viewBox="0 0 100 100" fill="#ffffff" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"><path d="M48 48 C34 24 14 22 18 42 C20 52 36 54 48 52 C34 56 22 68 28 78 C34 86 46 74 48 58 Z"/><path d="M52 48 C66 24 86 22 82 42 C80 52 64 54 52 52 C66 56 78 68 72 78 C66 86 54 74 52 58 Z"/><line x1="50" y1="32" x2="50" y2="72" stroke-width="5" stroke-linecap="round"/></svg>`,
+  diviner: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5"><circle cx="50" cy="46" r="28" fill="#ffffff" fill-opacity="0.25"/><path d="M30 74 L70 74 L76 86 L24 86 Z" fill="#ffffff"/><path d="M58 32 L61 39 L68 42 L61 45 L58 52 L55 45 L48 42 L55 39 Z" fill="#ffffff" stroke="none"/></svg>`,
+  samurai: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M32 22 C32 36 42 42 50 42 C58 42 68 36 68 22" stroke-width="6"/><path d="M26 48 C26 32 74 32 74 48 L82 68 L18 68 Z" fill="#ffffff" fill-opacity="0.3"/><line x1="16" y1="22" x2="84" y2="84" stroke-width="7"/></svg>`,
+  sage: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><text x="20" y="34" fill="#ffffff" stroke="none" font-size="22" font-weight="bold">π Σ √</text><path d="M16 48 L48 52 L48 84 L16 80 Z" fill="#ffffff"/><path d="M84 48 L52 52 L52 84 L84 80 Z" fill="#ffffff"/></svg>`,
+  archer: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 18 C66 24 76 58 56 86"/><line x1="26" y1="18" x2="56" y2="86" stroke-width="3"/><line x1="22" y1="78" x2="78" y2="22" stroke-width="5"/><polygon points="78,22 65,24 76,35" fill="#ffffff"/></svg>`,
+  gladiator: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="18" x2="82" y2="82" stroke-width="6"/><line x1="82" y1="18" x2="18" y2="82" stroke-width="6"/><path d="M30 42 C30 24 70 24 70 42 L70 74 L56 84 L56 58 L44 58 L44 84 L30 74 Z" fill="#ffffff"/><path d="M36 48 L46 52 L36 56 Z M64 48 L54 52 L64 56 Z" fill="#0c2144" stroke="none"/></svg>`,
+  cleric: `<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"><rect x="38" y="14" width="24" height="72" rx="4" fill="#ffffff"/><rect x="18" y="34" width="64" height="24" rx="4" fill="#ffffff"/><circle cx="50" cy="46" r="14" fill="#0c2144"/></svg>`
 };
 
 function resolveStatusCloudUrl(path) {
@@ -563,6 +592,68 @@ function resolveStatusCloudUrl(path) {
     return window.assetRegistry.resolvePath(path);
   }
   return path;
+}
+
+function isLeaderSkillStatus(status) {
+  if (!status) return false;
+  const id = String(status.id || '').toLowerCase();
+  return Boolean(status.isLeaderPassive || status.isLeaderSkill || id.startsWith('leader_'));
+}
+
+function resolveLeaderStatusRole(status, contextRole = null) {
+  if (!status) return null;
+  if (status.leaderRole && typeof status.leaderRole === 'string') return status.leaderRole.toLowerCase();
+  if (status.role && typeof status.role === 'string') return status.role.toLowerCase();
+  const id = String(status.id || '').toLowerCase();
+  if (id.startsWith('leader_')) {
+    const extracted = id.slice('leader_'.length);
+    if (extracted) return extracted;
+  }
+  if (contextRole && typeof contextRole === 'string') return contextRole.toLowerCase();
+  if (typeof roomState !== 'undefined' && roomState?.lockedLeaderRole) {
+    return String(roomState.lockedLeaderRole).toLowerCase();
+  }
+  return null;
+}
+
+function isNegativeStatus(status) {
+  if (!status) return false;
+  const id = String(status.id || '').toLowerCase();
+  const icon = String(status.icon || '').toLowerCase();
+  const category = String(status.category || '').toUpperCase();
+  const knownNegativeIds = new Set([
+    'mirror', 'dissociate', 'nightmare_weak', 'frenzy_backfire', 'false_history',
+    'parasite', 'unrest', 'backlash', 'confuse', 'seal_zero', 'sage_debt', 'fate_debt'
+  ]);
+  return Boolean(
+    status.isNegative ||
+    status.isDot ||
+    category === 'DEBUFF' ||
+    icon === 'debuff' ||
+    knownNegativeIds.has(id) ||
+    id.includes('debuff') ||
+    id.includes('curse') ||
+    id.includes('down')
+  );
+}
+
+function getDefaultStatusSvg(status, extraClass = '') {
+  const cls = ['ui-icon', 'svg-icon', extraClass].filter(Boolean).join(' ');
+  if (isNegativeStatus(status)) {
+    return `<svg class="${cls} status-default-debuff-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 4 12h5V3h6v9h5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
+  }
+  return `<svg class="${cls} status-default-buff-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 12h5v9h6v-9h5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
+}
+
+function getLeaderStatusSvg(status, contextRole = null) {
+  const role = resolveLeaderStatusRole(status, contextRole);
+  const svgMap = (typeof CLASS_EXCLUSIVE_SVGS !== 'undefined' && CLASS_EXCLUSIVE_SVGS && Object.keys(CLASS_EXCLUSIVE_SVGS).length > 0)
+    ? CLASS_EXCLUSIVE_SVGS
+    : DEFAULT_CLASS_EXCLUSIVE_SVGS;
+  if (role && svgMap[role]) {
+    return svgMap[role];
+  }
+  return getDefaultStatusSvg(status);
 }
 
 function formatStatusDisplay(s) {
@@ -587,12 +678,14 @@ function formatStatusDisplay(s) {
 
 function getBuffIconUrl(status) {
   if (!status) return null;
+  if (isLeaderSkillStatus(status)) return null;
   const id = String(status.id || '').toLowerCase();
   const icon = String(status.icon || '').toLowerCase();
   const label = String(status.label || '');
   const val = String(status.value || '');
 
   if (BUFF_ICON_MAP[id]) return resolveStatusCloudUrl(BUFF_ICON_MAP[id]);
+  if (id.startsWith('mark_')) return resolveStatusCloudUrl('/assets/icons/status/破綻印記.webp');
 
   if (label.includes('巨熊') || val.includes('巨熊')) return resolveStatusCloudUrl('/assets/icons/status/巨熊型態.png');
   if (label.includes('狼人') || val.includes('狼人')) return resolveStatusCloudUrl('/assets/icons/status/狼人型態.png');
@@ -605,32 +698,61 @@ function getBuffIconUrl(status) {
   if (label.includes('虛空掩護')) return resolveStatusCloudUrl('/assets/icons/status/虛空掩護.png');
   if (label.includes('晶甲共鳴') || label.includes('晶甲反射')) return resolveStatusCloudUrl('/assets/icons/status/晶甲共鳴.png');
   if (label.includes('深淵腐化') || label.includes('腐化')) return resolveStatusCloudUrl('/assets/icons/status/深淵腐化.png');
-  if (label.includes('暈眩') || label.includes('眩暈') || label.includes('STUN') || label.includes('行動受阻')) return resolveStatusCloudUrl('/assets/icons/status/暈眩.png');
+  if (label.includes('暈眩') || label.includes('眩暈') || label.includes('STUN') || label.includes('行動受阻') || label.includes('惑亂')) return resolveStatusCloudUrl('/assets/icons/status/暈眩.png');
 
   if (label.includes('中毒')) return resolveStatusCloudUrl('/assets/icons/status/中毒.webp');
   if (label.includes('燃燒') || label.includes('灼燒') || label.includes('熱度')) return resolveStatusCloudUrl('/assets/icons/status/燃燒.webp');
-  if (label.includes('流血')) return resolveStatusCloudUrl('/assets/icons/status/流血.webp');
+  if (label.includes('流血') || label.includes('血祭')) return resolveStatusCloudUrl('/assets/icons/status/流血.webp');
   if (label.includes('骨折')) return resolveStatusCloudUrl('/assets/icons/status/骨折.webp');
   if (label.includes('寒冷') || label.includes('寒霜') || label.includes('冰')) return resolveStatusCloudUrl('/assets/icons/status/寒冷.webp');
   if (label.includes('腐蝕') || label.includes('強酸') || label.includes('酸液')) return resolveStatusCloudUrl('/assets/icons/status/腐蝕.webp');
   if (label.includes('護盾') || label.includes('TEMP HP') || label.includes('壁壘')) return resolveStatusCloudUrl('/assets/icons/status/護盾.webp');
-  if (label.includes('減傷') || label.includes('堅守') || label.includes('堅定') || label.includes('恩典') || label.includes('GUARD') || label.includes('DR ')) return resolveStatusCloudUrl('/assets/icons/status/減傷.webp');
+  if (label.includes('減傷') || label.includes('堅守') || label.includes('堅定') || label.includes('恩典') || label.includes('GUARD') || label.includes('DR ') || label.includes('狂刀')) return resolveStatusCloudUrl('/assets/icons/status/減傷.webp');
   if (label.includes('易傷') || label.includes('VULNERABLE') || label.includes('承傷 +') || label.includes('受傷增加') || label.includes('負傷')) return resolveStatusCloudUrl('/assets/icons/status/易傷.webp');
   if (label.includes('閃避') || label.includes('DODGE')) return resolveStatusCloudUrl('/assets/icons/status/閃避加成.webp');
   if (label.includes('隱身') || label.includes('匿蹤') || label.includes('追擊') || label.includes('暗影步')) return resolveStatusCloudUrl('/assets/icons/status/隱身.webp');
   if (label.includes('休眠') || label.includes('沉睡') || label.includes('虛弱') || label.includes('倒下') || label.includes('EXHAUSTED')) return resolveStatusCloudUrl('/assets/icons/status/休眠.webp');
-  if (label.includes('狂熱') || label.includes('DMG +') || label.includes('凱旋') || label.includes('過載') || label.includes('充能')) return resolveStatusCloudUrl('/assets/icons/status/狂熱.webp');
+  if (label.includes('狂熱') || label.includes('DMG +') || label.includes('凱旋') || label.includes('過載') || label.includes('充能') || label.includes('怒氣') || label.includes('武魂')) return resolveStatusCloudUrl('/assets/icons/status/狂熱.webp');
   if (label.includes('星系')) return resolveStatusCloudUrl('/assets/icons/status/星系追擊.webp');
   if (label.includes('鎖血') || label.includes('邊界') || label.includes('臣服') || label.includes('LOCK')) return resolveStatusCloudUrl('/assets/icons/status/邊界鎖血.webp');
-  if (label.includes('命運加護') || label.includes('命運繫結')) return resolveStatusCloudUrl('/assets/icons/status/命運加護.webp');
+  if (label.includes('命運加護') || label.includes('命運繫結') || label.includes('諭示牌')) return resolveStatusCloudUrl('/assets/icons/status/命運加護.webp');
   if (label.includes('命債') || label.includes('透支')) return resolveStatusCloudUrl('/assets/icons/status/命債.webp');
   if (label.includes('符')) return resolveStatusCloudUrl('/assets/icons/status/符咒.webp');
-  if (label.includes('方程') || label.includes('假設') || label.includes('求解') || label.includes('紊亂')) return resolveStatusCloudUrl('/assets/icons/status/方程特性.webp');
-  if (label.includes('破綻') || label.includes('印記') || label.includes('標記') || label.includes('懸賞')) return resolveStatusCloudUrl('/assets/icons/status/破綻印記.webp');
+  if (label.includes('方程') || label.includes('假設') || label.includes('求解') || label.includes('紊亂') || label.includes('演算')) return resolveStatusCloudUrl('/assets/icons/status/方程特性.webp');
+  if (label.includes('破綻') || label.includes('印記') || label.includes('標記') || label.includes('懸賞') || label.includes('瞄準') || label.includes('號令')) return resolveStatusCloudUrl('/assets/icons/status/破綻印記.webp');
 
   if (BUFF_ICON_MAP[icon]) return resolveStatusCloudUrl(BUFF_ICON_MAP[icon]);
 
-  return resolveStatusCloudUrl('/assets/icons/status/方程特性.webp');
+  return null;
+}
+
+function renderStatusIconMarkup(status, options = {}) {
+  if (!status) return '';
+  const { contextRole = null, variant = 'badge' } = options;
+  const safeAlt = typeof escapeHtml === 'function' ? escapeHtml(status.label || 'status') : String(status.label || 'status').replace(/"/g, '&quot;');
+  if (isLeaderSkillStatus(status)) {
+    const svg = getLeaderStatusSvg(status, contextRole);
+    if (variant === 'tooltip') {
+      return `<div class="exclusive-buff-icon-svg" style="width:14px;height:14px;display:inline-flex;vertical-align:middle;margin-right:4px;">${svg}</div>`;
+    }
+    return `<div class="exclusive-buff-icon-svg">${svg}</div>`;
+  }
+  const iconUrl = getBuffIconUrl(status);
+  if (iconUrl) {
+    const safeSrc = typeof escapeHtml === 'function' ? escapeHtml(iconUrl) : iconUrl;
+    if (variant === 'tooltip') {
+      return `<img src="${safeSrc}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;" alt="${safeAlt}">`;
+    }
+    if (variant === 'hud') {
+      return `<img src="${safeSrc}" alt="${safeAlt}">`;
+    }
+    const imgClass = variant === 'enemy' ? 'teammate-buff-icon enemy-buff-icon' : 'teammate-buff-icon';
+    return `<img src="${safeSrc}" class="${imgClass}" alt="${safeAlt}" loading="lazy">`;
+  }
+  if (variant === 'tooltip') {
+    return `<span style="width:14px;height:14px;display:inline-flex;vertical-align:middle;margin-right:4px;">${getDefaultStatusSvg(status, 'ui-icon--sm')}</span>`;
+  }
+  return getDefaultStatusSvg(status, variant === 'hud' ? '' : 'ui-icon--sm');
 }
 
 // 判斷是否為職業特殊機制/疊層（已於第3行特殊疊層呈現，不在第4行 buff 欄重複顯示）
@@ -683,21 +805,16 @@ function renderTeammateBuffIcons(statuses = []) {
   const realBuffs = statuses.filter(s => !isSpecialStackStatus(s));
   const displayStatuses = realBuffs.slice(0, 5);
   return displayStatuses.map(s => {
-    const isLeaderPassive = s.isLeaderPassive || s.isLeaderSkill || (s.id && String(s.id).startsWith('leader_'));
-    if (isLeaderPassive) {
-      const leaderRole = s.leaderRole || s.role || roomState?.lockedLeaderRole;
-      const svg = (leaderRole && CLASS_EXCLUSIVE_SVGS[leaderRole]) || CLASS_EXCLUSIVE_SVGS.warrior;
+    if (isLeaderSkillStatus(s)) {
       const titleParts = [
         `【隊長技】${s.label || s.id}`,
         s.desc || s.value || ''
       ].filter(Boolean);
       const title = titleParts.join(' - ');
-      return `<span class="teammate-buff-item teammate-buff-exclusive" title="${escapeHtml(title)}"><div class="exclusive-buff-icon-svg">${svg}</div></span>`;
+      return `<span class="teammate-buff-item teammate-buff-exclusive" title="${escapeHtml(title)}">${renderStatusIconMarkup(s, { variant: 'badge' })}</span>`;
     }
-    const iconUrl = getBuffIconUrl(s);
-    if (!iconUrl) return '';
     const title = formatStatusDisplay(s).fullTitle;
-    return `<span class="teammate-buff-item" title="${escapeHtml(title)}"><img src="${iconUrl}" class="teammate-buff-icon" alt="${escapeHtml(s.label || 'status')}" loading="lazy"></span>`;
+    return `<span class="teammate-buff-item" title="${escapeHtml(title)}">${renderStatusIconMarkup(s, { variant: 'badge' })}</span>`;
   }).join('');
 }
 
@@ -722,16 +839,7 @@ function showPlayerTooltip(p, eOrTarget) {
   let buffsHtml = '';
   if (statuses.length > 0) {
     buffsHtml = `<div class="floating-tooltip-buffs">${statuses.map(s => {
-      const isLeaderPassive = s.isLeaderPassive || s.isLeaderSkill || (s.id && String(s.id).startsWith('leader_'));
-      let iconTag = '';
-      if (isLeaderPassive) {
-        const leaderRole = s.leaderRole || s.role || roomState?.lockedLeaderRole;
-        const svg = (leaderRole && CLASS_EXCLUSIVE_SVGS[leaderRole]) || CLASS_EXCLUSIVE_SVGS.warrior;
-        iconTag = `<div class="exclusive-buff-icon-svg" style="width:14px;height:14px;display:inline-flex;vertical-align:middle;margin-right:4px;">${svg}</div>`;
-      } else {
-        const iconUrl = getBuffIconUrl(s);
-        iconTag = iconUrl ? `<img src="${iconUrl}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">` : '';
-      }
+      const iconTag = renderStatusIconMarkup(s, { variant: 'tooltip', contextRole: liveP.role });
       const fmt = formatStatusDisplay(s);
       return `<span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
         ${iconTag}${escapeHtml(fmt.head)}${fmt.detailText ? ' (' + escapeHtml(fmt.detailText) + ')' : ''}

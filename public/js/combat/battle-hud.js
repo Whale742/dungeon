@@ -154,9 +154,17 @@ const BattleHud = (() => {
     byId('hudPlayerResource').textContent = [player.resourceSummary,`DEF ${player.DEF || 0}`].filter(Boolean).join(' · ');
     const statusHost=byId('hudPlayerStatuses');
     statusHost.innerHTML = (player.statuses||[]).map(status=>{
-      const icon=getBuffIconUrl(status);
+      const isLeader = typeof isLeaderSkillStatus === 'function'
+        ? isLeaderSkillStatus(status)
+        : Boolean(status && (status.isLeaderPassive || status.isLeaderSkill || String(status.id || '').toLowerCase().startsWith('leader_')));
+      const inner = typeof renderStatusIconMarkup === 'function'
+        ? renderStatusIconMarkup(status, { variant: 'hud', contextRole: player.role })
+        : (() => {
+            const icon = getBuffIconUrl(status);
+            return icon ? `<img src="${escapeHtml(icon)}" alt="">` : getIconSvg(status.icon || 'status');
+          })();
       const hasStacks=typeof status.stacks==='number'&&status.stacks>0;
-      return `<button type="button" class="hud-status-icon" aria-label="${escapeHtml((status.label||status.id)+(hasStacks?` ×${status.stacks}`:''))}"><span class="hud-status-icon-inner">${icon?`<img src="${escapeHtml(icon)}" alt="">`:getIconSvg(status.icon||'status')}</span></button>`;
+      return `<button type="button" class="hud-status-icon${isLeader?' teammate-buff-exclusive':''}" aria-label="${escapeHtml((status.label||status.id)+(hasStacks?` ×${status.stacks}`:''))}"><span class="hud-status-icon-inner">${inner}</span></button>`;
     }).join('');
     [...statusHost.children].forEach((button,index)=>{
       const status=player.statuses[index];
