@@ -74,10 +74,68 @@ function announceBattleFeedback(text) {
   if(!live){live=document.createElement('div');live.id='battleFeedbackLive';live.className='battle-feedback-sr';live.setAttribute('role','status');live.setAttribute('aria-live','polite');live.setAttribute('aria-atomic','true');document.body.appendChild(live);}
   if(live.textContent!==text)live.textContent=text;
 }
+const ENEMY_STATUS_ICON_MAP = Object.freeze({
+  poison:'/assets/icons/status/中毒.webp', alc_poison:'/assets/icons/status/中毒.webp', flask_poison:'/assets/icons/status/中毒.webp',
+  burn:'/assets/icons/status/燃燒.webp', fire:'/assets/icons/status/燃燒.webp', ember:'/assets/icons/status/燃燒.webp', flask_burn:'/assets/icons/status/燃燒.webp',
+  bleed:'/assets/icons/status/流血.webp', fracture:'/assets/icons/status/骨折.webp', flask_fracture:'/assets/icons/status/骨折.webp',
+  chill:'/assets/icons/status/寒冷.webp', freeze:'/assets/icons/status/寒冷.webp', frost:'/assets/icons/status/寒冷.webp', flask_chill:'/assets/icons/status/寒冷.webp',
+  corrosion:'/assets/icons/status/腐蝕.webp', alc_acid:'/assets/icons/status/腐蝕.webp', alchemy_corrosion:'/assets/icons/status/腐蝕.webp', shield_decay:'/assets/icons/status/腐蝕.webp', acid_defense:'/assets/icons/status/腐蝕.webp',
+  corruption:'/assets/icons/status/深淵腐化.png', abyss_corruption:'/assets/icons/status/深淵腐化.png',
+  shield:'/assets/icons/status/護盾.webp', temp_hp:'/assets/icons/status/護盾.webp', sage_shield:'/assets/icons/status/護盾.webp', barrier:'/assets/icons/status/護盾.webp',
+  guard:'/assets/icons/status/減傷.webp', treant_guard:'/assets/icons/status/減傷.webp', crouch:'/assets/icons/status/減傷.webp',
+  vulnerable:'/assets/icons/status/易傷.webp', alchemy_vulnerable:'/assets/icons/status/易傷.webp', sage_exposed:'/assets/icons/status/易傷.webp', next_vulnerable:'/assets/icons/status/易傷.webp', weakened:'/assets/icons/status/易傷.webp',
+  dodge:'/assets/icons/status/閃避加成.webp', dodge_bonus:'/assets/icons/status/閃避加成.webp',
+  stealth:'/assets/icons/status/隱身.webp', stealth_stack:'/assets/icons/status/隱身.webp', hidden:'/assets/icons/status/隱身.webp', follow_up:'/assets/icons/status/隱身.webp', void_step:'/assets/icons/status/隱身.webp',
+  sleep:'/assets/icons/status/休眠.webp', exhausted:'/assets/icons/status/休眠.webp', downed:'/assets/icons/status/休眠.webp',
+  frenzy:'/assets/icons/status/狂熱.webp', frenzy_buff:'/assets/icons/status/狂熱.webp', b_frenzy:'/assets/icons/status/狂熱.webp',
+  galaxy:'/assets/icons/status/星系追擊.webp', astronomy:'/assets/icons/status/星系追擊.webp',
+  boundary:'/assets/icons/status/邊界鎖血.webp', crit_lock:'/assets/icons/status/邊界鎖血.webp', surrender:'/assets/icons/status/邊界鎖血.webp', lock:'/assets/icons/status/邊界鎖血.webp',
+  fate_blessing:'/assets/icons/status/命運加護.webp', fate_binding:'/assets/icons/status/命運加護.webp', blessing:'/assets/icons/status/命運加護.webp',
+  fate_debt:'/assets/icons/status/命債.webp', sage_debt:'/assets/icons/status/命債.webp',
+  talisman:'/assets/icons/status/符咒.webp', talismans:'/assets/icons/status/符咒.webp', talisman_blind:'/assets/icons/status/符咒.webp', talisman_seal:'/assets/icons/status/符咒.webp', talisman_corrode:'/assets/icons/status/符咒.webp', talisman_confuse:'/assets/icons/status/符咒.webp', talisman_drain:'/assets/icons/status/符咒.webp',
+  equation:'/assets/icons/status/方程特性.webp', sage_equation:'/assets/icons/status/方程特性.webp',
+  flaw_mark:'/assets/icons/status/破綻印記.webp', flaw:'/assets/icons/status/破綻印記.webp',
+  bear:'/assets/icons/status/巨熊型態.png', druid_bear:'/assets/icons/status/巨熊型態.png',
+  wolf:'/assets/icons/status/狼人型態.png', werewolf:'/assets/icons/status/狼人型態.png', druid_wolf:'/assets/icons/status/狼人型態.png',
+  paladin_target_weight:'/assets/icons/status/神聖嘲諷.png', taunt:'/assets/icons/status/神聖嘲諷.png',
+  augur_resistance_break:'/assets/icons/status/星芒破障.png', star_break:'/assets/icons/status/星芒破障.png',
+  reversed_omen:'/assets/icons/status/凶兆逆位.png', aug_reckon:'/assets/icons/status/凶兆逆位.png',
+  paladin_glory_active:'/assets/icons/status/榮耀戰歌-蓄力中.png', pal_glory:'/assets/icons/status/榮耀戰歌-蓄力中.png',
+  arena_challenge:'/assets/icons/status/死鬥宣告.png', g_arena:'/assets/icons/status/死鬥宣告.png', duel_arena:'/assets/icons/status/死鬥宣告.png',
+  attack_down:'/assets/icons/status/攻擊降低.png', atk_down:'/assets/icons/status/攻擊降低.png', weaken_atk:'/assets/icons/status/攻擊降低.png', sage_square:'/assets/icons/status/攻擊降低.png',
+  void_cover:'/assets/icons/status/虛空掩護.png', abyss_watcher:'/assets/icons/status/虛空掩護.png',
+  crystal_support:'/assets/icons/status/晶甲共鳴.png', crystal_beetle:'/assets/icons/status/晶甲共鳴.png',
+  stun:'/assets/icons/status/暈眩.png', stunned:'/assets/icons/status/暈眩.png', daze:'/assets/icons/status/暈眩.png', seal_zero:'/assets/icons/status/暈眩.png'
+});
+function resolveStatusIconUrl(status) {
+  if (typeof getBuffIconUrl === 'function') return getBuffIconUrl(status);
+  if (!status) return null;
+  const toCloud = p => (typeof window !== 'undefined' && window.assetRegistry && typeof window.assetRegistry.resolvePath === 'function') ? window.assetRegistry.resolvePath(p) : p;
+  const id = String(status.id || '').toLowerCase(), icon = String(status.icon || '').toLowerCase(), label = String(status.label || ''), val = String(status.value || '');
+  if (ENEMY_STATUS_ICON_MAP[id]) return toCloud(ENEMY_STATUS_ICON_MAP[id]);
+  if (label.includes('巨熊') || val.includes('巨熊')) return toCloud('/assets/icons/status/巨熊型態.png');
+  if (label.includes('狼人') || val.includes('狼人')) return toCloud('/assets/icons/status/狼人型態.png');
+  if (label.includes('神聖嘲諷') || label.includes('嘲諷')) return toCloud('/assets/icons/status/神聖嘲諷.png');
+  if (label.includes('星芒破障') || label.includes('星芒破陣')) return toCloud('/assets/icons/status/星芒破障.png');
+  if (label.includes('凶兆逆位')) return toCloud('/assets/icons/status/凶兆逆位.png');
+  if (label.includes('榮耀讚歌') || label.includes('榮耀戰歌') || label.includes('蓄力中')) return toCloud('/assets/icons/status/榮耀戰歌-蓄力中.png');
+  if (label.includes('死鬥宣告') || label.includes('死鬥') || label.includes('角鬥場')) return toCloud('/assets/icons/status/死鬥宣告.png');
+  if (label.includes('攻擊降低') || label.includes('ATK DOWN') || label.includes('攻擊壓制') || label.includes('直接傷害 -25%')) return toCloud('/assets/icons/status/攻擊降低.png');
+  if (label.includes('虛空掩護')) return toCloud('/assets/icons/status/虛空掩護.png');
+  if (label.includes('晶甲共鳴') || label.includes('晶甲反射')) return toCloud('/assets/icons/status/晶甲共鳴.png');
+  if (label.includes('深淵腐化') || label.includes('腐化')) return toCloud('/assets/icons/status/深淵腐化.png');
+  if (label.includes('暈眩') || label.includes('眩暈') || label.includes('STUN') || label.includes('行動受阻')) return toCloud('/assets/icons/status/暈眩.png');
+  if (ENEMY_STATUS_ICON_MAP[icon]) return toCloud(ENEMY_STATUS_ICON_MAP[icon]);
+  return toCloud('/assets/icons/status/方程特性.webp');
+}
 function enemyDisplayStatuses(enemy) {
   const statuses=new Map((enemy.statuses||[]).map(s=>[s.id,{...s}]));
   for(const [id,label,icon] of [['poison','中毒','poison'],['burn','燃燒','fire'],['fracture','骨折','bone'],['chill','寒冷','snowflake'],['corrosion','腐蝕','flask']])
     if(enemy[id+'Turns']>0&&!statuses.has(id))statuses.set(id,{id,label,icon,turns:enemy[id+'Turns'],value:enemy[id+'Dmg']});
+  if((enemy.stunnedThisRound||enemy.stunnedNextTurn)&&!statuses.has('stun'))statuses.set('stun',{id:'stun',label:'暈眩',icon:'stun',turns:1});
+  if(enemy.augurResistanceBreak>0&&!statuses.has('augur_resistance_break'))statuses.set('augur_resistance_break',{id:'augur_resistance_break',label:'星芒破障',icon:'debuff',turns:enemy.augurResistanceBreak,value:'效果抗性 −15pp'});
+  if(enemy.reversedOmenRemaining>0&&!statuses.has('reversed_omen'))statuses.set('reversed_omen',{id:'reversed_omen',label:'凶兆逆位',icon:'debuff',turns:enemy.reversedOmenRemaining,value:'受傷 +'+(enemy.reversedOmenBonus||10)+'%'});
+  if(enemy.flawMarks>0&&!statuses.has('flaw_mark'))statuses.set('flaw_mark',{id:'flaw_mark',label:`破綻印記 (${enemy.flawMarks})`,icon:'flaw_mark',stacks:enemy.flawMarks});
   if(enemy.isWeakened&&!statuses.has('weakened'))statuses.set('weakened',{id:'weakened',label:'負傷',icon:'status'});
   if(enemy.talismans?.length&&!statuses.has('talismans')){const names={blind:'障目',seal:'封勁',corrode:'蝕體',confuse:'惑心',drain:'抽髓'};statuses.set('talismans',{id:'talismans',label:'符咒',icon:'status',stacks:enemy.talismans.length,value:enemy.talismans.map(t=>names[t]||t).join('、')});}
   return [...statuses.values()];
@@ -125,12 +183,25 @@ function syncEnemyMechanicVisual(enemy, node) {
   let badge=node.querySelector('.enemy-mechanic-state');
   if(!badge){badge=document.createElement('span');badge.className='enemy-mechanic-state';}
   if(row){row.replaceChildren(badge);}else if(!badge.parentElement)node.appendChild(badge);
-  const states=enemyDisplayStatuses(enemy).filter(s=>s.id!=='enemy_mechanic'||!resource&&['treasure_mimic','abyss_sage','abyss_druid'].includes(info.mechanicId));
+  const allStates=enemyDisplayStatuses(enemy).filter(s=>s.id!=='enemy_mechanic'||!resource&&['treasure_mimic','abyss_sage','abyss_druid'].includes(info.mechanicId));
+  const hasTalismanSummary=allStates.some(s=>s.id==='talismans');
+  const states=hasTalismanSummary?allStates.filter(s=>!String(s.id||'').startsWith('talisman_')):allStates;
   badge.replaceChildren();
   for(const s of enemy.hp>0?states.slice(0,3):[]){
-    const icon=document.createElement('span');icon.className='enemy-status-badge';icon.setAttribute('aria-hidden','true');
+    const icon=document.createElement('span');icon.className='enemy-status-badge teammate-buff-item';icon.setAttribute('aria-hidden','true');
+    const titleParts=[s.label||s.id,s.value!==undefined&&s.value!==''?String(s.value):'',s.turns?`${s.turns}回合`:'',s.stacks?`×${s.stacks}`:''].filter(Boolean);
+    if(titleParts.length)icon.title=titleParts.join(' ');
     const count=s.id==='enemy_mechanic'&&typeof s.value==='number'?s.value:typeof s.stacks==='number'?s.stacks:null;
-    icon.innerHTML=s.id==='enemy_mechanic'?(info.mechanicId==='abyss_sage'?'Σ':info.mechanicId==='treasure_mimic'?(enemy.mechanics?.open?'◇':'▣'):'↻'):getIconSvg(s.icon||'status','ui-icon--sm');
+    const isMimicMechanic=s.id==='enemy_mechanic'&&info.mechanicId==='treasure_mimic';
+    const isDruidNonFormMechanic=s.id==='enemy_mechanic'&&info.mechanicId==='abyss_druid'&&!['werewolf','bear'].includes(enemy.mechanics?.form);
+    if(isMimicMechanic){
+      icon.innerHTML=enemy.mechanics?.open?'◇':'▣';
+    }else if(isDruidNonFormMechanic){
+      icon.innerHTML='↻';
+    }else{
+      const iconUrl=resolveStatusIconUrl(s);
+      icon.innerHTML=iconUrl?`<img src="${iconUrl}" class="teammate-buff-icon enemy-buff-icon" alt="${String(s.label||'status').replace(/"/g,'&quot;')}" loading="lazy">`:getIconSvg(s.icon||'status','ui-icon--sm');
+    }
     if(count!==null){const n=document.createElement('small');n.textContent=String(count);icon.appendChild(n);}badge.appendChild(icon);
   }
   if(enemy.hp>0&&states.length>3){const extra=document.createElement('span');extra.className='enemy-status-badge enemy-status-overflow';extra.textContent='+'+(states.length-3);badge.appendChild(extra);}

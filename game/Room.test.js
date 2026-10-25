@@ -925,12 +925,36 @@ test('Enemy strip caps three icons while the existing tooltip keeps full statuse
   node.classList={toggle(){}};node.querySelector=selector=>selector==='.enemy-status-row'?row:null;
   h.scope.getIconSvg=()=>'<svg></svg>';h.scope.syncEnemyMechanicVisual(en,node);
   const strip=row.children[0];assert.equal(strip.children.length,4);assert.equal(strip.children[3].textContent,'+1');
+  assert.match(strip.children[0].innerHTML,/\/assets\/icons\/status\/中毒\.webp/);
+  assert.match(strip.children[1].innerHTML,/\/assets\/icons\/status\/燃燒\.webp/);
+  assert.match(strip.children[2].innerHTML,/\/assets\/icons\/status\/骨折\.webp/);
   const tooltip=h.scope.document.createElement('div');tooltip.classList={add(){}};
   Object.assign(h.scope,{elements:{floatingEnemyTooltip:tooltip},roomState:{battleRound:2},escapeHtml:s=>String(s??''),positionFloatingTooltip(){}});
-  const app=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8');vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
+  const app=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8');
+  vm.runInContext('const BUFF_ICON_MAP = {'+app.split('const BUFF_ICON_MAP = {')[1].split('// 判斷是否為職業特殊機制/疊層')[0],h.scope);
+  vm.runInContext('function showEnemyTooltip('+app.split('function showEnemyTooltip(')[1].split('function hideEnemyTooltip')[0],h.scope);
   h.scope.showEnemyTooltip(en,node);
   for(const label of ['POISON','BURN','FRACTURE','CHILL','能源核心','反制','效抗'])assert.ok(tooltip.innerHTML.includes(label),label);
+  assert.ok(tooltip.innerHTML.includes('/assets/icons/status/中毒.webp'));
   assert.ok(tooltip.innerHTML.includes('2/2'));assert.ok(tooltip.innerHTML.includes('3 回合'));
+  const expectedNewIcons=[
+    [{id:'bear',label:'巨熊形態'},'/assets/icons/status/巨熊型態.png'],
+    [{id:'wolf',label:'狼人形態'},'/assets/icons/status/狼人型態.png'],
+    [{id:'paladin_target_weight',label:'神聖嘲諷・受擊權重 ↑',icon:'guard'},'/assets/icons/status/神聖嘲諷.png'],
+    [{id:'augur_resistance_break',label:'星芒破障',icon:'debuff'},'/assets/icons/status/星芒破障.png'],
+    [{id:'reversed_omen',label:'凶兆逆位',icon:'debuff'},'/assets/icons/status/凶兆逆位.png'],
+    [{id:'paladin_glory_active',label:'榮耀讚歌・蓄力中',icon:'buff'},'/assets/icons/status/榮耀戰歌-蓄力中.png'],
+    [{id:'arena_challenge',label:'死鬥宣告',icon:'buff'},'/assets/icons/status/死鬥宣告.png'],
+    [{id:'attack_down',label:'ATK DOWN',icon:'debuff'},'/assets/icons/status/攻擊降低.png'],
+    [{id:'void_cover',label:'虛空掩護',icon:'guard'},'/assets/icons/status/虛空掩護.png'],
+    [{id:'crystal_support',label:'晶甲共鳴',icon:'guard'},'/assets/icons/status/晶甲共鳴.png'],
+    [{id:'corruption',label:'深淵腐化',icon:'corruption'},'/assets/icons/status/深淵腐化.png'],
+    [{id:'stun',label:'暈眩',icon:'stun'},'/assets/icons/status/暈眩.png']
+  ];
+  for(const [status,expectedUrl] of expectedNewIcons){
+    assert.equal(h.scope.getBuffIconUrl(status),expectedUrl,status.label);
+    assert.equal(h.scope.resolveStatusIconUrl(status),expectedUrl,status.label);
+  }
 });
 test('A four-hit ultimate shows one central name while committing all four actual hits',async t=>{
   const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.samurai]);mechanismRound(room,3);room.checkDodge=()=>false;

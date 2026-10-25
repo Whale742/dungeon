@@ -23,7 +23,9 @@
 .battle-enemy-slot.enemy-arena-absent{display:none!important;pointer-events:none}
 .battle-enemies-stage.is-duel-arena{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 85%,#88603b,#4b3422 65%,#302218);border-color:#99734c;}
 .enemy-mechanic-state{display:inline-flex;flex-wrap:wrap;gap:3px;align-items:center;justify-content:center;max-width:100%;font-size:11px;color:#b9c9d3}
-.enemy-mechanic-state small{font-size:10px}.enemy-status-overflow{cursor:help}
+.enemy-mechanic-state .enemy-status-badge{width:auto;min-width:20px;height:20px;padding:1px 2px}
+.enemy-mechanic-state .enemy-buff-icon{width:16px;height:16px;object-fit:contain;display:block;flex-shrink:0}
+.enemy-mechanic-state small{font-size:10px;line-height:1}.enemy-status-overflow{cursor:help;padding:1px 4px}
 .enemy-threat-marker{position:absolute;top:5px;right:7px;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;box-sizing:border-box;font-size:19px;color:#d5a6aa;border:1px solid #93666b;border-radius:50%;background:#251f28e8;z-index:3}
 .enemy-danger-marker{position:absolute;top:-12px;right:-10px;display:flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1px solid #b9985b;background:#252025;color:#e7cb8d;font-weight:800;font-size:13px}
 .enemy-danger-marker[hidden],.enemy-threat-marker[hidden],.enemy-mechanic-state[hidden]{display:none}

@@ -2443,22 +2443,31 @@ function renderBattle(me, isLeader) {
       buffHtml += `</div>`;
     }
     if (monster.isWeakened) {
-      buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;">${getIconSvg('status')} 負傷狀態</span>`;
+      buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;"><img src="/assets/icons/status/易傷.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 負傷狀態</span>`;
     }
     if (monster.poisonTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-poison">${getIconSvg('poison')} 中毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
+      buffHtml += `<span class="buff-badge tag-poison"><img src="/assets/icons/status/中毒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 中毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
     }
     if (monster.burnTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;">${getIconSvg('fire')} 燃燒 (${monster.burnTurns} 回合 / 每回合-${monster.burnDmg || 7})</span>`;
+      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;"><img src="/assets/icons/status/燃燒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 燃燒 (${monster.burnTurns} 回合 / 每回合-${monster.burnDmg || 7})</span>`;
     }
     if (monster.fractureTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;">${getIconSvg('bone')} 骨折 (${monster.fractureTurns} 回合 / 每回合-${monster.fractureDmg || 2})</span>`;
+      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;"><img src="/assets/icons/status/骨折.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 骨折 (${monster.fractureTurns} 回合 / 每回合-${monster.fractureDmg || 2})</span>`;
     }
     if (monster.chillTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;">${getIconSvg('snowflake')} 寒冷 (${monster.chillTurns} 回合 / 每回合-${monster.chillDmg || 3})</span>`;
+      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;"><img src="/assets/icons/status/寒冷.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 寒冷 (${monster.chillTurns} 回合 / 每回合-${monster.chillDmg || 3})</span>`;
     }
     if (monster.corrosionTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;">${getIconSvg('flask')} 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
+      buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;"><img src="/assets/icons/status/腐蝕.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;
+    }
+    if (monster.augurResistanceBreak > 0) {
+      buffHtml += `<span class="buff-badge tag-star-break" style="background: rgba(168, 85, 247, 0.25); border: 1px solid #a855f7; color: #d8b4fe;"><img src="/assets/icons/status/星芒破障.png" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 星芒破障 (效果抗性 -15pp · ${monster.augurResistanceBreak} 回合)</span>`;
+    }
+    if (monster.reversedOmenRemaining > 0) {
+      buffHtml += `<span class="buff-badge tag-reversed-omen" style="background: rgba(220, 38, 38, 0.25); border: 1px solid #dc2626; color: #fca5a5;"><img src="/assets/icons/status/凶兆逆位.png" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 凶兆逆位 (受傷 +${monster.reversedOmenBonus || 10}% · ${monster.reversedOmenRemaining} 回合)</span>`;
+    }
+    if (monster.stunnedThisRound || monster.stunnedNextTurn) {
+      buffHtml += `<span class="buff-badge tag-stun" style="background: rgba(234, 179, 8, 0.25); border: 1px solid #eab308; color: #fef08a;"><img src="/assets/icons/status/暈眩.png" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 暈眩 (無法行動)</span>`;
     }
     if (monster.talismans && monster.talismans.length > 0) {
       const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
@@ -2539,13 +2548,13 @@ function renderMyActionBar(me) {
   // 狀態簡報（包含狼人/樹精/夥伴狀態）
   let stanceHtml = '';
   if (me.druidForm === 'werewolf') {
-    stanceHtml += ` <span class="badge-form-wolf">${getIconSvg('summon')} 狼人形態 (傷害35點，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-wolf"><img src="/assets/icons/status/狼人型態.png" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 狼人形態 (傷害35點，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'treant') {
-    stanceHtml += ` <span class="badge-form-treant">${getIconSvg('shield')} 樹精形態 (護盾85%/減傷30%/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant"><img src="/assets/icons/status/減傷.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 樹精形態 (護盾85%/減傷30%/替全隊吸收50%，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'tree') {
-    stanceHtml += ` <span class="badge-form-treant">${getIconSvg('cooldown')} 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-treant"><img src="/assets/icons/status/休眠.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 古樹休眠 (無法行動，剩餘${me.druidFormTurns}R)</span>`;
   } else if (me.druidForm === 'bear') {
-    stanceHtml += ` <span class="badge-form-bear" style="background:rgba(180,83,9,0.25);border:1px solid rgba(245,158,11,0.5);color:#fde68a;border-radius:4px;padding:2px 6px;font-size:11px;">${getIconSvg('shield')} 巨熊形態 (血量/攻擊強化，剩餘${me.druidFormTurns}R)</span>`;
+    stanceHtml += ` <span class="badge-form-bear" style="background:rgba(180,83,9,0.25);border:1px solid rgba(245,158,11,0.5);color:#fde68a;border-radius:4px;padding:2px 6px;font-size:11px;"><img src="/assets/icons/status/巨熊型態.png" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 巨熊形態 (血量/攻擊強化，剩餘${me.druidFormTurns}R)</span>`;
   }
   if (me.minion) {
     stanceHtml += ` <span class="badge-minion">${getIconSvg('summon')} 夥伴: ${escapeHtml(me.minion.name)} (HP ${me.minion.hp}/${me.minion.maxHp} | 攻 ${me.minion.atk})</span>`;

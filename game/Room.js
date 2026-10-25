@@ -570,6 +570,7 @@ export class Room {
       statuses: [
         ...mechanicStatuses(enemy, this),
         ...p8State(enemy, this).phase8Statuses,
+        ...((enemy.stunnedThisRound || enemy.stunnedNextTurn || (enemy === this.currentMonster && this.monsterStunnedThisRound)) ? [{ id: 'stun', label: '暈眩', icon: 'stun', turns: 1, isNegative: true, category: 'DEBUFF' }] : []),
         ...(enemy.flawMarks && enemy.flawMarks > 0 ? [{ id: 'flaw_mark', label: `破綻印記 (${enemy.flawMarks})`, icon: 'flaw_mark', stacks: enemy.flawMarks, isNegative: true, category: 'DEBUFF', desc: `受傷增加 ${enemy.flawMarks * 10}%，受到攻擊命中率提高 ${enemy.flawMarks * 10}%，效果命中降低 ${enemy.flawMarks * 10}%` }] : []),
         ...(enemy.poisonTurns ? [{ id: 'poison', label: 'POISON', icon: 'poison', turns: enemy.poisonTurns, stacks: enemy.poisonDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
         ...(enemy.burnTurns ? [{ id: 'burn', label: 'BURN', icon: 'burn', turns: enemy.burnTurns, stacks: enemy.burnDmg, isNegative: true, category: 'DEBUFF', isDot: true }] : []),
