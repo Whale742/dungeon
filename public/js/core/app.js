@@ -2446,16 +2446,16 @@ function renderBattle(me, isLeader) {
       buffHtml += `<span class="buff-badge" style="background: rgba(230, 126, 34, 0.25); border: 1px solid #e67e22; color: #f39c12;"><img src="/assets/icons/status/易傷.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 負傷狀態</span>`;
     }
     if (monster.poisonTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-poison"><img src="/assets/icons/status/中毒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 中毒 (${monster.poisonTurns} 回合 / 每回合-${monster.poisonDmg || 5})</span>`;
+      buffHtml += `<span class="buff-badge tag-poison"><img src="/assets/icons/status/中毒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 中毒 (${monster.poisonDmg > 0 ? `每回合 ${monster.poisonDmg} 傷害｜` : ''}剩餘 ${monster.poisonTurns} 回合)</span>`;
     }
     if (monster.burnTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;"><img src="/assets/icons/status/燃燒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 燃燒 (${monster.burnTurns} 回合 / 每回合-${monster.burnDmg || 7})</span>`;
+      buffHtml += `<span class="buff-badge tag-burn" style="background: rgba(231, 76, 60, 0.25); border: 1px solid #e74c3c; color: #e74c3c;"><img src="/assets/icons/status/燃燒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 燃燒 (${monster.burnDmg > 0 ? `每回合 ${monster.burnDmg} 傷害｜` : ''}剩餘 ${monster.burnTurns} 回合)</span>`;
     }
     if (monster.fractureTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;"><img src="/assets/icons/status/骨折.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 骨折 (${monster.fractureTurns} 回合 / 每回合-${monster.fractureDmg || 2})</span>`;
+      buffHtml += `<span class="buff-badge tag-fracture" style="background: rgba(149, 165, 166, 0.25); border: 1px solid #bdc3c7; color: #ecf0f1;"><img src="/assets/icons/status/骨折.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 骨折 (${monster.fractureDmg > 0 ? `每回合 ${monster.fractureDmg} 傷害｜` : ''}剩餘 ${monster.fractureTurns} 回合)</span>`;
     }
     if (monster.chillTurns > 0) {
-      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;"><img src="/assets/icons/status/寒冷.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 寒冷 (${monster.chillTurns} 回合 / 每回合-${monster.chillDmg || 3})</span>`;
+      buffHtml += `<span class="buff-badge tag-chill" style="background: rgba(52, 152, 219, 0.25); border: 1px solid #3498db; color: #3498db;"><img src="/assets/icons/status/寒冷.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 寒冷 (${monster.chillDmg > 0 ? `每回合 ${monster.chillDmg} 傷害｜` : ''}剩餘 ${monster.chillTurns} 回合)</span>`;
     }
     if (monster.corrosionTurns > 0) {
       buffHtml += `<span class="buff-badge tag-corrosion" style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; color: #9b59b6;"><img src="/assets/icons/status/腐蝕.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 腐蝕 (血量/傷害 -5% · ${monster.corrosionTurns} 回合)</span>`;

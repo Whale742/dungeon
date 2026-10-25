@@ -2,7 +2,7 @@
 function companionPortraitUrl(minion){return minion.avatar||`/assets/characters/summons/druid/${minion.type==='wolf'?'幼狼':'小樹精'}${minion.minionIndex||1}.webp`;}
 function showCompanionTooltip(minion,owner,anchor){
   const tip=elements.floatingEnemyTooltip;if(!tip||!minion)return;
-  const statuses=(minion.statuses||[]).map(s=>`${s.label||s.id}${s.turns?' · '+s.turns+' 回合':''}${s.isDot&&s.value?' · 每回合 '+s.value+' 點':''}`).join('\n');
+  const statuses=(minion.statuses||[]).map(s=>formatStatusDisplay(s).fullTitle).join('\n');
   tip.innerHTML=`<strong>${escapeHtml(minion.name)}</strong><p>${escapeHtml(owner)}的自然夥伴 · HP ${minion.hp}/${minion.maxHp} · ATK ${minion.attack??minion.atk??0}</p><div style="white-space:pre-line">${escapeHtml(statuses||'目前無負面狀態')}</div>`;
   tip.setAttribute('aria-hidden','false');tip.classList.add('visible');positionFloatingTooltip(anchor,tip);
 }
@@ -177,8 +177,16 @@ function showEnemyTooltip(en, eOrTarget) {
   const info = en.presentation || {};
   const isUltRound = !!info.ultimateReady;
 
-  const buffs = enemyDisplayStatuses(en).filter(status=>!info.resource||status.id!=='enemy_mechanic').map(status=>({id:status.id,icon:status.icon||'status',label:status.label||status.id,value:status.value,
-    desc:[status.value!==undefined&&status.value!==''?String(status.value):'',status.stacks!==undefined?'層數 '+status.stacks:'',status.turns?status.turns+' 回合':'',status.desc||''].filter(Boolean).join(' · ')}));
+  const buffs = enemyDisplayStatuses(en).filter(status=>!info.resource||status.id!=='enemy_mechanic').map(status=>{
+    const fmt = formatStatusDisplay(status);
+    return {
+      id: status.id,
+      icon: status.icon || 'status',
+      label: fmt.head,
+      value: status.value,
+      desc: fmt.detailText
+    };
+  });
   if(en.tempHp>0)buffs.push({id:'shield',icon:'shield',label:'護盾',desc:String(en.tempHp)});
   if(info.resource)buffs.push({id:'enemy_mechanic',icon:'buff',label:info.resource.label,desc:info.resource.value+'/'+info.resource.max});
   let buffsHtml = '';
@@ -190,7 +198,7 @@ function showEnemyTooltip(en, eOrTarget) {
         : getIconSvg(b.icon, 'ui-icon--sm');
       return `
       <span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
-        ${iconTag} ${escapeHtml(b.label)} (${escapeHtml(b.desc)})
+        ${iconTag} ${escapeHtml(b.label)}${b.desc ? ` (${escapeHtml(b.desc)})` : ''}
       </span>`;
     }).join('')}</div>`;
   } else {
@@ -557,6 +565,26 @@ function resolveStatusCloudUrl(path) {
   return path;
 }
 
+function formatStatusDisplay(s) {
+  if (!s) return { head: '', dmgText: '', turnsText: '', stacksText: '', desc: '', fullTitle: '', detailText: '' };
+  const hasStacks = typeof s.stacks === 'number' && s.stacks > 0;
+  const stacksText = hasStacks ? `×${s.stacks}` : '';
+  const dotDmg = typeof s.damage === 'number' && s.damage > 0
+    ? s.damage
+    : (s.isDot && typeof s.value === 'number' && s.value > 0 ? s.value : null);
+  const nonDotVal = !s.isDot && s.damage === undefined && s.value !== undefined && s.value !== ''
+    ? String(s.value)
+    : '';
+  const dmgText = dotDmg !== null ? `每回合 ${dotDmg} 傷害` : nonDotVal;
+  const turnsText = typeof s.turns === 'number' && s.turns > 0 ? `剩餘 ${s.turns} 回合` : '';
+  const desc = s.desc ? String(s.desc) : '';
+  const baseLabel = String(s.label || s.id || '');
+  const head = stacksText ? `${baseLabel} ${stacksText}` : baseLabel;
+  const detailText = [dmgText, turnsText, desc].filter(Boolean).join('｜');
+  const fullTitle = [head, dmgText, turnsText, desc].filter(Boolean).join('｜');
+  return { head, dmgText, turnsText, stacksText, desc, fullTitle, detailText };
+}
+
 function getBuffIconUrl(status) {
   if (!status) return null;
   const id = String(status.id || '').toLowerCase();
@@ -668,13 +696,7 @@ function renderTeammateBuffIcons(statuses = []) {
     }
     const iconUrl = getBuffIconUrl(s);
     if (!iconUrl) return '';
-    const titleParts = [
-      s.label || s.id,
-      s.value ? String(s.value) : '',
-      s.turns ? `${s.turns}回合` : '',
-      s.stacks ? `×${s.stacks}` : ''
-    ].filter(Boolean);
-    const title = titleParts.join(' ');
+    const title = formatStatusDisplay(s).fullTitle;
     return `<span class="teammate-buff-item" title="${escapeHtml(title)}"><img src="${iconUrl}" class="teammate-buff-icon" alt="${escapeHtml(s.label || 'status')}" loading="lazy"></span>`;
   }).join('');
 }
@@ -710,8 +732,9 @@ function showPlayerTooltip(p, eOrTarget) {
         const iconUrl = getBuffIconUrl(s);
         iconTag = iconUrl ? `<img src="${iconUrl}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;">` : '';
       }
+      const fmt = formatStatusDisplay(s);
       return `<span class="buff-badge" style="font-size:11px;padding:2px 6px;display:inline-flex;align-items:center;gap:4px;">
-        ${iconTag}${escapeHtml(s.label || s.id)}${s.value ? ' ' + escapeHtml(String(s.value)) : ''}${s.desc ? ' (' + escapeHtml(s.desc) + ')' : ''}${s.turns ? ' (' + s.turns + 'R)' : ''}${s.stacks ? ' ×' + s.stacks : ''}
+        ${iconTag}${escapeHtml(fmt.head)}${fmt.detailText ? ' (' + escapeHtml(fmt.detailText) + ')' : ''}
       </span>`;
     }).join('')}</div>`;
   } else {

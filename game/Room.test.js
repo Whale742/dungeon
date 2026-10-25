@@ -2452,3 +2452,140 @@ test('companion status damage updates its own HP at contact rather than pretendi
   assert.equal(scope.applyAuthoritativeResult({resultId:'dot',kind:'damage',targetId:'wolf',targetAfter:{id:'wolf',hp:17,maxHp:30}}),true);
   assert.equal(updates[0].players[0].id,'d');assert.equal(updates[0].players[0].hp,80);assert.equal(updates[0].players[0].minions[0].hp,17);
 });
+
+test('DoT statuses separate damage, stacks, and turns across player, enemy, and companion snapshots and UI tooltips',t=>{
+  const {room,player,enemy}=mechanismBattle(t,[ENCOUNTERS[2]],'druid');
+  mechanismRound(room,1);
+  // 1. Player afflicted with poison, burn, bleed, fracture, chill + true stack statuses
+  player.hp=100;player.maxHp=100;
+  player.poisonTurns=3;player.poisonDmg=8;
+  player.burnTurns=2;player.burnDmg=12;
+  player.fractureTurns=3;player.fractureDmg=5;
+  player.chillTurns=2;player.chillDmg=6;
+  player.bleedTurns=2;player.bleedDmg=4;
+  player.corruption=3;
+  player.stealthStacks=2;
+  player.enemyEffects={ember:{label:'熔岩灼燒',value:3,until:room.battleRound+1,sourceId:enemy.instanceId}};
+  player.minions=[{id:'w1',name:'幼狼',type:'wolf',hp:30,maxHp:30,atk:4,poisonTurns:3,poisonDmg:8,bleedTurns:2,bleedDmg:4}];
+
+  // 2. Enemy afflicted with poison, burn, bleed, fracture, chill + true stack statuses
+  enemy.hp=500;enemy.maxHp=500;
+  enemy.poisonTurns=3;enemy.poisonDmg=8;
+  enemy.burnTurns=2;enemy.burnDmg=12;
+  enemy.fractureTurns=3;enemy.fractureDmg=5;
+  enemy.chillTurns=2;enemy.chillDmg=6;
+  enemy.bleedTurns=2;enemy.bleedDmg=4;
+  enemy.flawMarks=3;
+  enemy.talismans=['blind','drain'];
+
+  const state=room.getClientState();
+  const snapPlayer=state.players.find(p=>p.id===player.id);
+  const snapEnemy=state.enemies[0];
+  const snapMinion=snapPlayer.minions[0];
+
+  // Verify DoTs have damage and turns, NEVER stacks
+  for(const [id,dmg,turns] of [['poison',8,3],['burn',12,2],['fracture',5,3],['chill',6,2],['bleed',4,2]]){
+    const ps=snapPlayer.statuses.find(s=>s.id===id);
+    assert.ok(ps,`player missing ${id}`);
+    assert.equal(ps.isDot,true);
+    assert.equal(ps.damage,dmg);
+    assert.equal(ps.turns,turns);
+    assert.equal(ps.stacks,undefined,`player ${id} must not store damage in stacks`);
+
+    const es=snapEnemy.statuses.find(s=>s.id===id);
+    assert.ok(es,`enemy missing ${id}`);
+    assert.equal(es.isDot,true);
+    assert.equal(es.damage,dmg);
+    assert.equal(es.turns,turns);
+    assert.equal(es.stacks,undefined,`enemy ${id} must not store damage in stacks`);
+  }
+  const emberStatus=snapPlayer.statuses.find(s=>s.id==='ember');
+  assert.equal(emberStatus.isDot,true);
+  assert.equal(emberStatus.damage,3);
+  assert.equal(emberStatus.stacks,undefined);
+
+  const minionPoison=snapMinion.statuses.find(s=>s.id==='poison');
+  assert.equal(minionPoison.isDot,true);
+  assert.equal(minionPoison.damage,8);
+  assert.equal(minionPoison.turns,3);
+  assert.equal(minionPoison.stacks,undefined);
+
+  // Verify true stack statuses still preserve stacks
+  assert.equal(snapPlayer.statuses.find(s=>s.id==='corruption').stacks,3);
+  assert.equal(snapPlayer.statuses.find(s=>s.id==='stealth_stack').stacks,2);
+  assert.equal(snapEnemy.statuses.find(s=>s.id==='flaw_mark').stacks,3);
+  assert.equal(snapEnemy.statuses.find(s=>s.id==='talismans').stacks,2);
+
+  // 3 & 4 & 7. Verify UI rendering in enemy strip, player/enemy/companion tooltips, and stacking DoTs
+  const h=enemyPresentationHarness(),node=h.scope.document.createElement('div'),row=h.scope.document.createElement('div');
+  node.classList={toggle(){}};node.querySelector=selector=>selector==='.enemy-status-row'?row:null;
+  h.scope.getIconSvg=()=>'<svg></svg>';h.scope.document.addEventListener=()=>{};
+  const tooltip=h.scope.document.createElement('div');tooltip.classList={add(){},remove(){}};
+  Object.assign(h.scope,{window:{innerWidth:1280,innerHeight:720},elements:{floatingEnemyTooltip:tooltip},classesData:{druid:{name:'德魯伊'}},roomState:{battleRound:room.battleRound,players:[snapPlayer]},escapeHtml:s=>String(s??'')});
+  const renderersCode=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8');
+  vm.runInContext(renderersCode,h.scope);
+
+  // Check formatStatusDisplay for non-stacking DoT vs stacking DoT
+  const poisonFmt=h.scope.formatStatusDisplay({id:'poison',label:'中毒',isDot:true,damage:8,turns:3});
+  assert.equal(poisonFmt.fullTitle,'中毒｜每回合 8 傷害｜剩餘 3 回合');
+  assert.ok(!poisonFmt.fullTitle.includes('×8'));
+
+  const stackingBleedFmt=h.scope.formatStatusDisplay({id:'bleed',label:'流血',isDot:true,stacks:3,damage:12,turns:2});
+  assert.equal(stackingBleedFmt.head,'流血 ×3');
+  assert.equal(stackingBleedFmt.detailText,'每回合 12 傷害｜剩餘 2 回合');
+  assert.equal(stackingBleedFmt.fullTitle,'流血 ×3｜每回合 12 傷害｜剩餘 2 回合');
+
+  // Check no fabricated damage when damage is absent
+  const noDmgBleedFmt=h.scope.formatStatusDisplay({id:'bleed',label:'BLEED',isDot:true,turns:2});
+  assert.equal(noDmgBleedFmt.fullTitle,'BLEED｜剩餘 2 回合');
+  assert.ok(!noDmgBleedFmt.fullTitle.includes('傷害'));
+
+  // Check enemy badge strip: DoTs do not render <small> damage numbers, while flaw_mark renders <small>3</small>
+  h.scope.syncEnemyMechanicVisual(snapEnemy,node);
+  const strip=row.children[0];
+  const flawBadge=strip.children.find(c=>c.title?.includes('破綻印記'));
+  assert.ok(flawBadge);
+  assert.ok(flawBadge.title.includes('×3'));
+  assert.equal(flawBadge.children[0]?.textContent,'3');
+  const bleedBadge=strip.children.find(c=>c.title?.includes('BLEED'));
+  assert.ok(bleedBadge);
+  assert.equal(bleedBadge.title,'BLEED｜每回合 4 傷害｜剩餘 2 回合');
+  assert.equal(bleedBadge.children.length,0,'DoT without stacks must not render a <small> stack count badge');
+
+  // Check enemy, player, and companion tooltips
+  h.scope.showEnemyTooltip(snapEnemy,node);
+  assert.ok(tooltip.innerHTML.includes('POISON (每回合 8 傷害｜剩餘 3 回合)'));
+  assert.ok(tooltip.innerHTML.includes('BURN (每回合 12 傷害｜剩餘 2 回合)'));
+  assert.ok(!tooltip.innerHTML.includes('×8'));
+  assert.ok(!tooltip.innerHTML.includes('×12'));
+  assert.ok(tooltip.innerHTML.includes('×3'));
+
+  h.scope.showPlayerTooltip(snapPlayer,node);
+  assert.ok(tooltip.innerHTML.includes('POISON (每回合 8 傷害｜剩餘 3 回合)'));
+  assert.ok(tooltip.innerHTML.includes('BURN (每回合 12 傷害｜剩餘 2 回合)'));
+  assert.ok(!tooltip.innerHTML.includes('×8'));
+  assert.ok(!tooltip.innerHTML.includes('×12'));
+  assert.ok(tooltip.innerHTML.includes('深淵腐化 ×3'));
+
+  h.scope.showCompanionTooltip(snapMinion,snapPlayer.name,node);
+  assert.ok(tooltip.innerHTML.includes('中毒｜每回合 8 傷害｜剩餘 3 回合'));
+  assert.ok(tooltip.innerHTML.includes('流血｜每回合 4 傷害｜剩餘 2 回合'));
+
+  // 5 & 6. Verify DoT turns decrement and actual settlement damage is unchanged
+  const playerHpBefore=player.hp;
+  const enemyHpBefore=enemy.hp;
+  delete enemy.talismans;
+  room.executeRoundStart();
+  // Player takes poison (8) + burn (12) + fracture (5) + chill (6) + ember (3) = 34
+  assert.equal(player.hp,playerHpBefore-(8+12+5+6+3));
+  assert.equal(player.poisonTurns,2);
+  assert.equal(player.burnTurns,1);
+  assert.equal(player.fractureTurns,2);
+  assert.equal(player.chillTurns,1);
+  // Enemy takes poison (8) + burn (12) + fracture (5) + chill (6) = 31
+  assert.equal(enemy.hp,enemyHpBefore-(8+12+5+6));
+  assert.equal(enemy.poisonTurns,2);
+  assert.equal(enemy.burnTurns,1);
+  assert.equal(enemy.fractureTurns,2);
+  assert.equal(enemy.chillTurns,1);
+});

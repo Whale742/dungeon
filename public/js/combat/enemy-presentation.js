@@ -130,8 +130,15 @@ function resolveStatusIconUrl(status) {
 }
 function enemyDisplayStatuses(enemy) {
   const statuses=new Map((enemy.statuses||[]).map(s=>[s.id,{...s}]));
-  for(const [id,label,icon] of [['poison','中毒','poison'],['burn','燃燒','fire'],['fracture','骨折','bone'],['chill','寒冷','snowflake'],['corrosion','腐蝕','flask']])
-    if(enemy[id+'Turns']>0&&!statuses.has(id))statuses.set(id,{id,label,icon,turns:enemy[id+'Turns'],value:enemy[id+'Dmg']});
+  for(const [id,label,icon] of [['bleed','流血','bleed'],['poison','中毒','poison'],['burn','燃燒','fire'],['fracture','骨折','bone'],['chill','寒冷','snowflake'],['corrosion','腐蝕','flask']]){
+    const isDot=id!=='corrosion',dmg=enemy[id+'Dmg'];
+    if(enemy[id+'Turns']>0&&!statuses.has(id)){
+      statuses.set(id,{id,label,icon,turns:enemy[id+'Turns'],...(isDot?{isDot:true}:{}),...(typeof dmg==='number'&&dmg>0?(isDot?{damage:dmg}:{value:dmg}):{})});
+    }else if(statuses.has(id)&&isDot){
+      const cur=statuses.get(id);cur.isDot=true;
+      if(cur.damage===undefined&&typeof dmg==='number'&&dmg>0)cur.damage=dmg;
+    }
+  }
   if((enemy.stunnedThisRound||enemy.stunnedNextTurn)&&!statuses.has('stun'))statuses.set('stun',{id:'stun',label:'暈眩',icon:'stun',turns:1});
   if(enemy.augurResistanceBreak>0&&!statuses.has('augur_resistance_break'))statuses.set('augur_resistance_break',{id:'augur_resistance_break',label:'星芒破障',icon:'debuff',turns:enemy.augurResistanceBreak,value:'效果抗性 −15pp'});
   if(enemy.reversedOmenRemaining>0&&!statuses.has('reversed_omen'))statuses.set('reversed_omen',{id:'reversed_omen',label:'凶兆逆位',icon:'debuff',turns:enemy.reversedOmenRemaining,value:'受傷 +'+(enemy.reversedOmenBonus||10)+'%'});
@@ -189,9 +196,16 @@ function syncEnemyMechanicVisual(enemy, node) {
   badge.replaceChildren();
   for(const s of enemy.hp>0?states.slice(0,3):[]){
     const icon=document.createElement('span');icon.className='enemy-status-badge teammate-buff-item';icon.setAttribute('aria-hidden','true');
-    const titleParts=[s.label||s.id,s.value!==undefined&&s.value!==''?String(s.value):'',s.turns?`${s.turns}回合`:'',s.stacks?`×${s.stacks}`:''].filter(Boolean);
-    if(titleParts.length)icon.title=titleParts.join(' ');
-    const count=s.id==='enemy_mechanic'&&typeof s.value==='number'?s.value:typeof s.stacks==='number'?s.stacks:null;
+    const dotDmg=typeof s.damage==='number'&&s.damage>0?s.damage:(s.isDot&&typeof s.value==='number'&&s.value>0?s.value:null);
+    const nonDotVal=!s.isDot&&s.damage===undefined&&s.value!==undefined&&s.value!==''?String(s.value):'';
+    const hasStacks=typeof s.stacks==='number'&&s.stacks>0;
+    const titleParts=[
+      `${s.label||s.id}${hasStacks?` ×${s.stacks}`:''}`,
+      dotDmg!==null?`每回合 ${dotDmg} 傷害`:nonDotVal,
+      s.turns>0?`剩餘 ${s.turns} 回合`:''
+    ].filter(Boolean);
+    if(titleParts.length)icon.title=titleParts.join('｜');
+    const count=s.id==='enemy_mechanic'&&typeof s.value==='number'?s.value:(hasStacks?s.stacks:null);
     const isMimicMechanic=s.id==='enemy_mechanic'&&info.mechanicId==='treasure_mimic';
     const isDruidNonFormMechanic=s.id==='enemy_mechanic'&&info.mechanicId==='abyss_druid'&&!['werewolf','bear'].includes(enemy.mechanics?.form);
     if(isMimicMechanic){

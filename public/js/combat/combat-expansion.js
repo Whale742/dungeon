@@ -20,10 +20,16 @@ function combatStatusSvg(status) {
   return '<svg class="combat-status-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 }
 function renderCombatStatuses(statuses = []) {
-  return statuses.map(s => '<span class="combat-status" data-status="' + escapeHtml(s.id) + '" title="' + escapeHtml(s.label) + '">' +
-    combatStatusSvg(s) + '<span>' + escapeHtml(s.label) + (s.value ? ' ' + s.value : '') +
-    (s.turns ? ' · ' + s.turns + ' 回合' : '') + (s.stacks ? ' ×' + s.stacks : '') + '</span>' +
-    (s.locked ? combatStatusSvg({ icon: 'lock' }) : '') + '</span>').join('');
+  return statuses.map(s => {
+    const dotDmg = typeof s.damage === 'number' && s.damage > 0 ? s.damage : (s.isDot && typeof s.value === 'number' && s.value > 0 ? s.value : null);
+    const nonDotVal = !s.isDot && s.damage === undefined && s.value ? ' ' + s.value : '';
+    const dmgText = dotDmg !== null ? ' · 每回合 ' + dotDmg + ' 傷害' : nonDotVal;
+    const turnsText = s.turns > 0 ? ' · 剩餘 ' + s.turns + ' 回合' : '';
+    const stacksText = typeof s.stacks === 'number' && s.stacks > 0 ? ' ×' + s.stacks : '';
+    return '<span class="combat-status" data-status="' + escapeHtml(s.id) + '" title="' + escapeHtml(s.label) + '">' +
+      combatStatusSvg(s) + '<span>' + escapeHtml(s.label) + stacksText + dmgText + turnsText + '</span>' +
+      (s.locked ? combatStatusSvg({ icon: 'lock' }) : '') + '</span>';
+  }).join('');
 }
 function minionPortraitSvg(type, avatar, descriptor = {}) {
   return battlePortraitHtml({ ...descriptor, type, avatar, entityType: 'minion' }, 'presentation-minion-image');
