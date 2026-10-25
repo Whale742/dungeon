@@ -39,6 +39,7 @@ specs/                 設計參考、提案及演出原稿
 | 前端連線、房間狀態、共用畫面更新 | [app.js](public/js/core/app.js) | [base.css](public/css/shared/base.css)、[design-tokens.css](public/css/shared/design-tokens.css) |
 | 招募、大廳、職業選擇 | [lobby.js](public/js/lobby/lobby.js)、[recruit-copy.js](public/js/lobby/recruit-copy.js) | [lobby.css](public/css/lobby/lobby.css) |
 | 戰鬥 UI、階段、日誌 | [battle-renderers.js](public/js/combat/battle-renderers.js) 共用敵人／隊友渲染與 HUD 快照更新；[battle-hud.js](public/js/combat/battle-hud.js)、[battle-phase.js](public/js/combat/battle-phase.js)、[battle-log.js](public/js/combat/battle-log.js) | `public/css/combat/`；[battle-overlays.css](public/css/combat/battle-overlays.css) 含角色狀態、競技場及日誌覆蓋樣式 |
+| 分層血條、目標標記、夥伴與隊伍總覽 | `battle-renderers.js` 的 `battleVitals`、`syncBattleVitals`、`battleVitalsMarkup`、`syncEnemyTargetIndicators`；`battle-hud.js` 的主角 HUD、夥伴列與「隊伍狀態」切換 | [battle-vitals.css](public/css/combat/battle-vitals.css)；護盾與暫存生命以最大 HP 縮放，命債顯示在當前生命的尾段 |
 | 角色／敵人戰場錨點與立繪 | [player-battlefield.js](public/js/combat/player-battlefield.js)、[enemy-presentation.js](public/js/combat/enemy-presentation.js) | 同名檔案位於 `public/css/combat/` |
 | 技能演出入口與時序 | [combat.js](public/js/combat/combat.js)、[combat-expansion.js](public/js/combat/combat-expansion.js)、[presentation-core.js](public/js/presentation/presentation-core.js) | [presentation-config.js](public/js/presentation/presentation-config.js)、[skill-production.css](public/css/presentation/skill-production.css) |
 | 共用及職業戰場技能演出 | [core-role-effects.js](public/js/presentation/core-role-effects.js)（戰士、法師、聖騎士、吟遊詩人、刺客）、[extended-role-effects.js](public/js/presentation/extended-role-effects.js)（弓箭手、煉金術士、德魯伊等） | [core-role-effects.css](public/css/presentation/core-role-effects.css)；部分共用樣式仍由 `skill-production.css` 提供 |
@@ -80,6 +81,7 @@ specs/                 設計參考、提案及演出原稿
 - [studio/migration.js](studio/migration.js)、[scripts/sync-assets-supabase.mjs](scripts/sync-assets-supabase.mjs)：既有遷移與圖片同步；[scripts/sync-special-events.mjs](scripts/sync-special-events.mjs) 維護特殊事件的雲端素材及文案。
 - [game/role-mechanics.js](game/role-mechanics.js)：擴充職業機制與狀態，透過既有方法併入 `Room`；[role-config.js](game/role-config.js) 與 [role-copy.js](game/role-copy.js) 提供職業、裝備及敘述資料。
 - [game/combat-schema.js](game/combat-schema.js)：戰鬥呈現資料契約；[enemy-mechanics.js](game/enemy-mechanics.js)、[stats.js](game/stats.js) 管理敵人機制及數值結算。
+- `Room.applyDamageToPlayer` 依來源區分敵方直接傷害與扣血／DOT。`tempHp` 保留相容總池，快照以 `shieldHp`、`temporaryOverheal` 分別提供護盾與暫存生命；回合清理只移除暫存生命。背包兩個戰鬥用藥入口共用 `app.js` 的 `canUseBattleItem`，友方目標選單共用正式分層血條。
 
 ## 容易混淆的依賴
 
