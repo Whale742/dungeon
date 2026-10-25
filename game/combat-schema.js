@@ -18,6 +18,15 @@ export const SKILL_CATEGORIES = Object.freeze({
   dru_summon_treant: 'SUMMON', dru_summon_wolf: 'SUMMON', use_item_healing_potion: 'HEAL', use_item_antidote: 'CLEANSE', onm_all_talismans: 'DEBUFF', leader_assassin_execute: 'OFFENSIVE'
 });
 
+export function companionSnapshot(minion,owner,room){
+  const statuses=mechanicStatuses(minion,room);
+  for(const [id,label,icon] of [['bleed','流血','bleed'],['poison','中毒','poison'],['burn','燃燒','burn'],['fracture','骨折','fracture'],['chill','寒冷','chill']]){
+    if(minion[id+'Turns']>0)statuses.push({id,label,icon,turns:minion[id+'Turns'],value:minion[id+'Dmg']||0,isDot:true,isNegative:true,category:'DEBUFF'});
+  }
+  for(const status of statuses)if(status.id==='ember'||status.id.startsWith('flask_'))status.isDot=true;
+  return {...structuredClone(minion),ownerId:owner.id,owner:owner.name,attack:minion.attack??minion.atk,atk:minion.attack??minion.atk,statuses};
+}
+
 export function playerStatuses(player, room, balance) {
   const statuses = mechanicStatuses(player, room);
   const add = (id, label, icon, turns = 0, extra = {}) => statuses.push({ id, label, icon, turns, ...extra });

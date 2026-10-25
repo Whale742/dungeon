@@ -302,6 +302,8 @@ async function playBattlefieldDruid(step,context) {
     for(const result of step.results||[]) {
       const id=resolvePresentationTarget(result,step),form=result.targetAfter?.druidForm;
       if(result.minion&&result.kind==='damage') {
+        if(typeof BattleHud!=='undefined')BattleHud.startCompanion?.(step,result);
+        try{
         const minion=result.minion,origin=getVisualAnchor(minion.id);
         const cue=minionSound(minion,'attack');audio.play(cue.key,cue);
         if(origin&&minion.type==='wolf') {
@@ -319,6 +321,7 @@ async function playBattlefieldDruid(step,context) {
           await phase5Result(s,step,result,PHASE5_ART.vine);vine.remove();continue;
         }
         await phase5Result(s,step,result,minion.type==='treant'?PHASE5_ART.vine:PHASE5_ART.claw);
+        }finally{if(typeof BattleHud!=='undefined')await BattleHud.finishCompanion?.(step,result,context);}
       } else if(result.kind==='transform') {
         audio.play(form==='werewolf'?'transform_wolf':form==='bear'?'boss_roar':'transform_treant');
         await phase5DruidWhiteGlow(s,step,form==='werewolf'?2900:form==='bear'?600:450);

@@ -198,7 +198,7 @@ function strike(room, enemy, target, raw, actionId, options = {}) {
   const hits = [];
   const perform = (victim, damage, sharedFrom, mitigated = false) => {
     const hit = record(room,enemy,victim,actionId,'damage',() => {
-      const taken = room.applyDamageToPlayer(victim,damage,{kind:sharedFrom?'secondary':'enemy_direct',
+      const taken = room.applyDamageToPlayer(victim,damage,{kind:options.dot?'dot':sharedFrom?'secondary':'enemy_direct',
         defMitigated:mitigated,trueDamage:options.trueDamage || !!lockedArena(room),ignoreReduction:!!lockedArena(room)});
       if (victim.hp<=0 && victim.druidForm==='treant') {victim.hp=1;victim.druidForm='tree';victim.druidFormTurns=1;victim.stunnedNextTurn=true;}
       if (victim.hp<=0) room.clearPlayerDebuffs(victim);
@@ -218,7 +218,7 @@ function strike(room, enemy, target, raw, actionId, options = {}) {
   };
   options.beforeHit?.();
   const beforeIncoming=room.getHpSnapshot();
-  const incoming=room.p8Incoming(target,raw,mitigate,{kind:'enemy_direct',ignoreReduction:options.trueDamage || !!lockedArena(room)});
+  const incoming=room.p8Incoming(target,raw,mitigate,{kind:options.dot?'dot':'enemy_direct',ignoreReduction:options.trueDamage || !!lockedArena(room)});
   let damage=incoming.damage;
   if(incoming.outcome==='dream_heal') return record(room,enemy,target,actionId,'heal',()=>{}, {beforeSnapshot:beforeIncoming,actualHeal:incoming.heal||0,outcome:{type:'dream_heal'}});
   if(incoming.outcome==='parry' && damage===0) return record(room,enemy,target,actionId,'damage',()=>false,{outcome:{type:'block',parry:true}});
@@ -454,12 +454,14 @@ export function runEnemyAction(room,enemy,queue) {
   const assignments=new Map(targets.map(p=>[p.id,focused || id==='abyss_sage' ? raw||0 : Math.floor((raw||0)*B.scatterAoeRatio)]));
   let scatter=focused?0:Math.max(0,(raw||0)-Math.floor((raw||0)*B.scatterAoeRatio));
   const interceptedOwners=new Set();
+  const interceptedMinions=new Map();
   const intercept=(damage)=>{
     if(lockedArena(room))return damage;
     for(const owner of Object.values(room.players))for(const minion of owner.minions||[]) {
       if(minion.hp<=0||damage<=0)continue;
       const amount=Math.min(minion.hp,damage);
       if(amount>0)interceptedOwners.add(owner.id);
+      if(amount>0)interceptedMinions.set(minion.id,minion);
       record(room,enemy,minion,'召喚物攔截','intercept',()=>{minion.hp-=amount;},{ownerId:owner.id,minion:structuredClone(minion)});damage-=amount;
       if(minion.hp<=0)owner.minions=owner.minions.filter(m=>m.hp>0);
     }
@@ -489,9 +491,14 @@ export function runEnemyAction(room,enemy,queue) {
     const result=record(room,enemy,victim,'貪婪竊取','status',()=>{theft=room.stealMimicLoot(enemy,victim);return !!theft;});
     if(theft)result.theft=theft;
   }
+  const applyHitDots=target=>{
+    if((ult&&id==='lava_colossus')||id==='hellfire_imp')status(room,enemy,target,'ember','熔岩灼燒',B.burnDamage,B.burnTurns);
+    if(!ult&&script?.basicRandomFlaskDot){const dot=script.basicRandomFlaskDot[Math.floor(Math.random()*script.basicRandomFlaskDot.length)],cfg=B.flaskDots[dot];status(room,enemy,target,'flask_'+dot,'異常瓶・'+dot,cfg.damage,cfg.turns);}
+  };
+  for(const minion of interceptedMinions.values())if(minion.hp>0)applyHitDots(minion);
   for(const targetId of hitIds) {
     const target=room.players[targetId];
-    if((ult&&id==='lava_colossus')||id==='hellfire_imp')status(room,enemy,target,'ember','熔岩灼燒',B.burnDamage,B.burnTurns);
+    applyHitDots(target);
     if((ult&&id==='corrosive_serpent'))status(room,enemy,target,'shield_decay','腐蝕毒液・護盾獲取降低',B.shieldGainReduction);
     if(id==='corrosive_slime')status(room,enemy,target,'acid_defense','酸液・防禦降低',B.acidDefenseReduction);
     if((ult&&id==='frost_knight')||id==='frostbone_skeleton')status(room,enemy,target,'frost','寒霜印記',Math.min(B.frostThreshold,(enemyEffect(room,target,'frost')?.value||0)+1),B.frostMarkTurns);
@@ -499,7 +506,6 @@ export function runEnemyAction(room,enemy,queue) {
     if(id==='whispering_apparition')status(room,enemy,target,'unrest','心神不寧');
     if(ult&&script?.specialWeakenAtk)status(room,enemy,target,'attack_down','攻擊壓制',script.specialWeakenAtk);
     if(!ult&&script?.basicApplyNextHitVulnerable)status(room,enemy,target,'next_vulnerable','向量崩解・下次受傷增加',script.basicApplyNextHitVulnerable);
-    if(!ult&&script?.basicRandomFlaskDot){const dot=script.basicRandomFlaskDot[Math.floor(Math.random()*script.basicRandomFlaskDot.length)],cfg=B.flaskDots[dot];status(room,enemy,target,'flask_'+dot,'異常瓶・'+dot,cfg.damage,cfg.turns);}
     if(id==='hellfire_imp'){const boss=find(room,'hellstrider');if(boss&&state(boss).extraCharge<B.impExtraHeatCap)record(room,enemy,boss,'煉獄充能','status',()=>{state(boss).extraCharge++;state(boss).heat=Math.min(B.heatCap,state(boss).heat+1);});}
   }
   if(id==='shadow_wolf_pup'&&find(room,'shadow_alpha')&&s.assistRound!==room.battleRound) {
@@ -510,6 +516,22 @@ export function runEnemyAction(room,enemy,queue) {
 }
 
 export function enemyPlayerRoundTicks(room) {
+  for(const owner of players(room))for(const minion of [...(owner.minions||[])]){
+    const tick=(source,label,damage,expire)=>{
+      if(minion.hp<=0)return;
+      record(room,source||owner,minion,label,'damage',()=>{minion.hp=Math.max(0,minion.hp-Math.max(0,damage));expire();},
+        {ownerId:owner.id,minion:structuredClone(minion),damageType:'true',dot:true});
+      const event=room.enemyMechanicQueue.at(-1);event.type='status_action';event.actionId='companion_dot';event.sourceRole='druid';
+      if(minion.hp<=0){owner.minions=owner.minions.filter(m=>m.id!==minion.id);owner.minion=owner.minions[0]||null;}
+    };
+    for(const [id,e] of Object.entries(minion.enemyEffects||{})){
+      if(e.until<room.battleRound){delete minion.enemyEffects[id];continue;}
+      if(id==='ember'||id.startsWith('flask_'))tick((room.enemies||[]).find(m=>m.instanceId===e.sourceId),e.label,e.value,()=>{if(e.until===room.battleRound)delete minion.enemyEffects[id];});
+    }
+    for(const [id,label,fallback] of [['bleed','流血',2],['poison','中毒',5],['burn','燃燒',8],['fracture','骨折',2],['chill','寒冷',3]])if(minion[id+'Turns']>0){
+      tick(owner,label,minion[id+'Dmg']||fallback,()=>{minion[id+'Turns']--;if(!minion[id+'Turns'])minion[id+'Dmg']=0;});
+    }
+  }
   for(const p of players(room))for(const [id,e] of Object.entries(p.enemyEffects||{})) {
     if(e.until<room.battleRound||!(id==='ember'||id.startsWith('flask_')))continue;
     const source=(room.enemies||[]).find(m=>m.instanceId===e.sourceId);

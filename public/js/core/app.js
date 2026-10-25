@@ -4770,6 +4770,7 @@ function applyHpSnapshot(snapshot) {
 // 單一步驟演出 (P2-R1.1 Section 8-11: 14 步嚴格演出順序)
 async function playPresentationStep(step, round) {
   if (!step) return;
+  if(step.type==='status_action')return playBattlefieldTick(step,activeCombatContext);
   if(step.actionId==='a_trap')return playBattlefieldTick(step,activeCombatContext);
   if(step.type==='enemy_mechanic')return playEnemyMechanicPresentation(step,activeCombatContext);
   if(step.category==='STATUS_TICK'&&!isPhase6TimedStep(step))return playBattlefieldTick(step,activeCombatContext);

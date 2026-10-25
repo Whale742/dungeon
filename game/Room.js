@@ -12,7 +12,7 @@ import { ASSASSIN_BALANCE, assassinState, getAssassinFollowUpCap, assassinCritRa
 // 遊戲房間管理核心 (Game Room Engine)
 // 100% 完整移植 index.js 中的戰鬥演算法、職業技能、裝備、怪物抗性與傷害拆分機制
 
-import { SKILL_CATEGORIES, playerStatuses, snapshotTarget, buildActionResults, sequenceAugurDamageResults, normalizeCombatQueue } from './combat-schema.js';
+import { SKILL_CATEGORIES, playerStatuses, companionSnapshot, snapshotTarget, buildActionResults, sequenceAugurDamageResults, normalizeCombatQueue } from './combat-schema.js';
 import {
   GAME_BALANCE,
   CLASSES,
@@ -2324,7 +2324,7 @@ export class Room {
         ...assassinState(p),
         ...p8State(p,this),
         statuses: playerStatuses(p, this, GAME_BALANCE),
-        minions: structuredClone(p.minions || []),
+        minions: (p.minions||[]).map(m=>companionSnapshot(m,p,this)),
         ammo: [...(p.ammo || [])], isCrouchedThisRound: !!p.isCrouchedThisRound,
         maxHp: p.maxHp,
         tempHp: p.tempHp || 0,
@@ -7256,6 +7256,7 @@ export class Room {
                 const minionBefore = structuredClone(m);
                 const absorb = Math.min(m.hp, remainingScatter);
                 m.hp -= absorb;
+                if(m.hp>0&&monster.baseHp<100){m.bleedTurns=Math.max(m.bleedTurns||0,2);m.bleedDmg=Math.floor(2*getFloorDifficultyMultiplier(this.floor));}
                 remainingScatter -= absorb;
                 interceptResults.push({ kind: 'intercept', category: 'MINION_INTERCEPT', targetId: m.id,
                   ownerId: owner.id, originalTargetIds: Object.values(this.players).filter(p => p.hp > 0).map(p => p.id),
@@ -8231,6 +8232,7 @@ export class Room {
         druidFormTurns: p.druidFormTurns || 0,
         isSurrendered: p.isSurrendered || false,
         minions: (p.minions || []).map(m => ({
+          ...companionSnapshot(m,p,this),
           id: m.id,
           type: m.type,
           name: m.name,

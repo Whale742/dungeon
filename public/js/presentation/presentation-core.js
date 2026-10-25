@@ -1359,7 +1359,7 @@ function applyAuthoritativeResult(result) {
     const state = typeof roomState !== 'undefined' ? roomState : null;
     const primary = state?.currentMonster?.instanceId === id || state?.monster?.instanceId === id;
     applyHpSnapshot({ enemies: [{ ...target, instanceId: id }], ...(primary ? { monster: target } : {}) });
-  } else if (result.kind === 'intercept') {
+  } else if (result.kind === 'intercept' || (typeof roomState!=='undefined'&&roomState?.players?.some(p=>p.minions?.some(m=>m.id===id)))) {
     const state = typeof roomState !== 'undefined' ? roomState : null;
     const owner = state?.players?.find(p => p.minions?.some(m => m.id === id));
     if (owner) applyHpSnapshot({ players: [{ ...owner, minions: owner.minions.map(m => m.id === id ? { ...m, ...target } : m) }] });

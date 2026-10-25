@@ -7,7 +7,7 @@ import vm from 'node:vm';
 import { Room } from './Room.js';
 import { ABYSS_BOSS_PORTRAITS, ABYSS_DRUID_FORM_PORTRAITS, ABYSS_AUGUR_EASTER_EGG, TIER1_EQUIPMENTS } from './constants.js';
 import { ENCOUNTERS, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS, SPECIAL_ELITES, ABYSS_BOSSES } from './constants.js';
-import { ENEMY_BALANCE, mechanicId, enemyRoundStart, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, afterPlayerDamage, sweepEnemyDeaths, enemyEffect, syncEnemySupport } from './enemy-mechanics.js';
+import { ENEMY_BALANCE, mechanicId, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, afterPlayerDamage, sweepEnemyDeaths, enemyEffect, syncEnemySupport } from './enemy-mechanics.js';
 import { getBossResistance } from './boss-resistance.js';
 import { resolveStats } from './stats.js';
 import { enemyPresentationInfo } from './enemy-mechanics.js';
@@ -40,7 +40,7 @@ test('HUD conceals actual Samurai counters until their turn after enemy attacks'
   player.action='basic';room.resolveTurnActions();const queue=resolutionQueue(events),counter=queue.find(s=>s.actionId==='sa_counter');
   assert.ok(counter);assert.ok(queue.slice(0,queue.indexOf(counter)).some(s=>['boss_action','enemy_mechanic'].includes(s.type)));
   const host={style:{setProperty(){}},children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}},scope={
-    document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(key,value){this[key]=value;}})},
+    document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{setProperty(){}},setAttribute(key,value){this[key]=value;}})},
     isBattlefieldPlayerStep:s=>s.type==='player_action',roomState:{players:[]},getPlayerAvatarHtml:()=>'',escapeHtml:s=>s};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
   scope.hud.begin(queue);
@@ -55,7 +55,7 @@ test('HUD conceals actual Samurai counters until their turn after enemy attacks'
 
 test('HUD defers transformed and newly summoned portraits until the Druid result is revealed',()=>{
   const host={style:{setProperty(){}},children:[],replaceChildren(){this.children=[];},appendChild(n){this.children.push(n);}};
-  const scope={document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{},setAttribute(k,v){this[k]=v;}})},
+  const scope={document:{addEventListener(){},getElementById:()=>host,createElement:()=>({style:{setProperty(){}},setAttribute(k,v){this[k]=v;}})},
     isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getPlayerAvatarHtml:p=>p.druidForm||p.role,escapeHtml:s=>s};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
   const cast={sourceId:'druid',sourceRole:'druid',skillName:'變身',hpSnapshotBefore:{players:[{id:'druid',role:'druid'}]},results:[{kind:'transform'}]};
@@ -1436,7 +1436,7 @@ test('Mage group contact commits unique target hits in one frame, preserving sel
   assert.deepEqual(h.commits,step.results.map(r=>r.resultId));
 });
 test('Alchemist emits exactly one bottle for the real primary/splash results of flask and acid',async t=>{
-  for(const action of ['alc_flask','alc_acid']){
+  for(const action of ['basic','alc_flask','alc_acid']){
     const {room,player,events}=phase1Battle(t,'alchemist');player.action=action;room.resolveTurnActions();
     const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId===action),projectiles=[],commits=[],times=[],sounds=[];let clock=0;
     class Node{constructor(){this.style={setProperty(){}};this.dataset={};this.classList={add(){}};}appendChild(){}setAttribute(){}remove(){}}
@@ -1447,13 +1447,16 @@ test('Alchemist emits exactly one bottle for the real primary/splash results of 
     scope.commitBattlefieldPlayerResult=r=>{if(commits.includes(r.resultId))return false;commits.push(r.resultId);times.push({id:r.resultId,time:clock});return true;};
     scope.battlefieldProjectile=async(_s,_source,target,type,_central,anchor)=>{projectiles.push({target,type,landing:anchor?.()});clock+=440;};
     scope.withBattlefieldSkillStage=async(_step,_context,play)=>{
-      const s={root:new Node(),reduced:false,local:{audioScope:{play:key=>sounds.push(key)}},animate(){},startRenderer(){},el:()=>new Node(),wait:async ms=>{clock+=ms;},resolveResults:async()=>{for(const r of step.results)scope.commitBattlefieldPlayerResult(r);}};
+      const s={root:new Node(),reduced:false,local:{audioScope:{play:key=>sounds.push(key),hold:async()=>{clock+=300;}}},animate(){},startRenderer(){},el:()=>new Node(),wait:async ms=>{clock+=ms;},resolveResults:async()=>{for(const r of step.results)scope.commitBattlefieldPlayerResult(r);}};
       await play(s);
     };
     await scope.playBattlefieldRanged(step,{});
     assert.equal(projectiles.length,1);assert.equal(projectiles[0].type,'bottle');
     assert.equal(projectiles[0].landing.x,800);assert.equal(projectiles[0].landing.y,413);
     assert.equal(sounds.filter(s=>s==='bottle_impact').length,1);
+    assert.equal(sounds.filter(s=>s==='bottle_throw').length,1);assert.ok(!sounds.includes('acid_throw'));
+    assert.ok(sounds.indexOf('bottle_throw')<sounds.indexOf('bottle_impact'));assert.ok(sounds.indexOf('bottle_impact')<sounds.indexOf('acid_splash'));
+    if(action==='alc_flask')assert.ok(sounds.indexOf('bottle_impact')<sounds.indexOf('alchemy_skill1'));
     const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
     assert.equal(new Set(hits.map(r=>times.find(c=>c.id===r.resultId).time)).size,1);
     assert.equal(sounds.filter(s=>s==='acid_splash').length,1);assert.equal(commits.length,step.results.length);
@@ -2353,4 +2356,75 @@ test('both inventory battle-item entries use live scoped narration and player el
   scope.roomState.isNarrating=false;assert.equal(scope.canUseBattleItem({...player,isLocked:true}),false);
   assert.equal(scope.canUseBattleItem({...player,hp:0}),false);
   assert.equal((app.match(/if \(!canUseBattleItem\(me\)\)/g)||[]).length,2);
+});
+
+test('all living Druid companions share one ordered follow-up event',t=>{
+  const {room,player,events}=phase1Battle(t,'druid');player.action='basic';
+  player.minions=['wolf','treant','wolf'].map((type,i)=>({id:'companion-'+i,name:type+i,type,hp:80,maxHp:80,atk:4,attack:4}));
+  for(const enemy of room.enemies)enemy.stunnedNextTurn=true;
+  room.resolveTurnActions();const volleys=resolutionQueue(events).filter(s=>s.type==='minion_action');
+  assert.equal(volleys.length,1);assert.equal(volleys[0].skillName,'自然夥伴・共擊');
+  assert.deepEqual(volleys[0].results.map(r=>r.minion.id),player.minions.map(m=>m.id));
+});
+
+test('a companion hit receives the actual enemy DOT and ticks without consuming its owner shield',t=>{
+  const imp=Object.values(EXCLUSIVE_MINIONS).find(m=>m.name==='焦灼地獄小鬼');assert.ok(imp);
+  const {room,enemy,player}=mechanismBattle(t,[imp],'druid');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
+  const minion={id:'guard',type:'wolf',name:'幼狼',hp:100,maxHp:100,atk:4};player.minions=[minion];player.poisonTurns=2;player.poisonDmg=5;
+  mechanismRound(room,1);actMechanism(room,enemy);
+  assert.ok(minion.enemyEffects.ember);assert.equal(minion.poisonTurns,undefined,'owner poison must not be copied');
+  const snapshot=room.getClientState().players.find(p=>p.id===player.id).minions[0];
+  assert.ok(snapshot.statuses.some(s=>s.id==='ember'&&s.isDot));
+  room.p8GrantShield(player,1000,4);const shield=player.tempHp,hp=minion.hp;
+  mechanismRound(room,2);enemyPlayerRoundTicks(room);const queue=[];drainEnemyEvents(room,queue);
+  assert.equal(minion.hp,hp-ENEMY_BALANCE.burnDamage);assert.equal(player.tempHp,shield);
+  assert.ok(queue.some(s=>s.actionId==='companion_dot'&&s.results[0].targetId===minion.id));
+  assert.equal(minion.enemyEffects.ember,undefined);
+});
+
+test('companion bleed and poison preserve turns in snapshots and remove a lethally poisoned companion',t=>{
+  const {room,player}=phase1Battle(t,'druid');
+  player.minions=[{id:'w',name:'幼狼',type:'wolf',hp:10,maxHp:30,bleedTurns:2,bleedDmg:2,poisonTurns:2,poisonDmg:3}];
+  const state=room.getClientState().players.find(p=>p.id===player.id),before=room.getHpSnapshot().players.find(p=>p.id===player.id);
+  assert.deepEqual(state.minions[0].statuses,before.minions[0].statuses);
+  assert.deepEqual(state.minions[0].statuses.map(s=>[s.id,s.turns,s.value]),[['bleed',2,2],['poison',2,3]]);
+  enemyPlayerRoundTicks(room);assert.equal(player.minions[0].hp,5);assert.equal(player.minions[0].poisonTurns,1);
+  enemyPlayerRoundTicks(room);assert.equal(player.minions.length,0);
+  const queue=[];drainEnemyEvents(room,queue);const death=queue.findLast(s=>s.actionId==='companion_dot');
+  assert.equal(death.results[0].targetAfter.hp,0);assert.equal(death.results[0].ownerId,player.id);
+});
+
+test('selection state sends shield and fate debt values consumed by all shared health bars',t=>{
+  const {room,player}=phase1Battle(t,'augur');player.hp=40;room.p8GrantShield(player,21,3);player.augurFateDebts=[{amount:14,dueRound:3}];
+  const live=room.getClientState().players.find(p=>p.id===player.id);
+  const scope={document:{addEventListener(){}},escapeHtml:s=>s};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),scope);
+  const v=scope.battleVitals(live);assert.equal(v.shieldPct,30);assert.equal(v.debtPct,20);
+  const html=scope.battleVitalsMarkup(live);assert.match(html,/vital-shield.*width:30%/);assert.match(html,/vital-debt.*width:20%/);
+});
+
+test('the HUD retires companion portraits in order inside one volley frame',async()=>{
+  class Node{
+    constructor(){this.children=[];this.dataset={};this.style={setProperty:(k,v)=>{this.style[k]=v;}};this.classes=new Set();this.classList={add:c=>this.classes.add(c)};}
+    appendChild(n){n.parent=this;this.children.push(n);}replaceChildren(){this.children=[];}
+    setAttribute(k,v){this[k]=v;}remove(){this.parent.children=this.parent.children.filter(n=>n!==this);}
+    animate(){return {finished:Promise.resolve(),cancel(){}};}
+  }
+  const host=new Node(),scope={document:{addEventListener(){},getElementById:()=>host,createElement:()=>new Node()},roomState:{players:[]},isBattlefieldPlayerStep:()=>true,escapeHtml:s=>s,getPlayerAvatarHtml:()=>'',companionPortraitUrl:m=>m.id+'.webp'};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
+  const step={type:'minion_action',sourceRole:'druid',sourceId:'d',skillName:'自然夥伴・共擊',results:['wolf1','tree','wolf2'].map(id=>({kind:'damage',minion:{id,name:id}}))};
+  scope.hud.begin([step]);assert.equal(host.children.length,1);
+  const frame=host.children[0],portraits=frame.children[1];assert.equal(portraits.children.length,3);assert.equal(frame.children[0].textContent,step.skillName);
+  const second=portraits.children[1];scope.hud.startCompanion(step,step.results[0]);assert.ok(portraits.children[0].classes.has('is-attacking'));
+  await scope.hud.finishCompanion(step,step.results[0]);assert.equal(portraits.children.length,2);assert.equal(portraits.children[0],second);assert.equal(host.children.length,1);
+  await scope.hud.finishCompanion(step,step.results[1]);await scope.hud.finishCompanion(step,step.results[2]);assert.equal(portraits.children.length,0);
+});
+
+test('companion status damage updates its own HP at contact rather than pretending it is a player',()=>{
+  const owner={id:'d',hp:80,maxHp:85,minions:[{id:'wolf',hp:20,maxHp:30}]},updates=[];
+  const source=readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');
+  const scope={roomState:{players:[owner]},appliedBattleResults:new Set(),isLivingPresentationResult:()=>true,resolvePresentationTarget:r=>r.targetId,applyHpSnapshot:s=>updates.push(s)};
+  vm.createContext(scope);vm.runInContext(source.slice(source.indexOf('function applyAuthoritativeResult('),source.indexOf('function playTargetedEffect(')),scope);
+  assert.equal(scope.applyAuthoritativeResult({resultId:'dot',kind:'damage',targetId:'wolf',targetAfter:{id:'wolf',hp:17,maxHp:30}}),true);
+  assert.equal(updates[0].players[0].id,'d');assert.equal(updates[0].players[0].hp,80);assert.equal(updates[0].players[0].minions[0].hp,17);
 });

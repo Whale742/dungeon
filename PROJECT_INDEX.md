@@ -85,6 +85,8 @@ specs/                 設計參考、提案及演出原稿
 
 ## 容易混淆的依賴
 
+- 德魯伊夥伴快照由 `combat-schema.js` 的 `companionSnapshot` 統一提供血量與 DOT；`enemy-mechanics.js` 在實際攔截者上套用及結算 DOT。`battle-renderers.js` 的 `syncCompanionUnits` 共用選技／敵方回合的個別夥伴血條與狀態提示；`BattleHud` 以單一共擊事件依序移除已攻擊夥伴。命債共用 `battle-vitals.css` 的亮紅色循環閃光。追加驗收見 [specs/druid-companion-handoff.md](specs/druid-companion-handoff.md)。
+
 - HTML 中傳統 Script 與 CSS 的先後順序仍是相依關係的一部分。`battle-renderers.js` 的正式渲染／HUD 函式從 `app.js` 原樣移出，兩個頁面都在各自控制器前載入；Lab 控制器與結果轉接為獨立 ES 模組。
 - [public/js/shared/local-paths.cjs](public/js/shared/local-paths.cjs) 是瀏覽器與 Node 共用的舊路徑對照。Express 保留舊靜態 URL；Studio 沿用舊路徑所產生的素材 ID，並讓新舊 fallback 路徑都能命中已發布綁定。`.cjs` 同時供 Node 匯入及傳統 Script 載入。
 - 素材本地分類與 Supabase Storage 目錄分屬不同用途。既有雲端 URL、Storage 物件及資料格式保留；本次沒有執行雲端資料遷移。

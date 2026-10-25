@@ -3,6 +3,8 @@ const BattleHud = (() => {
   let phase = 'SELECTING', entries = new Map(), announcement = null;
   let queuedSteps = [], deferredSteps = new Set();
   const queueAnimations = new Set();
+  const companionEntries = new Map();
+  const companionResults = step => step.type==='minion_action' ? (step.results||[]).filter(r=>r.kind==='damage'&&r.minion) : [];
   let analyzedAction = null, selectedAction = null;
   const byId = id => document.getElementById(id);
   const isReaction = step => ['sa_counter','w_counter'].includes(step.actionId || step.skillId);
@@ -31,13 +33,14 @@ const BattleHud = (() => {
   function reset(next='SELECTING') {
     announcement?.abort(); announcement = null;
     for(const animation of queueAnimations)animation.cancel();queueAnimations.clear();
-    entries.clear(); byId('hudActionQueue')?.replaceChildren();
+    entries.clear(); companionEntries.clear(); byId('hudActionQueue')?.replaceChildren();
     queuedSteps = []; deferredSteps.clear();
     byId('cinematicSkillBanner')?.classList.remove('is-active');
     setPhase(next);
   }
   function begin(queue) {
     entries.clear();
+    companionEntries.clear();
     deferredSteps.clear();
     const host = byId('hudActionQueue'); host.replaceChildren();
     // Reactive attacks must stay undisclosed until the queue actually reaches them.
@@ -54,7 +57,19 @@ const BattleHud = (() => {
       roomState.players.find(p => p.id === step.sourceId) || {role: step.sourceRole};
     const node = document.createElement('div'); node.className = 'queue-avatar-item';
     const minion = step.results?.find(r => r.minion)?.minion;
-    node.innerHTML = minion?.avatar ? `<img src="${escapeHtml(minion.avatar)}" alt="${escapeHtml(minion.name)}">` : getPlayerAvatarHtml(player, 'queue-avatar');
+    const companions=companionResults(step);
+    if(companions.length){
+      node.classList.add('queue-companion-event');
+      const title=document.createElement('span');title.className='queue-companion-title';title.textContent=step.skillName||'自然夥伴・共擊';node.appendChild(title);
+      const portraits=document.createElement('div');portraits.className='queue-companion-portraits';node.appendChild(portraits);
+      const units=new Map();
+      for(const result of companions){
+        const portrait=document.createElement('div');portrait.className='queue-companion-portrait';
+        portrait.innerHTML=`<img src="${escapeHtml(companionPortraitUrl(result.minion))}" alt="${escapeHtml(result.minion.name)}">`;
+        portrait.setAttribute('aria-label',result.minion.name);portraits.appendChild(portrait);units.set(result,portrait);
+      }
+      companionEntries.set(step,units);node.dataset.companionCount=String(companions.length);
+    }else node.innerHTML = minion?.avatar ? `<img src="${escapeHtml(minion.avatar)}" alt="${escapeHtml(minion.name)}">` : getPlayerAvatarHtml(player, 'queue-avatar');
     node.setAttribute('aria-label', `${step.sourceName || player.name || ''} · ${step.skillName || ''}`);
     byId('hudActionQueue').appendChild(node);
     if(first)entries=new Map([[step,node],...entries]);else entries.set(step,node);
@@ -66,15 +81,31 @@ const BattleHud = (() => {
   }
   function positionQueue() {
     byId('hudActionQueue').style.setProperty('--queue-count',Math.max(1,entries.size));
-    let index = 0;
+    let index = 0,offset=0,total=1;
+    const grouped=[...entries.values()].some(n=>n.dataset?.companionCount);
     for (const node of entries.values()) {
       node.style.zIndex=String(1000-index);
-      node.style.transform = `translateX(calc(${index++} * var(--queue-size) * .58))`;
+      const span=node.dataset?.companionCount?Math.max(1,Number(node.dataset.companionCount)*.68+.16):1;
+      node.style.setProperty('--companion-span',span);
+      node.style.transform = grouped?`translateX(calc(${offset} * var(--queue-size)))`:`translateX(calc(${index} * var(--queue-size) * .58))`;
+      total=offset+span;offset+=node.dataset?.companionCount?span+.12:.58;index++;
     }
+    byId('hudActionQueue').style.setProperty('--queue-span',total);
+  }
+  function startCompanion(step,result){companionEntries.get(step)?.get(result)?.classList.add('is-attacking');}
+  async function finishCompanion(step,result,context={}){
+    const units=companionEntries.get(step),node=units?.get(result);if(!node||context.signal?.aborted)return;
+    const motion=node.animate([{opacity:1,scale:1},{opacity:0,scale:.8}],{duration:context.reducedMotion?1:160/(context.speed||1),fill:'forwards'});
+    queueAnimations.add(motion);const abort=()=>motion.cancel();context.signal?.addEventListener('abort',abort,{once:true});
+    try{await motion.finished;}catch{}finally{context.signal?.removeEventListener('abort',abort);queueAnimations.delete(motion);motion.cancel();}
+    if(companionEntries.get(step)!==units||context.signal?.aborted)return;
+    node.remove();units.delete(result);
+    const event=entries.get(step);if(event){event.dataset.companionCount=String(Math.max(1,units.size));positionQueue();}
   }
   function finish(step,context={}) {
     const node = entries.get(step); if (!node) return;
     entries.delete(step);
+    companionEntries.delete(step);
     node.classList.add('is-finished');
     const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
     const motion = node.animate(reduced?[{opacity:1},{opacity:0}]:[{opacity:1,translate:'0 0'},{opacity:0,translate:'-8px -6px'}], {duration:(reduced?1:200)/(context.speed||1),fill:'forwards'});
@@ -144,7 +175,8 @@ const BattleHud = (() => {
     let row=byId('hudCompanions');
     if(!row){row=document.createElement('div');row.id='hudCompanions';row.className='hud-companions';row.setAttribute('aria-label','德魯伊夥伴');hud.appendChild(row);}
     row.hidden=player.role!=='druid'||!(player.minions||[]).length;
-    row.innerHTML=row.hidden?'':player.minions.map(m=>`<div class="hud-companion"><img src="${escapeHtml(m.avatar||'/assets/characters/summons/druid/'+(m.type==='wolf'?'幼狼'+(m.minionIndex||1):'小樹精'+(m.minionIndex||1))+'.webp')}" alt="${escapeHtml(m.name)}">${battleVitalsMarkup(m)}<span>${m.hp}/${m.maxHp}</span></div>`).join('');
+    if(!row.hidden)syncCompanionUnits(row,player,false);
+    else row.replaceChildren();
   }
   function renderPartyOverview() {
     const view=byId('viewBattle');let toggle=byId('partyOverviewToggle'),panel=byId('partyOverview');
@@ -210,5 +242,5 @@ const BattleHud = (() => {
     entries=new Map([...entries].sort(([a],[b])=>queuedSteps.indexOf(a)-queuedSteps.indexOf(b)));
     positionQueue();
   }
-  return {setPhase,reset,begin,start,finish,phaseFor,announce,updatePlayer,renderEquation,bindSkill,actorPortrait,updateActorPortrait,revealDruidResult,get phase(){return phase;}};
+  return {setPhase,reset,begin,start,finish,startCompanion,finishCompanion,phaseFor,announce,updatePlayer,renderEquation,bindSkill,actorPortrait,updateActorPortrait,revealDruidResult,get phase(){return phase;}};
 })();

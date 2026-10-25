@@ -38,7 +38,7 @@ function battleFeedbackEntries(result) {
 function enemyEventFeedback(result) {return battleFeedbackEntries(result).map(e=>e.text).join(' ');}
 function getBattleEffectAnchor(id) {
   const anchor=getVisualAnchor(id);if(!anchor)return null;
-  const visual=anchor.element.querySelector('.enemy-sprite-wrap,.teammate-avatar-wrap')||anchor.element;
+  const visual=anchor.element.querySelector('.enemy-sprite-wrap,.teammate-avatar-wrap,.companion-portrait')||anchor.element;
   const rect=visual.getBoundingClientRect();return {...anchor,rect,x:rect.left+rect.width/2,y:rect.top+rect.height/2};
 }
 function positionBattleFeedback(node,id,lane=0,occupied=[]) {

@@ -1,4 +1,44 @@
 // Shared production battlefield renderers. Moved unchanged from app.js; both game and Lab use these functions.
+function companionPortraitUrl(minion){return minion.avatar||`/assets/characters/summons/druid/${minion.type==='wolf'?'幼狼':'小樹精'}${minion.minionIndex||1}.webp`;}
+function showCompanionTooltip(minion,owner,anchor){
+  const tip=elements.floatingEnemyTooltip;if(!tip||!minion)return;
+  const statuses=(minion.statuses||[]).map(s=>`${s.label||s.id}${s.turns?' · '+s.turns+' 回合':''}${s.isDot&&s.value?' · 每回合 '+s.value+' 點':''}`).join('\n');
+  tip.innerHTML=`<strong>${escapeHtml(minion.name)}</strong><p>${escapeHtml(owner)}的自然夥伴 · HP ${minion.hp}/${minion.maxHp} · ATK ${minion.attack??minion.atk??0}</p><div style="white-space:pre-line">${escapeHtml(statuses||'目前無負面狀態')}</div>`;
+  tip.setAttribute('aria-hidden','false');tip.classList.add('visible');positionFloatingTooltip(anchor,tip);
+}
+function syncCompanionUnits(host,player,battlefield=true){
+  const minions=player.minions||[],ids=new Set(minions.map(m=>m.id));
+  for(const node of host.querySelectorAll('.battle-companion-unit'))if(!ids.has(node.dataset.companionId))node.remove();
+  for(const minion of minions){
+    let node=[...host.children].find(n=>n.dataset.companionId===minion.id);
+    if(!node){
+      node=document.createElement('div');node.className='battle-companion-unit';node.dataset.companionId=minion.id;
+      if(battlefield)node.dataset.minionId=minion.id;
+      node.innerHTML=`<button type="button" class="companion-portrait"><img alt=""></button>${battleVitalsMarkup(minion)}<span class="companion-hp"></span><div class="companion-statuses combat-status-list"></div>`;
+      const button=node.querySelector('button');
+      for(const event of ['mouseenter','focus','click'])button.addEventListener(event,()=>showCompanionTooltip(node._companion,player.name,button));
+      button.addEventListener('mouseleave',hideEnemyTooltip);button.addEventListener('blur',hideEnemyTooltip);host.appendChild(node);
+    }
+    node._companion=minion;node.classList.toggle('is-dead',minion.hp<=0);
+    const button=node.querySelector('button'),image=button.querySelector('img');image.src=companionPortraitUrl(minion);image.alt=minion.name;
+    button.setAttribute('aria-label',`${minion.name} · HP ${minion.hp}/${minion.maxHp} · 查看狀態`);
+    const bar=node.querySelector('.combat-vital-bar');bar.querySelector('.vital-hp').style.width=battleVitals(minion).hpPct+'%';syncBattleVitals(bar,minion);
+    node.querySelector('.companion-hp').textContent=`${minion.hp}/${minion.maxHp}`;
+    node.querySelector('.companion-statuses').innerHTML=renderTeammateBuffIcons(minion.statuses||[]);
+  }
+}
+function syncBattleCompanions(player){
+  const grid=elements.battleTeammatesGrid;if(!grid)return;
+  let card=[...grid.querySelectorAll('.teammate-card-minion')].find(n=>n.dataset.minionOwnerId===player.id);
+  if(!(player.minions||[]).length){card?.remove();return;}
+  if(!card){
+    card=document.createElement('div');card.className='teammate-card teammate-card-minion';card.dataset.playerId=player.id+'_minions';card.dataset.minionOwnerId=player.id;
+    const title=document.createElement('button');title.type='button';title.className='companion-owner-label';title.textContent=player.name+'的夥伴';title.addEventListener('click',()=>showMinionDetailModal(player));
+    const units=document.createElement('div');units.className='battle-companion-units';card.appendChild(title);card.appendChild(units);
+    const owner=[...grid.querySelectorAll('.teammate-card')].find(n=>n.dataset.playerId===player.id);if(owner)owner.after(card);else grid.appendChild(card);
+  }
+  card.classList.toggle('arena-absent',!!player.arenaBlocked);syncCompanionUnits(card.querySelector('.battle-companion-units'),player);
+}
 function battleVitals(player) {
   const max=Math.max(1,Number(player.maxHp)||1),hp=Math.max(0,Number(player.hp)||0);
   const total=Math.max(0,Number(player.tempHp)||0);
@@ -693,55 +733,7 @@ function renderTeammatesGrid(me) {
       avatarWrap.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();showPlayerTooltip(p,avatarWrap);}});
     }
 
-    // 德魯伊夥伴暫時玩家框（置於德魯伊右方，高度固定不變高，支援點擊括號或卡片展開詳細資訊）
-    if (p.minions && p.minions.length > 0) {
-      const minionCard = document.createElement('div');
-      minionCard.className = 'teammate-card teammate-card-minion';
-      minionCard.setAttribute('data-player-id', p.id + '_minions');
-      minionCard.setAttribute('data-minion-owner-id', p.id);
-      minionCard.setAttribute('title', '點擊展開夥伴詳細資訊');
-
-      const totalHp = p.minions.reduce((sum, m) => sum + (m.hp || 0), 0);
-      const totalMaxHp = p.minions.reduce((sum, m) => sum + (m.maxHp || 0), 0);
-      const totalAtk = p.minions.reduce((sum, m) => sum + (m.atk || 0), 0);
-      const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
-
-      const minionPortraitsHtml = p.minions.map((m, idx) => {
-        const imgSrc = m.avatar || (m.type === 'wolf' ? `/assets/characters/summons/druid/幼狼${m.minionIndex || (idx + 1)}.webp` : `/assets/characters/summons/druid/小樹精${m.minionIndex || (idx + 1)}.webp`);
-        return `<img src="${imgSrc}" class="minion-bar-thumb" data-minion-id="${escapeHtml(m.id)}" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
-      }).join('');
-
-      minionCard.innerHTML = `
-        <div class="floating-text-container"></div>
-        <div class="teammate-top">
-          <span class="teammate-name-group">
-            <span class="minion-icon-wrap" style="display:inline-flex; align-items:center; gap: 3px;">
-              ${minionPortraitsHtml}
-            </span>
-            <span>${escapeHtml(p.name)}的夥伴</span>
-            <button type="button" class="minion-count-badge" data-owner-id="${p.id}" title="點擊查看夥伴詳細資訊">(${p.minions.length}/3)</button>
-          </span>
-        </div>
-        <div class="teammate-hp-bg">
-          <div class="teammate-hp-fill" style="width: ${totalHpPct}%;"></div>
-        </div>
-        <div class="teammate-stats-sub">
-          <span>HP ${totalHp}/${totalMaxHp}</span>
-          <span>${getIconSvg('sword')} ${totalAtk} 攻</span>
-        </div>
-      `;
-
-      minionCard.addEventListener('click', () => {
-        showMinionDetailModal(p);
-      });
-
-      elements.battleTeammatesGrid.appendChild(minionCard);
-
-      // 若目前詳細小視窗正好開啟且為該德魯伊，同步更新即時數值
-      if (activeViewingMinionOwnerId === p.id && elements.minionDetailModal && !elements.minionDetailModal.classList.contains('hidden')) {
-        showMinionDetailModal(p);
-      }
-    }
+    syncBattleCompanions(p);
   });
 
   // 如果當前開啟的夥伴視窗所屬玩家已無夥伴，自動關閉小視窗
@@ -944,25 +936,6 @@ function updateBattleHudFromSnapshot(snapshot) {
       }
     });
 
-    // 德魯伊夥伴 HP 與縮圖更新
-    const druid = roomState.players.find(p => p.role === 'druid');
-    if (druid && druid.minions) {
-      const minionCard = document.querySelector(`.teammate-card-minion[data-minion-owner-id="${druid.id}"]`);
-      if (minionCard) {
-        const totalHp = druid.minions.reduce((sum, m) => sum + (m.hp || 0), 0);
-        const totalMaxHp = druid.minions.reduce((sum, m) => sum + (m.maxHp || 0), 0);
-        const totalHpPct = totalMaxHp > 0 ? Math.max(0, Math.min(100, Math.round((totalHp / totalMaxHp) * 100))) : 0;
-        const minionFill = minionCard.querySelector('.teammate-hp-fill');
-        if (minionFill) minionFill.style.width = `${totalHpPct}%`;
-        const iconWrap = minionCard.querySelector('.minion-icon-wrap');
-        if (iconWrap && druid.minions.length > 0) {
-          iconWrap.innerHTML = druid.minions.map((m, idx) => {
-            const imgSrc = m.avatar || (m.type === 'wolf' ? `/assets/characters/summons/druid/幼狼${m.minionIndex || (idx + 1)}.webp` : `/assets/characters/summons/druid/小樹精${m.minionIndex || (idx + 1)}.webp`);
-            return `<img src="${imgSrc}" class="minion-bar-thumb" data-minion-id="${escapeHtml(m.id)}" alt="${escapeHtml(m.name)}" title="${escapeHtml(m.name)} #${idx + 1} (HP ${m.hp}/${m.maxHp})">`;
-          }).join('');
-        }
-      }
-    }
+    for(const player of roomState.players)syncBattleCompanions(player);
   }
 }
-
