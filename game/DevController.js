@@ -34,7 +34,7 @@ export class DevController {
       } });
     this.commands.set('item.grant', { keys: ['playerId', 'itemId', 'bag'], validate: (p, r) => living(r, p.playerId) && equipment.some(e => e.id === p.itemId) && ['personal', 'squad'].includes(p.bag),
       run: (r, p) => {
-        if (r.squadInventory.length >= 19 || (p.bag === 'personal' && r.players[p.playerId].bag.length >= 4)) return fail('指定背包或發放暫存欄位已滿');
+        if (r.squadInventory.filter(Boolean).length >= 19 || (p.bag === 'personal' && r.players[p.playerId].bag.filter(Boolean).length >= 4)) return fail('指定背包或發放暫存欄位已滿');
         const deposit = r.addItemPrioritySquad(structuredClone(equipment.find(e => e.id === p.itemId)), p.playerId);
         if (p.bag === 'personal') return r.transferToPersonal(p.playerId, deposit.index);
       } });

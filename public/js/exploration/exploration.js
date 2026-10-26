@@ -338,7 +338,7 @@ function renderHexGridMap(me, enabled, myVoteId) {
             node.isRevealed ||
             node.isCurrent ||
             isSelectable ||
-            (colDelta >= 1 && colDelta <= 2 && ((node.col === 9 && colDelta === 1) || rowDelta <= colDelta))
+            (colDelta >= 1 && colDelta <= 2 && ((node.type === 'END_ELITE' && colDelta === 1) || rowDelta <= colDelta))
           );
 
       let fogDepthClass = '';
@@ -362,7 +362,7 @@ function renderHexGridMap(me, enabled, myVoteId) {
         inVision && node.isRevealed ? 'hex-revealed' : 'hex-fog',
         fogDepthClass,
         inVision && node.isScouted ? 'hex-scouted' : '',
-        inVision && node.col === 9 ? 'hex-end-boss' : '',
+        inVision && node.type === 'END_ELITE' ? 'hex-end-boss' : '',
         isSelectable ? 'hex-selectable' : '',
         isPendingSelect ? 'hex-pending-select' : '',
         isMyVote ? 'my-vote' : ''
@@ -385,10 +385,10 @@ function renderHexGridMap(me, enabled, myVoteId) {
         centerContentHtml = '<span class="hex-center-vote">' + votes + '</span>';
       } else if (node.isCurrent) {
         centerContentHtml = '<span class="hex-node-icon hex-current-icon" title="當前位置"><svg class="ui-icon ui-icon--md hex-current-svg" aria-hidden="true"><use href="#icon-camp"></use></svg></span>';
-      } else if (inVision && (node.isScouted || node.col === 9 || node.type === 'START')) {
+      } else if (inVision && (node.isScouted || node.type === 'END_ELITE' || node.type === 'START')) {
         const scoutIcon = (
           node.type === 'START' ? 'camp' :
-          node.col === 9 || node.type === 'BOSS' || node.type === 'END_ELITE' ? 'death' :
+          node.type === 'END_ELITE' || node.type === 'BOSS' ? 'death' :
           node.type === 'SHOP' ? 'shop' :
           node.type === 'CHEST' ? 'chest' :
           node.type === 'EVENT' ? 'scroll' :

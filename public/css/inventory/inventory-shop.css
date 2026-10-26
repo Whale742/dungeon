@@ -14,6 +14,7 @@
   justify-content: center !important;
   padding: 8px 0 !important;
   min-height: 0 !important;
+  gap: 0 !important;
 }
 
 .hex-grid-squad > .hex-row {
@@ -21,10 +22,11 @@
   justify-content: center !important;
   align-items: center !important;
   margin: 0 !important;
+  gap: 0 !important;
 }
 
 .hex-grid-squad > .hex-row + .hex-row {
-  margin-top: -12px !important;
+  margin-top: -20px !important;
 }
 
 .hex-slot {
@@ -166,6 +168,8 @@
 }
 
 .item-layer-name {
+  position: relative !important;
+  z-index: 6 !important;
   font-size: 9px !important;
   font-weight: 700 !important;
   line-height: 1.1 !important;
@@ -692,7 +696,7 @@
 
 /* Shop slots have their own readable geometry; inventory sizing stays unchanged. */
 .shop-container .hex-slot { width: 90px !important; height: 104px !important; padding: 0; border: 0; background: transparent; box-shadow: none; gap: 0; }
-.shop-container .hex-grid-squad > .hex-row + .hex-row { margin-top: -22px !important; }
+.shop-container .hex-grid-squad > .hex-row + .hex-row { margin-top: -28px !important; }
 .shop-container .item-layer { width: 88% !important; height: auto !important; padding-top: 12px; }
 .shop-container .item-layer-name { white-space: normal !important; overflow: visible !important; max-width: 78px !important; font-size: 11px !important; line-height: 1.25 !important; overflow-wrap: anywhere; }
 .shop-container .item-layer-icon-box { height: 26px !important; width: 26px !important; }

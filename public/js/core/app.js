@@ -6543,7 +6543,7 @@ function renderInventoryModal() {
   // 1. 小隊背包 (3-4-5-4-3 蜂巢連體共 19 格)
   const squad = roomState?.squadInventory || [];
   if (elements.squadCapacityText) {
-    elements.squadCapacityText.textContent = `${squad.length} / 19 格`;
+    elements.squadCapacityText.textContent = `${squad.filter(Boolean).length} / 19 格`;
   }
   if (elements.squadGrid) {
     const rowCounts = [3, 4, 5, 4, 3];
@@ -6627,7 +6627,7 @@ function renderInventoryModal() {
   // 3. 個人隨身背包 (4格連體)
   const bag = me?.bag || [];
   if (elements.personalBagCapacityText) {
-    elements.personalBagCapacityText.textContent = `${bag.length} / 4 格`;
+    elements.personalBagCapacityText.textContent = `${bag.filter(Boolean).length} / 4 格`;
   }
   if (elements.personalBagGrid) {
     let bagHtml = '';
@@ -7758,7 +7758,7 @@ function renderInteractiveEvent(ev) {
           <div class="shop-squad-col">
             <div class="shop-col-header">
               <span class="shop-col-title">${getIconSvg('chest', 'ui-icon--sm')} 小隊背包 (19格)</span>
-              <small>${squadItems.length} / 19 格</small>
+              <small>${squadItems.filter(Boolean).length} / 19 格</small>
             </div>
             ${buildHexGrid(squadItems, false)}
             <div id="shopSellDropzone" class="shop-sell-dropzone" title="點選或拖曳道具至此出售">
