@@ -14,6 +14,17 @@ function scenario(role='samurai',count=4,enemyCount=3){
 }
 const entry=(id,action)=>catalog.scenes.find(s=>s.id===id&&(!action||s.actionId===action));
 
+for(const [id,damage]of [['onm_talisman_blind',15],['onm_talisman_seal',15],['onm_talisman_corrode',15],['onm_talisman_confuse',16],['onm_talisman_drain',41],['phase5_onmyoji_onm_all_talismans',50],['onm_detonate_5',25],['onm_detonate_10_max',48]])
+test('Onmyoji Lab replay keeps damage, HP and talismans consistent: '+id,()=>{
+  const config=scenario('onmyoji');config.enemies.forEach(e=>{e.hp=1000;e.maxHp=1000;});
+  const selected=entry(id),fixture=combatLabFixture(id);
+  const {steps}=preparePlayback(config,fixture,selected);const step=steps[0];
+  const hits=step.results.filter(r=>r.kind==='damage'&&r.actualDamage>0);
+  assert.equal(hits.reduce((n,r)=>n+r.actualDamage,0),damage);
+  assert.equal(step.hpSnapshot.enemies.find(e=>e.instanceId===config.primaryId).hp,1000-damage);
+  assert.equal(step.results.at(-1).targetAfter.talismans.length,fixture.steps[0].hpSnapshot.enemies?.find(e=>e.instanceId===fixture.steps[0].targetEnemyId)?.talismans.length??fixture.steps[0].hpSnapshot.monster.talismans.length);
+});
+
 test('four-hit Tsubame retains all hits, selected enemy and immutable replay inputs',()=>{
   const config=scenario(),fixture=combatLabFixture('samurai_tsubame');
   const saved=structuredClone(config),savedFixture=JSON.stringify(fixture);

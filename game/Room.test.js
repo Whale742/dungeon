@@ -530,6 +530,109 @@ test('Tsubame battlefield playback commits every 24x3 result in order with one o
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
+
+function onmyojiBattle(t) {
+  const f=phase1Battle(t,'onmyoji',1000);
+  t.mock.method(Math,'random',()=>.5);
+  const enemy=f.room.enemies[1];
+  Object.assign(enemy,{DEF:0,defense:0,resistances:{physical:0,magic:0,effect:0},talismans:[],attack:0});
+  f.player.rolledTalisman='seal';
+  return {...f,enemy};
+}
+for(const [name,equips,resistance,expected] of [
+  ['initial',[],0,15],['magic gear',[{bonusMagAtk:8}],0,23],
+  ['physical gear excluded',[{bonusPhysAtk:80}],0,15],['magic resistance',[],20,12]
+])test('Onmyoji direct talisman damage: '+name,t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  player.equips=equips;enemy.resistances.magic=resistance;player.action='onm_talisman';
+  room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='onm_talisman');
+  const hits=step.results.filter(r=>r.kind==='damage'&&r.finalDamage>0);
+  assert.deepEqual(hits.map(r=>r.finalDamage),[expected]);
+  assert.equal(enemy.hp,1000-expected);assert.deepEqual(enemy.talismans,['seal']);
+  assert.equal(hits[0].targetBefore.hp-hits[0].targetAfter.hp,expected);
+  assert.ok(step.detail.includes(`**${expected}**`));
+});
+test('Onmyoji capped target still takes damage; lethal direct hit never rolls or attaches a talisman',t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  enemy.talismans=Array(10).fill('seal');player.action='onm_talisman';room.resolveTurnActions();
+  assert.equal(enemy.hp,985);assert.equal(enemy.talismans.length,10);
+  let step=resolutionQueue(events).find(s=>s.actionId==='onm_talisman');
+  assert.equal(step.results.filter(r=>r.finalDamage>0).length,1);
+  enemy.hp=10;enemy.talismans=[];player.action='onm_talisman';
+  t.mock.method(room,'roleRandom',()=>{throw new Error('dead target must not roll a talisman');});
+  room.resolveTurnActions();assert.equal(enemy.hp,0);assert.deepEqual(enemy.talismans,[]);
+});
+for(const count of [0,1,2])test('Onmyoji first drain retains existing stack rule: '+count+' prior drains',t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  enemy.talismans=Array(count).fill('drain');player.rolledTalisman='drain';player.action='onm_talisman';
+  room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='onm_talisman');
+  assert.deepEqual(step.results.filter(r=>r.finalDamage>0).map(r=>r.finalDamage),[15,50*(count+1)]);
+  assert.equal(enemy.hp,1000-15-50*(count+1));
+});
+test('Onmyoji brush and leader drain use 5% without changing their stack rules',t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  player.equips=[{id:'onm_brush'}];player.rollBrushTalisman=0;player.rolledTalisman='drain';player.action='basic';
+  room.resolveTurnActions();
+  let step=resolutionQueue(events).find(s=>s.actionId==='basic'&&s.sourceId===player.id);
+  assert.deepEqual(step.results.filter(r=>r.finalDamage>0).map(r=>r.finalDamage),[10,50]);
+  enemy.hp=1000;enemy.talismans=[];player.action='onm_all_talismans';room.resolveTurnActions();
+  step=resolutionQueue(events).find(s=>s.actionId==='onm_all_talismans');
+  assert.equal(enemy.hp,900);assert.equal(enemy.permanentTalismans.length,10);
+  assert.equal(step.results.filter(r=>r.finalDamage>0).reduce((n,r)=>n+r.finalDamage,0),100);
+});
+for(const [equipped,roll,kept] of [[false,.349,false],[false,.35,true],[true,.199,false],[true,.20,true]])
+test(`Onmyoji independent drop threshold: kariginu=${equipped}, roll=${roll}`,t=>{
+  const {room,player,enemy}=onmyojiBattle(t);
+  player.equips=equipped?[{id:'onm_kariginu'}]:[];
+  enemy.talismans=['drain','drain'];let calls=0;enemy.talismanDropRng=()=>{calls++;return roll;};
+  room.executeRoundStart();
+  assert.equal(calls,2);assert.equal(enemy.talismans.length,kept?2:0);
+  assert.equal(enemy.hp,kept?900:1000);
+});
+test('Onmyoji permanent and temporarily locked talismans bypass natural dropping',t=>{
+  const {room,enemy}=onmyojiBattle(t);
+  enemy.talismans=['drain'];enemy.permanentTalismans=['drain'];
+  enemy.talismanDropRng=()=>{throw new Error('locked talismans must not roll');};
+  room.executeRoundStart();assert.equal(enemy.hp,950);assert.deepEqual(enemy.talismans,['drain']);
+  enemy.permanentTalismans=[];enemy.talismansLockedTurns=1;
+  room.executeRoundStart();assert.equal(enemy.hp,900);assert.equal(enemy.talismansLockedTurns,0);
+});
+test('Onmyoji production animation commits each damage result once, including capped and lethal hits',async t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  const scope={AugurPresentationEngine:class {}};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/extended-role-effects.js',import.meta.url),'utf8'),scope);
+  let committed=[],flights=0;
+  Object.assign(scope,{
+    preloadPhase5Art:async()=>{},battlefieldPlayerTarget:s=>s.targetEnemyId,
+    resolvePresentationTarget:r=>r.targetId,
+    withBattlefieldSkillStage:async(s,c,fn)=>fn({wait:async()=>{},animate(){}}),
+    phase5Pulse(){},phase5Image:()=>({dataset:{}}),phase5Fly:async()=>{flights++;},
+    phase5Result:async(s,step,r)=>{committed.push(r);},applyHpSnapshot(){}
+  });
+  for(const state of ['drain','capped','lethal']){
+    enemy.hp=state==='lethal'?10:1000;enemy.talismans=state==='capped'?Array(10).fill('seal'):[];
+    player.rolledTalisman='drain';player.action='onm_talisman';room.resolveTurnActions();
+    const step=resolutionQueue(events).find(s=>s.actionId==='onm_talisman');
+    committed=[];flights=0;await scope.playBattlefieldOnmyoji(step,{});
+    assert.deepEqual(committed,step.results);
+    assert.equal(flights,state==='drain'?2:1);
+    const hits=committed.filter(r=>r.finalDamage>0);
+    assert.equal(hits.length,state==='drain'?2:1);
+    assert.equal(hits.reduce((sum,r)=>sum+r.actualDamage,0),state==='drain'?65:state==='lethal'?10:15);
+  }
+});
+for(const [count,mirror,expected] of [[0,false,0],[1,false,13],[10,false,40],[10,true,60],[12,false,40]])
+test(`Onmyoji detonation unchanged: ${count} charms, mirror=${mirror}`,t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  enemy.talismans=Array(count).fill('blind');enemy.permanentTalismans=[...enemy.talismans];
+  player.equips=mirror?[{id:'onm_mirror'}]:[];player.action='onm_detonate';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='onm_detonate');
+  assert.equal(step.results.reduce((n,r)=>n+(r.finalDamage||0),0),expected);
+  assert.equal(enemy.hp,1000-expected);assert.deepEqual(enemy.talismans,[]);
+  assert.deepEqual(enemy.permanentTalismans,[]);assert.equal(player.cooldowns.onm_detonate,2);
+});
 test('Equation integer shares conserve the total in stable server formation order',()=>{
   for(const [total,count,expected] of [[30,1,[30]],[30,2,[15,15]],[30,3,[10,10,10]],[31,3,[11,10,10]],[15,4,[4,4,4,3]]]){
     const enemies=Array.from({length:count},(_,i)=>({instanceId:'enemy_'+i}));

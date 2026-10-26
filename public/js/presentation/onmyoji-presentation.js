@@ -58,9 +58,9 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
     name: '抽髓符',
     color: '#ef4444',
     glow: 'rgba(239, 68, 68, 0.75)',
-    shortEffect: '扣除最大生命 2%',
-    firstDesc: '立即扣除目標最大生命值 2% 的血量（百分比削血）。',
-    repeatDesc: '【重複觸發】再次扣除目標最大生命值 2% 血量！'
+    shortEffect: '扣除最大生命 5%',
+    firstDesc: '立即扣除目標最大生命值 5% 的血量（百分比削血）。',
+    repeatDesc: '【重複觸發】再次扣除目標最大生命值 5% 血量！'
   }
 });
 
@@ -848,8 +848,8 @@ function buildOnmyojiPresentationPlan(step = {}) {
   const countAfter = talismansAfter.length;
   const isRepeat = talisman ? talismansBefore.includes(talisman.id) : false;
 
-  const damageResult = results.find(r => r.kind === 'damage' && r.targetId === 'monster');
-  const finalDamage = damageResult ? (damageResult.finalDamage ?? damageResult.hpDamage ?? 0) : (step.finalDamage || 0);
+  const damageResults = results.filter(r => r.kind === 'damage' && (r.targetId === 'monster' || r.targetId === step.targetEnemyId || r.targetId === step.targetId));
+  const finalDamage = damageResults.length ? damageResults.reduce((sum,r)=>sum+(r.finalDamage ?? r.hpDamage ?? 0),0) : (step.finalDamage || 0);
 
   const vulnStacks = talismansBefore.filter(t => t === 'corrode').length;
 
@@ -861,6 +861,7 @@ function buildOnmyojiPresentationPlan(step = {}) {
     countBefore,
     countAfter,
     finalDamage,
+    directDamage: action === 'onm_talisman' ? (damageResults[0]?.finalDamage ?? 0) : 0,
     vulnStacks,
     before,
     after,
@@ -924,7 +925,12 @@ async function playOnmyojiPresentation(step, context = {}) {
       await engine.playBasicSequence(plan.finalDamage);
       beat('impact', { damage: plan.finalDamage });
     } else if (plan.action === 'onm_talisman' || plan.action === 'onm_all_talismans') {
-      await engine.playTalismanSequence(plan.talisman, plan.isRepeat, plan.isLeader);
+      if (plan.action === 'onm_talisman') await engine.playBasicSequence(plan.directDamage);
+      if (plan.countAfter > plan.countBefore) {
+        await engine.playTalismanSequence(plan.talisman, plan.isRepeat, plan.isLeader);
+        const drainDamage = plan.finalDamage - plan.directDamage;
+        if (drainDamage > 0) engine.showFloatingText(`抽髓符 -${drainDamage} HP`, '#ef4444');
+      }
       if (plan.finalDamage > 0) beat('impact', { damage: plan.finalDamage });
     } else if (plan.action === 'onm_detonate') {
       await engine.playDetonateSequence(plan.countBefore, plan.finalDamage, plan.vulnStacks);

@@ -192,8 +192,15 @@ async function playBattlefieldOnmyoji(step,context) {
     const after=step.hpSnapshot?.enemies?.find(e=>e.instanceId===id)||matching.at(-1)?.targetAfter||{};
     const beforeCount=(before.talismans||[]).length,afterCount=(after.talismans||[]).length;
     const papers=[];
+    const direct = action === 'onm_talisman' ? matching.find(r=>r.kind==='damage') : null;
     if(['onm_talisman','onm_all_talismans'].includes(action)) {
       phase5Pulse(s,PHASE5_ART.decree,step.sourceId,'decree',400);await s.wait(180);
+      if(direct) {
+        const paper=phase5Image(s,PHASE5_ART.talisman,step.sourceId,'paper');papers.push(paper);
+        await phase5Fly(s,paper,step.sourceId,id,s.reduced?60:180,-18);
+        s.animate(paper,[{opacity:1},{opacity:0}],160);
+        await phase5Result(s,step,direct);
+      }
       const count=Math.max(0,afterCount-beforeCount);
       // Leader art uses the ten actual additions (five elements twice); no
       // papers are fabricated when the server supplied no attachments.
@@ -218,7 +225,7 @@ async function playBattlefieldOnmyoji(step,context) {
       const paper=phase5Image(s,PHASE5_ART.talisman,step.sourceId,'paper');papers.push(paper);
       await phase5Fly(s,paper,step.sourceId,id,280,-35);s.animate(paper,[{opacity:1},{opacity:0}],120);
     }
-    for(const result of results)await phase5Result(s,step,result);
+    for(const result of results)if(result!==direct)await phase5Result(s,step,result);
     if(!s.signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);
     await s.wait(200);
   });

@@ -2567,7 +2567,7 @@ export class Room {
         const keptTalismans = [];
 
         const hasKariginu = Object.values(this.players).some(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'));
-        const dropThreshold = hasKariginu ? 0.35 : 0.60;
+        const dropThreshold = hasKariginu ? 0.20 : 0.35;
 
         if (targetMonster.talismansLockedTurns > 0) {
           targetMonster.talismansLockedTurns -= 1;
@@ -2609,13 +2609,13 @@ export class Room {
           if (targetMonster.hp <= 0) break;
 
           if (talisman === 'drain') {
-            const drainDmg = this.augmentOmenDamage(Math.max(1, Math.floor(targetMonster.maxHp * 0.02)));
+            const drainDmg = this.augmentOmenDamage(Math.max(1, Math.floor(targetMonster.maxHp * 0.05)));
             targetMonster.hp = Math.max(0, targetMonster.hp - drainDmg);
             visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: targetKey, dmgType: 'mag', value: drainDmg, label: '抽髓符' });
             if (targetMonster.hp <= 0) {
-              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 2%（${drainDmg} 點削血），魔物倒下！💀`, type: 'damage' });
+              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 5%（${drainDmg} 點削血），魔物倒下！💀`, type: 'damage' });
             } else {
-              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 2%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'damage' });
+              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 5%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'damage' });
             }
           } else if (talisman === 'confuse') {
             const confuseRatio = typeof targetMonster.talismanConfuseRatio === 'number'
@@ -5819,11 +5819,11 @@ export class Room {
                   log.push({ text: `📜🖌️ **${p.name}**【硃砂引靈筆】靈光顯現！普通攻擊額外依附了一道【五鬼攝魂符・${TALISMAN_NAMES[talisman]}】！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'buff' });
                   if (talisman === 'drain') {
                     const drainCount = monster.talismans.filter(t => t === 'drain').length;
-                    const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.02));
+                    const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.05));
                     const totalDrain = monster.untargetableThisRound ? 0 : this.augmentOmenDamage(singleDrain * drainCount);
                     monster.hp = Math.max(0, monster.hp - totalDrain);
                     const drainNote = drainCount > 1 ? `（觸發 ${drainCount} 重削血，共扣除 ${totalDrain} 點）` : `（扣除 ${totalDrain} 點）`;
-                    log.push({ text: `📜💀 **【抽髓符】** 削血觸發！扣除目標最大生命值 2% 的血量${drainNote}！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'combat' });
+                    log.push({ text: `📜💀 **【抽髓符】** 削血觸發！扣除目標最大生命值 5% 的血量${drainNote}！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'combat' });
                     visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
                   } else {
                     visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: TALISMAN_NAMES[talisman] });
@@ -6633,11 +6633,17 @@ export class Room {
         }
 
         case 'onm_talisman': {
+          const raw = Math.floor(this.applyFateBlessing(p, this.skillValue(p, 'onm_talisman')) * bardDmgMultiplier);
+          const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
+          monster.hp = Math.max(0, monster.hp - dmg);
+          const resNote = isResisted ? ` (🔮抗性減免${resistPercent}%)` : '';
+          log.push({ text: `📜 **${p.name}** 擲出【五鬼攝魂符】，造成 **${dmg}** 點【魔法】傷害！${resNote}`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '五鬼攝魂符' });
+          if (monster.hp <= 0) break;
           monster.talismans = monster.talismans || [];
           if (monster.talismans.length >= 10) {
             actionOutcome = { type: 'talisman_capped', label: '五鬼攝魂符', secondary: '符咒已達上限' };
             log.push({ text: `📜⚠️ **${p.name}** 擲出【五鬼攝魂符】，但目標身上的符咒已達上限（10 張），無法再依附更多符咒！`, type: 'warning' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '符咒上限' });
             break;
           }
           const TALISMANS = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
@@ -6662,13 +6668,13 @@ export class Room {
             log.push({ text: `📜🌀 **${p.name}** 擲出【五鬼攝魂符・惑心符】！目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '惑心符' });
           } else if (talisman === 'drain') {
-            actionOutcome = { type: 'talisman_drain', label: '抽髓符', secondary: '削血 2%' };
+            actionOutcome = { type: 'talisman_drain', label: '抽髓符', secondary: '削血 5%' };
             const drainCount = monster.talismans.filter(t => t === 'drain').length;
-            const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.02));
+            const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.05));
             const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);
             monster.hp = Math.max(0, monster.hp - totalDrain);
             const drainNote = drainCount > 1 ? `（觸發 ${drainCount} 重削血，共扣除 ${totalDrain} 點）` : `（扣除 ${totalDrain} 點）`;
-            log.push({ text: `📜💀 **${p.name}** 擲出【五鬼攝魂符・抽髓符】！扣除目標最大生命值 2% 的血量${drainNote}！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜💀 **${p.name}** 擲出【五鬼攝魂符・抽髓符】！扣除目標最大生命值 5% 的血量${drainNote}！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
           }
           break;
@@ -6723,7 +6729,7 @@ export class Room {
           log.push({ text: `📜✨ **${p.name}** 施展隊長技【萬符歸宗】！漫天靈符呼嘯而出，一次性向 **${monster.name}** 貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '萬符歸宗' });
           const drainCount = monster.talismans.filter(t => t === 'drain').length;
-          const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.02));
+          const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.05));
           const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);
           monster.hp = Math.max(0, monster.hp - totalDrain);
           log.push({ text: `📜💀 **【抽髓符】** 削血觸發！扣除目標最大生命值（共扣除 ${totalDrain} 點）！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'combat' });
