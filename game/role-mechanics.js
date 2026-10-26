@@ -3,6 +3,8 @@ import { enemyEffect, afterPlayerDamage, drainEnemyEvents } from './enemy-mechan
 import { getFloorDifficultyMultiplier } from './constants.js';
 export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage','augur'];
 export const countEquip = (p,id) => (p.equips || []).filter(e=>e.id===id).length;
+export const zanshinStacks = (enemy, sourceId) => Math.max(0, Math.min(8, enemy?.zanshin?.[sourceId] || 0));
+export const samuraiSoul = (p, room) => p.role === 'samurai' ? room.getLivingEnemies().reduce((n,e)=>n+zanshinStacks(e,p.id),0) : 0;
 const alive = room => Object.values(room.players).filter(p=>p.hp>0);
 const roll = list => list[Math.min(list.length-1,Math.floor(Math.random()*list.length))];
 export const isPrime = n => Number.isInteger(n) && n>=2 && !Array.from({length:Math.max(0,Math.floor(Math.sqrt(n))-1)},(_,i)=>i+2).some(d=>n%d===0);
@@ -40,15 +42,17 @@ export function sageEquationPreview(p,room) {
   })};
 }
 export function p8State(p,room) {
+  const soul=samuraiSoul(p,room);
   const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:s.permanent?null:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
   if (p === room.currentMonster || (room.enemies && room.enemies.includes(p))) {
+    for(const [sourceId,stacks] of Object.entries(p.zanshin||{}))if(stacks>0)effects.push({id:'zanshin_'+sourceId,icon:'debuff',label:'殘心',stacks,sourceId,isNegative:true,category:'DEBUFF',desc:`${room.players[sourceId]?.name||'武士'}的專屬標記（每名敵人最多 8 層）。不自然衰減、不受效果抗性或一般淨化影響；燕返每段消耗一層追加傷害，死亡時平均轉移。`});
     if (p.augurResistanceBreak > 0) effects.push({id:'augur_resistance_break',icon:'debuff',label:'星芒破障',turns:p.augurResistanceBreak,value:'效果抗性 −15pp',isNegative:true,category:'DEBUFF'});
     if (p.reversedOmenRemaining > 0) effects.push({id:'reversed_omen',icon:'debuff',label:'凶兆逆位',turns:p.reversedOmenRemaining,value:`受傷 +${p.reversedOmenBonus || 10}%`,isNegative:true,category:'DEBUFF'});
   }
   const fateBlessing = p.id ? room.getFateBlessing?.(p) || 0 : 0;
   if (p.hp > 0 && fateBlessing > 0) effects.push({id:'fate_blessing',icon:'buff',label:'命運加護',value:`基礎數值 +${Math.round(fateBlessing * 100)}%`});
   if(p.hp>0) {
-    if(p.soul)effects.push({id:'soul',icon:'buff',label:'武魂',stacks:p.soul});
+    if(soul)effects.push({id:'soul',icon:'buff',label:'武魂',stacks:soul});
     if(p.kyoutou)effects.push({id:'kyoutou',icon:'guard',label:'狂刀',turns:1});
     if(p.rage)effects.push({id:'rage',icon:'buff',label:'怒氣',stacks:p.rage});
     if(p.bloodStacks)effects.push({id:'blood_stacks',icon:'buff',label:'血祭',stacks:p.bloodStacks});
@@ -71,7 +75,7 @@ export function p8State(p,room) {
   }
   const x = p.sageX ?? 30;
   const resource=p.role==='sage'?`變量(X) ${x}${p.sageDebt?` · 待付透支 ${p.sageDebt}`:''} · 運算元 ${p.sageOperand ?? 0} · ${p.sagePhase==='solve'?'求解':'假設'}`:
-    p.role==='samurai'?`武魂 ${p.soul||0}/8${p.kyoutou?' · 狂刀':''}`:
+    p.role==='samurai'?`武魂：${soul}${p.kyoutou?' · 狂刀':''}`:
     p.role==='gladiator'?`怒氣 ${p.rage||0} · 血祭 ${p.bloodStacks||0}${room.arena?.playerId===p.id?' · 死亡角鬥場':''}`:
     p.role==='augur'?`命債 ${(p.augurFateDebts || []).reduce((sum, d) => sum + d.amount, 0)}/60 · 牌象: ${p.augurCardState === 'reversed' ? '逆位' : p.augurCardState === 'upright' ? '正位' : '空象'} · 觀測: ${room.players[p.observedTargetId]?.name || '自身'}`:
     p.role==='assassin'?`匿蹤 ${p.stealthStacks||0} · 追擊 ${p.followUpsThisRound||0}/${room.getAssassinFollowUpCap(p)}`:
@@ -87,7 +91,7 @@ export function p8State(p,room) {
     sageDebt:p.sageDebt||0,sageConfusionChance:sageConfusionChance(x),
     ...(p.role==='sage'?{sageEquationPreview:sageEquationPreview(p,room)}:{}),
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
-    soul:p.soul||0, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
+    soul, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
     // Read-only presentation evidence, including protection on non-Paladin allies.
     paladinFatalGuard:!!p.paladinFatalGuard,
     paladinGrace:p.paladinGrace?{...p.paladinGrace}:null,
@@ -97,6 +101,67 @@ export function p8State(p,room) {
     phase8Statuses:effects};
 }
 export const phase8Methods = {
+  getSamuraiSoul(p) { return samuraiSoul(p,this); },
+  syncSamuraiSouls() { for(const p of Object.values(this.players))if(p.role==='samurai')p.soul=samuraiSoul(p,this); },
+  addZanshin(p,enemy,amount=1,lethalHit=false) {
+    if(!enemy||(!lethalHit&&enemy.hp<=0)||p.role!=='samurai')return 0;
+    enemy.zanshin ||= {};
+    const before=zanshinStacks(enemy,p.id);
+    enemy.zanshin[p.id]=Math.min(8,before+amount);
+    this.syncSamuraiSouls();
+    return enemy.zanshin[p.id]-before;
+  },
+  clearZanshin(sourceId=null) {
+    for(const enemy of this.enemies||[])if(sourceId===null)enemy.zanshin={};else if(enemy.zanshin)delete enemy.zanshin[sourceId];
+    this.syncSamuraiSouls();
+  },
+  recordZanshinResults(before,results=this.p8Results,extra={}) {
+    if(!results)return;
+    const after=this.getHpSnapshot();
+    for(const enemy of after.enemies){
+      const old=before.enemies.find(e=>e.instanceId===enemy.instanceId);
+      const marks=s=>(s?.statuses||[]).filter(v=>v.id.startsWith('zanshin_'));
+      if(JSON.stringify(marks(old))!==JSON.stringify(marks(enemy)))results.push({kind:'status',targetId:enemy.instanceId,targetEnemyId:enemy.instanceId,targetBefore:old,targetAfter:enemy,hpSnapshot:after,...extra});
+    }
+    for(const player of after.players){
+      const old=before.players.find(v=>v.id===player.id);
+      if(player.role==='samurai'&&player.soul!==old?.soul)results.push({kind:'resource',targetId:player.id,targetBefore:old,targetAfter:player,hpSnapshot:after,...extra});
+    }
+  },
+  // The shared death sweep owns redistribution. Tsubame calls the same owner
+  // only after all damage and consumption in a segment have settled.
+  transferZanshinDeaths() {
+    const pools=new Map(),transfers=[];
+    for(const enemy of this.enemies||[])if(enemy.hp<=0){
+      for(const [sourceId,amount] of Object.entries(enemy.zanshin||{}))if(amount>0)pools.set(sourceId,(pools.get(sourceId)||0)+amount);
+      enemy.zanshin={};
+    }
+    for(const [sourceId,total] of pools){
+      let remaining=total;
+      while(remaining>0){
+        const eligible=this.getLivingEnemies().filter(e=>zanshinStacks(e,sourceId)<8);
+        if(!eligible.length)break;
+        const share=Math.floor(remaining/eligible.length);
+        if(share>0){
+          for(const enemy of eligible){const amount=Math.min(share,8-zanshinStacks(enemy,sourceId));enemy.zanshin||={};enemy.zanshin[sourceId]=zanshinStacks(enemy,sourceId)+amount;remaining-=amount;transfers.push({sourceId,targetEnemyId:enemy.instanceId,amount});}
+        }else{
+          // Sample without replacement so each remainder goes to a distinct target.
+          while(remaining>0){const index=Math.min(eligible.length-1,Math.floor(Math.random()*eligible.length)),enemy=eligible.splice(index,1)[0];enemy.zanshin||={};enemy.zanshin[sourceId]=zanshinStacks(enemy,sourceId)+1;remaining--;transfers.push({sourceId,targetEnemyId:enemy.instanceId,amount:1});}
+        }
+      }
+      if(remaining)transfers.push({sourceId,amount:remaining,discarded:true});
+    }
+    this.syncSamuraiSouls();
+    return transfers;
+  },
+  grantKyoutouZanshin(p) {
+    const enemies=this.getLivingEnemies();if(!enemies.length)return;
+    const counts=enemies.map(e=>zanshinStacks(e,p.id)),max=Math.max(...counts),min=Math.min(...counts);
+    const highest=roll(enemies.filter((e,i)=>counts[i]===max));
+    const lowest=!countEquip(p,'sa_murasame')&&countEquip(p,'sa_haori')?roll(enemies.filter((e,i)=>counts[i]===min)):null;
+    this.addZanshin(p,highest);
+    if(lowest)this.addZanshin(p,lowest);
+  },
   p8SplitDreamPresentation(queue,p) {
     const action=queue.at(-1);if(action?.sourceId!==p.id)return;
     const statuses=(action.results||[]).filter(r=>r.kind==='status');if(!statuses.length)return;
@@ -315,6 +380,7 @@ export const phase8Methods = {
     return { success, boosted:true, roll, finalChance };
   },
   p8ResetBattle() {
+    this.clearZanshin();
     this.p8ExitArena(); this.arenaPending=null;this.enemyArena=null;this.enemyMechanicQueue=[];this.enemyReactionSteps=new WeakSet();
     for(const p of Object.values(this.players)) {
       p.enemyEffects={};p.enemyActionMultiplier=1;
@@ -542,7 +608,7 @@ export const phase8Methods = {
         p.parryChecked=true;
         const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
         p.kyoutou = this.roleRandom(p,'sa_parry',()=> (augurs.length ? this.intervenePositive(p, '居合架式・格擋反擊', Math.round((p.parryChance ?? 0.4) * 100)).success : Math.random() < (p.parryChance ?? 0.4))?'success':'failure')==='success';
-        if(p.kyoutou) {p.soul=Math.min(8,(p.soul||0)+1+(!countEquip(p,'sa_murasame')&&countEquip(p,'sa_haori')?1:0));this.p8Log(`${p.name}進入【狂刀】，武魂 ${p.soul}/8。`);}
+        if(p.kyoutou) {this.grantKyoutouZanshin(p);this.p8Log(`${p.name}進入【狂刀】，武魂：${this.getSamuraiSoul(p)}。`);}
       }
       if(p.kyoutou) {p.parriedCount=(p.parriedCount||0)+1;parry=true;damage=countEquip(p,'sa_murasame')?Math.floor(raw*.5):0;}
     }
@@ -755,21 +821,50 @@ export const phase8Methods = {
         } else {this.arenaPending={playerId:p.id,round:this.battleRound+1};outcome={type:'challenge',label:'死鬥宣告'};this.p8Log(`${p.name}發出死鬥宣告，下回合進入競技場。`);effect(p,'arena_challenge','死鬥宣告');}
       }
     } else if(p.role==='samurai') {
-      const soul=p.soul||0, missing=1-p.hp/p.maxHp, corrosion=this.roundModifiers?.equipmentEffectMultiplier??1;
+      const soul=this.getSamuraiSoul(p), missing=1-p.hp/p.maxHp, corrosion=this.roundModifiers?.equipmentEffectMultiplier??1;
       const mult=1+.10*countEquip(p,'sa_oboro')*corrosion+(countEquip(p,'sa_murasame')?missing*.25*corrosion:0);
       if(p.action==='sa_tsubame') {
-        if(soul<4){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
-        else {p.soul-=4;for(let i=0;i<4&&m.hp>0;i++)damage(Math.floor(value('basic')*bardMultiplier*mult),'phys',{penetration:1});outcome={type:'tsubame',label:'秘劍・燕返'};}
+        if(soul<1){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
+        else {
+          outcome={type:'tsubame',label:'秘劍・燕返',segments:soul};
+          for(let segment=1;segment<=soul;segment++){
+            const beforeSegment=this.getHpSnapshot();
+            const targets=this.getAttackableEnemies(p).map(enemy=>({enemy,stacks:zanshinStacks(enemy,p.id)}));
+            if(!targets.length)break;
+            const segmentResults=[];
+            for(const {enemy,stacks} of targets){
+              const baseDamage=this.skillValue(p,'sa_tsubame')+(stacks>0?this.skillValue(p,'sa_zanshin'):0);
+              const rawDamage=Math.floor(this.applyFateBlessing(p,baseDamage)*bardMultiplier*mult);
+              const resultCount=this.p8Results.length;
+              damage(rawDamage,'phys',{enemy,penetration:1});
+              const result=this.p8Results.length>resultCount?this.p8Results.at(-1):null;
+              if(result){Object.assign(result,{segmentIndex:segment-1,baseDamage,rawDamage,zanshinTriggered:stacks>0,zanshinConsumed:stacks>0?1:0,isDead:enemy.hp<=0});segmentResults.push(result);}
+            }
+            for(const {enemy,stacks} of targets)if(stacks>0)enemy.zanshin[p.id]=stacks-1;
+            const transfers=this.transferZanshinDeaths(),snapshot=this.getHpSnapshot();
+            if(segmentResults.length){const last=segmentResults.at(-1);last.zanshinTransfers=transfers;last.hpSnapshot=snapshot;last.targetAfter=snapshot.enemies.find(e=>e.instanceId===last.targetEnemyId);}
+            this.recordZanshinResults(beforeSegment,this.p8Results,{segmentIndex:segment-1});
+          }
+          const beforeClear=this.getHpSnapshot();
+          this.clearZanshin(p.id);
+          this.recordZanshinResults(beforeClear,this.p8Results,{segmentIndex:soul});
+        }
       } else {
+        const beforeMarks=this.getHpSnapshot();
         const baseBurstChance = Math.min(.7, .3 + .05 * soul);
         const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
         const burst = p.action==='sa_cut'&&soul>0&&this.roleRandom(p,'sa_cut',()=> (augurs.length ? this.intervenePositive(p, '拔刀斬・一閃', Math.round(baseBurstChance * 100)).success : Math.random()<baseBurstChance)?'success':'failure')==='success';
         if(p.action==='sa_cut'&&soul===0)p.parryChance=.7;
         const baseCutDmg = value(p.action==='sa_cut'?'sa_cut':'basic');
-        damage(Math.floor(baseCutDmg*bardMultiplier*mult*(burst?2:1)),'phys',{critical:burst});
-        p.soul=Math.min(8,soul+1);outcome={type:burst?'soul_burst':'normal',label:burst?'武魂爆發':undefined};
+        const raw=Math.floor(baseCutDmg*bardMultiplier*mult*(burst?2:1));
+        const hit=damage(raw,'phys',{critical:burst});
+        if(hit>0)this.addZanshin(p,m,1,true);
+        if(p.action==='sa_cut')for(const enemy of this.getAttackableEnemies(p).filter(e=>e!==m))damage(Math.floor(raw*.5),'phys',{enemy,critical:burst});
+        const zanshinTransfers=this.transferZanshinDeaths();
+        this.recordZanshinResults(beforeMarks,this.p8Results,{zanshinTransfers});
+        outcome={type:burst?'soul_burst':'normal',label:burst?'武魂爆發':undefined};
       }
-      this.p8Log(`${p.name}【${outcome.label||'居合攻擊'}】，武魂 ${p.soul||0}/8。`);
+      this.p8Log(`${p.name}【${outcome.label||'居合攻擊'}】，武魂：${this.getSamuraiSoul(p)}。`);
     } else if(p.role==='sage') {
       p.sageX ??=30;p.sageOperand ??=Math.floor(Math.random()*30)+1;p.sagePhase ||= 'hypothesis';
       const actual=damage(Math.floor(value('basic')*bardMultiplier),'phys',{penetration:p.action==='sge_deduce'?.5:0});

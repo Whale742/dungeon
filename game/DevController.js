@@ -92,7 +92,7 @@ export class DevController {
       encounter: room.devEncounter || null, events: DEV_EVENTS,
       roleRandom: roleRandomSnapshot(room),
       enemyTemplates: DEV_ENEMIES.map(e => ({ id: e.id, name: e.name })),
-      roles: Object.values(room.players).map(p => ({ playerId: p.id, policy: DEV_ROLE_POLICY[p.role] || '職業狀態唯讀', resources: roleResources(p), random:randomRoleOptions(room,p) })),
+      roles: Object.values(room.players).map(p => ({ playerId: p.id, policy: DEV_ROLE_POLICY[p.role] || '職業狀態唯讀', resources: roleResources(p,room), random:randomRoleOptions(room,p) })),
       audit: record.audit };
   }
 

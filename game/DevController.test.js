@@ -153,7 +153,7 @@ test('Whitelisted cast decisions produce real authoritative outcomes across prof
   for(const [role,key,outcome,action,expected] of rows){
     const f=randomBattle(t,role),{room,player:p}=f;
     if(role==='assassin')room.battleCount=2;
-    if(role==='samurai')p.soul=2;
+    if(role==='samurai')room.addZanshin(p,room.currentMonster,2);
     if(key==='alc_fate')p.poisonTurns=2;
     assert.equal(f.reserve(key,outcome).success,true,`${role}/${key}/${outcome}`);
     assert.equal(f.cast(action).success,true,`${role}/${key} cast`);
@@ -436,10 +436,10 @@ test('all roles have a policy and safely settle the next round after supported r
     room.handleBattleEvent(null, false, { col: 1, rng: () => 0 });
     if (room.selectionState === 'RESOLVING') room.handlePresentationComplete('solo', room.battlePresentationId, room.battleRound);
     room.handleSelectionReady('solo', room.battleRound);
-    for (const resource of roleResources(room.players.solo)) {
+    for (const resource of roleResources(room.players.solo,room)) {
       const params = { playerId: 'solo', resource: resource.key, value: resource.max };
       assert.equal(c.execute(socket, room, request('role.resource', params)).success, true, role);
-      assert.equal(roleResources(room.players.solo).find(r => r.key === resource.key).value, resource.max);
+      assert.equal(roleResources(room.players.solo,room).find(r => r.key === resource.key).value, resource.max);
       assert.equal(c.execute(socket, room, request('role.resource', { ...params, value: resource.max + 1 })).success, false);
     }
     assert.equal(c.execute(socket, room, request('role.resource', { playerId: 'solo', resource: 'sagePhase', value: 1 })).success, false);

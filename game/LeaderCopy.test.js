@@ -4,13 +4,33 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import express from 'express';
 import { once } from 'node:events';
-import { CLASSES, LEADER_SKILLS } from './constants.js';
+import { CLASSES, LEADER_SKILLS, ROLE_DETAILS } from './constants.js';
 import { catalog } from '../studio/catalog.js';
 import { leaderSkillCopy, LEADER_COPY_PREFIX } from '../studio/leader-copy.js';
 import { validateDraft } from '../studio/validation.js';
 import { createStudioRouter } from '../studio/router.js';
 
 const leaders = catalog.skill_copies.filter(row => catalog.skillMeta[row.role_id + ':' + row.skill_id]?.leader);
+test('Old published Samurai descriptions project current mechanics without cloud writes or replacing current custom copy',()=>{
+  const scope=vm.createContext({window:{dispatchEvent(){}},Event:class{}});
+  vm.runInContext(fs.readFileSync(new URL('../public/js/studio/content-store.js',import.meta.url),'utf8'),scope);
+  const content=scope.window.StudioContent;
+  content.registerMechanicsCopy(CLASSES,ROLE_DETAILS);
+  const data={role_profiles:[{role_id:'samurai',name_zh:'自訂武士',passive_full:'武魂最多 8 層'}],
+    skill_copies:[{role_id:'samurai',skill_id:'sa_tsubame',display_name:'自訂燕返',full_copy:'消耗 4 層武魂，四次單體攻擊'},
+      {role_id:'mage',skill_id:'m_blast',full_copy:'保留法師自訂內容'}],
+    story_copies:[{story_key:'equip.samurai.sa_haori',title:'殘心羽織',body:'額外獲得武魂'}]};
+  const original=JSON.stringify(data);content.install(data);
+  assert.ok(content.find('role_profiles','samurai').passive_full.includes('殘心'));
+  assert.equal(content.find('role_profiles','samurai').name_zh,'自訂武士');
+  assert.equal(content.find('skill_copies','samurai:sa_tsubame').display_name,'自訂燕返');
+  assert.ok(content.find('skill_copies','samurai:sa_tsubame').full_copy.includes('N 段全體'));
+  assert.ok(content.rows('story_copies')[0].body.includes('餘韻不絕'));
+  assert.equal(content.find('skill_copies','mage:m_blast').full_copy,'保留法師自訂內容');
+  assert.equal(JSON.stringify(data),original);
+  data.skill_copies[0].full_copy='新版殘心與燕返自訂說明';content.install(data);
+  assert.equal(content.find('skill_copies','samurai:sa_tsubame').full_copy,'新版殘心與燕返自訂說明');
+});
 test('every class has editable leader copy without adding selectable combat skills', () => {
   assert.equal(leaders.length, Object.keys(CLASSES).length);
   for (const [role, config] of Object.entries(CLASSES)) {

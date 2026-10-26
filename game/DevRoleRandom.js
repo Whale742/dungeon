@@ -29,7 +29,7 @@ const catalog = [
   ...['a_reload','a_frenzy_reload'].map(id=>entry('archer',id,id,id==='a_reload'?'戰術上膛：首枚弩箭':'極速狂熱裝填：首枚弩箭','裝備技能',choices([['pierce','穿甲'],['elemental','元素'],['burst','爆裂']]))),
   ...['basic','s_stab','follow_up_crit'].map(id=>entry('assassin',id,id==='follow_up_crit'?null:id,id==='basic'?'普攻暴擊':id==='s_stab'?'暗影刺殺暴擊':'追擊暴擊',id==='follow_up_crit'?'被動':'技能',(r,p)=>guaranteed(r,p)?[]:p.cannotCrit?[]:binary,{hint:'正式保證暴擊或禁止暴擊時不可覆蓋。'})),
   entry('assassin','follow_up',null,'匿蹤追擊觸發','被動',binary,{hint:'仍需隱身、隊友行動及未達追擊上限；單人無隊友時等待觸發。'}),
-  entry('samurai','sa_cut','sa_cut','拔刀斬：武魂爆發','技能',binary,{available:(r,p)=>(p.soul||0)>0,hint:'需要武魂大於 0。'}),
+  entry('samurai','sa_cut','sa_cut','拔刀斬：武魂爆發','技能',binary,{available:(r,p)=>r.getSamuraiSoul(p)>0,hint:'需要武魂大於 0。'}),
   entry('samurai','sa_parry',null,'居合架式：狂刀','被動',binary,{hint:'下一次正式敵方直擊檢查；不繞過本回合已判定限制。'}),
   entry('stargazer','sg_observe','sg_observe','天體觀測','技能',(r,p)=>choices([['star','星座'],['planet','星球'],['galaxy','星系'],['blackhole','黑洞'],['boundary','宇宙邊界']].filter(([id])=>id!=='star'||!has(p,'sg_eye')))),
   entry('stargazer','sg_clock','sg_clock','星軌干涉','技能',(r,p)=>choices([['accelerate','軌道微調'],['reset','超新星重啟'],['overload','過載躍遷'],['nothing','星軌虛耗']].filter(([id])=>id!=='nothing'||!has(p,'sg_watch')))),

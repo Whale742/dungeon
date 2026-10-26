@@ -70,14 +70,15 @@ function syncEnemyTargetIndicators() {
   const skill=classesData[me?.role]?.skills?.find(s=>s.id===action);
   const firstLine=skill?.desc?.split('\n')[0]||'';
   const friendly=!!action&&!firstLine.includes('敵')&&(/我方|隊友|自身|自己|召喚/.test(firstLine)||/^dru_(transform|summon)/.test(action));
-  const group=!friendly&&(['m_blast','a_rain','w_cleave','alc_flask','alc_acid','alc_poison','onm_all_talismans'].includes(action)||skill?.tags?.some(t=>/群攻|群體|全體|範圍/.test(t)));
+  const group=!friendly&&(['m_blast','sa_cut','sa_tsubame','a_rain','w_cleave','alc_flask','alc_acid','alc_poison','onm_all_talismans'].includes(action)||skill?.tags?.some(t=>/群攻|群體|全體|範圍/.test(t)));
+  const splashTargeting=['m_blast','alc_flask','alc_acid','sa_cut'].includes(action);
   const primary=currentSelectedEnemyId||me?.targetEnemyId;
   for(const slot of document.querySelectorAll('#battleEnemiesStage .battle-enemy-slot')){
     const mark=slot.querySelector('.enemy-target-reticle');if(!mark)continue;
     const selected=slot.dataset.enemyId===primary,eligible=slot._currentEnemy?.hp>0&&isBattleEnemySelectable(slot.dataset.enemyId);
     const visible=!friendly&&eligible&&(group||selected),key=[visible,selected,action].join(':');
-    mark.style.display=visible?'':'none';mark.classList.toggle('is-group-target',!!group);mark.classList.toggle('is-primary-target',!!group&&selected&&action==='m_blast');
-    mark.classList.toggle('is-secondary-target',!!group&&!selected&&action==='m_blast');
+    mark.style.display=visible?'':'none';mark.classList.toggle('is-group-target',!!group);mark.classList.toggle('is-primary-target',!!group&&selected&&splashTargeting);
+    mark.classList.toggle('is-secondary-target',!!group&&!selected&&splashTargeting);
     if(visible&&mark.dataset.selection!==key&&typeof mark.animate==='function')mark.animate([{scale:1.6,opacity:0},{scale:1,opacity:1}],{duration:240,easing:'ease-out'});
     mark.dataset.selection=key;
   }

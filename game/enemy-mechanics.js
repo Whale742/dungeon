@@ -245,7 +245,10 @@ export function syncEnemySupport(room) {
     if((enemy.enemyEffectResistanceBonus||0)!==bonus || !!enemy.crystalSupport!==crystal)record(room,enemy,enemy,'支援共鳴更新','status',()=>{enemy.enemyEffectResistanceBonus=bonus;enemy.crystalSupport=crystal;});
   }
 }
-export function sweepEnemyDeaths(room) {
+export function sweepEnemyDeaths(room,step=null) {
+  const beforeZanshin=step&&(room.enemies||[]).some(e=>e.hp<=0&&Object.values(e.zanshin||{}).some(n=>n>0))?room.getHpSnapshot():null;
+  const transfers=room.transferZanshinDeaths?.()||[];
+  if(beforeZanshin&&transfers.length){room.recordZanshinResults?.(beforeZanshin,step.results,{zanshinTransfers:transfers});step.hpSnapshot=room.getHpSnapshot();}
   for(const enemy of room.enemies || []) if(enemy.hp<=0 && !state(enemy).deathProcessed) {
     record(room,enemy,enemy,'死亡','death',()=>{state(enemy).deathProcessed=true;enemy.tempHp=0;enemy.untargetableThisRound=false;});
     if(state(enemy).id==='lava_larva') for(const p of players(room)) strike(room,enemy,p,B.explosionDamage,'焦油自爆',{posthumous:true,type:'mag'});
@@ -376,7 +379,7 @@ export function afterPlayerDamage(room,step) {
     if(enemy.hp>0&&hit.damage>0&&script.basicCounterChance&&Math.random()<script.basicCounterChance)strike(room,enemy,actor,script.basicCounterDamage,'見切反擊',{secondary:true});
     if(enemy.hp>0&&hit.damage>0&&script.specialReflectDamageRatio&&isEnemyUltimate(room,enemy))strike(room,enemy,actor,Math.min(B.scriptReflectCap,Math.floor(hit.damage*script.specialReflectDamageRatio)),'荊棘反傷',{secondary:true,posthumous:true});
   }
-  sweepEnemyDeaths(room);
+  sweepEnemyDeaths(room,step);
 }
 
 export function onPlayerHealed(room,p,actual) {

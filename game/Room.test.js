@@ -349,6 +349,184 @@ function phase1Battle(t, role, hp = 500) {
   f.player.targetEnemyId = f.room.enemies[1].instanceId;
   return f;
 }
+function samuraiBattle(t,stacks=[0,0,0],otherRole=null) {
+  const f=fixture(t,'samurai'),{room,player}=f;
+  if(otherRole){
+    room.addPlayer({id:'other',join(){},emit(){}},'另一角色');
+    room.selectRole('other',otherRole==='samurai'?'warrior':otherRole);
+    // Imported/constructed parties can contain duplicate roles even though the lobby prevents selection.
+    if(otherRole==='samurai')Object.assign(room.players.other,{role:'samurai',ATK_base:13,DEF:6,hp:80,maxHp:80});
+    room.players.other.action='skip';
+  }
+  room.handleBattleEvent(null,false,{col:1});
+  room.setEnemies(stacks.map((_,i)=>room.createEnemyInstance({id:'zanshin_dummy_'+i,name:'殘心目標'+i,hp:10000,attack:0,defense:0,noBonusResistance:true},i,{tier:'ELITE',rng:()=>0})));
+  player.targetEnemyId=room.enemies[0].instanceId;
+  room.enemies.forEach((enemy,i)=>{enemy.hp=10000;enemy.maxHp=10000;enemy.DEF=0;enemy.resistances={physical:0,magic:0,effect:100};room.addZanshin(player,enemy,stacks[i]);});
+  t.mock.method(Math,'random',()=>.99);
+  return f;
+}
+function samuraiCast(f,action) {
+  f.player.action=action;f.room.resolveTurnActions();
+  return resolutionQueue(f.events).filter(s=>s.sourceId===f.player.id&&s.actionId===action);
+}
+test('Samurai soul is derived per source, caps each enemy and survives ordinary cleansing/round expiry',t=>{
+  const {room,player}=samuraiBattle(t,[8,8,8],'samurai');
+  const other=room.players.other;
+  assert.equal(room.addZanshin(player,room.enemies[0],3),0);
+  room.addZanshin(other,room.enemies[0],2);
+  player.soul=999; // Legacy writes cannot override authoritative marks.
+  const snap=room.getHpSnapshot();
+  assert.equal(snap.players.find(p=>p.id===player.id).soul,24);
+  assert.equal(snap.players.find(p=>p.id===other.id).soul,2);
+  assert.equal(snap.players.find(p=>p.id===player.id).resourceSummary,'武魂：24');
+  room.enemies[0].p8Effects={};room.battleRound+=5;room.p8Expire(room.enemies[0]);
+  const statuses=room.formatEnemySnapshot(room.enemies[0]).statuses.filter(s=>s.label==='殘心');
+  assert.deepEqual(statuses.map(s=>[s.stacks,s.turns,s.icon]),[[8,undefined,'debuff'],[2,undefined,'debuff']]);
+  room.clearZanshin(player.id);assert.equal(room.getSamuraiSoul(other),2);assert.equal(room.getSamuraiSoul(player),0);
+  room.handleGameOver();assert.equal(room.getSamuraiSoul(other),0);
+});
+for(const [action,expected] of [['basic',[10,0,0]],['sa_cut',[15,7,7]]])test('Samurai primary-only marking and raw splash: '+action,t=>{
+  const f=samuraiBattle(t),[step]=samuraiCast(f,action);
+  const hits=step.results.filter(r=>r.kind==='damage');
+  assert.deepEqual(f.room.enemies.map(e=>hits.find(r=>r.targetEnemyId===e.instanceId)?.actualDamage||0),expected);
+  assert.deepEqual(f.room.enemies.map(e=>e.zanshin?.[f.player.id]||0),[1,0,0]);
+  assert.equal(step.hpSnapshot.players.find(p=>p.id===f.player.id).soul,1);
+  assert.equal(resolutionQueue(f.events).filter(s=>s.sourceId===f.player.id&&s.actionId===action).length,1);
+});
+test('Samurai failed hits do not mark; cut burst caps at 70% and each splash mitigates independently',t=>{
+  const f=samuraiBattle(t,[8,8,8]);
+  f.room.enemies[0].resistances.physical=80;f.room.enemies[1].DEF=50;f.room.enemies[2].resistances.physical=50;
+  t.mock.method(Math,'random',()=>.699);
+  const [step]=samuraiCast(f,'sa_cut');
+  assert.equal(step.outcome.type,'soul_burst');
+  assert.deepEqual(step.results.filter(r=>r.kind==='damage').map(r=>r.actualDamage),[5,7,7]);
+  const g=samuraiBattle(t,[8,8,8]);t.mock.method(Math,'random',()=>.7);
+  assert.equal(samuraiCast(g,'sa_cut')[0].outcome.type,'normal');
+  const h=samuraiBattle(t);
+  t.mock.method(h.room,'p8DamageMonster',()=>0);
+  samuraiCast(h,'basic');assert.equal(h.room.getSamuraiSoul(h.player),0);
+});
+for(const stacks of [[1],[4],[8],[8,8,8],[1,2,1]])test('Tsubame fixes N full-party segments in exactly one Action: '+stacks.join('/'),t=>{
+  const f=samuraiBattle(t,stacks),N=stacks.reduce((a,b)=>a+b),steps=samuraiCast(f,'sa_tsubame');
+  assert.equal(steps.length,1);const step=steps[0],hits=step.results.filter(r=>r.kind==='damage');
+  assert.equal(step.outcome.segments,N);assert.equal(hits.length,N*stacks.length);
+  assert.equal(new Set(hits.map(r=>r.resultId)).size,hits.length);
+  for(let i=0;i<N;i++){
+    const segment=hits.filter(r=>r.segmentIndex===i);
+    assert.deepEqual(segment.map(r=>r.rawDamage),stacks.map(n=>i<n?10:2));
+    assert.deepEqual(segment.map(r=>r.actualDamage),segment.map(r=>r.rawDamage));
+    assert.deepEqual(segment.map(r=>r.zanshinConsumed),stacks.map(n=>i<n?1:0));
+  }
+  if(stacks.join('/')==='1/2/1')assert.deepEqual(f.room.enemies.map(e=>10000-e.hp),[16,24,16]);
+  assert.equal(f.room.getSamuraiSoul(f.player),0);assert.equal(f.player.soul,0);
+  assert.ok(f.room.enemies.every(e=>!(e.zanshin?.[f.player.id])));
+  const scope={};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
+  assert.equal(plan.hits.length,hits.length);assert.equal(plan.audio.length,N);
+  assert.equal(new Set(plan.hits.map(h=>h.time)).size,N);
+  assert.ok(plan.hits.every(h=>h.time<plan.duration));
+  assert.equal(plan.startSouls+plan.soulChanges.reduce((n,c)=>n+c.delta,0),0);
+});
+test('Tsubame ignores physical resistance, combines separately rounded B/R once before DEF and retains gear',t=>{
+  const f=samuraiBattle(t,[1,0,0]);f.player.PAtk_gear=8;
+  assert.equal(f.room.skillValue(f.player,'sa_tsubame'),3);assert.equal(f.room.skillValue(f.player,'sa_zanshin'),10);
+  f.player.equips=[{id:'sa_oboro'},{id:'sa_oboro'},{id:'sa_murasame'}];f.player.hp=40;f.player.maxHp=80;
+  f.room.enemies.forEach(e=>{e.DEF=50;e.resistances.physical=100;});
+  const [step]=samuraiCast(f,'sa_tsubame'),hits=step.results.filter(r=>r.kind==='damage');
+  // 13 * (1 + .2 + .125) -> floor 17, then a single 50% DEF reduction -> 8.
+  assert.equal(hits[0].baseDamage,13);assert.equal(hits[0].rawDamage,17);assert.equal(hits[0].actualDamage,8);
+  assert.equal(hits[1].actualDamage,1);assert.equal(hits[2].actualDamage,1);
+});
+test('Tsubame consumes only its source; simultaneous deaths transfer after the whole segment',t=>{
+  const f=samuraiBattle(t,[3,2,0],'samurai'),{room,player}=f;
+  const other=room.players.other;other.action='skip';room.addZanshin(other,room.enemies[0],4);
+  room.enemies[0].hp=1;room.enemies[1].hp=1;
+  const [step]=samuraiCast(f,'sa_tsubame'),hits=step.results.filter(r=>r.kind==='damage');
+  assert.equal(step.outcome.segments,5);
+  assert.deepEqual(hits.filter(r=>r.segmentIndex===0).map(r=>r.rawDamage),[10,10,2]);
+  assert.equal(hits.find(r=>r.segmentIndex===1).rawDamage,10);
+  assert.equal(hits.length,7);
+  assert.ok(hits.every(r=>r.targetBefore.hp>0));
+  assert.equal(room.getSamuraiSoul(player),0);assert.equal(room.getSamuraiSoul(other),4);
+  assert.ok(hits.find(r=>r.segmentIndex===0&&r.targetEnemyId===room.enemies[2].instanceId).zanshinTransfers.some(v=>v.sourceId===player.id&&v.amount===3));
+});
+test('Tsubame stops after a lethal group segment and zero soul rejects lock',t=>{
+  const f=samuraiBattle(t,[8,8,8]);f.room.enemies.forEach(e=>e.hp=1);
+  const [step]=samuraiCast(f,'sa_tsubame');assert.equal(step.results.filter(r=>r.kind==='damage').length,3);
+  assert.equal(step.outcome.segments,24);assert.equal(f.room.getSamuraiSoul(f.player),0);
+  const g=samuraiBattle(t,[0]);
+  g.room.selectionState='SELECTING';
+  assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);
+  g.room.addZanshin(g.player,g.room.enemies[0]);
+  const locked=g.room.lockAction(g.player.id,'sa_tsubame');assert.equal(locked.success,true,locked.message);
+});
+for(const [remaining,existing,expected] of [[5,[7,3],[8,7]],[7,[0,0],[3,4]],[8,[8,7],[8,8]],[5,[],[]]])test('Shared death sweep redistributes with capacity and random remainders: '+remaining+'/'+existing,t=>{
+  const f=samuraiBattle(t,[remaining,...existing]),{room,player}=f;
+  room.enemies[0].hp=0;sweepEnemyDeaths(room);
+  assert.deepEqual(room.enemies.slice(1).map(e=>e.zanshin?.[player.id]||0),expected);
+  assert.deepEqual(room.enemies[0].zanshin,{});
+  const total=room.getSamuraiSoul(player);sweepEnemyDeaths(room);assert.equal(room.getSamuraiSoul(player),total);
+});
+test('Shared death sweep pools simultaneous deaths and another profession killing a marked enemy',t=>{
+  const f=samuraiBattle(t,[3,4,0]);f.room.enemies[0].hp=0;f.room.enemies[1].hp=0;sweepEnemyDeaths(f.room);
+  assert.equal(f.room.enemies[2].zanshin[f.player.id],7);
+  const g=samuraiBattle(t,[3,0,0],'mage');g.player.action='skip';
+  const mage=g.room.players.other;mage.action='basic';mage.targetEnemyId=g.room.enemies[0].instanceId;g.room.enemies[0].hp=1;
+  g.room.resolveTurnActions();assert.equal(g.room.getSamuraiSoul(g.player),3);
+  assert.deepEqual(g.room.enemies.slice(1).map(e=>e.zanshin?.[g.player.id]||0),[1,2]);
+});
+for(const [stacks,haori,murasame,expected] of [
+  [[4,1,0],true,false,[5,1,1]],[[1,1],true,false,[1,3]],[[0],true,false,[2]],[[8],true,false,[8]],[[2,0],true,true,[3,0]]
+])test('Kyoutou marks once using the same highest/lowest snapshot: '+stacks+'/'+haori+'/'+murasame,t=>{
+  const f=samuraiBattle(t,stacks),{room,player}=f;
+  player.equips=[...(haori?[{id:'sa_haori'}]:[]),...(murasame?[{id:'sa_murasame'}]:[])];
+  t.mock.method(room,'roleRandom',()=> 'success');
+  const first=room.p8Incoming(player,10,n=>n);
+  room.p8Incoming(player,10,n=>n);room.p8Incoming(player,10,n=>n,{kind:'dot'});
+  assert.equal(first.damage,murasame?5:0);assert.equal(player.parriedCount,2);
+  assert.deepEqual(room.enemies.map(e=>e.zanshin?.[player.id]||0),expected);
+  const soul=room.getSamuraiSoul(player),queue=[];room.p8EndRound(queue,[],raw=>({dmg:raw}));
+  assert.equal(queue.filter(s=>s.actionId==='sa_counter').length,1);
+  assert.equal(queue.find(s=>s.actionId==='sa_counter').results[0].finalDamage,murasame?24:5);
+  assert.equal(room.getSamuraiSoul(player),soul);
+});
+test('Murasame disables Haori HP and repeated refresh never drifts',t=>{
+  const {room,player}=samuraiBattle(t,[0]);
+  player.equips=[{id:'sa_haori',bonusHp:20},{id:'sa_murasame',bonusHp:-15}];player.maxHp=85;player.hp=85;
+  room.p8RefreshEquipment();assert.equal(player.maxHp,65);assert.equal(player.hp,65);
+  room.p8RefreshEquipment();assert.equal(player.maxHp,65);
+  player.equips=[{id:'sa_haori',bonusHp:20}];player.maxHp+=15;player.hp+=15;
+  room.p8RefreshEquipment();assert.equal(player.maxHp,100);assert.equal(player.hp,100);
+});
+test('Lethal Samurai hit pools the newly added mark and returns transfers in the same Action',t=>{
+  const f=samuraiBattle(t,[3,0,0]);f.room.enemies[0].hp=1;
+  const [step]=samuraiCast(f,'basic');
+  assert.equal(f.room.getSamuraiSoul(f.player),4);
+  assert.deepEqual(f.room.enemies.slice(1).map(e=>e.zanshin[f.player.id]),[2,2]);
+  assert.ok(step.results.filter(r=>r.kind==='status').some(r=>r.targetAfter.statuses.some(s=>s.label==='殘心'&&s.stacks===2)));
+});
+test('Tsubame battlefield playback commits every 24x3 result in order with one opening and full resource updates',async t=>{
+  const f=samuraiBattle(t,[8,8,8]),[step]=samuraiCast(f,'sa_tsubame');
+  const scope={AbortController,DOMException},commits=[],audio=[],frames=[];
+  vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/combat/player-battlefield.js',import.meta.url),'utf8'),scope);
+  scope.preloadSamuraiFxAssets=async()=>{};
+  scope.commitBattlefieldPlayerResult=r=>commits.push(r);
+  scope.createSamuraiPrototypeRenderer=()=>({measure(){},render(time){frames.push(time);},dispose(){},reduceFlash(){}});
+  scope.document={createElement:()=>({})};
+  scope.withBattlefieldSkillStage=async(_step,context,play)=>play({root:{classList:{add(){}}},local:{audioScope:{play:key=>audio.push(key)}},reduced:false,
+    tick:async(duration,render)=>{for(let time=0;time<duration;time+=30)render(time/duration);render(1);},resolveResults:async()=>{}});
+  await scope.playBattlefieldSamurai(step,{});
+  assert.deepEqual(commits.map(r=>r.resultId),step.results.map(r=>r.resultId));
+  assert.equal(commits.filter(r=>r.kind==='damage').length,72);
+  assert.equal(audio.filter(key=>key==='samurai-skill').length,1);
+  assert.equal(audio.filter(key=>key==='samurai-skill2-intro').length,1);
+  assert.ok(frames.at(-1)>1140+23*45);
+});
 function resolutionQueue(events) {
   return events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
 }
@@ -449,7 +627,7 @@ test('Equation confusion, decay and scheduled debt remain one resolution even wi
 for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shield'],mage:['basic','m_blast','m_drain'],assassin:['basic','s_stab','s_smoke'],bard:['basic','b_heal','b_buff'],paladin:['basic','pal_glory','pal_grace'],alchemist:['basic','alc_flask','alc_fate'],archer:['basic','a_rain','a_shot'],stargazer:['basic','sg_observe','sg_clock'],dreamweaver:['basic','dw_butterfly','dw_false_dream'],samurai:['basic','sa_cut','sa_tsubame'],sage:['basic','sge_deduce','sge_induce'],augur:['basic','aug_bind','aug_reckon'],onmyoji:['basic','onm_talisman','onm_detonate'],gladiator:['basic','g_sacrifice','g_arena'],druid:['basic','dru_transform','dru_summon_wolf','dru_summon_treant']})){
   for(const action of actions)test('Phase 4 production battlefield dispatch: '+role+' '+action,t=>{
     const {room,player,events}=phase1Battle(t,role);t.mock.method(Math,'random',()=>.5);
-    if(action==='sa_tsubame')player.soul=8;
+    if(action==='sa_tsubame')room.addZanshin(player,room.enemies[1],8);
     if(action==='dw_butterfly')player.targetPlayerId=player.id;
     if(action==='aug_bind')player.targetPlayerId=player.id;
     player.action=action;room.resolveTurnActions();
@@ -468,7 +646,7 @@ for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shiel
       vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
       vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
       const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
-      const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId===player.targetEnemyId);
+      const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
       assert.equal(plan.hits.length,hits.length);assert.equal(plan.slashes.length,plan.hits.filter(h=>!['miss','dodge'].includes(h.result.outcome?.type)).length);
     }
   });
@@ -633,13 +811,13 @@ for(const branch of ['stable','success','failure'])test('Phase 4 fate synthesis 
   assert.ok(step.results.every(r=>r.targetAfter.statuses.every(s=>s.id!=='poison')));
 });
 test('Phase 4 lethal Tsubame never creates the remaining three visual hits',t=>{
-  const {room,player,events}=phase1Battle(t,'samurai',1);player.soul=8;player.action='sa_tsubame';room.resolveTurnActions();
+  const {room,player,events}=phase1Battle(t,'samurai',1);room.addZanshin(player,room.enemies[1],4);player.action='sa_tsubame';room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sa_tsubame');
   const scope={};vm.createContext(scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
   const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
-  assert.equal(plan.hits.length,1);assert.equal(plan.slashes.length,1);
+  assert.equal(plan.hits.length,3);assert.equal(plan.slashes.length,3);
 });
 test('Phase 4 parry and counter remain separate actual reactions with concrete targets',t=>{
   const {room,player,events}=phase1Battle(t,'samurai');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
@@ -703,7 +881,7 @@ test('Phase 4 battlefield scope owns no portraits and cleans abort, replay and q
   assert.equal(frames.size,0);assert.ok(roots.every(n=>n.removed));
 });
 test('Phase 4 Samurai renderer completes real four-hit choreography without a portrait echo or leaked nodes',t=>{
-  const {room,player,events}=phase1Battle(t,'samurai');player.soul=8;player.action='sa_tsubame';room.resolveTurnActions();
+  const {room,player,events}=phase1Battle(t,'samurai');room.addZanshin(player,room.enemies[1],4);player.action='sa_tsubame';room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sa_tsubame');
   const canvas=new Proxy({}, {get:()=>()=>({addColorStop(){}})});
   class Node{
@@ -719,7 +897,7 @@ test('Phase 4 Samurai renderer completes real four-hit choreography without a po
   const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{}),root=new Node();
   const engine=scope.createSamuraiPrototypeRenderer(root,new Node(),new Node(),plan,{battlefield:true,actorId:player.id,targetId:player.targetEnemyId});
   for(const time of [0,240,740,1140,1215,1290,1365,1950]){engine.measure();engine.render(time);engine.reduceFlash();}
-  engine.dispose();assert.equal(plan.hits.length,4);
+  engine.dispose();assert.equal(plan.hits.length,12);
   assert.equal(actor.children.length,0);assert.equal(target.children.length,0);assert.ok(root.children.every(n=>n.removed));
 });
 for (const [role, action] of [['mage','m_blast'], ['archer','a_rain'], ['alchemist','alc_acid'], ['warrior','basic']]) {
@@ -2469,18 +2647,27 @@ test('all profession announcements remove parenthesized damage annotations',asyn
   }
 });
 
-test('group target markers cover living enemies, distinguish the primary and clear on a single-target selection',()=>{
+for(const [role,action] of [['mage','m_blast'],['alchemist','alc_flask'],['alchemist','alc_acid'],['samurai','sa_cut']])test('group target markers distinguish and switch the primary: '+action,()=>{
   const marks=Array.from({length:3},()=>({style:{},dataset:{},classes:new Set(),animate(){this.animated=true;}}));
   marks.forEach(m=>m.classList={toggle:(c,on)=>on?m.classes.add(c):m.classes.delete(c)});
   const slots=marks.map((m,i)=>({dataset:{enemyId:'e'+i},_currentEnemy:{hp:30},querySelector:()=>m}));
-  const scope={currentPendingAction:'m_blast',currentSelectedEnemyId:'e1',myId:'hero',classesData:{mage:{skills:[]}},roomState:{players:[],enemies:slots.map(s=>({instanceId:s.dataset.enemyId,hp:30}))},getMyPlayer:()=>({id:'hero',role:'mage'}),document:{addEventListener(){},querySelectorAll:()=>slots}};
+  const scope={currentPendingAction:action,currentSelectedEnemyId:'e1',myId:'hero',classesData:{[role]:{skills:[]}},roomState:{players:[],enemies:slots.map(s=>({instanceId:s.dataset.enemyId,hp:30}))},getMyPlayer:()=>({id:'hero',role}),document:{addEventListener(){},querySelectorAll:()=>slots}};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),scope);
   scope.syncEnemyTargetIndicators();assert.ok(marks.every(m=>m.style.display===''));
   assert.ok(marks[1].classes.has('is-primary-target'));assert.ok(marks[0].classes.has('is-secondary-target'));assert.ok(marks.every(m=>m.animated));
+  scope.currentSelectedEnemyId='e2';scope.syncEnemyTargetIndicators();
+  assert.deepEqual(marks.map(m=>m.classes.has('is-primary-target')),[false,false,true]);
+  assert.deepEqual(marks.map(m=>m.classes.has('is-secondary-target')),[true,true,false]);
+  scope.currentSelectedEnemyId='e1';
   scope.currentPendingAction='basic';scope.syncEnemyTargetIndicators();
   assert.deepEqual(marks.map(m=>m.style.display),['none','','none']);
+  assert.ok(marks.every(m=>!m.classes.has('is-primary-target')&&!m.classes.has('is-secondary-target')));
   scope.currentSelectedEnemyId='e2';scope.syncEnemyTargetIndicators();assert.deepEqual(marks.map(m=>m.style.display),['none','none','']);
   slots[2]._currentEnemy.hp=0;scope.syncEnemyTargetIndicators();assert.ok(marks.every(m=>m.style.display==='none'));
+  slots.splice(0,2);slots[0]._currentEnemy.hp=30;scope.currentPendingAction=action;scope.syncEnemyTargetIndicators();
+  assert.equal(marks[2].style.display,'');assert.ok(marks[2].classes.has('is-primary-target'));assert.ok(!marks[2].classes.has('is-secondary-target'));
+  scope.currentPendingAction='alc_poison';scope.syncEnemyTargetIndicators();
+  assert.ok(marks.every(m=>!m.classes.has('is-primary-target')&&!m.classes.has('is-secondary-target')));
 });
 
 test('both inventory battle-item entries use live scoped narration and player eligibility',()=>{

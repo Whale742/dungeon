@@ -28,13 +28,13 @@ function buildSamuraiPresentationPlan(step,context={},mode){
  const id=step.actionId||step.skillId,actor=samuraiActor(step),remembered=samuraiQueueState(context).get(step.sourceId);
  const p={skill:mode||({basic:'attack',sa_cut:'cleave',sa_tsubame:'swallow',sa_counter:'parry'}[id]),valid:step.outcome?.type!=='invalid',duration:860,
   hits:[],slashes:[],incoming:[],audio:[],soulChanges:[],startSouls:actor.soul||0,seed:9,guard:false,options:{curse:false},counterAt:null};
- const results=step.results||[],damage=results.filter(r=>r.targetId==='monster'&&r.kind==='damage');
+ const results=step.results||[],damage=results.filter(r=>r.kind==='damage'&&(r.targetId==='monster'||r.targetEnemyId||r.targetBefore?.instanceId));
  const hit=(result,time,kind,angle,extra={})=>{const h={result,time,start:time-18,index:p.hits.length,value:result.finalDamage??result.value,target:'boss',kind,angle,displayText:samuraiDamageText(result),...extra};p.hits.push(h);if(!['miss','dodge'].includes(result.outcome?.type))p.slashes.push(h);p.audio.push({time,type:kind==='arc'?'arc':kind==='counter'?'counter':'slash',power:h.heavy?1.35:1});};
  if(p.skill==='attack'){if(damage[0])hit(damage[0],228,'arc',-.3);p.soulChanges=samuraiSoulChanges(step,step.sourceId,355);}
  if(p.skill==='cleave'){
   // The source split/screen-slice envelopes end at 1685ms; allow their full tail before disposing.
   p.duration=1685;p.burst=step.outcome?.type==='soul_burst';p.lock={start:115,end:668};p.heavyFreeze={start:685,end:748};
-  if(damage[0])hit(damage[0],685,'line',-.485,{heavy:true,burst:p.burst,offsetY:8});
+  damage.forEach(r=>hit(r,685,'line',-.485,{heavy:true,burst:p.burst,offsetY:8}));
   if(p.burst){p.flashAt=685;p.audio.push({time:685,type:'chime',power:.6});}
   if(actor.soul===0)p.buffAt=790;p.soulChanges=samuraiSoulChanges(step,step.sourceId,880);
  }
@@ -42,7 +42,15 @@ function buildSamuraiPresentationPlan(step,context={},mode){
   p.duration=1950;p.eye={start:240,open:740,end:1110};p.gather={start:120,end:320};
   // Stretch only the prelude; retain the source choreography after opening.
   p.prelude={sourceEnd:p.eye.open,duration:1000};p.introSound='samurai-skill2-intro';
-  if(p.valid){damage.forEach((r,i)=>hit(r,1140+i*75,'line',[-.54,.57,-.095,-.81][i],{final:i===damage.length-1,ignore:true,heavy:i===damage.length-1,offsetY:[-3,4,-6,0][i]}));p.flashAt=1390;p.audio.push({time:1390,type:'finish',power:.85});p.soulChanges=samuraiSoulChanges(step,step.sourceId,1240);}
+  if(p.valid){
+   p.segments=step.outcome?.segments||Math.max(0,...damage.map((r,i)=>(r.segmentIndex??i)+1));
+   p.interval=p.segments>8?45:75;
+   damage.forEach((r,i)=>{const segment=r.segmentIndex??i;hit(r,1140+segment*p.interval,'line',[-.54,.57,-.095,-.81][segment%4],{segmentIndex:segment,final:segment===p.segments-1,ignore:true,heavy:segment===p.segments-1,offsetY:[-3,4,-6,0][segment%4]});});
+   const last=Math.max(1140,...p.hits.map(h=>h.time));p.duration=Math.max(1950,last+600);p.flashAt=last+25;
+   let souls=actor.soul||0;
+   for(const r of results)if(r.kind==='resource'&&r.targetId===step.sourceId&&Number.isFinite(r.targetAfter?.soul)){const next=r.targetAfter.soul;p.soulChanges.push({time:1140+(r.segmentIndex??p.segments)*p.interval,delta:next-souls});souls=next;}
+   if(!p.soulChanges.length)p.soulChanges=samuraiSoulChanges(step,step.sourceId,last+40);
+  }
  }
  if(id==='sa_counter'){
   p.guard=true;p.counterAt=135;p.enemyPhaseEnd=0;p.duration=755;
@@ -55,7 +63,7 @@ function buildSamuraiPresentationPlan(step,context={},mode){
  if(['cleave','swallow'].includes(p.skill)||(id==='sa_counter'&&p.valid&&p.hits.length)){
   p.castSound='samurai-skill';p.suppressImpactAudio=true;
   // Every visual cut has its own cue, including the tail after a lethal server result.
-  p.audio=(p.skill==='swallow'&&p.valid?p.slashes:p.hits).map(h=>({time:h.time,type:'slash',power:1,key:id==='sa_counter'?'assassin-pursuit':p.skill==='cleave'||h.index===3?'sword-slash-heavy':'assassin-pursuit'}));
+  p.audio=[...new Map((p.skill==='swallow'&&p.valid?p.slashes:p.hits).map(h=>[h.time,h])).values()].map(h=>({time:h.time,type:'slash',power:1,key:id==='sa_counter'?'assassin-pursuit':p.skill==='cleave'||h.final?'sword-slash-heavy':'assassin-pursuit'}));
  }
  p.audio.sort((a,b)=>a.time-b.time);return p;
 }
@@ -103,7 +111,7 @@ async function runSamuraiChoreography(step,context,plans){
     const {plan,actorId}=plans[i],actor=samuraiActor(step,actorId);
     const player=makeCard({targetId:actorId,targetBefore:actor}),boss=i===0?makeCard(bossResult):createResultCard({...bossResult,monsterName:step.monsterName,monsterAvatar:step.monsterAvatar});
     const lane=document.createElement('div');lane.className='samurai-fx-owner';canvas.appendChild(lane);
-    const engine=createSamuraiPrototypeRenderer(lane,player,boss,plan,local);engines.push(engine);liftNumbers(player);liftNumbers(boss);
+    const engine=createSamuraiPrototypeRenderer(lane,player,boss,plan,{...local,targetElement:result=>cards.get(result?.targetId)?.querySelector('.presentation-result-portrait')});engines.push(engine);liftNumbers(player);liftNumbers(boss);
     if(i>0){const p=lane.querySelector('.samurai-player');p.style.left=(14.5+i*23)+'%';p.style.top='49%';p.style.width='14%';boss.style.visibility='hidden';engine.measure();}
     // Allocation and decode happen before the playhead starts.
    }
@@ -122,7 +130,7 @@ async function runSamuraiChoreography(step,context,plans){
    const otherJobs=[],otherErrors=[],previous=new Map();
    const motion=(node,keys,ms)=>{const a=node.animate(keys,{duration:ms/(context.speed||1),fill:'forwards'});animations.add(a);a.finished.catch(()=>{});return a;};
    const track=job=>{otherJobs.push(job.catch(error=>{if(error.name!=='AbortError')otherErrors.push(error);}));};
-   for(const [index,result] of (step.results||[]).entries())if(!handled.has(result))scheduled.push({time:step.type==='boss_action'?260+index*235:sourceDuration-100,result,generic:true});
+   for(const [index,result] of (step.results||[]).entries())if(!handled.has(result))scheduled.push({time:step.type==='boss_action'?260+index*235:step.actionId==='sa_tsubame'&&Number.isFinite(result.segmentIndex)?1140+result.segmentIndex*plans[0].plan.interval:['status','resource'].includes(result.kind)?Math.max(0,...plans[0].plan.hits.map(h=>h.time)):sourceDuration-100,result,generic:true});
    scheduled.sort((a,b)=>a.time-b.time);
    // Wait for actual intro playback before starting the visual clock.
    const intro=plans.find(x=>x.plan.introSound)?.plan.introSound;
@@ -151,6 +159,11 @@ async function runSamuraiChoreography(step,context,plans){
        while(eventCursor<scheduled.length&&scheduled[eventCursor].time<=t){
         const e=scheduled[eventCursor++];if(committed.has(e.result))continue;committed.add(e.result);
         if(e.generic){
+         if(['status','resource'].includes(e.result.kind)){
+          updateResultCard(cards.get(e.result.targetId),e.result.targetAfter);
+          if(typeof applyAuthoritativeResult==='function')applyAuthoritativeResult(e.result);
+          continue;
+         }
          const predecessor=previous.get(e.result.targetId);
          const job=(async()=>{if(predecessor)await predecessor;if(!signal.aborted)await presentCombatResult(e.result,cards.get(e.result.targetId),{...local,prewarmed:true,motion});})();
          previous.set(e.result.targetId,job);track(job);

@@ -291,6 +291,11 @@ async function playBattlefieldSamurai(step,context) {
     const stub=()=>{const node=document.createElement('div');node.innerHTML='<div class="presentation-result-hit"><span class="presentation-result-portrait"></span></div>';return node;};
     const engine=createSamuraiPrototypeRenderer(s.root,stub(),stub(),plan,{...context,actorId:step.sourceId,targetId:battlefieldPlayerTarget(step),reducedMotion:s.reduced});
     const committed=new Set(),cues=new Set();
+    const jobs=(step.results||[]).map(result=>{
+      const hit=plan.hits.find(h=>h.result.resultId===result.resultId);
+      const time=hit?.time??(plan.skill==='swallow'&&Number.isFinite(result.segmentIndex)?1140+result.segmentIndex*plan.interval:Math.max(0,...plan.hits.map(h=>h.time)));
+      return {result,time,hit};
+    });
     try{
       if(plan.castSound)s.local.audioScope.play(plan.castSound,{noHold:true});
       if(plan.introSound)s.local.audioScope.play(plan.introSound,{noHold:true});
@@ -298,9 +303,9 @@ async function playBattlefieldSamurai(step,context) {
         const time=samuraiVisualTime(p*samuraiPlaybackDuration(plan),plan);engine.measure();engine.render(time);
         if(s.reduced)engine.reduceFlash();
         for(const event of plan.audio)if(time>=event.time&&!cues.has(event)){cues.add(event);samuraiSound(event,s.local.audioScope,step);}
-        for(const hit of plan.hits)if(time>=hit.time&&!committed.has(hit.result)){
-          committed.add(hit.result);commitBattlefieldPlayerResult(hit.result,step,s.local);
-          s.local.onTiming?.('samurai_slash',{step,index:hit.index,time});
+        for(const job of jobs)if(time>=job.time&&!committed.has(job.result)){
+          committed.add(job.result);commitBattlefieldPlayerResult(job.result,step,s.local);
+          if(job.hit)s.local.onTiming?.('samurai_slash',{step,index:job.hit.index,segmentIndex:job.result.segmentIndex,targetId:job.result.targetId,time});
         }
       });
       await s.resolveResults();

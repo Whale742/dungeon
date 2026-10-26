@@ -51,7 +51,7 @@ node('zanSlash','zan-slash',zan);
 imageNode('titleImage','title-image','/assets/combat-fx/samurai/swallow-title.png',node('swallowTitleIcon','swallow-title-icon'));
 node('guardTag','guard-tag',player).textContent='狂刀';node('guardSub','guard-sub',player);node('soulGain','floating-gain',player);
 const soulWrap=node('soulWrap','soul-wrap',player),soulPips=node('soulPips','soul-pips',soulWrap);
-const pips=Array.from({length:8},()=>node('pip','soul-pip',soulPips));node('soulCount','soul-count',soulWrap);
+const pipCount=Math.min(8,plan.startSouls||0),pips=Array.from({length:pipCount},()=>node('pip','soul-pip',soulPips));node('soulCount','soul-count',soulWrap);
 const box=root.getBoundingClientRect(),pr=playerPortrait.getBoundingClientRect(),br=bossPortrait.getBoundingClientRect();
 const anchor=r=>({x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height});
 const geometry={w:box.width,h:box.height,dpr:Math.min(devicePixelRatio||1,2),p:anchor(pr),b:anchor(br),pips:pips.map(el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2};})};
@@ -65,8 +65,8 @@ const damageNodes=context.battlefield?[]:[...plan.hits,...plan.incoming.filter(h
 function renderDamage(t){
  const p=plan,{w,p:pl,b}=geometry,scale=w/1000;
  const soul=plan.soulChanges.reduce((n,c)=>t>=c.time?n+c.delta:n,plan.startSouls);
- dom.soulCount.textContent=String(soul).padStart(2,'0')+' / 08';
- for(let i=0;i<8;i++){pips[i].classList.toggle('lit',i<soul);let opacity=1;if(plan.gather&&t>=plan.gather.start&&t<plan.gather.end&&i>=plan.startSouls-4&&i<plan.startSouls)opacity=1-clamp((t-plan.gather.start)/(plan.gather.end-plan.gather.start))*.9;pips[i].style.opacity=String(opacity);}
+ dom.soulCount.textContent='武魂：'+Math.max(0,soul);
+ for(let i=0;i<pips.length;i++){pips[i].classList.toggle('lit',i<soul);pips[i].style.opacity='1';}
  for(const obj of damageNodes){
    const hit=obj.hit,m=t-hit.time,life=hit.kind==='arc'?490:p.skill==='swallow'?570:640;
    const visible=m>=0&&m<life,progress=clamp(m/life),a=visible?clamp(m/22)*(1-smooth((progress-.5)/.5)):0;
@@ -171,9 +171,9 @@ function drawGather(t,p){
    ctx.strokeStyle=i%4?'#7dd7ff':'#e7fbff';ctx.lineWidth=i%5?1*scale:1.7*scale;
    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(theta)*len,y+Math.sin(theta)*len*.8);ctx.stroke();
  }
- // Four of the actual soul pips travel to the portrait, not arbitrary stage coordinates.
- for(let i=0;i<4;i++){
-   const origin=geometry.pips[Math.max(0,p.startSouls-4+i)]||{x:a.x,y:a.y+a.h};
+ // Decorative motes are capped; the count and authoritative results retain all souls.
+ for(let i=0;i<Math.min(8,p.startSouls);i++){
+   const origin=geometry.pips[i]||{x:a.x,y:a.y+a.h};
    const r=clamp((q-i*.035)/.895),f=in3(r),x=lerp(origin.x,a.x,f)+Math.sin(r*Math.PI)*(i-1.5)*12*scale,y=lerp(origin.y,a.y,f);
    const prev=clamp(r-.045),fp=in3(prev),px=lerp(origin.x,a.x,fp)+Math.sin(prev*Math.PI)*(i-1.5)*12*scale,py=lerp(origin.y,a.y,fp);
    ctx.globalAlpha=(1-clamp((r-.9)/.1))*.85;ctx.strokeStyle='#a4e8ff';ctx.lineWidth=1.6*scale;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(x,y);ctx.stroke();
@@ -245,7 +245,13 @@ function renderCanvas(t,p){
  if(p.counterAt)drawSpeedLines(t,p.counterAt-94,205,1.2);
  for(const inc of p.incoming)drawIncoming(t,inc,p);
  if(p.skill==='parry')drawParryMarks(t,p);
- for(const h of p.slashes){if(h.kind==='arc')drawArc(h,t);else drawLineHit(h,t);}
+ const primary=geometry.b;
+ for(const h of p.slashes){
+   const target=context.battlefield?battlefieldVisualElement(h.result?.canonicalTargetId||h.result?.targetEnemyId||context.targetId):context.targetElement?.(h.result);
+   if(target)geometry.b=anchor(target.getBoundingClientRect());
+   if(h.kind==='arc')drawArc(h,t);else drawLineHit(h,t);
+ }
+ geometry.b=primary;
  drawRelight(t,p);
 }
 function parryCountAt(p,t){let n=0;for(const inc of p.incoming)if(inc.guard&&t>=inc.time)n++;return n;}

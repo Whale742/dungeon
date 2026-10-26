@@ -2851,7 +2851,7 @@ export class Room {
     if (player.hp <= 0) return { success: false, message: '你已陣亡，無法行動' };
     if ((this.arena || this.enemyArena) && (this.arena || this.enemyArena).playerId !== player.id) return {success:false,message:'死亡競技場期間無法行動'};
     if(player.role==='sage'&&player.sagePhase==='solve'&&player.sagePreviousAction===actionId)return {success:false,message:'求解階段不可重複上一回合的技能'};
-    if (actionId === 'sa_tsubame' && (player.soul||0)<4) return {success:false,message:'燕返需要 4 劍魂'};
+    if (actionId === 'sa_tsubame' && this.getSamuraiSoul(player)<1) return {success:false,message:'燕返需要至少 1 層武魂'};
     if (actionId === 'pal_grace' && targetPlayerId && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp <= 0)) return { success: false, message: '請指定存活隊友' };
     if (actionId === 'aug_bind') {
       const others=Object.values(this.players).filter(p=>p.hp>0 && p.id!==player.id);
@@ -2992,6 +2992,7 @@ export class Room {
 
   // 擊敗怪物勝利結算
   handleMonsterVictory(monster = this.currentMonster, log = [], visualEvents = [], skipEmit = false) {
+    this.clearZanshin();
     this.clearTimer();
     this.clearAugurBattleDebts();
     this.isNarrating = false;
@@ -7885,6 +7886,7 @@ export class Room {
   }
 
   handleGameOver() {
+    this.clearZanshin();
     this.clearAugurBattleDebts();
     this.p8ExitArena();
     for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;}

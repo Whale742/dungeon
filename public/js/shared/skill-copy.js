@@ -3,7 +3,7 @@ let skillCopyDetailed=localStorage.getItem('skillCopyDetailed')==='true';
 let skillCopyDefaults={};
 let skillCopyDetails={};
 function skillCopyOverrides(){try{return JSON.parse(localStorage.getItem('skillCopyOverrides')||'{}');}catch{return {};}}
-function registerSkillCopies(classes,details){skillCopyDefaults=classes||{};if(details)skillCopyDetails=details;}
+function registerSkillCopies(classes,details){skillCopyDefaults=classes||{};if(details)skillCopyDetails=details;window.StudioContent?.registerMechanicsCopy?.(classes,details);}
 function setSkillCopyDetailed(value){skillCopyDetailed=!!value;localStorage.setItem('skillCopyDetailed',String(skillCopyDetailed));}
 function getSkillDescription(role,skill,detailed=skillCopyDetailed){
  const copy=getSkillCopyDescription(role,skill,detailed);
