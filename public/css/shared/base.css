@@ -7240,14 +7240,27 @@ body.presentation-opening .narrative-controls,
 .battle-enemy-slot .enemy-status-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 1px 4px;
+  min-width: 22px;
+  width: auto;
+  height: 22px;
+  padding: 2px 3px;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
-  background: var(--surface-inset);
-  border: 1px solid var(--color-border-subtle);
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   color: var(--color-warm-white);
+  box-sizing: border-box;
+}
+.battle-enemy-slot .enemy-status-badge .enemy-buff-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
 /* CD Indicator floating above monster */
@@ -8672,10 +8685,20 @@ body.presentation-opening .narrative-controls,
 /* ==========================================================================
    Leader Skill UI (Skill row button & Class Exclusive Buff Icon)
    ========================================================================== */
-.teammate-buff-item.teammate-buff-exclusive {
+.teammate-buff-item.teammate-buff-exclusive,
+.hud-status-icon.teammate-buff-exclusive {
   background: rgba(30, 41, 59, 0.9);
   border: 1px solid var(--rarity-exclusive, #ffd700);
   box-shadow: 0 0 6px rgba(255, 215, 0, 0.3);
+}
+
+.hud-status-icon .hud-status-icon-inner,
+.hud-status-icon .exclusive-buff-icon-svg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .exclusive-buff-icon-svg {

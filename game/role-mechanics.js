@@ -707,7 +707,7 @@ export const phase8Methods = {
           this.stargazerBoundaryScoutedNext = true;
           this.p8Log('🌌 【界外星圖】觀星者隊長勘破宇宙邊界！次回合路線中的三條路事件全數洞悉揭曉！');
         }
-        if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':enhanced?'sg_eye_planet':'sg_planet'))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;outcome.stunned=true;}}
+        if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':enhanced?'sg_eye_planet':'sg_planet'))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;m.stunnedThisRound=true;outcome.stunned=true;}}
         if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:this.skillValue(p,enhanced?'sg_eye_galaxy':'sg_bonus'),separate:enhanced,sourceId:p.id});
         if(id==='blackhole') {
           const boss=enhanced?this.getLivingEnemies().find(e=>['ELITE','ABYSS'].includes(e.tier)):m;

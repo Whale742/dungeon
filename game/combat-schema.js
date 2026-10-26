@@ -21,9 +21,15 @@ export const SKILL_CATEGORIES = Object.freeze({
 export function companionSnapshot(minion,owner,room){
   const statuses=mechanicStatuses(minion,room);
   for(const [id,label,icon] of [['bleed','流血','bleed'],['poison','中毒','poison'],['burn','燃燒','burn'],['fracture','骨折','fracture'],['chill','寒冷','chill']]){
-    if(minion[id+'Turns']>0)statuses.push({id,label,icon,turns:minion[id+'Turns'],value:minion[id+'Dmg']||0,isDot:true,isNegative:true,category:'DEBUFF'});
+    if(minion[id+'Turns']>0){
+      const dmg=minion[id+'Dmg']||0;
+      statuses.push({id,label,icon,turns:minion[id+'Turns'],value:dmg,...(dmg>0?{damage:dmg}:{}),isDot:true,isNegative:true,category:'DEBUFF'});
+    }
   }
-  for(const status of statuses)if(status.id==='ember'||status.id.startsWith('flask_'))status.isDot=true;
+  for(const status of statuses)if(status.id==='ember'||status.id.startsWith('flask_')){
+    status.isDot=true;
+    if(typeof status.value==='number'&&status.value>0&&status.damage===undefined)status.damage=status.value;
+  }
   return {...structuredClone(minion),ownerId:owner.id,owner:owner.name,attack:minion.attack??minion.atk,atk:minion.attack??minion.atk,statuses};
 }
 
@@ -32,15 +38,15 @@ export function playerStatuses(player, room, balance) {
   const add = (id, label, icon, turns = 0, extra = {}) => statuses.push({ id, label, icon, turns, ...extra });
   if (player.hp <= 0) add('downed', '倒下・本層無法行動', 'downed');
   if (player.role==='paladin'&&player.hp>0) add('paladin_target_weight','神聖嘲諷・受擊權重 ↑','guard',0,{category:'BUFF',desc:'提高被選為目標的權重，不保證敵人鎖定。'});
-  if (player.poisonTurns) add('poison', 'POISON', 'poison', player.poisonTurns, { stacks: player.poisonDmg, isNegative:true, category:'DEBUFF', isDot:true });
-  if (player.burnTurns) add('burn', 'BURN', 'burn', player.burnTurns, { stacks: player.burnDmg, isNegative:true, category:'DEBUFF', isDot:true });
-  if (player.fractureTurns) add('fracture', 'FRACTURE', 'fracture', player.fractureTurns, { stacks: player.fractureDmg, isNegative:true, category:'DEBUFF', isDot:true });
-  if (player.chillTurns) add('chill', 'CHILL', 'chill', player.chillTurns, { stacks: player.chillDmg, isNegative:true, category:'DEBUFF', isDot:true });
-  if (player.corrosionTurns) add('corrosion', 'CORROSION', 'corrosion', player.corrosionTurns, { isNegative:true, category:'DEBUFF' });
-  if (player.bleedTurns) add('bleed', 'BLEED', 'bleed', player.bleedTurns, {isNegative:true,category:'DEBUFF',isDot:true});
-  if (player.cannotCrit) add('crit_lock', 'CRIT LOCK', 'lock', 1);
-  if (player.archerNextDodgeBonus) add('dodge_bonus', 'DODGE ↑', 'dodge', 1, { value: '+' + player.archerNextDodgeBonus * 100 + '%' });
-  if (player.stunnedNextTurn || player.nextTurnStunFlag) add('exhausted', 'EXHAUSTED', 'exhausted', 1);
+  if (player.poisonTurns) add('poison', '中毒', 'poison', player.poisonTurns, { ...(player.poisonDmg > 0 ? { damage: player.poisonDmg } : {}), isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.burnTurns) add('burn', '燃燒', 'burn', player.burnTurns, { ...(player.burnDmg > 0 ? { damage: player.burnDmg } : {}), isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.fractureTurns) add('fracture', '骨折', 'fracture', player.fractureTurns, { ...(player.fractureDmg > 0 ? { damage: player.fractureDmg } : {}), isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.chillTurns) add('chill', '寒冷', 'chill', player.chillTurns, { ...(player.chillDmg > 0 ? { damage: player.chillDmg } : {}), isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.corrosionTurns) add('corrosion', '腐蝕', 'corrosion', player.corrosionTurns, { isNegative:true, category:'DEBUFF' });
+  if (player.bleedTurns) add('bleed', '流血', 'bleed', player.bleedTurns, { ...(player.bleedDmg > 0 ? { damage: player.bleedDmg } : {}), isNegative:true, category:'DEBUFF', isDot:true });
+  if (player.cannotCrit) add('crit_lock', '無法爆擊', 'lock', 1);
+  if (player.archerNextDodgeBonus) add('dodge_bonus', '閃避提升 ↑', 'dodge', 1, { value: '+' + player.archerNextDodgeBonus * 100 + '%' });
+  if (player.stunnedNextTurn || player.nextTurnStunFlag) add('exhausted', '疲勞', 'exhausted', 1);
   if (player.druidForm === 'tree') add('sleep', '沉睡古樹', 'sleep', player.druidFormTurns);
   if (player.druidForm === 'treant' || player.druidForm === 'tree') add('treant_guard', 'DR ' + balance.treantDamageReduction * 100 + '%', 'guard', player.druidFormTurns);
   if (player.druidForm === 'bear') add('bear', '巨熊形態', 'transform', player.druidFormTurns);
@@ -58,7 +64,10 @@ export function playerStatuses(player, room, balance) {
   }
   if (player.isSurrendered) add('surrender', '血脈臣服', 'lock', 0, { locked: true });
   if (player.hp > 0) {
-    if ((room.roundModifiers?.acidFlaskCount||0)>0 || (room.roundModifiers?.equipmentEffectMultiplier??1)<1 || player.alcAcidStack>0) add('alchemy_corrosion','強酸腐蝕・裝備效果降低','debuff',1,{isNegative:true,category:'DEBUFF',stacks:(room.roundModifiers?.acidFlaskCount||0)+(player.alcAcidStack||0)});
+    if ((room.roundModifiers?.acidFlaskCount||0)>0 || (room.roundModifiers?.equipmentEffectMultiplier??1)<1 || player.alcAcidStack>0) {
+      const acidStacks = (room.roundModifiers?.acidFlaskCount||0)+(player.alcAcidStack||0);
+      add('alchemy_corrosion','強酸腐蝕・裝備效果降低','debuff',1,{isNegative:true,category:'DEBUFF',...(acidStacks>0?{stacks:acidStacks}:{})});
+    }
     if (room.warriorShieldTurn) add('guard', 'GUARD', 'guard', room.warriorShieldTurn === 1 ? 2 : 1);
     if (room.alcVulnerableTurns || room.alcVulnerableNextTurn) add('alchemy_vulnerable', 'VULNERABLE', 'debuff', 1);
     if (room.frenzyTeamDrainNextTurn) add('frenzy', 'DMG +70% · 次回合代價', 'buff', 1);

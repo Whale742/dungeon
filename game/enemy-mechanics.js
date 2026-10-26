@@ -127,7 +127,10 @@ const lowest = list => [...list].sort((a,b) => a.hp / a.maxHp - b.hp / b.maxHp)[
 export const enemyEffect = (room, p, id) => p?.enemyEffects?.[id]?.until >= room.battleRound ? p.enemyEffects[id] : null;
 export function mechanicStatuses(unit, room) {
   const result = Object.entries(unit.enemyEffects || {}).filter(([,e]) => e.until >= room.battleRound)
-    .map(([id,e]) => ({ id, ...e, icon: 'debuff', isNegative: true, category: 'DEBUFF', turns: Math.max(1,e.until-room.battleRound) }));
+    .map(([id,e]) => {
+      const isDot = id === 'ember' || id.startsWith('flask_');
+      return { id, ...e, ...(isDot ? { isDot: true, ...(typeof e.value === 'number' && e.value > 0 ? { damage: e.value } : {}) } : {}), icon: 'debuff', isNegative: true, category: 'DEBUFF', turns: Math.max(1,e.until-room.battleRound) };
+    });
   if (!unit.instanceId || !state(unit).id) return result;
   const s = state(unit);
   result.push({ id: 'enemy_mechanic', label: LABELS[s.id] || unit.ultName, icon: 'buff',

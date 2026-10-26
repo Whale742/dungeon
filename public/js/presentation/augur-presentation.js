@@ -183,7 +183,9 @@ class AugurPresentationEngine {
       node.querySelector('.augur-combatant-name').textContent=entity.name || descriptor.name || '';
       const statuses=node.querySelector('.augur-statuses');statuses.replaceChildren();
       for(const status of [...(entity.statuses || []),...(entity.phase8Statuses || [])].filter((s,i,all)=>all.findIndex(a=>a.id===s.id)===i).slice(0,5)) {
-        const tag=document.createElement('span');tag.textContent=`${status.label}${status.turns?` · ${status.turns}T`:''}${status.stacks?` ${status.stacks}`:''}`;statuses.appendChild(tag);
+        const hasStacks=typeof status.stacks==='number'&&status.stacks>0;
+        const dotDmg=typeof status.damage==='number'&&status.damage>0?status.damage:(status.isDot&&typeof status.value==='number'&&status.value>0?status.value:null);
+        const tag=document.createElement('span');tag.textContent=`${status.label}${hasStacks?` ×${status.stacks}`:''}${dotDmg!==null?` · 每回合 ${dotDmg} 傷害`:''}${status.turns?` · 剩餘 ${status.turns} 回合`:''}`;statuses.appendChild(tag);
       }
     };
     fill(this.actorNode,actor,{...actor,role:'augur',name:actor.name || this.step.sourceName});

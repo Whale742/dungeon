@@ -154,12 +154,32 @@ const BattleHud = (() => {
     byId('hudPlayerResource').textContent = [player.resourceSummary,`DEF ${player.DEF || 0}`].filter(Boolean).join(' · ');
     const statusHost=byId('hudPlayerStatuses');
     statusHost.innerHTML = (player.statuses||[]).map(status=>{
-      const icon=getBuffIconUrl(status);
-      return `<button type="button" class="hud-status-icon" aria-label="${escapeHtml(status.label||status.id)}">${icon?`<img src="${escapeHtml(icon)}" alt="">`:getIconSvg(status.icon||'status')}</button>`;
+      const isLeader = typeof isLeaderSkillStatus === 'function'
+        ? isLeaderSkillStatus(status)
+        : Boolean(status && (status.isLeaderPassive || status.isLeaderSkill || String(status.id || '').toLowerCase().startsWith('leader_')));
+      const inner = typeof renderStatusIconMarkup === 'function'
+        ? renderStatusIconMarkup(status, { variant: 'hud', contextRole: player.role })
+        : (() => {
+            const icon = getBuffIconUrl(status);
+            return icon ? `<img src="${escapeHtml(icon)}" alt="">` : getIconSvg(status.icon || 'status');
+          })();
+      const hasStacks=typeof status.stacks==='number'&&status.stacks>0;
+      return `<button type="button" class="hud-status-icon${isLeader?' teammate-buff-exclusive':''}" aria-label="${escapeHtml((status.label||status.id)+(hasStacks?` ×${status.stacks}`:''))}"><span class="hud-status-icon-inner">${inner}</span></button>`;
     }).join('');
     [...statusHost.children].forEach((button,index)=>{
       const status=player.statuses[index];
-      const show=()=>{const tip=byId('battleSkillTooltip');tip.textContent=[status.label||status.id,status.desc,status.value!==undefined?String(status.value):'',status.stacks?'層數 '+status.stacks:'',status.turns?'持續 '+status.turns+' 回合':''].filter(Boolean).join(' · ');tip.classList.add('visible');tip.setAttribute('aria-hidden','false');positionFloatingTooltip(button,tip);};
+      const show=()=>{
+        const tip=byId('battleSkillTooltip');
+        if(typeof formatStatusDisplay==='function'){
+          tip.textContent=formatStatusDisplay(status).fullTitle;
+        }else{
+          const dotDmg=typeof status.damage==='number'&&status.damage>0?status.damage:(status.isDot&&typeof status.value==='number'&&status.value>0?status.value:null);
+          const nonDotVal=!status.isDot&&status.damage===undefined&&status.value!==undefined&&status.value!==''?String(status.value):'';
+          const stacksText=typeof status.stacks==='number'&&status.stacks>0?`×${status.stacks}`:'';
+          tip.textContent=[`${status.label||status.id}${stacksText?' '+stacksText:''}`,dotDmg!==null?`每回合 ${dotDmg} 傷害`:nonDotVal,status.turns>0?`剩餘 ${status.turns} 回合`:'',status.desc].filter(Boolean).join('｜');
+        }
+        tip.classList.add('visible');tip.setAttribute('aria-hidden','false');positionFloatingTooltip(button,tip);
+      };
       for(const event of ['mouseenter','focus','click'])button.addEventListener(event,show);
       button.addEventListener('mouseleave',hideTooltip);button.addEventListener('blur',hideTooltip);
     });
