@@ -510,7 +510,7 @@ const BUFF_ICON_MAP = {
   overload: '/assets/icons/status/狂熱.webp',
   blood_heal: '/assets/icons/status/狂熱.webp',
   rage: '/assets/icons/status/狂熱.webp',
-  gladiator_inspiration: '/assets/icons/status/狂熱.webp',
+  gladiator_inspiration: '/assets/icons/status/鼓舞.png',
   gladiator_challenge: '/assets/icons/status/破綻印記.webp',
   soul: '/assets/icons/status/狂熱.webp',
   galaxy: '/assets/icons/status/星系追擊.webp',

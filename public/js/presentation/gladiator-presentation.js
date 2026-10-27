@@ -186,7 +186,8 @@ async function playGladiatorChallengePresentation(step,s){
   };
   const initial=geometry();if(!initial){await settle();return;}
   const {start}=initial;
-  const sword=fx('gladiator-gladius',start.x,start.y,'<svg viewBox="-60 -60 120 120" aria-hidden="true"><g class="gladiator-gladius-motion"><g transform="rotate(-90)"><path d="M-9-32H9V-2L0 58-9-2Z" fill="#c2b9a2" stroke="#745434" stroke-width="2"/><path d="M0-32V51" stroke="#e6d6b1"/><path d="M-22-34H22V-27H-22Z" fill="#bd8c46"/><path d="M-5-57H5V-34H-5Z" fill="#44271c" stroke="#bd8c46" stroke-width="2"/></g></g></svg>');
+  // Normalize the diagonal source art to point right; the existing spin plants it downward.
+  const sword=fx('gladiator-gladius',start.x,start.y,'<svg viewBox="-60 -60 120 120" aria-hidden="true"><g class="gladiator-gladius-motion"><image href="/assets/combat-fx/gladiator/古羅馬劍.png" x="-42" y="-42" width="84" height="84" preserveAspectRatio="xMidYMid meet" transform="rotate(-135)"/></g></svg>');
   const blade=sword.querySelector('.gladiator-gladius-motion');
   emit('gladiator_challenge_sink');
   if(motion)animate(motion,[{transform:'translateY(0)'},{transform:`translateY(${reduced?2:12}px) scale(.96)`}],t.prepare);
