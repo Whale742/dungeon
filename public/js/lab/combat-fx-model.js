@@ -3,12 +3,35 @@ export const clone = value => structuredClone(value);
 export function actorFor(config) {
   return [...config.party, ...config.enemies].find(p => p.id === config.actorId || p.instanceId === config.actorId);
 }
+// Match DevRoleResources: soul is the source's marks on living enemies, capped
+// at eight per enemy. These edit preview configuration, never a live room.
+export function syncLabSouls(config){
+  for(const e of config.enemies)if(e.hp<=0)e.zanshin={};
+  for(const p of config.party.filter(p=>p.role==='samurai')){
+    p.soul=config.enemies.filter(e=>e.hp>0).reduce((n,e)=>n+(e.zanshin?.[p.id]||0),0);
+    p.resourceSummary='武魂：'+p.soul;
+  }
+  for(const e of config.enemies)e.statuses=[...(e.statuses||[]).filter(s=>!s.id?.startsWith('zanshin_')),
+    ...config.party.filter(p=>p.role==='samurai'&&(e.zanshin?.[p.id]||0)>0).map(p=>({id:'zanshin_'+p.id,label:'殘心',icon:'debuff',sourceId:p.id,stacks:e.zanshin[p.id],isNegative:true}))];
+}
+export function setLabSoul(config,id,value){
+  let n=Math.max(0,Math.min(8*config.enemies.filter(e=>e.hp>0).length,Math.trunc(Number(value)||0)));
+  for(const e of config.enemies){e.zanshin ||= {};e.zanshin[id]=e.hp>0?Math.min(8,n):0;n-=e.zanshin[id];}
+  syncLabSouls(config);
+}
+export function setLabZanshin(config,enemyId,playerId,value){
+  const e=config.enemies.find(e=>e.instanceId===enemyId);if(!e)return;
+  e.zanshin ||= {};e.zanshin[playerId]=e.hp>0?Math.max(0,Math.min(8,Math.trunc(Number(value)||0))):0;syncLabSouls(config);
+}
 export function sceneSteps(fixture, entry) {
   if(entry.id==='gladiator_full')return Array.from(fixture.steps);
   const belongs=s=>entry.role?s.sourceRole===entry.role&&!['boss_action','enemy_mechanic'].includes(s.type):['boss_action','enemy_mechanic'].includes(s.type);
   return Array.from(fixture.steps).filter((s,i,steps)=>belongs(s)&&(s.actionId===entry.actionId || s.actionId===entry.actionId+'_result' || (entry.role==='sage'&&s.actionId==='sge_equation'&&steps.slice(0,i).some(p=>p.actionId===entry.actionId))));
 }
 export function preparePlayback(config, fixture, entry) {
+  // Already resolved by the existing server Room; preserve all result IDs and
+  // authoritative HP/resource snapshots instead of applying recording deltas.
+  if(fixture.configured)return {initial:clone(fixture.steps[0].hpSnapshotBefore),steps:clone(fixture.steps)};
   const sourceSteps = sceneSteps(fixture, entry);
   if (!sourceSteps.length) throw new Error('此樣本沒有可獨立播放的行動');
   const actor = actorFor(config);

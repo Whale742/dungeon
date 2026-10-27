@@ -52,7 +52,7 @@ node('zanSlash','zan-slash',zan);
 imageNode('titleImage','title-image','/assets/combat-fx/samurai/swallow-title.png',node('swallowTitleIcon','swallow-title-icon'));
 node('guardTag','guard-tag',player).textContent='狂刀';node('guardSub','guard-sub',player);node('soulGain','floating-gain',player);
 const soulWrap=node('soulWrap','soul-wrap',player),soulPips=node('soulPips','soul-pips',soulWrap);
-const pipCount=Math.min(8,plan.startSouls||0),pips=Array.from({length:pipCount},()=>node('pip','soul-pip',soulPips));node('soulCount','soul-count',soulWrap);
+const pipCount=Math.min(4,plan.startSouls||0),pips=Array.from({length:pipCount},()=>node('pip','soul-pip',soulPips));node('soulCount','soul-count',soulWrap);
 const box=root.getBoundingClientRect(),pr=playerPortrait.getBoundingClientRect(),br=bossPortrait.getBoundingClientRect();
 const anchor=r=>({x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height});
 const geometry={w:box.width,h:box.height,dpr:Math.min(devicePixelRatio||1,2),p:anchor(pr),b:anchor(br),pips:pips.map(el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2};})};
@@ -174,7 +174,7 @@ function drawGather(t,p){
    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(theta)*len,y+Math.sin(theta)*len*.8);ctx.stroke();
  }
  // Decorative motes are capped; the count and authoritative results retain all souls.
- for(let i=0;i<Math.min(8,p.startSouls);i++){
+ for(let i=0;i<Math.min(4,p.startSouls);i++){
    const origin=geometry.pips[i]||{x:a.x,y:a.y+a.h};
    const r=clamp((q-i*.035)/.895),f=in3(r),x=lerp(origin.x,a.x,f)+Math.sin(r*Math.PI)*(i-1.5)*12*scale,y=lerp(origin.y,a.y,f);
    const prev=clamp(r-.045),fp=in3(prev),px=lerp(origin.x,a.x,fp)+Math.sin(prev*Math.PI)*(i-1.5)*12*scale,py=lerp(origin.y,a.y,fp);

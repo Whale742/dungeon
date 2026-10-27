@@ -11,6 +11,7 @@
 <label class="lab-field">快速情境<select id="preset"><option value="">套用預設…</option><option value="boss">單一 Boss</option><option value="three">三名一般敵人</option><option value="escort">Boss 搭配隨從</option><option value="solo">單人技能測試</option><option value="party">四人小隊</option></select></label>
 <section><div class="lab-section-heading"><h3>我方隊伍 <small id="partyCount"></small></h3><button id="addPlayer" class="lab-small">＋ 新增</button></div><div id="partyList" class="lab-unit-list"></div>
 <div class="lab-character-editor"><label class="lab-field">目前選中角色<select id="role"></select></label><div class="lab-row"><button id="moveUp" class="lab-small">↑ 前移</button><button id="moveDown" class="lab-small">↓ 後移</button><button id="removePlayer" class="lab-small lab-danger">移除</button></div>
+<div id="playerStateControls"></div>
 <details><summary>裝備與職業情境</summary><div class="lab-details-content"><label class="lab-field">裝備演出變體<select id="equipment"></select></label><p id="equipmentNote" class="lab-help"></p><div id="specialFields"></div></div></details></div></section>
 <section><div class="lab-section-heading"><h3>敵人配置</h3><div id="enemyCount" class="lab-segment" aria-label="敵人數量"><button data-count="1">1</button><button data-count="2">2</button><button data-count="3">3</button></div></div><div id="enemyList" class="lab-enemy-list"></div><p class="lab-help">依正式編隊排列；Boss 與菁英使用正式大小。</p></section>
 <details><summary>模擬回合與音效</summary><div class="lab-details-content"><label class="lab-field">模擬回合<input id="round" type="number" min="1" max="99" value="1"></label><label class="lab-check"><input type="checkbox" id="sound" checked>播放音效</label><label class="lab-check"><input type="checkbox" id="reducedMotion">減少動態效果</label></div></details>
@@ -25,7 +26,7 @@
 <label class="lab-field"><span><b>03</b> 選擇目標</span><select id="target"></select></label>
 <div id="support" class="lab-support" role="status"></div>
 <details open><summary>演出選項</summary><div class="lab-details-content"><label class="lab-field">結果與觸發情境<select id="variant"></select></label><label class="lab-field">預覽階段<select id="phase"><option value="action">技能行動</option><option value="opening">戰鬥開場</option><option value="round">回合提示</option></select></label><label class="lab-field" id="stepField">行動步驟<select id="step"><option value="all">完整行動</option></select></label><label class="lab-field">播放速度<select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1× 原速</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label><p id="speedNote" class="lab-help"></p></div></details>
-<p class="lab-footnote">使用正式戰鬥演出與固定結果樣本。此處只預覽演出，不驗證傷害與觸發規則。</p>
+<p class="lab-footnote">武士主動技能依設定狀態使用正式戰鬥結算；其他演出沿用固定結果樣本。控制器只影響本次預覽。</p>
 </div></aside></main>
 <script src="/js/studio/content-store.js"></script><script src="/js/studio/game-bridge.js"></script>
 <script type="module" src="/js/lab/combat-fx-lab.js"></script></body></html>

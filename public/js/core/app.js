@@ -2672,9 +2672,9 @@ function renderMyActionBar(me) {
 
   activeSkills.forEach(skill => {
     let cd = me.cooldowns[skill.id] || 0;
-    let isCoolingDown = skill.phaseBlocked || skill.hpBlocked || cd > 0 || (skill.id==='sa_tsubame' && (me.soul||0)<1);
+    let isCoolingDown = skill.phaseBlocked || skill.hpBlocked || cd > 0 || (skill.id==='sa_tsubame' && (me.soul||0)<4);
     let cdBadgeText = skill.hpBlocked?'生命須大於1':skill.phaseBlocked?'求解：前輪技能不可重複':`CD: ${cd}`;
-    if(skill.id==='sa_tsubame'&&(me.soul||0)<1)cdBadgeText='需要武魂';
+    if(skill.id==='sa_tsubame'&&(me.soul||0)<4)cdBadgeText='需要 4 武魂';
 
     if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
       isCoolingDown = true;

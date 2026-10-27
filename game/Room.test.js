@@ -429,13 +429,12 @@ for(const stacks of [[4],[8],[8,8,8],[1,2,1]])test('Tsubame fixes N full-party s
   assert.ok(plan.hits.every(h=>h.time<plan.duration));
   assert.equal(plan.startSouls+plan.soulChanges.reduce((n,c)=>n+c.delta,0),0);
 });
-for(const soul of [1,2,3])test('Tsubame accepts every positive soul count at resolution: '+soul,t=>{
+for(const soul of [1,2,3])test('Tsubame rejects fewer than four souls at resolution: '+soul,t=>{
   const f=samuraiBattle(t,[soul]),[step]=samuraiCast(f,'sa_tsubame');
-  assert.equal(step.outcome.type,'tsubame');
-  assert.equal(step.outcome.segments,soul);
-  assert.equal(step.results.filter(r=>r.kind==='damage').length,soul);
-  assert.equal(f.room.enemies[0].hp,10000-soul*10);
-  assert.equal(f.room.getSamuraiSoul(f.player),0);
+  assert.equal(step.outcome.type,'invalid');
+  assert.equal(step.results.filter(r=>r.kind==='damage').length,0);
+  assert.equal(f.room.enemies[0].hp,10000);
+  assert.equal(f.room.getSamuraiSoul(f.player),soul);
 });
 
 test('Tsubame ignores physical resistance, combines separately rounded B/R once before DEF and retains gear',t=>{
@@ -461,7 +460,7 @@ test('Tsubame consumes only its source; simultaneous deaths transfer after the w
   assert.equal(room.getSamuraiSoul(player),0);assert.equal(room.getSamuraiSoul(other),4);
   assert.ok(hits.find(r=>r.segmentIndex===0&&r.targetEnemyId===room.enemies[2].instanceId).zanshinTransfers.some(v=>v.sourceId===player.id&&v.amount===3));
 });
-for(const souls of [1,2,3,4,8,12,24])test('Lethal Tsubame retains every visual segment without postmortem damage: '+souls,t=>{
+for(const souls of [4,8,12,24])test('Lethal Tsubame retains every visual segment without postmortem damage: '+souls,t=>{
   const stacks=Array.from({length:Math.ceil(souls/8)},(_,i)=>Math.min(8,souls-i*8));
   const f=samuraiBattle(t,stacks);f.room.enemies.forEach(e=>e.hp=1);
   const [step]=samuraiCast(f,'sa_tsubame'),scope={};vm.createContext(scope);
@@ -480,6 +479,7 @@ test('Tsubame stops damage after a lethal group segment and zero soul rejects lo
   const g=samuraiBattle(t,[0]);
   g.room.selectionState='SELECTING';
   assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);
+  for(let i=1;i<4;i++){g.room.addZanshin(g.player,g.room.enemies[0]);assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);}
   g.room.addZanshin(g.player,g.room.enemies[0]);
   const locked=g.room.lockAction(g.player.id,'sa_tsubame');assert.equal(locked.success,true,locked.message);
 });

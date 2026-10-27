@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { combatLabCatalog as catalog, combatLabFixture } from './combat-lab.js';
-import { preparePlayback } from '../public/js/lab/combat-fx-model.js';
+import { combatLabCatalog as catalog, combatLabFixture, configuredSamuraiPreview } from './combat-lab.js';
+import { preparePlayback, syncLabSouls, setLabSoul, setLabZanshin } from '../public/js/lab/combat-fx-model.js';
 
 function scenario(role='samurai',count=4,enemyCount=3){
   const party=Array.from({length:count},(_,i)=>{
@@ -13,6 +13,40 @@ function scenario(role='samurai',count=4,enemyCount=3){
   return {party,enemies,actorId:party[0].id,primaryId:enemies.at(-1).instanceId,partyTargetId:party.at(-1).id,round:1};
 }
 const entry=(id,action)=>catalog.scenes.find(s=>s.id===id&&(!action||s.actionId===action));
+
+test('Lab soul and per-source enemy marks stay consistent with Dev resource limits',()=>{
+  const c=scenario('samurai',2,3);c.party[1].role='samurai';
+  setLabSoul(c,c.party[0].id,12);setLabSoul(c,c.party[1].id,4);
+  assert.deepEqual(c.enemies.map(e=>e.zanshin[c.party[0].id]),[8,4,0]);
+  setLabZanshin(c,c.enemies[2].instanceId,c.party[0].id,9);
+  assert.equal(c.party[0].soul,20);assert.equal(c.party[1].soul,4);
+  c.enemies[0].hp=0;syncLabSouls(c);assert.equal(c.party[0].soul,12);assert.equal(c.party[1].soul,0);
+  setLabSoul(c,c.party[0].id,999);assert.equal(c.party[0].soul,16);
+});
+for(const soul of [0,1,2,3])test('Configured Lab refuses Tsubame below four souls: '+soul,async()=>{
+  const c=scenario('samurai',1,1);setLabSoul(c,c.actorId,soul);
+  await assert.rejects(configuredSamuraiPreview(c,'sa_tsubame'),/至少 4 層武魂/);
+});
+for(const [enemyCount,soul]of [[1,4],[1,8],[2,12],[3,24]])test('Configured Lab uses real Samurai results and controlled HP: '+enemyCount+'/'+soul,async()=>{
+  const c=scenario('samurai',2,enemyCount);c.party[0].hp=7;c.party[1].hp=1;c.enemies.forEach(e=>e.hp=1);setLabSoul(c,c.actorId,soul);
+  const before=structuredClone(c),fixture=await configuredSamuraiPreview(c,'sa_tsubame'),step=fixture.steps[0];
+  assert.equal(step.outcome.segments,soul);assert.equal(step.hpSnapshotBefore.players.find(p=>p.id===c.actorId).hp,7);
+  assert.equal(step.hpSnapshotBefore.players.find(p=>p.id===c.party[1].id).hp,1);
+  assert.ok(step.results.filter(r=>r.kind==='damage').every(r=>r.targetBefore.hp>0));
+  assert.ok(step.hpSnapshot.enemies.every(e=>e.hp===0));assert.equal(step.hpSnapshot.players.find(p=>p.id===c.actorId).soul,0);
+  assert.deepEqual(c,before);assert.deepEqual(preparePlayback(c,fixture,entry('samurai_tsubame')).steps,fixture.steps);
+});
+test('Configured Lab validates enemy marks instead of accepting a spoofed soul field',async()=>{
+  const c=scenario('samurai',1,1);c.party[0].soul=24;
+  await assert.rejects(configuredSamuraiPreview(c,'sa_tsubame'),/至少 4 層武魂/);
+  c.enemies[0].zanshin={[c.actorId]:9};await assert.rejects(configuredSamuraiPreview(c,'sa_tsubame'),/0–8/);
+});
+test('Configured Samurai cut preserves the selected normal/burst sample via Dev random controls',async()=>{
+  const c=scenario('samurai',1,1);c.enemies[0].hp=c.enemies[0].maxHp=10000;setLabSoul(c,c.actorId,4);
+  const normal=await configuredSamuraiPreview(c,'sa_cut','samurai_cut'),burst=await configuredSamuraiPreview(c,'sa_cut','samurai_burst');
+  assert.equal(normal.steps[0].outcome.type,'normal');assert.equal(burst.steps[0].outcome.type,'soul_burst');
+  await assert.rejects(configuredSamuraiPreview(c,'sa_cut','samurai_tsubame'),/情境不符/);
+});
 
 for(const [id,expected,cost]of [['gladiator_sacrifice',15,0],['gladiator_xiphos',15,0],['gladiator_assault',74,0],['gladiator_suicide',102,50],['gladiator_cingulum',131,50],['p8_arena_g_arena',102,50]])
 test('Gladiator Lab uses current nonlethal mechanics: '+id,()=>{

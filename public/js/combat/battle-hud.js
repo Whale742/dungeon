@@ -132,7 +132,10 @@ const BattleHud = (() => {
     byId('cinematicSkillName').textContent = step.skillName.replace(/\s*[（(][^）)]*[）)]/g,'').trim();
     banner.classList.add('is-active');
     try {
-      await waitForPresentation(announcementHoldMs,controller.signal,context.speed || 1);
+      await Promise.all([
+        waitForPresentation(announcementHoldMs,controller.signal,context.speed || 1),
+        typeof SamuraiSoulHud!=='undefined'?SamuraiSoulHud.playRelease(step,{...context,signal:controller.signal}):undefined
+      ]);
       banner.classList.remove('is-active');
       await waitForPresentation(180,controller.signal,context.speed || 1);
     } finally {

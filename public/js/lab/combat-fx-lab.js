@@ -1,4 +1,4 @@
-import { actorFor, clone } from './combat-fx-model.js';
+import { actorFor, clone, syncLabSouls, setLabSoul, setLabZanshin } from './combat-fx-model.js';
 const $=id=>document.getElementById(id);
 const ui=Object.fromEntries([...document.querySelectorAll('[id]')].map(n=>[n.id,n]));
 let catalog, config, selectedId, entry=null, state='CONFIGURING', stageReady=false, runId=0;
@@ -41,7 +41,7 @@ function changeConfiguration(change,{rebuild=true}={}){
 function validateSelection(){
   if(!config.party.some(p=>p.id===selectedId))selectedId=config.party[0].id;
   if(!actorFor(config))config.actorId=config.party[0].id;
-  if(!config.enemies.some(e=>e.instanceId===config.primaryId))config.primaryId=config.enemies[0].instanceId;
+  if(!config.enemies.some(e=>e.instanceId===config.primaryId&&e.hp>0))config.primaryId=(config.enemies.find(e=>e.hp>0)||config.enemies[0]).instanceId;
   if(!config.party.some(p=>p.id===config.partyTargetId))config.partyTargetId=config.party[0].id;
   const actor=actorFor(config),available=actorEntries();
   const formal=formalSkills(actor);
@@ -51,6 +51,7 @@ function validateSelection(){
   if(entry?.actor&&sampleKey!==key){
     const actor=actorFor(config),{id,name,role,hp,maxHp,equips,labFilter}=actor;
     Object.assign(actor,clone(entry.actor),{id,name,role,hp,maxHp,equips,labFilter});
+    if(role==='samurai'&&!actor.labControlled)setLabSoul(config,id,entry.actor.soul||0);
     if(entry.equipmentIds.length&&!equips.length)actor.equips=entry.equipmentIds.map(id=>clone(catalog.equipment.find(e=>e.id===id))).filter(Boolean);
   }
   if(entry?.enemyState&&sampleKey!==key){
@@ -58,6 +59,7 @@ function validateSelection(){
     for(const field of ['presentation','mechanics','statuses','phase8Statuses','tempHp','druidForm'])if(field in entry.enemyState)actor[field]=clone(entry.enemyState[field]);
   }
   sampleKey=key;
+  syncLabSouls(config);
 }
 function renderParty(){
   ui.partyCount.textContent=`${config.party.length} / ${catalog.maxParty}`;
@@ -68,6 +70,7 @@ function renderParty(){
   ui.removePlayer.disabled=config.party.length===1;
   const index=config.party.indexOf(selected);ui.moveUp.disabled=index===0;ui.moveDown.disabled=index===config.party.length-1;
   renderEquipment(selected);renderSpecial(selected);
+  ui.playerStateControls.innerHTML=`<h4>戰鬥狀態控制</h4><div class="lab-number-grid"><label class="lab-field">我方目前 HP<input type="number" data-player-field="hp" min="0" max="${selected.maxHp}" value="${selected.hp}"></label><label class="lab-field">我方最大 HP<input type="number" data-player-field="maxHp" min="1" max="1000000" value="${selected.maxHp}"></label>${selected.role==='samurai'?`<label class="lab-field">我方武魂<input type="number" data-player-field="soul" min="0" max="${8*config.enemies.filter(e=>e.hp>0).length}" value="${selected.soul||0}"></label>`:''}</div>${selected.role==='samurai'?'<p class="lab-help">至少 4 武魂才能施放燕返。設定武魂會分配到存活敵人的殘心，每敵上限 8；也可在下方逐敵調整。四魂以上不增加特效。</p>':''}`;
 }
 function renderEquipment(player){
   const gear=catalog.equipment.filter(e=>e.role===player.role);
@@ -76,6 +79,7 @@ function renderEquipment(player){
   ui.equipmentNote.textContent=player.equips?.length?'只顯示此裝備已接通的結果樣本；沒有對應樣本時不允許播放。':'裝備只建立演出情境，不執行傷害或裝備結算。';
 }
 function renderSpecial(player){
+  if(player.role==='samurai'){ui.specialFields.innerHTML='';return;}
   const fields={druid:['druidForm','形態'],assassin:['isHiddenThisRound','隱身'],sage:['sagePhase','演算階段'],samurai:['soul','武魂'],gladiator:['rage','鬥志']};
   const field=fields[player.role];
   const names={'':'人形',werewolf:'狼人',treant:'遠古樹精',tree:'沉睡古樹',bear:'巨熊',hypothesis:'假設',solve:'求解',false:'未隱身',true:'隱身'};
@@ -87,7 +91,8 @@ function renderEnemies(){
   for(const b of ui.enemyCount.querySelectorAll('button'))b.setAttribute('aria-pressed',String(Number(b.dataset.count)===config.enemies.length));
   const groups=[['MINION','一般敵人與隨從'],['ELITE','Boss 與菁英'],['ABYSS','深淵職業敵人']];
   const choices=groups.map(([tier,label])=>`<optgroup label="${label}">${catalog.enemies.filter(e=>e.tier===tier).map(e=>option(e.id,e.name)).join('')}</optgroup>`).join('');
-  ui.enemyList.innerHTML=config.enemies.map((e,i)=>`<div class="lab-enemy-row"><img src="${esc(e.battleAvatar||e.avatar)}" alt=""><label class="lab-field"><small>位置 ${i+1}</small><select data-enemy="${i}" aria-label="位置 ${i+1} 敵人">${choices}</select></label><button data-move-enemy="${i}" title="向前移動" aria-label="向前移動位置 ${i+1} 敵人" ${i===0?'disabled':''}>↑</button></div>`).join('');
+  const selected=config.party.find(p=>p.id===selectedId);
+  ui.enemyList.innerHTML=config.enemies.map((e,i)=>`<div class="lab-enemy-editor"><div class="lab-enemy-row"><img src="${esc(e.battleAvatar||e.avatar)}" alt=""><label class="lab-field"><small>位置 ${i+1}</small><select data-enemy="${i}" aria-label="位置 ${i+1} 敵人">${choices}</select></label><button data-move-enemy="${i}" title="向前移動" aria-label="向前移動位置 ${i+1} 敵人" ${i===0?'disabled':''}>↑</button></div><div class="lab-number-grid"><label class="lab-field">敵方目前 HP<input type="number" data-enemy-field="hp" data-enemy-index="${i}" min="0" max="${e.maxHp}" value="${e.hp}"></label><label class="lab-field">敵方最大 HP<input type="number" data-enemy-field="maxHp" data-enemy-index="${i}" min="1" max="1000000" value="${e.maxHp}"></label>${selected?.role==='samurai'?`<label class="lab-field">殘心 → ${esc(selected.name)}<input type="number" data-enemy-field="zanshin" data-enemy-index="${i}" min="0" max="8" value="${e.zanshin?.[selectedId]||0}"></label>`:''}</div></div>`).join('');
   config.enemies.forEach((e,i)=>{ui.enemyList.querySelector(`[data-enemy="${i}"]`).value=e.id;});
 }
 function renderPerformance(){
@@ -119,6 +124,10 @@ function renderPerformance(){
 }
 function supportIssue(){
   if(ui.phase.value!=='action')return '';
+  const actor=actorFor(config);
+  if(!actor?.instanceId&&actor?.hp<=0)return '演出者已倒下，請調整我方 HP。';
+  if(actor?.role==='samurai'&&skillId==='sa_tsubame'&&(actor.soul||0)<4)return '燕返需要至少 4 層武魂。';
+  if(!config.enemies.some(e=>e.hp>0))return '需要至少一名存活敵人。';
   if(!entry)return actorFor(config)?.equips?.length?'此技能、裝備與職業狀態尚無相符的正式演出樣本；請改選條件或基本裝備情境。':'此技能或指定狀態尚無可獨立播放的正式結果樣本。';
   return '';
 }
@@ -139,8 +148,16 @@ async function play(){
   try{
     let fixture={steps:[]};
     if(ui.phase.value==='action'){
-      if(!fixtureCache.has(entry.id)){const response=await fetch('/api/studio/combat-lab/scenes/'+encodeURIComponent(entry.id));if(!response.ok)throw new Error('無法載入正式演出樣本');fixtureCache.set(entry.id,await response.json());}
-      fixture=fixtureCache.get(entry.id);
+      if(actorFor(config)?.role==='samurai'&&['basic','sa_cut','sa_tsubame'].includes(skillId)){
+        const previewConfig={actorId:config.actorId,primaryId:config.primaryId,round:config.round,
+          party:config.party.map(({id,name,role,hp,maxHp,equips})=>({id,name,role,hp,maxHp,equips:(equips||[]).map(({id})=>({id}))})),
+          enemies:config.enemies.map(({id,instanceId,hp,maxHp,zanshin})=>({id,instanceId,hp,maxHp,zanshin}))};
+        const response=await fetch('/api/studio/combat-lab/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:previewConfig,actionId:skillId,sceneId:entry.id})});
+        fixture=await response.json();if(!response.ok)throw new Error(fixture.error||'無法建立正式結算預覽');
+      }else{
+        if(!fixtureCache.has(entry.id)){const response=await fetch('/api/studio/combat-lab/scenes/'+encodeURIComponent(entry.id));if(!response.ok)throw new Error('無法載入正式演出樣本');fixtureCache.set(entry.id,await response.json());}
+        fixture=fixtureCache.get(entry.id);
+      }
     }
     if(current!==runId)return;
     send('play',{config:configForStage(),fixture,entry,options:{phase:ui.phase.value,step:ui.step.value,speed:Number(ui.speed.value),sound:ui.sound.checked,reducedMotion:ui.reducedMotion.checked}});
@@ -165,7 +182,13 @@ const exitFullscreen=document.createElement('button');exitFullscreen.textContent
 document.addEventListener('fullscreenchange',()=>{exitFullscreen.hidden=!document.fullscreenElement;});
 ui.play.onclick=play;ui.replay.onclick=play;ui.resetPlayback.onclick=()=>resetExecution();
 ui.resetScenario.onclick=()=>changeConfiguration(()=>{config=initialConfig();selectedId=config.party[0].id;skillId='sa_tsubame';variantId='';ui.phase.value='action';ui.speed.value='1';ui.sound.checked=true;ui.reducedMotion.checked=false;ui.preset.value='';});
-ui.partyList.onclick=event=>{const b=event.target.closest('[data-player]');if(b){selectedId=b.dataset.player;renderParty();}};
+ui.partyList.onclick=event=>{const b=event.target.closest('[data-player]');if(b){selectedId=b.dataset.player;renderParty();renderEnemies();}};
+ui.playerStateControls.onchange=event=>changeConfiguration(()=>{
+  const p=config.party.find(p=>p.id===selectedId),field=event.target.dataset.playerField;
+  if(!field)return;p.labControlled=true;const n=Math.max(0,Math.trunc(Number(event.target.value)||0));
+  if(field==='soul')setLabSoul(config,p.id,n);
+  else{p[field]=Math.min(field==='maxHp'?1000000:p.maxHp,Math.max(field==='maxHp'?1:0,n));p.hp=Math.min(p.hp,p.maxHp);}
+});
 ui.addPlayer.onclick=()=>changeConfiguration(()=>{if(config.party.length>=catalog.maxParty)return;const p=newPlayer('warrior');config.party.push(p);selectedId=p.id;});
 ui.removePlayer.onclick=()=>changeConfiguration(()=>{if(config.party.length>1)config.party=config.party.filter(p=>p.id!==selectedId);});
 ui.role.onchange=()=>changeConfiguration(()=>{const index=config.party.findIndex(p=>p.id===selectedId),id=selectedId;config.party[index]={...newPlayer(ui.role.value),id};if(config.actorId===id){skillId=catalog.classes[ui.role.value].skills[0]?.id||'';variantId='';}});
@@ -173,7 +196,15 @@ for(const [id,direction]of [['moveUp',-1],['moveDown',1]])ui[id].onclick=()=>cha
 ui.equipment.onchange=()=>changeConfiguration(()=>{const p=config.party.find(p=>p.id===selectedId),oldHpBonus=(p.equips||[]).reduce((n,e)=>n+(e.bonusHp||0),0);p.equips=ui.equipment.value?[clone(catalog.equipment.find(e=>e.id===ui.equipment.value))]:[];if(p.role==='gladiator'){const delta=p.equips.reduce((n,e)=>n+(e.bonusHp||0),0)-oldHpBonus;p.maxHp=Math.max(1,p.maxHp+delta);p.hp=Math.min(p.maxHp,p.hp+delta);}variantId='';sampleKey='';});
 ui.specialFields.onchange=event=>changeConfiguration(()=>{const p=config.party.find(p=>p.id===selectedId),key=event.target.dataset.special,value=event.target.value;p.labFilter=value==='*'?null:{key,value};variantId='';sampleKey='';});
 ui.enemyCount.onclick=event=>{const b=event.target.closest('[data-count]');if(b)changeConfiguration(()=>{const count=Number(b.dataset.count);while(config.enemies.length<count)config.enemies.push(newEnemy(catalog.enemies.find(e=>e.tier==='MINION')));config.enemies.length=count;});};
-ui.enemyList.onchange=event=>changeConfiguration(()=>{const i=Number(event.target.dataset.enemy);const previous=config.enemies[i];config.enemies[i]={...newEnemy(catalog.enemies.find(e=>e.id===event.target.value),i),instanceId:previous.instanceId};variantId='';});
+ui.enemyList.onchange=event=>changeConfiguration(()=>{
+  if(event.target.dataset.enemyField){
+    const e=config.enemies[Number(event.target.dataset.enemyIndex)],field=event.target.dataset.enemyField,n=Math.max(0,Math.trunc(Number(event.target.value)||0));
+    config.party.find(p=>p.id===selectedId).labControlled=true;
+    if(field==='zanshin')setLabZanshin(config,e.instanceId,selectedId,n);
+    else{e[field]=Math.min(field==='maxHp'?1000000:e.maxHp,Math.max(field==='maxHp'?1:0,n));e.hp=Math.min(e.hp,e.maxHp);}return;
+  }
+  const i=Number(event.target.dataset.enemy),previous=config.enemies[i];config.enemies[i]={...newEnemy(catalog.enemies.find(e=>e.id===event.target.value),i),instanceId:previous.instanceId};variantId='';
+});
 ui.enemyList.onclick=event=>{const b=event.target.closest('[data-move-enemy]');if(b)changeConfiguration(()=>{const i=Number(b.dataset.moveEnemy);if(i>0)[config.enemies[i],config.enemies[i-1]]=[config.enemies[i-1],config.enemies[i]];});};
 ui.actor.onchange=()=>changeConfiguration(()=>{config.actorId=ui.actor.value;const actor=actorFor(config);if(!actor.instanceId)selectedId=actor.id;skillId='';variantId='';});
 ui.skill.onchange=()=>changeConfiguration(()=>{skillId=ui.skill.value;variantId='';});
@@ -197,7 +228,7 @@ window.addEventListener('message',event=>{
   if(data.type==='finished'){ui.progress.value=1;ui.progressText.textContent='播放完成 · 可直接重播';setState('FINISHED');}
   if(data.type==='error'){ui.stageLoading.hidden=true;setState('ERROR',data.message);}
   if(data.type==='progress'){ui.progress.value=data.value/data.total;ui.progressText.textContent=`步驟 ${data.value} / ${data.total}`;}
-  if(data.type==='beat')ui.timing.textContent=({impact:'命中回饋',hp_update:'更新戰鬥資訊',samurai_slash:'武士斬擊'})[data.beat]||'正式演出進行中';
+  if(data.type==='beat')ui.timing.textContent=({impact:'命中回饋',hp_update:'更新戰鬥資訊',samurai_slash:'武士斬擊',samurai_soul_release_start:'武魂凝聚・釋放',samurai_soul_drain_start:'武魂消散',samurai_soul_empty:'武魂歸零',samurai_soul_release_complete:'武魂前奏完成'})[data.beat]||'正式演出進行中';
   if(data.type==='target'&&state!=='PLAYING')changeConfiguration(()=>{config.primaryId=data.id;});
 });
 ui.stage.addEventListener('load',()=>send('hello'));

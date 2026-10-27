@@ -8,7 +8,7 @@ import { refreshPublished } from './content.js';
 import { kinds, validateIdentity, validateDraft, validateAsset, validateUpload, requireValid, assetFields } from './validation.js';
 import { getMigrationStatus, migrateAssets, migrateBindings } from './migration.js';
 import localPaths from '../public/js/shared/local-paths.cjs';
-import { combatLabCatalog, combatLabFixture } from './combat-lab.js';
+import { combatLabCatalog, combatLabFixture, configuredSamuraiPreview } from './combat-lab.js';
 
 export function tokenMatches(supplied, expected) {
   const hash=v=>crypto.createHash('sha256').update(v||'').digest();
@@ -23,6 +23,11 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
     const fixture=combatLabFixture(req.params.id);
     if(!fixture)return res.status(404).json({error:'找不到正式演出樣本'});
     res.json(fixture);
+  });
+  router.post('/combat-lab/preview',express.json({limit:'64kb',strict:true}),async(req,res,next)=>{
+    const origin=req.get('Origin');
+    if(req.get('Sec-Fetch-Site')==='cross-site'||origin&&origin!==`${req.protocol}://${req.get('Host')}`)return res.status(403).json({error:'不允許跨站預覽'});
+    try{res.json(await configuredSamuraiPreview(req.body?.config,req.body?.actionId,req.body?.sceneId));}catch(error){next(error);}
   });
   router.use((req,res,next)=>{
     res.set('Cache-Control','no-store');

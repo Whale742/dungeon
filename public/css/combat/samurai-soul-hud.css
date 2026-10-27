@@ -7,4 +7,7 @@
 .samurai-soul-hud.is-ready .samurai-soul-number{color:#fff}
 .samurai-soul-hud.is-dead{opacity:.3}
 .samurai-death-echo{position:fixed;object-fit:contain;opacity:0;pointer-events:none;filter:grayscale(.5);transition:opacity 120ms;z-index:1}
+.samurai-soul-release-stage{position:fixed;left:50%;bottom:clamp(30px,8vh,100px);transform:translateX(-50%);width:clamp(140px,19vmin,230px);aspect-ratio:1;z-index:16001;pointer-events:none}
+.samurai-soul-release-stage .samurai-soul-hud{width:100%;right:0;bottom:0}
+.samurai-soul-release-stage .samurai-soul-number{font-size:clamp(24px,4vmin,36px)}
 @media(max-width:600px){.samurai-soul-number{font-size:12px}}
