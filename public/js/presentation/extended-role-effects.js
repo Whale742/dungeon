@@ -276,7 +276,6 @@ async function playBattlefieldGladiator(step,context) {
     }
     if(step.type==='arena_exit'&&meta.triumphApplied===true) {
       if(meta.rageConsumedSnapshot)applyHpSnapshot(meta.rageConsumedSnapshot);
-      audio.play('gladiator_triumph',{noHold:true});
       for(const p of meta.triumphSnapshot?.players||[])if(p.hp>0)phase5Pulse(s,PHASE5_ART.blood,p.id,'triumph',420);
       await s.wait(400);
       if(meta.triumphSnapshot)applyHpSnapshot(meta.triumphSnapshot);

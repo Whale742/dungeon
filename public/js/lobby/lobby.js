@@ -8,7 +8,7 @@ const LOBBY_ROLE_PROFILES = Object.freeze(Object.fromEntries(Object.entries({
   alchemist:{enName:'Alchemist',tags:['SUPPORT','魔法','調和'],radar:['A','C','A','D','A'],passiveSummary:'調和試劑帶來腐蝕、劇毒與淨化，結果充滿變數。'},
   druid:{enName:'Druid',tags:['SUPPORT','自然','變身','召喚'],radar:['A','S','A','C','S'],passiveSummary:'切換狼人與樹精形態，運用自然夥伴與全隊庇護。'},
   paladin:{enName:'Paladin',tags:['TANK','物理','護盾','援護'],radar:['C','S','S','A','B'],passiveSummary:'受到傷害機率提高 30%，以護盾與承擔傷害守護隊友。'},
-  gladiator:{enName:'Gladiator',tags:['DPS','物理','怒氣'],radar:['S','A','D','B','A'],passiveSummary:'受傷積累怒氣，以鮮血獻祭與死亡角鬥場挑戰首領。'},
+  gladiator:{enName:'Gladiator',tags:['DPS','物理','鬥志'],radar:['S','A','D','B','A'],passiveSummary:'以交鋒累積鬥志，拒絕庇護並在死亡角鬥場賭命決勝。'},
   stargazer:{enName:'Stargazer',tags:['SUPPORT','魔法','天象'],radar:['A','B','A','B','A'],passiveSummary:'觀測天象揭曉隨機結果，操控全隊技能冷卻與戰鬥節奏。'},
   dreamweaver:{enName:'Dreamweaver',tags:['SUPPORT','夢境','因果'],radar:['B','B','S','A','A'],passiveSummary:'編織夢境與扭曲因果，運用潛意識混淆、夢蝶迷思與偽造殘夢。'},
   samurai:{enName:'Samurai',tags:['DPS','物理','招架'],radar:['S','A','C','B','A'],passiveSummary:'殘心標記決定全場武魂，以狂刀招架反擊，再施展 N 段全體燕返。'},

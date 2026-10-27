@@ -83,7 +83,7 @@ export function mountDevTools(socket) {
     $('#dev-role-policy').textContent = role?.policy || '職業狀態唯讀';
     root.querySelector('[data-command="resource"]').hidden = !role?.resources.length;
     $('#dev-inventory').textContent = `小隊：${(state.squadInventory || []).map((i, n) => `${n + 1}.${i?.name || '空'}`).join('、')}\n角色：${(p?.bag || []).map((i, n) => `${n + 1}.${i?.name || '空'}`).join('、')}`;
-    $('#dev-role-info').textContent = p ? `HP ${p.hp}/${p.maxHp} · 護盾 ${p.tempHp}\n冷卻 ${JSON.stringify(p.cooldowns)}\n職業資源 ${p.resourceSummary || ''}\nX ${p.sageX ?? '—'} · 運算元 ${p.sageOperand ?? '—'} · 演算 ${p.sagePhase ?? '—'}\n層數：戰士 ${p.warriorStacks ?? 0} · 怒氣 ${p.rage ?? 0} · 匿蹤 ${p.stealthStacks ?? 0}\n${p.role === 'augur' ? `觀測 ${p.observedTargetId || '自身'} · 牌象 ${p.augurCardState} · 命債 ${JSON.stringify(p.augurFateDebts)}\n` : ''}${JSON.stringify(p.statuses || [])}` : '';
+    $('#dev-role-info').textContent = p ? `HP ${p.hp}/${p.maxHp} · 護盾 ${p.tempHp}\n冷卻 ${JSON.stringify(p.cooldowns)}\n職業資源 ${p.resourceSummary || ''}\nX ${p.sageX ?? '—'} · 運算元 ${p.sageOperand ?? '—'} · 演算 ${p.sagePhase ?? '—'}\n層數：戰士 ${p.warriorStacks ?? 0} · 鬥志 ${p.rage ?? 0} · 匿蹤 ${p.stealthStacks ?? 0}\n${p.role === 'augur' ? `觀測 ${p.observedTargetId || '自身'} · 牌象 ${p.augurCardState} · 命債 ${JSON.stringify(p.augurFateDebts)}\n` : ''}${JSON.stringify(p.statuses || [])}` : '';
     $('#dev-enemies').textContent = (state.enemies || []).map(e => `${e.instanceId}: ${e.name} HP ${e.hp}/${e.maxHp}`).join('\n');
     $('#dev-audit').textContent = JSON.stringify(status.audit, null, 2);
   }

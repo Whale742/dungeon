@@ -1,14 +1,14 @@
 // Explicit numeric resource operations only. Composite relationships stay read-only.
 const resources = {
   warrior: [{ key: 'warriorStacks', label: '受傷攻擊疊層', min: 0, max: 15, get: p => p.warriorStacks || 0, set: (p, v) => { p.warriorStacks = v; } }],
-  gladiator: [{ key: 'rage', label: '怒氣', min: 0, max: 100, get: p => p.rage || 0, set: (p, v) => { p.rage = v; } }],
+  gladiator: [{ key: 'rage', label: '鬥志', min: 0, max: 100, get: p => p.rage || 0, set: (p, v) => { p.rage = v; } }],
   sage: [{ key: 'sageX', label: '變量 X', min: 0, max: 10000, get: p => p.sageX ?? 30, set: (p, v) => { p.sageX = v; } }],
   assassin: [{ key: 'stealthStacks', label: '匿蹤疊層', min: 0, max: 100, get: p => p.stealthStacks || 0, set: (p, v) => { p.stealthStacks = v; } }],
   samurai: [{ key: 'soul', label: '武魂（分配至存活敵人的殘心）', min: 0, max: (p,room) => 8*(room?.getLivingEnemies().length||1), get: (p,room) => room?room.getSamuraiSoul(p):p.soul||0, set: (p,v,room) => { room.clearZanshin(p.id); for(const enemy of room.getLivingEnemies()){ const amount=Math.min(8,v); room.addZanshin(p,enemy,amount); v-=amount; } } }]
 };
 export const DEV_ROLE_POLICY = {
   warrior: '可調整受傷疊層；防護效果唯讀',
-  gladiator: '可調整怒氣；血祭與競技場唯讀',
+  gladiator: '可調整鬥志；鼓舞與競技場唯讀',
   sage: '可調整 X；運算元、演算階段、透支與取樣唯讀',
   assassin: '可調整匿蹤疊層；本回合隱藏與追擊關係唯讀',
   samurai: '武魂由自身殘心總和計算；調整時分配至存活敵人，每名上限 8；狂刀與招架唯讀',

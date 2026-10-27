@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { Room } from './Room.js';
 import { ABYSS_BOSS_PORTRAITS, ABYSS_DRUID_FORM_PORTRAITS, ABYSS_AUGUR_EASTER_EGG, TIER1_EQUIPMENTS } from './constants.js';
-import { ENCOUNTERS, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS, SPECIAL_ELITES, ABYSS_BOSSES } from './constants.js';
+import { ENCOUNTERS, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS, SPECIAL_ELITES, ABYSS_BOSSES, CLASSES, getPlayerSkills, LOOT_TABLE } from './constants.js';
 import { ENEMY_BALANCE, mechanicId, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, beforePlayerAction, beforeEnemyDamage, afterPlayerDamage, sweepEnemyDeaths, enemyEffect, syncEnemySupport } from './enemy-mechanics.js';
 import { getBossResistance } from './boss-resistance.js';
 import { resolveStats } from './stats.js';
@@ -2676,7 +2676,7 @@ test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanic
 });
 
 test('health costs and DOT bypass both shield pools; direct hits consume them and still trigger passives',t=>{
-  for(const role of ['warrior','gladiator']){
+  for(const role of ['warrior']){
     const {room,player}=fixture(t,role);room.battleRound=1;player.hp=player.maxHp;player.DEF=0;
     room.p8GrantShield(player,40,3);room.applyHealWithOverheal(player,20);
     const hp=player.hp;
@@ -2693,15 +2693,16 @@ test('health costs and DOT bypass both shield pools; direct hits consume them an
   }
 });
 
-test('gladiator sacrifice pays real HP and gains blood stacks even with a full shield',t=>{
+test('gladiator blood challenge converts shields to inspiration and attacks without self damage',t=>{
   const {room,player,events}=phase1Battle(t,'gladiator');
   player.equips=[{id:'g_xiphos',name:'斯巴達破陣短劍'}];player.action='g_sacrifice';
   room.p8GrantShield(player,300,3);for(const e of room.enemies)e.stunnedNextTurn=true;
   room.resolveTurnActions();const step=resolutionQueue(events).find(s=>s.actionId==='g_sacrifice');
-  const payment=step.results.find(r=>r.presentationBeat==='self_damage');
-  assert.ok(payment.targetAfter.hp<payment.targetBefore.hp);
-  assert.equal(payment.targetAfter.tempHp,payment.targetBefore.tempHp);
-  assert.ok(step.hpSnapshot.players.find(p=>p.id===player.id).rage>=1);assert.equal(player.bloodStacks,1);
+  assert.ok(!step.results.some(r=>r.presentationBeat==='self_damage'));
+  assert.ok(step.results.some(r=>r.targetEnemyId&&r.finalDamage>0));
+  const actor=step.hpSnapshot.players.find(p=>p.id===player.id);
+  assert.equal(actor.hp,step.hpSnapshotBefore.players.find(p=>p.id===player.id).hp);
+  assert.equal(actor.tempHp,0);assert.equal(actor.rage,2);assert.equal(player.bloodStacks||0,0);
 });
 
 test('Augur debt expiry pays HP without consuming an existing shield',t=>{
@@ -3149,5 +3150,182 @@ test('All 12 leader skills and class Buff/Debuff icons resolve consistently acro
     const teammateHtml=h.scope.renderStatusIconMarkup(status,{variant:'teammate'});
     const tooltipHtml=h.scope.renderStatusIconMarkup(status,{variant:'tooltip'});
     assert.ok(hudHtml.includes(url)&&teammateHtml.includes(url)&&tooltipHtml.includes(url),`Inconsistent icon URL for ${status.id}`);
+  }
+});
+
+// Gladiator revision: production hooks, HP ownership, equipment and presentation contracts.
+function gladiatorBattle(t,party=1) {
+  const f=fixture(t,'gladiator');t.mock.method(Math,'random',()=>.5);
+  for(let i=1;i<party;i++){const id='ally'+i;f.room.addPlayer({id,join(){},emit(){}},id);f.room.selectRole(id,'mage');}
+  f.room.handleBattleEvent(null,false,{col:1});
+  f.room.setEnemies([f.room.createEnemyInstance({id:'gladiator_dummy',name:'訓練魔物',hp:10000,attack:0,defense:0,noBonusResistance:true},0,{tier:'ELITE',rng:()=>0})]);
+  const enemy=f.room.enemies[0];enemy.hp=enemy.maxHp=10000;enemy.DEF=enemy.defense=0;enemy.resistances={physical:0,magic:0,effect:0};
+  f.player.hp=f.player.maxHp=85;f.player.targetEnemyId=enemy.instanceId;f.room.battleRound=1;return {...f,enemy};
+}
+function gladiatorCast(f,action) {
+  f.player.action=action;const log=[];const outcome=f.room.p8Action(f.player,raw=>({dmg:raw}),1,[],log);
+  return {outcome,results:f.room.p8Results,log};
+}
+for(const party of [1,2,3,4])for(const hp of [85,35,1])test(`Gladiator unchanged maxima and exact entry recovery: party=${party}, hp=${hp}`,t=>{
+  const f=gladiatorBattle(t,party),{room,player,enemy}=f;
+  player.hp=hp;player.rage=3;room.p8GrantShield(player,20,3,'test');
+  const before=resolveStats(player).PAtk_gear;
+  room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};const queue=[];room.p8RoundStart(queue);
+  assert.equal(player.hp,85);assert.equal(player.maxHp,85);assert.equal(enemy.hp,10000);assert.equal(enemy.maxHp,10000);
+  assert.equal(room.arena.entryHp,hp);assert.equal(room.arena.recoveredHp,85-hp);assert.equal(player.rage,3);
+  assert.equal(resolveStats(player).PAtk_gear,before,'special entry recovery cannot create inspiration');
+  player.hp=55;enemy.hp=9500;room.p8ExitArena(queue);
+  assert.equal(player.hp,55);assert.equal(player.maxHp,85);assert.equal(enemy.hp,9500);assert.equal(enemy.maxHp,10000);assert.equal(player.rage,0);
+  const ally=room.players.ally1;if(ally)assert.equal(room.p8Has(ally,'triumph').value,70);
+});
+for(const [entryHp,currentHp,cost,damage]of [[85,85,0,27],[35,85,50,102],[1,85,84,153],[35,20,19,56],[35,1,0,27]])
+ test(`Gladiator judgment uses only real HP: entry=${entryHp}, current=${currentHp}`,t=>{
+  const f=gladiatorBattle(t);f.player.hp=entryHp;f.room.arenaPending={playerId:f.player.id,enemyId:f.enemy.instanceId,round:1};f.room.p8RoundStart([]);f.player.hp=currentHp;
+  const {results}=gladiatorCast(f,'g_arena');assert.equal(f.player.hp,currentHp-cost);assert.ok(f.player.hp>=1);
+  assert.equal(results.filter(r=>r.targetEnemyId).reduce((n,r)=>n+(r.finalDamage||0),0),damage);assert.equal(f.player.noReviveFloor,undefined);
+  gladiatorCast(f,'g_arena');assert.equal(f.player.hp,currentHp-cost);assert.equal(f.room.p8Results.find(r=>r.targetEnemyId).finalDamage,27);
+});
+for(const [rage,expected]of [[0,34],[1,47],[3,74],[5,100],[10,166]])test(`Gladiator assault formula and one active hit gain: R=${rage}`,t=>{
+  const f=gladiatorBattle(t);f.room.arena={playerId:f.player.id,enemyId:f.enemy.instanceId,until:1};f.player.rage=rage;f.player.hp=1;
+  const {results}=gladiatorCast(f,'g_sacrifice');assert.equal(results.find(r=>r.targetEnemyId).finalDamage,expected);
+  assert.equal(f.player.hp,1);assert.equal(f.player.rage,rage+1);
+});
+test('Gladiator direct hit and challenge rewards are distinct, once per round, no self/DOT/environment gains',t=>{
+  const f=gladiatorBattle(t),{room,player,enemy}=f;gladiatorCast(f,'g_sacrifice');assert.equal(player.rage,1);
+  for(const kind of ['friendly','dot','environment','sage_confusion'])room.applyDamageToPlayer(player,1,{kind,trueDamage:true});
+  assert.equal(player.rage,1);
+  for(let i=0;i<4;i++)room.applyDamageToPlayer(player,1,{kind:'enemy_direct',trueDamage:true,sourceEnemyId:enemy.instanceId});
+  assert.equal(player.rage,3);assert.equal(player.gladiatorChallengeGain,true);
+  room.battleRound=2;room.p8RoundStart([]);room.applyDamageToPlayer(player,1,{kind:'enemy_direct',trueDamage:true});assert.equal(player.rage,4);
+});
+for(const duplicates of [1,2])test('Gladiator xiphos five distinct gains; duplicate passive does not stack: '+duplicates,t=>{
+  const f=gladiatorBattle(t),{room,player,enemy}=f;player.equips=Array.from({length:duplicates},()=>({id:'g_xiphos'}));
+  gladiatorCast(f,'g_sacrifice');assert.equal(player.rage,2);
+  for(let i=0;i<5;i++)room.applyDamageToPlayer(player,1,{kind:'enemy_direct',trueDamage:true,sourceEnemyId:enemy.instanceId});
+  assert.equal(player.rage,5);assert.equal(player.bloodStacks||0,0);
+  player.rage=0;gladiatorCast(f,'basic');assert.equal(player.rage,1,'basic has no sword-specific gain');
+});
+test('Gladiator challenge uses weighted targeting, expires, and does not reward another enemy or a dead target',t=>{
+  const f=gladiatorBattle(t,2),{room,player,enemy}=f;player.equips=[{id:'g_xiphos'}];gladiatorCast(f,'g_sacrifice');
+  t.mock.method(Math,'random',()=>.55);assert.equal(room.pickTargetWithTaunt([player,room.players.ally1],enemy),player);
+  assert.equal(room.pickTargetWithTaunt([player,room.players.ally1],{instanceId:'other'}),room.players.ally1);
+  room.applyDamageToPlayer(player,1,{kind:'enemy_direct',trueDamage:true,sourceEnemyId:'other'});assert.equal(player.rage,3);
+  enemy.hp=0;room.applyDamageToPlayer(player,1,{kind:'enemy_direct',trueDamage:true,sourceEnemyId:enemy.instanceId});assert.equal(player.rage,3);
+  assert.ok(!room.getHpSnapshot().players.find(p=>p.id===player.id).statuses.some(s=>s.id==='gladiator_challenge'));
+  room.battleRound=2;assert.equal(room.pickTargetWithTaunt([player,room.players.ally1],enemy),room.players.ally1);
+});
+for(const [kind,value,equipped,expected]of [['shield',20,false,10],['shield',20,true,15],['shield',40,true,30],['heal',20,false,5],['heal',20,true,7],['heal',40,true,15],['heal',7,true,1]])
+ test(`Gladiator inspiration conversion: ${kind} ${value}, cuirass=${equipped}`,t=>{
+  const {room,player}=gladiatorBattle(t);player.equips=equipped?[{id:'g_cuirass'},{id:'g_cuirass'}]:[];
+  if(kind==='heal')room.applyHealWithOverheal(player,value);else room.p8GrantShield(player,value,3,'shield','caster');
+  assert.equal(player.hp,85);assert.equal(player.tempHp||0,0);assert.equal(resolveStats(player).PAtk_gear,expected);
+  assert.equal(player.gladiatorInspiration.length,1);assert.equal(player.gladiatorInspiration[0].until,kind==='heal'?2:3);
+});
+test('Gladiator inspiration shared cap, independent expiry, sage max refresh and equipment snapshot',t=>{
+  const {room,player}=gladiatorBattle(t);player.equips=[{id:'g_cuirass'}];
+  room.p8GrantShield(player,40,1,'warrior','a');room.applyHealCapped(player,40,{sourceId:'b'});assert.equal(resolveStats(player).PAtk_gear,40);
+  room.battleRound=2;room.p8RoundStart([]);assert.equal(resolveStats(player).PAtk_gear,15);
+  player.equips=[];room.applyHealCapped(player,20);assert.equal(resolveStats(player).PAtk_gear,20);
+  room.p8GrantShield(player,20,3,'sage','s1');room.p8GrantShield(player,10,3,'sage','s2');
+  assert.equal(player.gladiatorInspiration.filter(s=>s.kind==='sage').length,1);assert.equal(resolveStats(player).PAtk_gear,30);
+  room.battleRound=3;room.p8RoundStart([]);assert.equal(resolveStats(player).PAtk_gear,15);
+  room.battleRound=5;room.p8RoundStart([]);assert.equal(resolveStats(player).PAtk_gear,0);
+});
+for(const cost of [0,20,40,60,80])test('Gladiator cingulum 200% HP coefficient and same life cost: '+cost,t=>{
+  const f=gladiatorBattle(t),{room,player,enemy}=f;
+  const normal=room.skillValue(player,'g_judgment',{hpCost:cost});assert.equal(normal,27+1.5*cost);
+  player.equips=[{id:'g_cingulum',bonusAtk:4}];assert.equal(room.skillValue(player,'g_judgment',{hpCost:cost}),31+2*cost);
+  assert.equal(room.skillValue(player,'g_strike',{stacks:0}),42,'belt changes P only, not assault coefficients');
+  room.arena={playerId:player.id,enemyId:enemy.instanceId,until:1,recoveredHp:cost};gladiatorCast(f,'g_arena');
+  assert.equal(player.hp,85-cost);assert.equal(room.p8Results.find(r=>r.targetEnemyId).finalDamage,31+2*cost);
+});
+test('Gladiator all equipment passives integrate once and later grants respect unequip',t=>{
+  const f=gladiatorBattle(t),{room,player,enemy}=f;player.equips=LOOT_TABLE.filter(e=>['g_xiphos','g_cuirass','g_cingulum'].includes(e.id));
+  room.p8GrantShield(player,20,3,'warrior');room.applyHealCapped(player,20);assert.equal(resolveStats(player).PAtk_gear,26);
+  gladiatorCast(f,'g_sacrifice');assert.equal(player.rage,2);
+  room.applyDamageToPlayer(player,1,{kind:'enemy_direct',trueDamage:true,sourceEnemyId:enemy.instanceId});assert.equal(player.rage,5);
+  const previous=resolveStats(player).PAtk_gear;player.equips=[];room.applyHealCapped(player,20);assert.equal(resolveStats(player).PAtk_gear,previous-4+5);
+});
+test('Gladiator real arena judgment leaves a surviving enemy able to retaliate',t=>{
+  const f=gladiatorBattle(t,4),{room,player,enemy,events}=f;player.hp=35;room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};room.p8RoundStart([]);
+  enemy.attack=30;player.action='g_arena';room.resolveTurnActions();const queue=resolutionQueue(events);
+  const cast=queue.find(s=>s.actionId==='g_arena'&&s.outcome.type==='blood_judgment');assert.ok(cast);
+  assert.equal(cast.hpSnapshot.players.find(p=>p.id===player.id).hp,35);
+  assert.ok(queue.some(s=>s.type==='boss_action'&&s.results.some(r=>r.targetId===player.id&&r.finalDamage>0)));
+  assert.ok(player.hp<35);assert.equal(player.maxHp,85);assert.equal(enemy.maxHp,10000);assert.equal(room.arena,null);
+});
+test('Gladiator declaration CD and contextual skills use the existing two-turn cooldown owner',t=>{
+  const f=gladiatorBattle(t),{room,player}=f;player.action='g_arena';room.resolveTurnActions();assert.equal(player.cooldowns.g_arena,2);
+  room.battleRound++;room.p8RoundStart([]);assert.equal(player.hp,85);assert.equal(getPlayerSkills(player)[1].label,'血殺重擊');
+  player.action='basic';room.resolveTurnActions();assert.equal(player.cooldowns.g_arena,1);
+  room.battleRound++;room.p8RoundStart([]);player.action='basic';room.resolveTurnActions();assert.equal(player.cooldowns.g_arena,0);
+  assert.equal(CLASSES.gladiator.skills.find(s=>s.id==='g_arena').cd,2);assert.equal(getPlayerSkills(player)[1].label,'血戰邀約');
+});
+test('Gladiator general debuff entry points are blocked but unavoidable mechanics remain',t=>{
+  const {room,player}=gladiatorBattle(t);for(const id of ['poison','burn','fracture','chill'])room.applyDotToAlly(player,id);
+  room.applyCorrosionToAlly(player);assert.equal(player.corrosionTurns||0,0);assert.equal(player.poisonTurns||0,0);
+  assert.equal(room.p8Effect(player,'test','混亂',2,{icon:'debuff'}),false);
+  assert.equal(room.p8Effect(player,'boss_rule','關卡規則',2,{icon:'debuff',unavoidable:true}),true);
+  player.enemyEffects={attack_down:{value:99,until:10},mark_enemy:{value:1,until:10},boss_rule:{value:2,until:10,unavoidable:true}};
+  assert.equal(enemyEffect(room,player,'attack_down'),null);assert.equal(resolveStats(player).ATK_base,12);
+  player.stunnedNextTurn=true;player.poisonTurns=2;room.cleanGladiatorDebuffs(player);assert.equal(player.stunnedNextTurn,false);assert.equal(player.poisonTurns,0);
+  assert.ok(player.enemyEffects.mark_enemy);assert.ok(player.enemyEffects.boss_rule);
+  assert.equal(room.applyDamageToPlayer(player,10,{kind:'dot',trueDamage:true}).actualDmg,0);
+  assert.equal(room.applyDamageToPlayer(player,10,{kind:'dot',trueDamage:true,unavoidable:true}).actualDmg,10);
+});
+for(const id of ['hellfire_imp','corrosive_slime','frostbone_skeleton','whispering_apparition'])test('Gladiator enemy status owner respects immunity: '+id,t=>{
+  const template=allEnemyTemplates.find(e=>mechanicId(e)===id);assert.ok(template);
+  const {room,player,enemy}=mechanismBattle(t,[template],'gladiator');t.mock.method(Math,'random',()=>.5);
+  mechanismRound(room,1);actMechanism(room,enemy);assert.deepEqual(Object.keys(player.enemyEffects||{}),[]);
+});
+test('Gladiator retains resource icon and triumph art but no triumph music trigger',()=>{
+  const h=enemyPresentationHarness();
+  h.scope.document.addEventListener=()=>{};
+  vm.runInContext(readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8'),h.scope);
+  const old=h.scope.getBuffIconUrl({id:'rage',label:'怒氣',icon:'buff'}),current=h.scope.getBuffIconUrl({id:'rage',label:'鬥志',icon:'buff'});
+  assert.ok(old);assert.equal(current,old);
+  for(const file of ['extended-role-effects.js','gladiator-presentation.js']){
+    const source=readFileSync(new URL('../public/js/presentation/'+file,import.meta.url),'utf8');
+    assert.ok(!/\.play\('gladiator_triumph'/.test(source));assert.match(source,/triumphSnapshot/);
+  }
+  const sfx=readFileSync(new URL('../public/js/audio/sfx-assets.js',import.meta.url),'utf8');assert.match(sfx,/gladiator_triumph/,'shared audio asset remains registered');
+});
+
+test('Gladiator equipment identities, icons, fixed stats and acquisition slots remain unchanged',t=>{
+  const {room,player}=fixture(t,'gladiator');
+  for(const id of ['g_xiphos','g_cuirass','g_cingulum']){
+    const gear=LOOT_TABLE.find(e=>e.id===id);assert.ok(gear);
+    assert.equal(gear.slot,'CLASS_EXCLUSIVE');assert.equal(gear.tier,'CLASS_EXCLUSIVE');
+    assert.equal(gear.icon,`/assets/equipment/exclusive/${gear.name}.webp`);
+  }
+  player.bag=[structuredClone(LOOT_TABLE.find(e=>e.id==='g_cuirass'))];
+  assert.equal(room.equipItemFromBag(player.id,0).success,true);assert.equal(player.maxHp,120);
+  assert.equal(room.unequipItemToBag(player.id,'CLASS_EXCLUSIVE').success,true);assert.equal(player.maxHp,85);
+});
+for(const [attack,expected]of [[10,25],[30,5],[60,0],[100,0]])test('Gladiator four-player judgment remains risky: enemy attack '+attack,t=>{
+  const f=gladiatorBattle(t,4),{room,player,enemy}=f;player.hp=35;
+  room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};room.p8RoundStart([]);
+  gladiatorCast(f,'g_arena');assert.equal(player.hp,35);
+  room.applyDamageToPlayer(player,attack,{kind:'enemy_direct',trueDamage:true});assert.equal(player.hp,expected);
+  const queue=[];room.p8ExitArena(queue);assert.equal(player.hp,expected);assert.equal(queue[0].arenaPresentation.triumphApplied,expected>0);
+});
+test('Gladiator inspiration grows both arena attacks, excludes magic and direct entry heals',t=>{
+  const {room,player}=gladiatorBattle(t);room.p8GrantShield(player,20,2,'warrior');
+  assert.equal(room.resolveSkillAttack(player,'phys'),22);assert.equal(room.resolveSkillAttack(player,'mag'),12);
+  assert.equal(room.skillValue(player,'g_strike',{stacks:3}),112);assert.equal(room.skillValue(player,'g_judgment',{hpCost:50}),112);
+});
+test('Gladiator immunity does not extend to the unrelated Abyss Gladiator boss',t=>{
+  const {room,enemy}=mechanismBattle(t,[ABYSS_BOSSES.gladiator]);
+  assert.equal(room.p8Effect(enemy,'test','易傷',1,{icon:'debuff'},true),true);
+  enemy.enemyEffects={attack_down:{value:1,until:10}};assert.ok(enemyEffect(room,enemy,'attack_down'));
+});
+test('Gladiator ordinary healing consumable cannot bypass inspiration at full or missing HP',t=>{
+  const {room,player}=fixture(t,'gladiator');room.state='CHOOSING_ROUTE';room.battleRound=1;
+  for(const hp of [85,35]){
+    player.hp=hp;player.gladiatorInspiration=[];
+    room.squadInventory=[{id:'consumable_healing_potion',type:'CONSUMABLE',effectType:'HEALING_POTION'}];
+    assert.equal(room.useConsumableItem(player.id,{index:0}).success,true);
+    assert.equal(player.hp,hp);assert.equal(resolveStats(player).PAtk_gear,8);
+    assert.equal(room.squadInventory.length,0);
   }
 });

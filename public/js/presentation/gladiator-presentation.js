@@ -160,8 +160,6 @@ async function playGladiatorAction(step,s){
     for(const result of (step.results||[]).filter(r=>r.kind!=='damage'))await resolve(result);
     const meta=step.gladiatorPresentation;
     if(meta?.rageGained>0){resultFloat(card,'RAGE +'+meta.rageGained,'is-status');emit('gladiator_rage_gain');}
-    if(meta?.bloodGained>0){resultFloat(card,'血祭 +'+meta.bloodGained,'is-status');emit('gladiator_blood_gain');}
-    if(meta?.bloodHealApplied){resultFloat(card,'死線喘息 · 治療 +20%','is-status');emit('gladiator_blood_heal');}
     gladiatorApply(owner,step.hpSnapshot);await wait(timing.warRoar-50);return;
   }
   if(step.actionId==='g_arena'&&step.outcome?.type==='challenge')return playGladiatorChallengePresentation(step,s);
@@ -293,7 +291,7 @@ async function playGladiatorArenaExit(step,s){
   }
   animate(rage,[{opacity:1},{opacity:.1,offset:.8},{opacity:1}],t.rageConsume);await wait(t.rageConsume);gladiatorApply(owner,meta?.rageConsumedSnapshot);emit('arena_rage_zero');
   if(meta?.triumphApplied===true){
-    emit('arena_triumph_transfer');audioScope.play('gladiator_triumph',{signal:null,preserveAcrossViews:true,noHold:true});
+    emit('arena_triumph_transfer');
     const momentum=fx('gladiator-triumph-streak',482,435);momentum.style.setProperty('--gladiator-triumph-strength',String(Math.min(1,Math.max(.35,(meta.triumphBonus||0)/150))));
     animate(momentum,[{opacity:0,transform:'translate(-50%,-50%) scaleX(.15)'},{opacity:1,transform:'translate(-50%,-50%) scaleX(1)',offset:.35},{opacity:0,transform:`translate(${reduced?-60:-300}px,-50%) scaleX(1.4)`}],t.triumphTransfer);
     animate(card.querySelector('.gladiator-motion'),[{transform:'scale(1)'},{transform:'translateY(-4px) scale(1.04)',offset:.4},{transform:'scale(1)'}],t.triumphTransfer);

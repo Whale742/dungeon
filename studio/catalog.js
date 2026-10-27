@@ -50,8 +50,7 @@ export function buildCatalog() {
     const base = CLASSES[role].skills.find(x => x.id === s.id);
     const idx = CLASSES[role].skills.indexOf(base);
     const detail = !variant && base?.label === s.label ? ROLE_DETAILS[role]?.skills?.[idx]?.desc : null;
-    const contextual=text=>role==='gladiator'&&key==='g_arena__arena'?text.replace('怒氣層數×10','怒氣層數×{rageMultiplier}'):text;
-    skills.set(k, { role_id:role, skill_id:key, display_name:s.label, short_copy:contextual(s.shortDesc || s.desc || ''), full_copy:contextual(detail || s.desc || '') });
+    skills.set(k, { role_id:role, skill_id:key, display_name:s.label, short_copy:s.shortDesc || s.desc || '', full_copy:detail || s.desc || '' });
     const canonical=v2SkillCopy(role,key);if(canonical)Object.assign(skills.get(k),canonical);
     skillMeta[k] = { actionId:s.id, variant, contextual:!!s.contextualCopy };
   };

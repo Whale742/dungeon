@@ -6,6 +6,9 @@ export const INITIAL_STATS = Object.freeze(Object.fromEntries(Object.entries({
   onmyoji:[70,12,0],sage:[70,14,0],assassin:[50,16,0]
 }).map(([role,[maxHp,attack,defense]])=>[role,{maxHp,attack,defense}])));
 const magical = new Set(['mage','bard','alchemist','dreamweaver','stargazer','augur','onmyoji']);
+export const GLADIATOR_INSPIRATION_CAP = 40;
+export const gladiatorInspirationAttack = actor => actor.role === 'gladiator' ? Math.min(GLADIATOR_INSPIRATION_CAP,
+  (actor.gladiatorInspiration || []).filter(s=>s.until >= (actor.inspirationRound || 0)).reduce((n,s)=>n+s.attack,0)) : 0;
 export const basicDamageType = role => magical.has(role) ? 'mag' : 'phys';
 export function equipmentAttack(item, role) {
   // Old saves/loot have one bonusAtk field. Its role affinity is explicit here.
@@ -25,7 +28,7 @@ export function resolveStats(actor, equipmentMultiplier=1) {
   const legacy=equips.reduce((n,e)=>n+(e.bonusAtk||0),0);
   const growth=actor.victoryAtkBonus ?? Math.max(0,(actor.bonusAtk||0)-legacy);
   const baseAttack=(actor.ATK_base ?? initial.attack)+growth+(actor.warriorStacks||0);
-  const penalty=actor.enemyEffects?.attack_down?.value||0;
+  const penalty=actor.role==='gladiator'&&!actor.instanceId&&!actor.enemyEffects?.attack_down?.unavoidable?0:actor.enemyEffects?.attack_down?.value||0;
   const ATK_base=baseAttack-penalty;
   const gearPenalty=Math.max(0,penalty-baseAttack);
   let physical=0,magic=0;
@@ -35,8 +38,8 @@ export function resolveStats(actor, equipmentMultiplier=1) {
     physical+=Math.floor(bonus.physical*multiplier);magic+=Math.floor(bonus.magic*multiplier);
   }
   // Explicit actor fields support imported typed equipment aggregates.
-  const defenseFactor=1-(actor.enemyEffects?.acid_defense?.value || (actor.openDefenseReduction || 0));
-  return {ATK_base:Math.max(0,ATK_base),PAtk_gear:Math.max(0,physical+(actor.PAtk_gear||0)-gearPenalty),MAtk_gear:Math.max(0,magic+(actor.MAtk_gear||0)-gearPenalty),
+  const defenseFactor=1-((actor.role==='gladiator'&&!actor.instanceId&&!actor.enemyEffects?.acid_defense?.unavoidable?0:actor.enemyEffects?.acid_defense?.value) || (actor.openDefenseReduction || 0));
+  return {ATK_base:Math.max(0,ATK_base),PAtk_gear:Math.max(0,physical+(actor.PAtk_gear||0)-gearPenalty)+gladiatorInspirationAttack(actor),MAtk_gear:Math.max(0,magic+(actor.MAtk_gear||0)-gearPenalty),
     DEF:Math.floor(defenseFactor*Math.max(0,(actor.DEF ?? actor.defense ?? initial.defense)+equips.reduce((n,e)=>n+Math.floor((e.bonusDef||0)*equipmentMultiplier),0)))};
 }
 export function resolveSkillAttack({actor,damageType,equipmentMultiplier=1}) {
@@ -53,7 +56,7 @@ export function mitigateDirectDamage(raw,{defense=0,resistance=0,penetration=0,d
 }
 const basic={warrior:[1,.5],paladin:[1,.5],druid:[5,.5],gladiator:[4,.5],samurai:[3,.5],archer:[3,.5],mage:[4,.4],dreamweaver:[4,.6],bard:[1,1],alchemist:[5,.5],stargazer:[1,.8],augur:[5,.5],onmyoji:[4,.5],sage:[3,.5],assassin:[2,.5]};
 // Every entry computes the formula BEFORE fate, damage buffs and mitigation.
-export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,blocks=0}={}) {
+export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,blocks=0,hpCost=0}={}) {
   const P=resolveSkillAttack({actor,damageType:'phys',equipmentMultiplier});
   const M=resolveSkillAttack({actor,damageType:'mag',equipmentMultiplier});
   const D=resolveStats(actor,equipmentMultiplier).DEF,H=actor.maxHp;
@@ -64,7 +67,7 @@ export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,b
   }
   const values={w_strike:4+P+.5*D,w_miss:1+.5*P,w_cleave:8+P+.75*D,w_shield:.4*H,
     pal_glory:7+P,pal_shield:.5*H,dru_claw:10+2.5*P,dru_bear_claw:10+1.0*P,dru_shield:.85*H,
-    g_strike:3+P+10*players+stacks*(13+P),g_rage:4+.5*P,
+    g_sacrifice:3+P,g_strike:10+2*P+stacks*(6+.6*P),g_judgment:15+P+((actor.equips||[]).some(e=>e.id==='g_cingulum')?2:1.5)*hpCost,
     sa_cut:2+P,sa_tsubame:1+.08*P,sa_zanshin:4+.30*P,sa_counter:2+.5*P+.25*D+blocks,
     a_shot:6+Math.max(P,M),a_rain:5*P,a_rain_arrow:.5*P,a_trap:.25*P,a_friendly:3+.5*M,
     m_blast:15+2*M,m_secondary:6+.6*M,m_miss:4+.4*M,m_secondary_miss:1+.2*M,m_drain_max:5+3*M,

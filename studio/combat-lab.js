@@ -12,6 +12,8 @@ vm.runInContext(read('presentation-lab.js'), context);
 vm.runInContext(fs.readFileSync(new URL('../public/js/presentation/gladiator-presentation.js', import.meta.url), 'utf8'), context);
 for (const file of ['samurai-lab-scenes.js', 'gladiator-lab-scenes.js', 'augur-lab-scenes.js', 'onmyoji-lab-scenes.js']) vm.runInContext(read(file), context);
 const fixtures = vm.runInContext('({...PHASE6_LAB_SCENES,...PHASE5_ACCEPTANCE_SCENES,...SAMURAI_LAB_SCENES,...GLADIATOR_LAB_SCENES,...AUGUR_LAB_SCENES,...ONMYOJI_LAB_SCENES})', context);
+// Saved Lab IDs reuse the current Gladiator recordings, including nonlethal judgment.
+for(const [legacy,current] of Object.entries({p8_gladiator_sacrifice:'gladiator_sacrifice',p8_gladiator_challenge:'gladiator_challenge',p8_arena_g_sacrifice:'gladiator_assault',p8_arena_g_arena:'gladiator_suicide',basic_gladiator:'gladiator_basic',phase5_gladiator_basic:'gladiator_basic'}))fixtures[legacy]=fixtures[current];
 const enemies = [
   ...ENCOUNTERS.map((e, i) => ({ ...e, id: 'boss_' + i, tier: 'ELITE', isBoss: true })),
   ...GENERAL_MINIONS, ...EXCLUSIVE_MINIONS, ...ABYSS_MINIONS,
@@ -38,6 +40,7 @@ const scenes = Object.entries(fixtures).flatMap(([id, scene]) => {
     actors.set(key, {
       id, label: scene.label || id, role, enemyName: name,
       actionId: step.actionId, skillId, skillName: step.skillName || step.actionId,
+      ...(role==='gladiator'?{skillDescription:getPlayerSkills({role,hp:player?.hp||85,arenaActive:!!player?.arenaActive,equips:equipmentFor(id,step.actionId).map(gear=>LOOT_TABLE.find(e=>e.id===gear)).filter(Boolean)}).find(s=>s.id===skillId)?.desc}:{}),
       equips: player?.equips || [], actor: player || null, enemyState:enemy?sourceEnemy:null,
       targetSide,
       targetMode:!['dw_butterfly','dw_false_dream'].includes(skillId)&&step.results?.length&&step.results.every(r=>r.targetId===step.sourceId&&!['heal','shield'].includes(r.kind))?'self':'selected',

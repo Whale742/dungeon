@@ -959,14 +959,14 @@ export function getPlayerSkills(player) {
     const sacrifice = baseSkills[1], arena = baseSkills[2];
     if (player.arenaActive) {
       Object.assign(sacrifice, { label:'血殺重擊', dmgType:'phys', category:'OFFENSIVE', tags:['物理'],
-        desc:'造成（15+玩家人數×10）+怒氣層數×25的物理傷害。生命小於等於1時不可施放。', cooldownKey:'arena_g_sacrifice' });
-      Object.assign(arena, { label:'同歸於盡', cd:0, dmgType:'phys', category:'OFFENSIVE', tags:['物理'],
-        desc:`消耗剩餘所有生命，造成等同於消耗生命+怒氣層數×${(player.equips||[]).some(e=>e.id==='g_cingulum')?15:10}的物理傷害；以此方式死亡，本層不可被吟遊詩人復活。`, cooldownKey:'arena_g_arena' });
+        desc:'造成 round(10 + 2 × A物 + 鬥志 × (6 + 0.6 × A物)) 點物理傷害，不消耗生命。', cooldownKey:'arena_g_sacrifice' });
+      Object.assign(arena, { label:'浴血裁決', cd:0, dmgType:'phys', category:'OFFENSIVE', tags:['物理'],
+        desc:'消耗尚未使用的入場恢復量，最低保留 1 HP；造成 round(15 + A物 + 1.5 × 實際消耗生命) 點物理傷害。同次入場僅可消耗一次。', cooldownKey:'arena_g_arena' });
     } else {
       sacrifice.desc = sacrifice.desc.split('\n【死亡角鬥場】中')[0];
       arena.desc = arena.desc.split('\n場內技能')[0];
     }
-    sacrifice.hpBlocked = player.hp <= 1;
+    sacrifice.hpBlocked = false;
     for (const skill of [sacrifice, arena]) { skill.shortDesc = skill.desc; skill.contextualCopy = true; }
   }
   const equips = player.equips || [];
@@ -1069,7 +1069,7 @@ export function getPlayerSkills(player) {
 
 // 玩家行動優先權判定 (1: 淨化, 2: 復活, 3: 防禦/護盾/裝填蹲伏, 4: 增益, 5: 治療, 6: 變身/召喚, 7: 敵方減益, 8: 攻擊技能)
 export function getActionPriority(actionId) {
-  if (['dw_butterfly','sg_clock','g_sacrifice','g_arena'].includes(actionId)) return 4;
+  if (['dw_butterfly','sg_clock','g_arena'].includes(actionId)) return 4;
   if (['dw_false_dream','sg_observe'].includes(actionId)) return 7;
   if (actionId === 'alc_fate' || actionId === 'aug_bind') return 1; // 1. 淨化 / 命運繫結 (Cleanse / Fate Binding)
   if (actionId === 'b_revive') return 2; // 2. 復活 (Revive)

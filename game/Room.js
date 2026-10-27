@@ -2,7 +2,7 @@ import { resolveRoleRandom, clearRoleRandom } from './DevRoleRandom.js';
 import {SPECIAL_EVENT_COPY} from './special-event-content.js';
 import { rollDruidForm, enterBearForm, restoreBearForm } from './druid.js';
 import { enemyPresentationInfo, enemyCanParticipate, mechanicState, mechanicStatuses, enemyRoundStart, enemyPlayerRoundTicks, drainEnemyEvents, runEnemyAction, runMimicAmbush, beforePlayerAction, beforeEnemyDamage, redirectEnemyDamage, afterPlayerDamage, onPlayerHealed, enemyEffect } from './enemy-mechanics.js';
-import { resolveStats, resolveSkillAttack, skillValue, basicDamageType, mitigateDirectDamage, crossbowAllocations } from './stats.js';
+import { resolveStats, resolveSkillAttack, skillValue, basicDamageType, mitigateDirectDamage, crossbowAllocations, gladiatorInspirationAttack } from './stats.js';
 import { createBossResistances, getBossResistance } from './boss-resistance.js';
 import { createRoomContent } from '../studio/content.js';
 import { normalizeAvatar } from './avatar.js';
@@ -1122,7 +1122,7 @@ export class Room {
     const initialCooldowns = {};
     CLASSES[roleKey].skills.forEach(s => { initialCooldowns[s.id] = 0; });
     player.cooldowns = initialCooldowns;
-    Object.assign(player,{p8Effects:{},p8Shields:[],temporaryOverheal:0,p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+    Object.assign(player,{p8Effects:{},p8Shields:[],temporaryOverheal:0,p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,gladiatorInspiration:[],gladiatorChallenge:null,inspirationRound:0,rageRoundNumber:0,rageRoundGain:false,gladiatorChallengeGain:false,bloodStacks:0,soul:0,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
     delete player.sagePreviousAction;delete player.sageLastAction;delete player.sageDebtScheduledRound;
     player.stealthStacks=roleKey==='assassin'?1:0;
     delete player.noReviveFloor;
@@ -1535,7 +1535,7 @@ export class Room {
   getEffectiveBonusAtk(pl) {
     if (!pl) return 0;
     const equipMult = (pl.corrosionTurns > 0) ? 0.5 : (this.roundModifiers?.equipmentEffectMultiplier ?? 1.0);
-    const resourceAtk=(pl.warriorStacks||0)+(pl.role==='gladiator'?(pl.bloodStacks||0)*2:0);
+    const resourceAtk=(pl.warriorStacks||0)+gladiatorInspirationAttack(pl);
     if (equipMult >= 1.0) {
       return Math.max(0, (pl.bonusAtk || 0)+resourceAtk);
     }
@@ -1721,7 +1721,7 @@ export class Room {
     const hpBefore = this.getHpSnapshot();
     const healAmt = 25;
     for (const p of Object.values(this.players)) {
-      if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + healAmt);
+      if (p.hp > 0) {if(p.role==='gladiator')this.grantGladiatorInspiration(p,healAmt,2,'heal','recovery');else p.hp = Math.min(p.maxHp, p.hp + healAmt);}
     }
     const hpAfter = this.getHpSnapshot();
 
@@ -1930,6 +1930,7 @@ export class Room {
     if (!ally || ally.hp <= 0) return;
     const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === ally.id);
     const target = (paladinGrace && paladinGrace.id !== ally.id) ? paladinGrace : ally;
+    if(target.role==='gladiator')return;
     target.corrosionTurns = Math.max(target.corrosionTurns || 0, turns);
   }
 
@@ -1937,6 +1938,7 @@ export class Room {
     if (!ally || ally.hp <= 0) return;
     const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === ally.id);
     const target = (paladinGrace && paladinGrace.id !== ally.id) ? paladinGrace : ally;
+    if(target.role==='gladiator')return;
     const caster = sourcePlayer !== null ? sourcePlayer : Object.values(this.players).find(p => p.role === 'alchemist' && (p.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴管' || e.name === '精密滴定管'));
     const hasBurette = !!(caster && (caster.equips || []).some(e => e.id === 'alc_burette' || e.name === '精密滴管' || e.name === '精密滴定管'));
     const multiplier = hasBurette ? 0.5 : 1.0;
@@ -2139,7 +2141,11 @@ export class Room {
       }
       healAmount = resonanceAmount;
     }
-    if(this.p8Has(player,'blood_heal'))healAmount=Math.floor(healAmount*1.2);
+    if(player.role==='gladiator') {
+      this.grantGladiatorInspiration(player,healAmount,2,'heal',options.sourceId||this.healingSourceId||'regeneration');
+      this.actionHeals?.push({targetId:player.id,actualHeal:0,outcome:{type:'inspiration'},targetAfter:snapshotTarget(this.getHpSnapshot(),player.id)});
+      return 0;
+    }
     let absorbedDebt=0;
     if (!options.directHp && player.role === 'augur' && player.augurFateDebts && player.augurFateDebts.length > 0) {
       const absorbed = this.deductAugurDebtPassive(player, healAmount);
@@ -2197,7 +2203,6 @@ export class Room {
       }
       healAmount = resonanceAmount;
     }
-    if(this.p8Has(player,'blood_heal'))healAmount=Math.floor(healAmount*1.2);
     let absorbedDebt=0;
     if (!options.directHp && player.role === 'augur' && player.augurFateDebts && player.augurFateDebts.length > 0) {
       const absorbed = this.deductAugurDebtPassive(player, healAmount);
@@ -2214,6 +2219,11 @@ export class Room {
         }
         return 0;
       }
+    }
+    if(player.role==='gladiator') {
+      this.grantGladiatorInspiration(player,healAmount,2,'heal',options.sourceId||this.healingSourceId||'regeneration');
+      this.actionHeals?.push({targetId:player.id,actualHeal:0,outcome:{type:'inspiration'},targetAfter:snapshotTarget(this.getHpSnapshot(),player.id)});
+      return 0;
     }
     const oldHp = player.hp;
     player.hp = Math.min(player.maxHp, player.hp + healAmount);
@@ -2232,6 +2242,7 @@ export class Room {
 
   // Only incoming direct enemy hits may consume shields / temporary overheal.
   applyDamageToPlayer(player, dmg, context = {}) {
+    if(player.role==='gladiator'&&context.kind==='dot'&&!context.unavoidable)return {actualDmg:0,hpDmg:0,tempAbsorbed:0};
     const directHit=!context.kind || ['enemy_direct','grace_redirect','secondary','abyss_counter'].includes(context.kind);
     if (!context.trueDamage && !context.ignoreReduction && !context.defMitigated && !this.arena && ['enemy_direct','grace_redirect','secondary'].includes(context.kind)) {
       dmg=mitigateDirectDamage(dmg,{damageType:context.damageType||'phys',defense:resolveStats(player,this.statMultiplier(player)).DEF});
@@ -2350,9 +2361,9 @@ export class Room {
 
   // 戰鬥回合流程 - Round Start (1. DoT 2. Regeneration 3. Abyssal Corruption 4. 其他回合初效果)
   executeRoundStart() {
-    this.clearTimer();
+    this.clearTimer();this.healingSourceId=null;
     this.roundModifiers = { equipmentEffectMultiplier: 1.0, acidFlaskCount: 0 }; // 每回合初確保裝備倍率恢復 100%
-    Object.values(this.players).forEach(p => { p.isCrouchedThisRound = false; });
+    Object.values(this.players).forEach(p => { p.isCrouchedThisRound = false; this.cleanGladiatorDebuffs(p); });
     for (const enemy of (this.enemies || [])) {
       if (enemy) {
         enemy.sealedThisRound = false;
@@ -2386,9 +2397,10 @@ export class Room {
     if (this.battleRound === 1) {
       for (const p of alivePlayers) {
         if (p.battleStartShield > 0) {
-          p.tempHp = (p.tempHp || 0) + p.battleStartShield;
-          log.push({ text: `🛡️ **${p.name}** 的【守護者吊墜】生效，獲得 ${p.battleStartShield} 點開場護盾！`, type: 'buff' });
-          visualEvents.push({ type: 'shield_gain', targetId: p.id, value: p.battleStartShield });
+          if(p.role==='gladiator')this.p8GrantShield(p,p.battleStartShield,Infinity,'battle_start');
+          else p.tempHp = (p.tempHp || 0) + p.battleStartShield;
+          log.push({ text: p.role==='gladiator'?`**${p.name}** 的【守護者吊墜】${p.battleStartShield} 點護盾已轉為鼓舞。`:`🛡️ **${p.name}** 的【守護者吊墜】生效，獲得 ${p.battleStartShield} 點開場護盾！`, type: 'buff' });
+          visualEvents.push({ type: p.role==='gladiator'?'buff':'shield_gain', targetId: p.id, value: p.role==='gladiator'?0:p.battleStartShield });
         }
       }
     }
@@ -2396,11 +2408,11 @@ export class Room {
     // 每回合初裝備自動回復 (再生草環、生命指環) 與延後夢境傷害
     for (const p of alivePlayers) {
       if (p.hp > 0 && p.regenPerRound > 0) {
-        const heal = Math.min(p.maxHp - p.hp, p.regenPerRound);
+        const heal = p.role==='gladiator'?p.regenPerRound:Math.min(p.maxHp - p.hp, p.regenPerRound);
         if (heal > 0) {
-          p.hp += heal;
-          log.push({ text: `🌱 **${p.name}** 的裝備律動生機，自動回復了 ${heal} 點生命！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
-          visualEvents.push({ type: 'regen', targetId: p.id, value: heal });
+          if(p.role==='gladiator')this.applyHealCapped(p,heal);else p.hp += heal;
+          log.push({ text: p.role==='gladiator'?`**${p.name}** 的裝備再生 ${heal} 點治療已轉為鼓舞。`:`🌱 **${p.name}** 的裝備律動生機，自動回復了 ${heal} 點生命！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
+          visualEvents.push({ type: p.role==='gladiator'?'buff':'regen', targetId: p.id, value: p.role==='gladiator'?0:heal });
         }
       }
       if (p.delayedDreamDmg > 0 && p.hp > 0) {
@@ -2860,7 +2872,7 @@ export class Room {
     }
     const isEnemyTargetId = (id) => Boolean(id && (id === 'monster' || (this.enemies || []).some(e => e.instanceId === id || e.id === id)));
     if (actionId === 'dw_butterfly' && !isEnemyTargetId(targetPlayerId) && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp<=0)) return {success:false,message:'請指定存活隊友或魔物'};
-    if (actionId === 'b_revive' && this.players[targetPlayerId]?.noReviveFloor===this.floor) return {success:false,message:'同歸於盡者本層不能甦生'};
+    if (actionId === 'b_revive' && this.players[targetPlayerId]?.noReviveFloor===this.floor) return {success:false,message:'此角色本層不能甦生'};
     if (player.stunnedNextTurn) return { success: false, message: '你處於脫力虛脫中，本回合無法行動' };
     if (player.isSurrendered) return { success: false, message: '你陷入暗影魔狼族長的血脈壓制臣服狀態，無法行動！' };
     if (player.druidForm === 'tree') return { success: false, message: '你化身為古樹休眠中，本回合無法行動！' };
@@ -3014,7 +3026,7 @@ export class Room {
     this.p8ExitArena();
     const victoryBefore = this.getHpSnapshot();
     this.enemyArena=null;
-    for(const p of Object.values(this.players)){p.enemyEffects={};p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;}
+    for(const p of Object.values(this.players)){p.enemyEffects={};p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;if(p.role==='gladiator'){p.rage=0;p.gladiatorInspiration=[];p.gladiatorChallenge=null;}}
     monster.hp = 0;
     const col = this.currentHex?.col || this.floor || 1;
     const isGladiatorCaptain = this.getEffectiveLeaderRole() === 'gladiator';
@@ -4318,7 +4330,7 @@ export class Room {
       if ((this.gold || 0) < restPrice) return { success: false, message: '金幣不足！' };
       this.gold -= restPrice;
       for (const p of Object.values(this.players)) {
-        if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.35));
+        if (p.hp > 0) {if(p.role==='gladiator')this.grantGladiatorInspiration(p,Math.round(p.maxHp*.35),2,'heal','rest');else p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.35));}
       }
       this.addLog(`⛺ 小隊花費 ${restPrice} 金幣在商隊營地休憩，全員回復了 35% 生命！(剩餘金幣: ${this.gold})`, 'heal');
       this.broadcastState();
@@ -4515,7 +4527,7 @@ export class Room {
         for (const ally of Object.values(this.players)) {
           if (ally.id !== player.id && ally.hp > 0) {
             const prev = ally.hp;
-            ally.hp = Math.min(ally.maxHp, ally.hp + 25);
+            if(ally.role==='gladiator')this.grantGladiatorInspiration(ally,25,2,'heal',player.id);else ally.hp = Math.min(ally.maxHp, ally.hp + 25);
             allyHeals.push(`**${ally.name}**(+${ally.hp - prev})`);
           }
         }
@@ -4530,7 +4542,7 @@ export class Room {
       }
       const healAmt = 35;
       const prevHp = targetPlayer.hp;
-      targetPlayer.hp = Math.min(targetPlayer.maxHp, targetPlayer.hp + healAmt);
+      if(targetPlayer.role==='gladiator')this.grantGladiatorInspiration(targetPlayer,healAmt,2,'heal',player.id);else targetPlayer.hp = Math.min(targetPlayer.maxHp, targetPlayer.hp + healAmt);
       container.splice(idx, 1);
       this.addLog(`🧪 **${player.name}** 對 **${targetPlayer.name}** 使用了【治療藥】，恢復了 ${targetPlayer.hp - prevHp} 生命（❤️ ${targetPlayer.hp}/${targetPlayer.maxHp}）！`, 'heal');
       this.broadcastState();
@@ -4544,7 +4556,7 @@ export class Room {
       for (const p of Object.values(this.players)) {
         if (p.hp > 0) {
           const healAmt = Math.max(1, Math.round(p.maxHp * (item.healPercent || 0.60)));
-          p.hp = Math.min(p.maxHp, p.hp + healAmt);
+          if(p.role==='gladiator')this.grantGladiatorInspiration(p,healAmt,2,'heal','rest_tent');else p.hp = Math.min(p.maxHp, p.hp + healAmt);
         }
         p.poisonTurns = 0;
         p.poisonDmg = 0;
@@ -4643,7 +4655,7 @@ export class Room {
         const deposit = this.autoDepositLoot(drop, socketId);
 
         for (const p of Object.values(this.players)) {
-          if (p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + 25);
+          if (p.hp > 0) {if(p.role==='gladiator')this.grantGladiatorInspiration(p,25,2,'heal','chest');else p.hp = Math.min(p.maxHp, p.hp + 25);}
         }
 
         this.currentEvent.opened = true;
@@ -5078,7 +5090,8 @@ export class Room {
       if (potion === 'defense') {
         for (const p of Object.values(this.players)) {
           if (p.hp > 0) {
-            p.tempHp = (p.tempHp || 0) + 20;
+            if(p.role==='gladiator')this.p8GrantShield(p,20,2,'alchemy_defense');
+            else p.tempHp = (p.tempHp || 0) + 20;
             p.alcPotionDefTurns = 2;
           }
         }
@@ -5474,6 +5487,7 @@ export class Room {
 
     const baseBardDmgMultiplier = bardDmgMultiplier;
     for (const p of sortedPlayers) {
+      this.cleanGladiatorDebuffs(p);
       if (this.getLivingEnemies().length === 0) break;
       if (arenaRoundPlayerId && arenaRoundPlayerId !== p.id) continue;
       const targetEnemy = this.getTargetEnemy(p.targetEnemyId);
@@ -5493,7 +5507,7 @@ export class Room {
         leaderDmgMultiplier *= 1.10;
       }
       bardDmgMultiplier = baseBardDmgMultiplier * gloryBuff * leaderDmgMultiplier;
-      phase8Actor=p; p.overloadAppliedThisAction=false; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
+      phase8Actor=p;this.healingSourceId=p.id; p.overloadAppliedThisAction=false; this.p8Results=null;this.p8DamagePresentationOutcomes=[];
       const beforeVisualCount = visualEvents.length;
       const beforeLogCount = log.length;
       const monsterHpBefore = monster.hp;
@@ -6379,7 +6393,7 @@ export class Room {
           const addedPoisonDmg = 5;
           const bossPoisoned = this.applyMonsterPoison(addedPoisonDmg);
           for (const pl of Object.values(this.players)) {
-            if (pl.hp > 0) {
+            if (pl.hp > 0 && pl.role !== 'gladiator') {
               pl.poisonTurns = 2; // 持續時間刷新回 2 回合
               pl.poisonDmg = (pl.poisonDmg || 0) + addedPoisonDmg; // 毒傷疊加
             }
@@ -6860,8 +6874,7 @@ export class Room {
           rageBefore:snapshotTarget(actionBefore,p.id)?.rage||0,rageAfter:p.rage||0,
           rageGained:Math.max(0,(p.rage||0)-(snapshotTarget(actionBefore,p.id)?.rage||0)),
           rageConsumed:Math.max(0,(snapshotTarget(actionBefore,p.id)?.rage||0)-(p.rage||0)),
-          bloodGained:Math.max(0,(p.bloodStacks||0)-(snapshotTarget(actionBefore,p.id)?.bloodStacks||0)),
-          bloodHealApplied:!!p8Action?.bloodHealApplied,actorDied:p.hp<=0
+          actorDied:p.hp<=0
         }}:{}),
         ...(p.role==='sage'?{sagePresentation:{
           sagePhase:p.sagePhase,operandBefore:snapshotTarget(actionBefore,p.id)?.sageOperand,
@@ -7031,6 +7044,7 @@ export class Room {
         }
       }
     }
+    this.healingSourceId=null;
     bardDmgMultiplier = baseBardDmgMultiplier;
 
     // 3. 處理脫力狀態
@@ -7056,6 +7070,9 @@ export class Room {
           p.cooldowns[cooldownKey] -= 1;
         }
       }
+
+      // The outside declaration keeps cooling down while its arena variant is active.
+      if(p.role==='gladiator'&&activeSkills.some(s=>s.cooldownKey==='arena_g_arena')&&p.cooldowns.g_arena>0)p.cooldowns.g_arena--;
 
       if (p.action && p.action !== 'skip') {
         const usedSkill = activeSkills.find(s => s.id === p.action);
@@ -7313,7 +7330,7 @@ export class Room {
           if (player.role === 'assassin') finalDmg = Math.floor(finalDmg * CLASSES.assassin.vulnerableMod);
           if (player.warriorVulnerableTurns > 0) finalDmg = Math.floor(finalDmg * 1.20);
           if (shieldDamageMod < 1.0) finalDmg = Math.max(1, Math.floor(finalDmg * shieldDamageMod));
-          if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * alcVulnMod);
+          if (alcVulnMod > 1.0) finalDmg = Math.floor(finalDmg * (p.role==='gladiator'?1:alcVulnMod));
           // 架弩蹲伏減傷 20%
           if (player.isCrouchedThisRound) {
             finalDmg = Math.floor(finalDmg * 0.80);
@@ -7506,7 +7523,7 @@ export class Room {
           const dmgRes = this.applyDamageToPlayer(p, totalTakenDmg, {kind:'enemy_direct',hpEvents,defMitigated:true,trueDamage:isNightmareTrueDmg});
           for(const incoming of incomingParts)if(incoming.outcome==='nightmare')this.p8NightmareHeal(p,incoming.ownerId);
 
-          if (totalTakenDmg > 0 && monster.baseHp < 100) {
+          if (totalTakenDmg > 0 && p.role!=='gladiator' && monster.baseHp < 100) {
             p.bleedTurns = 2;
           }
 
@@ -7764,10 +7781,11 @@ export class Room {
     return Math.random() < Math.min(1, Math.max(0, baseRate + bonus));
   }
 
-  pickTargetWithTaunt(players) {
+  pickTargetWithTaunt(players, enemy=this.currentMonster) {
     if (!players || players.length === 0) return null;
     if (players.length === 1) return players[0];
-    const weights = players.map(p => p.role === 'paladin' ? 1.3 : 1.0);
+    const weights = players.map(p => (p.role === 'paladin' ? 1.3 : 1.0) *
+      (p.role==='gladiator'&&p.gladiatorChallenge?.round===this.battleRound&&p.gladiatorChallenge.enemyId===enemy?.instanceId?1.5:1));
     const total = weights.reduce((sum, w) => sum + w, 0);
     let r = Math.random() * total;
     for (let i = 0; i < players.length; i++) {
@@ -7895,7 +7913,7 @@ export class Room {
     this.clearZanshin();
     this.clearAugurBattleDebts();
     this.p8ExitArena();
-    for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;}
+    for(const p of Object.values(this.players)){p.warriorStacks=0;p.p8Effects={};p.p8Shields=[];p.tempHp=0;p.temporaryOverheal=0;if(p.role==='gladiator'){p.rage=0;p.gladiatorInspiration=[];p.gladiatorChallenge=null;}}
     this.clearTimer();
     this.state = 'GAME_OVER';
     this.gameOverReason = 'wipe';
@@ -7939,7 +7957,7 @@ export class Room {
       p.bonusAtk = 0; p.statsVersion=2; p.victoryAtkBonus = 0; p.stealthStacks = p.role==='assassin'?1:0; p.critTowardStealth = 0; p.isHiddenThisRound = false; p.followUpsThisRound = 0; p.stealthBrokenThisRound = false;
       p.equips = [];
       p.equipCounts = {};
-      Object.assign(p, {p8Effects:{},p8Shields:[],temporaryOverheal:0,p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
+      Object.assign(p, {p8Effects:{},p8Shields:[],temporaryOverheal:0,p8TeamHp:0,p8DisabledHp:0,p8CorrodedHp:0,warriorStacks:0,rage:0,gladiatorInspiration:[],gladiatorChallenge:null,inspirationRound:0,rageRoundNumber:0,rageRoundGain:false,gladiatorChallengeGain:false,bloodStacks:0,soul:0,kyoutou:false,arenaActive:false,paladinGrace:null,paladinGloryTrackedDamage:0,paladinGloryCastedRound:0,sageX:30,sageDebt:0,sageOperand:0,sagePhase:'hypothesis',sageCycleRound:0,sageInduction:false,sageSamplingEnded:true,sageEquationResolved:false,sageSolvedThisRound:false,sagePrimeResetPending:false});
       delete p.sagePreviousAction;delete p.sageLastAction;delete p.sageDebtScheduledRound;
       delete p.noReviveFloor;
       p.cooldowns = {};

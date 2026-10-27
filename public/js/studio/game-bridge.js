@@ -10,7 +10,7 @@
     if(role==='druid'&&skill.id==='basic'&&player.druidForm)return 'basic__'+player.druidForm;
     return skill.id;
   }
-  function skillDisplay(role,skill,player){const copy=StudioContent.find('skill_copies',role+':'+copyKey(role,skill,player));if(!copy)return skill;return {...skill,label:copy.display_name,copyKey:copyKey(role,skill,player),copyVars:{rageMultiplier:player?.equips?.some(e=>e.id==='g_cingulum')?15:10}};}
+  function skillDisplay(role,skill,player){const copy=StudioContent.find('skill_copies',role+':'+copyKey(role,skill,player));if(!copy)return skill;return {...skill,label:copy.display_name,copyKey:copyKey(role,skill,player)};}
   global.StudioGame={project,copyKey,skillDisplay};
   document.addEventListener('DOMContentLoaded',()=>{void StudioContent.load();});
 })(window);

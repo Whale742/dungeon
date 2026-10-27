@@ -76,7 +76,7 @@ function renderEquipment(player){
   ui.equipmentNote.textContent=player.equips?.length?'只顯示此裝備已接通的結果樣本；沒有對應樣本時不允許播放。':'裝備只建立演出情境，不執行傷害或裝備結算。';
 }
 function renderSpecial(player){
-  const fields={druid:['druidForm','形態'],assassin:['isHiddenThisRound','隱身'],sage:['sagePhase','演算階段'],samurai:['soul','武魂'],gladiator:['rage','怒氣']};
+  const fields={druid:['druidForm','形態'],assassin:['isHiddenThisRound','隱身'],sage:['sagePhase','演算階段'],samurai:['soul','武魂'],gladiator:['rage','鬥志']};
   const field=fields[player.role];
   const names={'':'人形',werewolf:'狼人',treant:'遠古樹精',tree:'沉睡古樹',bear:'巨熊',hypothesis:'假設',solve:'求解',false:'未隱身',true:'隱身'};
   const values=field?[...new Set(catalog.scenes.filter(s=>s.role===player.role).map(s=>String(s.actor?.[field[0]]??'')))]:[];
@@ -93,7 +93,8 @@ function renderEnemies(){
 function renderPerformance(){
   const actor=actorFor(config),entries=actorEntries();
   ui.actor.innerHTML=`<optgroup label="我方角色">${config.party.map((p,i)=>option(p.id,`${i+1} · ${p.name}`)).join('')}</optgroup><optgroup label="敵方角色">${config.enemies.map((e,i)=>option(e.instanceId,`${i+1} · ${e.name}`)).join('')}</optgroup>`;ui.actor.value=config.actorId;
-  const formal=formalSkills(actor);
+  const formal=formalSkills(actor).map(s=>({...s}));
+  if(actor.role==='gladiator'&&entry)for(const skill of formal)if(skill.id===entry.skillId){skill.label=entry.skillName;skill.desc=entry.skillDescription||skill.desc;}
   const known=new Set(formal.map(s=>s.id));
   const extra=[...new Map(entries.filter(e=>!known.has(e.skillId)).map(e=>[e.skillId,e])).values()];
   ui.skill.innerHTML=(formal.length?'<optgroup label="普通攻擊與主動技能">'+formal.map(s=>option(s.id,s.label+(entries.some(e=>e.skillId===s.id)?'':' · 尚未支援'))).join('')+'</optgroup>':'')+(extra.length?`<optgroup label="${actor.instanceId?'攻擊與特殊演出':'被動與特殊行動'}">${extra.map(s=>option(s.skillId,s.skillName)).join('')}</optgroup>`:'');
@@ -164,7 +165,7 @@ ui.addPlayer.onclick=()=>changeConfiguration(()=>{if(config.party.length>=catalo
 ui.removePlayer.onclick=()=>changeConfiguration(()=>{if(config.party.length>1)config.party=config.party.filter(p=>p.id!==selectedId);});
 ui.role.onchange=()=>changeConfiguration(()=>{const index=config.party.findIndex(p=>p.id===selectedId),id=selectedId;config.party[index]={...newPlayer(ui.role.value),id};if(config.actorId===id){skillId=catalog.classes[ui.role.value].skills[0]?.id||'';variantId='';}});
 for(const [id,direction]of [['moveUp',-1],['moveDown',1]])ui[id].onclick=()=>changeConfiguration(()=>{const i=config.party.findIndex(p=>p.id===selectedId);if(config.party[i+direction])[config.party[i],config.party[i+direction]]=[config.party[i+direction],config.party[i]];});
-ui.equipment.onchange=()=>changeConfiguration(()=>{const p=config.party.find(p=>p.id===selectedId);p.equips=ui.equipment.value?[clone(catalog.equipment.find(e=>e.id===ui.equipment.value))]:[];variantId='';sampleKey='';});
+ui.equipment.onchange=()=>changeConfiguration(()=>{const p=config.party.find(p=>p.id===selectedId),oldHpBonus=(p.equips||[]).reduce((n,e)=>n+(e.bonusHp||0),0);p.equips=ui.equipment.value?[clone(catalog.equipment.find(e=>e.id===ui.equipment.value))]:[];if(p.role==='gladiator'){const delta=p.equips.reduce((n,e)=>n+(e.bonusHp||0),0)-oldHpBonus;p.maxHp=Math.max(1,p.maxHp+delta);p.hp=Math.min(p.maxHp,p.hp+delta);}variantId='';sampleKey='';});
 ui.specialFields.onchange=event=>changeConfiguration(()=>{const p=config.party.find(p=>p.id===selectedId),key=event.target.dataset.special,value=event.target.value;p.labFilter=value==='*'?null:{key,value};variantId='';sampleKey='';});
 ui.enemyCount.onclick=event=>{const b=event.target.closest('[data-count]');if(b)changeConfiguration(()=>{const count=Number(b.dataset.count);while(config.enemies.length<count)config.enemies.push(newEnemy(catalog.enemies.find(e=>e.tier==='MINION')));config.enemies.length=count;});};
 ui.enemyList.onchange=event=>changeConfiguration(()=>{const i=Number(event.target.dataset.enemy);const previous=config.enemies[i];config.enemies[i]={...newEnemy(catalog.enemies.find(e=>e.id===event.target.value),i),instanceId:previous.instanceId};variantId='';});

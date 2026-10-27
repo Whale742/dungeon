@@ -14,6 +14,25 @@ function scenario(role='samurai',count=4,enemyCount=3){
 }
 const entry=(id,action)=>catalog.scenes.find(s=>s.id===id&&(!action||s.actionId===action));
 
+for(const [id,expected,cost]of [['gladiator_sacrifice',15,0],['gladiator_xiphos',15,0],['gladiator_assault',74,0],['gladiator_suicide',102,50],['gladiator_cingulum',131,50],['p8_arena_g_arena',102,50]])
+test('Gladiator Lab uses current nonlethal mechanics: '+id,()=>{
+  const config=scenario('gladiator');config.enemies.forEach(e=>{e.hp=e.maxHp=1000;});
+  const selected=entry(id),fixture=combatLabFixture(id),{steps}=preparePlayback(config,fixture,selected),step=steps[0];
+  assert.equal(step.results.filter(r=>r.targetEnemyId).reduce((n,r)=>n+r.actualDamage,0),expected);
+  assert.equal(step.hpSnapshot.players[0].hp,85-cost);assert.ok(!step.hpSnapshot.players[0].noReviveThisFloor);
+  if(step.actionId==='g_arena')assert.equal(selected.skillName,'浴血裁決');
+  assert.ok(!/同歸於盡|鮮血獻祭|怒氣/.test(selected.skillDescription||''));
+});
+test('Gladiator cuirass Lab records shield and heal inspiration separately without healing HP',()=>{
+  const config=scenario('gladiator');config.party[0].hp=config.party[0].maxHp=120;
+  config.enemies.forEach(e=>{e.hp=e.maxHp=1000;});
+  const selected=entry('gladiator_cuirass'),{steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
+  const step=steps[0];assert.equal(step.results[0].targetAfter.statuses[0].value,'物攻 +15');
+  assert.equal(step.results[1].targetAfter.statuses[0].value,'物攻 +22');
+  assert.equal(step.results.find(r=>r.targetEnemyId).actualDamage,37);
+  assert.equal(step.hpSnapshot.players[0].hp,120);assert.equal(step.hpSnapshot.players[0].tempHp||0,0);
+});
+
 for(const [id,damage]of [['onm_talisman_blind',15],['onm_talisman_seal',15],['onm_talisman_corrode',15],['onm_talisman_confuse',16],['onm_talisman_drain',41],['phase5_onmyoji_onm_all_talismans',50],['onm_detonate_5',25],['onm_detonate_10_max',48]])
 test('Onmyoji Lab replay keeps damage, HP and talismans consistent: '+id,()=>{
   const config=scenario('onmyoji');config.enemies.forEach(e=>{e.hp=1000;e.maxHp=1000;});

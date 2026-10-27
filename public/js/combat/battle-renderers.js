@@ -510,6 +510,8 @@ const BUFF_ICON_MAP = {
   overload: '/assets/icons/status/狂熱.webp',
   blood_heal: '/assets/icons/status/狂熱.webp',
   rage: '/assets/icons/status/狂熱.webp',
+  gladiator_inspiration: '/assets/icons/status/狂熱.webp',
+  gladiator_challenge: '/assets/icons/status/破綻印記.webp',
   soul: '/assets/icons/status/狂熱.webp',
   galaxy: '/assets/icons/status/星系追擊.webp',
   astronomy: '/assets/icons/status/星系追擊.webp',
@@ -713,7 +715,7 @@ function getBuffIconUrl(status) {
   if (label.includes('閃避') || label.includes('DODGE')) return resolveStatusCloudUrl('/assets/icons/status/閃避加成.webp');
   if (label.includes('隱身') || label.includes('匿蹤') || label.includes('追擊') || label.includes('暗影步')) return resolveStatusCloudUrl('/assets/icons/status/隱身.webp');
   if (label.includes('休眠') || label.includes('沉睡') || label.includes('虛弱') || label.includes('倒下') || label.includes('EXHAUSTED')) return resolveStatusCloudUrl('/assets/icons/status/休眠.webp');
-  if (label.includes('狂熱') || label.includes('DMG +') || label.includes('凱旋') || label.includes('過載') || label.includes('充能') || label.includes('怒氣') || label.includes('武魂')) return resolveStatusCloudUrl('/assets/icons/status/狂熱.webp');
+  if (label.includes('狂熱') || label.includes('DMG +') || label.includes('凱旋') || label.includes('過載') || label.includes('充能') || (label.includes('怒氣') || label.includes('鬥志')) || label.includes('武魂')) return resolveStatusCloudUrl('/assets/icons/status/狂熱.webp');
   if (label.includes('星系')) return resolveStatusCloudUrl('/assets/icons/status/星系追擊.webp');
   if (label.includes('鎖血') || label.includes('邊界') || label.includes('臣服') || label.includes('LOCK')) return resolveStatusCloudUrl('/assets/icons/status/邊界鎖血.webp');
   if (label.includes('命運加護') || label.includes('命運繫結') || label.includes('諭示牌')) return resolveStatusCloudUrl('/assets/icons/status/命運加護.webp');
@@ -782,7 +784,7 @@ function isSpecialStackStatus(s) {
   if (
     label.includes('武魂') ||
     label.includes('狂刀') ||
-    label.includes('怒氣') ||
+    (label.includes('怒氣') || label.includes('鬥志')) ||
     label.includes('血祭') ||
     label.includes('命債') ||
     label.includes('諭示牌') ||

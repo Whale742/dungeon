@@ -124,7 +124,8 @@ const players = room => Object.values(room.players).filter(p => p.hp > 0 &&
 const living = room => room.getLivingEnemies().filter(e => enemyCanParticipate(room, e));
 const find = (room, id) => living(room).find(e => state(e).id === id);
 const lowest = list => [...list].sort((a,b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
-export const enemyEffect = (room, p, id) => p?.enemyEffects?.[id]?.until >= room.battleRound ? p.enemyEffects[id] : null;
+export const enemyEffect = (room, p, id) => p?.enemyEffects?.[id]?.until >= room.battleRound &&
+  (p.role!=='gladiator'||p.instanceId||id.startsWith('mark_')||p.enemyEffects[id].unavoidable) ? p.enemyEffects[id] : null;
 export function mechanicStatuses(unit, room) {
   const result = Object.entries(unit.enemyEffects || {}).filter(([,e]) => e.until >= room.battleRound)
     .map(([id,e]) => {
@@ -167,6 +168,9 @@ function record(room, source, target, actionId, kind, mutate, extra = {}) {
 }
 function status(room, source, target, id, label, value = 1, turns = B.debuffTurns) {
   if (target.hp <= 0) return;
+  if(target.role==='gladiator'&&!target.instanceId&&!id.startsWith('mark_')) {
+    record(room,source,target,label+'・不屈之魂免疫','status',()=>false);return;
+  }
   record(room,source,target,label,'status',() => {
     target.enemyEffects ||= {};
     target.enemyEffects[id] = {label,value,until:room.battleRound+turns,sourceId:source.instanceId};
@@ -202,6 +206,8 @@ function strike(room, enemy, target, raw, actionId, options = {}) {
   const perform = (victim, damage, sharedFrom, mitigated = false) => {
     const hit = record(room,enemy,victim,actionId,'damage',() => {
       const taken = room.applyDamageToPlayer(victim,damage,{kind:options.dot?'dot':sharedFrom?'secondary':'enemy_direct',
+        sourceEnemyId:enemy.instanceId,unavoidable:options.unavoidable,
+        rageEligible:!options.secondary&&!options.posthumous&&!options.dot,
         defMitigated:mitigated,trueDamage:options.trueDamage || !!lockedArena(room),ignoreReduction:!!lockedArena(room)});
       if (victim.hp<=0 && victim.druidForm==='treant') {victim.hp=1;victim.druidForm='tree';victim.druidFormTurns=1;victim.stunnedNextTurn=true;}
       if (victim.hp<=0) room.clearPlayerDebuffs(victim);
