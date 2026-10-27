@@ -46,7 +46,7 @@ export function p8State(p,room) {
   const soul=samuraiSoul(p,room);
   const effects=Object.entries(p.p8Effects || {}).filter(([,s])=>s.until>=room.battleRound).map(([id,s])=>({id,icon:s.icon||'buff',label:s.label,turns:s.permanent?null:Math.min(s.duration||Infinity,s.until-room.battleRound+1),value:s.value}));
   if (p === room.currentMonster || (room.enemies && room.enemies.includes(p))) {
-    for(const [sourceId,stacks] of Object.entries(p.zanshin||{}))if(stacks>0)effects.push({id:'zanshin_'+sourceId,icon:'debuff',label:'殘心',stacks,sourceId,isNegative:true,category:'DEBUFF',desc:`${room.players[sourceId]?.name||'武士'}的專屬標記（每名敵人最多 8 層）。不自然衰減、不受效果抗性或一般淨化影響；燕返每段消耗一層追加傷害，死亡時平均轉移。`});
+    for(const [sourceId,stacks] of Object.entries(p.zanshin||{}))if(stacks>0)effects.push({id:'zanshin_'+sourceId,icon:'debuff',label:'殘心',stacks,sourceId,isNegative:true,category:'DEBUFF',desc:''});
     if (p.augurResistanceBreak > 0) effects.push({id:'augur_resistance_break',icon:'debuff',label:'星芒破障',turns:p.augurResistanceBreak,value:'效果抗性 −15pp',isNegative:true,category:'DEBUFF'});
     if (p.reversedOmenRemaining > 0) effects.push({id:'reversed_omen',icon:'debuff',label:'凶兆逆位',turns:p.reversedOmenRemaining,value:`受傷 +${p.reversedOmenBonus || 10}%`,isNegative:true,category:'DEBUFF'});
   }
@@ -870,7 +870,7 @@ export const phase8Methods = {
       const soul=this.getSamuraiSoul(p), missing=1-p.hp/p.maxHp, corrosion=this.roundModifiers?.equipmentEffectMultiplier??1;
       const mult=1+.10*countEquip(p,'sa_oboro')*corrosion+(countEquip(p,'sa_murasame')?missing*.25*corrosion:0);
       if(p.action==='sa_tsubame') {
-        if(soul<1){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
+        if(soul<4){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
         else {
           outcome={type:'tsubame',label:'秘劍・燕返',segments:soul};
           for(let segment=1;segment<=soul;segment++){
@@ -1165,9 +1165,9 @@ export const phase8Methods = {
       p.sageSamplingEnded=true;
       if(m.hp>0&&p.role==='warrior'&&this.p8Has(p,'warrior_resolve')&&p.warriorRoundDamage>0)event(p,'堅定反擊','w_counter',()=>{this.p8DamageMonster(p,p.warriorRoundDamage,'phys',resistance);this.p8Log(`${p.name}【堅定反擊】返還本輪實受 ${p.warriorRoundDamage} 傷害。`);});
       p.warriorRoundDamage=0;
-      if(m.hp>0&&p.role==='samurai'&&p.parriedCount>0) {
+      if(this.getAttackableEnemies(p).length&&p.role==='samurai'&&p.parriedCount>0) {
         const n=countEquip(p,'sa_murasame')?20+p.parriedCount*2:countEquip(p,'sa_haori')?5:this.skillValue(p,'sa_counter',{blocks:p.parriedCount});
-        event(p,'狂刀反擊','sa_counter',()=>this.p8DamageMonster(p,n,'phys',resistance));this.p8Log(`${p.name}統一反擊 ${n}（招架 ${p.parriedCount} 次）。`);
+        event(p,'狂刀反擊','sa_counter',()=>{for(const enemy of this.getAttackableEnemies(p))this.p8DamageMonster(p,n,'phys',resistance,{enemy});});this.p8Log(`${p.name}對全體敵人統一反擊 ${n}（招架 ${p.parriedCount} 次）。`);
       }
       if(p.role==='sage'&&!p.sageEquationResolved&&(p.sagePhase==='hypothesis'||p.sageSolvedThisRound))this.p8ResolveEquation(p,queue,log,resistance,bardMultiplier);
     }

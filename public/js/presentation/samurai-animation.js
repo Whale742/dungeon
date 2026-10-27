@@ -21,6 +21,7 @@ const finite = (value,fallback,min=0,max=100000) => {
   const n=Number(value);return Number.isFinite(n)?clamp(n,min,max):fallback;
 };
 const T={damageReduction:'減傷 50%',blocked:'格擋',soulGainText:'武魂 +',guardBuffText:'狂刀機率 +30%'};
+const groupSlash=['cleave','swallow','parry'].includes(plan.skill);
 const state={plan,disposed:false,shake:!context.reducedMotion,flash:true};
 const world=document.createElement('div');world.className='samurai-world';root.appendChild(world);
 const dom={world};
@@ -83,7 +84,7 @@ function measure(){
  const movers=[world,playerVisual,dom.playerHit,dom.bossVisual,boss];const transforms=movers.map(n=>n.style.transform);movers.forEach(n=>n.style.transform='none');
  const box=root.getBoundingClientRect();geometry.w=box.width;geometry.h=box.height;geometry.dpr=Math.min(devicePixelRatio||1,2);
  const get=el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height};};
- geometry.p=get(playerPortrait);geometry.b=get(bossPortrait);geometry.pips=pips.map(get);
+ geometry.p=get(playerPortrait);geometry.b=groupSlash?{x:box.width/2,y:box.height/2,w:box.width*.35,h:box.height*.35}:get(bossPortrait);geometry.pips=pips.map(get);
  canvas.width=Math.max(1,Math.round(geometry.w*geometry.dpr));canvas.height=Math.max(1,Math.round(geometry.h*geometry.dpr));
  movers.forEach((n,i)=>n.style.transform=transforms[i]);
 }
@@ -138,7 +139,7 @@ function drawLineHit(hit,t){
  let alpha=1-clamp((ms-42)/(hit.heavy?255:205));alpha*=alpha;
  let width=(hit.heavy?10:6)*scale;
  if(hit.final)width*=1.16;
- const length=Math.min(geometry.w*.58,b.w*(hit.kind==='counter'?3.0:2.55));
+ const length=Math.min(geometry.w*(groupSlash ? .85 : .58),b.w*(hit.kind==='counter'?3.0:2.55));
  const y=b.y+(hit.offsetY||0)*scale;
  drawBlade(b.x,y,hit.angle,length,width,alpha,out3(ms/32),hit.index+15);
  if(hit.kind==='counter'&&hit.echoes){
@@ -248,7 +249,7 @@ function renderCanvas(t,p){
  const primary=geometry.b;
  for(const h of p.slashes){
    const target=context.battlefield?battlefieldVisualElement(h.result?.canonicalTargetId||h.result?.targetEnemyId||context.targetId):context.targetElement?.(h.result);
-   if(target)geometry.b=anchor(target.getBoundingClientRect());
+   if(target&&!groupSlash)geometry.b=anchor(target.getBoundingClientRect());
    if(h.kind==='arc')drawArc(h,t);else drawLineHit(h,t);
  }
  geometry.b=primary;
@@ -285,6 +286,7 @@ function impactMotion(ms,amplitude,delay=0){
 }
 function render(t){
  const p=state.plan;if(!p||state.disposed)return;
+ if(groupSlash)geometry.b={x:geometry.w/2,y:geometry.h/2,w:geometry.w*.35,h:geometry.h*.35};
  const {w,h,p:pl,b}=geometry,scale=w/1000;
  renderCanvas(t,p);
  let px=0,py=0,pr=0,ps=1,bx=0,by=0,br=0,bs=1,bossFlare=0,playerFlare=0,screen=0,sx=0,sy=0,dim=0;
@@ -345,7 +347,7 @@ function render(t){
  dom.screenFlash.style.opacity=state.flash?screen.toFixed(3):'0';
  dom.screenSlice.style.opacity=p.skill==='cleave'?envelope(t,683,8,180,812)*.58:0;
  if(p.skill==='cleave'&&p.valid){
-  const zanX=b.x,zanY=b.y;
+  const zanX=w/2,zanY=h/2;
   const preIn=clamp((t-148)/92),preOut=1-clamp((t-672)/18),pre=preIn*preOut;
   const split=envelope(t,685,8,360,632),splitQ=clamp((t-685)/1000),slash=envelope(t,683,4,52,140);
   const opacity=Math.max(pre,split,slash*.75);

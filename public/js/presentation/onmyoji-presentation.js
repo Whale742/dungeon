@@ -11,8 +11,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   blind: {
     id: 'blind',
     name: '障目符',
-    color: '#a855f7',
-    glow: 'rgba(168, 85, 247, 0.75)',
+    color: '#ef4444',
+    glow: 'rgba(239, 68, 68, 0.75)',
     shortEffect: '命中大幅下降 (Miss)',
     firstDesc: '目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。',
     repeatDesc: '【重複觸發】再次觸發自殘反噬檢定！'
@@ -20,8 +20,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   seal: {
     id: 'seal',
     name: '封勁符',
-    color: '#3b82f6',
-    glow: 'rgba(59, 130, 246, 0.75)',
+    color: '#ef4444',
+    glow: 'rgba(239, 68, 68, 0.75)',
     shortEffect: '機率當回合 0 傷害',
     firstDesc: '目標有 100% 機率在當前回合完全不造成任何傷害。',
     repeatDesc: '【重複觸發】再次進行當回合傷害無效化檢定！'
@@ -29,8 +29,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   corrode: {
     id: 'corrode',
     name: '蝕體符',
-    color: '#22c55e',
-    glow: 'rgba(34, 197, 94, 0.75)',
+    color: '#facc15',
+    glow: 'rgba(250, 204, 21, 0.75)',
     shortEffect: '易傷 +10% 受傷提升',
     firstDesc: '目標進入易傷狀態，受到的所有攻擊傷害提升 10%。',
     repeatDesc: '【重複觸發】再次結算易傷判定（易傷加成疊加）！'
@@ -38,8 +38,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   confuse: {
     id: 'confuse',
     name: '惑心符',
-    color: '#ec4899',
-    glow: 'rgba(236, 72, 153, 0.75)',
+    color: '#c084fc',
+    glow: 'rgba(192, 132, 252, 0.75)',
     shortEffect: '心智混亂 出手自殘',
     firstDesc: '目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身。',
     repeatDesc: '【重複觸發】再次觸發自殘反噬檢定！'
@@ -47,8 +47,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   bewitch: {
     id: 'bewitch',
     name: '惑心符',
-    color: '#ec4899',
-    glow: 'rgba(236, 72, 153, 0.75)',
+    color: '#c084fc',
+    glow: 'rgba(192, 132, 252, 0.75)',
     shortEffect: '心智混亂 出手自殘',
     firstDesc: '目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身。',
     repeatDesc: '【重複觸發】再次觸發自殘反噬檢定！'
@@ -56,8 +56,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   drain: {
     id: 'drain',
     name: '抽髓符',
-    color: '#ef4444',
-    glow: 'rgba(239, 68, 68, 0.75)',
+    color: '#ffffff',
+    glow: 'rgba(255, 255, 255, 0.75)',
     shortEffect: '扣除最大生命 5%',
     firstDesc: '立即扣除目標最大生命值 5% 的血量（百分比削血）。',
     repeatDesc: '【重複觸發】再次扣除目標最大生命值 5% 血量！'

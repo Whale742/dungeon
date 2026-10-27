@@ -214,10 +214,11 @@ function syncEnemyMechanicVisual(enemy, node) {
   if(!badge){badge=document.createElement('span');badge.className='enemy-mechanic-state';}
   if(row){row.replaceChildren(badge);}else if(!badge.parentElement)node.appendChild(badge);
   const allStates=enemyDisplayStatuses(enemy).filter(s=>s.id!=='enemy_mechanic'||!resource&&['treasure_mimic','abyss_sage','abyss_druid'].includes(info.mechanicId));
-  const hasTalismanSummary=allStates.some(s=>s.id==='talismans');
-  const states=hasTalismanSummary?allStates.filter(s=>!String(s.id||'').startsWith('talisman_')):allStates;
+  const talismans=allStates.filter(s=>String(s.id||'').startsWith('talisman_'));
+  const states=talismans.length?allStates.filter(s=>s.id!=='talismans'):allStates;
+  const visibleCount=talismans.length?states.length:3;
   badge.replaceChildren();
-  for(const s of enemy.hp>0?states.slice(0,3):[]){
+  for(const s of enemy.hp>0?states.slice(0,visibleCount):[]){
     const icon=document.createElement('span');icon.className='enemy-status-badge teammate-buff-item';icon.setAttribute('aria-hidden','true');
     const dotDmg=typeof s.damage==='number'&&s.damage>0?s.damage:(s.isDot&&typeof s.value==='number'&&s.value>0?s.value:null);
     const nonDotVal=!s.isDot&&s.damage===undefined&&s.value!==undefined&&s.value!==''?String(s.value):'';
@@ -236,12 +237,12 @@ function syncEnemyMechanicVisual(enemy, node) {
     }else if(isDruidNonFormMechanic){
       icon.innerHTML='↻';
     }else{
-      const iconUrl=resolveStatusIconUrl(s);
+      const iconUrl=String(s.id||'').startsWith('talisman_')?null:resolveStatusIconUrl(s);
       icon.innerHTML=iconUrl?`<img src="${iconUrl}" class="teammate-buff-icon enemy-buff-icon" alt="${String(s.label||'status').replace(/"/g,'&quot;')}" loading="lazy">`:(typeof renderStatusIconMarkup==='function'?renderStatusIconMarkup(s,{variant:'enemy'}):getIconSvg(s.icon||'status','ui-icon--sm'));
     }
     if(count!==null){const n=document.createElement('small');n.textContent=String(count);icon.appendChild(n);}badge.appendChild(icon);
   }
-  if(enemy.hp>0&&states.length>3){const extra=document.createElement('span');extra.className='enemy-status-badge enemy-status-overflow';extra.textContent='+'+(states.length-3);badge.appendChild(extra);}
+  if(enemy.hp>0&&states.length>visibleCount){const extra=document.createElement('span');extra.className='enemy-status-badge enemy-status-overflow';extra.textContent='+'+(states.length-visibleCount);badge.appendChild(extra);}
   badge.hidden=enemy.hp<=0||!states.length;badge.setAttribute('aria-label',states.length+' 項狀態，開啟敵人資訊查看');
   if((enemy.battleAvatar||enemy.presentation?.mechanicId==='abyss_druid')&&typeof syncBattlePortrait==='function')syncBattlePortrait(node.querySelector('.enemy-sprite-img'),{...enemy,entityType:'monster'});
 }

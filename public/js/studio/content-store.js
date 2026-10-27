@@ -8,6 +8,10 @@
   // This is a read projection: keep cloud rows, custom names and other roles intact.
   function currentMechanicsCopy(table,row){
     if(!row||!samuraiDefaults)return row;
+    if(row.role_id==='samurai'){
+      row={...row};
+      for(const field of ['short_copy','full_copy','passive_short','passive_full'])if(typeof row[field]==='string')row[field]=row[field].replaceAll('至少 1 武魂即可施放','至少 4 層武魂才可施放').replaceAll('敵方階段結束統一反擊 round','敵方階段結束對全體可攻擊敵人統一反擊 round');
+    }
     if(table==='role_profiles'&&row.role_id==='samurai'&&!String(row.passive_full||'').includes('殘心'))return {...row,...samuraiDefaults.profile};
     if(table==='skill_copies'&&row.role_id==='samurai'&&samuraiDefaults.skills[row.skill_id]&&!String(row.full_copy||'').includes('殘心'))return {...row,...samuraiDefaults.skills[row.skill_id],display_name:row.display_name};
     if(table==='story_copies'&&row.story_key==='equip.samurai.sa_haori'&&!String(row.body||'').includes('餘韻不絕')&&samuraiDefaults.haori)return {...row,body:samuraiDefaults.haori};

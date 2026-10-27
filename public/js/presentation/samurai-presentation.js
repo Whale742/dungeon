@@ -57,7 +57,7 @@ function buildSamuraiPresentationPlan(step,context={},mode){
   p.options.curse=remembered?.curse||false;
   // Retain visual traces from actual received parry results. Never synthesize incoming damage or another counter.
   p.incoming=(remembered?.incoming||[]).map((inc,i)=>({...inc,time:-110-(remembered.incoming.length-1-i)*235,result:undefined}));
-  if(damage[0])hit(damage[0],135,'counter',-.16,{heavy:true,echoes:Math.max(0,p.incoming.length-1)});
+  damage.forEach(r=>hit(r,135,'counter',-.16,{heavy:true}));
   p.soulChanges=samuraiSoulChanges(step,step.sourceId,245);
  }
  if(['cleave','swallow'].includes(p.skill)||(id==='sa_counter'&&p.valid&&p.hits.length)){
@@ -65,6 +65,7 @@ function buildSamuraiPresentationPlan(step,context={},mode){
   // Every visual cut has its own cue, including the tail after a lethal server result.
   p.audio=[...new Map((p.skill==='swallow'&&p.valid?p.slashes:p.hits).map(h=>[h.time,h])).values()].map(h=>({time:h.time,type:'slash',power:1,key:id==='sa_counter'?'assassin-pursuit':p.skill==='cleave'||h.final?'sword-slash-heavy':'assassin-pursuit'}));
  }
+ if(['cleave','swallow','parry'].includes(p.skill))p.slashes=[...new Map(p.slashes.map(h=>[h.time,h])).values()];
  p.audio.sort((a,b)=>a.time-b.time);return p;
 }
 // Source time keeps the copied renderer intact while the intro takes one second at 1x.

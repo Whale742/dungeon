@@ -47,11 +47,11 @@
 .phase5-art.phase5-spark{width:clamp(60px,10vw,120px);height:clamp(60px,14vh,120px)}
 .phase5-art.phase5-link{width:140px;height:60px}
 .phase5-art.phase5-triumph{width:100px;height:80px}
-.phase5-paper[data-element=blind]{filter:drop-shadow(0 0 8px #a78bfa)}
-.phase5-paper[data-element=seal]{filter:drop-shadow(0 0 8px #7dd3fc)}
-.phase5-paper[data-element=corrode]{filter:drop-shadow(0 0 8px #a3e635)}
-.phase5-paper[data-element=confuse]{filter:drop-shadow(0 0 8px #f472b6)}
-.phase5-paper[data-element=drain]{filter:drop-shadow(0 0 8px #f87171)}
+.phase5-paper[data-element=blind]{filter:drop-shadow(0 0 8px #ef4444)}
+.phase5-paper[data-element=seal]{filter:drop-shadow(0 0 8px #ef4444)}
+.phase5-paper[data-element=corrode]{filter:drop-shadow(0 0 8px #facc15)}
+.phase5-paper[data-element=confuse]{filter:drop-shadow(0 0 8px #c084fc)}
+.phase5-paper[data-element=drain]{filter:drop-shadow(0 0 8px #ffffff)}
 .phase5-art.phase5-companion{width:80px;height:80px;border-radius:12px}
 .phase5-augur .shade,.phase5-augur .orb-caption,.phase5-augur .caption{display:none}
 .phase5-augur-anchor{position:absolute;width:0;height:0;pointer-events:none}

@@ -41,9 +41,9 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
   },
 
   onm_talisman_blind: {
-    label: "五鬼攝魂符｜障目符 (迷霧紫・命中大幅下降)",
+    label: "五鬼攝魂符｜障目符 (朱紅色・命中大幅下降)",
     role: "onmyoji",
-    expected: "先造成 15 點直接魔法傷害，再貼符。令字敕令印記 ➔ 符咒現形 ➔ 重重貼上震動 ➔ 縮小沒入 ➔ 迷霧紫印記閃耀，附著第 1 張符咒。",
+    expected: "先造成 15 點直接魔法傷害，再貼符。令字敕令印記 ➔ 符咒現形 ➔ 重重貼上震動 ➔ 縮小沒入 ➔ 朱紅色印記閃耀，附著第 1 張符咒。",
     steps: [
       {
         type: "player_action",
@@ -82,9 +82,9 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
   },
 
   onm_talisman_seal: {
-    label: "五鬼攝魂符｜封勁符 (寒冰藍・當回合 0 傷害)",
+    label: "五鬼攝魂符｜封勁符 (朱紅色・當回合 0 傷害)",
     role: "onmyoji",
-    expected: "先造成 15 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀寒冰藍五鬼印記，Boss 身上累積符咒。",
+    expected: "先造成 15 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀朱紅色五鬼印記，Boss 身上累積符咒。",
     steps: [
       {
         type: "player_action",
@@ -123,9 +123,9 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
   },
 
   onm_talisman_corrode: {
-    label: "五鬼攝魂符｜蝕體符 (毒蝕綠・易傷 +10%)",
+    label: "五鬼攝魂符｜蝕體符 (金黃色・易傷 +10%)",
     role: "onmyoji",
-    expected: "先造成 15 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀毒蝕綠五鬼印記，Boss 獲得易傷狀態。",
+    expected: "先造成 15 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀金黃色五鬼印記，Boss 獲得易傷狀態。",
     steps: [
       {
         type: "player_action",
@@ -164,9 +164,9 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
   },
 
   onm_talisman_confuse: {
-    label: "五鬼攝魂符｜惑心符 (妖異桃紅・心智混亂出手自殘)",
+    label: "五鬼攝魂符｜惑心符 (紫色・心智混亂出手自殘)",
     role: "onmyoji",
-    expected: "先造成 16 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀妖異桃紅五鬼印記，下回合出手時造成自殘反噬。",
+    expected: "先造成 16 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀紫色五鬼印記，下回合出手時造成自殘反噬。",
     steps: [
       {
         type: "player_action",
@@ -205,9 +205,9 @@ const ONMYOJI_LAB_SCENES = Object.freeze({
   },
 
   onm_talisman_drain: {
-    label: "五鬼攝魂符｜抽髓符 (血煞紅・立即扣除 5% 最大生命)",
+    label: "五鬼攝魂符｜抽髓符 (白色・立即扣除 5% 最大生命)",
     role: "onmyoji",
-    expected: "先造成 16 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀血煞紅五鬼印記，並立即削血 5% (25 HP)。",
+    expected: "先造成 16 點直接魔法傷害，再貼符。四階段貼符動畫，閃耀白色五鬼印記，並立即削血 5% (25 HP)。",
     steps: [
       {
         type: "player_action",

@@ -406,7 +406,7 @@ test('Samurai failed hits do not mark; cut burst caps at 70% and each splash mit
   t.mock.method(h.room,'p8DamageMonster',()=>0);
   samuraiCast(h,'basic');assert.equal(h.room.getSamuraiSoul(h.player),0);
 });
-for(const stacks of [[1],[4],[8],[8,8,8],[1,2,1]])test('Tsubame fixes N full-party segments in exactly one Action: '+stacks.join('/'),t=>{
+for(const stacks of [[4],[8],[8,8,8],[1,2,1]])test('Tsubame fixes N full-party segments in exactly one Action: '+stacks.join('/'),t=>{
   const f=samuraiBattle(t,stacks),N=stacks.reduce((a,b)=>a+b),steps=samuraiCast(f,'sa_tsubame');
   assert.equal(steps.length,1);const step=steps[0],hits=step.results.filter(r=>r.kind==='damage');
   assert.equal(step.outcome.segments,N);assert.equal(hits.length,N*stacks.length);
@@ -429,8 +429,16 @@ for(const stacks of [[1],[4],[8],[8,8,8],[1,2,1]])test('Tsubame fixes N full-par
   assert.ok(plan.hits.every(h=>h.time<plan.duration));
   assert.equal(plan.startSouls+plan.soulChanges.reduce((n,c)=>n+c.delta,0),0);
 });
+for(const soul of [1,2,3])test('Tsubame rejects fewer than four souls at resolution: '+soul,t=>{
+  const f=samuraiBattle(t,[soul]),[step]=samuraiCast(f,'sa_tsubame');
+  assert.equal(step.outcome.type,'invalid');
+  assert.equal(step.results.filter(r=>r.kind==='damage').length,0);
+  assert.equal(f.room.enemies[0].hp,10000);
+  assert.equal(f.room.getSamuraiSoul(f.player),soul);
+});
+
 test('Tsubame ignores physical resistance, combines separately rounded B/R once before DEF and retains gear',t=>{
-  const f=samuraiBattle(t,[1,0,0]);f.player.PAtk_gear=8;
+  const f=samuraiBattle(t,[4,0,0]);f.player.PAtk_gear=8;
   assert.equal(f.room.skillValue(f.player,'sa_tsubame'),3);assert.equal(f.room.skillValue(f.player,'sa_zanshin'),10);
   f.player.equips=[{id:'sa_oboro'},{id:'sa_oboro'},{id:'sa_murasame'}];f.player.hp=40;f.player.maxHp=80;
   f.room.enemies.forEach(e=>{e.DEF=50;e.resistances.physical=100;});
@@ -459,6 +467,7 @@ test('Tsubame stops after a lethal group segment and zero soul rejects lock',t=>
   const g=samuraiBattle(t,[0]);
   g.room.selectionState='SELECTING';
   assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);
+  for(let i=1;i<4;i++){g.room.addZanshin(g.player,g.room.enemies[0]);assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);}
   g.room.addZanshin(g.player,g.room.enemies[0]);
   const locked=g.room.lockAction(g.player.id,'sa_tsubame');assert.equal(locked.success,true,locked.message);
 });
@@ -489,7 +498,10 @@ for(const [stacks,haori,murasame,expected] of [
   assert.deepEqual(room.enemies.map(e=>e.zanshin?.[player.id]||0),expected);
   const soul=room.getSamuraiSoul(player),queue=[];room.p8EndRound(queue,[],raw=>({dmg:raw}));
   assert.equal(queue.filter(s=>s.actionId==='sa_counter').length,1);
-  assert.equal(queue.find(s=>s.actionId==='sa_counter').results[0].finalDamage,murasame?24:5);
+  const counter=queue.find(s=>s.actionId==='sa_counter');
+  const hits=counter.results.filter(r=>r.kind==='damage');
+  assert.equal(hits.length,stacks.length);
+  assert.deepEqual(hits.map(r=>r.finalDamage),stacks.map(()=>murasame?24:5));
   assert.equal(room.getSamuraiSoul(player),soul);
 });
 test('Murasame disables Haori HP and repeated refresh never drifts',t=>{
@@ -750,7 +762,7 @@ for(const [role,actions] of Object.entries({warrior:['basic','w_strike','w_shiel
       vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
       const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
       const hits=step.results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
-      assert.equal(plan.hits.length,hits.length);assert.equal(plan.slashes.length,plan.hits.filter(h=>!['miss','dodge'].includes(h.result.outcome?.type)).length);
+      assert.equal(plan.hits.length,hits.length);assert.equal(plan.slashes.length,new Set(plan.hits.filter(h=>!['miss','dodge'].includes(h.result.outcome?.type)).map(h=>h.time)).size);
     }
   });
 }
@@ -761,6 +773,11 @@ test('Phase 4 crossbow bolts retain their actual ammo type and independent resul
   const bolts=step.results.filter(r=>r.ammoType);
   assert.deepEqual(bolts.map(r=>r.ammoType),['pierce','elemental','burst']);
   assert.equal(new Set(bolts.map(r=>r.resultId)).size,3);
+});
+for(const [action,cd] of [['sg_observe',1],['sg_clock',2]])test('Stargazer reduced base cooldown is charged by production: '+action,t=>{
+  const {room,player}=phase1Battle(t,'stargazer');t.mock.method(Math,'random',()=>.95);
+  assert.equal(getPlayerSkills(player).find(s=>s.id===action).cd,cd);
+  player.action=action;room.resolveTurnActions();assert.equal(player.cooldowns[action],cd);
 });
 for(const [roll,outcome] of [[.1,'star'],[.65,'planet'],[.75,'galaxy'],[.85,'blackhole'],[.95,'boundary']])test('Phase 4 actual observation branch owns its concrete targets: '+outcome,t=>{
   const {room,player,events}=phase1Battle(t,'stargazer');t.mock.method(Math,'random',()=>roll);
@@ -920,7 +937,7 @@ test('Phase 4 lethal Tsubame never creates the remaining three visual hits',t=>{
   vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
   const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
-  assert.equal(plan.hits.length,3);assert.equal(plan.slashes.length,3);
+  assert.equal(plan.hits.length,3);assert.equal(plan.slashes.length,1);
 });
 test('Phase 4 parry and counter remain separate actual reactions with concrete targets',t=>{
   const {room,player,events}=phase1Battle(t,'samurai');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
@@ -3327,5 +3344,17 @@ test('Gladiator ordinary healing consumable cannot bypass inspiration at full or
     assert.equal(room.useConsumableItem(player.id,{index:0}).success,true);
     assert.equal(player.hp,hp);assert.equal(resolveStats(player).PAtk_gear,8);
     assert.equal(room.squadInventory.length,0);
+  }
+});
+
+ test('Talisman status icons share the five configured presentation colors',()=>{
+  const scope={};vm.createContext(scope);
+  const app=readFileSync(new URL('../public/js/combat/battle-renderers.js',import.meta.url),'utf8');
+  vm.runInContext('function renderStatusIconMarkup'+app.split('function renderStatusIconMarkup')[1].split('// 判斷是否為職業特殊機制')[0],scope);
+  const presentation=readFileSync(new URL('../public/js/presentation/onmyoji-presentation.js',import.meta.url),'utf8');
+  vm.runInContext(presentation.slice(0,presentation.indexOf('function onmyojiAsset'))+';globalThis.colors=ONMYOJI_TALISMAN_CONFIGS;',scope);
+  for(const [type,color] of Object.entries({blind:'#ef4444',seal:'#ef4444',corrode:'#facc15',confuse:'#c084fc',drain:'#ffffff'})){
+    assert.equal(scope.colors[type].color,color);
+    for(const variant of ['enemy','tooltip','hud'])assert.ok(scope.renderStatusIconMarkup({id:'talisman_'+type},{variant}).includes('color:'+color));
   }
 });

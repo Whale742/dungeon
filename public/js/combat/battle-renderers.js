@@ -732,6 +732,9 @@ function getBuffIconUrl(status) {
 function renderStatusIconMarkup(status, options = {}) {
   if (!status) return '';
   const { contextRole = null, variant = 'badge' } = options;
+  const talismanColors={talisman_blind:'#ef4444',talisman_seal:'#ef4444',talisman_corrode:'#facc15',talisman_drain:'#ffffff',talisman_confuse:'#c084fc'};
+  const talismanColor=talismanColors[status.id]||({'障目符':'#ef4444','封勁符':'#ef4444','蝕體符':'#facc15','抽髓符':'#ffffff','惑心符':'#c084fc'}[status.label]);
+  if(talismanColor)return `<svg class="teammate-buff-icon${variant==='enemy'?' enemy-buff-icon':''}" viewBox="0 0 24 24" role="img" aria-label="符咒" style="color:${talismanColor};${variant==='tooltip'?'width:14px;height:14px;vertical-align:middle;margin-right:4px;':''}"><path d="M6 2h12v20H6z" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="2"/><path d="M9 6h6m-3 0v12m-3-8 6 4m-6 0 6 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
   const safeAlt = typeof escapeHtml === 'function' ? escapeHtml(status.label || 'status') : String(status.label || 'status').replace(/"/g, '&quot;');
   if (isLeaderSkillStatus(status)) {
     const svg = getLeaderStatusSvg(status, contextRole);
