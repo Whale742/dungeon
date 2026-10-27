@@ -69,6 +69,8 @@ export function combatLabFixture(id) {
 function equipmentFor(id, action) {
   const matches={samurai_murasame:'sa_murasame',samurai_haori:'sa_haori',gladiator_xiphos:'g_xiphos',gladiator_cuirass:'g_cuirass',gladiator_cingulum:'g_cingulum',augur_amethyst:'aug_amethyst',augur_amethyst_stack:'aug_amethyst',augur_gilded:'aug_gilded_box',augur_tome_repay:'aug_forbidden_tome'};
   if(matches[id])return [matches[id]];
+  if(id.includes('kepler'))return ['sg_eye'];
+  if(id.includes('watch'))return ['sg_watch'];
   if(id.includes('crossbow')||['a_reload','a_frenzy_reload'].includes(action))return ['a_crossbow'];
   if(id.includes('resonance'))return ['dru_resonance'];
   if(action==='w_cleave')return ['w_greatsword'];

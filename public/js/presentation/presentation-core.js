@@ -1313,7 +1313,8 @@ function resolvePresentationTarget(result, step = {}) {
   const id = result.canonicalTargetId || result.targetId;
   if (id !== 'monster') return id || result.targetEnemyId;
   return result.targetEnemyId || result.targetBefore?.instanceId || result.targetAfter?.instanceId ||
-    step.targetEnemyId || step.hpSnapshotBefore?.monster?.instanceId;
+    step.targetEnemyId || step.hpSnapshotBefore?.monster?.instanceId ||
+    (typeof roomState !== 'undefined' && (roomState?.currentMonster?.instanceId || roomState?.enemies?.[0]?.instanceId));
 }
 function getVisualAnchor(targetId) {
   const direct = getEnemyAnchor(targetId) || getActorAnchor(targetId);

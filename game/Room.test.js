@@ -2537,12 +2537,16 @@ test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanic
     }
     assert.deepEqual([...outcomes].sort(), ['blackhole', 'boundary', 'galaxy', 'planet']);
 
-    // Black hole with sg_eye: deals 10 true damage to Boss only, 0 to allies
+    // Black hole with sg_eye: deals round(2.5 * A魔) true damage to the selected enemy, 0 to allies
     {
       const { room, events } = makeBattle();
       const p = room.players.solo;
       p.equipSlots.CLASS_EXCLUSIVE = { ...sgEye };
       room.syncPlayerEquips(p);
+      // Target a selected minion (non-Boss) to verify sg_eye blackhole hits the selected enemy and records its HP/metadata
+      p.targetEnemyId = room.enemies[1].instanceId;
+      room.enemies[1].defense = 99;
+      room.enemies[1].resistances = { physical: 80, magic: 80, effect: 80 };
 
       const origRandom = Math.random;
       Math.random = () => 0.6; // blackhole
@@ -2554,9 +2558,77 @@ test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanic
       const step = queue.find(s => s.actionId === 'sg_observe');
       const allyDamage = step.results.filter(r => r.kind === 'damage' && r.targetId === p.id);
       assert.equal(allyDamage.length, 0, 'sg_eye blackhole must not harm allies');
-      const bossDamage = step.results.find(r => r.damageType === 'true' && r.targetId === room.enemies[0].instanceId);
-      assert.ok(bossDamage, 'Should deal true damage to Boss');
-      assert.equal(bossDamage.finalDamage, 10);
+      const selectedDamage = step.results.find(r => r.damageType === 'true' && r.targetId === room.enemies[1].instanceId);
+      assert.ok(selectedDamage, 'Should deal true damage to the selected enemy');
+      assert.equal(selectedDamage.finalDamage, 28);
+      assert.equal(selectedDamage.actualHpDamage, 28);
+      assert.equal(selectedDamage.actualDamage, 28);
+      assert.equal(room.enemies[1].hp, 472);
+      assert.equal(room.enemies[0].hp, 500, 'Unselected enemy must not be harmed by sg_eye blackhole');
+      assert.equal(step.targetEnemyId, room.enemies[1].instanceId);
+      assert.equal(step.targetHpBefore, 500);
+      assert.equal(step.targetHpAfter, 472);
+    }
+
+    // Black hole with different magic/physical attack bonuses and Minion-only formation
+    {
+      const { room, events } = makeBattle();
+      const p = room.players.solo;
+      room.players.p2 = { id: 'p2', name: 'Ally2', role: 'warrior', hp: 120, maxHp: 120, isDead: false, equipSlots: { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null }, equips: [], cooldowns: {}, statuses: [] };
+      room.memberIds.push('p2');
+      // Equip magic weapon (+5 MAtk) and physical accessory (+10 PAtk, must be ignored)
+      p.equipSlots.WEAPON = { id: 'star_staff', name: '星紋法杖', slot: 'WEAPON', bonusMagAtk: 5, isMagic: true };
+      p.equipSlots.ACCESSORY = { id: 'phys_ring', name: '物攻戒', slot: 'ACCESSORY', bonusPhysAtk: 10 };
+      p.equipSlots.CLASS_EXCLUSIVE = null;
+      room.syncPlayerEquips(p);
+      // Target minion 1 in normal blackhole: A魔 = 11 + 5 = 16 -> round(1.0 * 16) = 16 true damage to minion 1, and 5 true damage to all living allies
+      p.targetEnemyId = room.enemies[1].instanceId;
+      room.enemies[1].defense = 50;
+      room.enemies[1].resistances = { physical: 75, magic: 75, effect: 50 };
+
+      const origRandom = Math.random;
+      Math.random = () => 0.85; // normal blackhole (0.8 <= r < 0.9)
+      p.action = 'sg_observe';
+      room.players.p2.action = 'skip';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step = queue.find(s => s.actionId === 'sg_observe');
+      const enemyHit = step.results.find(r => r.targetEnemyId === room.enemies[1].instanceId);
+      assert.ok(enemyHit, 'Normal blackhole should hit the selected enemy');
+      assert.equal(enemyHit.damageType, 'true');
+      assert.equal(enemyHit.finalDamage, 16);
+      assert.equal(enemyHit.actualHpDamage, 16);
+      assert.equal(room.enemies[1].hp, 484);
+      const allyHits = step.results.filter(r => !r.targetEnemyId && r.kind === 'damage');
+      assert.equal(allyHits.length, 2);
+      for (const hit of allyHits) {
+        assert.equal(hit.damageType, 'true');
+        assert.equal(hit.finalDamage, 5);
+        assert.equal(hit.actualHpDamage, 5);
+      }
+
+      // Now equip sg_eye with A魔 = 16 -> round(2.5 * 16) = 40 true damage to the selected enemy (even in Minion-only formation)
+      room.enemies[0].hp = 0; // Boss dead, only Minions remain
+      p.targetEnemyId = room.enemies[1].instanceId;
+      p.equipSlots.CLASS_EXCLUSIVE = { ...sgEye };
+      room.syncPlayerEquips(p);
+      p.cooldowns.sg_observe = 0;
+      Math.random = () => 0.6; // sg_eye blackhole
+      p.action = 'sg_observe';
+      room.players.p2.action = 'skip';
+      room.resolveTurnActions();
+      Math.random = origRandom;
+
+      const queue2 = events.filter(e => e[0] === 'battle:presentation_queue').at(-1)?.[1].queue || [];
+      const step2 = queue2.find(s => s.actionId === 'sg_observe');
+      const minionHit = step2.results.find(r => r.targetEnemyId === room.enemies[1].instanceId);
+      assert.ok(minionHit, 'sg_eye blackhole should hit the selected minion');
+      assert.equal(minionHit.finalDamage, 40);
+      assert.equal(minionHit.actualHpDamage, 40);
+      assert.equal(room.enemies[1].hp, 444);
+      assert.equal(step2.results.filter(r => !r.targetEnemyId && r.kind === 'damage').length, 0, 'sg_eye blackhole must not harm allies');
     }
 
     // Boundary with sg_eye: selects 2 distinct allies when available

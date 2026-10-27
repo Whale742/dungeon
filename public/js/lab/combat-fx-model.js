@@ -63,7 +63,7 @@ export function preparePlayback(config, fixture, entry) {
     step.targetId = selfOnly?step.sourceId:stepTarget; step.targetEnemyId = targetsEnemy?config.primaryId:undefined;
     step.hpSnapshotBefore = before;
     const allEnemies = /all|enemies/.test(raw.targetId || '') || (raw.tags || []).some(t => /群體|群攻/.test(t));
-    const allParty = entry.targetSide === 'party' && ((raw.tags || []).some(t => /全體/.test(t)) || new Set((raw.results||[]).filter(r=>!isEnemyResult(r)).map(r=>r.targetId)).size > 1);
+    const allParty = (entry.targetSide === 'party' && (raw.tags || []).some(t => /全體/.test(t))) || (!!entry.role && new Set((raw.results||[]).filter(r=>!isEnemyResult(r)).map(r=>r.targetId)).size > 1);
     const selectedSupport=entry.role&&entry.targetMode!=='self'&&entry.targetSide==='party'&&!allParty&&((raw.results||[]).every(r=>['heal','shield'].includes(r.kind))||['dw_butterfly','dw_false_dream'].includes(entry.skillId));
     const results=[];
     const firstEnemyResult=raw.results?.find(isEnemyResult),firstAllyResult=raw.results?.find(r=>!isEnemyResult(r));
@@ -73,14 +73,20 @@ export function preparePlayback(config, fixture, entry) {
       if(allEnemies&&enemyResult&&oldId!==(firstEnemyResult?.canonicalTargetId||firstEnemyResult?.targetEnemyId||firstEnemyResult?.targetId))continue;
       if(allParty&&!enemyResult&&oldId!==(firstAllyResult?.canonicalTargetId||firstAllyResult?.targetEnemyId||firstAllyResult?.targetId))continue;
       let receivers = allEnemies && enemyResult ? state.enemies.map(idOf) : allParty && !enemyResult ? state.players.map(idOf) : [ids.get(oldId)];
-      if (!allEnemies && enemyResult && entry.role) receivers=[config.primaryId];
+      if (!allEnemies && enemyResult && entry.role) receivers = [config.primaryId];
       if (entry.role && !enemyResult && entry.targetSide==='party' && !allParty && oldId!==raw.sourceId) receivers=[target];
       if(selectedSupport)receivers=[target];
       for (const id of receivers.filter(Boolean)) {
         const current=units(state).find(p=>idOf(p)===id); if(!current)continue;
         const key=[id,result.kind,result.resultId || results.length].join(':');
+        const beforeTarget=clone(current);
         const after=delta(result.targetBefore,result.targetAfter,current);
-        const r={...clone(result),resultId:`lab-${index}-${key}`,targetId:id,canonicalTargetId:id,targetBefore:clone(current),targetAfter:after};
+        const actualHpDamage=Math.max(0,(beforeTarget?.hp||0)-(after?.hp||0));
+        const actualAbsorbed=Math.max(0,(beforeTarget?.tempHp||0)-(after?.tempHp||0));
+        const r={...clone(result),resultId:`lab-${index}-${key}`,targetId:id,canonicalTargetId:id,targetBefore:beforeTarget,targetAfter:after};
+        r.actualHpDamage ??= actualHpDamage;
+        r.actualAbsorbed ??= actualAbsorbed;
+        r.actualDamage ??= ['damage','intercept'].includes(result.kind)?actualHpDamage+actualAbsorbed:0;
         if(state.enemies.some(e=>e.instanceId===id))r.targetEnemyId=id; else delete r.targetEnemyId;
         const collection=r.targetEnemyId?state.enemies:state.players;
         collection[collection.findIndex(p=>idOf(p)===id)]=after;

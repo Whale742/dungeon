@@ -15,12 +15,17 @@
     if(table==='role_profiles'&&row.role_id==='samurai'&&!String(row.passive_full||'').includes('殘心'))return {...row,...samuraiDefaults.profile};
     if(table==='skill_copies'&&row.role_id==='samurai'&&samuraiDefaults.skills[row.skill_id]&&!String(row.full_copy||'').includes('殘心'))return {...row,...samuraiDefaults.skills[row.skill_id],display_name:row.display_name};
     if(table==='story_copies'&&row.story_key==='equip.samurai.sa_haori'&&!String(row.body||'').includes('餘韻不絕')&&samuraiDefaults.haori)return {...row,body:samuraiDefaults.haori};
+    if(table==='skill_copies'&&row.role_id==='stargazer'&&row.skill_id==='sg_observe'&&/固定 5 點真實撕裂傷害|敵我雙方全體本回合受到5點真實撕裂傷害/.test(String(row.full_copy||''))&&samuraiDefaults.stargazerObserve)return {...row,...samuraiDefaults.stargazerObserve,display_name:row.display_name};
+    if(table==='story_copies'&&row.story_key==='equip.stargazer.sg_eye'&&String(row.body||'').includes('10點真實傷害')&&samuraiDefaults.stargazerEye)return {...row,body:samuraiDefaults.stargazerEye};
     return row;
   }
   function registerMechanicsCopy(classes,details){
     const c=classes?.samurai;if(!c?.passive?.includes('殘心'))return;
+    const sgObserve=classes?.stargazer?.skills?.find(s=>s.id==='sg_observe');
     samuraiDefaults={profile:{short_intro:c.desc,full_intro:c.desc,passive_short:c.passive,passive_full:c.passive},
-      skills:Object.fromEntries(c.skills.map(s=>[s.id,{short_copy:s.shortDesc||s.desc,full_copy:s.desc}])),haori:details?.samurai?.equipment?.find(e=>e.name==='殘心羽織')?.desc};
+      skills:Object.fromEntries(c.skills.map(s=>[s.id,{short_copy:s.shortDesc||s.desc,full_copy:s.desc}])),haori:details?.samurai?.equipment?.find(e=>e.name==='殘心羽織')?.desc,
+      stargazerObserve:sgObserve?{short_copy:sgObserve.shortDesc||sgObserve.desc,full_copy:sgObserve.desc}:null,
+      stargazerEye:details?.stargazer?.equipment?.find(e=>e.name==='克卜勒的深空天眼')?.desc};
     samuraiDefaults.skills.passive={short_copy:c.passive,full_copy:c.passive};
   }
   function emit(){global.dispatchEvent(new Event('studio:content-ready'));}

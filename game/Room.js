@@ -5410,7 +5410,7 @@ export class Room {
       }
       rawDmg=beforeEnemyDamage(this,targetEnemy,rawDmg,dmgType,options.actor||phase8Actor,options.kind||(this.enemyCounterResolution?'reaction':undefined),false);
       if(rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
-      rawDmg=options.equation?this.augmentOmenDamage(rawDmg,targetEnemy):this.augmentOmenDamage(rawDmg);
+      rawDmg=this.augmentOmenDamage(rawDmg,targetEnemy);
       if(options.equation&&rawDmg<=0)return {dmg:0,isResisted:false,resistPercent:0};
       const dream=this.p8DreamDamage(targetEnemy,rawDmg);
       if(dream) {
@@ -6794,8 +6794,13 @@ export class Room {
       }
 
       const attackVisual = stepVisuals.find(v => v.type === 'player_attack' && !v.isSecondaryEnemy);
+      if (attackVisual?.targetEnemyId && attackVisual.targetEnemyId !== monster.instanceId) {
+        const redirectedMonster = (this.enemies || []).find(e => e.instanceId === attackVisual.targetEnemyId);
+        if (redirectedMonster) monster = redirectedMonster;
+      }
+      const resolvedMonsterHpBefore = snapshotTarget(actionBefore, monster.instanceId)?.hp ?? monsterHpBefore;
       const isLethal = monster.hp <= 0;
-      const monsterHpDelta = Math.max(0, monsterHpBefore - monster.hp);
+      const monsterHpDelta = Math.max(0, resolvedMonsterHpBefore - monster.hp);
       if (monsterHpDelta > 0) {
         for (const pal of Object.values(this.players)) {
           if (pal.role === 'paladin' && pal.paladinGloryCastedRound === this.battleRound) {
@@ -6822,7 +6827,7 @@ export class Room {
         }
       }
       const finalDamage = attackVisual ? attackVisual.value : monsterHpDelta;
-      const damageType = attackVisual?.dmgType === 'mag' ? 'magic' : 'physical';
+      const damageType = attackVisual?.dmgType === 'mag' ? 'magic' : attackVisual?.dmgType === 'true' ? 'true' : 'physical';
       const isCrit = attackVisual?.isCrit || false;
       if (isCrit && actionOutcome.type === 'normal' && (SKILL_CATEGORIES[p.action] || 'OFFENSIVE') === 'OFFENSIVE') actionOutcome = { type: 'critical', label: 'CRITICAL' };
 
@@ -6920,10 +6925,10 @@ export class Room {
         tempHpDamage: 0,
         hpDamage: monsterHpDelta,
         damageType: damageType,
-        dmgType: damageType === 'magic' ? '【魔法】' : '【物理】',
+        dmgType: damageType === 'magic' ? '【魔法】' : damageType === 'true' ? '【真實】' : '【物理】',
         isCritical: isCrit,
         isLethal: isLethal,
-        targetHpBefore: monsterHpBefore,
+        targetHpBefore: resolvedMonsterHpBefore,
         targetHpAfter: monster.hp,
         targetMaxHp: monster.maxHp,
         actorHpBefore: actorHpBefore,

@@ -117,6 +117,39 @@ test('an enemy performer retains its identity when a different enemy is primary'
   assert.ok(steps.every(s=>s.sourceId===config.actorId&&s.monsterName===enemy.name&&s.monsterAvatar===enemy.avatar));
 });
 
+test('Stargazer blackhole Lab scenes apply 1.0x and 2.5x magic true damage to the selected enemy with floating damage fields',()=>{
+  const normalConfig=scenario('stargazer',3,3);
+  normalConfig.enemies.forEach(e=>{e.hp=e.maxHp=500;});
+  const normalEntry=entry('p8_observe_blackhole','sg_observe');
+  const normalPlayback=preparePlayback(normalConfig,combatLabFixture('p8_observe_blackhole'),normalEntry);
+  const normalStep=normalPlayback.steps[0];
+  const normalEnemyHit=normalStep.results.find(r=>r.targetEnemyId);
+  assert.ok(normalEnemyHit);
+  assert.equal(normalEnemyHit.targetEnemyId,normalConfig.primaryId);
+  assert.equal(normalEnemyHit.damageType,'true');
+  assert.equal(normalEnemyHit.actualHpDamage,11);
+  assert.equal(normalEnemyHit.actualDamage,11);
+  const normalAllyHits=normalStep.results.filter(r=>!r.targetEnemyId&&r.kind==='damage');
+  assert.equal(normalAllyHits.length,3);
+  for(const hit of normalAllyHits){assert.equal(hit.actualHpDamage,5);assert.equal(hit.damageType,'true');}
+
+  const keplerConfig=scenario('stargazer',3,3);
+  keplerConfig.enemies[0].tier='ABYSS';keplerConfig.enemies[1].tier='MINION';keplerConfig.enemies[2].tier='MINION';
+  keplerConfig.enemies.forEach(e=>{e.hp=e.maxHp=500;});
+  keplerConfig.primaryId=keplerConfig.enemies[2].instanceId; // Selected a minion
+  const keplerEntry=entry('p8_kepler_blackhole','sg_observe');
+  assert.deepEqual(keplerEntry.equipmentIds,['sg_eye']);
+  const keplerPlayback=preparePlayback(keplerConfig,combatLabFixture('p8_kepler_blackhole'),keplerEntry);
+  const keplerStep=keplerPlayback.steps[0];
+  assert.equal(keplerStep.results.length,1);
+  assert.equal(keplerStep.results[0].targetEnemyId,keplerConfig.enemies[2].instanceId);
+  assert.equal(keplerStep.results[0].damageType,'true');
+  assert.equal(keplerStep.results[0].actualHpDamage,28);
+  assert.equal(keplerStep.results[0].actualDamage,28);
+  assert.equal(keplerStep.hpSnapshot.enemies[2].hp,472);
+  assert.equal(keplerStep.hpSnapshot.enemies[0].hp,500);
+});
+
 test('the iframe loads shared production renderers and contains no live game socket',()=>{
   const html=readFileSync(new URL('../public/combat-fx-stage.html',import.meta.url),'utf8');
   const official=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');

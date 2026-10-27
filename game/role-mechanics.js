@@ -678,10 +678,13 @@ export const phase8Methods = {
     const {dmg}=resistance(raw,type,{...extra,enemy,actor:p});
     const actual=Math.min(enemy.hp,dmg);enemy.hp=Math.max(0,enemy.hp-dmg);
     const after=this.getHpSnapshot(),dream=this.p8BossOutcome;
+    const beforeTarget=target(before),afterTarget=target(after);
+    const absorbed=Math.max(0,(beforeTarget?.tempHp||0)-(afterTarget?.tempHp||0));
     const result={kind:dream==='dream_heal'?'heal':'damage',sourceId:p.id,targetId:enemy.instanceId,targetEnemyId:enemy.instanceId,
-      actualHeal:Math.max(0,target(after).hp-target(before).hp),finalDamage:actual,
+      actualHeal:Math.max(0,afterTarget.hp-beforeTarget.hp),finalDamage:actual,hpDmg:actual,absorbed,
+      actualDamage:dream==='dream_heal'?0:actual+absorbed,actualHpDamage:actual,actualAbsorbed:absorbed,
       damageType:dream==='nightmare'?'true':type==='mag'?'magic':type==='true'?'true':'physical',
-      outcome:{type:dream||(extra.critical?'critical':'normal')},targetBefore:target(before),targetAfter:target(after),hpSnapshot:after};
+      outcome:{type:dream||(extra.critical?'critical':'normal')},targetBefore:beforeTarget,targetAfter:afterTarget,hpSnapshot:after};
     this.p8Results?.push(result);this.p8Visuals?.push({type:'player_attack',sourceId:p.id,target:enemy.instanceId,targetEnemyId:enemy.instanceId,dmgType:type,value:actual,isCrit:!!extra.critical});
     return actual;
   },
@@ -816,11 +819,12 @@ export const phase8Methods = {
         if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':enhanced?'sg_eye_planet':'sg_planet'))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;m.stunnedThisRound=true;outcome.stunned=true;}}
         if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:this.skillValue(p,enhanced?'sg_eye_galaxy':'sg_bonus'),separate:enhanced,sourceId:p.id});
         if(id==='blackhole') {
-          const boss=enhanced?this.getLivingEnemies().find(e=>['ELITE','ABYSS'].includes(e.tier)):m;
-          if(boss)damage(enhanced?10:5,'true',{enemy:boss});
+          const attackable=this.getAttackableEnemies(p);
+          const target=attackable.includes(m)?m:(!p.targetEnemyId?attackable[0]||m:m);
+          if(target)damage(this.skillValue(p,enhanced?'sg_eye_blackhole':'sg_blackhole'),'true',{enemy:target});
           if(!enhanced)for(const ally of alive(this)) {
             const before=this.getHpSnapshot(),res=this.applyDamageToPlayer(ally,5,{kind:'friendly',trueDamage:true});const after=this.getHpSnapshot();
-            this.p8Results.push({kind:'damage',targetId:ally.id,finalDamage:res.hpDmg+res.tempAbsorbed,hpDmg:res.hpDmg,absorbed:res.tempAbsorbed,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===ally.id),targetAfter:after.players.find(x=>x.id===ally.id),hpSnapshot:after});
+            this.p8Results.push({kind:'damage',targetId:ally.id,finalDamage:res.hpDmg+res.tempAbsorbed,hpDmg:res.hpDmg,absorbed:res.tempAbsorbed,actualDamage:res.hpDmg+res.tempAbsorbed,actualHpDamage:res.hpDmg,actualAbsorbed:res.tempAbsorbed,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===ally.id),targetAfter:after.players.find(x=>x.id===ally.id),hpSnapshot:after});
           }
         }
         if(id==='boundary') {
@@ -983,7 +987,7 @@ export const phase8Methods = {
       }
     }
     if(!this.p8Results.length){const snap=this.getHpSnapshot(),target=outcome.type==='immune'?snap.monster:snap.players.find(x=>x.id===p.id);this.p8Results.push({kind:'status',targetId:outcome.type==='immune'?'monster':p.id,outcome,targetBefore:target,targetAfter:target,hpSnapshot:snap});}
-    for(const r of this.p8Results){r.monsterName=m.name;r.monsterAvatar=m.avatar;}
+    for(const r of this.p8Results){const e=(r.targetEnemyId&&this.enemies?.find(x=>x.instanceId===r.targetEnemyId))||m;r.monsterName=e.name;r.monsterAvatar=e.avatar;}
     // Resource/debuff changes follow the impact and remain authoritative in the queue.
     if (p.role==='augur') {
       const snapshot=this.getHpSnapshot();

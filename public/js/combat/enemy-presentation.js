@@ -21,8 +21,10 @@ const ENEMY_FX_PROFILES = Object.freeze({
 });
 function battleFeedbackEntries(result) {
   const entries=[],add=(text,type)=>entries.push({text,type});
-  if(result.actualHpDamage>0)add('-'+result.actualHpDamage,'damage');
-  if(result.actualAbsorbed>0)add('🛡 -'+result.actualAbsorbed,'shield');
+  const hpDamage=Number(result.actualHpDamage??(['damage','intercept'].includes(result.kind)?(result.hpDmg??(result.targetBefore?.hp!==undefined&&result.targetAfter?.hp!==undefined?Math.max(0,result.targetBefore.hp-result.targetAfter.hp):(Number(result.finalDamage)||0))):0))||0;
+  const absorbed=result.actualAbsorbed??result.absorbed??Math.max(0,(result.targetBefore?.tempHp??0)-(result.targetAfter?.tempHp??0));
+  if(hpDamage>0)add('-'+hpDamage,'damage');
+  if(absorbed>0)add('🛡 -'+absorbed,'shield');
   // Legacy overheal results include shield gain in actualHeal. Separate that
   // existing contract without inventing another HP or damage event.
   const heal=result.kind==='heal'?Math.max(0,(result.actualHeal||0)-(result.actualShield||0)):result.actualHeal||0;
