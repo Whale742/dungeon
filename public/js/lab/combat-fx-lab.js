@@ -95,6 +95,11 @@ function renderPerformance(){
   ui.actor.innerHTML=`<optgroup label="我方角色">${config.party.map((p,i)=>option(p.id,`${i+1} · ${p.name}`)).join('')}</optgroup><optgroup label="敵方角色">${config.enemies.map((e,i)=>option(e.instanceId,`${i+1} · ${e.name}`)).join('')}</optgroup>`;ui.actor.value=config.actorId;
   const formal=formalSkills(actor).map(s=>({...s}));
   if(actor.role==='gladiator'&&entry)for(const skill of formal)if(skill.id===entry.skillId){skill.label=entry.skillName;skill.desc=entry.skillDescription||skill.desc;}
+  if(!actor.instanceId)for(const skill of formal){
+    const copyActor={...actor,sagePhase:entry?.actor?.sagePhase??actor.sagePhase,arenaActive:entry?!!entry.actor?.arenaActive:actor.arenaActive};
+    const display=StudioGame.skillDisplay(actor.role,skill,copyActor),copy=StudioContent.skill(actor.role,display);
+    skill.label=display.label;if(copy)skill.desc=StudioContent.template(copy.full_copy,skill.copyVars||{});
+  }
   const known=new Set(formal.map(s=>s.id));
   const extra=[...new Map(entries.filter(e=>!known.has(e.skillId)).map(e=>[e.skillId,e])).values()];
   ui.skill.innerHTML=(formal.length?'<optgroup label="普通攻擊與主動技能">'+formal.map(s=>option(s.id,s.label+(entries.some(e=>e.skillId===s.id)?'':' · 尚未支援'))).join('')+'</optgroup>':'')+(extra.length?`<optgroup label="${actor.instanceId?'攻擊與特殊演出':'被動與特殊行動'}">${extra.map(s=>option(s.skillId,s.skillName)).join('')}</optgroup>`:'');
@@ -199,6 +204,7 @@ ui.stage.addEventListener('load',()=>send('hello'));
 send('hello');
 try{
   const response=await fetch('/api/studio/combat-lab');if(!response.ok)throw new Error('無法載入 Lab 情境目錄');catalog=await response.json();
+  await StudioContent.load({defaults:true});StudioContent.applyPreview();
   config=initialConfig();selectedId=config.party[0].id;
   const params=new URLSearchParams(location.search),role=params.get('role'),scene=params.get('scene');
   if(role&&catalog.classes[role]){const id=config.party[0].id;config.party[0]={...newPlayer(role),id};skillId=params.get('skill')||'basic';}

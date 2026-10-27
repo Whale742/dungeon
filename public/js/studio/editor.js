@@ -4,12 +4,12 @@
   const records=new Map(),dirty=new Set(),drafts=new Set();let selected=null,pendingImport=[],legacyPending=false;
   const byId=id=>document.getElementById(id);
   function record(item){return records.get(itemId(item));}
-  function ingest(table,rows,isDraft=false){const kind=Object.keys(specs).find(k=>specs[k].table===table);if(!kind)return;for(const row of rows){const value=toItem(kind,row),key=itemId(value);records.set(key,{...row,...(isDraft?{status:'draft'}:{})});if(isDraft)drafts.add(key);}}
+  function ingest(table,rows,isDraft=false){const kind=Object.keys(specs).find(k=>specs[k].table===table);if(!kind)return;for(const row of rows){if(!StudioContent.isEditable(table,row))continue;const value=toItem(kind,row),key=itemId(value);records.set(key,{...row,...(isDraft?{status:'draft'}:{})});if(isDraft)drafts.add(key);}}
   function status(){byId('editorSource').textContent=(StudioContent.state.source==='cloud'?'Supabase 已發布內容':'GitHub 內建 fallback')+' · '+dirty.size+' 項未儲存 · '+drafts.size+' 項草稿';}
   function dirtyChange(field,value){record(selected)[field]=value;dirty.add(itemId(selected));status();preview();}
   function visible(){const cat=byId('editorCategory').value,role=byId('editorRole').value,q=byId('editorSearch').value.toLowerCase();return [...records.entries()].filter(([id,row])=>{
     const kind=id.split(':')[0];if(cat==='role'||cat==='passive')return kind==='role'&&(!q||[row.role_id,row.name_zh].join(' ').toLowerCase().includes(q));
-    if(cat==='skill'||cat==='leader')return kind==='skill'&&row.role_id===role&&row.skill_id!=='passive'&&(cat!=='leader'||StudioContent.state.defaults.skillMeta[row.role_id+':'+row.skill_id]?.leader)&&[row.skill_id,row.display_name].join(' ').toLowerCase().includes(q);
+    if(cat==='skill'||cat==='leader'||cat==='reaction')return kind==='skill'&&row.role_id===role&&row.skill_id!=='passive'&&(cat==='reaction'?StudioContent.state.defaults.skillMeta[row.role_id+':'+row.skill_id]?.presentationOnly:!StudioContent.state.defaults.skillMeta[row.role_id+':'+row.skill_id]?.presentationOnly)&&(cat!=='leader'||StudioContent.state.defaults.skillMeta[row.role_id+':'+row.skill_id]?.leader)&&[row.skill_id,row.display_name].join(' ').toLowerCase().includes(q);
     if(cat==='equipment')return kind==='story'&&row.category==='equipment'&&(row.story_key.startsWith('equip.'+role+'.')||(q&&[row.story_key,row.title,row.body].join(' ').toLowerCase().includes(q)))&&[row.story_key,row.title,row.body].join(' ').toLowerCase().includes(q);
     return kind==='story'&&(cat==='story'||cat==='event'&&row.category==='event'||row.category===cat||cat==='route'&&['route','treasure','trap','floor','event'].includes(row.category)||cat==='other'&&row.category==='other')&&[row.story_key,row.title,row.body].join(' ').toLowerCase().includes(q);
   });}
@@ -20,7 +20,7 @@
     const recruit=value.kind==='story'&&value.key.startsWith('entry.recruit.');
     const isEquipment=value.kind==='story'&&(row.category==='equipment'||value.key.startsWith('equip.'));
     const isEventStory=value.kind==='story'&&(row.category==='event'||value.key.startsWith('event.'));
-    const editFields=recruit?['body']:isEquipment||isEventStory?['title','body']:fields;
+    const editFields=value.kind==='role'&&byId('editorCategory').value==='passive'?['passive_short','passive_full']:recruit?['body']:isEquipment||isEventStory?['title','body']:fields;
     const nodes=editFields.map(field=>{
       if(field.startsWith('radar_')){const index=RadarRenderer.fields.indexOf(field),output=el('output',{text:row[field]+' / '+RadarRenderer.grade(row[field])}),slider=el('input',{type:'range',min:1,max:5,step:1,value:row[field],oninput:event=>{const v=Number(event.target.value);output.textContent=v+' / '+RadarRenderer.grade(v);dirtyChange(field,v);}});return el('label',{class:'studio-field'},[el('span',{text:RadarRenderer.axes[index]+(field==='radar_difficulty'?'（5 = S，最難操作）':'')}),slider,output]);}
       const array=['tags','paragraphs'].includes(field);
@@ -28,11 +28,13 @@
       return formField(label,array?row[field].join(field==='tags'?', ':'\n'):row[field],v=>dirtyChange(field,array?v.split(field==='tags'?/[,，]/:/\n/).map(s=>s.trim()).filter(Boolean):v),{type:field.includes('copy')||field.includes('intro')||field.includes('passive')||['body','paragraphs'].includes(field)?'textarea':'text'});
     });
     byId('editorForm').replaceChildren(...nodes);
+    if(value.kind==='role')byId('editorForm').prepend(el('p',{class:'studio-muted',text:'被動文案以此職業資訊中的被動簡介與完整說明為準；歷史 passive 技能文案僅作相容 fallback。'}));
     if(recruit)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此文案顯示在遊戲首頁的招募令。支援草稿、發布、批次發布、匯入匯出與版本回復。'}));
     if(isEquipment)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此文案為職業專屬裝備的名稱與效果說明。支援草稿、發布、批次發布、匯入匯出與版本回復。'}));
     if(isEventStory)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此文案為遊戲內事件（商店、祭壇、隨機事件、寶箱、陷阱）的標題與敘事說明。支援草稿、發布、批次發布、匯入匯出與版本回復。'}));
     const meta=value.kind==='skill'?StudioContent.state.defaults.skillMeta[value.role_id+':'+value.key]:null;
     if(meta?.leader)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此隊長技文案顯示於職業一覽與房間。敘述會自動以「(僅在作為隊長時生效)」開頭；名稱、精簡與完整文案皆可編輯。'}));
+    if(meta?.presentationOnly)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此項為正式戰鬥事件或演出結果的文案，並非玩家可選技能。'}));
     if(meta?.contextual)byId('editorForm').prepend(el('p',{class:'studio-muted',text:'此項有即時狀態文案。階段／場內版本各有獨立文案 ID；實際 actionId 保持 '+meta.actionId+'。可使用 {rageMultiplier} 佔位符。'}));
     byId('editorItemActions').replaceChildren(button('儲存草稿',()=>save([selected]),{class:'studio-primary'}),button('發布此項',()=>publish([selected])),button('恢復原始文案',()=>{const base=StudioContent.state.defaults[specs[value.kind].table].find(r=>r[specs[value.kind].id]===value.key&&(value.kind!=='skill'||r.role_id===value.role_id));records.set(itemId(value),structuredClone(base));dirty.add(itemId(value));select(value);status();notice('已恢復內建文案；儲存後才會成為雲端草稿。');}),...(!isEquipment&&!StudioContent.state.defaults.skillMeta[value.role_id+':'+value.key]?.leader?[button('在 Lab 預覽',()=>labPreview(value))]:[]),button('載入版本歷史',()=>history(value)));
     byId('editorHistory').replaceChildren(el('p',{class:'studio-muted',text:'載入版本歷史需要 Studio 通行碼。'}));preview();
@@ -49,7 +51,7 @@
   async function save(items){const result=await StudioWrite.request('/drafts',{method:'POST',body:{items:items.map(i=>toItem(i.kind,record(i)))}});for(const i of items){dirty.delete(itemId(i));drafts.add(itemId(i));record(i).status='draft';}status();notice('雲端草稿已儲存 '+result.saved+' 項。');list();}
   async function publish(items){if(items.length>100)throw new Error('單一交易最多 100 項；請縮小分類後發布。');const unsaved=items.filter(i=>dirty.has(itemId(i))||!drafts.has(itemId(i)));if(unsaved.length)await save(unsaved);
     await StudioWrite.request('/publish',{method:'POST',body:{items:items.map(i=>StudioSchema.identity(i.kind,record(i)))}});items.forEach(i=>{drafts.delete(itemId(i));record(i).status='published';});await StudioContent.load({force:true});status();list();notice('已正式發布 '+items.length+' 項；批次使用單一資料庫交易。');}
-  async function loadDrafts(){if(dirty.size&&!confirm('雲端草稿會取代對應的未儲存編輯，確定載入？'))return;const data=await StudioWrite.request('/drafts');for(const [table,rows]of Object.entries(data)) {ingest(table,rows,true);for(const row of rows){const kind=Object.keys(specs).find(k=>specs[k].table===table);dirty.delete(itemId(toItem(kind,row)));}}list();status();notice('已載入雲端草稿。');}
+  async function loadDrafts(){if(dirty.size&&!confirm('雲端草稿會取代對應的未儲存編輯，確定載入？'))return;const data=await StudioWrite.request('/drafts');for(const [table,rows]of Object.entries(data)) {ingest(table,rows,true);for(const row of rows){if(!StudioContent.isEditable(table,row))continue;const kind=Object.keys(specs).find(k=>specs[k].table===table);dirty.delete(itemId(toItem(kind,row)));}}list();status();notice('已載入雲端草稿。');}
   async function history(value){const query=new URLSearchParams(StudioSchema.identity(value.kind,record(value)));const rows=await StudioWrite.request('/revisions?'+query);
     byId('editorHistory').closest('details').open=true;
     const restore=async(revision,snapshot)=>{const result=await StudioWrite.request('/restore',{method:'POST',body:{revision_id:revision.id,snapshot}});records.set(itemId(result.item),result.row);drafts.add(itemId(result.item));dirty.delete(itemId(result.item));select(result.item);status();notice('舊快照已還原為新草稿；發布會產生新的版本。');};

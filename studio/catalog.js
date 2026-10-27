@@ -55,7 +55,13 @@ export function buildCatalog() {
     skillMeta[k] = { actionId:s.id, variant, contextual:!!s.contextualCopy };
   };
   for (const [role, c] of Object.entries(CLASSES)) {
-    c.skills.forEach(s => addSkill(role,s));
+    c.skills.forEach(s => {
+      addSkill(role,s);
+      const canonicalCopyKey=skillCopyKey({role},s);
+      // Keep legacy identities valid for API/import compatibility. The editor
+      // manages only the copies actually selected by the current skill context.
+      if(canonicalCopyKey!==s.id)Object.assign(skillMeta[role+':'+s.id],{editable:false,canonicalCopyKey});
+    });
     const players = [{role,equips:[],hp:50}, ...LOOT_TABLE.filter(e=>e.role===role).map(e=>({role,equips:[e],hp:50})),
       {role,equips:[],hp:50,arenaActive:true}, {role,equips:[],hp:50,sagePhase:'solve'},
       ...['werewolf','treant','bear'].map(druidForm=>({role,equips:[],hp:50,druidForm}))];
@@ -63,6 +69,7 @@ export function buildCatalog() {
       const key = skillCopyKey(p,s); addSkill(role,s,key,key !== s.id ? key.slice(s.id.length + 2) : '');
     }
     addSkill(role,{id:'passive',label:'被動與特性',desc:ROLE_DETAILS[role]?.passive || c.passive || c.desc});
+    skillMeta[role+':passive'].managedBy='role_profiles';
     const leader = leaderSkillCopy(role);
     if (leader) {
       addSkill(role, leader);
@@ -70,7 +77,16 @@ export function buildCatalog() {
     }
   }
   // Additional non-selectable action IDs are taken from real production fixtures.
-  for(const scene of Object.values(fixture))for(const step of scene.steps||[])if(step.sourceRole&&CLASSES[step.sourceRole]&&step.actionId&&step.actionId!=='skip')addSkill(step.sourceRole,{id:step.actionId,label:step.skillName||step.actionId,desc:step.narrative||step.detail||''});
+  for(const scene of Object.values(fixture))for(const step of scene.steps||[])if(step.sourceRole&&CLASSES[step.sourceRole]&&step.actionId&&step.actionId!=='skip'){
+    const key=step.sourceRole+':'+step.actionId;
+    if(!skills.has(key)){
+      addSkill(step.sourceRole,{id:step.actionId,label:step.skillName||step.actionId,desc:step.narrative||step.detail||''});
+      skillMeta[key].presentationOnly=true;
+    }
+  }
+  // These legacy actions still have combat, narrative and Lab consumers; their
+  // historical copy remains readable but is not another selectable skill editor.
+  for(const id of ['alc_acid','alc_poison'])if(skillMeta['alchemist:'+id])skillMeta['alchemist:'+id].editable=false;
   addSkill('bard',{id:'b_revive',label:'甦生之歌',desc:'對已倒下且可復活的隊友施放甦生之歌。可否施放與回復量仍由伺服器判定。'});
   const addStory = (key, category, title, body = '', paragraphs = []) => stories.push({story_key:key, category, title, body, paragraphs});
   for (const field of recruitFields) addStory(field.key, 'recruit', field.label, field.body);

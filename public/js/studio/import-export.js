@@ -7,6 +7,7 @@
     if(!input||input.schemaVersion!==1||!Array.isArray(input.items)||!input.items.length||input.items.length>500)throw new Error('需要 schemaVersion:1 與 1–500 個 items');
     const seen=new Set();
     for(const value of input.items){const spec=specs[value.kind];if(!spec||!defaults[spec.table].some(row=>row[spec.id]===value.key&&(value.kind!=='skill'||row.role_id===value.role_id)))throw new Error('未知穩定 ID：'+value.key);
+      if(value.kind==='skill'&&(defaults.skillMeta?.[value.role_id+':'+value.key]?.editable===false||defaults.skillMeta?.[value.role_id+':'+value.key]?.managedBy==='role_profiles'))throw new Error('此歷史 ID 不再由技能編輯器管理：'+value.key);
       if(seen.has(id(value)))throw new Error('JSON 含重複 ID');seen.add(id(value));
       if(!value.data||Object.keys(value.data).some(f=>!spec.fields.includes(f))||spec.fields.some(f=>!Object.hasOwn(value.data,f)))throw new Error('欄位不完整或含禁止欄位：'+value.key);
       for(const [field,v]of Object.entries(value.data)){

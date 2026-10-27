@@ -3,7 +3,7 @@ let skillCopyDetailed=localStorage.getItem('skillCopyDetailed')==='true';
 let skillCopyDefaults={};
 let skillCopyDetails={};
 function skillCopyOverrides(){try{return JSON.parse(localStorage.getItem('skillCopyOverrides')||'{}');}catch{return {};}}
-function registerSkillCopies(classes,details){skillCopyDefaults=classes||{};if(details)skillCopyDetails=details;window.StudioContent?.registerMechanicsCopy?.(classes,details);}
+function registerSkillCopies(classes,details){skillCopyDefaults=classes||{};if(details)skillCopyDetails=details;}
 function setSkillCopyDetailed(value){skillCopyDetailed=!!value;localStorage.setItem('skillCopyDetailed',String(skillCopyDetailed));}
 function getSkillDescription(role,skill,detailed=skillCopyDetailed){
  const copy=getSkillCopyDescription(role,skill,detailed);
@@ -15,7 +15,7 @@ function formatLeaderDescription(value=''){
 function getLeaderSkill(role){return skillCopyDefaults[role]?.leaderSkill;}
 function getSkillCopyDescription(role,skill,detailed){
  if(skill.contextualCopy){
-  const copy=skill.copyKey&&window.StudioContent?.skill(role,skill);
+  const copy=window.StudioContent?.skill(role,skill);
   if(copy)return window.StudioContent.template(detailed?copy.full_copy:copy.short_copy,skill.copyVars||{});
   return detailed?(skill.desc||''):(skill.shortDesc||skill.desc||'');
  }
