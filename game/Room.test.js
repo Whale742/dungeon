@@ -3286,19 +3286,22 @@ for(const party of [1,2,3,4])for(const hp of [85,35,1])test(`Gladiator unchanged
   player.hp=hp;player.rage=3;room.p8GrantShield(player,20,3,'test');
   const before=resolveStats(player).PAtk_gear;
   room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};const queue=[];room.p8RoundStart(queue);
-  assert.equal(player.hp,85);assert.equal(player.maxHp,85);assert.equal(enemy.hp,10000);assert.equal(enemy.maxHp,10000);
+  assert.equal(player.hp,hp);assert.equal(room.arena.bloodsong,85-hp);assert.equal(player.maxHp,85);assert.equal(enemy.hp,10000);assert.equal(enemy.maxHp,10000);
   assert.equal(room.arena.entryHp,hp);assert.equal(room.arena.recoveredHp,85-hp);assert.equal(player.rage,3);
   assert.equal(resolveStats(player).PAtk_gear,before,'special entry recovery cannot create inspiration');
-  player.hp=55;enemy.hp=9500;room.p8ExitArena(queue);
+  room.applyDamageToPlayer(player,30,{kind:'friendly',trueDamage:true});enemy.hp=9500;room.p8ExitArena(queue);
   assert.equal(player.hp,55);assert.equal(player.maxHp,85);assert.equal(enemy.hp,9500);assert.equal(enemy.maxHp,10000);assert.equal(player.rage,0);
   const ally=room.players.ally1;if(ally)assert.equal(room.p8Has(ally,'triumph').value,70);
 });
-for(const [entryHp,currentHp,cost,damage]of [[85,85,0,27],[35,85,50,102],[1,85,84,153],[35,20,19,56],[35,1,0,27]])
- test(`Gladiator judgment uses only real HP: entry=${entryHp}, current=${currentHp}`,t=>{
-  const f=gladiatorBattle(t);f.player.hp=entryHp;f.room.arenaPending={playerId:f.player.id,enemyId:f.enemy.instanceId,round:1};f.room.p8RoundStart([]);f.player.hp=currentHp;
-  const {results}=gladiatorCast(f,'g_arena');assert.equal(f.player.hp,currentHp-cost);assert.ok(f.player.hp>=1);
-  assert.equal(results.filter(r=>r.targetEnemyId).reduce((n,r)=>n+(r.finalDamage||0),0),damage);assert.equal(f.player.noReviveFloor,undefined);
-  gladiatorCast(f,'g_arena');assert.equal(f.player.hp,currentHp-cost);assert.equal(f.room.p8Results.find(r=>r.targetEnemyId).finalDamage,27);
+for(const [entryHp,attack,cost,damage,hp]of [[85,0,0,27,85],[35,0,50,102,35],[1,0,84,153,1],[35,31,19,56,35],[35,50,0,27,35],[35,70,0,27,15]])
+ test(`Gladiator judgment consumes remaining bloodsong without spending HP: entry=${entryHp}, attack=${attack}`,t=>{
+  const f=gladiatorBattle(t);f.player.hp=entryHp;f.room.arenaPending={playerId:f.player.id,enemyId:f.enemy.instanceId,round:1};f.room.p8RoundStart([]);
+  f.room.applyDamageToPlayer(f.player,attack,{kind:'enemy_direct',trueDamage:true});
+  const {results}=gladiatorCast(f,'g_arena');assert.equal(f.player.hp,hp);assert.equal(f.room.arena.bloodsong,0);
+  assert.equal(results.filter(r=>r.targetEnemyId).reduce((n,r)=>n+(r.finalDamage||0),0),damage);
+  assert.equal(results.find(r=>r.bloodsongConsumed)?.bloodsongConsumed||0,cost);
+  assert.ok(!results.some(r=>r.kind==='damage'&&r.targetId===f.player.id));
+  gladiatorCast(f,'g_arena');assert.equal(f.player.hp,hp);assert.equal(f.room.p8Results.find(r=>r.targetEnemyId).finalDamage,27);
 });
 for(const [rage,expected]of [[0,34],[1,47],[3,74],[5,100],[10,166]])test(`Gladiator assault formula and one active hit gain: R=${rage}`,t=>{
   const f=gladiatorBattle(t);f.room.arena={playerId:f.player.id,enemyId:f.enemy.instanceId,until:1};f.player.rage=rage;f.player.hp=1;
@@ -3351,8 +3354,8 @@ for(const cost of [0,20,40,60,80])test('Gladiator cingulum 200% HP coefficient a
   const normal=room.skillValue(player,'g_judgment',{hpCost:cost});assert.equal(normal,27+1.5*cost);
   player.equips=[{id:'g_cingulum',bonusAtk:4}];assert.equal(room.skillValue(player,'g_judgment',{hpCost:cost}),31+2*cost);
   assert.equal(room.skillValue(player,'g_strike',{stacks:0}),42,'belt changes P only, not assault coefficients');
-  room.arena={playerId:player.id,enemyId:enemy.instanceId,until:1,recoveredHp:cost};gladiatorCast(f,'g_arena');
-  assert.equal(player.hp,85-cost);assert.equal(room.p8Results.find(r=>r.targetEnemyId).finalDamage,31+2*cost);
+  room.arena={playerId:player.id,enemyId:enemy.instanceId,until:1,recoveredHp:cost,bloodsong:cost};gladiatorCast(f,'g_arena');
+  assert.equal(player.hp,85);assert.equal(room.arena.bloodsong,0);assert.equal(room.p8Results.find(r=>r.targetEnemyId).finalDamage,31+2*cost);
 });
 test('Gladiator all equipment passives integrate once and later grants respect unequip',t=>{
   const f=gladiatorBattle(t),{room,player,enemy}=f;player.equips=LOOT_TABLE.filter(e=>['g_xiphos','g_cuirass','g_cingulum'].includes(e.id));
@@ -3371,7 +3374,7 @@ test('Gladiator real arena judgment leaves a surviving enemy able to retaliate',
 });
 test('Gladiator declaration CD and contextual skills use the existing two-turn cooldown owner',t=>{
   const f=gladiatorBattle(t),{room,player}=f;player.action='g_arena';room.resolveTurnActions();assert.equal(player.cooldowns.g_arena,2);
-  room.battleRound++;room.p8RoundStart([]);assert.equal(player.hp,85);assert.equal(getPlayerSkills(player)[1].label,'血殺重擊');
+  room.battleRound++;room.p8RoundStart([]);assert.equal(player.hp+room.arena.bloodsong,85);assert.equal(getPlayerSkills(player)[1].label,'血殺重擊');
   player.action='basic';room.resolveTurnActions();assert.equal(player.cooldowns.g_arena,1);
   room.battleRound++;room.p8RoundStart([]);player.action='basic';room.resolveTurnActions();assert.equal(player.cooldowns.g_arena,0);
   assert.equal(CLASSES.gladiator.skills.find(s=>s.id==='g_arena').cd,2);assert.equal(getPlayerSkills(player)[1].label,'血戰邀約');
@@ -3455,4 +3458,52 @@ test('Gladiator ordinary healing consumable cannot bypass inspiration at full or
     assert.equal(scope.colors[type].color,color);
     for(const variant of ['enemy','tooltip','hud'])assert.ok(scope.renderStatusIconMarkup({id:'talisman_'+type},{variant}).includes('color:'+color));
   }
+});
+
+for(const [attack,hp,stacks]of [[20,35,30],[50,35,0],[65,20,0],[85,0,0],[100,0,0]])test('Bloodsong is spent before real HP: '+attack,t=>{
+  const {room,player,enemy}=gladiatorBattle(t);player.hp=35;
+  room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};room.p8RoundStart([]);
+  assert.equal(player.hp,35);assert.equal(player.tempHp||0,0);
+  const status=room.getHpSnapshot().players.find(p=>p.id===player.id).statuses.find(s=>s.id==='gladiator_bloodsong');
+  assert.equal(status.stacks,50);assert.equal(status.label,'嗜血戰歌');
+  const hit=room.applyDamageToPlayer(player,attack,{kind:'enemy_direct',trueDamage:true});
+  assert.equal(player.hp,hp);assert.equal(room.arena.bloodsong,stacks);
+  assert.equal(hit.bloodsongAbsorbed,Math.min(attack,50));assert.equal(hit.hpDmg,35-hp);assert.equal(hit.tempAbsorbed,0);
+  const queue=[];room.p8ExitArena(queue);assert.equal(player.hp,hp+stacks);assert.equal(room.arena,null);
+  assert.ok(!room.getHpSnapshot().players.find(p=>p.id===player.id).statuses.some(s=>s.id==='gladiator_bloodsong'));
+  const after=player.hp;room.p8ExitArena(queue);assert.equal(player.hp,after);
+});
+
+test('Bloodsong multi-hit snapshots and feedback distinguish buff loss from HP damage',t=>{
+  const {room,player,enemy}=gladiatorBattle(t);player.hp=35;
+  room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};room.p8RoundStart([]);
+  const before=room.getHpSnapshot(),hits=[];room.p8ResolveBossHits(player,[20,40],n=>n,hits);
+  const queue=[{type:'boss_action',sourceId:enemy.instanceId,actionId:'basic',hpSnapshotBefore:before,hpSnapshot:room.getHpSnapshot(),results:hits}];
+  normalizeCombatQueue(queue,'bloodsong');const results=queue[0].results;
+  assert.deepEqual(results.map(r=>r.actualDamage),[20,40]);assert.deepEqual(results.map(r=>r.actualHpDamage),[0,10]);
+  assert.deepEqual(results.map(r=>r.actualBloodsongAbsorbed),[20,30]);
+  const {scope}=enemyPresentationHarness();
+  assert.deepEqual(Array.from(scope.battleFeedbackEntries(results[0]),e=>e.text),['嗜血戰歌 -20']);
+  assert.deepEqual(Array.from(scope.battleFeedbackEntries(results[1]),e=>e.text),['-10','嗜血戰歌 -30']);
+  assert.equal(player.hp,25);assert.equal(room.arena.bloodsong,0);
+  assert.equal(player.rage,1,'hits absorbed by bloodsong still grant the existing first-hit rage once');
+});
+
+test('Bloodsong is not a normal heal or shield and does not resurrect on forced exit',t=>{
+  const {room,player,enemy}=gladiatorBattle(t);player.hp=1;
+  room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};room.p8RoundStart([]);
+  assert.equal(resolveStats(player).PAtk_gear,0);assert.equal(room.arena.bloodsong,84);
+  const pool=room.arena.bloodsong;room.applyDamageToPlayer(player,8,{kind:'dot'});assert.equal(room.arena.bloodsong,pool);
+  player.hp=0;room.p8ExitArena([],'gladiator_dead');assert.equal(player.hp,0);
+  assert.equal(resolveStats(player).PAtk_gear,0);assert.equal(room.getHpSnapshot().players.find(p=>p.id===player.id).gladiatorBloodsong,0);
+});
+
+test('Bloodsong participates in lethal barrier checks without consuming protection prematurely',t=>{
+  const {room,player,enemy}=gladiatorBattle(t);player.hp=35;
+  room.arenaPending={playerId:player.id,enemyId:enemy.instanceId,round:1};room.p8RoundStart([]);
+  room.p8Effect(player,'boundary','邊界',10,{barrier:true});
+  room.applyDamageToPlayer(player,40,{kind:'enemy_direct',trueDamage:true});
+  assert.equal(room.p8Has(player,'boundary').barrier,true);assert.equal(room.arena.bloodsong,10);assert.equal(player.hp,35);
+  room.applyDamageToPlayer(player,45,{kind:'enemy_direct',trueDamage:true});
+  assert.equal(room.p8Has(player,'boundary').barrier,false);assert.equal(room.arena.bloodsong,10);assert.equal(player.hp,35);
 });

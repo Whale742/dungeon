@@ -19,7 +19,7 @@ test('Gladiator Lab uses current nonlethal mechanics: '+id,()=>{
   const config=scenario('gladiator');config.enemies.forEach(e=>{e.hp=e.maxHp=1000;});
   const selected=entry(id),fixture=combatLabFixture(id),{steps}=preparePlayback(config,fixture,selected),step=steps[0];
   assert.equal(step.results.filter(r=>r.targetEnemyId).reduce((n,r)=>n+r.actualDamage,0),expected);
-  assert.equal(step.hpSnapshot.players[0].hp,85-cost);assert.ok(!step.hpSnapshot.players[0].noReviveThisFloor);
+  assert.equal(step.hpSnapshot.players[0].hp,85);if(cost){assert.equal(step.results.find(r=>r.bloodsongConsumed).bloodsongConsumed,cost);assert.ok(!step.results.some(r=>r.kind==='damage'&&r.targetId===config.actorId));}assert.ok(!step.hpSnapshot.players[0].noReviveThisFloor);
   if(step.actionId==='g_arena')assert.equal(selected.skillName,'浴血裁決');
   assert.ok(!/同歸於盡|鮮血獻祭|怒氣/.test(selected.skillDescription||''));
 });

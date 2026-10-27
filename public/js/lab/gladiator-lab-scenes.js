@@ -1,12 +1,13 @@
 // Explicit authoritative replay examples; production Room owns all combat formulas.
 const GLADIATOR_LAB_SCENES=(()=>{
-  const g={id:'lab-gladiator',name:'角鬥士',role:'gladiator',hp:85,maxHp:85,rage:0,bloodStacks:0,statuses:[]};
+  const g={id:'lab-gladiator',name:'角鬥士',role:'gladiator',hp:85,maxHp:85,gladiatorBloodsong:0,rage:0,bloodStacks:0,statuses:[]};
   const ally={id:'lab-warrior',name:'隊友',role:'warrior',hp:100,maxHp:120,statuses:[]};
   const monster={instanceId:'monster',name:'遠古守衛石像',hp:800,maxHp:1200,statuses:[]};
   const snapshot=(actor={},boss={},arena=false,team=ally)=>{
     const enemy={...monster,...boss},unit={...g,...actor};
-    unit.statuses=(unit.statuses||[]).filter(s=>s.id!=='rage');
+    unit.statuses=(unit.statuses||[]).filter(s=>s.id!=='rage'&&s.id!=='gladiator_bloodsong');
     if(unit.rage>0)unit.statuses.push({id:'rage',label:'鬥志',icon:'buff',stacks:unit.rage});
+    if(arena&&unit.gladiatorBloodsong>0)unit.statuses.push({id:'gladiator_bloodsong',label:'嗜血戰歌',icon:'buff',stacks:unit.gladiatorBloodsong});
     unit.resourceSummary=`鬥志 ${unit.rage}`;
     return {players:[unit,{...team}],monster:enemy,enemies:[enemy],arena:arena?{playerId:g.id,enemyId:'monster',until:2}:null};
   };
@@ -34,29 +35,29 @@ const GLADIATOR_LAB_SCENES=(()=>{
   }
   const challenged=challengeHit('',35),declared=snapshot({hp:35,rage:1,statuses:[{id:'arena_challenge',label:'死鬥宣告',turns:1,icon:'buff'}]},{hp:785});
   const challenge=step('g_arena','死鬥宣告',challenged.hpSnapshot,declared,[result(g.id,'status',challenged.hpSnapshot,declared)],{category:'BUFF',outcome:{type:'challenge'}});
-  const arenaStart=snapshot({hp:85,rage:3,arenaActive:true},{hp:800},true,{...ally,arenaBlocked:true});
-  const entered=snapshot({hp:85,rage:1,arenaActive:true},{hp:785},true,{...ally,arenaBlocked:true});
+  const arenaStart=snapshot({hp:35,gladiatorBloodsong:50,rage:3,arenaActive:true},{hp:800},true,{...ally,arenaBlocked:true});
+  const entered=snapshot({hp:35,gladiatorBloodsong:50,rage:1,arenaActive:true},{hp:785},true,{...ally,arenaBlocked:true});
   const enter=step('arena_enter','死亡角鬥場',declared,entered,[],{type:'arena_enter',category:'ARENA_ENTER',arenaPresentation:{phase:'enter',playerId:g.id,noMitigation:true,recoveredHp:50,
-    combatants:[{targetId:g.id,hpBeforeArena:35,maxHpBeforeArena:85,hpAfterScale:85,maxHpAfterScale:85},{targetId:'monster',hpBeforeArena:785,maxHpBeforeArena:1200,hpAfterScale:785,maxHpAfterScale:1200}]}});
-  const assaultHit=snapshot({hp:85,rage:3,arenaActive:true},{hp:726},true,{...ally,arenaBlocked:true}),assaultAfter=snapshot({hp:85,rage:4,arenaActive:true},{hp:726},true,{...ally,arenaBlocked:true});
+    combatants:[{targetId:g.id,hpBeforeArena:35,maxHpBeforeArena:85,hpAfterScale:35,maxHpAfterScale:85},{targetId:'monster',hpBeforeArena:785,maxHpBeforeArena:1200,hpAfterScale:785,maxHpAfterScale:1200}]}});
+  const assaultHit=snapshot({hp:35,gladiatorBloodsong:50,rage:3,arenaActive:true},{hp:726},true,{...ally,arenaBlocked:true}),assaultAfter=snapshot({hp:35,gladiatorBloodsong:50,rage:4,arenaActive:true},{hp:726},true,{...ally,arenaBlocked:true});
   const assault=step('g_sacrifice','血殺重擊',arenaStart,assaultAfter,[result('monster','damage',arenaStart,assaultHit,74),result(g.id,'status',assaultHit,assaultAfter)],{outcome:{type:'arena_assault'},gladiatorPresentation:{arenaActive:true,rageBefore:3,rageAfter:4,rageGained:1}});
   function judgment(belt=false){
     const paid=snapshot({hp:35,rage:3,arenaActive:true},{hp:800},true,{...ally,arenaBlocked:true});
     const hit=snapshot({hp:35,rage:3,arenaActive:true},{hp:belt?669:698},true,{...ally,arenaBlocked:true}),after=snapshot({hp:35,rage:4,arenaActive:true},{hp:belt?669:698},true,{...ally,arenaBlocked:true});
-    return step('g_arena','浴血裁決',arenaStart,after,[result(g.id,'damage',arenaStart,paid,50),result('monster','damage',paid,hit,belt?131:102),result(g.id,'status',hit,after)],
+    return step('g_arena','浴血裁決',arenaStart,after,[{...result(g.id,'status',arenaStart,paid),bloodsongConsumed:50},result('monster','damage',paid,hit,belt?131:102),result(g.id,'status',hit,after)],
       {outcome:{type:'blood_judgment'},gladiatorPresentation:{arenaActive:true,rageBefore:3,rageAfter:4,actorDied:false},equipmentVariant:belt?'g_cingulum':null});
   }
   function exit(rage=4,bonus=83,dead=false,beforeOverride){
     const before=beforeOverride||snapshot({hp:dead?0:55,rage,arenaActive:true},{hp:726},true,{...ally,arenaBlocked:true});
     const actor=gladiatorTarget(before,g.id),boss=before.monster;
-    const consumed=snapshot({...actor,rage:0,bloodStacks:0},boss,true,{...ally,arenaBlocked:true});
-    const restored=snapshot({...actor,rage:0,bloodStacks:0,arenaActive:false,statuses:[]},boss,false,{...ally,arenaBlocked:false,statuses:dead?[]:[{id:'triumph',label:'凱旋',turns:2,value:bonus,icon:'buff'}]});
+    const consumed=snapshot({...actor,hp:actor.hp>0?Math.min(actor.maxHp,actor.hp+(actor.gladiatorBloodsong||0)):0,gladiatorBloodsong:0,rage:0,bloodStacks:0},boss,true,{...ally,arenaBlocked:true});
+    const restored=snapshot({...actor,hp:consumed.players[0].hp,gladiatorBloodsong:0,rage:0,bloodStacks:0,arenaActive:false,statuses:[]},boss,false,{...ally,arenaBlocked:false,statuses:dead?[]:[{id:'triumph',label:'凱旋',turns:2,value:bonus,icon:'buff'}]});
     return step('arena_exit','死亡角鬥場落幕',before,restored,[],{type:'arena_exit',category:'ARENA_EXIT',arenaPresentation:{phase:'exit',reason:dead?'gladiator_dead':'round_end',playerId:g.id,consumedRage:rage,triumphApplied:!dead,triumphBonus:dead?0:bonus,triumphDuration:dead?0:2,actorSurvived:!dead,rageConsumedSnapshot:consumed,triumphSnapshot:restored,hpRestoredSnapshot:restored}});
   }
   const scenes={};const add=(id,label,steps)=>{scenes[id]={role:'gladiator',label:'Gladiator · '+label,steps};};
   add('gladiator_basic','鬥士斬擊',[basic]);add('gladiator_sacrifice','血戰邀約',[challengeHit()]);add('gladiator_challenge','死鬥宣告',[challenge]);
   add('gladiator_enter','進場回滿血（不放大 HP）',[enter]);add('gladiator_assault','血殺重擊',[assault]);add('gladiator_suicide','浴血裁決',[judgment()]);add('gladiator_exit','保留剩餘 HP 退場',[exit()]);
-  const fullHit=snapshot({hp:85,rage:1,arenaActive:true},{hp:738},true,{...ally,arenaBlocked:true}),fullAfter=snapshot({hp:85,rage:2,arenaActive:true},{hp:738},true,{...ally,arenaBlocked:true});
+  const fullHit=snapshot({hp:35,gladiatorBloodsong:50,rage:1,arenaActive:true},{hp:738},true,{...ally,arenaBlocked:true}),fullAfter=snapshot({hp:35,gladiatorBloodsong:50,rage:2,arenaActive:true},{hp:738},true,{...ally,arenaBlocked:true});
   const sequenceAssault=step('g_sacrifice','血殺重擊',entered,fullAfter,[result('monster','damage',entered,fullHit,47),result(g.id,'status',fullHit,fullAfter)],{outcome:{type:'arena_assault'},gladiatorPresentation:{arenaActive:true,rageBefore:1,rageAfter:2,rageGained:1}});
   add('gladiator_full','完整決鬥流程',[challenged,challenge,enter,sequenceAssault,exit(2,53,false,fullAfter)]);
   add('gladiator_xiphos','血戰邀約 · 短劍額外鬥志 +1',[challengeHit('xiphos')]);add('gladiator_cuirass','血戰邀約 · 戰鎧生命 +35、鼓舞效率 +50%',[challengeHit('cuirass',120)]);add('gladiator_cingulum','浴血裁決 · 束帶保留物攻 +4',[judgment(true)]);

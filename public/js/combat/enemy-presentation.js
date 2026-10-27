@@ -25,6 +25,7 @@ function battleFeedbackEntries(result) {
   const absorbed=result.actualAbsorbed??result.absorbed??Math.max(0,(result.targetBefore?.tempHp??0)-(result.targetAfter?.tempHp??0));
   if(hpDamage>0)add('-'+hpDamage,'damage');
   if(absorbed>0)add('🛡 -'+absorbed,'shield');
+  if(result.actualBloodsongAbsorbed>0)add('嗜血戰歌 -'+result.actualBloodsongAbsorbed,'status');
   // Legacy overheal results include shield gain in actualHeal. Separate that
   // existing contract without inventing another HP or damage event.
   const heal=result.kind==='heal'?Math.max(0,(result.actualHeal||0)-(result.actualShield||0)):result.actualHeal||0;

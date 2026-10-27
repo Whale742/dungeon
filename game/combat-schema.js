@@ -293,7 +293,8 @@ export function normalizeCombatQueue(queue, presentationId) {
         skillId: result.skillId || step.actionId || step.category || step.type,
         outcome: result.outcome || step.outcome || { type: 'normal' },
         actualDamage: result.kind === 'damage' || result.kind === 'intercept' ?
-          Math.max(0, (before?.hp || 0) - (after?.hp || 0)) + Math.max(0, (before?.tempHp || 0) - (after?.tempHp || 0)) : 0,
+          Math.max(0, (before?.hp || 0) - (after?.hp || 0)) + Math.max(0, (before?.tempHp || 0) - (after?.tempHp || 0)) + Math.max(0,(before?.gladiatorBloodsong||0)-(after?.gladiatorBloodsong||0)) : 0,
+        actualBloodsongAbsorbed:['damage','intercept'].includes(result.kind)?Math.max(0,(before?.gladiatorBloodsong||0)-(after?.gladiatorBloodsong||0)):0,
         actualHpDamage: Math.max(0, (before?.hp || 0) - (after?.hp || 0)),
         actualAbsorbed: Math.max(0, (before?.tempHp || 0) - (after?.tempHp || 0)),
         actualHeal: result.actualHeal ?? (['heal', 'revive'].includes(result.kind) ? Math.max(0, (after?.hp || 0) - (before?.hp || 0)) : 0),

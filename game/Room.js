@@ -2250,7 +2250,7 @@ export class Room {
     const hpBefore=player.hp;
     if (dmg <= 0) return { actualDmg: 0, hpDmg: 0, tempAbsorbed: 0 };
     const protection=context.kind==='sage_confusion'?null:this.p8Has(player,'boundary');
-    if(protection?.barrier && dmg>=(player.hp+(directHit?(player.tempHp||0):0))) {
+    if(protection?.barrier && dmg>=(player.hp+(this.arena?.playerId===player.id?this.arena.bloodsong||0:0)+(directHit?(player.tempHp||0):0))) {
       protection.barrier=false;
       this.p8Log(`${player.name}的星光屏障抵擋一次致命傷。`);
       return {actualDmg:0,hpDmg:0,tempAbsorbed:0};
@@ -2277,6 +2277,11 @@ export class Room {
       this.p8Log(`🌙 【共夢契約】織夢術士隊長延後了 ${player.name} 的 ${delayed} 點傷害至次回合！`);
     }
 
+    let bloodsongAbsorbed=0;
+    if(this.arena?.playerId===player.id&&this.arena.bloodsong>0){
+      bloodsongAbsorbed=Math.min(remaining,this.arena.bloodsong);
+      this.arena.bloodsong-=bloodsongAbsorbed;remaining-=bloodsongAbsorbed;
+    }
     let tempAbsorbed = 0;
     const overhealBefore=Math.min(player.tempHp||0,player.temporaryOverheal||0);
     const shieldBefore=Math.max(0,(player.tempHp||0)-overhealBefore);
@@ -2304,7 +2309,7 @@ export class Room {
     }
     const boundary=context.kind==='sage_confusion'?null:this.p8Has(player,'boundary');
     if(player.hp<=0 && boundary) {player.hp=1;if(boundary.barrier)boundary.barrier=false;}
-    const result={actualDmg:hpBefore-player.hp+tempAbsorbed,hpDmg:Math.max(0,hpBefore-player.hp),tempAbsorbed};
+    const result={actualDmg:hpBefore-player.hp+tempAbsorbed+bloodsongAbsorbed,hpDmg:Math.max(0,hpBefore-player.hp),tempAbsorbed,...(bloodsongAbsorbed?{bloodsongAbsorbed}:{})};
     player.temporaryOverheal=Math.max(0,overhealBefore-Math.max(0,tempAbsorbed-shieldBefore));
     this.p8ConsumeShield(player,Math.min(tempAbsorbed,shieldBefore));this.p8RecordDamage(player,result,context);
     if(player.hp<=0&&player.druidForm==='bear'){restoreBearForm(player);player.druidForm=null;player.druidFormTurns=0;}

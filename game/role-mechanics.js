@@ -56,6 +56,7 @@ export function p8State(p,room) {
     if(soul)effects.push({id:'soul',icon:'buff',label:'武魂',stacks:soul});
     if(p.kyoutou)effects.push({id:'kyoutou',icon:'guard',label:'狂刀',turns:1});
     if(p.rage)effects.push({id:'rage',icon:'buff',label:'鬥志',stacks:p.rage});
+    if(room.arena?.playerId===p.id&&room.arena.bloodsong>0)effects.push({id:'gladiator_bloodsong',icon:'buff',label:'嗜血戰歌',stacks:room.arena.bloodsong});
     if(gladiatorInspirationAttack(p))effects.push({id:'gladiator_inspiration',icon:'buff',label:'鼓舞',value:`物攻 +${gladiatorInspirationAttack(p)}`});
     const challengedEnemy=room.enemies?.find(e=>e.instanceId===p.gladiatorChallenge?.enemyId&&e.hp>0);
     if(p.gladiatorChallenge?.round===room.battleRound&&challengedEnemy)effects.push({id:'gladiator_challenge',icon:'buff',label:'邀戰',value:challengedEnemy.name});
@@ -95,6 +96,7 @@ export function p8State(p,room) {
     ...(p.role==='sage'?{sageEquationPreview:sageEquationPreview(p,room)}:{}),
     sageSampling:!!p.sageInduction&&!p.sageSamplingEnded&&p.hp>0,
     soul, rage:p.rage||0, bloodStacks:p.bloodStacks||0, warriorStacks:p.warriorStacks||0,
+    ...(p.role==='gladiator'?{gladiatorBloodsong:room.arena?.playerId===p.id?room.arena.bloodsong||0:0}:{}),
     // Read-only presentation evidence, including protection on non-Paladin allies.
     paladinFatalGuard:!!p.paladinFatalGuard,
     paladinGrace:p.paladinGrace?{...p.paladinGrace}:null,
@@ -439,7 +441,10 @@ export const phase8Methods = {
     const before=this.getHpSnapshot(),consumedRage=p?.rage||0;
     const triumphApplied=!!p&&p.hp>0;
     const triumphBonus=triumphApplied?Math.round(200*consumedRage/(consumedRage+5.6)):0;
-    if(p){p.rage=0;p.arenaActive=false;}
+    if(p){
+      if(p.hp>0)p.hp=Math.min(p.maxHp,p.hp+(arena.bloodsong||0));
+      arena.bloodsong=0;p.rage=0;p.arenaActive=false;
+    }
     const rageConsumedSnapshot=this.getHpSnapshot();
     this.arena=null;
     if(triumphApplied)for(const ally of Object.values(this.players)) {
@@ -481,8 +486,8 @@ export const phase8Methods = {
         this.currentMonster=duelEnemy;
         const before=this.getHpSnapshot(),originalMaxHp=p.maxHp,m=duelEnemy;
         const originalMonsterMaxHp=m?.maxHp;
-        const entryHp=p.hp,recoveredHp=Math.max(0,originalMaxHp-entryHp);p.hp=originalMaxHp;
-        this.arena={playerId:p.id,enemyId:m.instanceId,originalMaxHp,originalMonsterMaxHp,entryHp,recoveredHp,recoverySpent:false,until:this.battleRound};p.arenaActive=true;
+        const entryHp=p.hp,recoveredHp=Math.max(0,originalMaxHp-entryHp);
+        this.arena={playerId:p.id,enemyId:m.instanceId,originalMaxHp,originalMonsterMaxHp,entryHp,recoveredHp,bloodsong:recoveredHp,recoverySpent:false,until:this.battleRound};p.arenaActive=true;
         delete p.p8Effects?.arena_challenge;
         const after=this.getHpSnapshot();
         queue.push({type:'arena_enter',category:'ARENA_ENTER',sourceId:p.id,sourceRole:p.role,sourceName:p.name,
@@ -616,7 +621,7 @@ export const phase8Methods = {
   },
   p8RecordDamage(p,result,context={}) {
     if(context.kind==='sage_confusion')return;
-    const received=(result.hpDmg||0)+(result.tempAbsorbed||0);
+    const received=(result.hpDmg||0)+(result.tempAbsorbed||0)+(result.bloodsongAbsorbed||0);
     if(received>0&&p.role==='warrior') {
       p.warriorStacks=Math.min(15,(p.warriorStacks||0)+(context.hpEvents||1));
       this.p8Log(`${p.name}受傷積累攻擊 +${p.warriorStacks}/15。`);
@@ -852,10 +857,10 @@ export const phase8Methods = {
       if(p.action==='g_arena') {
         if(inArena) {
           category='OFFENSIVE';
-          const cost=this.arena.recoverySpent?0:Math.min(this.arena.recoveredHp||0,Math.max(0,p.hp-1));
-          const before=this.getHpSnapshot();p.hp-=cost;this.arena.recoverySpent=true;
+          const cost=this.arena.recoverySpent?0:this.arena.bloodsong||0;
+          const before=this.getHpSnapshot();this.arena.bloodsong=0;this.arena.recoverySpent=true;
           const after=this.getHpSnapshot();
-          if(cost>0)this.p8Results.push({kind:'damage',targetId:p.id,finalDamage:cost,damageType:'true',outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after,presentationBeat:'self_damage'});
+          if(cost>0)this.p8Results.push({kind:'status',targetId:p.id,bloodsongConsumed:cost,outcome:{type:'normal'},targetBefore:before.players.find(x=>x.id===p.id),targetAfter:after.players.find(x=>x.id===p.id),hpSnapshot:after});
           damage(Math.floor(this.applyFateBlessing(p,this.skillValue(p,'g_judgment',{hpCost:cost}))*bardMultiplier));
           outcome={type:'blood_judgment',label:'浴血裁決'};
           this.p8Log(p.name+'以 '+cost+' 生命施展【浴血裁決】，剩餘 '+p.hp+' 生命；本次入場恢復量已結算。');
