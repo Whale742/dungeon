@@ -111,6 +111,16 @@ async function withBattlefieldSkillStage(step,context,play) {
     const duration=(reduced?Math.min(ms,120):ms)/speed,start=performance.now();
     while(true){if(signal?.aborted)throw new DOMException('Presentation cancelled','AbortError');const p=Math.min(1,(performance.now()-start)/Math.max(1,duration));update(p);if(p===1)return;await presentationFrame(signal);}
   };
+  // A single owned frame loop settles on completion, cancellation, renderer errors,
+  // and (as a last resort) a suspended/missing browser frame callback.
+  const timeline=(ms,update)=>new Promise((resolve,reject)=>{
+    let frame=0,settled=false;const start=performance.now(),duration=ms/speed;
+    const finish=error=>{if(settled)return;settled=true;cancelAnimationFrame(frame);clearTimeout(watchdog);signal?.removeEventListener('abort',abort);error?reject(error):resolve();};
+    const abort=()=>finish(new DOMException('Presentation cancelled','AbortError'));
+    const draw=now=>{try{if(signal?.aborted)return abort();const p=Math.min(1,(now-start)/Math.max(1,duration));update(p);if(p===1)finish();else frame=requestAnimationFrame(draw);}catch(error){finish(error);}};
+    const watchdog=setTimeout(()=>{try{if(signal?.aborted)return abort();update(1);finish();}catch(error){finish(error);}},duration+Math.max(2000,duration*.5));
+    signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();else frame=requestAnimationFrame(draw);
+  });
   const animate=(node,keys,ms,options={})=>{const a=node.animate(keys,{duration:(reduced?Math.min(ms,120):ms)/speed,fill:'forwards',...options});animations.add(a);a.finished.catch(()=>{});return a;};
   const local={...context,signal,speed,reducedMotion:reduced,effectRoot:root,follow,audioScope:audio,numberCounts:new Map(),battlefield:true};
   const revealRecipient=id=>{
@@ -118,7 +128,7 @@ async function withBattlefieldSkillStage(step,context,play) {
     if(node&&!recipients.includes(node)&&!node.classList.contains('is-skill-recipient')){node.classList.add('is-skill-recipient');recipients.push(node);}
   };
   const resolveResults=async(options={})=>{for(const result of step.results||[]){if(signal?.aborted)return;await options.beforeResult?.(result);commitBattlefieldPlayerResult(result,step,local);}if(options.applyFinalSnapshot!==false&&!signal?.aborted&&step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);};
-  const api={root,frame,el,position,animate,tick,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,revealRecipient,
+  const api={root,frame,el,position,animate,tick,timeline,wait,actor:battlefieldVisualElement(step.sourceId),cards,anchors,signal,reduced,resolveResults,targetFor:battlefieldVisualElement,follow,local,revealRecipient,
     startRenderer:render=>renderers.push(render),unfollow:node=>{for(let i=followers.length-1;i>=0;i--)if(followers[i].node===node)followers.splice(i,1);},debug:()=>{}};
   const cleanup=()=>{cancelAnimationFrame(raf);for(const a of animations)a.cancel();for(const node of recipients)node.classList.remove('is-skill-recipient');root.remove();};
   signal?.addEventListener('abort',cleanup,{once:true});
@@ -290,7 +300,16 @@ async function playBattlefieldSamurai(step,context) {
     s.root.classList.add('samurai-fx-owner');
     const stub=()=>{const node=document.createElement('div');node.innerHTML='<div class="presentation-result-hit"><span class="presentation-result-portrait"></span></div>';return node;};
     const engine=createSamuraiPrototypeRenderer(s.root,stub(),stub(),plan,{...context,actorId:step.sourceId,targetId:battlefieldPlayerTarget(step),reducedMotion:s.reduced});
-    const committed=new Set(),cues=new Set();
+    const committed=new Set(),cues=new Set(),visualCues=new Set();
+    s.root.dataset.lifecycle='initialized';
+    // Freeze artwork and geometry before any lethal result. These are inert visual
+    // echoes owned by this effect root, never registered as combat actors/targets.
+    const echoes=[];
+    if(plan.skill==='swallow')for(const enemy of step.hpSnapshotBefore?.enemies||[]){
+      const target=battlefieldVisualElement(enemy.instanceId),image=target?.querySelector('img');if(!target||!image)continue;
+      const rect=target.getBoundingClientRect(),echo=document.createElement('img');echo.src=image.currentSrc||image.src;echo.alt='';echo.className='samurai-death-echo';echo.setAttribute('aria-hidden','true');
+      Object.assign(echo.style,{left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px'});s.root.appendChild(echo);echoes.push({id:enemy.instanceId,node:echo});
+    }
     const jobs=(step.results||[]).map(result=>{
       const hit=plan.hits.find(h=>h.result.resultId===result.resultId);
       const time=hit?.time??(plan.skill==='swallow'&&Number.isFinite(result.segmentIndex)?1140+result.segmentIndex*plan.interval:Math.max(0,...plan.hits.map(h=>h.time)));
@@ -299,17 +318,21 @@ async function playBattlefieldSamurai(step,context) {
     try{
       if(plan.castSound)s.local.audioScope.play(plan.castSound,{noHold:true});
       if(plan.introSound)s.local.audioScope.play(plan.introSound,{noHold:true});
-      await s.tick(samuraiPlaybackDuration(plan),p=>{
+      s.root.dataset.lifecycle='running';
+      await s.timeline(samuraiPlaybackDuration(plan),p=>{
         const time=samuraiVisualTime(p*samuraiPlaybackDuration(plan),plan);engine.measure();engine.render(time);
         if(s.reduced)engine.reduceFlash();
         for(const event of plan.audio)if(time>=event.time&&!cues.has(event)){cues.add(event);samuraiSound(event,s.local.audioScope,step);}
+        for(const cut of plan.slashes)if(time>=cut.time&&!visualCues.has(cut)){visualCues.add(cut);s.local.onTiming?.('samurai_slash',{step,index:cut.segmentIndex??cut.index,segmentIndex:cut.segmentIndex,visualOnly:!!cut.visualOnly,time});}
         for(const job of jobs)if(time>=job.time&&!committed.has(job.result)){
           committed.add(job.result);commitBattlefieldPlayerResult(job.result,step,s.local);
-          if(job.hit)s.local.onTiming?.('samurai_slash',{step,index:job.hit.index,segmentIndex:job.result.segmentIndex,targetId:job.result.targetId,time});
+          for(const echo of echoes)if(echo.id===(job.result.targetEnemyId||job.result.targetId)&&job.result.targetAfter?.hp<=0)echo.node.style.opacity='.28';
         }
       });
       await s.resolveResults();
-    }finally{engine.dispose();}
+      s.root.dataset.lifecycle='completed';
+    }catch(error){s.root.dataset.lifecycle=error.name==='AbortError'?'cancelled':'failed';throw error;}
+    finally{engine.dispose();for(const echo of echoes)echo.node.remove();}
   });
 }
 

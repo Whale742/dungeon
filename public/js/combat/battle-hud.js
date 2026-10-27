@@ -143,7 +143,9 @@ const BattleHud = (() => {
   function updatePlayer(player) {
     if (!player) return;
     const hud = byId('hudPlayerInfo');
-    byId('hudPlayerAvatar').innerHTML = getPlayerAvatarHtml(player,'hud-player-avatar');
+    const portrait=byId('hudPlayerAvatar'),markup=getPlayerAvatarHtml(player,'hud-player-avatar');
+    if(portrait._avatarMarkup!==markup){portrait.innerHTML=markup;portrait._avatarMarkup=markup;}
+    if(typeof SamuraiSoulHud!=='undefined')SamuraiSoulHud.sync(player,portrait);
     byId('hudPlayerName').textContent = player.name;
     byId('hudPlayerRole').textContent = getClassDisplayName(player.role);
     const vitals=battleVitals(player);
@@ -153,7 +155,8 @@ const BattleHud = (() => {
     renderCompanions(hud,player);renderPartyOverview();
     byId('hudPlayerResource').textContent = [player.resourceSummary,`DEF ${player.DEF || 0}`].filter(Boolean).join(' · ');
     const statusHost=byId('hudPlayerStatuses');
-    statusHost.innerHTML = (player.statuses||[]).map(status=>{
+    const visibleStatuses=(player.statuses||[]).filter(status=>status.id!=='soul');
+    statusHost.innerHTML = visibleStatuses.map(status=>{
       const isLeader = typeof isLeaderSkillStatus === 'function'
         ? isLeaderSkillStatus(status)
         : Boolean(status && (status.isLeaderPassive || status.isLeaderSkill || String(status.id || '').toLowerCase().startsWith('leader_')));
@@ -167,7 +170,7 @@ const BattleHud = (() => {
       return `<button type="button" class="hud-status-icon${isLeader?' teammate-buff-exclusive':''}" aria-label="${escapeHtml((status.label||status.id)+(hasStacks?` ×${status.stacks}`:''))}"><span class="hud-status-icon-inner">${inner}</span></button>`;
     }).join('');
     [...statusHost.children].forEach((button,index)=>{
-      const status=player.statuses[index];
+      const status=visibleStatuses[index];
       const show=()=>{
         const tip=byId('battleSkillTooltip');
         if(typeof formatStatusDisplay==='function'){

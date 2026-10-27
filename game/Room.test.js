@@ -429,12 +429,13 @@ for(const stacks of [[4],[8],[8,8,8],[1,2,1]])test('Tsubame fixes N full-party s
   assert.ok(plan.hits.every(h=>h.time<plan.duration));
   assert.equal(plan.startSouls+plan.soulChanges.reduce((n,c)=>n+c.delta,0),0);
 });
-for(const soul of [1,2,3])test('Tsubame rejects fewer than four souls at resolution: '+soul,t=>{
+for(const soul of [1,2,3])test('Tsubame accepts every positive soul count at resolution: '+soul,t=>{
   const f=samuraiBattle(t,[soul]),[step]=samuraiCast(f,'sa_tsubame');
-  assert.equal(step.outcome.type,'invalid');
-  assert.equal(step.results.filter(r=>r.kind==='damage').length,0);
-  assert.equal(f.room.enemies[0].hp,10000);
-  assert.equal(f.room.getSamuraiSoul(f.player),soul);
+  assert.equal(step.outcome.type,'tsubame');
+  assert.equal(step.outcome.segments,soul);
+  assert.equal(step.results.filter(r=>r.kind==='damage').length,soul);
+  assert.equal(f.room.enemies[0].hp,10000-soul*10);
+  assert.equal(f.room.getSamuraiSoul(f.player),0);
 });
 
 test('Tsubame ignores physical resistance, combines separately rounded B/R once before DEF and retains gear',t=>{
@@ -460,14 +461,25 @@ test('Tsubame consumes only its source; simultaneous deaths transfer after the w
   assert.equal(room.getSamuraiSoul(player),0);assert.equal(room.getSamuraiSoul(other),4);
   assert.ok(hits.find(r=>r.segmentIndex===0&&r.targetEnemyId===room.enemies[2].instanceId).zanshinTransfers.some(v=>v.sourceId===player.id&&v.amount===3));
 });
-test('Tsubame stops after a lethal group segment and zero soul rejects lock',t=>{
+for(const souls of [1,2,3,4,8,12,24])test('Lethal Tsubame retains every visual segment without postmortem damage: '+souls,t=>{
+  const stacks=Array.from({length:Math.ceil(souls/8)},(_,i)=>Math.min(8,souls-i*8));
+  const f=samuraiBattle(t,stacks);f.room.enemies.forEach(e=>e.hp=1);
+  const [step]=samuraiCast(f,'sa_tsubame'),scope={};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
+  assert.equal(plan.hits.length,stacks.length);assert.equal(plan.slashes.length,souls);
+  assert.equal(plan.audio.length,souls);assert.equal(plan.slashes.filter(h=>h.visualOnly).length,souls-1);
+  assert.ok(plan.slashes.filter(h=>h.visualOnly).every(h=>!h.result));
+  assert.equal(f.room.getSamuraiSoul(f.player),0);
+});
+test('Tsubame stops damage after a lethal group segment and zero soul rejects lock',t=>{
   const f=samuraiBattle(t,[8,8,8]);f.room.enemies.forEach(e=>e.hp=1);
   const [step]=samuraiCast(f,'sa_tsubame');assert.equal(step.results.filter(r=>r.kind==='damage').length,3);
   assert.equal(step.outcome.segments,24);assert.equal(f.room.getSamuraiSoul(f.player),0);
   const g=samuraiBattle(t,[0]);
   g.room.selectionState='SELECTING';
   assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);
-  for(let i=1;i<4;i++){g.room.addZanshin(g.player,g.room.enemies[0]);assert.equal(g.room.lockAction(g.player.id,'sa_tsubame').success,false);}
   g.room.addZanshin(g.player,g.room.enemies[0]);
   const locked=g.room.lockAction(g.player.id,'sa_tsubame');assert.equal(locked.success,true,locked.message);
 });
@@ -519,9 +531,17 @@ test('Lethal Samurai hit pools the newly added mark and returns transfers in the
   assert.deepEqual(f.room.enemies.slice(1).map(e=>e.zanshin[f.player.id]),[2,2]);
   assert.ok(step.results.filter(r=>r.kind==='status').some(r=>r.targetAfter.statuses.some(s=>s.label==='殘心'&&s.stacks===2)));
 });
+test('Samurai asset waits settle on completion, timeout and already-cancelled signals',async()=>{
+  const scope={AbortController,DOMException,setTimeout,clearTimeout};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
+  assert.equal(await scope.samuraiAbortable(Promise.resolve(7),undefined,100),7);
+  await assert.rejects(scope.samuraiAbortable(new Promise(()=>{}),undefined,5),/timed out/);
+  const c=new AbortController();c.abort();
+  await assert.rejects(scope.samuraiAbortable(Promise.reject(new Error('decode failed')),c.signal,100),{name:'AbortError'});
+});
 test('Tsubame battlefield playback commits every 24x3 result in order with one opening and full resource updates',async t=>{
   const f=samuraiBattle(t,[8,8,8]),[step]=samuraiCast(f,'sa_tsubame');
-  const scope={AbortController,DOMException},commits=[],audio=[],frames=[];
+  const scope={AbortController,DOMException,setTimeout,clearTimeout},commits=[],audio=[],frames=[];
   vm.createContext(scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
@@ -530,8 +550,9 @@ test('Tsubame battlefield playback commits every 24x3 result in order with one o
   scope.commitBattlefieldPlayerResult=r=>commits.push(r);
   scope.createSamuraiPrototypeRenderer=()=>({measure(){},render(time){frames.push(time);},dispose(){},reduceFlash(){}});
   scope.document={createElement:()=>({})};
-  scope.withBattlefieldSkillStage=async(_step,context,play)=>play({root:{classList:{add(){}}},local:{audioScope:{play:key=>audio.push(key)}},reduced:false,
-    tick:async(duration,render)=>{for(let time=0;time<duration;time+=30)render(time/duration);render(1);},resolveResults:async()=>{}});
+  scope.battlefieldVisualElement=()=>null;
+  scope.withBattlefieldSkillStage=async(_step,context,play)=>play({root:{dataset:{},classList:{add(){}}},local:{audioScope:{play:key=>audio.push(key)}},reduced:false,
+    timeline:async(duration,render)=>{for(let time=0;time<duration;time+=30)render(time/duration);render(1);},resolveResults:async()=>{}});
   await scope.playBattlefieldSamurai(step,{});
   assert.deepEqual(commits.map(r=>r.resultId),step.results.map(r=>r.resultId));
   assert.equal(commits.filter(r=>r.kind==='damage').length,72);
@@ -930,14 +951,17 @@ for(const branch of ['stable','success','failure'])test('Phase 4 fate synthesis 
   assert.ok(!step.results.some(r=>r.kind==='damage'||r.kind==='shield'));
   assert.ok(step.results.every(r=>r.targetAfter.statuses.every(s=>s.id!=='poison')));
 });
-test('Phase 4 lethal Tsubame never creates the remaining three visual hits',t=>{
+test('Phase 4 lethal Tsubame completes four visual cuts without extra damage results',t=>{
   const {room,player,events}=phase1Battle(t,'samurai',1);room.addZanshin(player,room.enemies[1],4);player.action='sa_tsubame';room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sa_tsubame');
   const scope={};vm.createContext(scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8').split('function battlefieldAnchor')[1].replace(/^/,'function battlefieldAnchor'),scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/samurai-presentation.js',import.meta.url),'utf8'),scope);
   const plan=scope.buildSamuraiPresentationPlan(scope.adaptLegacyPresentationStep(step),{});
-  assert.equal(plan.hits.length,3);assert.equal(plan.slashes.length,1);
+  assert.equal(plan.hits.length,3);assert.equal(plan.slashes.length,4);
+  assert.equal(plan.slashes.filter(h=>h.visualOnly).length,3);
+  assert.equal(plan.audio.length,4);
+  assert.ok(plan.duration>=plan.slashes.at(-1).time+600);
 });
 test('Phase 4 parry and counter remain separate actual reactions with concrete targets',t=>{
   const {room,player,events}=phase1Battle(t,'samurai');t.mock.method(Math,'random',()=>0);room.checkDodge=()=>false;
@@ -3226,6 +3250,7 @@ test('All 12 leader skills and class Buff/Debuff icons resolve consistently acro
     {id:'paladin_glory',label:'榮耀戰歌・蓄力中',icon:'buff',turns:1},
     {id:'kyoutou',label:'狂刀',icon:'buff',turns:1},
     {id:'soul',label:'武魂',icon:'buff',turns:0,stacks:4},
+    {id:'zanshin_verify',label:'殘心',icon:'debuff',stacks:3,isNegative:true},
     {id:'rage',label:'怒氣 40',icon:'buff',turns:0,value:40},
     {id:'blood_stacks',label:'血祭 2/4',icon:'buff',turns:0,stacks:2},
     {id:'arena_challenge',label:'死鬥進行中',icon:'arena',turns:2},
@@ -3234,6 +3259,7 @@ test('All 12 leader skills and class Buff/Debuff icons resolve consistently acro
   ];
   for(const status of classStatuses){
     const url=h.scope.getBuffIconUrl(status);
+    if(status.id.startsWith('zanshin_'))assert.equal(url,'/assets/icons/status/殘心.png');
     assert.ok(url&&!url.includes('方程特性.webp'),`Status ${status.id} should map to a dedicated icon, got ${url}`);
     const hudHtml=h.scope.renderStatusIconMarkup(status,{variant:'hud'});
     const teammateHtml=h.scope.renderStatusIconMarkup(status,{variant:'teammate'});

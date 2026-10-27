@@ -46,7 +46,15 @@ function buildSamuraiPresentationPlan(step,context={},mode){
    p.segments=step.outcome?.segments||Math.max(0,...damage.map((r,i)=>(r.segmentIndex??i)+1));
    p.interval=p.segments>8?45:75;
    damage.forEach((r,i)=>{const segment=r.segmentIndex??i;hit(r,1140+segment*p.interval,'line',[-.54,.57,-.095,-.81][segment%4],{segmentIndex:segment,final:segment===p.segments-1,ignore:true,heavy:segment===p.segments-1,offsetY:[-3,4,-6,0][segment%4]});});
-   const last=Math.max(1140,...p.hits.map(h=>h.time));p.duration=Math.max(1950,last+600);p.flashAt=last+25;
+   // Confirmed segment count owns choreography; lethal damage only ends numerical results.
+   // Visual-only cuts never enter hits, the result queue, or authoritative settlement.
+   const actual=new Map(p.slashes.map(h=>[h.segmentIndex,h]));
+   p.slashes=Array.from({length:p.segments},(_,segment)=>actual.get(segment)||{
+    time:1140+segment*p.interval,start:1122+segment*p.interval,index:segment,segmentIndex:segment,
+    kind:'line',angle:[-.54,.57,-.095,-.81][segment%4],offsetY:[-3,4,-6,0][segment%4],
+    final:segment===p.segments-1,heavy:segment===p.segments-1,visualOnly:true
+   });
+   const last=1140+Math.max(0,p.segments-1)*p.interval;p.duration=Math.max(1950,last+600);p.flashAt=last+25;
    let souls=actor.soul||0;
    for(const r of results)if(r.kind==='resource'&&r.targetId===step.sourceId&&Number.isFinite(r.targetAfter?.soul)){const next=r.targetAfter.soul;p.soulChanges.push({time:1140+(r.segmentIndex??p.segments)*p.interval,delta:next-souls});souls=next;}
    if(!p.soulChanges.length)p.soulChanges=samuraiSoulChanges(step,step.sourceId,last+40);
@@ -71,8 +79,16 @@ function buildSamuraiPresentationPlan(step,context={},mode){
 // Source time keeps the copied renderer intact while the intro takes one second at 1x.
 function samuraiVisualTime(elapsed,plan){const p=plan.prelude;if(!p)return elapsed;return elapsed<p.duration?elapsed*p.sourceEnd/p.duration:elapsed-p.duration+p.sourceEnd;}
 function samuraiPlaybackDuration(plan){return plan.duration+(plan.prelude?plan.prelude.duration-plan.prelude.sourceEnd:0);}
-function samuraiAbortable(promise,signal){
- return new Promise((resolve,reject)=>{const cancel=()=>{signal?.removeEventListener('abort',cancel);reject(new DOMException('Presentation cancelled','AbortError'));};signal?.addEventListener('abort',cancel,{once:true});if(signal?.aborted)return cancel();promise.then(v=>{signal?.removeEventListener('abort',cancel);resolve(v);},e=>{signal?.removeEventListener('abort',cancel);reject(e);});});
+function samuraiAbortable(promise,signal,timeoutMs=15000){
+ return new Promise((resolve,reject)=>{
+  let settled=false;
+  const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);signal?.removeEventListener('abort',cancel);error?reject(error):resolve(value);};
+  const cancel=()=>finish(new DOMException('Presentation cancelled','AbortError'));
+  const timer=setTimeout(()=>finish(new Error('Presentation asset/audio wait timed out')),timeoutMs);
+  // Attach rejection handling even if cancellation already happened.
+  promise.then(value=>finish(null,value),error=>finish(error));
+  signal?.addEventListener('abort',cancel,{once:true});if(signal?.aborted)cancel();
+ });
 }
 function resolveSamuraiCombatResult(result,card,context){
  if(context.signal?.aborted)return;

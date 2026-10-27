@@ -687,6 +687,7 @@ function getBuffIconUrl(status) {
   const label = String(status.label || '');
   const val = String(status.value || '');
 
+  if (id.startsWith('zanshin_') || label === '殘心') return resolveStatusCloudUrl('/assets/icons/status/殘心.png');
   if (BUFF_ICON_MAP[id]) return resolveStatusCloudUrl(BUFF_ICON_MAP[id]);
   if (id.startsWith('mark_')) return resolveStatusCloudUrl('/assets/icons/status/破綻印記.webp');
 

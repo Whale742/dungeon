@@ -874,7 +874,7 @@ export const phase8Methods = {
       const soul=this.getSamuraiSoul(p), missing=1-p.hp/p.maxHp, corrosion=this.roundModifiers?.equipmentEffectMultiplier??1;
       const mult=1+.10*countEquip(p,'sa_oboro')*corrosion+(countEquip(p,'sa_murasame')?missing*.25*corrosion:0);
       if(p.action==='sa_tsubame') {
-        if(soul<4){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
+        if(soul<1){this.p8Log(`${p.name}武魂不足，燕返未施放。`);outcome={type:'invalid',label:'武魂不足'};}
         else {
           outcome={type:'tsubame',label:'秘劍・燕返',segments:soul};
           for(let segment=1;segment<=soul;segment++){

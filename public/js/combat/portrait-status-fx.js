@@ -128,7 +128,8 @@ function mapStatusToFxProfile(statusId, entity = {}) {
   switch (statusId) {
     case 'dream_butterfly':case 'mirror':case 'dissociate':case 'nightmare_weak':case 'frenzy_backfire':case 'false_history':return 'dream';
     case 'galaxy':case 'boundary':case 'overload':return 'astronomy';
-    case 'soul':case 'kyoutou':return 'soul';
+    case 'soul':return null; // Independent PNG profession HUD owns this resource.
+    case 'kyoutou':return 'soul';
     case 'rage':case 'blood_stacks':case 'blood_heal':case 'arena_challenge':return 'blood';
     case 'sage_equation':case 'sage_exposed':case 'sage_square':return 'equation';
     case 'warrior_resolve':return 'guard';
@@ -279,6 +280,7 @@ function ensurePortraitLayers(portraitRoot) {
 // 4. Reconciliation: Sync active visual status FX on a portrait root
 function syncPortraitStatusFx(entity, portraitRoot, options = {}) {
   if (!portraitRoot) return;
+  if(typeof SamuraiSoulHud!=='undefined')SamuraiSoulHud.sync(entity,portraitRoot);
   const layers = ensurePortraitLayers(portraitRoot);
   if (!layers) return;
   if(typeof syncSageSamplingIndicator==='function')syncSageSamplingIndicator(entity,layers.surface);

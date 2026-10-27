@@ -85,7 +85,8 @@ function measure(){
  const box=root.getBoundingClientRect();geometry.w=box.width;geometry.h=box.height;geometry.dpr=Math.min(devicePixelRatio||1,2);
  const get=el=>{const r=el.getBoundingClientRect();return {x:r.left-box.left+r.width/2,y:r.top-box.top+r.height/2,w:r.width,h:r.height};};
  geometry.p=get(playerPortrait);geometry.b=groupSlash?{x:box.width/2,y:box.height/2,w:box.width*.35,h:box.height*.35}:get(bossPortrait);geometry.pips=pips.map(get);
- canvas.width=Math.max(1,Math.round(geometry.w*geometry.dpr));canvas.height=Math.max(1,Math.round(geometry.h*geometry.dpr));
+ const cw=Math.max(1,Math.round(geometry.w*geometry.dpr)),ch=Math.max(1,Math.round(geometry.h*geometry.dpr));
+ if(canvas.width!==cw)canvas.width=cw;if(canvas.height!==ch)canvas.height=ch;
  movers.forEach((n,i)=>n.style.transform=transforms[i]);
 }
 
@@ -224,7 +225,7 @@ function drawIncoming(t,inc,p){
 function drawRelight(t,p){
  if(!p.relightAt)return;
  const ms=t-p.relightAt;if(ms<0||ms>140)return;
- const b=geometry.b,alpha=Math.pow(1-ms/140,1.7);
+ const b=geometry.b,scale=geometry.w/1000,alpha=Math.pow(1-ms/140,1.7);
  drawBlade(b.x,b.y+8*scale,-.381,Math.min(geometry.w*.6,b.w*2.65),geometry.w*.010,alpha,1,70);
 }
 function drawAmbient(t){

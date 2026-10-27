@@ -27,10 +27,10 @@ export function imageBindingPlan(images, selected, existingBindings, existingAss
   for(const b of bindings.values()){const asset=byKey.get(b.asset_key),local=localPaths.canonical(asset?.local_path);if(asset?.kind==='image'&&asset.source_type==='local'&&paths.has(local))add(b.binding_key,local,b);}
   return [...planned.values()];
 }
-export async function syncImages({apply=false,env=process.env,cloud=new SupabaseRest(env)}={}) {
+export async function syncImages({apply=false,prefix='',env=process.env,cloud=new SupabaseRest(env)}={}) {
   if(!cloud.configured)throw Error('Supabase credentials are not configured');
   const [assets,bindings]=await Promise.all([cloud.rows('game_assets'),cloud.rows('asset_bindings')]);
-  const images=catalog.game_assets.filter(a=>a.kind==='image'),existing=new Map(assets.map(a=>[a.asset_key,a]));
+  const images=catalog.game_assets.filter(a=>a.kind==='image'&&a.local_path.startsWith(prefix)),existing=new Map(assets.map(a=>[a.asset_key,a]));
   const published=new Map(bindings.filter(b=>b.status==='published').map(b=>[b.binding_key,b]));
   const summary={images:images.length,bytes:images.reduce((n,a)=>n+a.size_bytes,0),uploaded:0,reused:0,verified:0,bindingsChanged:0};
   console.log(JSON.stringify({mode:apply?'apply':'dry-run',...summary}));if(!apply)return summary;

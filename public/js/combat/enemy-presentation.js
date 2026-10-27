@@ -116,6 +116,7 @@ function resolveStatusIconUrl(status) {
   const id = String(status.id || '').toLowerCase(), icon = String(status.icon || '').toLowerCase(), label = String(status.label || ''), val = String(status.value || '');
   if (status.isLeaderPassive || status.isLeaderSkill || id.startsWith('leader_')) return null;
   const toCloud = p => (typeof window !== 'undefined' && window.assetRegistry && typeof window.assetRegistry.resolvePath === 'function') ? window.assetRegistry.resolvePath(p) : p;
+  if (id.startsWith('zanshin_') || label === '殘心') return toCloud('/assets/icons/status/殘心.png');
   if (ENEMY_STATUS_ICON_MAP[id]) return toCloud(ENEMY_STATUS_ICON_MAP[id]);
   if (id.startsWith('mark_')) return toCloud('/assets/icons/status/破綻印記.webp');
   if (label.includes('巨熊') || val.includes('巨熊')) return toCloud('/assets/icons/status/巨熊型態.png');
