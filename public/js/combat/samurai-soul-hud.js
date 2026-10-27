@@ -5,6 +5,7 @@ const SamuraiSoulHud=(()=>{
  const align=[{dx:135,dy:-236,angle:132.5,scale:.610},{dx:275,dy:144,angle:228.5,scale:.596},{dx:-103,dy:298,angle:311.8,scale:.589},{dx:-271,dy:-75,angle:401.5,scale:.609}];
  const slotAnchors=[[760,393],[907,779],[522,925],[363,538]].map(([x,y])=>[x*R,y*R]);
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},rand=(a,b)=>a+Math.random()*(b-a);
+ const in3=x=>Math.pow(clamp(x,0,1),3),fract=n=>n-Math.floor(n),rnd=(n,seed=1)=>fract(Math.sin(n*127.1+seed*311.7)*43758.5453123);
  const instances=new Map();let assets;
  const surface=()=>{const c=document.createElement('canvas');c.width=c.height=PIXELS;return c;};
  function load(){return assets ||= Promise.all(Object.values(paths).map(async path=>{
@@ -44,18 +45,18 @@ const SamuraiSoulHud=(()=>{
    cache();
   }wake();
  }
- function release(){const now=clock(performance.now());changeAt=now;state.release={start:now};state.slash={start:now};state.chargeStream=null;state.pulse={type:'release',from:now,anchor:[SIZE/2,SIZE/2]};particlesAt(SIZE/2,SIZE/2,'charge',8);widget.dataset.effect='release';wake();}
+ function release(){const now=clock(performance.now());changeAt=now;state.release={start:now,cleared:false};state.slash={start:now};state.chargeStream=null;state.pulse={type:'release',from:now,anchor:[SIZE/2,SIZE/2]};particlesAt(SIZE/2,SIZE/2,'charge',8);widget.dataset.effect='release';wake();}
  // Presentation-only depletion. Keep the authoritative count untouched so the
  // banner cannot consume resources or change the confirmed number of cuts.
- function drain(){const duration=state.reduced?120:420;changeAt=clock(performance.now());state.drain={start:changeAt,duration,from:state.count};state.release=null;state.slash=null;state.pulse=null;widget.dataset.effect='draining';wake();return duration;}
- function finishDrain(){if(!state.drain||disposed)return;state.drain.completed=true;ctx.setTransform(PIXELS/SIZE,0,0,PIXELS/SIZE,0,0);render(state.drain.start+state.drain.duration,0);}
+ function drain(){const duration=state.reduced?1:80;changeAt=clock(performance.now());state.drain={start:changeAt,duration,from:state.count,completed:true};state.release=null;state.slash=null;state.pulse=null;widget.dataset.effect='empty';widget.classList.remove('is-ready');number.textContent='0';wake();return duration;}
+ function finishDrain(){if(!state.drain||disposed)return;state.drain.completed=true;widget.dataset.effect='empty';widget.classList.remove('is-ready');number.textContent='0';ctx.setTransform(PIXELS/SIZE,0,0,PIXELS/SIZE,0,0);render(state.drain.start+state.drain.duration,0);}
  function tick(now){raf=0;if(disposed||!visible||document.hidden||widget.classList.contains('is-dead'))return;now=clock(now);
   const transient=now-changeAt<1100||state.burst.length>0;if(last&&now-last<(transient?15:33)){raf=requestAnimationFrame(tick);return;}
   const dt=last?Math.max(0,now-last):16;last=now;
-  if(state.release&&!state.release.burst&&now-state.release.start>RELEASE_MS*.67){state.release.burst=true;particlesAt(SIZE/2,SIZE/2,'release');}
-  state.resonance=lerp(state.resonance,state.count>=4?1:0,1-Math.exp(-dt/195));
+  if(state.release&&!state.release.cleared&&now-state.release.start>=RELEASE_MS*.48){state.release.cleared=true;state.drain={start:now,duration:1,from:state.count,completed:true};widget.dataset.effect='empty';widget.classList.remove('is-ready');number.textContent='0';particlesAt(SIZE/2,SIZE/2,'release');}
+  state.resonance=lerp(state.resonance,state.count>=4&&!state.drain?1:0,1-Math.exp(-dt/195));
   ctx.setTransform(PIXELS/SIZE,0,0,PIXELS/SIZE,0,0);render(now,dt);renderCount++;
-  if(state.count>=4&&!state.reduced||now-changeAt<1100||state.burst.length>0)raf=requestAnimationFrame(tick);
+  if(state.count>=4&&!state.drain&&!state.reduced||now-changeAt<1100||state.burst.length>0)raf=requestAnimationFrame(tick);
  }
  function wake(){if(!raf&&!disposed&&visible&&!document.hidden)raf=requestAnimationFrame(tick);}
  const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(visible){last=0;wake();}else{cancelAnimationFrame(raf);raf=0;}});observer.observe(widget);
@@ -80,16 +81,25 @@ const SamuraiSoulHud=(()=>{
  function drawReleaseInward(time){
   const release=state.release;if(!release||state.reduced)return;
   const p=(time-release.start)/RELEASE_MS;
-  if(p<0||p>.48)return;
-  const q=smooth(p/.48);
-  ctx.save();ctx.lineCap='round';
+  if(p<0||p>.36)return;
+  const q=p/.32;
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  for(let i=0;i<32;i++){
+   const local=clamp((q-rnd(i,9)*.19)/.81,0,1),theta=rnd(i+20,9)*Math.PI*2;
+   const radius=(SIZE*.27+rnd(i+41,9)*SIZE*.21)*(1-in3(local));
+   const x=SIZE/2+Math.cos(theta)*radius,y=SIZE/2+Math.sin(theta)*radius*.8;
+   const len=(20+44*local);ctx.globalAlpha=Math.sin(Math.PI*local)*.72;
+   ctx.strokeStyle=i%4?'#7dd7ff':'#e7fbff';ctx.lineWidth=i%5?5.2:8.6;
+   ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(theta)*len,y+Math.sin(theta)*len*.8);ctx.stroke();
+  }
   for(let i=0;i<4;i++){
    const [x,y]=slotAnchors[i];
-   const tx=lerp(x,SIZE/2,q),ty=lerp(y,SIZE/2,q);
-   ctx.beginPath();ctx.moveTo(x,y);
-   ctx.quadraticCurveTo(lerp(x,SIZE/2,.48)+Math.sin(i*2)*24,lerp(y,SIZE/2,.48)-25,tx,ty);
-   ctx.globalAlpha=Math.sin(p/.48*Math.PI)*.43;
-   ctx.strokeStyle='#a8e9ff';ctx.lineWidth=2+3.5*q;ctx.shadowColor='#45baff';ctx.shadowBlur=14;ctx.stroke();
+   const r=clamp((q-i*.035)/.895,0,1),f=in3(r);
+   const tx=lerp(x,SIZE/2,f)+Math.sin(r*Math.PI)*(i-1.5)*28,ty=lerp(y,SIZE/2,f);
+   const prev=clamp(r-.045,0,1),fp=in3(prev),px=lerp(x,SIZE/2,fp)+Math.sin(prev*Math.PI)*(i-1.5)*28,py=lerp(y,SIZE/2,fp);
+   ctx.globalAlpha=(1-clamp((r-.9)/.1,0,1))*.85;ctx.strokeStyle='#a4e8ff';ctx.lineWidth=7.5;ctx.shadowColor='#45baff';ctx.shadowBlur=12;
+   ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(tx,ty);ctx.stroke();
+   ctx.shadowBlur=0;ctx.fillStyle='#e9ffff';ctx.fillRect(tx-6.5,ty-6.5,13,13);
   }
   ctx.restore();
  }
@@ -201,9 +211,12 @@ const SamuraiSoulHud=(()=>{
   context.onTiming?.('samurai_soul_release_start',{step});
   try{
    await waitForPresentation(RELEASE_MS,context.signal,context.speed||1);
-   context.onTiming?.('samurai_soul_drain_start',{step});
-   await waitForPresentation(instance.drain(),context.signal,context.speed||1);
-   instance.finishDrain();context.onTiming?.('samurai_soul_empty',{step});
+   if(!instance.debug().displayCount)context.onTiming?.('samurai_soul_empty',{step});
+   else{
+    context.onTiming?.('samurai_soul_drain_start',{step});
+    await waitForPresentation(instance.drain(),context.signal,context.speed||1);
+    instance.finishDrain();context.onTiming?.('samurai_soul_empty',{step});
+   }
    await waitForPresentation(140,context.signal,context.speed||1);
    context.onTiming?.('samurai_soul_release_complete',{step});
   }

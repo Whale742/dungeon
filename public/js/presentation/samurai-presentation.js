@@ -39,7 +39,7 @@ function buildSamuraiPresentationPlan(step,context={},mode){
   if(actor.soul===0)p.buffAt=790;p.soulChanges=samuraiSoulChanges(step,step.sourceId,880);
  }
  if(p.skill==='swallow'){
-  p.duration=1950;p.eye={start:240,open:740,end:1110};p.gather={start:120,end:320};
+  p.duration=1950;p.eye={start:240,open:740,end:1110};p.gather=null;
   // Stretch only the prelude; retain the source choreography after opening.
   p.prelude={sourceEnd:p.eye.open,duration:1000};p.introSound='samurai-skill2-intro';
   if(p.valid){
