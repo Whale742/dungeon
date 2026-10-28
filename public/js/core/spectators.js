@@ -25,6 +25,8 @@
     byId('playerActionCard')?.classList.add('hidden');
     byId('btnOpenInventory')?.classList.add('hidden');
     byId('btnEndBattle')?.classList.add('hidden');
+    const goodsHint = document.querySelector('.shop-goods-col .shop-col-header small');
+    if (goodsHint) goodsHint.textContent = '觀戰模式：僅供瀏覽公開商品';
   }
   async function pump() {
     if (busy) return;
