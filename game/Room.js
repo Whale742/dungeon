@@ -1185,6 +1185,7 @@ export class Room {
       }
     }
 
+    this.persistence?.begin(this);
     this.floor = 1;
     this.battleCount = 0;
     this.battlesInCurrentCycle = 0;
@@ -1295,6 +1296,7 @@ export class Room {
   }
 
   startRouteSelection(options = {}) {
+    if (this.adventureId && this.state === 'CHOOSING_ROUTE' && this.checkpoint?.boundaryFloor === this.floor) return;
     this.clearTimer();
     this.timerCallback = null;
     this.pausedRemainingSeconds = null;
@@ -1396,6 +1398,8 @@ export class Room {
       );
       this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】正在探索前路迷霧...`, 'info');
     }
+    this.settleInventoryOverflow();
+    void this.persistence?.saveBoundary(this);
     this.broadcastState();
 
     // No fixed-duration fallback may consume an unfinished player's choice time.
@@ -1411,6 +1415,7 @@ export class Room {
 
   finishRoutePresentationIfReady() {
     if (this.state !== 'CHOOSING_ROUTE' || !this.isNarrating || this.pendingPresentationAcks.size) return;
+    if (this.persistence?.blocked(this)) return;
     if (!Object.values(this.players).some(p => p.connected)) return;
     this.isNarrating = false;
     this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！`, 'info');
@@ -1419,6 +1424,7 @@ export class Room {
 
   voteRoute(socketId, routeId) {
     if (this.state !== 'CHOOSING_ROUTE') return { success: false, message: '目前非路線投票階段' };
+    if (this.persistence?.blocked(this)) return { success: false, message: '檢查點尚未安全保存，暫時無法投票' };
     if (this.isNarrating || this.isPaused) return { success: false, message: '路線演出尚未完成或遊戲暫停中' };
     const player = this.players[socketId];
     if (!player?.connected) return { success: false, message: '玩家不存在或已斷線' };
@@ -1436,6 +1442,7 @@ export class Room {
   }
 
   checkRouteVoteCompletion() {
+    if (this.persistence?.blocked(this)) return;
     if (this.state !== 'CHOOSING_ROUTE' || this.isNarrating || this.isPaused) return;
     const allConnectedVoted = () => {
       const voters = Object.values(this.players).filter(p => p.hp > 0 && p.connected);
@@ -1451,6 +1458,7 @@ export class Room {
   }
 
   tallyRouteVotes() {
+    if (this.persistence?.blocked(this)) return;
     this.clearTimer();
     if (this.state !== 'CHOOSING_ROUTE' || this.isNarrating || this.isPaused) return;
 
@@ -7900,6 +7908,7 @@ export class Room {
     this.clearTimer();
     if (choice === 'end') {
       this.state = 'VICTORY';
+      void this.persistence?.finish(this);
       this.addLog(`🏆【榮耀凱旋】隊長決定滿載而歸！小隊成功擊敗深淵領主並安全撤出！`, 'loot');
       this.broadcastState();
     } else {
@@ -7931,12 +7940,14 @@ export class Room {
     this.clearTimer();
     this.state = 'GAME_OVER';
     this.gameOverReason = 'wipe';
+    void this.persistence?.finish(this);
     this.addLog(`💀 **【挑戰失敗】冒險小隊在深淵第 ${this.floor} 層全體倒下...**`, 'damage');
     this.broadcastState();
   }
 
   restartToLobby(socketId) {
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能重啟冒險！' };
+    if (this.adventureId && this.checkpoint?.status !== 'ended') return { success: false, message: '請先正式結束冒險並確認結束狀態保存成功' };
     this.clearTimer();
     if (this.state === 'PROLOGUE' || this.state === 'CHOOSING_ROUTE') this.pendingPresentationAcks.clear();
     clearRoleRandom(this);
@@ -8015,6 +8026,7 @@ export class Room {
     this.timerBroadcastTicks = broadcastTicks;
     this.timerEndsAt = Date.now() + seconds * 1000;
     const tick = () => {
+      if (this.persistence?.hasLostAuthority(this)) return;
       const remainingMs = this.timerEndsAt - Date.now();
       if (remainingMs <= 0) {
         this.turnTimer = null;
@@ -8041,6 +8053,7 @@ export class Room {
   togglePause(socketId) {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
+    if (this.isPaused && this.persistence?.hasLostAuthority(this)) return { success: false, message: '執行權限已失效，請重新連線恢復冒險' };
     if (this.state === 'LOBBY' || this.state === 'GAME_OVER' || this.state === 'VICTORY') {
       return { success: false, message: '大廳或結算階段無法暫停遊戲！' };
     }
@@ -8092,6 +8105,7 @@ export class Room {
     this.pausedRemainingSeconds = null;
     this.state = 'GAME_OVER';
     this.gameOverReason = 'abandon';
+    void this.persistence?.finish(this);
     this.addLog(`🏳️ **${player.name}**（隊長）中止了冒險，小隊於第 ${this.floor} 層【挑戰失敗】！`, 'warning');
     this.broadcastState();
     return { success: true };
@@ -8142,6 +8156,9 @@ export class Room {
 
     return {
       code: this.code,
+      adventureId: this.adventureId || null,
+      checkpoint: this.checkpoint ? { ...this.checkpoint } : null,
+      restoredFromCheckpoint: !!this.restoredFromCheckpoint,
       stateVersion: this.stateVersion || 0,
       operationContexts: { lock: operationContext(this, 'battle:lock'), shop: operationContext(this, 'event:shop_action') },
       leaderId: this.leaderId,
@@ -8309,12 +8326,16 @@ export class Room {
     };
   }
 
-  broadcastState() {
+  settleInventoryOverflow() {
     // Retain full-backpack rewards until an actual slot becomes available.
     while (this.overflowItems?.length) {
       if (!this.addItemPrioritySquad(this.overflowItems[0])) break;
       this.overflowItems.shift();
     }
+  }
+
+  broadcastState() {
+    this.settleInventoryOverflow();
     this.stateVersion = (this.stateVersion || 0) + 1;
     const state = this.getClientState();
     if (metrics.enabled) {

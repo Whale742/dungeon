@@ -49,7 +49,7 @@ test('aborted route presentation releases the owner without ACKing an unfinished
 test('real disconnect listener aborts the old narrative and resets keys so reconnection can play and ACK again', async () => {
   const h = presentationHarness((_ms, signal) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(Object.assign(new Error(), { name: 'AbortError' })), { once: true })));
   const appSource = readFileSync(new URL('../public/js/core/app.js', import.meta.url), 'utf8');
-  Object.assign(h.scope, { operationState: {}, latestStateVersion: 1, operations: { clear() {} },
+  Object.assign(h.scope, { clearTimeout, operationState: {}, latestStateVersion: 1, operations: { clear() {} },
     battlePhaseController: null, combatQueueController: null, BattleHud: { reset() {} }, releaseBattleEncounterScene() {}, window: {},
     routeNarrativeDoneKey: 'ROUTE_7', socket: { ...h.scope.socket, on(_event, handler) { h.scope.disconnect = handler; } } });
   vm.runInContext(appSource.slice(appSource.indexOf("socket.on('disconnect',"), appSource.indexOf("socket.on('player:identity',")), h.scope);

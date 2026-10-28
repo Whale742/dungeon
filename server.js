@@ -1,5 +1,7 @@
 import { Identity, publicPlayer, cookieToken, digest } from './game/Identity.js';
 import { playerSocket, disconnectPlayer, reconnectPlayer } from './game/player-connection.js';
+import { AdventureStore, MemoryAdventureStore } from './game/AdventureStore.js';
+import { AdventurePersistence } from './game/AdventurePersistence.js';
 import { handleOperation, startEventLoopMetrics, metrics } from './game/performance.js';
 import express from 'express';
 import http from 'http';
@@ -71,6 +73,8 @@ const activeConnections = new Map();
 const revokedSessionHashes = new Map();
 const identityVersions = new Map();
 const identity = new Identity();
+const adventures = new AdventurePersistence(process.env.IDENTITY_STORE === 'memory' ? new MemoryAdventureStore() : new AdventureStore());
+process.once('exit', () => adventures.close());
 app.use('/api/player', express.json({ limit: '4kb' }));
 identity.mount(app, {
   revoke(id, change = {}) {
@@ -125,7 +129,17 @@ io.on('connection', (transport) => {
   transport.use((_packet, next) => {
     if (activeConnections.get(socket.id) !== transport || transport.data.identity.expires <= Date.now()) {
       next(new Error('SESSION_EXPIRED')); transport.emit('player:session_invalid'); transport.disconnect(true);
-    } else next();
+    } else {
+      const room = rooms.get(socketToRoom.get(socket.id));
+      const allowedWhileSaving = ['room:resync', 'room:list', 'route:interaction_ready', 'adventure:retry_save',
+        'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'narrative:accelerate', 'player:rename'];
+      if (room?.adventureId && adventures.blocked(room) && !allowedWhileSaving.includes(_packet[0])) {
+        const reply = _packet.at(-1);
+        if (typeof reply === 'function') reply({ success: false, message: '冒險尚未安全保存或執行權限已失效，請重試保存或重新連線' });
+        return;
+      }
+      next();
+    }
   });
   transport.on('error', () => {});
   let expiry;
@@ -142,6 +156,47 @@ io.on('connection', (transport) => {
   socket.emit('init:constants', { classes: displayClasses, routes: ROUTES, roleDetails: ROLE_DETAILS });
   const existing = rooms.get(socketToRoom.get(socket.id));
   if (existing && reconnectPlayer(existing, socket, { newConnection: true })) socket.emit('studio:content', existing.studioContent.snapshot);
+
+  socket.on('adventure:restore', async (data, callback) => {
+    try {
+      const id = data?.adventureId;
+      if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) throw new Error('無效的冒險代碼');
+      const current = rooms.get(socketToRoom.get(socket.id));
+      if (current && current.adventureId !== id) throw new Error('請先離開目前房間');
+      const restored = await adventures.restore(id, socket.id, { Room, code: generateRoomCode, io });
+      if (activeConnections.get(socket.id) !== transport) throw new Error('連線已變更，請重新連線');
+      const afterRestore = rooms.get(socketToRoom.get(socket.id));
+      if (afterRestore && afterRestore.adventureId !== id) throw new Error('已加入其他房間，請先離隊');
+      // Replace only a fenced-out copy of this same adventure. Never overwrite an
+      // active room with an older checkpoint or pull a member from another party.
+      for (const [code, old] of rooms) if (old !== restored && old.adventureId === id) {
+        old.clearTimer(); rooms.delete(code);
+        for (const playerId of old.memberIds) activeConnections.get(playerId)?.leave(code);
+      }
+      rooms.set(restored.code, restored);
+      for (const playerId of restored.memberIds) {
+        const other = rooms.get(socketToRoom.get(playerId));
+        if (other && other !== restored && other.adventureId !== id) continue;
+        socketToRoom.set(playerId, restored.code);
+        const connected = activeConnections.get(playerId);
+        if (connected) {
+          connected.emit('studio:content', restored.studioContent.snapshot);
+          reconnectPlayer(restored, playerSocket(connected), { newConnection: !restored.players[playerId].connected });
+        }
+      }
+      if (typeof callback === 'function') callback({ success: true, roomCode: restored.code, adventureId: id });
+    } catch (error) { if (typeof callback === 'function') callback({ success: false, message: error.message, code: error.code }); }
+  });
+  socket.on('adventure:retry_save', async callback => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    const result = room ? await adventures.retry(room, socket.id) : { success: false, message: '找不到冒險' };
+    if (typeof callback === 'function') callback(result);
+  });
+  socket.on('adventure:detach', callback => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) { socket.leave(room.code); socketToRoom.delete(socket.id); disconnectPlayer(room, socket.id); }
+    if (typeof callback === 'function') callback({ success: true });
+  });
 
 
   socket.on('dev:authorize', (request, callback) => {
@@ -167,6 +222,10 @@ io.on('connection', (transport) => {
       }
       devAccess.revoke(socket);
       const existingCode = socketToRoom.get(socket.id);
+      if (rooms.get(existingCode)?.adventureId && rooms.get(existingCode).checkpoint?.status !== 'ended') {
+        if (typeof callback === 'function') callback({ success: false, message: '請先暫離或永久離開目前冒險' });
+        return;
+      }
       if (existingCode && rooms.has(existingCode)) {
         socket.leave(existingCode);
         const previous = rooms.get(existingCode);
@@ -180,6 +239,7 @@ io.on('connection', (transport) => {
       const code = generateRoomCode();
       const room = new Room(code, socket, socket.data.identity.display_name, io, avatar);
       room.isDev = isDev;
+      if (!isDev) room.persistence = adventures;
       if (isDev) devController.register(room, socket);
       socket.emit('studio:content', room.studioContent.snapshot);
       rooms.set(code, room);
@@ -648,11 +708,13 @@ io.on('connection', (transport) => {
   });
 
   // 12. 離開隊伍 (若隊長退出則移交第一順位)
-  socket.on('leave_party', (callback) => {
+  socket.on('leave_party', async (callback) => {
+    try {
     devAccess.revoke(socket);
     const code = socketToRoom.get(socket.id);
     if (code && rooms.has(code)) {
       const room = rooms.get(code);
+      await adventures.leave(room, socket.id);
       socket.leave(code);
       socketToRoom.delete(socket.id);
       room.removePlayer(socket.id);
@@ -663,6 +725,7 @@ io.on('connection', (transport) => {
       }
     }
     if (typeof callback === 'function') callback({ success: true });
+    } catch (error) { if (typeof callback === 'function') callback({ success: false, message: error.message }); }
   });
 
   // Transport loss preserves the character; explicit leave_party remains destructive.

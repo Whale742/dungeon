@@ -313,7 +313,7 @@
               <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="中止冒險 / 放棄挑戰">
                 <svg class="svg-icon"><use href="#icon-flag"></use></svg> <span>放棄挑戰</span>
               </button>
-              <button id="btnLeaveParty" onclick="exitRoomToLobbyMenu()" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="離開隊伍">
+              <button id="btnLeaveParty" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="永久離開隊伍（角色物資依原有規則回收）">
                 <svg class="svg-icon"><use href="#icon-close"></use></svg> <span>離開隊伍</span>
               </button>
             </div>
@@ -330,6 +330,11 @@
       <button id="btnResumeGameBanner" class="btn btn-tiny btn-success">
         <svg class="svg-icon"><use href="#icon-play"></use></svg> 繼續冒險
       </button>
+    </div>
+
+    <div id="checkpointNotice" class="pause-banner hidden" role="status" aria-live="polite">
+      <span id="checkpointNoticeText"></span>
+      <button id="btnRetryCheckpoint" type="button" class="btn btn-tiny btn-success hidden">重試保存</button>
     </div>
 
     <!-- 主內容區：根據狀態切換視圖 -->

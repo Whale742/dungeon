@@ -14,8 +14,8 @@ export async function refreshPublished(cloud=new SupabaseRest()) {
     }catch{return false;}finally{contentCache.pending=null;}
   })();return contentCache.pending;
 }
-export function createRoomContent() {
-  const data=structuredClone(contentCache.data||{}), rows=new Map((data.story_copies||[]).map(s=>[s.story_key,s]));
+export function createRoomContent(source = contentCache.data) {
+  const data=structuredClone(source||{}), rows=new Map((data.story_copies||[]).map(s=>[s.story_key,s]));
   const storyTexts=Object.fromEntries(Object.entries(STORY_TEXTS).map(([key,s])=>{
     const row=rows.get('story.'+key);return [key,{...s,...(row?{title:typeof s.title==='function'?floor=>renderTemplate(row.title,{floor}):row.title,paragraphs:row.paragraphs}:{} )}];
   }));

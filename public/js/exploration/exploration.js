@@ -531,8 +531,10 @@ function renderRouteChoice(me) {
   elements.routeDiffPercent.textContent = roomState.floorDifficultyPercent ?? 0;
   const myVoteId = roomState.routeVotes?.[myId];
   const locallyReady = routeInteractionReadyKey === key;
-  const enabled = locallyReady && !roomState.isNarrating && !roomState.isPaused && !presentationManager.isBlocking;
-  elements.routeStatusText.textContent = myVoteId ? '你已完成投票，等待隊友抉擇。'
+  const checkpointBlocked = roomState.checkpoint && !['none', 'saved'].includes(roomState.checkpoint.status);
+  const enabled = locallyReady && !roomState.isNarrating && !roomState.isPaused && !presentationManager.isBlocking && !checkpointBlocked;
+  elements.routeStatusText.textContent = checkpointBlocked ? (roomState.checkpoint.message || '等待檢查點安全保存。')
+    : myVoteId ? '你已完成投票，等待隊友抉擇。'
     : me?.hp <= 0 ? '你已陣亡，請觀看隊友抉擇。'
     : locallyReady && roomState.isNarrating ? '等待全體隊員閱讀完畢。'
     : '請在蜂巢地圖點選相鄰格，並按下「確定投票」！';

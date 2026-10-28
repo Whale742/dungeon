@@ -56,6 +56,44 @@ export function request(socket, event, data) {
   });
 }
 
+test('adventure sockets enforce member authorization, active-room reuse, detach and permanent withdrawal', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t, false);
+  const [leader, member, outsider] = await Promise.all([connect(), connect(), connect()]);
+  const created = await request(leader, 'room:create', {});
+  await request(member, 'room:join', { code: created.roomCode });
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  await request(member, 'player:select_role', { roleKey: 'mage' });
+  await request(member, 'room:toggle_ready');
+  const stateOf = async socket => {
+    await request(socket, 'room:list'); const updated = once(socket, 'room:update', { signal: t.signal });
+    socket.emit('room:resync'); return (await updated)[0];
+  };
+  await request(leader, 'game:start');
+  await request(leader, 'prologue:next'); await request(member, 'prologue:next');
+  await request(leader, 'event:shop_action', { action: 'leave' }); await request(member, 'event:shop_action', { action: 'leave' });
+  const saved = await stateOf(leader);
+  assert.equal(saved.checkpoint.status, 'saved'); assert.equal(saved.checkpoint.saveVersion, 1);
+  assert.equal((await request(outsider, 'adventure:restore', { adventureId: saved.adventureId })).success, false);
+  assert.equal((await request(leader, 'room:create', {})).success, false);
+  const original = saved.players.find(p => p.id === member.playerId);
+  await request(member, 'adventure:detach');
+  const offline = await stateOf(leader);
+  assert.equal(offline.players.find(p => p.id === member.playerId).connected, false);
+  const restored = await request(member, 'adventure:restore', { adventureId: saved.adventureId });
+  assert.equal(restored.success, true); assert.equal(restored.roomCode, created.roomCode);
+  const online = await stateOf(member);
+  assert.equal(online.players.length, 2); assert.equal(online.routePresentationId, saved.routePresentationId);
+  assert.equal(online.players.find(p => p.id === member.playerId).hp, original.hp);
+  assert.equal(online.checkpoint.saveVersion, 1);
+  assert.equal((await request(member, 'leave_party')).success, true);
+  assert.equal((await request(member, 'adventure:restore', { adventureId: saved.adventureId })).success, false);
+  assert.equal((await request(leader, 'game:end_battle')).success, true);
+  await request(leader, 'room:list');
+  const terminal = await stateOf(leader);
+  assert.equal(terminal.checkpoint.status, 'ended'); assert.equal(terminal.checkpoint.saveVersion, 1);
+  assert.equal((await request(outsider, 'adventure:restore', { adventureId: saved.adventureId })).success, false);
+});
+
 test('four real sockets use permanent IDs for route ACKs, reconnect barriers and voting', { timeout: 20000 }, async t => {
   const { connect } = await launch(t, false);
   const clients = await Promise.all(Array.from({ length: 4 }, () => connect()));
