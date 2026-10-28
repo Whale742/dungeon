@@ -591,7 +591,6 @@ const elements = {
   btnCreateRoom: document.getElementById('btnCreateRoom'),
   inputRoomCode: document.getElementById('inputRoomCode'),
   btnJoinRoom: document.getElementById('btnJoinRoom'),
-  btnEntryAvatar: document.getElementById('btnEntryAvatar'),
   entryAvatarPreview: document.getElementById('entryAvatarPreview'),
   screenRecruit: document.getElementById('screenRecruit'),
   screenLobbyMenu: document.getElementById('screenLobbyMenu'),
@@ -5365,9 +5364,6 @@ function initAvatarModal() {
       playSound('click');
     });
   }
-
-  // 登入頁面的頭貼選擇入口
-  if (elements.btnEntryAvatar) elements.btnEntryAvatar.addEventListener('click', openAvatarModal);
 
   // 關閉 Modal
   if (elements.btnCloseAvatarModal) elements.btnCloseAvatarModal.addEventListener('click', closeAvatarModal);
