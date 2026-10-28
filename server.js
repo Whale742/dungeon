@@ -141,7 +141,7 @@ io.on('connection', (transport) => {
   // 發送職業與基礎資料給新客戶端
   socket.emit('init:constants', { classes: displayClasses, routes: ROUTES, roleDetails: ROLE_DETAILS });
   const existing = rooms.get(socketToRoom.get(socket.id));
-  if (existing && reconnectPlayer(existing, socket)) socket.emit('studio:content', existing.studioContent.snapshot);
+  if (existing && reconnectPlayer(existing, socket, { newConnection: true })) socket.emit('studio:content', existing.studioContent.snapshot);
 
 
   socket.on('dev:authorize', (request, callback) => {

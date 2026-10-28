@@ -1431,24 +1431,28 @@ export class Room {
     this.routeVotes[socketId] = targetRoute.id;
     this.broadcastState();
 
-    // 檢查是否所有存活隊員都已投票，若已全員完成投票則提早結算
-    const livingPlayers = Object.values(this.players).filter(p => p.hp > 0);
-    const allVoted = livingPlayers.length > 0 && livingPlayers.every(p => Boolean(this.routeVotes[p.id]));
-    if (allVoted) {
-      this.clearTimer();
-      setTimeout(() => {
-        if (this.state === 'CHOOSING_ROUTE') {
-          this.tallyRouteVotes();
-        }
-      }, 500);
-    }
-
+    this.checkRouteVoteCompletion();
     return { success: true };
+  }
+
+  checkRouteVoteCompletion() {
+    if (this.state !== 'CHOOSING_ROUTE' || this.isNarrating || this.isPaused) return;
+    const allConnectedVoted = () => {
+      const voters = Object.values(this.players).filter(p => p.hp > 0 && p.connected);
+      return voters.length > 0 && voters.every(p => Boolean(this.routeVotes[p.id]));
+    };
+    if (!allConnectedVoted()) return;
+    const presentationId = this.routePresentationId;
+    this.clearTimer();
+    setTimeout(() => {
+      if (this.state === 'CHOOSING_ROUTE' && this.routePresentationId === presentationId &&
+          !this.isNarrating && !this.isPaused && allConnectedVoted()) this.tallyRouteVotes();
+    }, 500);
   }
 
   tallyRouteVotes() {
     this.clearTimer();
-    if (this.state !== 'CHOOSING_ROUTE') return;
+    if (this.state !== 'CHOOSING_ROUTE' || this.isNarrating || this.isPaused) return;
 
     const activeRoutes = this.currentRoutes || getRandomRoutes(4);
     const voteCounts = {};
@@ -8067,6 +8071,7 @@ export class Room {
       }
       this.addLog(`▶️ **${player.name}** 恢復了遊戲！冒險繼續進行。`, 'info');
       this.broadcastState();
+      if (this.state === 'CHOOSING_ROUTE') this.checkRouteVoteCompletion();
       return { success: true, isPaused: false };
     }
   }

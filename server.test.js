@@ -56,6 +56,51 @@ export function request(socket, event, data) {
   });
 }
 
+test('four real sockets use permanent IDs for route ACKs, reconnect barriers and voting', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t, false);
+  const clients = await Promise.all(Array.from({ length: 4 }, () => connect()));
+  const stateOf = async client => {
+    // Drain earlier broadcasts on this transport before observing the resync.
+    await request(client, 'room:list');
+    const updated = once(client, 'room:update', { signal: t.signal }); client.emit('room:resync'); return (await updated)[0];
+  };
+  const created = await request(clients[0], 'room:create', { name: 'Route party' });
+  for (let i = 0; i < clients.length; i++) {
+    if (i) assert.equal((await request(clients[i], 'room:join', { code: created.roomCode })).success, true);
+    assert.equal((await request(clients[i], 'player:select_role', { roleKey: ['warrior', 'mage', 'archer', 'assassin'][i] })).success, true);
+    if (i) assert.equal((await request(clients[i], 'room:toggle_ready')).success, true);
+  }
+  assert.equal((await request(clients[0], 'game:start')).success, true);
+  for (const client of clients) await request(client, 'prologue:next');
+  for (const client of clients) assert.equal((await request(client, 'event:shop_action', { action: 'leave' })).success, true);
+  const state = await stateOf(clients[0]);
+  assert.equal(state.state, 'CHOOSING_ROUTE'); assert.ok(state.routeNarrative[0]);
+  const id = state.routePresentationId, routeId = state.currentRoutes[0].id;
+  assert.ok(state.players.every(p => !clients.some(s => s.id === p.id)));
+  assert.ok(state.players.every(p => clients.some(s => s.playerId === p.id)));
+  assert.equal((await request(clients[0], 'route:vote', { routeId })).success, false);
+  clients[0].emit('route:interaction_ready', { presentationId: id - 1 });
+  clients[1].emit('route:interaction_ready', { presentationId: id });
+  assert.equal((await stateOf(clients[1])).isNarrating, true);
+  const cookie = clients[0].sessionCookie;
+  const offline = once(clients[1], 'room:update', { signal: t.signal }); clients[0].disconnect(); await offline;
+  const leader = await connect(false, cookie);
+  for (const client of clients.slice(1)) {
+    client.emit('route:interaction_ready', { presentationId: id });
+    await request(client, 'room:list');
+  }
+  assert.equal((await stateOf(clients[3])).isNarrating, true);
+  leader.emit('route:interaction_ready', { presentationId: id });
+  const ready = await stateOf(leader);
+  assert.equal(ready.isNarrating, false); assert.equal(ready.isPaused, false); assert.equal(ready.leaderId, leader.playerId);
+  const progressed = new Promise(resolve => {
+    const listener = state => { if (state.state !== 'CHOOSING_ROUTE') { leader.off('room:update', listener); resolve(state); } };
+    leader.on('room:update', listener); t.after(() => leader.off('room:update', listener));
+  });
+  for (const client of [leader, ...clients.slice(1)]) assert.equal((await request(client, 'route:vote', { routeId })).success, true);
+  assert.notEqual((await progressed).state, 'CHOOSING_ROUTE');
+});
+
 test('ten connected clients receive versioned full state, explicit rejection ACKs and resync after rejoin', async t => {
   const { connect } = await launch(t, false);
   const clients = await Promise.all(Array.from({ length: 10 }, () => connect()));

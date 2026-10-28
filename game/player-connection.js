@@ -34,12 +34,17 @@ export function disconnectPlayer(room, id) {
       else if (['chest', 'treasure'].includes(room.currentEvent?.type)) room.finishChestPresentationIfReady();
     }
   }
+  if (remaining.length && room.state === 'CHOOSING_ROUTE') room.checkRouteVoteCompletion();
   room.broadcastState();
 }
 
-export function reconnectPlayer(room, socket) {
+export function reconnectPlayer(room, socket, { newConnection = false } = {}) {
   const player = room.players[socket.id];
   if (!player) return false;
+  // A fresh browser must finish its own narration while the current barrier is open.
+  if ((!player.connected || newConnection) && room.state === 'CHOOSING_ROUTE' && room.isNarrating) {
+    room.pendingPresentationAcks.add(socket.id);
+  }
   if (player.connected && player.name === socket.data.identity.display_name) {
     socket.join(room.code);
     socket.emit('room:update', room.getClientState());
@@ -63,6 +68,7 @@ export function reconnectPlayer(room, socket) {
       else if (['chest', 'treasure'].includes(room.currentEvent?.type)) room.finishChestPresentationIfReady();
     }
   }
+  if (room.state === 'CHOOSING_ROUTE') room.checkRouteVoteCompletion();
   room.broadcastState();
   return true;
 }

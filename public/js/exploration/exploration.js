@@ -30,8 +30,6 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
   const overlay = elements.floorIntroOverlay;
   const app = document.getElementById('app');
   const previousInert = app.inert;
-  const chat = elements.floatingChatContainer;
-  const previousChatInert = chat.inert;
   let completed = false;
   let cleanedUp = false;
 
@@ -58,7 +56,6 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
     elements.routeOptionsGrid.classList.remove('exploration-choices-enter');
     elements.routeStatusText.classList.remove('exploration-prompt-enter');
     app.inert = previousInert;
-    chat.inert = previousChatInert;
     if (!completed) {
       gateDestinationView('route');
       setRouteChoicesHidden(true);
@@ -75,7 +72,6 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
     if (!paragraphs.length) throw new Error('Missing exploration narrative');
     presentationManager.setBlocking(true);
     app.inert = true;
-    chat.inert = true;
     gateDestinationView('route');
     setRouteChoicesHidden(true);
     elements.routeAtmosphereText.replaceChildren();
@@ -94,7 +90,7 @@ async function playExplorationPresentation(presentationId, floor, paragraphs) {
       await playFloorRevivalPresentation(roomState.floorRevival, { signal });
       // Floor revival exits before exploration enters; keep the same route owner.
       presentationManager.setBlocking(true);
-      app.inert = true; chat.inert = true;
+      app.inert = true;
     }
     view.classList.add('exploration-enter', 'is-narrating');
     revealDestinationView('route');
@@ -503,8 +499,6 @@ function renderRouteChoice(me) {
     presentationManager.setBlocking(false);
     const app = document.getElementById('app');
     if (app) app.inert = false;
-    const chat = elements.floatingChatContainer;
-    if (chat) chat.inert = false;
     if (routePresentationController) {
       routePresentationController.abort();
       routePresentationController = null;

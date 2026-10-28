@@ -612,7 +612,6 @@ const elements = {
   directConnectModal: document.getElementById('directConnectModal'),
   btnCloseDirectConnectModal: document.getElementById('btnCloseDirectConnectModal'),
   profileModal: document.getElementById('profileModal'),
-  profileAvatarPreview: document.getElementById('profileAvatarPreview'),
   profileNewNameInput: document.getElementById('profileNewNameInput'),
   profileCurrentClassText: document.getElementById('profileCurrentClassText'),
   btnCloseProfileModal: document.getElementById('btnCloseProfileModal'),
@@ -853,6 +852,9 @@ socket.on('connect', () => {
 });
 socket.on('disconnect', () => {
   socket.sendBuffer = [];
+  routePresentationController?.abort();
+  routeNarrativeDoneKey = null;
+  routeInteractionReadyKey = null;
 
   operationState = null; latestStateVersion = -1; operations.clear();
   battlePhaseController?.abort();
@@ -4967,7 +4969,7 @@ function updateEntryAvatarPreview() {
     savedAvatar = window.assetRegistry?.resolve('role.'+hero.key+'.avatar',hero.photo)||hero.photo;
     localStorage.setItem('dungeon_custom_avatar',savedAvatar);
   }
-  const previewEls = [elements.entryAvatarPreview, document.getElementById('profileAvatarPreview')].filter(Boolean);
+  const previewEls = [elements.entryAvatarPreview].filter(Boolean);
   if (previewEls.length === 0) return;
   previewEls.forEach(el => {
     if (savedAvatar) {
