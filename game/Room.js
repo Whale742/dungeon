@@ -1,3 +1,4 @@
+import { metrics, operationContext } from './performance.js';
 import { resolveRoleRandom, clearRoleRandom } from './DevRoleRandom.js';
 import {SPECIAL_EVENT_COPY} from './special-event-content.js';
 import { rollDruidForm, enterBearForm, restoreBearForm } from './druid.js';
@@ -2953,9 +2954,8 @@ export class Room {
     player.targetPlayerId = targetPlayerId;
     player.targetEnemyId = resolvedEnemyId;
     player.isLocked = true;
-    this.broadcastState();
-
-    this.checkTurnCompletion();
+    // Completion broadcasts RESOLVING; avoid a second full snapshot.
+    if (!this.checkTurnCompletion()) this.broadcastState();
     return { success: true };
   }
 
@@ -3004,6 +3004,7 @@ export class Room {
       this.broadcastState();
       // 稍微延遲 300ms 讓畫面呈現 ALL PLAYERS LOCKED，再展開結算
       setTimeout(() => { if (this.state === 'IN_BATTLE' && this.selectionState === 'RESOLVING') this.resolveTurnActions(); }, 300);
+      return true;
     }
   }
 
@@ -4215,10 +4216,10 @@ export class Room {
       delete boughtItem.shopConsumableId;
       delete boughtItem._type;
       delete boughtItem._idx;
-      this.addItemPrioritySquad(boughtItem, socketId);
+      const placement = this.addItemPrioritySquad(boughtItem, socketId);
       this.addLog(`🛒 小隊花費 ${item.price} 金幣購買了【${boughtItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
       this.broadcastState();
-      return { success: true, item: boughtItem };
+      return { success: true, item: boughtItem, placement };
     }
 
     if (action === 'sell') {
@@ -4323,11 +4324,11 @@ export class Room {
       delete restoredItem.sold;
       delete restoredItem._type;
       delete restoredItem._idx;
-      this.addItemPrioritySquad(restoredItem, socketId);
+      const placement = this.addItemPrioritySquad(restoredItem, socketId);
 
       this.addLog(`🛒 小隊以原價 ${price} 金幣買回了【${restoredItem.name}】！(剩餘金幣: ${this.gold})`, 'loot');
       this.broadcastState();
-      return { success: true, item: restoredItem };
+      return { success: true, item: restoredItem, placement };
     }
 
     if (action === 'rest') {
@@ -8133,6 +8134,13 @@ export class Room {
 
   // 取得用於傳給客戶端的身歷其境資料 (隱藏敏感暗選)
   getClientState() {
+    if (!metrics.enabled) return this.buildClientState();
+    const start = performance.now();
+    try { return this.buildClientState(); }
+    finally { metrics.record('state.build.ms', performance.now() - start); }
+  }
+
+  buildClientState() {
     let timerRemaining = null;
     if (this.state === 'EVENT' && this.pendingDrop) {
       timerRemaining = null; // 寶箱獲得裝備時倒數暫停
@@ -8158,6 +8166,8 @@ export class Room {
 
     return {
       code: this.code,
+      stateVersion: this.stateVersion || 0,
+      operationContexts: { lock: operationContext(this, 'battle:lock'), shop: operationContext(this, 'event:shop_action') },
       leaderId: this.leaderId,
       lockedLeaderId: this.getEffectiveLeaderId(),
       lockedLeaderRole: this.getEffectiveLeaderRole(),
@@ -8330,7 +8340,16 @@ export class Room {
       if (!this.addItemPrioritySquad(this.overflowItems[0])) break;
       this.overflowItems.shift();
     }
-    this.io.to(this.code).emit('room:update', this.getClientState());
+    this.stateVersion = (this.stateVersion || 0) + 1;
+    const state = this.getClientState();
+    if (metrics.enabled) {
+      const now = performance.now();
+      metrics.record('state.bytes', Buffer.byteLength(JSON.stringify(state)));
+      metrics.record('state.broadcasts', 1);
+      if (this.lastBroadcastAt !== undefined) metrics.record('state.interval.ms', now - this.lastBroadcastAt);
+      this.lastBroadcastAt = now;
+    }
+    this.io.to(this.code).emit('room:update', state);
   }
 }
 

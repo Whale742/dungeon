@@ -1,3 +1,4 @@
+import { handleOperation, startEventLoopMetrics, metrics } from './game/performance.js';
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -13,6 +14,8 @@ import { mountStudio } from './studio/router.js';
 import { refreshPublished,createRoomContent,contentCache } from './studio/content.js';
 import { leaderSkillCopy } from './studio/leader-copy.js';
 loadEnv();
+metrics.enabled = process.env.GAME_PERF === '1';
+process.once('exit', startEventLoopMetrics());
 const displayClasses = Object.fromEntries(Object.entries(CLASSES).map(([role, value]) => [role, { ...value, leaderSkill: leaderSkillCopy(role) }]));
 const devAccess = new DevAccess();
 const devController = new DevController(devAccess);
@@ -323,6 +326,11 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
+  socket.on('room:resync', () => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) socket.emit('room:update', room.getClientState());
+  });
+
   // 6. 戰鬥技能選擇與鎖定 / 取消鎖定 / 切換攻擊目標
   socket.on('battle:select_target', ({ targetEnemyId }, callback) => {
     const code = socketToRoom.get(socket.id);
@@ -332,11 +340,12 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  socket.on('battle:lock', ({ actionId, targetPlayerId, targetEnemyId }, callback) => {
+  socket.on('battle:lock', (data = {}, callback) => {
+    const { actionId, targetPlayerId, targetEnemyId } = data;
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
-    if (!room) return;
-    const res = room.lockAction(socket.id, actionId, targetPlayerId, targetEnemyId);
+    if (!room) { if (typeof callback === 'function') callback({ success: false, requestId: data?.requestId, message: '房間不存在，請重新加入' }); return; }
+    const res = handleOperation(room, socket, 'battle:lock', data, () => room.lockAction(socket.id, actionId, targetPlayerId, targetEnemyId));
     if (typeof callback === 'function') callback(res);
   });
 
@@ -498,8 +507,8 @@ io.on('connection', (socket) => {
   // 6.6 事件互動（商店、寶箱、隨機事件） (Phase 3)
   socket.on('event:shop_action', (data, callback) => {
     const room = rooms.get(socketToRoom.get(socket.id));
-    if (!room) return;
-    const res = room.handleShopAction(socket.id, data?.action, data);
+    if (!room) { if (typeof callback === 'function') callback({ success: false, requestId: data?.requestId, message: '房間不存在，請重新加入' }); return; }
+    const res = handleOperation(room, socket, 'event:shop_action', data, () => room.handleShopAction(socket.id, data?.action, data));
     if (typeof callback === 'function') callback(res);
   });
 

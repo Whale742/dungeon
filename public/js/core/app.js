@@ -859,6 +859,7 @@ socket.on('connect', () => {
   console.log('連線至伺服器，ID:', myId);
 });
 socket.on('disconnect', () => {
+  operationState = null; latestStateVersion = -1; operations.clear();
   battlePhaseController?.abort();
   combatQueueController?.abort();
   BattleHud.reset('ROUND_TICK');
@@ -893,6 +894,13 @@ window.addEventListener('studio:content-ready',()=>{
 let pendingAuthoritativeState = null;
 
 socket.on('room:update', (state) => {
+  const updateStarted = GamePerf.enabled ? performance.now() : 0;
+  if (GamePerf.enabled) GamePerf.received.set(state, updateStarted);
+  if (state.code === operationState?.code && state.stateVersion < latestStateVersion) return;
+  latestStateVersion = state.stateVersion ?? 0;
+  operationState = state;
+  isReconcilingOperations = true;
+  try { operations.reconcile(latestStateVersion); } finally { isReconcilingOperations = false; }
   const amIInRoom = Boolean(myId && state.players && state.players.some(p => p.id === myId));
   if (!amIInRoom) {
     combatQueueController?.abort();
@@ -900,6 +908,7 @@ socket.on('room:update', (state) => {
     battlePhaseController?.abort();
     releaseBattleEncounterScene();
     document.body.classList.remove('battle-intro-active');
+    operations.clear();
     roomState = null;
     currentRoomCode = null;
     switchView('entry');
@@ -925,8 +934,13 @@ socket.on('room:update', (state) => {
   roomState = projectExpandedDisplayState(roomState);
   currentRoomCode = state.code;
   renderApp();
+  paintOperations(false);
   updateHeroRoleOptionUI();
   syncChatMessages(state.chatMessages);
+  if (GamePerf.enabled) {
+    GamePerf.record('state.dom.ms', performance.now() - updateStarted);
+    requestAnimationFrame(() => GamePerf.record('state.nextFrame.ms', performance.now() - updateStarted));
+  }
 });
 
 function showPrologueSkipNotice(message = '隊長已跳過開頭序章') {
@@ -2644,7 +2658,7 @@ function renderMyActionBar(me) {
   }
 
   const isResolving = roomState?.selectionState === 'RESOLVING';
-  const isLocked = Boolean(me.isLocked);
+  const isLocked = Boolean(me.isLocked || operations.active.has('lock'));
 
   if (isLocked && me.action) {
     currentPendingAction = me.action;
@@ -2656,7 +2670,7 @@ function renderMyActionBar(me) {
     elements.myActionStatus.textContent = '全員鎖定！戰況交鋒結算中... (請觀看演出)';
   } else if (isLocked) {
     elements.myActionStatus.className = 'action-status-badge submitted';
-    elements.myActionStatus.textContent = '指令已鎖定！等待全體隊友確認 (全員鎖定前可取消)';
+    elements.myActionStatus.textContent = operations.active.get('lock')?.status === 'pending' ? '已提交，確認中…' : '指令已鎖定！等待全體隊友確認 (全員鎖定前可取消)';
   } else if (currentPendingAction) {
     elements.myActionStatus.className = 'action-status-badge';
     elements.myActionStatus.textContent = '已選取技能，請確認目標並按下「確定鎖定」';
@@ -3029,7 +3043,14 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     }
   }
 
-  if (isLocked) {
+  if (operations.active.get('lock')?.status === 'pending') {
+    bar.className = 'skill-selection-bar command-details state-locked';
+    prompt.textContent = '已提交，確認中…';
+    targetTxt.classList.add('hidden');
+    btnLock.disabled = true;
+    btnLock.textContent = '已提交，確認中…';
+    btnUnlock.classList.add('hidden');
+  } else if (isLocked) {
     bar.className = 'skill-selection-bar command-details state-locked';
     prompt.textContent = `已鎖定行動：【${skillName}】${targetName ? `(目標: ${targetName})` : ''}，等待其他隊友確認...`;
     targetTxt.classList.add('hidden');
@@ -3204,7 +3225,7 @@ if (elements.btnConfirmLock) {
     const me = getMyPlayer();
     if (!me || me.isLocked || !currentPendingAction) return;
     playSound('select');
-    socket.emit('battle:lock', {
+    submitBattleLock({
       actionId: currentPendingAction,
       targetPlayerId: currentPendingTarget,
       targetEnemyId: me.targetEnemyId || currentSelectedEnemyId || null
@@ -3215,7 +3236,7 @@ if (elements.btnConfirmLock) {
 if (elements.btnUnlockAction) {
   elements.btnUnlockAction.addEventListener('click', () => {
     const me = getMyPlayer();
-    if (!me || !me.isLocked) return;
+    if (!me || !me.isLocked || operations.active.has('lock')) return;
     playSound('cancel');
     socket.emit('battle:unlock');
   });
@@ -4965,8 +4986,14 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   if (combatQueueController && combatQueueController !== controller) return;
   if (!completed && !controller.signal.aborted && queue.at(-1)?.hpSnapshot) applyHpSnapshot(queue.at(-1).hpSnapshot);
   if (!controller.signal.aborted) {
+    const renderStarted = GamePerf.enabled ? performance.now() : 0;
+    const receivedAt = GamePerf.enabled && pendingAuthoritativeState ? GamePerf.received.get(pendingAuthoritativeState) : undefined;
     if (pendingAuthoritativeState) { roomState = pendingAuthoritativeState; pendingAuthoritativeState = null; }
     renderApp();
+    if (GamePerf.enabled) {
+      GamePerf.record('presentation.finalDom.ms', performance.now() - renderStarted);
+      if (receivedAt !== undefined) GamePerf.record('state.deferredWait.ms', renderStarted - receivedAt);
+    }
     socket.emit('battle:presentation_complete', { round, presentationId });
   }
 }
@@ -6147,9 +6174,7 @@ function showItemTooltip(item, e, isShop = false, options = {}) {
             currentPendingTarget = me.id;
             playSound('heal');
             renderMyActionBar(me);
-            socket.emit('battle:lock', { actionId, targetPlayerId: me.id }, (res) => {
-              if (res && !res.success) alert(res.message);
-            });
+            submitBattleLock({ actionId, targetPlayerId: me.id });
           }
           return;
         }
@@ -6761,9 +6786,7 @@ function renderInventoryModal() {
             currentPendingTarget = me.id;
             playSound('heal');
             renderMyActionBar(me);
-            socket.emit('battle:lock', { actionId, targetPlayerId: me.id }, (res) => {
-              if (res && !res.success) alert(res.message);
-            });
+            submitBattleLock({ actionId, targetPlayerId: me.id });
           }
           return;
         }
@@ -7578,7 +7601,14 @@ function renderGambleEvent(ev) {
   });
 }
 
+let shopRenderSignature = null;
 function renderInteractiveEvent(ev) {
+  if (ev.type === 'shop') {
+    const signature = JSON.stringify([ev, roomState.operationContexts?.shop, currentShopCategoryTab, roomState.gold, roomState.squadInventory, roomState.leaderId,
+      roomState.players.map(p => [p.id, p.role, p.connected]), myId]);
+    if (signature === shopRenderSignature && elements.eventDetails.querySelector('.shop-container')) return;
+    shopRenderSignature = signature;
+  } else shopRenderSignature = null;
   if (!elements.eventCardBox) return;
   elements.eventCardBox.classList.remove('hidden');
   const evFooter = document.querySelector('.event-footer');
@@ -7885,8 +7915,6 @@ function renderInteractiveEvent(ev) {
           `;
           document.getElementById('btnShopInspectorBuy')?.addEventListener('click', (e) => {
             const b = e.currentTarget;
-            b.disabled = true;
-            b.textContent = '購買中...';
             executeShopBuy(item, b);
           });
         }
@@ -7904,42 +7932,18 @@ function renderInteractiveEvent(ev) {
       }
     }
 
-    // Buying logic with Toast (and preserves 購回成功 for tests)
-    function executeShopBuy(item, triggerBtn) {
-      const originalText = triggerBtn ? triggerBtn.textContent : '';
-      if ((roomState.gold || 0) < item.price) {
-        if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = originalText; }
-        showToast(`金幣不足！購買【${item.name}】需要 ${item.price}G，目前小隊僅有 ${roomState.gold || 0}G`, 'danger');
-        return;
-      }
-      if (item._type === 'consumable') {
-        socket.emit('event:shop_action', { action: 'buy', isConsumable: true, consumableIndex: item._idx }, (res) => {
-          if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = originalText; }
-          if (res && !res.success) {
-            showToast(res.message || '購買失敗', 'danger');
-          } else if (res?.success && res.item) {
-            showToast(`購入【${res.item.name}】(-${item.price}G)`, 'success');
-          }
-        });
-      } else if (item._type === 'buyback') {
-        socket.emit('event:shop_action', { action: 'buyback', buybackIndex: item._idx }, (res) => {
-          if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = originalText; }
-          if (res && !res.success) {
-            showToast(res.message || '購回失敗', 'danger');
-          } else if (res?.success && res.item) {
-            showToast(`購回成功！購入【${res.item.name}】(-${item.price}G)`, 'success');
-            // 購回成功
-          }
-        });
-      } else {
-        socket.emit('event:shop_action', { action: 'buy', itemIndex: item._idx }, (res) => {
-          if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = originalText; }
-          if (res && !res.success) {
-            showToast(res.message || '購買失敗', 'danger');
-          } else if (res?.success && res.item) {
-            showToast(`購入【${res.item.name}】(-${res.item.price || item.price}G)`, 'success');
-          }
-        });
+    // Purchases share one pending lifecycle across clicks and drag/drop.
+    function executeShopBuy(item, triggerBtn, dropIndex) {
+      if (!socket.connected) return;
+      const isBuyback = item._type === 'buyback';
+      const payload = isBuyback
+        ? { action: 'buyback', buybackIndex: item._idx, buybackId: item.buybackId }
+        : { action: 'buy', isConsumable: item._type === 'consumable', itemIndex: item._idx, consumableIndex: item._idx };
+      // The drop target is a preview only; the server still chooses the first empty slot.
+      const index = dropIndex ?? Array.from({length:19}, (_,i) => i).find(i => !roomState.squadInventory?.[i]);
+      const preview = { name: item.name, index, buyback: isBuyback, triggerBtn, originalText: triggerBtn?.textContent };
+      if (operations.start('shop:' + item._type + ':' + item._idx, 'event:shop_action', payload, preview) && triggerBtn) {
+        triggerBtn.disabled = true; triggerBtn.textContent = '確認中…';
       }
     }
 
@@ -8041,7 +8045,7 @@ function renderInteractiveEvent(ev) {
           e.preventDefault();
           const item = draggedInventorySlot.item;
           draggedInventorySlot = null;
-          executeShopBuy(item, null);
+          executeShopBuy(item, null, Number(slot.dataset.index));
         }
       });
     });

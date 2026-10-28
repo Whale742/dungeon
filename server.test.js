@@ -50,6 +50,31 @@ export function request(socket, event, data) {
   });
 }
 
+test('ten connected clients receive versioned full state, explicit rejection ACKs and resync after rejoin', async t => {
+  const { connect } = await launch(t, false);
+  const clients = await Promise.all(Array.from({ length: 10 }, () => connect()));
+  const created = await request(clients[0], 'room:create', { name: 'Sync0' });
+  for (let i = 1; i < clients.length; i++) {
+    assert.equal((await request(clients[i], 'room:join', { code: created.roomCode, name: `Sync${i}` })).success, true);
+  }
+  for (const client of clients) {
+    const full = once(client, 'room:update'); client.emit('room:resync');
+    const [state] = await full;
+    assert.equal(state.players.length, 10); assert.ok(state.stateVersion > 0);
+    const rejection = await request(client, 'battle:lock', { requestId: 'reject', sequence: 1, context: state.operationContexts.lock, actionId: 'skip' });
+    assert.equal(rejection.success, false); assert.equal(rejection.requestId, 'reject');
+    const duplicate = await request(client, 'battle:lock', { requestId: 'reject', sequence: 1, context: state.operationContexts.lock, actionId: 'skip' });
+    assert.deepEqual(duplicate, rejection);
+  }
+  const removed = once(clients[0], 'room:update'); clients[9].disconnect(); await removed;
+  const replacement = await connect();
+  const rejoined = once(replacement, 'room:update');
+  assert.equal((await request(replacement, 'room:join', { code: created.roomCode, name: 'Sync9' })).success, true);
+  const [state] = await rejoined; assert.equal(state.players.length, 10); assert.ok(state.operationContexts);
+  const full = once(replacement, 'room:update'); replacement.emit('room:resync');
+  assert.deepEqual((await full)[0], state);
+});
+
 test('Dev route shares HTML; isolated solo rooms and socket-scoped authorization', async t => {
   const { url, connect } = await launch(t);
   const home=await (await fetch(url + '/')).text();
