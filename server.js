@@ -1,3 +1,5 @@
+import { Identity, publicPlayer, cookieToken, digest } from './game/Identity.js';
+import { playerSocket, disconnectPlayer, reconnectPlayer } from './game/player-connection.js';
 import { handleOperation, startEventLoopMetrics, metrics } from './game/performance.js';
 import express from 'express';
 import http from 'http';
@@ -64,7 +66,36 @@ app.get('/api/skill-copy',(_req,res)=>res.json(Object.fromEntries(Object.entries
 // 遊戲房間登錄表 (code -> Room)
 const rooms = new Map();
 // 玩家 Socket 與房間對照表 (socketId -> code)
-const socketToRoom = new Map();
+const socketToRoom = new Map(); // Player ID -> active in-memory Room
+const activeConnections = new Map();
+const revokedSessionHashes = new Map();
+const identityVersions = new Map();
+const identity = new Identity();
+app.use('/api/player', express.json({ limit: '4kb' }));
+identity.mount(app, {
+  revoke(id, change = {}) {
+    if (change.hash) revokedSessionHashes.set(change.hash, Date.now() + 30 * 86400000);
+    if (change.version !== undefined) identityVersions.set(id, change.version);
+    const transport = activeConnections.get(id);
+    if (transport) { transport.emit('player:session_invalid'); transport.disconnect(true); }
+  },
+  renamed(id, name) {
+    const transport = activeConnections.get(id); if (transport) transport.data.identity.display_name = name;
+    const room = rooms.get(socketToRoom.get(id));
+    if (room?.players[id]) { room.players[id].name = name; room.broadcastState(); }
+  }
+});
+io.use(async (transport, next) => {
+  try {
+    const origin = transport.handshake.headers.origin;
+    if (origin && new URL(origin).host !== transport.handshake.headers.host) return next(new Error('INVALID_ORIGIN'));
+    const player = await identity.session(transport.handshake.headers);
+    for (const [key, expires] of revokedSessionHashes) if (expires <= Date.now()) revokedSessionHashes.delete(key);
+    const hash = cookieToken(transport.handshake.headers) && digest(cookieToken(transport.handshake.headers));
+    if (!player || revokedSessionHashes.has(hash) || player.auth_version < (identityVersions.get(player.id) || 0)) return next(new Error('SESSION_REQUIRED'));
+    transport.data.identity = player; next();
+  } catch { next(new Error('IDENTITY_UNAVAILABLE')); }
+});
 function syncLobbyContent(ok) {
   if(!ok)return;
   for(const room of rooms.values())if(room.state==='LOBBY'&&room.studioContent.revision!==contentCache.loadedAt){
@@ -85,11 +116,33 @@ function generateRoomCode() {
   return code;
 }
 
-io.on('connection', (socket) => {
+io.on('connection', (transport) => {
+  const socket = playerSocket(transport);
+  const previous = activeConnections.get(socket.id);
+  activeConnections.set(socket.id, transport);
+  if (previous && previous !== transport) { previous.emit('player:session_invalid'); previous.disconnect(true); }
+  transport.join(socket.id);
+  transport.use((_packet, next) => {
+    if (activeConnections.get(socket.id) !== transport || transport.data.identity.expires <= Date.now()) {
+      next(new Error('SESSION_EXPIRED')); transport.emit('player:session_invalid'); transport.disconnect(true);
+    } else next();
+  });
+  transport.on('error', () => {});
+  let expiry;
+  const expire = () => {
+    const remaining = transport.data.identity.expires - Date.now();
+    if (remaining <= 0) { transport.emit('player:session_invalid'); transport.disconnect(true); }
+    else { expiry = setTimeout(expire, Math.min(2147483647, remaining)); expiry.unref(); }
+  };
+  expire();
+  socket.emit('player:identity', { player: publicPlayer(socket.data.identity) });
   console.log(`[連線] 玩家連接：${socket.id}`);
 
   // 發送職業與基礎資料給新客戶端
   socket.emit('init:constants', { classes: displayClasses, routes: ROUTES, roleDetails: ROLE_DETAILS });
+  const existing = rooms.get(socketToRoom.get(socket.id));
+  if (existing && reconnectPlayer(existing, socket)) socket.emit('studio:content', existing.studioContent.snapshot);
+
 
   socket.on('dev:authorize', (request, callback) => {
     const room = rooms.get(socketToRoom.get(socket.id));
@@ -125,7 +178,7 @@ io.on('connection', (socket) => {
       }
 
       const code = generateRoomCode();
-      const room = new Room(code, socket, name, io, avatar);
+      const room = new Room(code, socket, socket.data.identity.display_name, io, avatar);
       room.isDev = isDev;
       if (isDev) devController.register(room, socket);
       socket.emit('studio:content', room.studioContent.snapshot);
@@ -146,6 +199,11 @@ io.on('connection', (socket) => {
   socket.on('room:join', ({ code, name, avatar }, callback) => {
     try {
       const roomCode = String(code).trim().toUpperCase();
+      const previousCode = socketToRoom.get(socket.id);
+      if (previousCode && previousCode !== roomCode && rooms.get(previousCode)?.players[socket.id]) {
+        if (typeof callback === 'function') callback({ success: false, message: '請先離開目前隊伍' });
+        return;
+      }
       const room = rooms.get(roomCode);
 
       if (!room) {
@@ -160,7 +218,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const result = room.addPlayer(socket, name, avatar);
+      const result = room.players[socket.id] ? (reconnectPlayer(room, socket), { success: true }) : room.addPlayer(socket, socket.data.identity.display_name, avatar);
       if (result.success) {
         devAccess.revoke(socket);
         socket.emit('studio:content', room.studioContent.snapshot);
@@ -204,15 +262,17 @@ io.on('connection', (socket) => {
   });
 
   // 2.5 玩家修改暱稱
-  socket.on('player:rename', ({ newName }, callback) => {
-    const code = socketToRoom.get(socket.id);
-    const room = rooms.get(code);
-    if (!room) {
-      if (typeof callback === 'function') callback({ success: false, message: '找不到房間' });
-      return;
-    }
-    const res = room.renamePlayer(socket.id, newName);
-    if (typeof callback === 'function') callback(res);
+  socket.on('player:rename', async ({ newName }, callback) => {
+    try {
+      const current = await identity.session(socket.handshake.headers);
+      if (!current) throw new Error('請重新登入');
+      const name = identity.name(newName).slice(0, 12);
+      const updated = await identity.store.call('name', { id: socket.id, name });
+      socket.data.identity.display_name = updated.display_name;
+      const room = rooms.get(socketToRoom.get(socket.id));
+      if (room?.players[socket.id]) { room.players[socket.id].name = name; room.broadcastState(); }
+      if (typeof callback === 'function') callback({ success: true, newName: name });
+    } catch { if (typeof callback === 'function') callback({ success: false, message: '名稱更新失敗，請稍後重試' }); }
   });
 
   // 2.6 玩家更新頭貼 (Emoji 或上傳照片)
@@ -605,23 +665,13 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback({ success: true });
   });
 
-  // 斷線處理
+  // Transport loss preserves the character; explicit leave_party remains destructive.
   socket.on('disconnect', () => {
-    devAccess.revoke(socket);
-    console.log(`[離線] 玩家離開：${socket.id}`);
-    const code = socketToRoom.get(socket.id);
-    if (code && rooms.has(code)) {
-      const room = rooms.get(code);
-      room.removePlayer(socket.id);
-      
-      // 若房間完全空了，則銷毀房間
-      if (room.memberIds.length === 0) {
-        room.clearTimer();
-        rooms.delete(code);
-        console.log(`[清理] 房間 ${code} 已無玩家，已銷毀。`);
-      }
-    }
-    socketToRoom.delete(socket.id);
+    clearTimeout(expiry); devAccess.revoke(socket);
+    if (activeConnections.get(socket.id) !== transport) return;
+    activeConnections.delete(socket.id);
+    const room = rooms.get(socketToRoom.get(socket.id));
+    if (room) disconnectPlayer(room, socket.id);
   });
 });
 

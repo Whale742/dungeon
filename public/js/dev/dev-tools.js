@@ -57,7 +57,7 @@ export function mountDevTools(socket) {
     if (rows.some(r => r[key] === selected)) select.value = selected;
   }
   function render() {
-    const active = socket.connected && state?.state !== 'LOBBY' && state?.players?.some(p => p.id === socket.id);
+    const active = socket.connected && state?.state !== 'LOBBY' && state?.players?.some(p => p.id === socket.playerId);
     $('#dev-toggle').hidden = !active;
     if (!active) { close(); status = null; }
     $('#dev-auth').hidden = Boolean(status?.success);

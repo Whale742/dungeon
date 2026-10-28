@@ -2,7 +2,16 @@
 // 地城深淵 (DUNGEON ABYSS) - 前端核心客戶端 (app.js)
 // ==========================================================================
 
-const socket = io({ auth: { devMode: location.pathname === '/dev' } });
+const socket = io({ autoConnect: false, auth: { devMode: location.pathname === '/dev' } });
+const emitConnected = socket.emit.bind(socket);
+socket.emit = (event, ...args) => {
+  if (!socket.connected) {
+    const callback = args.at(-1);
+    if (typeof callback === 'function') callback({ success: false, message: '尚未連線，請先登入或等候重新連線' });
+    return socket;
+  }
+  return emitConnected(event, ...args);
+};
 if (location.pathname === '/dev') import('/js/dev/dev-tools.js').then(({ mountDevTools }) => mountDevTools(socket));
 
 // ============================================================================
@@ -838,11 +847,13 @@ if (myName) {
 
 // 監聽 Socket 連線
 socket.on('connect', () => {
-  myId = socket.id;
+  myId = PlayerIdentity.player?.playerId || null;
   window.RecruitCopy?.setPlayerId(myId);
   console.log('連線至伺服器，ID:', myId);
 });
 socket.on('disconnect', () => {
+  socket.sendBuffer = [];
+
   operationState = null; latestStateVersion = -1; operations.clear();
   battlePhaseController?.abort();
   combatQueueController?.abort();
@@ -851,6 +862,14 @@ socket.on('disconnect', () => {
   document.body.classList.remove('battle-intro-active');
   window.RecruitCopy?.setPlayerId(null);
   if (window.RewardPresentation?.isPlaying) window.RewardPresentation.cancel();
+});
+
+socket.on('player:identity', ({ player }) => { PlayerIdentity.accept(player); socket.playerId = player.playerId; });
+socket.on('player:session_invalid', () => {
+  PlayerIdentity.accept(null);
+  roomState = null; currentRoomCode = null;
+  switchView('entry'); goToEntryScreen('screenLobbyMenu');
+  showToast('此連線已登出、過期，或帳號已在其他裝置開啟。請重新登入。', 'warning', 6000);
 });
 
 socket.on('init:constants', (data) => {
@@ -3597,9 +3616,14 @@ function goToEntryScreen(screenId) {
   currentEntryScreen = screenId;
 }
 
-function submitRecruitPledge() {
+async function submitRecruitPledge() {
   const input = elements.inputPlayerName ? elements.inputPlayerName.value.trim() : '';
   const name = input || myName || '勇者無名';
+  try {
+    await PlayerIdentity.ready;
+    const result = await PlayerIdentity.request('name', { displayName: name });
+    PlayerIdentity.accept(result.player);
+  } catch (error) { showToast(error.message, 'danger'); return; }
   myName = name;
   localStorage.setItem('dungeon_player_name', name);
   if (elements.inputPlayerName) elements.inputPlayerName.value = name;
@@ -3803,18 +3827,16 @@ function quickSelectProfileEmoji(emoji) {
 }
 window.quickSelectProfileEmoji = quickSelectProfileEmoji;
 
-function saveProfileModal() {
-  const input = document.getElementById('profileNewNameInput');
-  const newName = input ? input.value.trim() : '';
-  if (newName) {
-    myName = newName;
-    localStorage.setItem('dungeon_player_name', newName);
-    if (elements.inputPlayerName) elements.inputPlayerName.value = newName;
-    const menuNameEl = document.getElementById('menuPlayerName');
-    if (menuNameEl) menuNameEl.textContent = newName;
-    playSound('click');
-  }
-  closeProfileModal();
+async function saveProfileModal() {
+  const button = elements.btnSaveProfileModal;
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    const displayName = document.getElementById('profileNewNameInput')?.value.trim();
+    const result = await PlayerIdentity.request('name', { displayName });
+    PlayerIdentity.accept(result.player); closeProfileModal();
+  } catch (error) { showToast(error.message, 'danger'); }
+  finally { if (button) button.disabled = false; }
 }
 window.saveProfileModal = saveProfileModal;
 
@@ -8412,3 +8434,11 @@ function openDruidTransformModal() {
     modal.remove();
   };
 }
+
+void PlayerIdentity.boot(socket, player => {
+  myId = player.playerId; myName = player.displayName; socket.playerId = player.playerId;
+  localStorage.setItem('dungeon_player_name', myName);
+  if (elements.inputPlayerName) elements.inputPlayerName.value = myName;
+  const label = document.getElementById('menuPlayerName'); if (label) label.textContent = myName;
+  window.RecruitCopy?.setPlayerId(myId);
+});

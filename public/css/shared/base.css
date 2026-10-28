@@ -9283,3 +9283,7 @@ input[type="range"].gold-slider::-moz-range-thumb {
 @media(max-height:480px){.abyss-boss-portrait-wrap:has(.abyss-fullbody-image){width:150px;height:180px}}
 
 .abyss-boss-avatar.abyss-fullbody-image[data-portrait-role="assassin"]{transform-origin:85% 0}
+
+/* Identity controls share the profile panel; hidden actions must override button display rules. */
+#profileIdentity [hidden]{display:none!important}
+#profileModal .modal-card{max-height:calc(100dvh - 32px);overflow-y:auto}

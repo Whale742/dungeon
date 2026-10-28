@@ -101,3 +101,14 @@ specs/                 設計參考、提案及演出原稿
 - `specs/prototypes/`：卜者、陰陽師、武士、智者演出的歷史設計展示。武士的嵌入素材與正式切圖來源仍有追溯價值；這些檔案不再由正式站台公開提供。
 
 規格與 Prototype 保留原稿，可能包含尚未採用或已調整的設計；目前權威數值與行為以 `game/` 的實作為準。
+
+## 冒險存續 V1：Phase 1（完成後等待使用者驗收）
+
+- `game/Identity.js`、`game/IdentityStore.js`：Render 身分 API、Node scrypt（N=32768/r=8/p=3）、30 天 HttpOnly/SameSite=Lax Cookie；正式環境強制 Secure。復原碼只回傳一次，改密碼／復原會輪替並撤銷舊 Session。
+- `game/player-connection.js`：Room 使用永久 Player ID，Socket.IO transport ID 獨立；新連線取代同身分舊連線。暫時斷線保留角色、裝備與隊長，明確離隊仍沿用原有回收流程。
+- `supabase/migrations/20261028090635_player_identity.sql`：已套用至 dungeon-abyss；兩張身分表與 service_role-only RPC，不影響 Studio 資料。回滾前須停用身分 API 並備份帳號資料，操作說明在 Migration 註解。
+- `public/js/core/identity.js`：訪客、綁定、登入、登出、改密碼與復原介面。LocalStorage 不保存密碼、復原碼或 Session；暱稱不作為身分驗證。
+- 正式服務需 SUPABASE_URL/SUPABASE_SECRET_KEY。僅本機／測試可明確設定 IDENTITY_STORE=memory；不可用於 Render/production，不會在資料庫錯誤時自動降級。
+- 測試：`game/Identity.test.js`、`server.test.js`；已驗證 Supabase RPC 與跨 IdentityStore 實例的身分存續，雲端測試身分已清理。
+- 階段邊界：Phase 2～6 尚未開始，Room 尚無重啟後的雲端進度恢復；離線角色的完整流程與持久化仍須 Phase 2 驗收。每完成一個 Phase 必須停止，等待使用者明確說繼續。
+- 沿用使用者先前決定：小隊聊天已移除，個人檔案不提供頭像更換；後續觀戰不應重新加入聊天。

@@ -15,7 +15,7 @@ export async function launch(t, enabled = true) {
   const child = spawn(process.execPath, ['server.js'], {
     cwd: new URL('.', import.meta.url), windowsHide: true,
     env: { ...process.env, PORT: String(port), DEV_TOOLS_ENABLED: String(enabled), DEV_ACCESS_TOKEN: token,
-      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '' },
+      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '', IDENTITY_STORE: 'memory' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   const clients = [];
@@ -34,8 +34,14 @@ export async function launch(t, enabled = true) {
     child.stdout.on('data', data => { output += data.toString(); if (output.includes('0.0.0.0')) { clearTimeout(timer); resolve(); } });
   });
   const url = `http://127.0.0.1:${port}`;
-  async function connect(devMode = false) {
-    const socket = io(url, { auth: { devMode }, transports: ['websocket'], reconnection: false });
+  async function connect(devMode = false, cookie = null) {
+    if (!cookie) {
+      const guest = await fetch(url + '/api/player/guest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      cookie = guest.headers.get('set-cookie').split(';')[0];
+    }
+    const socket = io(url, { extraHeaders: { Cookie: cookie }, auth: { devMode }, transports: ['websocket'], reconnection: false });
+    socket.sessionCookie = cookie;
+    socket.on('player:identity', ({ player }) => { socket.playerId = player.playerId; });
     clients.push(socket);
     await once(socket, 'connect');
     return socket;
@@ -67,7 +73,7 @@ test('ten connected clients receive versioned full state, explicit rejection ACK
     assert.deepEqual(duplicate, rejection);
   }
   const removed = once(clients[0], 'room:update'); clients[9].disconnect(); await removed;
-  const replacement = await connect();
+  const replacement = await connect(false, clients[9].sessionCookie);
   const rejoined = once(replacement, 'room:update');
   assert.equal((await request(replacement, 'room:join', { code: created.roomCode, name: 'Sync9' })).success, true);
   const [state] = await rejoined; assert.equal(state.players.length, 10); assert.ok(state.operationContexts);
@@ -119,6 +125,61 @@ test('disabled Dev leaves normal room flow available', async t => {
   assert.equal((await request(normal, 'room:create', { name: 'Normal' })).success, true);
   await request(normal, 'player:select_role', { roleKey: 'warrior' });
   assert.equal((await request(normal, 'game:start')).success, true);
+});
+
+test('identity API binds the same character, supports device login, rotates passwords and rejects forged sessions', async t => {
+  const { url, connect } = await launch(t, false);
+  const api = async (action, body, cookie) => {
+    const response = await fetch(url + '/api/player/' + action, { method: body === undefined ? 'GET' : 'POST',
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return { status: response.status, body: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0], cookieHeader: response.headers.get('set-cookie') };
+  };
+  const guest = await api('guest', { displayName: 'Original' });
+  assert.match(guest.cookie, /^dungeon_session=/);
+  assert.match(guest.cookieHeader, /HttpOnly/); assert.match(guest.cookieHeader, /SameSite=Lax/);
+  const first = await connect(false, guest.cookie);
+  const created = await request(first, 'room:create', { name: 'Impersonation name' });
+  await request(first, 'player:select_role', { roleKey: 'warrior' });
+  const id = guest.body.player.playerId;
+  assert.equal((await api('session', undefined, guest.cookie)).body.player.playerId, id);
+  const impostorGuest = await api('guest', { displayName: 'Original' });
+  assert.notEqual(impostorGuest.body.player.playerId, id);
+  const impostor = await connect(false, impostorGuest.cookie);
+  await request(impostor, 'room:join', { code: created.roomCode, name: 'Original', playerId: id });
+  await request(impostor, 'player:select_role', { roleKey: 'mage', playerId: id });
+  const actors = once(first, 'room:update'); first.emit('room:resync'); const [twoPlayers] = await actors;
+  assert.equal(twoPlayers.players.find(p => p.id === id).role, 'warrior');
+  assert.equal(twoPlayers.players.find(p => p.id === impostorGuest.body.player.playerId).role, 'mage');
+  await request(impostor, 'leave_party');
+  const bound = await api('bind', { username: 'account_one', password: 'Test password long enough' }, guest.cookie);
+  assert.equal(bound.status, 200); assert.equal(bound.body.player.playerId, id); assert.ok(bound.body.recoveryCode);
+  assert.equal((await api('session', undefined, guest.cookie)).body.player, null);
+  const restored = await connect(false, bound.cookie);
+  const full = once(restored, 'room:update'); restored.emit('room:resync'); const [state] = await full;
+  assert.equal(state.code, created.roomCode); assert.equal(state.players.length, 1);
+  assert.equal(state.players[0].id, id); assert.equal(state.players[0].role, 'warrior'); assert.equal(state.players[0].name, 'Original');
+  const name = await api('name', { displayName: 'Renamed' }, bound.cookie);
+  assert.equal(name.body.player.playerId, id);
+  const login = await api('login', { username: 'ACCOUNT_ONE', password: 'Test password long enough' });
+  assert.equal(login.body.player.playerId, id);
+  const disconnected = once(restored, 'disconnect');
+  const otherDevice = await connect(false, login.cookie); await disconnected;
+  const snapshot = once(otherDevice, 'room:update'); otherDevice.emit('room:resync');
+  assert.equal((await snapshot)[0].players.length, 1);
+  assert.equal((await api('password', { currentPassword: 'wrong', password: 'New password long enough' }, login.cookie)).status, 401);
+  const changed = await api('password', { currentPassword: 'Test password long enough', password: 'New password long enough' }, login.cookie);
+  assert.equal(changed.status, 200); assert.equal((await api('session', undefined, bound.cookie)).body.player, null);
+  assert.equal((await api('login', { username: 'account_one', password: 'Test password long enough' })).status, 401);
+  const recovered = await api('recover', { username: 'account_one', recoveryCode: changed.body.recoveryCode, password: 'Recovered password long enough' });
+  assert.equal(recovered.status, 200); assert.equal(recovered.body.player.playerId, id);
+  assert.equal((await api('recover', { username: 'account_one', recoveryCode: changed.body.recoveryCode, password: 'Recovered password long enough' })).status, 401);
+  assert.equal((await api('logout', {}, recovered.cookie)).status, 200);
+  assert.equal((await api('session', undefined, recovered.cookie)).body.player, null);
+  const forged = io(url, { extraHeaders: { Cookie: 'dungeon_session=' + 'x'.repeat(43) }, reconnection: false });
+  t.after(() => forged.disconnect());
+  assert.equal((await once(forged, 'connect_error'))[0].message, 'SESSION_REQUIRED');
+  const csrf = await fetch(url + '/api/player/guest', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://attacker.invalid' }, body: '{}' });
+  assert.equal(csrf.status, 403);
 });
 
 test('Saved static URLs and canonical paths serve identical files, including encoded names and HEAD', async t => {
