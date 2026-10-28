@@ -964,7 +964,7 @@ export class Room {
           this.currentEvent.buybackPool = [];
           this.currentEvent = null;
           if (this.io && this.code) {
-            this.io.to(this.code).emit('event:shop_closed');
+            this.emitPublic('event:shop_closed');
           }
           if (wasPrepShop) this.startRouteSelection();
           else this.advanceToNextFloorOrCheckpoint();
@@ -1212,6 +1212,7 @@ export class Room {
       if(p.role==='sage'){p.sageX=30;p.sageDebt=0;delete p.sageDebtScheduledRound;}
     }
     this.state = 'PROLOGUE';
+    this.career?.attach(this);
     this.addLog(`📜 **${this.studioContent.storyTexts.prologue.title}**`, 'info');
     this.studioContent.storyTexts.prologue.paragraphs.forEach(p => this.addLog(p, 'info'));
 
@@ -1251,7 +1252,7 @@ export class Room {
     if (socketId !== this.leaderId) return { success: false, message: '只有隊長能跳過開場' };
     this.addLog(`⏩ **${this.players[socketId]?.name || '隊長'}** 跳過了開場故事！`, 'info');
     if (this.io && this.code) {
-      this.io.to(this.code).emit('prologue:skipped', { leaderId: socketId });
+      this.emitPublic('prologue:skipped', { leaderId: socketId });
     }
     this.clearTimer();
     this.pendingPresentationAcks.clear();
@@ -1279,7 +1280,7 @@ export class Room {
     this.narrativeAccelerated = request.accelerated;
     this.narrativeControl = { key: current.key, accelerated: this.narrativeAccelerated };
     if (this.io && this.code) {
-      this.io.to(this.code).emit('narrative:accelerated', this.narrativeControl);
+      this.emitPublic('narrative:accelerated', this.narrativeControl);
     }
     return { success: true, ...this.narrativeControl };
   }
@@ -1399,6 +1400,7 @@ export class Room {
       this.addLog(`🧭【第 ${this.floor} 層・迷霧分歧點】正在探索前路迷霧...`, 'info');
     }
     this.settleInventoryOverflow();
+    this.career?.floor(this);
     void this.persistence?.saveBoundary(this);
     this.broadcastState();
 
@@ -1898,6 +1900,7 @@ export class Room {
 
   applyMonsterPoison(damage = 8, turns = 2, targetEnemy = this.currentMonster) {
     if (!this.monsterAllowsEffect('中毒', targetEnemy)) return false;
+    this.career?.dotApplied(this, targetEnemy, 'poison', damage, this.healingSourceId);
     targetEnemy.poisonTurns = turns;
     targetEnemy.poisonDmg = (targetEnemy.poisonDmg || 0) + damage;
     return true;
@@ -1905,6 +1908,7 @@ export class Room {
 
   applyMonsterBurn(damage = 10, turns = 1, targetEnemy = this.currentMonster) {
     if (!this.monsterAllowsEffect('燃燒', targetEnemy)) return false;
+    this.career?.dotApplied(this, targetEnemy, 'burn', damage, this.healingSourceId);
     targetEnemy.burnTurns = turns;
     targetEnemy.burnDmg = (targetEnemy.burnDmg || 0) + damage;
     return true;
@@ -1912,6 +1916,7 @@ export class Room {
 
   applyMonsterFracture(damage = 5, turns = 3, targetEnemy = this.currentMonster) {
     if (!this.monsterAllowsEffect('骨折', targetEnemy)) return false;
+    this.career?.dotApplied(this, targetEnemy, 'fracture', damage, this.healingSourceId);
     targetEnemy.fractureTurns = turns;
     targetEnemy.fractureDmg = (targetEnemy.fractureDmg || 0) + damage;
     return true;
@@ -1919,6 +1924,7 @@ export class Room {
 
   applyMonsterChill(damage = 6, turns = 2, targetEnemy = this.currentMonster) {
     if (!this.monsterAllowsEffect('寒冷', targetEnemy)) return false;
+    this.career?.dotApplied(this, targetEnemy, 'chill', damage, this.healingSourceId);
     targetEnemy.chillTurns = turns;
     targetEnemy.chillDmg = (targetEnemy.chillDmg || 0) + damage;
     return true;
@@ -2083,6 +2089,7 @@ export class Room {
     }
 
     this.battleCount = (this.battleCount || 0) + 1;
+    this.career?.encounter(this);
     this.handleLeaderTransferOnBattleStart();
     this.battleRound = 1;
     this.warriorShieldTurn = 0;
@@ -2142,13 +2149,14 @@ export class Room {
   // Overheal 超量治療計算 (不污染原始 normalMaxHp)
   applyHealWithOverheal(player, healAmount, options = {}) {
     if (player.hp <= 0 || healAmount <= 0) return 0;
+    const careerSource = options.sourceId || this.healingSourceId || player.id;
 
     // 法師隊長技【魔力共鳴】：回血效果同時對所有隊友觸發，但是只有原本的70%
     if (!options.isResonance && this.getEffectiveLeaderRole() === 'mage') {
       const resonanceAmount = Math.max(1, Math.round(healAmount * 0.70));
       for (const ally of Object.values(this.players)) {
         if (ally.id !== player.id && ally.hp > 0) {
-          this.applyHealWithOverheal(ally, resonanceAmount, { ...options, isResonance: true });
+          this.applyHealWithOverheal(ally, resonanceAmount, { ...options, isResonance: true, sourceId: careerSource });
         }
       }
       healAmount = resonanceAmount;
@@ -2176,6 +2184,7 @@ export class Room {
       }
     }
     const normalMax = player.maxHp;
+    const careerHpBefore = player.hp;
     const oldTempHp = player.tempHp || 0;
     const oldEffective = player.hp + (player.tempHp || 0);
     if (player.hp < normalMax) {
@@ -2195,6 +2204,7 @@ export class Room {
     const newEffective = player.hp + (player.tempHp || 0);
     player.temporaryOverheal = Math.min(oldTempHp,player.temporaryOverheal || 0) + Math.max(0,(player.tempHp || 0)-oldTempHp);
     const actualHeal = newEffective - oldEffective;
+    this.career?.heal(this, player.id, player.hp - careerHpBefore, careerSource);
     if (this.actionHeals) this.actionHeals.push({ targetId: player.id, actualHeal,absorbedDebt,
       targetAfter: snapshotTarget(this.getHpSnapshot(), player.id) });
     onPlayerHealed(this,player,actualHeal);
@@ -2203,6 +2213,7 @@ export class Room {
 
   // 吸血治療（上限不高於原始最大生命，絕不溢出轉為 tempHp）
   applyHealCapped(player, healAmount, options = {}) {
+    const careerSource = options.sourceId || this.healingSourceId || player.id;
     if (player.hp <= 0 || healAmount <= 0) return 0;
 
     // 法師隊長技【魔力共鳴】：回血效果同時對所有隊友觸發，但是只有原本的70%
@@ -2210,7 +2221,7 @@ export class Room {
       const resonanceAmount = Math.max(1, Math.round(healAmount * 0.70));
       for (const ally of Object.values(this.players)) {
         if (ally.id !== player.id && ally.hp > 0) {
-          this.applyHealWithOverheal(ally, resonanceAmount, { ...options, isResonance: true });
+          this.applyHealWithOverheal(ally, resonanceAmount, { ...options, isResonance: true, sourceId: careerSource });
         }
       }
       healAmount = resonanceAmount;
@@ -2240,6 +2251,7 @@ export class Room {
     const oldHp = player.hp;
     player.hp = Math.min(player.maxHp, player.hp + healAmount);
     const actualHeal = Math.max(0, player.hp - oldHp);
+    this.career?.heal(this, player.id, actualHeal, careerSource);
     if (this.actionHeals) {
       this.actionHeals.push({
         targetId: player.id,
@@ -2427,7 +2439,7 @@ export class Room {
       if (p.hp > 0 && p.regenPerRound > 0) {
         const heal = p.role==='gladiator'?p.regenPerRound:Math.min(p.maxHp - p.hp, p.regenPerRound);
         if (heal > 0) {
-          if(p.role==='gladiator')this.applyHealCapped(p,heal);else p.hp += heal;
+          if(p.role==='gladiator')this.applyHealCapped(p,heal);else { p.hp += heal; this.career?.heal(this,p.id,heal,p.id); }
           log.push({ text: p.role==='gladiator'?`**${p.name}** 的裝備再生 ${heal} 點治療已轉為鼓舞。`:`🌱 **${p.name}** 的裝備律動生機，自動回復了 ${heal} 點生命！（❤️ ${p.hp}/${p.maxHp}）`, type: 'buff' });
           visualEvents.push({ type: p.role==='gladiator'?'buff':'regen', targetId: p.id, value: p.role==='gladiator'?0:heal });
         }
@@ -2537,6 +2549,7 @@ export class Room {
       if(targetMonster.untargetableThisRound || !enemyCanParticipate(this,targetMonster))continue;
       if (targetMonster.hp > 0 && targetMonster.poisonTurns > 0) {
         const pDmg = this.augmentOmenDamage(targetMonster.poisonDmg || 5);
+        this.career?.dotDamage(this, targetMonster, 'poison', Math.min(targetMonster.hp, pDmg));
         targetMonster.hp = Math.max(0, targetMonster.hp - pDmg);
         targetMonster.poisonTurns -= 1;
         if (targetMonster.poisonTurns === 0) targetMonster.poisonDmg = 0;
@@ -2549,6 +2562,7 @@ export class Room {
       }
       if (targetMonster.hp > 0 && targetMonster.burnTurns > 0) {
         const bDmg = this.augmentOmenDamage(targetMonster.burnDmg || 7);
+        this.career?.dotDamage(this, targetMonster, 'burn', Math.min(targetMonster.hp, bDmg));
         targetMonster.hp = Math.max(0, targetMonster.hp - bDmg);
         targetMonster.burnTurns -= 1;
         if (targetMonster.burnTurns === 0) targetMonster.burnDmg = 0;
@@ -2561,6 +2575,7 @@ export class Room {
       }
       if (targetMonster.hp > 0 && targetMonster.fractureTurns > 0) {
         const fDmg = this.augmentOmenDamage(targetMonster.fractureDmg || 2);
+        this.career?.dotDamage(this, targetMonster, 'fracture', Math.min(targetMonster.hp, fDmg));
         targetMonster.hp = Math.max(0, targetMonster.hp - fDmg);
         targetMonster.fractureTurns -= 1;
         if (targetMonster.fractureTurns === 0) targetMonster.fractureDmg = 0;
@@ -2573,6 +2588,7 @@ export class Room {
       }
       if (targetMonster.hp > 0 && targetMonster.chillTurns > 0) {
         const cDmg = this.augmentOmenDamage(targetMonster.chillDmg || 3);
+        this.career?.dotDamage(this, targetMonster, 'chill', Math.min(targetMonster.hp, cDmg));
         targetMonster.hp = Math.max(0, targetMonster.hp - cDmg);
         targetMonster.chillTurns -= 1;
         if (targetMonster.chillTurns === 0) targetMonster.chillDmg = 0;
@@ -2746,7 +2762,7 @@ export class Room {
             livingAllies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
             const targetAlly = livingAllies[0];
             const healAmt = Math.max(1, Math.round(p.maxHp * 0.05 * robeCount));
-            const actualGain = this.applyHealWithOverheal(targetAlly, healAmt);
+            const actualGain = this.applyHealWithOverheal(targetAlly, healAmt, { sourceId: p.id });
             log.push({ text: `✨ **${p.name}** 的【祝福絲綢袍】散發生機微光，為傷勢最重的 **${targetAlly.name}** 回復了 **${actualGain}** 點生命！（❤️ ${targetAlly.hp + (targetAlly.tempHp || 0)}/${targetAlly.maxHp}）`, type: 'heal' });
             visualEvents.push({ type: 'heal', targetId: targetAlly.id, value: actualGain, label: '祝福絲綢袍' });
           }
@@ -3033,13 +3049,14 @@ export class Room {
       log.push({ text: `⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, type: 'damage' });
       log.forEach(l => this.addLog(l.text, l.type));
       if (!skipEmit) {
-        this.io.to(this.code).emit('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
+        this.emitPublic('battle:visual_events', { events: visualEvents, round: this.battleRound, monsterKilled: true });
       }
       this.handleGameOver();
       return;
     }
 
     if (!monster) return;
+    this.career?.finish(this, true);
     this.p8ExitArena();
     const victoryBefore = this.getHpSnapshot();
     this.enemyArena=null;
@@ -4401,7 +4418,7 @@ export class Room {
 
       // 廣播給所有玩家在視窗最右上角顯示「XXX已確認離開，準備踏上旅程」
       if (this.io && this.code) {
-        this.io.to(this.code).emit('event:shop_player_ready', {
+        this.emitPublic('event:shop_player_ready', {
           playerId: player.id,
           playerName: player.name,
           message: `${player.name}已確認離開，準備踏上旅程`,
@@ -4434,7 +4451,7 @@ export class Room {
         }
         this.currentEvent = null;
         if (this.io && this.code) {
-          this.io.to(this.code).emit('event:shop_closed');
+          this.emitPublic('event:shop_closed');
         }
         this.handleBattleEvent(null, false, { specialElite: SPECIAL_ELITES.shady_merchant, col, merchantLootPool, encounterStory:this.studioContent.text('event.shop.shady.leave', SPECIAL_EVENT_COPY.merchantLeave) });
         return { success: true, allReady: true, combatTriggered: true };
@@ -4448,7 +4465,7 @@ export class Room {
 
       // 廣播通知全體關閉彈窗，避免留在商店界面
       if (this.io && this.code) {
-        this.io.to(this.code).emit('event:shop_closed');
+        this.emitPublic('event:shop_closed');
       }
 
       if (wasPrepShop) {
@@ -5298,7 +5315,7 @@ export class Room {
     this.broadcastState();
 
     if (this.io && this.code) {
-      this.io.to(this.code).emit('abyss:red_eye_flash', {
+      this.emitPublic('abyss:red_eye_flash', {
         bossName: this.abyssState.bossName,
         choice: choiceObj
       });
@@ -7834,8 +7851,9 @@ export class Room {
     this.presentationMode = mode;
     this.battlePresentationId += 1;
     normalizeCombatQueue(queue, this.code + ":" + this.battlePresentationId);
+    this.career?.capture(this, queue);
     this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
-    this.io.to(this.code).emit('battle:presentation_queue', {
+    this.emitPublic('battle:presentation_queue', {
       queue, round: this.battleRound, presentationId: this.battlePresentationId,
       monsterKilled: allEnemiesDead
     });
@@ -7852,6 +7870,7 @@ export class Room {
 
   // 演出完全結束後，進行勝負判定與下一回合過渡
   finishTurnPresentation() {
+    if (this.career?.deferUntilPersisted(this, () => this.finishTurnPresentation())) return;
     if (this.presentationSafetyTimer) {
       clearTimeout(this.presentationSafetyTimer);
       this.presentationSafetyTimer = null;
@@ -7933,6 +7952,7 @@ export class Room {
   }
 
   handleGameOver() {
+    this.career?.finish(this, false);
     this.clearZanshin();
     this.clearAugurBattleDebts();
     this.p8ExitArena();
@@ -8085,6 +8105,7 @@ export class Room {
       this.addLog(`▶️ **${player.name}** 恢復了遊戲！冒險繼續進行。`, 'info');
       this.broadcastState();
       if (this.state === 'CHOOSING_ROUTE') this.checkRouteVoteCompletion();
+      this.career?.resume(this);
       return { success: true, isPaused: false };
     }
   }
@@ -8105,6 +8126,7 @@ export class Room {
     this.pausedRemainingSeconds = null;
     this.state = 'GAME_OVER';
     this.gameOverReason = 'abandon';
+    this.career?.finish(this, false);
     void this.persistence?.finish(this);
     this.addLog(`🏳️ **${player.name}**（隊長）中止了冒險，小隊於第 ${this.floor} 層【挑戰失敗】！`, 'warning');
     this.broadcastState();
@@ -8158,6 +8180,7 @@ export class Room {
       code: this.code,
       adventureId: this.adventureId || null,
       checkpoint: this.checkpoint ? { ...this.checkpoint } : null,
+      careerStatus: this.career?.status(this) || null,
       restoredFromCheckpoint: !!this.restoredFromCheckpoint,
       stateVersion: this.stateVersion || 0,
       operationContexts: { lock: operationContext(this, 'battle:lock'), shop: operationContext(this, 'event:shop_action') },
@@ -8345,7 +8368,12 @@ export class Room {
       if (this.lastBroadcastAt !== undefined) metrics.record('state.interval.ms', now - this.lastBroadcastAt);
       this.lastBroadcastAt = now;
     }
-    this.io.to(this.code).emit('room:update', state);
+    this.emitPublic('room:update', state);
+  }
+
+  emitPublic(event, data) {
+    this.io.to(this.code).emit(event, data);
+    this.spectators?.emit(event, data);
   }
 }
 

@@ -313,6 +313,17 @@
               <button id="btnEndBattle" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="中止冒險 / 放棄挑戰">
                 <svg class="svg-icon"><use href="#icon-flag"></use></svg> <span>放棄挑戰</span>
               </button>
+              <button id="btnDetachAdventure" type="button" class="btn-icon hidden burger-menu-btn" title="保留角色與物品，暫時回到主選單">
+                <svg class="svg-icon"><use href="#icon-arrow"></use></svg> <span>暫離冒險</span>
+              </button>
+              <button id="btnCopyAdventureInvite" type="button" class="btn-icon hidden burger-menu-btn" title="複製原隊員接回冒險的連結">
+                <svg class="svg-icon"><use href="#icon-users"></use></svg> <span>邀請原隊員</span>
+              </button>
+              <div id="adventureLeadership" class="hidden adventure-leadership">
+                <label for="adventureLeaderTarget">交接隊長給</label>
+                <select id="adventureLeaderTarget" aria-label="新隊長"></select>
+                <button id="btnAdventureLeadership" type="button" class="parchment-btn">交接隊長</button>
+              </div>
               <button id="btnLeaveParty" class="btn-icon btn-icon-danger hidden burger-menu-btn" title="永久離開隊伍（角色物資依原有規則回收）">
                 <svg class="svg-icon"><use href="#icon-close"></use></svg> <span>離開隊伍</span>
               </button>
@@ -410,7 +421,12 @@
             <!-- 1. 創建房間 -->
             <button id="btnCreateRoom" type="button" class="parchment-btn lobby-menu-btn">
               <svg class="svg-icon text-success"><use href="#icon-sword"></use></svg>
-              <span>創建討伐房間</span>
+              <span>開始冒險</span>
+            </button>
+
+            <button id="btnContinueAdventure" type="button" class="parchment-btn lobby-menu-btn">
+              <svg class="svg-icon text-success"><use href="#icon-play"></use></svg>
+              <span>繼續冒險</span>
             </button>
 
             <!-- 2. 加入房間 -->
@@ -420,6 +436,11 @@
             </button>
 
             <!-- 3. 職業圖鑑 -->
+            <div class="spectator-join-row">
+              <input id="spectatorCode" class="modal-input" aria-label="觀戰房間代碼" placeholder="5 碼房間代碼" maxlength="5" autocomplete="off">
+              <button id="btnSpectate" type="button" class="parchment-btn">加入觀戰</button>
+            </div>
+            <p id="spectatorJoinStatus" role="status"></p>
             <button id="btnOpenClassArchive" type="button" class="parchment-btn lobby-menu-btn">
               <svg class="svg-icon text-warning"><use href="#icon-log"></use></svg>
               <span>職業一覽</span>
@@ -436,6 +457,27 @@
                 <svg class="svg-icon"><use href="#icon-close"></use></svg>
                 <span>退出</span>
               </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="screenAdventures" class="entry-sub-screen hidden">
+          <div class="kraft-paper kraft-paper-rivets server-list-card adventure-list-card">
+            <div class="server-list-header">
+              <h2 class="server-list-title">接續深淵遠征</h2>
+              <p class="server-list-subtitle">接回原本的角色與隊伍；伺服器重啟後，從最後的路線檢查點繼續。</p>
+            </div>
+            <p id="adventureListStatus" role="status" aria-live="polite"></p>
+            <div id="adventureInviteNotice" class="hidden">
+              <p>此邀請僅供原隊員使用。請登入參與該冒險的帳號。</p>
+              <button id="btnJoinAdventureInvite" type="button" class="parchment-btn">接回受邀冒險</button>
+            </div>
+            <div id="adventureList" class="adventure-list"></div>
+            <button id="btnMoreAdventures" type="button" class="parchment-btn hidden">載入更多</button>
+            <div class="server-list-btn-row">
+              <button id="btnRefreshAdventures" type="button" class="parchment-btn">重新整理</button>
+              <button id="btnAdventureProfile" type="button" class="parchment-btn">登入／個人資料</button>
+              <button id="btnBackFromAdventures" type="button" class="parchment-btn">返回主選單</button>
             </div>
           </div>
         </section>
@@ -1203,6 +1245,14 @@
         </details>
         <p data-identity-notice role="status" aria-live="polite" style="overflow-wrap:anywhere"></p>
       </section>
+      <section id="profileCareer" class="kraft-sub-panel career-panel" aria-labelledby="careerTitle">
+        <h4 id="careerTitle">冒險生涯</h4>
+        <p id="careerStatus" role="status" aria-live="polite">開啟個人檔案後讀取。</p>
+        <div id="careerTotals" class="career-totals"></div>
+        <details><summary>各職業參戰紀錄</summary><div id="careerClasses" class="career-classes"></div></details>
+        <p class="career-definition">自本功能啟用後累計。重連不重計；讀檔後重新開打視為新遭遇。傷害包含敵方護盾吸收；有效治療只計戰鬥中實際恢復的 HP（含技能復活），不含溢補護盾、命債抵銷與屬性重算。</p>
+        <button id="btnRefreshCareer" type="button" class="parchment-btn">重新整理生涯統計</button>
+      </section>
       <div class="modal-actions" style="margin-top: 14px;">
         <button type="button" id="btnCancelProfileModal" onclick="closeProfileModal()" class="parchment-btn flex-1">取消</button>
         <button type="button" id="btnSaveProfileModal" class="parchment-btn parchment-btn-crimson flex-1">確認變更</button>
@@ -1474,5 +1524,8 @@
   <script src="js/core/operation-ui.js"></script>
   <script src="js/core/identity.js"></script>
   <script src="js/core/app.js"></script>
+  <script src="js/core/adventures.js"></script>
+  <script src="js/core/career.js"></script>
+  <script src="js/core/spectators.js"></script>
 </body>
 </html>

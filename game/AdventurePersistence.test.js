@@ -284,6 +284,75 @@ test('malformed/unsupported snapshots and runtime handles fail closed', async t 
   assert.throws(() => createRoomSnapshot(h.room), /執行期/);
 });
 
+test('directory exposes only active memberships and safe checkpoint metadata, including a live unsaved adventure', async t => {
+  const h = fixture(t, { count: 4 });
+  let list = await h.persistence.list(h.room.leaderId);
+  assert.equal(list.adventures.length, 1); assert.equal(list.adventures[0].saveVersion, 0);
+  assert.equal(list.adventures[0].active, true); assert.equal(list.adventures[0].savedAt, null);
+  assert.deepEqual((await h.persistence.list('outsider')).adventures, []);
+  await boundary(h);
+  list = await h.persistence.list(h.sockets[1].id);
+  assert.equal(list.adventures.length, 1); assert.equal(list.adventures[0].memberCount, 4);
+  assert.equal(list.adventures[0].checkpointFloor, 1); assert.equal(list.adventures[0].isLeader, false);
+  assert.equal(list.adventures[0].checkpoint, undefined); assert.equal(list.adventures[0].lease_owner, undefined);
+  await h.persistence.leave(h.room, h.sockets[1].id); h.room.removePlayer(h.sockets[1].id);
+  assert.deepEqual((await h.persistence.list(h.sockets[1].id)).adventures, []);
+  h.room.endBattle(h.room.leaderId); await h.persistence.finish(h.room);
+  assert.deepEqual((await h.persistence.list(h.room.leaderId)).adventures, []);
+});
+
+test('directory paginates without downloading snapshots', async t => {
+  const h = fixture(t); await boundary(h);
+  const original = h.store.rows.get(h.room.adventureId);
+  for (let i = 0; i < 27; i++) {
+    const row = structuredClone(original); row.id = randomUUID(); h.store.rows.set(row.id, row);
+  }
+  const first = await h.persistence.list(h.room.leaderId);
+  const second = await h.persistence.list(h.room.leaderId, first.nextOffset);
+  assert.equal(first.adventures.length, 25); assert.equal(first.hasMore, true);
+  assert.equal(second.adventures.length, 3); assert.equal(second.hasMore, false);
+  assert.equal(new Set([...first.adventures, ...second.adventures].map(item => item.id)).size, 28);
+  assert.ok(JSON.stringify(first).length < 16000);
+});
+
+test('leader-only metadata handoff survives restart without changing the progress checkpoint or skill succession rules', async t => {
+  let time = Date.now(); const now = () => time;
+  const h = fixture(t, { count: 4, store: new MemoryAdventureStore({ now }), now }); await boundary(h);
+  const previousLeader = h.room.leaderId, targetId = h.sockets[1].id;
+  const oldCheckpoint = structuredClone(h.store.rows.get(h.room.adventureId).checkpoint);
+  assert.equal((await h.persistence.transferLeader(h.room, h.sockets[2].id, targetId)).success, false);
+  assert.equal((await h.persistence.transferLeader(h.room, previousLeader, targetId)).success, true);
+  const row = h.store.rows.get(h.room.adventureId);
+  assert.equal(row.leader_id, targetId); assert.equal(row.save_version, 1); assert.deepEqual(row.checkpoint, oldCheckpoint);
+  assert.equal(h.room.pendingLeaderTransfer, true);
+  const directory = await h.persistence.list(targetId); assert.equal(directory.adventures[0].isLeader, true);
+  h.persistence.close(); time += LEASE_MS + 1;
+  const next = new AdventurePersistence(h.store, { now }); t.after(() => next.close());
+  const restored = await next.restore(row.id, previousLeader, restoreOptions());
+  assert.equal(restored.leaderId, targetId); assert.equal(restored.pendingLeaderTransfer, true);
+  assert.equal(restored.lockedLeaderRole, oldCheckpoint.data.lockedLeaderRole);
+  assert.equal(restored.players[previousLeader].role, h.room.players[previousLeader].role);
+});
+
+test('pre-checkpoint handoff registers membership metadata without creating progress', async t => {
+  const h = fixture(t, { count: 4 }); const target = h.sockets[1].id;
+  assert.equal((await h.persistence.transferLeader(h.room, h.room.leaderId, target)).success, true);
+  const row = h.store.rows.get(h.room.adventureId);
+  assert.equal(row.checkpoint, null); assert.equal(row.save_version, 0); assert.equal(row.leader_id, target);
+  await boundary(h); assert.equal(row.save_version, 1); assert.equal(row.checkpoint.data.leaderId, target);
+});
+
+test('a permanently departing captain passes leadership in the existing formation order', async t => {
+  const h = fixture(t, { count: 4 }); await boundary(h);
+  const former = h.room.leaderId, successor = h.sockets[3].id;
+  h.room.memberIds = [former, successor, h.sockets[2].id, h.sockets[1].id];
+  await h.persistence.leave(h.room, former); h.room.removePlayer(former);
+  assert.equal(h.room.leaderId, successor);
+  const row = h.store.rows.get(h.room.adventureId);
+  assert.equal(row.leader_id, successor); assert.equal(row.save_version, 1);
+  assert.equal(row.members.includes(former), false);
+});
+
 test('renewal failure freezes authority, and pre-checkpoint last-member departure creates only an abandoned tombstone', async t => {
   const h = fixture(t); await boundary(h);
   h.store.call = async () => { throw new Error('network offline'); };
@@ -312,6 +381,9 @@ test('cloud: actual RPC atomic overwrite, permissions, recovery fencing, termina
   });
   await cloud.request('/rest/v1/game_players', { method: 'POST', body: ids.map(id => ({ id, display_name: 'Phase2 automated QA' })) });
   await assert.rejects(cloud.request('/rest/v1/rpc/game_adventure', { publicRead: true, method: 'POST', body: { action: 'load', payload: {} } }));
+  await assert.rejects(cloud.request('/rest/v1/rpc/game_adventure_directory', { publicRead: true, method: 'POST', body: { player_id: ids[0] } }));
+  await assert.rejects(cloud.request('/rest/v1/rpc/game_adventure_transfer', { publicRead: true, method: 'POST', body: { payload: {} } }));
+  assert.deepEqual((await store.list(randomUUID())).adventures, []);
   for (const count of [1, 4, 10]) {
     metrics.startedAt = performance.now();
     const sockets = ids.slice(0, count).map(id => ({ id, join() {}, emit() {}, data: { identity: { display_name: 'Phase2 QA' } } }));
@@ -332,6 +404,19 @@ test('cloud: actual RPC atomic overwrite, permissions, recovery fencing, termina
     for (let floor = 2; floor <= 12; floor++) { room.floor = floor; room.startRouteSelection({ skipIntro: true }); assert.equal(await p.saveBoundary(room), true); }
     const rows = await cloud.request('/rest/v1/game_adventures?id=eq.' + room.adventureId + '&select=id,save_version,checkpoint_floor');
     assert.equal(rows.length, 1); assert.equal(rows[0].save_version, 12); assert.equal(rows[0].checkpoint_floor, 12);
+    const directory = await p.list(ids[0]);
+    assert.equal(directory.adventures.length, 1); assert.equal(directory.adventures[0].checkpointFloor, 12);
+    assert.equal(directory.adventures[0].memberCount, count); assert.equal(directory.adventures[0].checkpoint, undefined);
+    assert.ok(JSON.stringify(directory).length < 1600);
+    if (count > 1) {
+      const before = (await store.call('load', { id: room.adventureId, playerId: ids[0] })).checkpoint;
+      await assert.rejects(store.call('transfer', { ...p.payload(room), playerId: randomUUID(), targetId: ids[1] }), /版本/);
+      assert.equal((await p.transferLeader(room, ids[0], ids[1])).success, true);
+      assert.deepEqual((await store.call('load', { id: room.adventureId, playerId: ids[0] })).checkpoint, before);
+      await cloud.request('/rest/v1/game_players?id=eq.' + ids[1], { method: 'PATCH', body: { display_name: 'Phase3 renamed QA' } });
+      assert.equal((await store.list(ids[0])).adventures[0].leaderName, 'Phase3 renamed QA');
+      await cloud.request('/rest/v1/game_players?id=eq.' + ids[1], { method: 'PATCH', body: { display_name: 'Phase2 automated QA' } });
+    }
     const restored = new AdventurePersistence(store); managers.push(restored);
     await assert.rejects(restored.restore(saved.id, room.leaderId, restoreOptions()), /另一個伺服器/);
     p.close(); // Abrupt process loss: expire only this test-owned row's lease.
@@ -339,6 +424,7 @@ test('cloud: actual RPC atomic overwrite, permissions, recovery fencing, termina
     const [a, b] = await Promise.all(sockets.slice(0, Math.min(count, 2)).map(s => restored.restore(saved.id, s.id, restoreOptions())));
     if (b) assert.equal(a, b);
     assert.equal(a.floor, 12); assert.deepEqual(a.currentRoutes, room.currentRoutes); assert.equal(a.memberIds.length, count);
+    assert.equal(a.leaderId, room.leaderId);
     const version = a.checkpoint.saveVersion;
     room.floor++; room.startRouteSelection(); assert.equal(await p.saveBoundary(room), false);
     assert.equal(room.checkpoint.status, 'failed');

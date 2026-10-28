@@ -42,6 +42,47 @@ export class AdventurePersistence {
     return promise;
   }
   hasLostAuthority(room) { this.blocked(room); return !!runtime.get(room)?.lost; }
+  async list(playerId, offset = 0) {
+    const page = await this.store.list(playerId, offset);
+    const entries = new Map(page.adventures.map(item => [item.id, item]));
+    // Before the first checkpoint, only a live room can be rejoined. It must
+    // never be presented as a durable checkpoint after a server restart.
+    if (!offset) for (const room of this.active.values()) {
+      if (room.players[playerId] && !room.checkpoint.saveVersion && !runtime.get(room).ended && !runtime.get(room).lost &&
+          !['GAME_OVER', 'VICTORY'].includes(room.state)) entries.set(room.adventureId, { id: room.adventureId,
+        leaderId: room.leaderId, leaderName: room.players[room.leaderId]?.name, memberCount: room.memberIds.length,
+        checkpointFloor: null, savedAt: null, saveVersion: 0, status: 'active' });
+    }
+    const adventures = [...entries.values()].filter(item => {
+      const room = this.active.get(item.id);
+      return !room || (!runtime.get(room).ended && !['GAME_OVER', 'VICTORY'].includes(room.state) && !!room.players[playerId]);
+    }).map(item => {
+      const room = this.active.get(item.id);
+      const live = room && !this.hasLostAuthority(room);
+      return { ...item, name: `深淵遠征 · ${item.id.slice(0, 8).toUpperCase()}`,
+        leaderId: live ? room.leaderId : item.leaderId,
+        leaderName: live ? room.players[room.leaderId]?.name : item.leaderName,
+        isLeader: (live ? room.leaderId : item.leaderId) === playerId,
+        active: !!live, liveState: live ? room.state : null, liveFloor: live ? room.floor : null };
+    });
+    return { adventures, hasMore: page.hasMore, nextOffset: offset + page.adventures.length };
+  }
+  async transferLeader(room, playerId, targetId) {
+    if (room.leaderId !== playerId || !room.players[targetId] || targetId === playerId) return { success: false, message: '只有隊長可以交接給其他正式隊員' };
+    const c = runtime.get(room);
+    if (!c || c.ended) return room.transferLeader(playerId, targetId);
+    if (this.blocked(room)) return { success: false, message: '請等待保存完成後再交接隊長' };
+    c.membershipPending = true;
+    try {
+      await this.enqueue(room, async () => {
+        this.accept(room, await this.store.call('transfer', { ...this.payload(room), playerId, targetId }));
+      });
+      return room.transferLeader(playerId, targetId);
+    } catch {
+      this.loseAuthority(room);
+      return { success: false, message: '交接確認中斷，請重新連線確認隊長身分' };
+    } finally { c.membershipPending = false; }
+  }
   payload(room) {
     const c = runtime.get(room);
     return { id: room.adventureId, owner: c.owner, generation: c.generation, version: c.version,
@@ -70,6 +111,7 @@ export class AdventurePersistence {
     room.checkpoint.status = 'saving'; room.checkpoint.message = '正在保存路線檢查點，完成後即可投票。';
     job.promise = this.enqueue(room, async () => {
       try {
+        if (room.career) await room.career.flush(room);
         const start = performance.now();
         const row = await this.store.call('save', { ...this.payload(room), key: job.key, snapshot: job.snapshot });
         metrics.record('checkpoint.write.ms', performance.now() - start);
@@ -109,6 +151,7 @@ export class AdventurePersistence {
       try {
         // A lost HTTP response can mean the checkpoint committed. Resolve the
         // same idempotency key before CAS-writing the terminal metadata.
+        if (room.career) await room.career.flush(room);
         if (c.job?.snapshot && !c.job.confirmed) {
           this.accept(room, await this.store.call('save', { ...this.payload(room), key: c.job.key, snapshot: c.job.snapshot }));
           c.job.confirmed = true;
@@ -128,6 +171,12 @@ export class AdventurePersistence {
     if (this.blocked(room)) throw new Error('請先完成保存或重試後再永久離隊');
     c.membershipPending = true;
     try { await this.enqueue(room, async () => {
+      if (room.memberIds.length === 1) room.career?.finish(room, false);
+      if (room.career) await room.career.flush(room);
+      // Preserve Room.removePlayer's formation-order succession even though DB
+      // members created in one transaction share the same joined_at timestamp.
+      const successor = room.leaderId === playerId ? room.memberIds.find(id => id !== playerId) : null;
+      if (successor) this.accept(room, await this.store.call('transfer', { ...this.payload(room), playerId, targetId: successor }));
       const row = await this.store.call('leave', { ...this.payload(room), playerId });
       this.accept(room, row);
       if (row.status === 'abandoned') { c.ended = true; room.checkpoint.status = 'ended'; this.active.delete(room.adventureId); }
@@ -174,7 +223,7 @@ export class AdventurePersistence {
         const row = await this.store.call('claim', { id, playerId, owner: randomUUID() });
         try {
           if (row.checkpoint?.adventureId !== id) throw new Error('存檔冒險身分不一致');
-          room = restoreRoomSnapshot(Room, row.checkpoint, code(), io, row.members);
+          room = restoreRoomSnapshot(Room, row.checkpoint, code(), io, row.members, row.leader_id);
           this.attach(room, row); room.restoredFromCheckpoint = true;
           room.checkpoint.boundaryFloor = room.floor; room.checkpoint.presentationId = room.routePresentationId;
           return room;

@@ -5,6 +5,11 @@
 const socket = io({ autoConnect: false, auth: { devMode: location.pathname === '/dev' } });
 const emitConnected = socket.emit.bind(socket);
 socket.emit = (event, ...args) => {
+  if (window.SpectatorView?.isWatching() && !window.SpectatorView.canSend(event)) {
+    const callback = args.at(-1);
+    if (typeof callback === 'function') callback({ success: false, message: '觀戰模式僅供觀看' });
+    return socket;
+  }
   if (!socket.connected) {
     const callback = args.at(-1);
     if (typeof callback === 'function') callback({ success: false, message: '尚未連線，請先登入或等候重新連線' });
@@ -880,6 +885,7 @@ socket.on('player:identity', ({ player }) => {
           (roomState && roomState.adventureId !== recent.adventureId)) return;
       socket.timeout(15000).emit('adventure:restore', { adventureId: recent.adventureId }, (error, result) => {
         if (epoch !== recentAdventureRestoreEpoch) return;
+        if (result?.success && result.restoredFromCheckpoint) showToast('已恢復最後保存的路線檢查點；其後尚未保存的戰鬥、購物或事件進度可能已遺失。', 'warning', 9000);
         if (result?.code === 'ENDED') { try { localStorage.removeItem('dungeon_recent_adventure'); } catch {} }
         if (result?.code === 'BUSY' && performance.now() < deadline) {
           if (!attempt) showToast('等待舊伺服器的安全租約到期，稍後會自動重試恢復冒險。', 'warning', 6000);
@@ -922,35 +928,34 @@ window.addEventListener('studio:content-ready',()=>{
 
 let pendingAuthoritativeState = null;
 
-let restoredCheckpointNotice = null;
 function updateCheckpointNotice(state) {
   const notice = document.getElementById('checkpointNotice');
   const text = document.getElementById('checkpointNoticeText');
   const retry = document.getElementById('btnRetryCheckpoint');
   const cp = state.checkpoint;
-  if (notice) notice.classList.toggle('hidden', !cp || cp.status === 'none' || cp.status === 'ended');
-  if (text && cp) text.textContent = cp.message || (cp.status === 'saved'
-    ? `${cp.durable ? '雲端檢查點已保存' : '本機測試檢查點（未保存至雲端）'}：第 ${cp.floor} 層 · 版本 ${cp.saveVersion}` : '');
-  if (retry) retry.classList.toggle('hidden', cp?.status !== 'failed');
+  const careerFailed = !!state.careerStatus?.failed;
+  if (notice) notice.classList.toggle('hidden', cp?.status !== 'failed' && !careerFailed);
+  if (text) text.textContent = cp?.status === 'failed' ? cp.message || '保存未完成，請重試。'
+    : careerFailed ? '生涯統計尚未同步，進度會在安全節點等待確認。請重試。' : '';
+  if (retry) retry.classList.toggle('hidden', cp?.status !== 'failed' && !careerFailed);
+  const activeAdventure = !!state.adventureId && !['LOBBY', 'GAME_OVER', 'VICTORY'].includes(state.state);
+  document.getElementById('btnDetachAdventure')?.classList.toggle('hidden', !activeAdventure);
+  document.getElementById('btnCopyAdventureInvite')?.classList.toggle('hidden', !activeAdventure || state.leaderId !== myId);
   try {
     if (state.adventureId) {
       if (cp?.status === 'ended') localStorage.removeItem('dungeon_recent_adventure');
       else localStorage.setItem('dungeon_recent_adventure', JSON.stringify({ adventureId: state.adventureId, playerId: myId }));
     }
   } catch {}
-  const key = state.adventureId;
-  if (state.restoredFromCheckpoint && restoredCheckpointNotice !== key) {
-    restoredCheckpointNotice = key;
-    showToast('已恢復最後成功保存的路線檢查點；檢查點之後尚未保存的戰鬥、購物或事件進度可能已遺失。', 'warning', 9000);
-  }
 }
 document.getElementById('btnRetryCheckpoint')?.addEventListener('click', () => {
-  socket.timeout(15000).emit('adventure:retry_save', (error, result) => {
+  const event = operationState?.careerStatus?.failed && operationState?.checkpoint?.status !== 'failed' ? 'player:career_retry' : 'adventure:retry_save';
+  socket.timeout(15000).emit(event, (error, result) => {
     if (error || !result?.success) showToast(result?.message || '保存尚未完成，請稍後重試。', 'warning', 6000);
   });
 });
 
-socket.on('room:update', (state) => {
+function receiveRoomState(state) {
   const updateStarted = GamePerf.enabled ? performance.now() : 0;
   if (GamePerf.enabled) GamePerf.received.set(state, updateStarted);
   if (state.code === operationState?.code && state.stateVersion < latestStateVersion) return;
@@ -958,7 +963,8 @@ socket.on('room:update', (state) => {
   operationState = state;
   isReconcilingOperations = true;
   try { operations.reconcile(latestStateVersion); } finally { isReconcilingOperations = false; }
-  const amIInRoom = Boolean(myId && state.players && state.players.some(p => p.id === myId));
+  const amIInRoom = Boolean(myId && (state.viewer?.spectator || state.players?.some(p => p.id === myId)));
+  window.SpectatorView?.sync(state);
   if (amIInRoom) updateCheckpointNotice(state);
   if (!amIInRoom) {
     combatQueueController?.abort();
@@ -998,6 +1004,9 @@ socket.on('room:update', (state) => {
     GamePerf.record('state.dom.ms', performance.now() - updateStarted);
     requestAnimationFrame(() => GamePerf.record('state.nextFrame.ms', performance.now() - updateStarted));
   }
+}
+socket.on('room:update', state => {
+  if (!window.SpectatorView?.receiveState(state)) receiveRoomState(state);
 });
 
 function showPrologueSkipNotice(message = '隊長已跳過開頭序章') {
@@ -1123,6 +1132,11 @@ function switchView(viewName) {
   if (viewName === 'entry') {
     if (elements.roomBadge) elements.roomBadge.classList.add('hidden');
     if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
+    if (!roomState) {
+      elements.btnOpenInventory?.classList.add('hidden');
+      const header = document.getElementById('headerCenterInfo');
+      if (header) { header.style.opacity = '0'; header.style.pointerEvents = 'none'; }
+    }
   }
 }
 
@@ -1349,6 +1363,7 @@ function renderApp() {
 
   // 檢查並渲染戰利品裝備抉擇彈窗 (上限 4 件與手動替換)
   renderPendingDropModal(me);
+  window.SpectatorView?.render();
 }
 
 let selectedReplaceIndex = -1;
@@ -3656,7 +3671,7 @@ function randomizeName() {
 
 function goToEntryScreen(screenId) {
   playSound('click');
-  const screens = ['screenRecruit', 'screenLobbyMenu', 'screenServerList'];
+  const screens = ['screenRecruit', 'screenLobbyMenu', 'screenServerList', 'screenAdventures'];
   screens.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -3863,6 +3878,7 @@ function openProfileModal() {
   if (modal) {
     ModalMotion.show(modal);
     modal.style.display = 'flex';
+    void window.CareerProfile?.load();
   }
 }
 window.openProfileModal = openProfileModal;
@@ -4153,14 +4169,20 @@ if (elements.btnToggleReady) {
 
 // 離開隊伍 / 退出房間回到大廳選單
 let exitRoomPending = false;
-async function exitRoomToLobbyMenu() {
+async function exitRoomToLobbyMenu({ temporary = false } = {}) {
   if (exitRoomPending) return;
   exitRoomPending = true;
-  const result = await new Promise(resolve => socket.timeout(15000).emit('leave_party', (error, reply) =>
+  const result = await new Promise(resolve => socket.timeout(15000).emit(temporary ? 'adventure:detach' : 'leave_party', (error, reply) =>
     resolve(error ? { success: false, message: '離隊尚未確認，請保持連線並稍後重試。' } : reply)));
   exitRoomPending = false;
   if (!result?.success) { showToast(result?.message || '暫時無法離隊', 'warning', 6000); return; }
-  try { localStorage.removeItem('dungeon_recent_adventure'); } catch {}
+  battlePhaseController?.abort(); combatQueueController?.abort(); routePresentationController?.abort();
+  trapPresentationController?.abort(); chestPresentationController?.abort(); victoryPresentationController?.abort();
+  routeNarrativeDoneKey = null; routeInteractionReadyKey = null; pendingAuthoritativeState = null;
+  operations.clear(); operationState = null; latestStateVersion = -1;
+  recentAdventureRestoreEpoch++;
+  clearTimeout(recentAdventureRestoreTimer);
+  if (!temporary) { try { localStorage.removeItem('dungeon_recent_adventure'); } catch {} }
   document.getElementById('checkpointNotice')?.classList.add('hidden');
   playSound('click');
   sfx?.stopAll();
@@ -4187,6 +4209,8 @@ async function exitRoomToLobbyMenu() {
     presentationManager.clear();
   }
   if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
+  document.getElementById('btnDetachAdventure')?.classList.add('hidden');
+  document.getElementById('btnCopyAdventureInvite')?.classList.add('hidden');
   if (elements.roomBadge) elements.roomBadge.classList.add('hidden');
   switchView('entry');
   goToEntryScreen('screenLobbyMenu');
@@ -4868,7 +4892,9 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     socket.emit('battle:presentation_complete', { round, presentationId });
   }
 }
-socket.on('battle:presentation_queue', async ({ queue, round, monsterKilled, presentationId }) => {
+socket.on('battle:presentation_queue', async (packet) => {
+  if (roomState?.viewer?.spectator) { window.SpectatorView.queue(packet); return; }
+  const { queue, round, monsterKilled, presentationId } = packet;
   await runPresentationQueue(queue, round, monsterKilled, presentationId);
 });
 

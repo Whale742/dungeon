@@ -46,6 +46,8 @@ export function reconnectPlayer(room, socket, { newConnection = false } = {}) {
     room.pendingPresentationAcks.add(socket.id);
   }
   if (player.connected && player.name === socket.data.identity.display_name) {
+    room.career?.participate(room, socket.id);
+    room.career?.resume(room);
     socket.join(room.code);
     socket.emit('room:update', room.getClientState());
     return true;
@@ -69,6 +71,8 @@ export function reconnectPlayer(room, socket, { newConnection = false } = {}) {
     }
   }
   if (room.state === 'CHOOSING_ROUTE') room.checkRouteVoteCompletion();
+  room.career?.participate(room, socket.id);
+  room.career?.resume(room);
   room.broadcastState();
   return true;
 }

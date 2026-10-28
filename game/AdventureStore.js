@@ -4,8 +4,14 @@ export const LEASE_MS = 60000;
 export class AdventureStore {
   constructor(cloud = new SupabaseRest()) { this.cloud = cloud; this.durable = true; }
   async call(action, payload) {
-    const result = await this.cloud.request('/rest/v1/rpc/game_adventure', { method: 'POST', body: { action, payload } });
+    const result = await this.cloud.request('/rest/v1/rpc/' + (action === 'transfer' ? 'game_adventure_transfer' : 'game_adventure'),
+      { method: 'POST', body: action === 'transfer' ? { payload } : { action, payload } });
     return checked(result);
+  }
+  async list(playerId, offset = 0) {
+    return checked(await this.cloud.request('/rest/v1/rpc/game_adventure_directory', {
+      method: 'POST', body: { player_id: playerId, page_offset: offset }
+    }));
   }
 }
 function checked(result) {
@@ -17,11 +23,19 @@ function checked(result) {
 
 // Explicit tests/local development adapter. Never a fallback for cloud failures.
 export class MemoryAdventureStore {
-  constructor({ now = Date.now } = {}) { this.rows = new Map(); this.durable = false; this.now = now; }
+  constructor({ now = Date.now, nameOf = () => null } = {}) { this.rows = new Map(); this.durable = false; this.now = now; this.nameOf = nameOf; }
+  async list(playerId, offset = 0) {
+    const rows = [...this.rows.values()].filter(r => r.status === 'active' && r.checkpoint && r.members.includes(playerId))
+      .sort((a, b) => b.saved_at.localeCompare(a.saved_at) || a.id.localeCompare(b.id));
+    return { adventures: rows.slice(offset, offset + 25).map(r => ({ id: r.id, leaderId: r.leader_id,
+      leaderName: this.nameOf(r.leader_id) || r.checkpoint.data.players[r.leader_id]?.name || '冒險者',
+      memberCount: r.members.length, checkpointFloor: r.checkpoint_floor, checkpointState: r.checkpoint_state,
+      savedAt: r.saved_at, saveVersion: r.save_version, status: r.status })), hasMore: rows.length > offset + 25 };
+  }
   async call(action, x) {
     let row = this.rows.get(x.id);
     const now = this.now();
-    if (!row && ['save', 'finish', 'leave'].includes(action) && x.version === 0) {
+    if (!row && ['save', 'finish', 'leave', 'transfer'].includes(action) && x.version === 0) {
       row = { id: x.id, leader_id: x.leaderId, status: 'active', save_version: 0, checkpoint: null,
         checkpoint_key: null, lease_owner: x.owner, lease_generation: 1, lease_until: now + LEASE_MS,
         members: [...x.members], saved_at: null };
@@ -53,6 +67,10 @@ export class MemoryAdventureStore {
       } else if (JSON.stringify(row.checkpoint) !== JSON.stringify(x.snapshot)) return checked({ error: 'CONFLICT' });
       row.lease_until = now + LEASE_MS;
     } else if (action === 'renew') row.lease_until = now + LEASE_MS;
+    else if (action === 'transfer') {
+      if (row.leader_id !== x.playerId || !row.members.includes(x.targetId)) return checked({ error: 'CONFLICT' });
+      row.leader_id = x.targetId;
+    }
     else if (action === 'release') row.lease_until = now;
     else if (action === 'finish') {
       if (row.save_version !== x.version || !['completed', 'failed', 'abandoned'].includes(x.status)) return checked({ error: 'CONFLICT' });

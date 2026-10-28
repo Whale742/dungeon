@@ -532,8 +532,9 @@ function renderRouteChoice(me) {
   const myVoteId = roomState.routeVotes?.[myId];
   const locallyReady = routeInteractionReadyKey === key;
   const checkpointBlocked = roomState.checkpoint && !['none', 'saved'].includes(roomState.checkpoint.status);
-  const enabled = locallyReady && !roomState.isNarrating && !roomState.isPaused && !presentationManager.isBlocking && !checkpointBlocked;
-  elements.routeStatusText.textContent = checkpointBlocked ? (roomState.checkpoint.message || '等待檢查點安全保存。')
+  const enabled = !roomState.viewer?.spectator && locallyReady && !roomState.isNarrating && !roomState.isPaused && !presentationManager.isBlocking && !checkpointBlocked;
+  elements.routeStatusText.textContent = roomState.viewer?.spectator ? '觀戰模式：等待正式隊員選擇路線。'
+    : checkpointBlocked ? (roomState.checkpoint.status === 'failed' ? roomState.checkpoint.message : '正在準備路線，請稍候。')
     : myVoteId ? '你已完成投票，等待隊友抉擇。'
     : me?.hp <= 0 ? '你已陣亡，請觀看隊友抉擇。'
     : locallyReady && roomState.isNarrating ? '等待全體隊員閱讀完畢。'

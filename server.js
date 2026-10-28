@@ -2,6 +2,9 @@ import { Identity, publicPlayer, cookieToken, digest } from './game/Identity.js'
 import { playerSocket, disconnectPlayer, reconnectPlayer } from './game/player-connection.js';
 import { AdventureStore, MemoryAdventureStore } from './game/AdventureStore.js';
 import { AdventurePersistence } from './game/AdventurePersistence.js';
+import { CareerStats } from './game/CareerStats.js';
+import { Spectators, spectatorReads, spectatorState } from './game/Spectators.js';
+import { CareerStore, MemoryCareerStore } from './game/CareerStore.js';
 import { handleOperation, startEventLoopMetrics, metrics } from './game/performance.js';
 import express from 'express';
 import http from 'http';
@@ -73,8 +76,11 @@ const activeConnections = new Map();
 const revokedSessionHashes = new Map();
 const identityVersions = new Map();
 const identity = new Identity();
-const adventures = new AdventurePersistence(process.env.IDENTITY_STORE === 'memory' ? new MemoryAdventureStore() : new AdventureStore());
+const adventures = new AdventurePersistence(identity.store.durable === false
+  ? new MemoryAdventureStore({ nameOf: id => identity.store.players.get(id)?.display_name }) : new AdventureStore());
 process.once('exit', () => adventures.close());
+const career = new CareerStats(identity.store.durable === false ? new MemoryCareerStore() : new CareerStore());
+process.once('exit', () => career.close());
 app.use('/api/player', express.json({ limit: '4kb' }));
 identity.mount(app, {
   revoke(id, change = {}) {
@@ -130,8 +136,13 @@ io.on('connection', (transport) => {
     if (activeConnections.get(socket.id) !== transport || transport.data.identity.expires <= Date.now()) {
       next(new Error('SESSION_EXPIRED')); transport.emit('player:session_invalid'); transport.disconnect(true);
     } else {
+      if (socket.data.spectating && !spectatorReads.has(_packet[0])) {
+        const reply = _packet.at(-1);
+        if (typeof reply === 'function') reply({ success: false, message: '觀戰者不能操作隊伍，請先離開觀戰' });
+        return;
+      }
       const room = rooms.get(socketToRoom.get(socket.id));
-      const allowedWhileSaving = ['room:resync', 'room:list', 'route:interaction_ready', 'adventure:retry_save',
+      const allowedWhileSaving = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry', 'route:interaction_ready', 'adventure:retry_save',
         'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'narrative:accelerate', 'player:rename'];
       if (room?.adventureId && adventures.blocked(room) && !allowedWhileSaving.includes(_packet[0])) {
         const reply = _packet.at(-1);
@@ -157,34 +168,88 @@ io.on('connection', (transport) => {
   const existing = rooms.get(socketToRoom.get(socket.id));
   if (existing && reconnectPlayer(existing, socket, { newConnection: true })) socket.emit('studio:content', existing.studioContent.snapshot);
 
+  socket.on('spectator:join', (data, callback) => {
+    const reply = typeof callback === 'function' ? callback : () => {};
+    try {
+      identity.limit('spectator:' + socket.id, 30);
+      if (rooms.get(socketToRoom.get(socket.id))?.players[socket.id]) throw new Error('請先暫離或離開目前隊伍');
+      const room = rooms.get(String(data?.code || '').trim().toUpperCase());
+      if (!room || room.isDev || ['GAME_OVER', 'VICTORY'].includes(room.state)) throw new Error('找不到可觀戰的房間');
+      const configured = Number(process.env.SPECTATOR_LIMIT ?? 5);
+      room.spectators ||= new Spectators(room, io, Number.isInteger(configured) ? Math.max(0, Math.min(50, configured)) : 5);
+      const result = room.spectators.join(socket);
+      if (result.success) socket.data.spectating = room.code;
+      reply(result);
+    } catch (error) { reply({ success: false, message: error.message }); }
+  });
+  socket.on('spectator:leave', callback => {
+    rooms.get(socket.data.spectating)?.spectators?.leave(socket.id); socket.data.spectating = null;
+    if (typeof callback === 'function') callback({ success: true });
+  });
+
+  socket.on('player:career', async (data, callback) => {
+    const reply = typeof data === 'function' ? data : callback;
+    try {
+      identity.limit('career:' + socket.id, 60);
+      const result = await career.read(socket.id);
+      if (activeConnections.get(socket.id) !== transport) return;
+      if (typeof reply === 'function') reply({ success: true, ...result });
+    } catch { if (typeof reply === 'function') reply({ success: false, message: '生涯統計暫時無法讀取，請稍後重試。' }); }
+  });
+  socket.on('player:career_retry', async callback => {
+    try {
+      const room = rooms.get(socketToRoom.get(socket.id));
+      if (!room?.players[socket.id]) throw new Error('找不到隊伍');
+      await career.flush(room);
+      if (typeof callback === 'function') callback({ success: true });
+    } catch { if (typeof callback === 'function') callback({ success: false, message: '生涯統計仍未完成同步，請稍後重試。' }); }
+  });
+
+  socket.on('adventure:list', async (data, callback) => {
+    const reply = typeof data === 'function' ? data : callback;
+    try {
+      const offset = typeof data === 'function' ? 0 : data?.offset ?? 0;
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10000) throw new Error('無效的冒險列表頁碼');
+      const result = await adventures.list(socket.id, offset);
+      if (activeConnections.get(socket.id) !== transport) return;
+      if (typeof reply === 'function') reply({ success: true, ...result });
+    } catch { if (typeof reply === 'function') reply({ success: false, message: '暫時無法讀取冒險列表，請稍後重試。' }); }
+  });
+
   socket.on('adventure:restore', async (data, callback) => {
     try {
       const id = data?.adventureId;
       if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) throw new Error('無效的冒險代碼');
       const current = rooms.get(socketToRoom.get(socket.id));
       if (current && current.adventureId !== id) throw new Error('請先離開目前房間');
+      const before = adventures.active.get(id);
       const restored = await adventures.restore(id, socket.id, { Room, code: generateRoomCode, io });
+      career.attach(restored);
       if (activeConnections.get(socket.id) !== transport) throw new Error('連線已變更，請重新連線');
       const afterRestore = rooms.get(socketToRoom.get(socket.id));
       if (afterRestore && afterRestore.adventureId !== id) throw new Error('已加入其他房間，請先離隊');
       // Replace only a fenced-out copy of this same adventure. Never overwrite an
       // active room with an older checkpoint or pull a member from another party.
       for (const [code, old] of rooms) if (old !== restored && old.adventureId === id) {
+        old.spectators?.close();
         old.clearTimer(); rooms.delete(code);
         for (const playerId of old.memberIds) activeConnections.get(playerId)?.leave(code);
       }
       rooms.set(restored.code, restored);
+      socket.data.detachedAdventure = null;
       for (const playerId of restored.memberIds) {
+        const connected = activeConnections.get(playerId);
+        if (connected?.data.detachedAdventure === id && playerId !== socket.id) continue;
         const other = rooms.get(socketToRoom.get(playerId));
         if (other && other !== restored && other.adventureId !== id) continue;
         socketToRoom.set(playerId, restored.code);
-        const connected = activeConnections.get(playerId);
         if (connected) {
           connected.emit('studio:content', restored.studioContent.snapshot);
           reconnectPlayer(restored, playerSocket(connected), { newConnection: !restored.players[playerId].connected });
         }
       }
-      if (typeof callback === 'function') callback({ success: true, roomCode: restored.code, adventureId: id });
+      if (typeof callback === 'function') callback({ success: true, roomCode: restored.code, adventureId: id,
+        restoredFromCheckpoint: before !== restored && !!restored.restoredFromCheckpoint });
     } catch (error) { if (typeof callback === 'function') callback({ success: false, message: error.message, code: error.code }); }
   });
   socket.on('adventure:retry_save', async callback => {
@@ -194,7 +259,7 @@ io.on('connection', (transport) => {
   });
   socket.on('adventure:detach', callback => {
     const room = rooms.get(socketToRoom.get(socket.id));
-    if (room) { socket.leave(room.code); socketToRoom.delete(socket.id); disconnectPlayer(room, socket.id); }
+    if (room) { socket.data.detachedAdventure = room.adventureId || null; socket.leave(room.code); socketToRoom.delete(socket.id); disconnectPlayer(room, socket.id); }
     if (typeof callback === 'function') callback({ success: true });
   });
 
@@ -239,7 +304,7 @@ io.on('connection', (transport) => {
       const code = generateRoomCode();
       const room = new Room(code, socket, socket.data.identity.display_name, io, avatar);
       room.isDev = isDev;
-      if (!isDev) room.persistence = adventures;
+      if (!isDev) { room.persistence = adventures; room.career = career; }
       if (isDev) devController.register(room, socket);
       socket.emit('studio:content', room.studioContent.snapshot);
       rooms.set(code, room);
@@ -366,11 +431,11 @@ io.on('connection', (transport) => {
   });
 
   // 3.2 隊長轉移
-  socket.on('room:transfer_leader', ({ targetId }, callback) => {
+  socket.on('room:transfer_leader', async ({ targetId }, callback) => {
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
     if (!room) return;
-    const res = room.transferLeader(socket.id, targetId);
+    const res = await adventures.transferLeader(room, socket.id, targetId);
     if (typeof callback === 'function') callback(res);
   });
 
@@ -447,6 +512,8 @@ io.on('connection', (transport) => {
   });
 
   socket.on('room:resync', () => {
+    const watching = rooms.get(socket.data.spectating);
+    if (watching?.spectators?.members.has(socket.id)) { socket.emit('room:update', spectatorState(watching)); return; }
     const room = rooms.get(socketToRoom.get(socket.id));
     if (room) socket.emit('room:update', room.getClientState());
   });
@@ -719,8 +786,10 @@ io.on('connection', (transport) => {
       socketToRoom.delete(socket.id);
       room.removePlayer(socket.id);
       if (room.memberIds.length === 0) {
+        room.spectators?.close();
         room.clearTimer();
         rooms.delete(code);
+        career.release(room);
         console.log(`[清理] 房間 ${code} 已無玩家，已銷毀。`);
       }
     }
@@ -730,6 +799,7 @@ io.on('connection', (transport) => {
 
   // Transport loss preserves the character; explicit leave_party remains destructive.
   socket.on('disconnect', () => {
+    rooms.get(socket.data.spectating)?.spectators?.leave(socket.id);
     clearTimeout(expiry); devAccess.revoke(socket);
     if (activeConnections.get(socket.id) !== transport) return;
     activeConnections.delete(socket.id);

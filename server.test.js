@@ -56,6 +56,47 @@ export function request(socket, event, data) {
   });
 }
 
+test('ten members plus five spectator sockets are separate, capped, read-only and can reconnect without blocking members', { timeout: 40000 }, async t => {
+  const { connect } = await launch(t, false);
+  const leader = await connect(), code = (await request(leader, 'room:create', {})).roomCode;
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  const members = await Promise.all(Array.from({ length: 9 }, () => connect()));
+  const roles = ['mage', 'archer', 'assassin', 'bard', 'alchemist', 'druid', 'samurai', 'sage', 'augur'];
+  for (const [i, member] of members.entries()) {
+    assert.equal((await request(member, 'room:join', { code })).success, true);
+    await request(member, 'player:select_role', { roleKey: roles[i] }); await request(member, 'room:toggle_ready');
+  }
+  const observers = await Promise.all(Array.from({ length: 6 }, () => connect()));
+  for (const observer of observers.slice(0, 5)) {
+    const state = once(observer, 'room:update');
+    assert.equal((await request(observer, 'spectator:join', { code })).success, true);
+    assert.equal((await state)[0].viewer.spectator, true);
+  }
+  assert.equal((await request(observers[5], 'spectator:join', { code })).success, false);
+  const blocked = ['room:create', 'room:join', 'player:select_role', 'room:toggle_ready', 'game:start', 'route:vote',
+    'route:interaction_ready', 'battle:lock', 'battle:unlock', 'battle:select_target', 'battle:presentation_complete',
+    'battle:selection_ready', 'event:shop_action', 'inventory:craft', 'inventory:use_item', 'leave_party', 'adventure:restore',
+    'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'game:restart', 'dev:command', 'player:update_avatar', 'narrative:accelerate'];
+  for (const event of blocked) assert.equal((await request(observers[0], event, {})).success, false, event);
+  assert.equal((await request(observers[0], 'player:career', {})).stats.battles, 0);
+  assert.equal((await request(leader, 'game:start')).success, true);
+  await request(leader, 'prologue:skip'); await request(leader, 'event:shop_action', { action: 'leave' });
+  for (const member of members) await request(member, 'event:shop_action', { action: 'leave' });
+  const updated = once(observers[0], 'room:update'); observers[0].emit('room:resync');
+  const state = (await updated)[0]; assert.equal(state.players.length, 10); assert.equal(state.operationContexts, undefined);
+  const cookie = observers[0].sessionCookie;
+  observers[0].disconnect();
+  const reconnect = await connect(false, cookie);
+  assert.equal((await request(reconnect, 'spectator:join', { code })).success, true);
+  assert.equal((await request(reconnect, 'spectator:leave')).success, true);
+  assert.equal((await request(reconnect, 'room:create', {})).success, true);
+  // Closing the formal party ends observers without granting them membership.
+  const ended = once(observers[1], 'spectator:ended');
+  for (const member of members) await request(member, 'leave_party');
+  await request(leader, 'leave_party'); await ended;
+  assert.equal((await request(observers[1], 'room:create', {})).success, true);
+});
+
 test('adventure sockets enforce member authorization, active-room reuse, detach and permanent withdrawal', { timeout: 20000 }, async t => {
   const { connect } = await launch(t, false);
   const [leader, member, outsider] = await Promise.all([connect(), connect(), connect()]);
@@ -92,6 +133,52 @@ test('adventure sockets enforce member authorization, active-room reuse, detach 
   const terminal = await stateOf(leader);
   assert.equal(terminal.checkpoint.status, 'ended'); assert.equal(terminal.checkpoint.saveVersion, 1);
   assert.equal((await request(outsider, 'adventure:restore', { adventureId: saved.adventureId })).success, false);
+});
+
+test('a new device lists and rejoins the same account adventure without local cache or duplicate roles', { timeout: 25000 }, async t => {
+  const { connect, url } = await launch(t, false);
+  const [leader, member, outsider] = await Promise.all([connect(), connect(), connect()]);
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(member, 'room:join', { code });
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  await request(member, 'player:select_role', { roleKey: 'mage' }); await request(member, 'room:toggle_ready');
+  await request(leader, 'game:start'); await request(leader, 'prologue:next'); await request(member, 'prologue:next');
+  await request(leader, 'event:shop_action', { action: 'leave' }); await request(member, 'event:shop_action', { action: 'leave' });
+  const api = async (action, body, cookie) => {
+    const response = await fetch(url + '/api/player/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) });
+    assert.equal(response.status, 200); return { data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] };
+  };
+  const bound = await api('bind', { username: 'phase3_account', password: 'qa-only-password-123' }, leader.sessionCookie);
+  assert.equal(bound.data.player.playerId, leader.playerId);
+  const login = await api('login', { username: 'phase3_account', password: 'qa-only-password-123' });
+  const device = await connect(false, login.cookie);
+  await request(device, 'room:list');
+  assert.equal(device.playerId, leader.playerId);
+  assert.equal((await request(device, 'player:career', {})).stats.adventures, 1);
+  assert.equal((await request(outsider, 'player:career', { playerId: device.playerId, damage: 99999 })).stats.adventures, 0);
+  await request(device, 'adventure:detach');
+  const list = await request(device, 'adventure:list', {});
+  assert.equal(list.adventures.length, 1); assert.equal(list.adventures[0].memberCount, 2); assert.equal(list.adventures[0].isLeader, true);
+  const id = list.adventures[0].id;
+  // A peer reconnecting must not pull an intentionally detached player back in.
+  assert.equal((await request(member, 'adventure:restore', { adventureId: id })).success, true);
+  assert.equal((await request(device, 'room:create', {})).success, true);
+  await request(device, 'leave_party');
+  const spoof = await request(outsider, 'adventure:list', { playerId: leader.playerId });
+  assert.deepEqual(spoof.adventures, []);
+  assert.equal((await request(outsider, 'adventure:restore', { adventureId: id })).success, false);
+  assert.equal((await request(device, 'adventure:restore', { adventureId: id })).roomCode, code);
+  assert.equal((await request(member, 'room:transfer_leader', { targetId: device.playerId })).success, false);
+  assert.equal((await request(device, 'room:transfer_leader', { targetId: member.playerId })).success, true);
+  const transferred = await request(member, 'adventure:list', {});
+  assert.equal(transferred.adventures[0].isLeader, true); assert.equal(transferred.adventures[0].saveVersion, 1);
+  await api('name', { displayName: '新隊長' }, member.sessionCookie);
+  assert.equal((await request(device, 'adventure:list', {})).adventures[0].leaderName, '新隊長');
+  await request(device, 'room:list'); const update = once(device, 'room:update', { signal: t.signal }); device.emit('room:resync');
+  const state = (await update)[0]; assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === device.playerId).role, 'warrior');
+  assert.equal(state.leaderId, member.playerId);
+  assert.equal((await request(device, 'adventure:list', { offset: -1 })).success, false);
 });
 
 test('four real sockets use permanent IDs for route ACKs, reconnect barriers and voting', { timeout: 20000 }, async t => {

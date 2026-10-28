@@ -102,7 +102,7 @@ export function validateRoomSnapshot(snapshot) {
   return data;
 }
 
-export function restoreRoomSnapshot(Room, snapshot, code, io, activeMemberIds) {
+export function restoreRoomSnapshot(Room, snapshot, code, io, activeMemberIds, leaderId = null) {
   const start = performance.now();
   const data = validateRoomSnapshot(snapshot);
   const leader = data.players[data.leaderId];
@@ -132,6 +132,10 @@ export function restoreRoomSnapshot(Room, snapshot, code, io, activeMemberIds) {
   // existing recovery/leader-transfer rules to the last committed snapshot.
   for (const id of [...room.memberIds]) if (!activeMemberIds.includes(id)) room.removePlayer(id);
   if (!room.memberIds.length) throw new Error('冒險已無正式成員');
+  if (leaderId && room.leaderId !== leaderId) {
+    if (!room.players[leaderId]) throw new Error('存檔隊長成員關係不一致');
+    room.transferLeader(room.leaderId, leaderId);
+  }
   room.io = io;
   metrics.record('checkpoint.restore.ms', performance.now() - start);
   return room;
