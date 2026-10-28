@@ -79,7 +79,6 @@
 .presentation-floor.exit { opacity: 0; }
 body.presentation-floor-active .app-header,
 body.presentation-floor-active .narrative-controls,
-body.presentation-floor-active #floatingChatContainer { visibility: hidden !important; }
 .presentation-floor-content { text-align: center; padding: 24px; animation: floor-title-in 600ms 600ms both; }
 .presentation-floor-number { font-size: 20px; color: var(--gold); letter-spacing: .18em; }
 .presentation-floor-title { font-size: clamp(28px, 4vw, 48px); color: var(--light); margin: 18px 0; }

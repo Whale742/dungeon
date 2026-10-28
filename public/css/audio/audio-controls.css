@@ -1,4 +1,10 @@
 .bgm-control{position:relative}
+.bgm-volume-heading,.bgm-volume-actions{display:flex;align-items:center;gap:8px}
+.bgm-volume-heading{justify-content:space-between;margin-bottom:8px}
+#headerBurgerMenu #bgmVolumePanel label{margin:0}
+#headerBurgerMenu .bgm-mute-btn{width:28px;height:28px;min-width:28px;min-height:28px;padding:4px;justify-content:center}
+.bgm-mute-btn[aria-pressed="true"]{color:#fbbf24;border-color:currentColor}
+#bgmVolumeValue{min-width:4ch;text-align:right;font-variant-numeric:tabular-nums}
 .bgm-control button svg,#soundToggleIcon{width:22px;height:22px;flex-shrink:0}
 #soundToggleIcon{color:#fff}
 #bgmVolumePanel{position:absolute;right:0;top:calc(100% + 10px);width:220px;padding:16px;background:rgba(10,16,29,.95);border:1px solid #46516a;border-radius:12px;box-shadow:0 8px 28px #0008;z-index:100}

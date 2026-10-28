@@ -34,7 +34,6 @@
 @media(max-width:650px){.hud-companion{width:50px}.hud-companion img{width:50px;height:50px}.hud-companions{gap:8px;bottom:calc(100% + 12px)}#partyOverviewToggle{left:96px;top:104px}#partyOverview{left:12px;right:12px;top:142px;max-height:38vh;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
 @media(prefers-reduced-motion:reduce){.combat-vital-bar .vital-debt,#viewBattle .enemy-target-reticle svg{animation:none}}
 
-body:has(#viewBattle.active #partyOverview:not([hidden])) #floatingChatContainer{visibility:hidden;pointer-events:none}
 
 /* A companion volley occupies one queue event, with its remaining actors inside. */
 .queue-avatar-item{--queue-size:min(120px,18vh,calc(100cqw / var(--queue-span,1)))}

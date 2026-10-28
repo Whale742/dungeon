@@ -271,9 +271,6 @@
   font-style: italic;
 }
 
-.presentation-chest-active #floatingChatContainer {
-  visibility: hidden;
-}
 
 /* Animations */
 @keyframes chestFadeSlideUp {

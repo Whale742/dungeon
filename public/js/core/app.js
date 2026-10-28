@@ -391,11 +391,8 @@ let eventDoneKey = null;
 // 強制關閉全部彈窗（演出階段嚴格防阻擋）
 function forceCloseAllModals() {
   document.querySelectorAll('.modal-overlay').forEach(el => ModalMotion.hide(el));
-  document.querySelectorAll('.chat-popup-card').forEach(el => el.classList.add('hidden'));
   const avatarModal = document.getElementById('avatarCustomModal');
   if (avatarModal) ModalMotion.hide(avatarModal);
-  const chatPopup = document.getElementById('chatPopupCard');
-  if (chatPopup) chatPopup.classList.add('hidden');
   if (typeof updateHudInventoryButtonState === 'function') updateHudInventoryButtonState();
 }
 if (typeof window !== 'undefined') window.forceCloseAllModals = forceCloseAllModals;
@@ -606,7 +603,6 @@ const elements = {
   directConnectModal: document.getElementById('directConnectModal'),
   btnCloseDirectConnectModal: document.getElementById('btnCloseDirectConnectModal'),
   profileModal: document.getElementById('profileModal'),
-  btnProfileAvatar: document.getElementById('btnProfileAvatar'),
   profileAvatarPreview: document.getElementById('profileAvatarPreview'),
   profileNewNameInput: document.getElementById('profileNewNameInput'),
   profileCurrentClassText: document.getElementById('profileCurrentClassText'),
@@ -796,21 +792,9 @@ const elements = {
   endStatsBox: document.getElementById('endStatsBox'),
   btnRestartLobby: document.getElementById('btnRestartLobby'),
 
-  // Logs & Floating Chat
+  // Logs
   combatLogWindow: document.getElementById('combatLogWindow'),
   battleLogCard: document.getElementById('battleLogCard'),
-  floatingChatContainer: document.getElementById('floatingChatContainer'),
-  floatingChatBtn: document.getElementById('floatingChatBtn'),
-  chatUnreadBadge: document.getElementById('chatUnreadBadge'),
-  chatToastBubble: document.getElementById('chatToastBubble'),
-  chatBubbleSender: document.getElementById('chatBubbleSender'),
-  chatBubbleText: document.getElementById('chatBubbleText'),
-  btnCloseChatBubble: document.getElementById('btnCloseChatBubble'),
-  chatPopupCard: document.getElementById('chatPopupCard'),
-  btnCloseChatPopup: document.getElementById('btnCloseChatPopup'),
-  chatMessageList: document.getElementById('chatMessageList'),
-  chatInput: document.getElementById('chatInput'),
-  btnSendChat: document.getElementById('btnSendChat'),
 
   // Modal
   targetModal: document.getElementById('targetModal'),
@@ -927,7 +911,6 @@ socket.on('room:update', (state) => {
   // 嚴禁以權威狀態直接提前覆蓋演出中的 HP / tempHp / bossHp / death state！
   if (isProcessingPresentationQueue) {
     pendingAuthoritativeState = state;
-    syncChatMessages(state.chatMessages);
     return;
   }
   roomState = typeof projectChestDisplayState === 'function' ? projectChestDisplayState(projectTrapDisplayState(state)) : projectTrapDisplayState(state);
@@ -936,7 +919,6 @@ socket.on('room:update', (state) => {
   renderApp();
   paintOperations(false);
   updateHeroRoleOptionUI();
-  syncChatMessages(state.chatMessages);
   if (GamePerf.enabled) {
     GamePerf.record('state.dom.ms', performance.now() - updateStarted);
     requestAnimationFrame(() => GamePerf.record('state.nextFrame.ms', performance.now() - updateStarted));
@@ -1062,19 +1044,10 @@ function switchView(viewName) {
     revealDestinationView('battle');
   }
 
-  // 發起組隊登入頁面 (entry) 隱藏懸浮聊天按鈕與頂部房號/離開小隊，進入選角色 (lobby) 及後續頁面時顯示
+  // 登入頁面隱藏頂部房號與離開小隊按鈕
   if (viewName === 'entry') {
     if (elements.roomBadge) elements.roomBadge.classList.add('hidden');
     if (elements.btnLeaveParty) elements.btnLeaveParty.classList.add('hidden');
-    if (elements.floatingChatContainer) {
-      elements.floatingChatContainer.classList.add('hidden');
-      dismissChatBubble();
-      toggleChat(false);
-    }
-  } else {
-    if (elements.floatingChatContainer) {
-      elements.floatingChatContainer.classList.remove('hidden');
-    }
   }
 }
 
@@ -2066,10 +2039,7 @@ async function renderProloguePresentation() {
   // Prevent keyboard focus from reaching HUD controls through the curtain.
   const app = document.getElementById('app');
   const previousInert = app?.inert || false;
-  const chat = elements.floatingChatContainer;
-  const previousChatInert = chat?.inert || false;
   if (app) app.inert = true;
-  if (chat) chat.inert = true;
   document.body.classList.add('presentation-opening');
 
   let cleanedUp = false;
@@ -2084,7 +2054,6 @@ async function renderProloguePresentation() {
     if (story) { story.classList.add('hidden'); story.classList.remove('exit'); }
     if (body) body.replaceChildren();
     if (app) app.inert = previousInert;
-    if (chat) chat.inert = previousChatInert;
     document.body.classList.remove('presentation-opening');
     if (prologueController === controller) {
       prologueController = null;
@@ -3973,7 +3942,7 @@ function updateSoundIcon() {
     elements.soundToggleBtn.setAttribute('aria-pressed',String(!soundEnabled));
   }
   if (elements.soundToggleBtn) {
-    elements.soundToggleBtn.title = soundEnabled ? '切換音效 (目前已開啟)' : '切換音效 (目前已靜音)';
+    elements.soundToggleBtn.title = soundEnabled ? '靜音所有聲音' : '開啟所有聲音';
   }
 }
 
@@ -4178,189 +4147,9 @@ elements.btnRestartLobby.addEventListener('click', () => {
 });
 
 // ==========================================
-// 懸浮聊天室與 30 秒訊息氣泡邏輯
+// 點擊技能詳情外部收起 Popover
 // ==========================================
-let isChatOpen = false;
-let unreadChatCount = 0;
-let chatBubbleTimer = null;
-const renderedChatIds = new Set();
-
-function toggleChat(open = null) {
-  if (open === null) {
-    isChatOpen = !isChatOpen;
-  } else {
-    isChatOpen = open;
-  }
-
-  if (elements.chatPopupCard) {
-    if (isChatOpen) {
-      elements.chatPopupCard.classList.remove('hidden');
-      dismissChatBubble();
-      unreadChatCount = 0;
-      if (elements.chatUnreadBadge) {
-        elements.chatUnreadBadge.classList.add('hidden');
-        elements.chatUnreadBadge.textContent = '0';
-      }
-      setTimeout(() => {
-        if (elements.chatInput) elements.chatInput.focus();
-      }, 100);
-      scrollChatToBottom();
-    } else {
-      elements.chatPopupCard.classList.add('hidden');
-    }
-  }
-}
-
-function showChatBubble(senderName, message) {
-  if (!elements.chatToastBubble) return;
-  if (elements.chatBubbleSender) {
-    elements.chatBubbleSender.innerHTML = `${getIconSvg('log')} <span>${escapeHtml(senderName)}</span>`;
-  }
-  if (elements.chatBubbleText) {
-    elements.chatBubbleText.textContent = message;
-  }
-
-  // 重啟 30 秒倒數進度條動畫
-  const timerBar = elements.chatToastBubble.querySelector('.chat-bubble-timer-bar');
-  if (timerBar) {
-    timerBar.style.animation = 'none';
-    void timerBar.offsetWidth;
-    timerBar.style.animation = 'bubbleCountdown 30s linear forwards';
-  }
-
-  elements.chatToastBubble.classList.remove('hidden');
-
-  if (chatBubbleTimer) clearTimeout(chatBubbleTimer);
-  chatBubbleTimer = setTimeout(() => {
-    dismissChatBubble();
-  }, 30000);
-}
-
-function dismissChatBubble() {
-  if (chatBubbleTimer) {
-    clearTimeout(chatBubbleTimer);
-    chatBubbleTimer = null;
-  }
-  if (elements.chatToastBubble) {
-    elements.chatToastBubble.classList.add('hidden');
-  }
-}
-
-function renderChatMessage(chatData, scroll = true) {
-  if (!elements.chatMessageList) return;
-  const isMe = chatData.senderId === myId;
-  const row = document.createElement('div');
-  row.className = `chat-msg-row ${isMe ? 'is-me' : 'is-other'}`;
-
-  const senderLabel = isMe ? '你' : escapeHtml(chatData.senderName);
-  row.innerHTML = `
-    <div class="chat-msg-meta">
-      <span>${senderLabel}</span>
-      <span>${chatData.time || ''}</span>
-    </div>
-    <div class="chat-msg-bubble">${escapeHtml(chatData.message)}</div>
-  `;
-
-  const emptyHint = elements.chatMessageList.querySelector('.chat-empty-hint');
-  if (emptyHint) emptyHint.remove();
-
-  elements.chatMessageList.appendChild(row);
-  if (scroll) scrollChatToBottom();
-}
-
-function scrollChatToBottom() {
-  if (elements.chatMessageList) {
-    elements.chatMessageList.scrollTop = elements.chatMessageList.scrollHeight;
-  }
-}
-
-function syncChatMessages(chatList) {
-  if (!chatList || !Array.isArray(chatList) || !elements.chatMessageList) return;
-  chatList.forEach(chatData => {
-    if (!renderedChatIds.has(chatData.id)) {
-      renderedChatIds.add(chatData.id);
-      renderChatMessage(chatData, false);
-    }
-  });
-}
-
-function sendChat() {
-  if (!elements.chatInput) return;
-  const msg = elements.chatInput.value.trim();
-  if (!msg) return;
-  socket.emit('chat:send', { message: msg });
-  elements.chatInput.value = '';
-}
-
-socket.on('chat:message', (chatData) => {
-  if (renderedChatIds.has(chatData.id)) return;
-  renderedChatIds.add(chatData.id);
-  renderChatMessage(chatData, true);
-
-  if (chatData.senderId !== myId) {
-    playSound('click');
-    // 如果聊天室未展開，在右下角圖示上方彈出維持 30 秒的對話氣泡
-    if (!isChatOpen) {
-      showChatBubble(chatData.senderName, chatData.message);
-      unreadChatCount++;
-      if (elements.chatUnreadBadge) {
-        elements.chatUnreadBadge.textContent = unreadChatCount > 9 ? '9+' : unreadChatCount;
-        elements.chatUnreadBadge.classList.remove('hidden');
-      }
-    }
-  }
-});
-
-// 事件綁定
-if (elements.floatingChatBtn) {
-  elements.floatingChatBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleChat();
-  });
-}
-
-if (elements.btnCloseChatPopup) {
-  elements.btnCloseChatPopup.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleChat(false);
-  });
-}
-
-if (elements.chatToastBubble) {
-  elements.chatToastBubble.addEventListener('click', (e) => {
-    if (!e.target.closest('#btnCloseChatBubble')) {
-      toggleChat(true);
-    }
-  });
-}
-
-if (elements.btnCloseChatBubble) {
-  elements.btnCloseChatBubble.addEventListener('click', (e) => {
-    e.stopPropagation();
-    dismissChatBubble();
-  });
-}
-
-if (elements.btnSendChat) {
-  elements.btnSendChat.addEventListener('click', sendChat);
-}
-
-if (elements.chatInput) {
-  elements.chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      sendChat();
-    }
-  });
-}
-
-// 點擊聊天室外部收起聊天視窗；點擊技能詳情外部收起 Popover
 document.addEventListener('click', (e) => {
-  if (isChatOpen && elements.chatPopupCard && elements.floatingChatBtn) {
-    if (!elements.chatPopupCard.contains(e.target) && !elements.floatingChatBtn.contains(e.target)) {
-      toggleChat(false);
-    }
-  }
-
   // 若點擊處不在任何 Popover 或觸發按鈕內，隱藏所有 Popover
   if (!e.target.closest('.skill-popover') && !e.target.closest('.skill-detail-trigger')) {
     document.querySelectorAll('.skill-popover').forEach(p => p.classList.add('hidden'));
@@ -5494,10 +5283,8 @@ function initAvatarModal() {
     });
   }
 
-  // 開啟 Modal (登入頁面與個人檔案之頭貼按鈕)
+  // 登入頁面的頭貼選擇入口
   if (elements.btnEntryAvatar) elements.btnEntryAvatar.addEventListener('click', openAvatarModal);
-  const btnProfileAvatar = document.getElementById('btnProfileAvatar');
-  if (btnProfileAvatar) btnProfileAvatar.addEventListener('click', openAvatarModal);
 
   // 關閉 Modal
   if (elements.btnCloseAvatarModal) elements.btnCloseAvatarModal.addEventListener('click', closeAvatarModal);

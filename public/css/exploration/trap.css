@@ -76,7 +76,6 @@
 }
 .presentation-trap-victim.has-result .presentation-trap-number { animation: trapDamageFloat 700ms ease-out both; }
 .presentation-trap-victim.is-dodging .presentation-trap-number { color: #67e8f9; font-family: var(--font-body); font-size: 1.5rem; }
-.presentation-trap-active #floatingChatContainer { visibility: hidden; }
 @keyframes trapSectionEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes trapStageEnter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes trapFadeOut { from { opacity: 1; } to { opacity: 0; } }

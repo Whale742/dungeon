@@ -568,15 +568,6 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(res);
   });
 
-  // 9. 聊天訊息
-  socket.on('chat:send', ({ message }) => {
-    const code = socketToRoom.get(socket.id);
-    const room = rooms.get(code);
-    if (room) {
-      room.sendChatMessage(socket.id, message);
-    }
-  });
-
   // 10. 暫停 / 繼續遊戲
   socket.on('game:toggle_pause', (callback) => {
     const code = socketToRoom.get(socket.id);

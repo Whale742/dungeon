@@ -282,14 +282,6 @@
             </div>
             <div class="burger-menu-section burger-audio-section">
               <div class="burger-section-label">音訊設定</div>
-              <button id="soundToggleBtn" class="btn-icon btn-sound-toggle burger-menu-btn" title="切換音效">
-                <svg id="soundToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
-                  <path class="sound-on" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>
-                  <path class="sound-off" d="m15 9 6 6m0-6-6 6" style="display:none"/>
-                </svg>
-                <span>切換音效</span>
-              </button>
               <div class="bgm-control">
                 <button id="bgmVolumeBtn" class="btn-icon burger-menu-btn" aria-expanded="false" aria-controls="bgmVolumePanel" title="調整背景音樂音量">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -300,7 +292,19 @@
                   <span>背景音樂 (BGM)</span>
                 </button>
                 <div id="bgmVolumePanel" hidden>
-                  <label for="bgmVolumeSlider">背景音樂音量 <output id="bgmVolumeValue">50%</output></label>
+                  <div class="bgm-volume-heading">
+                    <label for="bgmVolumeSlider">背景音樂音量</label>
+                    <div class="bgm-volume-actions">
+                      <button id="soundToggleBtn" class="btn-icon btn-sound-toggle bgm-mute-btn" type="button" title="靜音所有聲音" aria-label="靜音所有聲音" aria-pressed="false">
+                        <svg id="soundToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                          <path d="M11 5 6 9H3v6h3l5 4V5Z"/>
+                          <path class="sound-on" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>
+                          <path class="sound-off" d="m15 9 6 6m0-6-6 6" style="display:none"/>
+                        </svg>
+                      </button>
+                      <output id="bgmVolumeValue" for="bgmVolumeSlider">50%</output>
+                    </div>
+                  </div>
                   <input id="bgmVolumeSlider" type="range" min="0" max="100" step="1" value="50" aria-label="背景音樂音量">
                 </div>
               </div>
@@ -369,8 +373,7 @@
               <div class="recruit-input-row">
                 <div class="entry-avatar-wrapper clickable-avatar" id="btnEntryAvatar" onclick="openAvatarModal()" title="點擊選擇或更換個人頭貼">
                   <div class="entry-avatar-preview" id="entryAvatarPreview"><svg class="svg-icon svg-large"><use href="#icon-user"></use></svg></div>
-                  <span class="entry-avatar-badge" title="更換頭貼"><svg class="svg-icon"><use href="#icon-pen"></use></svg></span>
-                </div>
+                    </div>
                 <input 
                   type="text" 
                   id="inputPlayerName" 
@@ -1075,42 +1078,6 @@
 
 
 
-  <!-- 右下角懸浮聊天室與訊息氣泡組件 -->
-  <div id="floatingChatContainer" class="floating-chat-container hidden">
-    <!-- 收到其他玩家新訊息時維持30秒的氣泡 -->
-    <div id="chatToastBubble" class="chat-speech-bubble hidden">
-      <div class="chat-bubble-header">
-        <span class="chat-bubble-sender" id="chatBubbleSender"><svg class="svg-icon"><use href="#icon-log"></use></svg> 隊友發言</span>
-        <button id="btnCloseChatBubble" class="chat-bubble-close" title="關閉氣泡" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
-      </div>
-      <div class="chat-bubble-body" id="chatBubbleText">訊息內容...</div>
-      <div class="chat-bubble-timer-bar"></div>
-    </div>
-
-    <!-- 懸浮聊天室彈出視窗 -->
-    <div id="chatPopupCard" class="chat-popup-card hidden">
-      <div class="chat-popup-header">
-        <div class="chat-popup-title">
-          <span><svg class="svg-icon"><use href="#icon-log"></use></svg> 小隊聊天室</span>
-        </div>
-        <button id="btnCloseChatPopup" class="btn-circle-close" title="收起聊天室" aria-label="關閉"><svg class="ui-icon ui-icon--sm" aria-hidden="true"><use href="#icon-close"></use></svg></button>
-      </div>
-      <div class="chat-messages-area" id="chatMessageList">
-        <div class="chat-empty-hint">尚無小隊發言，點擊下方輸入框開始溝通！</div>
-      </div>
-      <div class="chat-popup-input-bar">
-        <input type="text" id="chatInput" placeholder="輸入小隊發言... (Enter 送出)" maxlength="80">
-        <button id="btnSendChat" class="btn btn-primary btn-chat-send">送出</button>
-      </div>
-    </div>
-
-    <!-- 右下角圓形聊天按鈕 -->
-    <button id="floatingChatBtn" class="floating-chat-btn" title="開啟小隊聊天室">
-      <img src="/assets/icons/ui/chat.svg" alt="Chat" class="floating-chat-icon">
-      <span id="chatUnreadBadge" class="chat-unread-badge hidden">0</span>
-    </button>
-  </div>
-
   <!-- ==========================================
        Layer 4: Presentation Root (P2-R1 Section 3 & 72)
        ========================================== -->
@@ -1182,7 +1149,7 @@
     <div id="presentationFxContainer" class="presentation-fx-container"></div>
   </div>
 
-  <!-- ================= MODAL: 個人檔案 (修改頭像與尊名) ================= -->
+  <!-- ================= MODAL: 個人檔案 (檢視頭像與修改尊名) ================= -->
   <div id="profileModal" class="modal-overlay hidden">
     <div class="kraft-paper kraft-paper-rivets modal-card fade-in">
       <div class="modal-header">
@@ -1196,19 +1163,16 @@
       </div>
 
       <div class="modal-body">
-        <!-- 1. 頭像設定區 -->
+        <!-- 1. 頭像顯示區 -->
         <div class="profile-avatar-section">
           <label class="modal-label">冒險者形象頭貼：</label>
           <div class="profile-avatar-row">
-            <div class="entry-avatar-wrapper clickable-avatar" id="btnProfileAvatar" onclick="openAvatarChoiceModal()" title="更換頭像">
+            <div class="entry-avatar-wrapper" aria-label="個人頭像">
               <div class="entry-avatar-preview" id="profileAvatarPreview"><svg class="svg-icon svg-large"><use href="#icon-user"></use></svg></div>
               <span class="entry-avatar-badge" title="更換頭貼"><svg class="svg-icon"><use href="#icon-pen"></use></svg></span>
             </div>
             <div class="profile-avatar-tip">
-              <span class="profile-avatar-tip-title">點擊更換頭貼形象</span>
-              <button type="button" class="parchment-btn parchment-btn-crimson profile-quick-btn" onclick="openAvatarChoiceModal()">
-                <svg class="svg-icon"><use href="#icon-sparkle"></use></svg> 更換頭像
-              </button>
+              <span class="profile-avatar-tip-title">目前的冒險者形象</span>
             </div>
           </div>
         </div>

@@ -123,7 +123,6 @@ export class Room {
     this.pausedRemainingSeconds = null;
     this.narrativeAccelerated = false;
     this.logs = [];
-    this.chatMessages = [];
 
     // Module 1: 六角蜂巢迷霧地圖系統 (10 層，向上下逐漸延展至最高 7 層，中央為 row = 3)
     this.leaderScoutBonus = 0;
@@ -8006,34 +8005,6 @@ export class Room {
     return { success: true };
   }
 
-  sendChatMessage(socketId, message) {
-    const player = this.players[socketId];
-    if (!player || !message) return;
-    const cleanMsg = String(message).trim().slice(0, 100);
-    if (!cleanMsg) return;
-
-    const roleInfo = CLASSES[player.role] || { name: '冒險者', emoji: '👤' };
-    const chatData = {
-      id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      senderId: player.id,
-      senderName: player.name,
-      senderRole: player.role,
-      senderRoleName: roleInfo.name,
-      senderEmoji: roleInfo.emoji,
-      senderAvatar: player.customAvatar || null,
-      message: cleanMsg,
-      time: new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' })
-    };
-
-    if (!this.chatMessages) this.chatMessages = [];
-    this.chatMessages.push(chatData);
-    if (this.chatMessages.length > 80) this.chatMessages.shift();
-
-    this.addLog(`💬 **${player.name}**: ${cleanMsg}`, 'chat');
-    this.io.to(this.code).emit('chat:message', chatData);
-    this.broadcastState();
-  }
-
   setTimer(seconds, callback, broadcastTicks = false) {
     this.clearTimer();
     this.timerCallback = callback;
@@ -8329,8 +8300,7 @@ export class Room {
         isLocked: p.isLocked || false,
         connected: p.connected
       })),
-      logs: this.logs.slice(-30), // 最近 30 筆日誌
-      chatMessages: (this.chatMessages || []).slice(-40) // 最近 40 筆小隊聊天訊息
+      logs: this.logs.slice(-30) // 最近 30 筆日誌
     };
   }
 
