@@ -12,6 +12,111 @@ import { once } from 'node:events';
 import { createStudioRouter, mountStudio } from '../studio/router.js';
 import { refreshPublished, contentCache, refreshMedia, mediaCache } from '../studio/content.js';
 import { AssetSourceSettings } from '../studio/asset-source.js';
+import {getAssetManifest} from '../studio/asset-manifest.js';
+const assetManifest=await getAssetManifest();
+
+test('Manifest revisions match shipped bytes and party sound groups use existing resolver IDs',()=>{
+  for(const asset of assetManifest.assets){
+    const bytes=fs.readFileSync(new URL('../public'+asset.url,import.meta.url));
+    assert.equal(asset.revision,createHash('sha256').update(bytes).digest('hex').slice(0,20));
+    assert.equal(asset.id,assetKeyForPath(asset.url));
+    assert.equal(asset.bytes,bytes.length);
+  }
+  for(const role of Object.keys(catalog.sfxProfiles))assert.ok(assetManifest.assets.some(a=>a.type==='audio'&&a.roles.includes(role)),role);
+});
+
+test('Image retries release failed promises, tolerate renderable decode errors, and cap concurrency',async()=>{
+  let broken=true,active=0,maximum=0,requests=0;
+  class ImageNode{
+    set src(value){this.value=value;requests++;active++;maximum=Math.max(maximum,active);setTimeout(()=>{active--;this.naturalWidth=broken?0:10;broken?this.onerror?.():this.onload?.();},2);}
+    get src(){return this.value;}getAttribute(){return this.value;}
+    async decode(){throw Error('decoder rejected renderable image');}
+  }
+  const content={state:{defaults:{},config:{asset_source_mode:'local_only'}},load:async()=>{}};
+  const scope=vm.createContext({URL,Image:ImageNode,HTMLImageElement:ImageNode,setTimeout,clearTimeout,
+    location:{href:'http://localhost/',origin:'http://localhost'},document:{addEventListener(){}},StudioContent:content,
+    window:{StudioContent:content,addEventListener(){}}});
+  vm.runInContext(fs.readFileSync(new URL('../public/js/studio/asset-registry.js',import.meta.url),'utf8'),scope);
+  const registry=scope.window.assetRegistry;
+  await assert.rejects(registry.preloadImage('/assets/retry.png'));assert.equal(requests,3);
+  assert.equal(registry.resolvePath('/assets/retry.png'),'/assets/retry.png');
+  broken=false;assert.equal((await registry.preloadImage('/assets/retry.png')).naturalWidth,10);
+  await Promise.all(Array.from({length:12},(_,i)=>registry.preloadImage('/assets/'+i+'.png')));
+  assert.ok(maximum<=4);const count=requests;
+  await assert.rejects(registry.preloadImage('https://example.com/storage/v1/object/public/private.png'));
+  assert.equal(requests,count,'local-only must never request Storage');
+});
+
+test('Streaming music resumes normal position and switches boss tracks without decoding MP3 buffers',async()=>{
+  const timers=new Map();let timerId=0;
+  const param={value:1,cancelScheduledValues(){},setValueAtTime(){},linearRampToValueAtTime(){}};
+  const ctx={currentTime:0,createGain:()=>({gain:{...param},connect(){},disconnect(){}}),createMediaElementSource:()=>({connect(){},disconnect(){}})};
+  class Audio{constructor(src){this.src=src;this.currentTime=0;this.duration=60;this.events={};}addEventListener(name,fn){this.events[name]=fn;}async play(){this.events.loadedmetadata?.();}pause(){this.paused=true;}removeAttribute(){this.src='';}load(){}}
+  const audio={ctx,masterGain:{},init(){},loadAsset(){throw Error('Music must stream');}};
+  const scope=vm.createContext({Audio,sfxManager:audio,waitForPresentation:async()=>{},AbortController,
+    setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id),clearInterval(){},console,
+    window:{addEventListener(){}}});
+  vm.runInContext(fs.readFileSync(new URL('../public/js/audio/bgm.js',import.meta.url),'utf8'),scope);
+  const bgm=scope.window.bgmManager;await bgm.resumeNormal();
+  bgm.voices.normal.media.currentTime=12;await bgm.prepareBoss();assert.equal(bgm.normalOffset,12);
+  await bgm.bossEntrance({playSound:async()=>null});[...timers.values()].find(t=>t.ms===5000).fn();
+  assert.ok(bgm.voices.boss);await bgm.resumeNormal();assert.equal(bgm.voices.normal.media.currentTime,12);
+  assert.equal(bgm.voices.boss,null);bgm.reset();assert.equal(bgm.mode,'idle');assert.equal(bgm.voices.normal,null);
+  await bgm.resumeBoss();assert.equal(bgm.mode,'boss');assert.ok(bgm.voices.boss);bgm.reset();
+});
+
+test('Adventure progress survives prologue skip and combat without blocking views or restarting loads',async()=>{
+  const nodes=[],pending=[],paths=[];
+  class Node{constructor(){this.style={};this.children=[];}setAttribute(){}append(...children){this.children.push(...children);}remove(){this.removed=true;}}
+  const m={assets:[{id:'common',revision:'1',url:'/assets/common.png',type:'image',battle:true,roles:[]},{id:'role',revision:'1',url:'/assets/warrior.png',type:'image',roles:['warrior']}]};
+  const window={addEventListener(){},assetRegistry:{canonical:p=>p,preloadImage:path=>{paths.push(path);return new Promise(resolve=>pending.push(resolve));}}};
+  const scope=vm.createContext({window,navigator:{},location:{search:''},URLSearchParams,AbortSignal,performance,console,ENEMY_PAINTED_ART:{lava:['enemies/lava.png'],secret:['enemies/secret.png']},enemyPaintedAssetUrl:p=>'/assets/combat-fx/'+p,
+    setTimeout:()=>1,clearTimeout(){},fetch:async()=>({ok:true,json:async()=>m}),
+    document:{addEventListener(){},createElement:()=>new Node(),body:{append:node=>nodes.push(node)}}});
+  vm.runInContext(fs.readFileSync(new URL('../public/js/studio/adventure-preloader.js',import.meta.url),'utf8'),scope);
+  const loader=window.AdventureAssets,state={code:'test',state:'PROLOGUE',players:[{role:'warrior'}],enemies:[]};
+  assert.equal(loader.gate(state),false);await new Promise(setImmediate);
+  assert.equal(nodes.length,1);assert.equal(pending.length,2);const panel=nodes[0];
+  assert.equal(panel.style.position,'fixed');assert.equal(panel.style.pointerEvents,'none');
+  assert.equal(loader.gate({...state,state:'EVENT'}),false);assert.equal(loader.gate({...state,state:'IN_BATTLE'}),false);
+  assert.equal(nodes.length,1);assert.equal(pending.length,2);
+  pending[0]({});await new Promise(setImmediate);assert.equal(panel.children[1].value,1);assert.equal(panel.children[1].max,2);
+  pending[1]({});await new Promise(setImmediate);assert.equal(panel.children[1].value,2);assert.match(panel.children[0].textContent,/準備完成/);
+  for(const url of ['/assets/enemies/lava.webp','/assets/combat-fx/enemies/lava.png','/assets/combat-fx/enemies/secret.png'])m.assets.push({id:url,revision:'1',url,type:'image',roles:[]});
+  loader.encounter({enemies:[{avatar:'/assets/enemies/lava.webp',presentation:{mechanicId:'lava'}}]});await new Promise(setImmediate);
+  assert.equal(pending.length,4);assert.equal(paths.includes('/assets/combat-fx/enemies/secret.png'),false,'unrevealed enemy art must not be requested');
+  pending[2]({});pending[3]({});await new Promise(setImmediate);
+  loader.reset();assert.equal(panel.removed,true);
+});
+
+test('Public image cache reuses responses, invalidates a release, and tolerates quota errors',async()=>{
+  const events={},stored=new Map();let revision='one',network=0,quota=false;
+  const cache={keys:async()=>[...stored.keys()].map(url=>new Request(url)),match:async key=>stored.get(key.url)?.clone(),delete:async key=>stored.delete(key.url),put:async(key,response)=>{if(quota)throw Error('QuotaExceededError');stored.set(key.url,response.clone());}};
+  const scope=vm.createContext({URL,Request,Response,Headers,Promise,caches:{open:async()=>cache,keys:async()=>[]},
+    self:{location:{origin:'https://local'},clients:{get:async()=>({postMessage(){}})},addEventListener:(name,fn)=>events[name]=fn},
+    fetch:async request=>{if(request==='/asset-manifest.json')return Response.json({assets:[{url:'/assets/test.png',type:'image',revision,bytes:3}]});network++;return new Response(revision,{headers:{'Content-Type':'image/png'}});}});
+  vm.runInContext(fs.readFileSync(new URL('../public/asset-worker.js',import.meta.url),'utf8'),scope);
+  async function load(){let response;const waits=[];events.fetch({clientId:'test',request:new Request('https://local/assets/test.png'),respondWith:p=>{response=p;},waitUntil:p=>waits.push(p)});const result=await response;await Promise.all(waits);return result.text();}
+  const navigate=()=>events.fetch({request:{url:'https://local/',mode:'navigate',method:'GET',headers:new Headers()}});
+  assert.equal(await load(),'one');assert.equal(await load(),'one');assert.equal(network,1);
+  revision='two';navigate();assert.equal(await load(),'two');assert.equal(network,2);assert.equal(stored.size,1);
+  revision='three';quota=true;navigate();assert.equal(await load(),'three');assert.equal(network,3);
+  stored.clear();quota=false;assert.equal(await load(),'three','cleared storage falls back to a normal request');
+});
+
+test('SFX can decode before playback permission and retry after a failed cached load',async()=>{
+  let offline=0,requests=0,broken=true;
+  class Decoder{constructor(){offline++;}async decodeAudioData(){return {duration:1};}}
+  const scope=vm.createContext({window:{OfflineAudioContext:Decoder},navigator:{userActivation:{isActive:false,hasBeenActive:false}},
+    setTimeout,clearTimeout,AbortController,console:{warn(){}},fetch:async()=>{requests++;return {ok:!broken,status:503,arrayBuffer:async()=>new ArrayBuffer(1)};}});
+  const source=fs.readFileSync(new URL('../public/js/presentation/presentation-core.js',import.meta.url),'utf8');
+  const audio=vm.runInContext(source.slice(0,source.indexOf('// Global SFX singleton'))+';new SFXManager()',scope);
+  const profile={src:'/assets/sound/sfx/test.mp3'};
+  assert.equal(await audio.loadAsset(profile),null);assert.equal(requests,2);assert.equal(audio.assets.has(profile.src),false);
+  broken=false;assert.equal((await audio.loadAsset(profile)).duration,1);assert.equal(requests,3);
+  assert.equal(audio.ctx,null);assert.equal(offline,1);assert.equal(audio.userActivated,false);
+  assert.equal((await audio.loadAsset(profile)).duration,1);assert.equal(requests,3);
+});
 
 test('Local media becomes ready before a stalled published-copy request, without skipping copy sync',async()=>{
   let releaseCopy,copyRequested=false;
@@ -32,10 +137,10 @@ test('Detached Onmyoji and inventory preloads use the bounded shared resolver an
   const onmyoji=fs.readFileSync(new URL('../public/js/presentation/onmyoji-presentation.js',import.meta.url),'utf8');
   const part=onmyoji.slice(onmyoji.indexOf('let onmyojiPreloadPromise'),onmyoji.indexOf('async function playOnmyojiPresentation'));
   await vm.runInContext(part+';preloadOnmyojiAssets()',scope);assert.equal(paths.length,3);
-  await vm.runInContext('preloadOnmyojiAssets()',scope);assert.equal(paths.length,3);
+  await vm.runInContext('preloadOnmyojiAssets()',scope);assert.equal(paths.length,6);
   const app=fs.readFileSync(new URL('../public/js/core/app.js',import.meta.url),'utf8');
   const bag=app.slice(app.indexOf('function preloadBagAssets()'),app.indexOf('window.preloadBagAssets ='));
-  await vm.runInContext(bag+';preloadBagAssets()',scope);assert.equal(paths.length,5);
+  await vm.runInContext(bag+';preloadBagAssets()',scope);assert.equal(paths.length,8);
 });
 
 function settingsFixture(){

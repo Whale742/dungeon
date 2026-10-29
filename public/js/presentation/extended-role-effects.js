@@ -11,7 +11,7 @@ const PHASE5_ART = Object.freeze({
 });
 const phase5ArtLoads=new Map();
 async function preloadPhase5Art(paths,signal) {
-  await Promise.all(paths.map(src=>{
+  await Promise.allSettled(paths.map(src=>{
     if(!phase5ArtLoads.has(src)){
       const image=typeof window!=='undefined'&&window.assetRegistry?null:new Image();if(image)image.src=src;
       const load=(image?image.decode():window.assetRegistry.preloadImage(src)).catch(error=>{phase5ArtLoads.delete(src);throw new Error('Required combat art unavailable: '+src,{cause:error});});

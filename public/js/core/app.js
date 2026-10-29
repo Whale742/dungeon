@@ -973,6 +973,7 @@ function receiveRoomState(state) {
     releaseBattleEncounterScene();
     document.body.classList.remove('battle-intro-active');
     operations.clear();
+    window.AdventureAssets?.reset();
     roomState = null;
     currentRoomCode = null;
     document.getElementById('checkpointNotice')?.classList.add('hidden');
@@ -1114,7 +1115,7 @@ function switchView(viewName) {
       typeof bgmManager!=='undefined'&&['normal','boss','encounter','dying'].includes(bgmManager.mode);
     if (['entry','lobby','prologue','end'].includes(viewName)&&typeof bgmManager!=='undefined'&&!preserveDefeatMusic)bgmManager.reset();
     audioView = viewName;
-    if(['route','transition','event'].includes(viewName)&&typeof bgmManager!=='undefined'&&bgmManager.mode==='idle')void bgmManager.resumeNormal();
+    if(['route','transition','event'].includes(viewName)&&typeof bgmManager!=='undefined'&&['idle','post-boss','post-defeat'].includes(bgmManager.mode))void bgmManager.resumeNormal();
   }
   Object.keys(elements.views).forEach(key => {
     if (key === viewName) {
@@ -1140,6 +1141,8 @@ function switchView(viewName) {
   }
 }
 
+if(typeof window!=='undefined')window.addEventListener('bgm:stopped',()=>{if(['route','transition','event'].includes(audioView)&&typeof bgmManager!=='undefined')void bgmManager.resumeNormal();});
+
 // Presentation-Gated View Reveal (P2-R1.1 Section 4)
 function gateDestinationView(viewName) {
   const v = elements.views ? elements.views[viewName] : null;
@@ -1154,6 +1157,7 @@ function revealDestinationView(viewName) {
 // 渲染整體畫面
 function renderApp() {
   if (!roomState) return;
+  if (window.AdventureAssets?.gate(roomState)) return;
   holdBattleEncounterScene(roomState);
   syncNarrativeControls(roomState);
 
@@ -1984,110 +1988,7 @@ async function typePrologueParagraphs(container, paragraphs, signal, timing = PR
   } finally { finishTyping(); }
 }
 
-const preloadedPartyAssetUrls = new Set();
-async function preloadPartyClassAssets(state) {
-  try {
-    const players = Array.isArray(state?.players)
-      ? state.players
-      : (state?.players ? Object.values(state.players) : []);
-    const roles = [...new Set(players.map(p => p.role).filter(Boolean))];
-    if (roles.length === 0) return;
-
-    // 1. Audio Preload
-    if (typeof sfxManager !== 'undefined' && sfxManager) {
-      void sfxManager.preload();
-      for (const role of roles) {
-        void sfxManager.preloadRole(role);
-      }
-    }
-    if (typeof bgmManager !== 'undefined' && bgmManager) {
-      void bgmManager.preload();
-    }
-
-    // 2. Class Presentation Animations & FX Preloaders
-    if (typeof preloadCombatFxAssets === 'function') void preloadCombatFxAssets();
-    if (roles.includes('samurai') && typeof preloadSamuraiFxAssets === 'function') void preloadSamuraiFxAssets();
-    if (roles.includes('augur') && typeof preloadAugurAssets === 'function') void preloadAugurAssets();
-    if (roles.includes('onmyoji') && typeof preloadOnmyojiAssets === 'function') void preloadOnmyojiAssets();
-    if (roles.includes('sage') && typeof preloadSageHands === 'function') void preloadSageHands();
-
-    // 3. Image URLs per class
-    const urlsToPreload = new Set([
-      '/assets/ui/inventory/slots/armor.png',
-      '/assets/ui/inventory/slots/book.png',
-      '/assets/ui/inventory/slots/ring.png',
-      '/assets/ui/inventory/slots/sword.png',
-      '/assets/ui/exploration/hex-arrow-curved.png'
-    ]);
-
-    const ROLE_ASSET_MAP = {
-      warrior: ['/assets/characters/portraits/Warrior.webp'],
-      mage: ['/assets/characters/portraits/Mage.webp'],
-      archer: ['/assets/characters/portraits/Archer.webp', '/assets/combat-fx/archer/archer-special-1.webp', '/assets/combat-fx/archer/archer-special-2.webp', '/assets/combat-fx/archer/archer-special-3.webp'],
-      assassin: ['/assets/characters/portraits/Assassin.webp'],
-      bard: ['/assets/characters/portraits/Bard.webp'],
-      alchemist: ['/assets/characters/portraits/Alchemist.webp'],
-      druid: [
-        '/assets/characters/portraits/Druid.webp',
-        '/assets/characters/forms/druid/狼人.webp',
-        '/assets/characters/forms/druid/遠古樹精.webp',
-        '/assets/characters/forms/druid/巨熊.webp',
-        '/assets/characters/summons/druid/小樹精1.webp',
-        '/assets/characters/summons/druid/小樹精2.webp',
-        '/assets/characters/summons/druid/小樹精3.webp',
-        '/assets/characters/summons/druid/幼狼1.webp',
-        '/assets/characters/summons/druid/幼狼2.webp',
-        '/assets/characters/summons/druid/幼狼3.webp'
-      ],
-      paladin: ['/assets/characters/portraits/Paladin.webp'],
-      onmyoji: ['/assets/characters/portraits/Onmyōji.webp', '/assets/characters/portraits/Onmyoji.webp', '/assets/combat-fx/onmyoji/Onmyoji-1.png', '/assets/combat-fx/onmyoji/Onmyoji-2.png'],
-      samurai: ['/assets/characters/portraits/武士.webp', '/assets/combat-fx/samurai/samurai-eye.png', '/assets/combat-fx/samurai/samurai-skill1.png', '/assets/combat-fx/samurai/samurai-skill2.png'],
-      sage: ['/assets/characters/portraits/智者.webp', '/assets/combat-fx/sage/sage-error.png', '/assets/combat-fx/sage/sage-snap-1.png', '/assets/combat-fx/sage/sage-snap-2.png'],
-      augur: ['/assets/characters/portraits/Augur.webp', '/assets/combat-fx/augur/augur1.png', '/assets/combat-fx/augur/augur2.png'],
-      dreamweaver: ['/assets/characters/portraits/Dreamweaver.webp'],
-      gladiator: ['/assets/characters/portraits/Gladiator.webp'],
-      stargazer: ['/assets/characters/portraits/Stargazer.webp']
-    };
-
-    for (const p of players) {
-      if (p.customAvatar) urlsToPreload.add(p.customAvatar);
-      if (p.avatar) urlsToPreload.add(p.avatar);
-    }
-
-    for (const role of roles) {
-      const classAvatar = (typeof classesData !== 'undefined' && classesData[role]?.avatar)
-        || (typeof DEFAULT_ROLE_AVATARS !== 'undefined' && DEFAULT_ROLE_AVATARS[role]?.avatar);
-      if (classAvatar) urlsToPreload.add(classAvatar);
-      const specificAssets = ROLE_ASSET_MAP[role];
-      if (specificAssets) {
-        for (const assetUrl of specificAssets) urlsToPreload.add(assetUrl);
-      }
-    }
-
-    // 4. Batch decode/preload images
-    const pendingPromises = [];
-    for (const url of urlsToPreload) {
-      if (!url || preloadedPartyAssetUrls.has(url)) continue;
-      preloadedPartyAssetUrls.add(url);
-      pendingPromises.push(new Promise((resolve) => {
-        if (typeof window !== 'undefined' && window.assetRegistry && typeof window.assetRegistry.preloadImage === 'function') {
-          window.assetRegistry.preloadImage(url).then(resolve).catch(resolve);
-          return;
-        }
-        const img = new Image();
-        img.src = url;
-        if (img.decode) {
-          img.decode().then(resolve).catch(resolve);
-        } else {
-          img.onload = img.onerror = resolve;
-        }
-      }));
-    }
-    await Promise.allSettled(pendingPromises);
-  } catch (err) {
-    console.warn('[Prologue:PreloadPartyAssets]', err);
-  }
-}
+async function preloadPartyClassAssets(state) { return window.AdventureAssets?.adventure(state); }
 
 async function renderProloguePresentation() {
   if (prologueCompleted || isPrologueTyping) return;
@@ -2324,6 +2225,8 @@ function ensureBattlePhase(round, state = roomState) {
   const bossIntroKey = `BOSS_INTRO_${battleSceneKey(state)}`;
   // Boss Intro 僅限第 1 回合且未播放過時執行；戰鬥中途 (round > 1) 嚴禁再次觸發進場黑幕遮蔽！
   const encounter = !presentationManager.hasPlayed(bossIntroKey) && round === 1;
+  // A reload in round 2+ skips the entrance, but still restores battle music.
+  if(!encounter&&typeof bgmManager!=='undefined'&&bgmManager.mode==='idle')void bgmManager.resumeBoss();
   if (!encounter && lastAnnouncedBattleRound === round) {
     if(!battlePhaseController)revealDestinationView('battle');
     return battlePhasePromise;
@@ -4873,7 +4776,17 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       BattleHud.start(step);
       BattleHud.setPhase(BattleHud.phaseFor(step,roundStartPresentation));
       await BattleHud.announce(step,activeCombatContext);
-      await playPresentationStep(step, round);
+      try { await playPresentationStep(step, round); }
+      catch(error) {
+        if(error.name==='AbortError'||controller.signal.aborted)throw error;
+        console.warn('[Presentation step: simplified]',step.actionId,error);
+        // A missing illustration must not skip the remaining actions or settle
+        // the whole round early. Preserve a visible beat before this result.
+        const target=getActorAnchor(step.sourceId)?.element;
+        target?.animate?.([{opacity:.4},{opacity:1}],{duration:300});
+        await waitForPresentation(350,controller.signal);
+        if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);
+      }
       BattleHud.finish(step,activeCombatContext);
       if(['sa_counter','w_counter'].includes(step.actionId)&&previousHudPhase==='ENEMY_ACTIONS')BattleHud.setPhase(previousHudPhase);
     }

@@ -7,6 +7,7 @@ import { Spectators, spectatorReads, spectatorState } from './game/Spectators.js
 import { CareerStore, MemoryCareerStore } from './game/CareerStore.js';
 import { handleOperation, startEventLoopMetrics, metrics } from './game/performance.js';
 import express from 'express';
+import {getAssetManifest} from './studio/asset-manifest.js';
 import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
@@ -59,7 +60,11 @@ app.use((req, res, next) => {
 app.get('/js/shared/local-paths.cjs', (_req, res) => {
   res.type('application/javascript').sendFile(path.join(__dirname, 'public/js/shared/local-paths.cjs'));
 });
-app.use(express.static(path.join(__dirname, 'public')));
+app.get('/asset-manifest.json',async(_req,res,next)=>{try{res.set('Cache-Control','no-cache').json(await getAssetManifest());}catch(error){next(error);}});
+app.use(express.static(path.join(__dirname, 'public'),{setHeaders(res,file){
+  if(file.includes(path.sep+'assets'+path.sep))res.setHeader('Cache-Control','public, max-age=0, must-revalidate');
+  if(file.endsWith('asset-worker.js'))res.setHeader('Cache-Control','no-cache');
+}}));
 app.get('/dev', (req, res) => {
   if (!devAccess.enabled) return res.sendStatus(404);
   if (req.path !== '/dev') return res.redirect('/dev');

@@ -25,6 +25,7 @@ class SFXManager {
     this.activeVoices = new Set();
     this.generation = 0;
     this.userActivated = false;
+    this.decoder = null;
   }
 
   get soundEnabled() { return this._soundEnabled; }
@@ -51,37 +52,47 @@ class SFXManager {
     }
     if (unlock && this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {});
   }
-  loadAsset(profile) {
+  loadAsset(profile, attempt = 0) {
     if(typeof window!=='undefined'&&window.assetRegistry)profile=window.assetRegistry.audioProfile(profile);
     if(!profile?.src)return Promise.resolve(null);
     if (this.assets.has(profile.src)) return this.assets.get(profile.src).promise;
     this.init(false);
-    if (!this.ctx) return Promise.resolve(null);
+    // Decoding does not require playback permission. An offline context lets
+    // reload/preparation finish before the next trusted gesture unlocks audio.
+    const DecodeContext=typeof window!=='undefined'&&(window.OfflineAudioContext||window.webkitOfflineAudioContext);
+    const decoder=this.ctx||this.decoder||(DecodeContext?(this.decoder=new DecodeContext(1,1,44100)):null);
+    if (!decoder) return Promise.resolve(null);
     const entry = { buffer: null, failed: false, promise: null };
-    entry.promise = (async () => {
+    const download = async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), profile.loadTimeoutMs ?? 5000);
+      const timeout = setTimeout(() => controller.abort(), Math.max(30000,profile.loadTimeoutMs||0));
+      let decodeTimer;
       try {
-        const response = await fetch(profile.src, { signal: controller.signal });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const response = await fetch(profile.src, {signal:controller.signal});
+        if(!response.ok)throw new Error('HTTP '+response.status);
         const bytes = await response.arrayBuffer();
-        entry.buffer = await Promise.race([
-          this.ctx.decodeAudioData(bytes),
-          new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('Audio load/decode timeout')), { once: true }))
+        clearTimeout(timeout);
+        return await Promise.race([
+          decoder.decodeAudioData(bytes),
+          new Promise((_,reject)=>{decodeTimer=setTimeout(()=>reject(new Error('Audio decode timeout')),15000);})
         ]);
+      } finally {clearTimeout(timeout);clearTimeout(decodeTimer);}
+    };
+    entry.promise = (async () => {
+      try {
+        entry.buffer = typeof window!=='undefined'&&window.assetRegistry?.limited
+          ? await window.assetRegistry.limited(download) : await download();
         return entry.buffer;
-      } catch (error) {
-        entry.failed = true;
-        if(typeof window!=='undefined'&&window.assetRegistry){
-          window.assetRegistry.markFailed(profile.src);
-          const next=window.assetRegistry.audioProfile(profile);
-          if(next.src&&next.src!==profile.src)return this.loadAsset(next);
-        }
-        console.warn('[SFX] Asset unavailable; synth fallback:', profile.src, error.message);
+      } catch(error) {
+        entry.failed=true;this.assets.delete(profile.src);
+        if(attempt<1){await new Promise(resolve=>setTimeout(resolve,300));return this.loadAsset(profile,attempt+1);}
+        console.warn('[SFX] Asset unavailable; synth fallback:',profile.src,error.message);
         return null;
-      } finally { clearTimeout(timeout); }
+      }
     })();
     this.assets.set(profile.src, entry);
+    // Bound decoded SFX retention; active voices keep their own buffers.
+    if(this.assets.size>80)this.assets.delete(this.assets.keys().next().value);
     return entry.promise;
   }
   preload() {

@@ -5,7 +5,7 @@ function preloadSageHands() {
   return sageHandAssets ||= Promise.all(['sage-snap-1.png','sage-snap-2.png'].map(file=>{
     if(window.assetRegistry)return assetRegistry.preloadImage('/assets/'+file);
     const img=new Image();img.src='assets/'+file;return img.decode().then(()=>img);
-  }));
+  })).catch(error=>{sageHandAssets=null;throw error;});
 }
 if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>{sageHandAssets=null;});
 function skillButterflySvg() {

@@ -1,6 +1,9 @@
 (function(global){
   'use strict';
-  const failed=new Set(),images=new Map(),backgrounds=new WeakMap(),watched=new WeakMap(),stylesheets=new WeakMap();
+  // Failures expire; only in-flight image work is retained (not decoded bitmaps).
+  const failures=new Map(),failed={has:key=>(failures.get(key)||0)>Date.now(),add:key=>{if(key&&!key.startsWith('data:'))failures.set(key,Date.now()+15000);},delete:key=>failures.delete(key)},images=new Map(),backgrounds=new WeakMap(),watched=new WeakMap(),stylesheets=new WeakMap();
+  let active=0;const queue=[];
+  async function limited(task){if(active>=4)await new Promise(resolve=>queue.push(resolve));active++;try{return await task();}finally{active--;queue.shift()?.();}}
   const empty='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
   let bindings=new Map(),assets=new Map(),paths=new Map(),remotePaths=new Map(),locals=new Map(),registeredUrls=new Set();
   const cloudEnabled=()=>StudioContent.state.config?.asset_source_mode==='cloud_first';
@@ -43,11 +46,11 @@
     const remote=cloudEnabled()?rawUrl(a):'';
     return [...new Set([remote,...local].filter(Boolean))];
   }
-  function resolve(key,fallback){return candidates(key,fallback).find(p=>!failed.has(p))||empty;}
+  function resolve(key,fallback){const list=candidates(key,fallback);return list.find(p=>!failed.has(p))||list[0]||empty;}
   function pathKey(path){return paths.get(safeLocal(path))||remotePaths.get(path);}
   function resolvePath(path){
     const key=pathKey(path);if(key)return resolve(key,path);
-    const local=safeLocal(path);if(local)return failed.has(local)?empty:local;
+    const local=safeLocal(path);if(local)return local;
     if(String(path).includes('/storage/v1/'))return cloudEnabled()&&registeredUrls.has(path)&&!failed.has(path)?path:empty;
     if(!cloudEnabled()&&/^https?:\/\//i.test(path)&&!safeLocal(path))return empty;
     return path;
@@ -58,20 +61,30 @@
   }
   function loadImage(target){
     if(images.has(target))return images.get(target);
-    const promise=new Promise((resolve,reject)=>{
+    const promise=limited(async()=>{for(let attempt=0;attempt<3;attempt++){
+      try{return await new Promise((resolve,reject)=>{
       // Match native <img> and CSS image requests so the browser can share one download.
       const image=new Image();
       let settled=false;
-      const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);image.onload=image.onerror=null;if(error){failed.add(target);image.src=empty;reject(error);}else resolve(image);};
-      const timer=setTimeout(()=>finish(new Error('Asset timeout: '+target)),5000);
-      image.onload=()=>{if(image.decode)image.decode().then(()=>finish(),finish);else finish();};image.onerror=()=>finish(new Error('Asset unavailable: '+target));image.src=target;
-    });
+      const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);image.onload=image.onerror=null;if(error){reject(error);}else{failed.delete(target);resolve(image);}};
+      const timer=setTimeout(()=>finish(new Error('Image download timeout: '+target)),30000);
+      image.onload=async()=>{
+        clearTimeout(timer);const start=Date.now();let decodeTimer;
+        try{
+          if(image.decode)await Promise.race([image.decode(),new Promise((_,reject)=>{decodeTimer=setTimeout(()=>reject(new Error('Image decode timeout: '+target)),10000);})]);
+          finish();
+        }catch(error){if(image.naturalWidth>0)finish();else finish(error);}
+        finally{clearTimeout(decodeTimer);if(typeof CustomEvent!=='undefined')global.dispatchEvent(new CustomEvent('asset:decode',{detail:{url:target,ms:Date.now()-start}}));}
+      };
+      image.onerror=()=>finish(new Error('Asset unavailable: '+target));image.src=target;
+      });}catch(error){if(attempt===2){failed.add(target);throw error;}await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));}
+    }}).finally(()=>images.delete(target));
     images.set(target,promise);return promise;
   }
   async function preloadImage(path){
     if(global.StudioContent?.load){const content=StudioContent.load();await (StudioContent.state.assetReady||content);}
     const key=pathKey(path),list=key?candidates(key,path):[resolvePath(path)];
-    for(const target of list){if(target===empty||failed.has(target))continue;try{return await loadImage(target);}catch{}}
+    for(const target of list){if(target===empty)continue;try{return await loadImage(target);}catch{}}
     throw new Error('Asset unavailable: '+path);
   }
   function audioProfile(profile){
@@ -83,9 +96,10 @@
   function imageAttribute(node){return node instanceof HTMLImageElement?'src':node.tagName?.toLowerCase()==='image'||(node.tagName?.toLowerCase()==='link'&&/^(icon|apple-touch-icon)$/.test(node.getAttribute('rel')))?'href':null;}
   function recover(node,original,current,attribute){
     if(node.getAttribute(attribute)!==current)return;
-    failed.add(localPath(current));
-    const target=resolvePath(original);node.dataset.studioResolved=target;
-    node.dataset.assetState=target===empty?'failed':'fallback';node.setAttribute(attribute,target);
+    if(node.dataset.assetState==='failed')return;
+    if(watched.get(node)?.recovering)return;
+    watched.set(node,{recovering:true});node.dataset.assetState='retrying';
+    preloadImage(original).then(image=>{if(node.getAttribute(attribute)!==current)return;const target=image.getAttribute('src');node.dataset.studioResolved=target;node.dataset.assetState='loaded';node.setAttribute(attribute,target);}).catch(()=>{if(node.getAttribute(attribute)!==current)return;node.dataset.assetState='failed';node.dispatchEvent(new Event('error'));}).finally(()=>watched.delete(node));
   }
   function applyNode(node,force=false){
     const attribute=imageAttribute(node);
@@ -99,13 +113,14 @@
       if(node instanceof HTMLImageElement&&watched.get(node)!==target){
         watched.set(node,target);node.dataset.assetState=target===empty?'failed':'loading';
         if(target===empty)return;
-        const timer=setTimeout(()=>{if(!node.complete)recover(node,original,target,attribute);},5000);
+        // Native requests own their network lifecycle; never replace a slow image.
+        const timer=null;
         node.addEventListener('load',()=>{clearTimeout(timer);if(node.getAttribute(attribute)===target)node.dataset.assetState='loaded';},{once:true});
         node.addEventListener('error',()=>{clearTimeout(timer);recover(node,original,target,attribute);},{once:true});
         if(node.complete){clearTimeout(timer);if(node.naturalWidth)node.dataset.assetState='loaded';else recover(node,original,target,attribute);}
       }else if(!(node instanceof HTMLImageElement)&&watched.get(node)!==target){
         watched.set(node,target);
-        preloadImage(original).then(image=>{if(node.getAttribute(attribute)===target)node.setAttribute(attribute,image.getAttribute('src'));}).catch(()=>{node.dataset.assetState='failed';node.setAttribute(attribute,empty);});
+        preloadImage(original).then(image=>{if(node.getAttribute(attribute)===target)node.setAttribute(attribute,image.getAttribute('src'));}).catch(()=>{node.dataset.assetState='failed';});
       }
     }
     if(node.style?.length)for(const property of Array.from(node.style)){
@@ -116,7 +131,7 @@
       const matches=[...original.matchAll(/url\(["']?([^"')]+)["']?\)/g)];
       if(!matches.some(m=>safeLocal(m[1])||pathKey(m[1])))continue;
       const record={original,target:current};records.set(property,record);
-      Promise.all(matches.map(async match=>{if(!safeLocal(match[1])&&!pathKey(match[1]))return match[1];try{return (await preloadImage(match[1])).src;}catch{return empty;}})).then(values=>{
+      Promise.all(matches.map(async match=>{if(!safeLocal(match[1])&&!pathKey(match[1]))return match[1];try{return (await preloadImage(match[1])).src;}catch{return resolvePath(match[1]);}})).then(values=>{
         if(records.get(property)!==record||node.style.getPropertyValue(property)!==current)return;
         let i=0;const next=original.replace(/url\(["']?([^"')]+)["']?\)/g,()=> 'url("'+values[i++]+'")');
         record.target=next;node.style.setProperty(property,next);record.target=node.style.getPropertyValue(property);
@@ -137,7 +152,7 @@
         if(!matches.some(m=>pathKey(m[1])&&!safeLocal(resolvePath(m[1]))))continue;
         const next=original.replace(/url\(["']?(\/[^"')]+)["']?\)/g,(_,path)=>'url("'+resolvePath(path)+'")');
         const record={original,target:next};records.set(property,record);const priority=style.getPropertyPriority(property);style.setProperty(property,next,priority);record.target=style.getPropertyValue(property);
-        Promise.all(matches.map(async m=>{try{return (await preloadImage(m[1])).src;}catch{return empty;}})).then(values=>{
+        Promise.all(matches.map(async m=>{try{return (await preloadImage(m[1])).src;}catch{return resolvePath(m[1]);}})).then(values=>{
           if(records.get(property)!==record||style.getPropertyValue(property)!==record.target)return;
           let index=0;style.setProperty(property,original.replace(/url\(["']?(\/[^"')]+)["']?\)/g,()=> 'url("'+values[index++]+'")'),priority);record.target=style.getPropertyValue(property);
         });
@@ -149,14 +164,14 @@
   document.addEventListener('error',event=>{
     const node=event.target,attribute=imageAttribute(node),original=node.dataset?.studioOriginal;
     if(!attribute||!original)return;
-    const current=node.getAttribute(attribute);failed.add(localPath(current));
+    const current=node.getAttribute(attribute);
     // Let legacy terminal-error handlers run only after every permitted backup fails.
-    if(resolvePath(original)!==empty){event.stopImmediatePropagation();recover(node,original,current,attribute);}
+    if(node.dataset.assetState!=='failed'){event.stopImmediatePropagation();recover(node,original,current,attribute);}
   },true);
   document.addEventListener('DOMContentLoaded',()=>{
     rebuild();applyMedia(document.body);
     new MutationObserver(records=>{for(const r of records){if(r.type==='attributes')applyNode(r.target);else r.addedNodes.forEach(n=>{if(n.nodeType===1)applyMedia(n);});}}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['src','href','xlink:href','style']});
   });
   global.addEventListener('studio:content-ready',()=>{rebuild();applyMedia(document.body,true);});
-  global.assetRegistry={url,resolve,resolvePath,audioProfile,preloadImage,binding,markFailed:value=>failed.add(localPath(value))};
+  global.assetRegistry={url,resolve,resolvePath,audioProfile,preloadImage,binding,canonical:safeLocal,limited,markFailed:value=>failed.add(localPath(value))};
 })(window);

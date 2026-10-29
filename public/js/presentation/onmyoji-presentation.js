@@ -884,7 +884,7 @@ function preloadOnmyojiAssets() {
       img.onload = img.onerror = resolve;
       img.src = onmyojiAsset(p);
     });
-  }));
+  })).then(results=>{if(results.some(result=>result===null))onmyojiPreloadPromise=null;return results;});
 }
 
 async function playOnmyojiPresentation(step, context = {}) {
