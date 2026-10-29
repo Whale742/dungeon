@@ -29,7 +29,7 @@ export function resolveStats(actor, equipmentMultiplier=1) {
   const growth=actor.victoryAtkBonus ?? Math.max(0,(actor.bonusAtk||0)-legacy);
   const baseAttack=(actor.ATK_base ?? initial.attack)+growth+(actor.warriorStacks||0);
   const penalty=actor.role==='gladiator'&&!actor.instanceId&&!actor.enemyEffects?.attack_down?.unavoidable?0:actor.enemyEffects?.attack_down?.value||0;
-  const ATK_base=baseAttack-penalty;
+  const ATK_base=baseAttack-penalty+(actor.p8Effects?.galaxy?.attackBonus||0);
   const gearPenalty=Math.max(0,penalty-baseAttack);
   let physical=0,magic=0;
   for(const e of equips) {

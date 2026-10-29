@@ -31,8 +31,8 @@ const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
     name: '蝕體符',
     color: '#facc15',
     glow: 'rgba(250, 204, 21, 0.75)',
-    shortEffect: '易傷 +10% 受傷提升',
-    firstDesc: '目標進入易傷狀態，受到的所有攻擊傷害提升 10%。',
+    shortEffect: '易傷 +25% 受傷提升',
+    firstDesc: '目標進入易傷狀態，受到的所有攻擊傷害提升 25%。',
     repeatDesc: '【重複觸發】再次結算易傷判定（易傷加成疊加）！'
   },
   confuse: {

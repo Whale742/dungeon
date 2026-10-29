@@ -2732,7 +2732,7 @@ export class Room {
             targetMonster.sealedThisRound = true;
             log.push({ text: `📜🔒 **【封勁符】** 未掉落再次觸發！封鎖魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
           } else if (talisman === 'corrode') {
-            log.push({ text: `📜🩸 **【蝕體符】** 未掉落再次結算易傷判定！魔物肉體受蝕，受到的所有攻擊傷害提升 10%！`, type: 'buff' });
+            log.push({ text: `📜🩸 **【蝕體符】** 未掉落再次結算易傷判定！魔物肉體受蝕，受到的所有攻擊傷害提升 25%！`, type: 'buff' });
           }
         }
       }
@@ -5486,7 +5486,7 @@ export class Room {
       if (!options.equation && dmgType!=='true') {
         const actor=options.actor||phase8Actor;
         const galaxy=this.p8Has(actor,'galaxy');
-        rawDmg += galaxy?.separate ? 0 : galaxy?.value || 0;
+        rawDmg += galaxy?.separate || galaxy?.attackBonus !== undefined ? 0 : galaxy?.value || 0;
         if(actor?.action!=='basic' && !options.kind && !actor?.overloadAppliedThisAction) { rawDmg += this.p8Has(actor,'overload')?.value || 0; if(actor)actor.overloadAppliedThisAction=true; }
       }
       if(!options.equation) {
@@ -5495,7 +5495,7 @@ export class Room {
         if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
         if(this.p8Has(targetEnemy,'dissociate') || (this.p8Has(targetEnemy,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
         const corrodeStacks = (targetEnemy.talismans || []).filter(t => t === 'corrode').length;
-        if(corrodeStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * corrodeStacks));
+        if(corrodeStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.25 * corrodeStacks));
         const flawStacks = Math.min(5, targetEnemy.flawMarks || 0);
         if(flawStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * flawStacks));
       }
@@ -6765,8 +6765,8 @@ export class Room {
             log.push({ text: `📜🔒 **${p.name}** 擲出【五鬼攝魂符・封勁符】！目標有 100% 機率在當前回合完全不造成任何傷害！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '封勁符' });
           } else if (talisman === 'corrode') {
-            actionOutcome = { type: 'talisman_corrode', label: '蝕體符', secondary: '易傷 +10%' };
-            log.push({ text: `📜🩸 **${p.name}** 擲出【五鬼攝魂符・蝕體符】！目標進入易傷狀態，受到的所有攻擊傷害提升 10%！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            actionOutcome = { type: 'talisman_corrode', label: '蝕體符', secondary: '易傷 +25%' };
+            log.push({ text: `📜🩸 **${p.name}** 擲出【五鬼攝魂符・蝕體符】！目標進入易傷狀態，受到的所有攻擊傷害提升 25%！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '蝕體符' });
           } else if (talisman === 'confuse') {
             actionOutcome = { type: 'talisman_confuse', label: '惑心符', secondary: '惑心反噬' };
@@ -6822,6 +6822,12 @@ export class Room {
         }
 
         case 'onm_all_talismans': {
+          const raw = Math.floor(this.applyFateBlessing(p, this.skillValue(p, 'onm_talisman')) * bardDmgMultiplier);
+          const { dmg } = applyResistanceDamage(raw, 'mag');
+          monster.hp = Math.max(0, monster.hp - dmg);
+          log.push({ text: `📜 **${p.name}** 的【萬符歸宗】造成 **${dmg}** 點【魔法】傷害！`, type: 'combat' });
+          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '萬符歸宗' });
+          if (monster.hp <= 0) { this.leaderSkillUsedThisBattle = true; break; }
           monster.talismans = monster.talismans || [];
           monster.permanentTalismans = monster.permanentTalismans || [];
           const ALL_TYPES = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
@@ -6831,7 +6837,6 @@ export class Room {
           }
           actionOutcome = { type: 'talisman_all', label: '萬符歸宗', secondary: '10道符咒' };
           log.push({ text: `📜✨ **${p.name}** 施展隊長技【萬符歸宗】！漫天靈符呼嘯而出，一次性向 **${monster.name}** 貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, type: 'combat' });
-          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '萬符歸宗' });
           const drainCount = monster.talismans.filter(t => t === 'drain').length;
           const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.05));
           const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);

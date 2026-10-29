@@ -1,7 +1,7 @@
 import { enemyEffect, afterPlayerDamage, drainEnemyEvents } from './enemy-mechanics.js';
 // Phase 8 hooks in Room's existing action, damage, shield and lifecycle owners.
 import { getFloorDifficultyMultiplier } from './constants.js';
-import { gladiatorInspirationAttack, GLADIATOR_INSPIRATION_CAP } from './stats.js';
+import { resolveStats, gladiatorInspirationAttack, GLADIATOR_INSPIRATION_CAP } from './stats.js';
 export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage','augur'];
 export const countEquip = (p,id) => (p.equips || []).filter(e=>e.id===id).length;
 export const zanshinStacks = (enemy, sourceId) => Math.max(0, Math.min(8, enemy?.zanshin?.[sourceId] || 0));
@@ -693,7 +693,7 @@ export const phase8Methods = {
     this.p8Results?.push(result);this.p8Visuals?.push({type:'player_attack',sourceId:p.id,target:enemy.instanceId,targetEnemyId:enemy.instanceId,dmgType:type,value:actual,isCrit:!!extra.critical});
     return actual;
   },
-  // Enhanced galaxy remains a hit-triggered effect, never an actor attack stat.
+  // Legacy saved galaxy effects may still contain a separate follow-up hit.
   // A result object can trigger once, and its own follow-up cannot recurse.
   p8GalaxyFollowups(queue,resistance,seen) {
     for(const step of [...queue])for(const hit of step.results||[]) {
@@ -822,7 +822,10 @@ export const phase8Methods = {
           this.p8Log('🌌 【界外星圖】觀星者隊長勘破宇宙邊界！次回合路線中的三條路事件全數洞悉揭曉！');
         }
         if(id==='star'||id==='planet') {damage(Math.floor((value(id==='star'?'sg_star':enhanced?'sg_eye_planet':'sg_planet'))*bardMultiplier),'mag');if(id==='planet'&&m.hp>0&&this.intervenePositive(p,'天體觀測・星球暈眩',enhanced?30:10).success&&this.monsterAllowsEffect('暈眩')){this.monsterStunnedThisRound=true;m.stunnedThisRound=true;outcome.stunned=true;}}
-        if(id==='galaxy')for(const ally of alive(this))effect(ally,'galaxy','發現星系',1,{value:this.skillValue(p,enhanced?'sg_eye_galaxy':'sg_bonus'),separate:enhanced,sourceId:p.id});
+        if(id==='galaxy') {
+          const attackBonus=Math.round(resolveStats(p,this.statMultiplier(p)).ATK_base*(enhanced?1.5:1));
+          for(const ally of alive(this))effect(ally,'galaxy','發現星系・攻擊力提升',1,{value:attackBonus,attackBonus,sourceId:p.id});
+        }
         if(id==='blackhole') {
           const attackable=this.getAttackableEnemies(p);
           const target=attackable.includes(m)?m:(!p.targetEnemyId?attackable[0]||m:m);

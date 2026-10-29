@@ -613,8 +613,40 @@ test('Onmyoji brush and leader drain use 5% without changing their stack rules',
   assert.deepEqual(step.results.filter(r=>r.finalDamage>0).map(r=>r.finalDamage),[10,50]);
   enemy.hp=1000;enemy.talismans=[];player.action='onm_all_talismans';room.resolveTurnActions();
   step=resolutionQueue(events).find(s=>s.actionId==='onm_all_talismans');
-  assert.equal(enemy.hp,900);assert.equal(enemy.permanentTalismans.length,10);
-  assert.equal(step.results.filter(r=>r.finalDamage>0).reduce((n,r)=>n+r.finalDamage,0),100);
+  assert.equal(enemy.hp,880);assert.equal(enemy.permanentTalismans.length,10);
+  assert.equal(step.results.filter(r=>r.finalDamage>0).reduce((n,r)=>n+r.finalDamage,0),120);
+});
+test('Onmyoji leader damage uses magic attack and does not attach charms to a defeated target',t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  player.equips=[{bonusMagAtk:1}];enemy.hp=22;player.action='onm_all_talismans';
+  room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='onm_all_talismans');
+  assert.equal(step.results.find(r=>r.kind==='damage').finalDamage,22);
+  assert.equal(enemy.hp,0);assert.deepEqual(enemy.talismans,[]);
+  assert.equal(room.leaderSkillUsedThisBattle,true);
+});
+for(const [stacks,expected] of [[1,25],[2,30]])test('Corrode increases incoming attack damage by 25% per charm: '+stacks,t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  player.ATK_base=32;enemy.talismans=Array(stacks).fill('corrode');player.action='basic';
+  room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='basic'&&s.sourceId===player.id);
+  assert.equal(step.results.find(r=>r.kind==='damage').finalDamage,expected);
+});
+for(const enhanced of [false,true])test('Galaxy raises the whole party attack stat for one round: enhanced='+enhanced,t=>{
+  const {room,player}=phase1Battle(t,'stargazer');
+  const ally=room.createPlayer('galaxy-ally','Ally');room.initializeRole(ally,'bard');
+  room.players[ally.id]=ally;room.memberIds.push(ally.id);ally.action='skip';
+  room.stageRoster=null;room.lockStageRoster();
+  if(enhanced)player.equips=[{id:'sg_eye'}];
+  t.mock.method(Math,'random',()=>enhanced?.35:.75);
+  const before=resolveStats(player).ATK_base,allyBefore=resolveStats(ally).ATK_base;
+  player.action='sg_observe';room.resolveTurnActions();
+  const bonus=enhanced?17:11;
+  assert.equal(resolveStats(player).ATK_base,before+bonus);
+  assert.equal(resolveStats(ally).ATK_base,allyBefore+bonus);
+  assert.equal(room.p8Has(ally,'galaxy').separate,undefined);
+  room.battleRound++;room.p8Expire(player);room.p8Expire(ally);
+  assert.equal(resolveStats(player).ATK_base,before);assert.equal(resolveStats(ally).ATK_base,allyBefore);
 });
 for(const [equipped,roll,kept] of [[false,.349,false],[false,.35,true],[true,.199,false],[true,.20,true]])
 test(`Onmyoji independent drop threshold: kariginu=${equipped}, roll=${roll}`,t=>{
