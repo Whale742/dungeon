@@ -2,7 +2,7 @@
 // record and sends no gameplay actions or presentation acknowledgements.
 (() => {
   const byId = id => document.getElementById(id);
-  const reads = new Set(['spectator:join', 'spectator:leave', 'room:resync', 'room:list', 'player:career', 'player:rename', 'adventure:list']);
+  const reads = new Set(['spectator:join', 'spectator:leave', 'spectator:apply', 'spectator:cancel', 'spectator:select_role', 'room:resync', 'room:list', 'player:career', 'player:rename', 'adventure:list']);
   let watching = false, code = null, busy = false, epoch = 0, overflowed = false, lastPresentation = 0;
   const inbox = [];
   const banner = document.createElement('aside'); banner.id = 'spectatorBanner'; banner.className = 'hidden';
@@ -72,12 +72,16 @@
     byId('playerActionCard')?.classList.remove('hidden');
     switchView('entry'); goToEntryScreen('screenLobbyMenu');
   }
-  leave.addEventListener('click', () => socket.timeout(10000).emit('spectator:leave', error => {
-    if (error) { showToast('尚未離開觀戰，請重新連線後重試', 'error'); return; }
+  leave.addEventListener('click', () => socket.timeout(10000).emit('spectator:leave', (error, reply) => {
+    if (error || !reply?.success) { showToast(reply?.message || '尚未離開觀戰，請重新連線後重試', 'warning'); return; }
     reset();
   }));
   byId('btnSpectate').addEventListener('click', join);
   socket.on('spectator:ended', () => { reset(); showToast('觀戰房間已關閉'); });
+  socket.on('spectator:promoted', () => {
+    reset(); showToast('已正式加入冒險，正在同步路線檢查點。', 'success', 5000);
+    socket.emit('room:resync');
+  });
   socket.on('connect', () => { if (code) socket.emit('spectator:join', { code }, result => { if (!result?.success) reset(); }); });
   socket.on('disconnect', () => { epoch++; inbox.length = 0; combatQueueController?.abort(); });
   socket.on('player:session_invalid', () => { if (watching) reset(); });

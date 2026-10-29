@@ -586,7 +586,7 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-.burger-danger-section:has(#btnEndBattle.hidden):has(#btnLeaveParty.hidden):has(#btnDetachAdventure.hidden):has(#btnCopyAdventureInvite.hidden):has(#adventureLeadership.hidden) {
+.burger-danger-section:has(#btnApplyAdventure.hidden):has(#btnEndBattle.hidden):has(#btnLeaveParty.hidden):has(#btnDetachAdventure.hidden):has(#btnCopyAdventureInvite.hidden):has(#adventureLeadership.hidden) {
   display: none;
 }
 

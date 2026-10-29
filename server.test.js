@@ -6,7 +6,7 @@ import { createServer } from 'node:net';
 import { io } from 'socket.io-client';
 
 const token = 'local-integration-test-token';
-export async function launch(t, enabled = true) {
+export async function launch(t, enabled = true, extraEnv = {}) {
   const probe = createServer();
   probe.listen(0, '127.0.0.1');
   await once(probe, 'listening');
@@ -15,7 +15,7 @@ export async function launch(t, enabled = true) {
   const child = spawn(process.execPath, ['server.js'], {
     cwd: new URL('.', import.meta.url), windowsHide: true,
     env: { ...process.env, PORT: String(port), DEV_TOOLS_ENABLED: String(enabled), DEV_ACCESS_TOKEN: token,
-      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '', IDENTITY_STORE: 'memory' },
+      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '', IDENTITY_STORE: 'memory', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   const clients = [];
@@ -50,7 +50,7 @@ export async function launch(t, enabled = true) {
 }
 export function request(socket, event, data) {
   return new Promise((resolve, reject) => {
-    const ack = (error, result) => error ? reject(error) : resolve(result);
+    const ack = (error, result) => error ? reject(new Error(event + ': ' + error.message)) : resolve(result);
     if (data === undefined) socket.timeout(3000).emit(event, ack);
     else socket.timeout(3000).emit(event, data, ack);
   });
@@ -376,4 +376,73 @@ test('Saved static URLs and canonical paths serve identical files, including enc
     assert.equal((await head.arrayBuffer()).byteLength, 0);
   }
   assert.equal((await fetch(url + '/photo/not-an-asset.webp')).status, 404);
+});
+
+
+test('solo and multiplayer Lobby refresh reuse Player IDs; offline Lobby cleanup does not contaminate Dev ownership', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t, true, { ROOM_OFFLINE_GRACE_MS: '150' });
+  const leader = await connect();
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  const cookie = leader.sessionCookie, id = leader.playerId; leader.disconnect();
+  const fresh = await connect(false, cookie);
+  await request(fresh, 'room:list');
+  assert.equal(fresh.playerId, id);
+  assert.deepEqual((await request(fresh, 'adventure:list', {})).adventures, []);
+  assert.equal((await request(fresh, 'room:join', { code })).success, true);
+  const peer = await connect(); await request(peer, 'room:join', { code });
+  fresh.disconnect();
+  const again = await connect(false, cookie); await request(again, 'room:join', { code });
+  const update = once(again, 'room:update', { signal: t.signal }); again.emit('room:resync');
+  const state = (await update)[0];
+  assert.equal(state.state, 'LOBBY'); assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === id).role, 'warrior');
+  assert.equal((await request(again, 'dev:authorize', { token })).success, false);
+  again.disconnect(); peer.disconnect();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const dev = await connect(true, cookie);
+  assert.equal((await request(dev, 'room:join', { code })).success, false);
+  assert.equal((await request(dev, 'room:create', {})).success, true);
+  await request(dev, 'player:select_role', { roleKey: 'warrior' });
+  assert.equal((await request(dev, 'game:start')).success, true);
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  assert.deepEqual((await request(dev, 'adventure:list', {})).adventures, []);
+  assert.equal((await request(dev, 'player:career', {})).stats.adventures, 0);
+});
+
+test('spectator sockets apply, reject, approve and become a single formal member only after checkpoint save', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t, false);
+  const [leader, observer, intruder] = await Promise.all([connect(), connect(), connect()]);
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  await request(leader, 'game:start');
+  await request(observer, 'spectator:join', { code });
+  const first = await request(observer, 'spectator:apply', {}); assert.equal(first.success, true);
+  assert.equal((await request(observer, 'spectator:apply', {})).success, false);
+  const review = { playerId: observer.playerId, requestId: first.requestId, approve: false };
+  assert.equal((await request(intruder, 'spectator:review', review)).success, false);
+  assert.equal((await request(observer, 'spectator:review', review)).success, false);
+  assert.equal((await request(leader, 'spectator:review', review)).success, true);
+  const second = await request(observer, 'spectator:apply', {});
+  assert.equal((await request(leader, 'spectator:review', { ...review, requestId: second.requestId, approve: true })).success, true);
+  assert.equal((await request(observer, 'route:vote', { routeId: 'x' })).success, false);
+  await request(leader, 'prologue:skip');
+  const boundary = once(observer, 'spectator:application', { signal: t.signal });
+  await request(leader, 'event:shop_action', { action: 'leave' });
+  const application = (await boundary)[0]; assert.equal(application.requests[0].status, 'choosing_role');
+  const promoted = once(observer, 'spectator:promoted', { signal: t.signal });
+  assert.equal((await request(observer, 'spectator:select_role', { requestId: second.requestId, checkpoint: application.checkpoint, role: 'mage' })).success, true);
+  await promoted;
+  await request(observer, 'room:list');
+  const update = once(observer, 'room:update', { signal: t.signal }); observer.emit('room:resync');
+  const state = (await update)[0];
+  assert.equal(state.viewer?.spectator, undefined); assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === observer.playerId).role, 'mage'); assert.equal(state.checkpoint.status, 'saved');
+  assert.equal((await request(observer, 'player:career', {})).stats.battles, 0);
+  assert.equal((await request(observer, 'adventure:list', {})).adventures[0].id, state.adventureId);
+  assert.equal((await request(observer, 'spectator:apply', {})).success, false);
+  leader.emit('route:interaction_ready', { presentationId: state.routePresentationId });
+  observer.emit('route:interaction_ready', { presentationId: state.routePresentationId });
+  await request(observer, 'room:list'); await request(leader, 'room:list');
+  assert.equal((await request(observer, 'route:vote', { routeId: state.currentRoutes[0].id })).success, true);
 });

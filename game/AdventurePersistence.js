@@ -8,7 +8,7 @@ const runtime = new WeakMap();
 export class AdventurePersistence {
   constructor(store, { now = Date.now } = {}) {
     this.store = store; this.now = now;
-    this.active = new Map(); this.restoring = new Map();
+    this.active = new Map(); this.restoring = new Map(); this.terminal = new Set();
     this.heartbeat = setInterval(() => { void this.renewAll(); }, 15000);
     this.heartbeat.unref();
   }
@@ -33,7 +33,7 @@ export class AdventurePersistence {
     const c = runtime.get(room);
     if (!c) return false;
     if (c.leaseUntil && c.leaseUntil <= this.now() + 2000) this.loseAuthority(room);
-    return c.lost || c.membershipPending || ['saving', 'failed', 'ending'].includes(room.checkpoint?.status);
+    return c.lost || c.retiring || c.membershipPending || room.stageRosterPending || room.spectators?.waiting || ['saving', 'failed', 'ending', 'waiting_players'].includes(room.checkpoint?.status);
   }
   enqueue(room, task) {
     const c = runtime.get(room);
@@ -41,7 +41,7 @@ export class AdventurePersistence {
     c.chain = promise;
     return promise;
   }
-  hasLostAuthority(room) { this.blocked(room); return !!runtime.get(room)?.lost; }
+  hasLostAuthority(room) { this.blocked(room); const c = runtime.get(room); return !!(c?.lost || c?.retiring); }
   async list(playerId, offset = 0) {
     const page = await this.store.list(playerId, offset);
     const entries = new Map(page.adventures.map(item => [item.id, item]));
@@ -54,6 +54,7 @@ export class AdventurePersistence {
         checkpointFloor: null, savedAt: null, saveVersion: 0, status: 'active' });
     }
     const adventures = [...entries.values()].filter(item => {
+      if (this.terminal.has(item.id)) return false;
       const room = this.active.get(item.id);
       return !room || (!runtime.get(room).ended && !['GAME_OVER', 'VICTORY'].includes(room.state) && !!room.players[playerId]);
     }).map(item => {
@@ -96,7 +97,7 @@ export class AdventurePersistence {
   }
   saveBoundary(room) {
     const c = runtime.get(room);
-    if (!c || c.ended) return Promise.resolve();
+    if (!c || c.ended || c.retiring || room.stageRosterPending || (room.spectators?.waiting && !room.spectators.committing)) return Promise.resolve(false);
     if (c.job?.presentationId === room.routePresentationId) return c.job.promise;
     const job = { key: randomUUID(), presentationId: room.routePresentationId, snapshot: null, promise: null };
     c.job = job;
@@ -119,6 +120,7 @@ export class AdventurePersistence {
         job.confirmed = true;
         if (['GAME_OVER', 'VICTORY'].includes(room.state)) return true;
         room.checkpoint.status = 'saved'; room.checkpoint.message = null;
+        room.spectators?.checkpointSaved();
         room.restoredFromCheckpoint = false;
         room.finishRoutePresentationIfReady(); room.broadcastState();
         return true;
@@ -146,20 +148,23 @@ export class AdventurePersistence {
     const c = runtime.get(room);
     if (!c || c.ended) return Promise.resolve(true);
     if (c.ending) return c.ending;
+    this.terminal.add(room.adventureId);
+    room.clearTimer(); room.pendingPresentationAcks?.clear(); room.pendingSelectionAcks?.clear();
+    room.spectators?.close();
     room.checkpoint.status = 'ending'; room.checkpoint.message = '正在保存冒險結束狀態。';
     c.ending = this.enqueue(room, async () => {
       try {
-        // A lost HTTP response can mean the checkpoint committed. Resolve the
-        // same idempotency key before CAS-writing the terminal metadata.
-        if (room.career) await room.career.flush(room);
-        if (c.job?.snapshot && !c.job.confirmed) {
-          this.accept(room, await this.store.call('save', { ...this.payload(room), key: c.job.key, snapshot: c.job.snapshot }));
-          c.job.confirmed = true;
-        }
+        // Even a career service failure must not leave a recoverable adventure.
+        let careerError;
+        if (room.career) try { await room.career.flush(room); } catch (error) { careerError = error; }
+        // finish accepts an older version from this exact lease. Do not replay
+        // a failed checkpoint merely to delete it, or wait on its failure.
         const row = await this.store.call('finish', { ...this.payload(room), status: terminalStatus(room) });
         this.accept(room, row); c.ended = true;
         room.checkpoint.status = 'ended'; room.checkpoint.message = null;
-        this.active.delete(room.adventureId); room.broadcastState(); return true;
+        this.active.delete(room.adventureId); room.onAdventureEnded?.(); room.broadcastState();
+        if (careerError) void room.career.flush(room).catch(() => {});
+        return true;
       } catch (error) { this.fail(room, error); return false; }
       finally { c.ending = null; }
     });
@@ -198,6 +203,7 @@ export class AdventurePersistence {
   async renewAll() {
     await Promise.all([...this.active.values()].map(async room => {
       const c = runtime.get(room);
+      if (['GAME_OVER', 'VICTORY'].includes(room.state) && !c.ended) { await this.finish(room); return; }
       if (!c.leaseUntil || c.ended || c.lost || c.renewing) return;
       c.renewing = true;
       try { await this.enqueue(room, async () => this.accept(room, await this.store.call('renew', this.payload(room)))); }
@@ -205,8 +211,32 @@ export class AdventurePersistence {
       finally { c.renewing = false; }
     }));
   }
+  async suspend(room) {
+    const c = runtime.get(room);
+    if (!c || c.ended || c.retiring || ['GAME_OVER', 'VICTORY'].includes(room.state)) return false;
+    c.retiring = true;
+    c.suspending = (async () => {
+      await c.chain.catch(() => {});
+      // A pending admission can become a connected formal player while its
+      // checkpoint finishes. Keep that authoritative instance alive.
+      if (Object.values(room.players).some(p => p.connected)) {
+        c.retiring = false;
+        if (room.identityOfflinePause) {
+          room.identityOfflinePause = false;
+          if (room.isPaused) room.togglePause(room.memberIds.find(id => room.players[id]?.connected));
+        }
+        room.finishRoutePresentationIfReady(); room.broadcastState(); return false;
+      }
+      if (c.leaseUntil && !c.lost) await this.store.call('release', this.payload(room)).catch(() => {});
+      c.lost = true; this.active.delete(room.adventureId); room.clearTimer(); room.spectators?.close();
+      return true;
+    })();
+    return c.suspending;
+  }
   async restore(id, playerId, { Room, code, io }) {
+    if (this.terminal.has(id)) throw Object.assign(new Error('冒險已結束，無法恢復'), { code: 'ENDED' });
     let room = this.active.get(id);
+    if (runtime.get(room)?.suspending) { await runtime.get(room).suspending; room = this.active.get(id); }
     if (room && !runtime.get(room).lost) {
       if (!room.players[playerId] || ['GAME_OVER', 'VICTORY'].includes(room.state)) throw new Error('無權加入此冒險，或冒險已結束');
       return room;

@@ -13,7 +13,7 @@ export class DevAccess {
   hash(value) { return createHash('sha256').update(value).digest(); }
 
   owns(socket, room) {
-    return Boolean(this.enabled && room?.isDev === true && room.leaderId === socket.id &&
+    return Boolean(this.enabled && room?.isDev === true && !['GAME_OVER', 'VICTORY'].includes(room.state) && room.leaderId === socket.id &&
       room.memberIds.length === 1 && room.players[socket.id]?.connected);
   }
 

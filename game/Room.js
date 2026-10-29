@@ -72,6 +72,8 @@ export class Room {
     this.io = io;
     this.leaderId = leaderSocket.id;
     this.memberIds = [leaderSocket.id];
+    this.stageRoster = null;
+    this.stageRosterPending = false;
     this.players = {}; // socket.id -> player object
     
     // 遊戲狀態機: 'LOBBY' | 'PROLOGUE' | 'CHOOSING_ROUTE' | 'TRANSITION' | 'EVENT' | 'IN_BATTLE' | 'CHECKPOINT' | 'GAME_OVER' | 'VICTORY'
@@ -592,7 +594,7 @@ export class Room {
 
   createEnemyInstance(baseTemplate, index = 0, options = {}) {
     const isWeakened = Boolean(options.isWeakened);
-    const playerCount = Math.max(1, this.memberIds.length);
+    const playerCount = this.getStagePlayerCount();
     const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
     const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
     const floorMultiplier = getFloorDifficultyMultiplier(this.floor);
@@ -843,11 +845,18 @@ export class Room {
       this.memberIds.push(socket.id);
     }
 
-    const cleanAvatar = normalizeAvatar(avatar, this.studioContent.snapshot);
+    this.players[socket.id] = this.createPlayer(socket.id, name, avatar);
+    socket.join(this.code);
+    this.addLog(`👋 **${this.players[socket.id].name}** 加入了小隊（當前人數: ${this.memberIds.length}/10）`, 'info');
+    this.broadcastState();
+    return { success: true };
+  }
 
-    this.players[socket.id] = {
-      id: socket.id,
-      name: name || `勇者_${socket.id.slice(0, 4)}`,
+  createPlayer(id, name, avatar = null) {
+    const cleanAvatar = normalizeAvatar(avatar, this.studioContent.snapshot);
+    return {
+      id,
+      name: name || `勇者_${id.slice(0, 4)}`,
       role: null,
       customAvatar: cleanAvatar,
       hp: 100,
@@ -910,11 +919,6 @@ export class Room {
       hasDealtFirstBattleCrit: false,
       connected: true
     };
-
-    socket.join(this.code);
-    this.addLog(`👋 **${this.players[socket.id].name}** 加入了小隊（當前人數: ${this.memberIds.length}/10）`, 'info');
-    this.broadcastState();
-    return { success: true };
   }
 
   removePlayer(socketId) {
@@ -1104,6 +1108,13 @@ export class Room {
       return { success: false, message: '此職業已由隊友選擇，請選擇其他職業！' };
     }
 
+    this.initializeRole(player, roleKey);
+    this.addLog(`**${player.name}** 選擇了職業：**${CLASSES[roleKey].name}**`, 'role');
+    this.broadcastState();
+    return { success: true };
+  }
+
+  initializeRole(player, roleKey) {
     player.role = roleKey;
     player.equips = [];
     player.equipSlots = { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null };
@@ -1128,10 +1139,7 @@ export class Room {
     delete player.noReviveFloor;
     this.p8RefreshEquipment();
 
-    this.addLog(`**${player.name}** 選擇了職業：**${CLASSES[roleKey].name}**`, 'role');
     player.isReady = false;
-    this.broadcastState();
-    return { success: true };
   }
 
   toggleReady(socketId) {
@@ -1164,6 +1172,7 @@ export class Room {
     }
 
     this.broadcastState();
+    this.spectators?.notify();
     return { success: true };
   }
 
@@ -1320,6 +1329,7 @@ export class Room {
     const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
     if (alivePlayers.length === 0) { this.handleGameOver(); return; }
     this.state = 'CHOOSING_ROUTE';
+    this.stageRoster = null; this.stageRosterPending = true;
     this.currentEvent = null;
     this.currentTransition = null;
     this.routeVotes = {}; // 重置全體投票記錄
@@ -1401,11 +1411,51 @@ export class Room {
     }
     this.settleInventoryOverflow();
     this.career?.floor(this);
-    void this.persistence?.saveBoundary(this);
+    if (this.checkpoint) this.checkpoint.boundaryFloor = this.floor;
+    if (!this.spectators?.beginCheckpoint()) this.finalizeRouteCheckpoint();
     this.broadcastState();
 
     // No fixed-duration fallback may consume an unfinished player's choice time.
   }
+
+  lockStageRoster() {
+    if (this.stageRoster) return this.stageRoster.count > 0;
+    const ids = this.memberIds.filter(id => {
+      const p = this.players[id];
+      const admitting = this.spectators?.requests.get(id)?.status === 'saving' && this.spectators.members.has(id);
+      return p && (p.connected || admitting) && p.hp > 0 && (CLASSES[p.role] || !this.adventureId);
+    });
+    if (!ids.length) return false;
+    this.stageRoster = Object.freeze({ playerIds: Object.freeze(ids), count: ids.length,
+      floor: this.floor, routePresentationId: this.routePresentationId });
+    this.stageRosterPending = false;
+    return true;
+  }
+
+  finalizeRouteCheckpoint() {
+    if (this.spectators?.waiting && !this.spectators.committing) return;
+    if (!this.lockStageRoster()) {
+      if (this.checkpoint) Object.assign(this.checkpoint, { status: 'waiting_players', message: '沒有合法在線參戰者，等待正式玩家重新連線後建立檢查點。' });
+      if (!this.isPaused) { this.togglePause(this.leaderId); this.identityOfflinePause = true; }
+      this.broadcastState(); return;
+    }
+    void this.persistence?.saveBoundary(this);
+  }
+
+  getStagePlayerCount() {
+    // Direct Dev/test encounters also lock once. Formal play must lock at the
+    // route boundary, never at enemy generation or reconnection.
+    if (!this.stageRoster && !this.adventureId) this.lockStageRoster();
+    if (!this.stageRoster?.count) throw new Error('本路線尚未鎖定參戰名單');
+    return this.stageRoster.count;
+  }
+
+  isStageParticipant(id) {
+    return this.memberIds.includes(id) && (this.stageRoster ? this.stageRoster.playerIds.includes(id) : !this.adventureId);
+  }
+
+  getCombatPlayers() { return Object.values(this.players).filter(p => this.isStageParticipant(p.id)); }
+  getEffectPlayers() { return this.state === 'IN_BATTLE' ? this.getCombatPlayers() : Object.values(this.players); }
 
   // 用戶端路線氛圍敘述文字演出完畢、選項進場可互動回調 (P2-R1.1 Section 5)
   handleRouteNarrativeDone(socketId, presentationId) {
@@ -1417,7 +1467,7 @@ export class Room {
 
   finishRoutePresentationIfReady() {
     if (this.state !== 'CHOOSING_ROUTE' || !this.isNarrating || this.pendingPresentationAcks.size) return;
-    if (this.persistence?.blocked(this)) return;
+    if (this.persistence?.blocked(this) || this.spectators?.waiting) return;
     if (!Object.values(this.players).some(p => p.connected)) return;
     this.isNarrating = false;
     this.addLog(`🧭 路線選項已就緒，請全員共同投票決定前進方向！`, 'info');
@@ -1426,7 +1476,7 @@ export class Room {
 
   voteRoute(socketId, routeId) {
     if (this.state !== 'CHOOSING_ROUTE') return { success: false, message: '目前非路線投票階段' };
-    if (this.persistence?.blocked(this)) return { success: false, message: '檢查點尚未安全保存，暫時無法投票' };
+    if (this.persistence?.blocked(this) || this.spectators?.waiting) return { success: false, message: '檢查點尚未安全保存，暫時無法投票' };
     if (this.isNarrating || this.isPaused) return { success: false, message: '路線演出尚未完成或遊戲暫停中' };
     const player = this.players[socketId];
     if (!player?.connected) return { success: false, message: '玩家不存在或已斷線' };
@@ -1977,6 +2027,7 @@ export class Room {
 
   // 戰鬥事件（支援舊版單體 Boss 與新版 Module 2 多目標編隊 options.col / options.enemies）
   handleBattleEvent(outcomeData = null, isWeakened = false, options = {}) {
+    this.getStagePlayerCount();
     this.state = 'IN_BATTLE';
     this.arrowTrap = null;
     let encounterStory = '';
@@ -2037,7 +2088,7 @@ export class Room {
       encounterStory = primary?.encounterStory || `小隊在第 ${col} 層遭遇了敵方編隊（${formationEnemies.map(e => e.name).join('、')}）！`;
     } else {
       const baseMonster = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
-      const playerCount = this.memberIds.length;
+      const playerCount = this.getStagePlayerCount();
       const hpPlayerMultiplier = 1 + (playerCount - 1) * 1.0;
       const atkPlayerMultiplier = 1 + (playerCount - 1) * 0.5;
       // 敵方難度加成：1~5層每層+10%，6~10層每層+15%，以此類推
@@ -2392,7 +2443,7 @@ export class Room {
   executeRoundStart() {
     this.clearTimer();this.healingSourceId=null;
     this.roundModifiers = { equipmentEffectMultiplier: 1.0, acidFlaskCount: 0 }; // 每回合初確保裝備倍率恢復 100%
-    Object.values(this.players).forEach(p => { p.isCrouchedThisRound = false; this.cleanGladiatorDebuffs(p); });
+    this.getCombatPlayers().forEach(p => { p.isCrouchedThisRound = false; this.cleanGladiatorDebuffs(p); });
     for (const enemy of (this.enemies || [])) {
       if (enemy) {
         enemy.sealedThisRound = false;
@@ -2401,13 +2452,13 @@ export class Room {
         enemy.counterChance = 0;
       }
     }
-    const alivePlayers = Object.values(this.players).filter(p => p.hp > 0);
+    const alivePlayers = this.getCombatPlayers().filter(p => p.hp > 0);
     if (alivePlayers.length === 0) {
       this.handleGameOver();
       return;
     }
 
-    const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
+    const canFightLiving = this.getCombatPlayers().filter(p => p.hp > 0 && !p.isSurrendered);
     if (canFightLiving.length === 0 && this.currentMonster && (this.currentMonster.name === '暗影魔狼族長' || this.currentMonster.name.includes('暗影魔狼族長'))) {
       this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 德魯伊處於狼王臣服狀態無法行動，且隊伍已無其他能戰鬥的生還隊友，冒險直接判定挑戰失敗！`, 'damage');
       this.handleGameOver();
@@ -2482,7 +2533,7 @@ export class Room {
     // 1. 流血撕裂傷害結算 (套用難度層數加成)
     if (this.getLivingEnemies().some(e => e.baseHp < 100)) {
       const bleedDmg = Math.floor(2 * getFloorDifficultyMultiplier(this.floor));
-      for (const p of Object.values(this.players)) {
+      for (const p of this.getCombatPlayers()) {
         if (p.hp > 0 && p.bleedTurns > 0) {
           p.bleedTurns -= 1;
           if (isAssassinHidden(p)) { visualEvents.push({ type: 'hidden_evade', targetId: p.id, label: '隱身・MISS', outcome: { type: 'dodge', stealth: true } }); log.push({ text: `**${p.name}** 的隱身阻止流血傷害。`, type: 'buff' }); continue; }
@@ -2529,7 +2580,7 @@ export class Room {
       }
     }
     let anyPlayerCorrosionExpired = false;
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.hp > 0 && p.corrosionTurns > 0) {
         p.corrosionTurns -= 1;
         if (p.corrosionTurns === 0) {
@@ -2611,7 +2662,7 @@ export class Room {
         const droppedTalismans = [];
         const keptTalismans = [];
 
-        const hasKariginu = Object.values(this.players).some(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'));
+        const hasKariginu = this.getCombatPlayers().some(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'));
         const dropThreshold = hasKariginu ? 0.20 : 0.35;
 
         if (targetMonster.talismansLockedTurns > 0) {
@@ -2727,7 +2778,7 @@ export class Room {
       }
     };
 
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       tickPlayerDot(p, '毒素', '🧪', 'poisonTurns', 'poisonDmg', 5);
       tickPlayerDot(p, '燃燒', '🔥', 'burnTurns', 'burnDmg', 7);
       tickPlayerDot(p, '骨折', '🦴', 'fractureTurns', 'fractureDmg', 2);
@@ -2737,7 +2788,7 @@ export class Room {
     // 4. 回合初狂亂殺戮曲代價扣除 (全隊扣除 20% 最大生命)
     if (this.frenzyTeamDrainTurns > 0) {
       this.frenzyTeamDrainTurns -= 1;
-      for (const pl of Object.values(this.players)) {
+      for (const pl of this.getCombatPlayers()) {
         if (pl.hp > 0) {
           if (isAssassinHidden(pl)) { visualEvents.push({ type: 'hidden_evade', targetId: pl.id, label: '隱身・MISS', outcome: { type: 'dodge', stealth: true } }); continue; }
           const drain = Math.max(1, Math.round(pl.maxHp * 0.20));
@@ -2753,11 +2804,11 @@ export class Room {
     }
 
     // 5. 祝福絲綢袍（詩人裝備）：每回合初自動為全隊當前生命最低的隊友補血
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.hp > 0 && p.role === 'bard') {
         const robeCount = (p.equips || []).filter(e => e.id === 'b_robe' || e.name === '祝福絲綢袍').length;
         if (robeCount > 0) {
-          const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0);
+          const livingAllies = this.getCombatPlayers().filter(pl => pl.hp > 0);
           if (livingAllies.length > 0) {
             livingAllies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
             const targetAlly = livingAllies[0];
@@ -2823,7 +2874,7 @@ export class Room {
     this.selectionState = 'SELECTING';
     this.isNarrating = false;
 
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       // After round-start damage/control, pay only on a turn this Sage can act.
       this.p8PaySageDebt(p);
       if (p.hp <= 0) {
@@ -2851,7 +2902,7 @@ export class Room {
     // 嚴格遵守 P2-R1.1 Section 6：技能選擇 30 秒計時由客戶端 battle:selection_ready 驅動
     this.clearTimer();
     this.isWaitingForSelectionReady = true;
-    this.pendingSelectionAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
+    this.pendingSelectionAcks = new Set(this.getCombatPlayers().filter(p => p.connected).map(p => p.id));
 
     this.broadcastState();
   }
@@ -2860,7 +2911,7 @@ export class Room {
   handleSelectionReady(socketId = null, round = this.battleRound) {
     if (this.state !== 'IN_BATTLE' || this.selectionState !== 'SELECTING' || round !== this.battleRound) return;
     if (!this.isWaitingForSelectionReady) return;
-    if (!this.players[socketId]?.connected) return;
+    if (!this.players[socketId]?.connected || !this.isStageParticipant(socketId)) return;
     this.pendingSelectionAcks.delete(socketId);
     if (this.pendingSelectionAcks.size) return;
     this.isWaitingForSelectionReady = false;
@@ -2874,6 +2925,7 @@ export class Room {
   }
 
   selectTargetEnemy(socketId, targetEnemyId) {
+    if (!this.isStageParticipant(socketId) || !this.players[socketId]?.connected) return { success: false, message: '你不在本階段參戰名單中或已離線' };
     if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
@@ -2889,6 +2941,7 @@ export class Room {
 
   // 玩家鎖定技能 (CONFIRM -> LOCKED)
   lockAction(socketId, actionId, targetPlayerId = null, targetEnemyId = null) {
+    if (!this.isStageParticipant(socketId) || !this.players[socketId]?.connected) return { success: false, message: '你不在本階段參戰名單中或已離線' };
     if (this.state !== 'IN_BATTLE') return { success: false, message: '目前非戰鬥回合' };
     if (this.selectionState !== 'SELECTING') return { success: false, message: '目前正在結算中，無法更改指令！' };
     const player = this.players[socketId];
@@ -2899,7 +2952,7 @@ export class Room {
     if (actionId === 'sa_tsubame' && this.getSamuraiSoul(player)<4) return {success:false,message:'燕返需要至少 4 層武魂'};
     if (actionId === 'pal_grace' && targetPlayerId && (!this.players[targetPlayerId] || this.players[targetPlayerId].hp <= 0)) return { success: false, message: '請指定存活隊友' };
     if (actionId === 'aug_bind') {
-      const others=Object.values(this.players).filter(p=>p.hp>0 && p.id!==player.id);
+      const others=this.getCombatPlayers().filter(p=>p.hp>0 && p.id!==player.id);
       if (!others.length) targetPlayerId=player.id;
       else if (!others.some(p=>p.id===targetPlayerId)) return {success:false,message:'命運繫結必須指定自身以外的存活隊友'};
     }
@@ -2927,7 +2980,7 @@ export class Room {
       const availableSkills = getPlayerSkills(player);
       if (actionId === 'b_revive') {
         if(player.role!=='bard')return {success:false,message:'此職業不能使用甦生之歌'};
-        const deadPlayers = Object.values(this.players).filter(p => p.hp <= 0);
+        const deadPlayers = this.getCombatPlayers().filter(p => p.hp <= 0);
         if (deadPlayers.length === 0) return { success: false, message: '目前場上無倒下的隊友' };
         if (!targetPlayerId || !this.players[targetPlayerId] || this.players[targetPlayerId].hp > 0) {
           return { success: false, message: '請指定有效的陣亡隊友！' };
@@ -2998,6 +3051,7 @@ export class Room {
 
   // 玩家取消鎖定 (允許在全員 Locked 前重新選擇)
   unlockAction(socketId) {
+    if (!this.isStageParticipant(socketId) || !this.players[socketId]?.connected) return { success: false, message: '你不在本階段參戰名單中或已離線' };
     if (this.state !== 'IN_BATTLE' || this.selectionState !== 'SELECTING') {
       return { success: false, message: '目前非選擇階段，無法取消鎖定' };
     }
@@ -3021,8 +3075,8 @@ export class Room {
   checkTurnCompletion() {
     if (this.selectionState !== 'SELECTING' || this.isWaitingForSelectionReady) return;
 
-    const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && p.connected && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree');
-    const allDone = Object.values(this.players).some(p => p.hp > 0) && livingPlayers.every(p => p.isLocked === true);
+    const livingPlayers = this.getCombatPlayers().filter(p => p.hp > 0 && p.connected && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree');
+    const allDone = this.getCombatPlayers().some(p => p.hp > 0 && p.connected) && livingPlayers.every(p => p.isLocked === true);
 
     if (allDone) {
       this.clearTimer();
@@ -5090,6 +5144,7 @@ export class Room {
   }
 
   useLeaderSkill(socketId, options = {}) {
+    if (this.state === 'IN_BATTLE' && (!this.isStageParticipant(socketId) || !this.players[socketId]?.connected)) return { success: false, message: '本階段未參戰或已離線' };
     if (socketId !== this.getEffectiveLeaderId()) {
       return { success: false, message: '只有當前具備資格的隊長能使用隊長技！' };
     }
@@ -5354,7 +5409,7 @@ export class Room {
     const narratives = [];
     const presentationQueue = [];
     const arenaRoundPlayerId=(this.arena || this.enemyArena)?.playerId;
-    const roundSkillSets = new Map(Object.values(this.players).map(p => [p.id, getPlayerSkills(p)]));
+    const roundSkillSets = new Map(this.getCombatPlayers().map(p => [p.id, getPlayerSkills(p)]));
     this.p8LogBuffer=log;
 
     let bardDmgMultiplier = 1.0;
@@ -5373,7 +5428,7 @@ export class Room {
     // IMPORTANT：此時不得顯示 Popup、Subtitle 或 Debuff Banner，提前播放任何提示動畫。
     // Logic timing ≠ Presentation timing，此效果隱蔽套用，直到鍊金術士演出時才揭露。
     // 嚴格保證僅限「本回合」，不得永久修改裝備屬性或跨回合疊加。
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'alc_flask') {
         if (!p.rolledFlaskDot) {
           const r = Math.random();
@@ -5381,13 +5436,13 @@ export class Room {
         }
       }
     }
-    const acidFlaskCount = Object.values(this.players).filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'alc_acid').length;
+    const acidFlaskCount = this.getCombatPlayers().filter(p => p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.action === 'alc_acid').length;
     this.roundModifiers.equipmentEffectMultiplier = acidFlaskCount > 0 ? 0.5 : 1.0;
     this.roundModifiers.acidFlaskCount = acidFlaskCount;
     this.p8RefreshEquipment();
 
     // 改良型重弩：裝填動作預先啟用【架弩蹲伏】（減傷 20%、無法閃避）
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree') {
         if (p.action === 'a_reload' || p.action === 'a_frenzy_reload') {
           p.isCrouchedThisRound = true;
@@ -5402,7 +5457,7 @@ export class Room {
     }
 
     // 1. 詩人增傷 50% / 狂亂殺戮曲 70%
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.hp > 0 && !p.stunnedNextTurn && !p.isSurrendered && p.druidForm !== 'tree') {
         if (p.action === 'b_frenzy') {
           bardDmgMultiplier = Math.max(bardDmgMultiplier, 1.70);
@@ -5487,7 +5542,7 @@ export class Room {
         const { dmg } = applyResistanceDamage(Math.floor((m.type==='treant'?1:m.atk) * bardDmgMultiplier), 'phys', {actor:p,kind:'companion'});
         monster.hp = Math.max(0, monster.hp - dmg);
         if (dmg > 0) {
-          for (const pal of Object.values(this.players)) {
+          for (const pal of this.getCombatPlayers()) {
             if (pal.role === 'paladin' && pal.paladinGloryCastedRound === this.battleRound) {
               pal.paladinGloryTrackedDamage = (pal.paladinGloryTrackedDamage || 0) + dmg;
             }
@@ -5510,7 +5565,7 @@ export class Room {
     // 2. 玩家行動結算 (依照 Priority 順序：1.淨化 2.復活 3.防禦 4.增益 5.治療 6.變身/召喚 7.敵方減益 8.攻擊技能，同順位依穩定順序)
     const getEffectiveBonusAtk = (pl) => pl.role === 'assassin' ? this.getAssassinBonusAtk(pl) : this.getEffectiveBonusAtk(pl);
     const playerKeys = Object.keys(this.players);
-    const sortedPlayers = Object.values(this.players)
+    const sortedPlayers = this.getCombatPlayers()
       .filter(p => p.hp > 0)
       .sort((a, b) => {
         const prioA = getActionPriority(a.action);
@@ -5613,7 +5668,7 @@ export class Room {
               hpSnapshot: this.getHpSnapshot()
             });
             const allyLogs = [];
-            for (const ally of Object.values(this.players)) {
+            for (const ally of this.getCombatPlayers()) {
               if (ally.id !== p.id && ally.hp > 0) {
                 const aHeal = this.applyHealWithOverheal(ally, 25);
                 visualEvents.push({ type: 'player_heal', sourceId: p.id, targetId: ally.id, value: aHeal, label: '治療藥' });
@@ -5814,7 +5869,7 @@ export class Room {
           if (p.role === 'paladin') {
             const shieldGained = Math.min(monsterHpBefore, dmg) * 2;
             if (this.getEffectiveLeaderRole() === 'paladin') {
-              for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
+              for (const ally of this.getCombatPlayers().filter(x => x.hp > 0)) {
                 this.p8GrantShield(ally, shieldGained, Infinity, 'paladin_basic');
               }
               log.push({ text: `🛡️✨ **【聖光庇護】** 聖騎士隊長聖光普照！全體隊員皆獲得了基於普攻傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
@@ -5827,7 +5882,7 @@ export class Room {
             // Reuse the enemy roll. When corrosion already procs at its base rate,
             // check its backlash before spending the intervention on a positive boost.
             const corrosionRoll=p.rollCorrosion !== undefined ? (p.rollCorrosion?0:100) : Math.random()*100;
-            const hasAugur=Object.values(this.players).some(a=>a.hp>0 && a.role==='augur' && a.observedTargetId===p.id && !a.augurIntervenedThisRound);
+            const hasAugur=this.getCombatPlayers().some(a=>a.hp>0 && a.role==='augur' && a.observedTargetId===p.id && !a.augurIntervenedThisRound);
             const negative=hasAugur && corrosionRoll<70
               ? (p.rollTeamCorrosion !== undefined ? {failed:p.rollTeamCorrosion,intercepted:false} : this.interveneNegative(p,'普通攻擊・全隊腐蝕',35))
               : null;
@@ -5838,7 +5893,7 @@ export class Room {
               const rollTeam = negative?.failed ?? (p.rollTeamCorrosion !== undefined ? p.rollTeamCorrosion : this.interveneNegative(p,'普通攻擊・全隊腐蝕',35).failed);
               if (rollTeam) {
                 teamCorroded = true;
-                for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
+                for (const ally of this.getCombatPlayers().filter(x => x.hp > 0)) {
                   this.applyCorrosionToAlly(ally, 1);
                 }
                 this.p8RefreshEquipment();
@@ -5910,7 +5965,7 @@ export class Room {
         }
         case 'w_shield': {
           const baseShield = this.applyFateBlessing(p, this.skillValue(p,'w_shield'));
-          for(const ally of Object.values(this.players).filter(x=>x.hp>0))this.p8GrantShield(ally,baseShield,1,'warrior');
+          for(const ally of this.getCombatPlayers().filter(x=>x.hp>0))this.p8GrantShield(ally,baseShield,1,'warrior');
           const isCracked = (this.roleRandom(p,'w_shield',()=>this.interveneNegative(p, '壁壘守護・盾牌龜裂', 25).failed?'negative':'normal')==='negative');
           p.shieldCrackedThisTurn = isCracked;
           if (isCracked) actionOutcome = { type: 'shield_crack', label: '盾牌龜裂', secondary: '冷卻延長' };
@@ -5981,7 +6036,7 @@ export class Room {
             const actualBonus = Math.min(monster.hp, Math.max(1, extraDmgRaw));
             monster.hp -= actualBonus;
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: actualBonus, label: '嗜血法袍' });
-            for (const ally of Object.values(this.players)) {
+            for (const ally of this.getCombatPlayers()) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, actualBonus);
             }
             log.push({ text: `🩸 **${p.name}** 觸發【嗜血法袍】！額外撕裂目標 **${actualBonus}** 點生命，並轉化血氣為全體隊友回復 **${actualBonus}** 點生命！`, type: 'heal' });
@@ -6008,7 +6063,7 @@ export class Room {
             const extraDmgRaw = Math.floor((monster.maxHp || monster.hp) * 0.10 * robeCount);
             const actualBonus = Math.min(monster.hp, Math.max(1, extraDmgRaw));
             monster.hp -= actualBonus;
-            for (const ally of Object.values(this.players)) {
+            for (const ally of this.getCombatPlayers()) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, actualBonus);
             }
             log.push({ text: `🩸 **${p.name}** 觸發【嗜血法袍】！額外撕裂目標 **${actualBonus}** 點生命，並轉化血氣為全體隊友回復 **${actualBonus}** 點生命！`, type: 'heal' });
@@ -6213,7 +6268,7 @@ export class Room {
 
           if (isOffKey) {
             const groupHeal = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_miss')) * harpMult);
-            for (const ally of Object.values(this.players)) {
+            for (const ally of this.getCombatPlayers()) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, groupHeal);
             }
             log.push({ text: `🪕😖 **${p.name}** 撥弄琴弦時【刺耳走音】！刺耳噪音打亂了旋律，全體隊友僅能回復 **${groupHeal}** 點生命！`, type: 'warning' });
@@ -6223,7 +6278,7 @@ export class Room {
             const groupHealAmt = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_heal')) * harpMult * bardLeaderBonus);
             const singleHealAmt = Math.round(this.applyFateBlessing(p, this.skillValue(p,'b_single')) * harpMult * bardLeaderBonus);
 
-            for (const ally of Object.values(this.players)) {
+            for (const ally of this.getCombatPlayers()) {
               if (ally.hp > 0) this.applyHealWithOverheal(ally, groupHealAmt);
             }
 
@@ -6314,7 +6369,7 @@ export class Room {
 
           const rollTeam = p.rollTeamDot !== undefined ? p.rollTeamDot : (this.roleRandom(p,'alc_team',()=>this.interveneNegative(p, '不穩定試劑瓶・全體同染', 40).failed?'success':'failure')==='success');
           if (rollTeam) {
-            for (const ally of Object.values(this.players).filter(x => x.hp > 0)) {
+            for (const ally of this.getCombatPlayers().filter(x => x.hp > 0)) {
               this.applyDotToAlly(ally, chosenDot, p);
             }
           }
@@ -6394,7 +6449,7 @@ export class Room {
               label: '腐蝕強酸瓶(濺射)'
             });
           }
-          for(const ally of Object.values(this.players).filter(x=>x.hp>0)) {
+          for(const ally of this.getCombatPlayers().filter(x=>x.hp>0)) {
               const incoming=this.p8Incoming(ally,20,n=>this.p8MitigateFriendly(ally,n),{kind:'friendly'});
               const res=this.applyDamageToPlayer(ally,incoming.damage,{kind:'friendly'});
               this.p8NightmareHeal(ally,incoming.ownerId);
@@ -6426,7 +6481,7 @@ export class Room {
           p.hp = Math.max(0, p.hp - selfDmg);
           const addedPoisonDmg = 5;
           const bossPoisoned = this.applyMonsterPoison(addedPoisonDmg);
-          for (const pl of Object.values(this.players)) {
+          for (const pl of this.getCombatPlayers()) {
             if (pl.hp > 0 && pl.role !== 'gladiator') {
               pl.poisonTurns = 2; // 持續時間刷新回 2 回合
               pl.poisonDmg = (pl.poisonDmg || 0) + addedPoisonDmg; // 毒傷疊加
@@ -6451,7 +6506,7 @@ export class Room {
           const hasAbnormalStatus = (Object.values(p.enemyEffects||{}).some(e=>e.until>=this.battleRound) || (this.roundModifiers?.acidFlaskCount||0)>0 || (this.roundModifiers?.equipmentEffectMultiplier??1)<1 || p.alcAcidStack>0 || p.poisonTurns > 0 || p.burnTurns > 0 || p.fractureTurns > 0 || p.chillTurns > 0 || p.corrosionTurns > 0 || p.bleedTurns > 0 || p.stunnedNextTurn || p.nextTurnStunFlag || p.isSurrendered || p.cannotCrit);
 
           const reservedFate=hasAbnormalStatus?this.roleRandom(p,'alc_fate',()=>null):null;
-          for (const ally of Object.values(this.players).filter(ally => ally.hp > 0)) {
+          for (const ally of this.getCombatPlayers().filter(ally => ally.hp > 0)) {
             ally.enemyEffects={};
             ally.bleedTurns = 0; ally.poisonTurns = 0; ally.poisonDmg = 0;
             ally.burnTurns = 0; ally.burnDmg = 0;
@@ -6462,13 +6517,13 @@ export class Room {
             ally.warriorVulnerableTurns = 0; ally.warriorVulnerableNextTurn = false;
           }
           this.alcVulnerableTurns = 0; this.alcVulnerableNextTurn = false;
-          for(const ally of Object.values(this.players))ally.alcAcidStack=0;
+          for(const ally of this.getCombatPlayers())ally.alcAcidStack=0;
           this.roundModifiers.equipmentEffectMultiplier=1;this.roundModifiers.acidFlaskCount=0;
           this.p8RefreshEquipment();
           this.actionCleansedSnapshot = this.getHpSnapshot();
           if (!hasAbnormalStatus) {
             // 身上無異常狀態：2技能效果變成回復 15 點血（全員回復 15 點生命值，不觸發命運反噬）
-            for (const pl of Object.values(this.players)) {
+            for (const pl of this.getCombatPlayers()) {
               pl.bleedTurns = 0;
               pl.poisonTurns = 0;
               pl.poisonDmg = 0;
@@ -6485,7 +6540,7 @@ export class Room {
             visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: this.applyFateBlessing(p, this.skillValue(p,'alc_stable')), singleTargetId: null, singleValue: 0 });
           } else {
             // 身上有異常狀態：驅散全體負面效果 + 命運煉成賭博
-            for (const pl of Object.values(this.players)) {
+            for (const pl of this.getCombatPlayers()) {
               pl.bleedTurns = 0;
               pl.poisonTurns = 0;
               pl.poisonDmg = 0;
@@ -6497,17 +6552,17 @@ export class Room {
               pl.chillDmg = 0;
               pl.corrosionTurns = 0;
             }
-            const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+            const augurs = this.getCombatPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
             const isSuccess = (reservedFate ?? ( (!augurs.length ? (Math.random() < 0.50) : !this.interveneNegative(p, '命運煉成試劑・煉金失敗', 50).failed)?'success':'failure'))==='success';
             actionOutcome = { type: isSuccess ? 'alchemy_success' : 'alchemy_failure', label: isSuccess ? '煉成成功' : '煉成失敗' };
             if (isSuccess) {
-              for (const pl of Object.values(this.players)) {
+              for (const pl of this.getCombatPlayers()) {
                 if (pl.hp > 0) this.applyHealWithOverheal(pl, this.applyFateBlessing(p, this.skillValue(p,'alc_success')));
               }
               log.push({ text: `✨⚗️ **${p.name}** 調配【命運煉成試劑】—— **【煉金大成功】**！全體負面效果完全淨化！全員回復 **${this.skillValue(p,'alc_success')}** HP，完成淨化！`, type: 'buff' });
               visualEvents.push({ type: 'heal_group', sourceId: p.id, groupValue: this.applyFateBlessing(p, this.skillValue(p,'alc_success')), singleTargetId: null, singleValue: 0 });
             } else {
-              for (const pl of Object.values(this.players)) {
+              for (const pl of this.getCombatPlayers()) {
                 if (pl.hp > 0) this.applyHealWithOverheal(pl, this.applyFateBlessing(p, this.skillValue(p,'alc_failure')));
               }
               this.alcVulnerableNextTurn = true;
@@ -6541,7 +6596,7 @@ export class Room {
               visualEvents.push({ type: 'surrender', targetId: p.id });
 
               // 檢查：如果其他隊友都死亡或是只有他一人，直接判定挑戰失敗
-              const otherAbleTeammates = Object.values(this.players).filter(other => other.id !== p.id && other.hp > 0 && !other.isSurrendered);
+              const otherAbleTeammates = this.getCombatPlayers().filter(other => other.id !== p.id && other.hp > 0 && !other.isSurrendered);
               if (otherAbleTeammates.length === 0) {
                 const failReason = Object.keys(this.players).length === 1
                   ? `德魯伊 **${p.name}** 孤身一人遭遇狼王陷入血脈臣服無法動彈，無人能繼續作戰，冒險直接判定挑戰失敗！`
@@ -6666,7 +6721,7 @@ export class Room {
         case 'pal_grace': {
           const targetId = p.targetPlayerId && this.players[p.targetPlayerId] && this.players[p.targetPlayerId].hp > 0
             ? p.targetPlayerId
-            : (Object.values(this.players).find(pl => pl.id !== p.id && pl.hp > 0)?.id || p.id);
+            : (this.getCombatPlayers().find(pl => pl.id !== p.id && pl.hp > 0)?.id || p.id);
           const target = this.players[targetId] || p;
           p.paladinGrace = {
             targetId: target.id,
@@ -6836,7 +6891,7 @@ export class Room {
       const isLethal = monster.hp <= 0;
       const monsterHpDelta = Math.max(0, resolvedMonsterHpBefore - monster.hp);
       if (monsterHpDelta > 0) {
-        for (const pal of Object.values(this.players)) {
+        for (const pal of this.getCombatPlayers()) {
           if (pal.role === 'paladin' && pal.paladinGloryCastedRound === this.battleRound) {
             pal.paladinGloryTrackedDamage = (pal.paladinGloryTrackedDamage || 0) + monsterHpDelta;
           }
@@ -7087,7 +7142,7 @@ export class Room {
     bardDmgMultiplier = baseBardDmgMultiplier;
 
     // 3. 處理脫力狀態
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.stunnedNextTurn) {
         p.stunnedNextTurn = false;
       }
@@ -7098,7 +7153,7 @@ export class Room {
     }
 
     // 4. 冷卻時間處理
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getCombatPlayers()) {
       if (p.hp <= 0) continue;
       const activeSkills = roundSkillSets.get(p.id);
 
@@ -7131,7 +7186,7 @@ export class Room {
     }
 
     this.p8Cooldowns();
-    for(const p of Object.values(this.players))if(p.sagePrimeResetPending){for(const key of Object.keys(p.cooldowns))p.cooldowns[key]=0;p.sagePrimeResetPending=false;}
+    for(const p of this.getCombatPlayers())if(p.sagePrimeResetPending){for(const key of Object.keys(p.cooldowns))p.cooldowns[key]=0;p.sagePrimeResetPending=false;}
 
     // 4.9 檢查德魯伊狼王臣服失敗判定（若其他隊友都死亡或是只有他一人，直接判定挑戰失敗）
     if (this.isWolfSurrenderGameOver) {
@@ -7168,7 +7223,7 @@ export class Room {
 
     for (const actingEnemy of actingEnemies) {
       if (actingEnemy.hp <= 0) continue;
-      if (Object.values(this.players).every(p => p.hp <= 0)) break;
+      if (this.getCombatPlayers().every(p => p.hp <= 0)) break;
       monster = actingEnemy;
       this._currentMonster = actingEnemy;
 
@@ -7287,7 +7342,7 @@ export class Room {
             monster.hp = Math.max(0, monster.hp - totalBacklashDmg);
             const ratioText = confuseCount > 1 ? `（${confuseCount} 重惑心，共 ${totalRatioPercent}%）` : `（${totalRatioPercent}%）`;
             log.push({ text: `📜🌀 **【惑心符】** 心智混亂！魔物出手時將造成的傷害${ratioText}作用在自身，反噬受到 **${totalBacklashDmg}** 點傷害！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'warning' });
-            visualEvents.push({ type: 'player_attack', sourceId: Object.values(this.players).find(p => p.role === 'onmyoji')?.id || monster.instanceId, target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
+            visualEvents.push({ type: 'player_attack', sourceId: this.getCombatPlayers().find(p => p.role === 'onmyoji')?.id || monster.instanceId, target: 'monster', targetEnemyId: monster.instanceId, dmgType: 'mag', value: totalBacklashDmg, label: '惑心反噬' });
           }
         }
 
@@ -7323,7 +7378,7 @@ export class Room {
 
         // 夥伴優先替全隊擋下怪物的隨機分散/彈射傷害
         let remainingScatter = scatterDmgPool;
-        for (const owner of Object.values(this.players)) {
+        for (const owner of this.getCombatPlayers()) {
           if(this.arena && this.arena.playerId!==owner.id)continue;
           if (remainingScatter <= 0) break;
           if (owner.minions && owner.minions.length > 0) {
@@ -7337,7 +7392,7 @@ export class Room {
                 if(m.hp>0&&monster.baseHp<100){m.bleedTurns=Math.max(m.bleedTurns||0,2);m.bleedDmg=Math.floor(2*getFloorDifficultyMultiplier(this.floor));}
                 remainingScatter -= absorb;
                 interceptResults.push({ kind: 'intercept', category: 'MINION_INTERCEPT', targetId: m.id,
-                  ownerId: owner.id, originalTargetIds: Object.values(this.players).filter(p => p.hp > 0).map(p => p.id),
+                  ownerId: owner.id, originalTargetIds: this.getCombatPlayers().filter(p => p.hp > 0).map(p => p.id),
                   minion: structuredClone(m), targetBefore: minionBefore, targetAfter: structuredClone(m),
                   finalDamage: absorb, outcome: { type: 'normal' }, hpSnapshot: this.getHpSnapshot() });
                 visualEvents.push({ type: 'minion_hit', ownerId: owner.id, value: absorb });
@@ -7389,7 +7444,7 @@ export class Room {
           return Math.max(1, finalDmg);
         };
 
-        const livingPlayers = Object.values(this.players).filter(p => p.hp > 0 && (!arenaRoundPlayerId || arenaRoundPlayerId===p.id));
+        const livingPlayers = this.getCombatPlayers().filter(p => p.hp > 0 && (!arenaRoundPlayerId || arenaRoundPlayerId===p.id));
         const playerRawScatter = {};
         livingPlayers.forEach(p => { playerRawScatter[p.id] = 0; scatterHits[p.id] = []; });
 
@@ -7402,9 +7457,9 @@ export class Room {
           remainingDmg -= stepDmg;
         }
 
-        const treantDruid = arenaRoundPlayerId ? null : Object.values(this.players).find(p => p.hp > 0 && p.druidForm === 'treant');
+        const treantDruid = arenaRoundPlayerId ? null : this.getCombatPlayers().find(p => p.hp > 0 && p.druidForm === 'treant');
 
-        for (const p of Object.values(this.players)) {
+        for (const p of this.getCombatPlayers()) {
           if (p.hp <= 0 || (arenaRoundPlayerId && arenaRoundPlayerId!==p.id)) continue;
 
           const hitBefore = this.getHpSnapshot();
@@ -7496,7 +7551,7 @@ export class Room {
           if(this.arena && this.arena.playerId!==p.id)continue;
 
           // 聖騎士【代受恩典】：守護隊友承受傷害與負面狀態
-          const paladinGrace = Object.values(this.players).find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === p.id);
+          const paladinGrace = this.getCombatPlayers().find(pl => pl.role === 'paladin' && pl.hp > 0 && pl.paladinGrace?.targetId === p.id);
           if (paladinGrace && paladinGrace.id !== p.id && totalTakenDmg > 0) {
             let redirectedDmg = totalTakenDmg;
             // 聖騎士【代受恩典】：二技能多獲得 15% 減傷
@@ -7736,7 +7791,7 @@ export class Room {
     }
 
     // 結算戰士揮砍失衡易傷（強酸裝備減半由 roundModifiers 管理）
-    for (const pl of Object.values(this.players)) {
+    for (const pl of this.getCombatPlayers()) {
       if (pl.warriorVulnerableTurns > 0) pl.warriorVulnerableTurns -= 1;
       if (pl.warriorVulnerableNextTurn) {
         pl.warriorVulnerableTurns = 1;
@@ -7749,7 +7804,7 @@ export class Room {
 
     if(this.arena&&this.players[this.arena.playerId]?.hp<=0)this.p8ExitArena(presentationQueue,'gladiator_dead');
     phase8Actor=null;this.enemyCounterResolution=true;this.p8EndRound(presentationQueue,log,applyResistanceDamage,bardDmgMultiplier);this.p8CloakRound(presentationQueue,applyResistanceDamage,bardDmgMultiplier);this.enemyCounterResolution=false;
-    for(const p of Object.values(this.players)){
+    for(const p of this.getCombatPlayers()){
       // 德魯伊變身持續時間處理
       if (p.role === 'druid') {
         if (p.druidFormTurns > 0) {
@@ -7771,7 +7826,7 @@ export class Room {
         }
       }
     }
-    if(this.getLivingEnemies().length > 0 && Object.values(this.players).some(p=>P8_ROLES.includes(p.role)||p.role==='druid'))presentationQueue.push({type:"status_cleanup",hpSnapshot:this.getHpSnapshot()});
+    if(this.getLivingEnemies().length > 0 && this.getCombatPlayers().some(p=>P8_ROLES.includes(p.role)||p.role==='druid'))presentationQueue.push({type:"status_cleanup",hpSnapshot:this.getHpSnapshot()});
 
     // Boss 攻擊完成並處理所有結算後，清除 Temporary Overheal
     const anyOverhealCleared = this.clearTemporaryOverheal();
@@ -7789,7 +7844,7 @@ export class Room {
     this.roundModifiers.acidFlaskCount = 0;
     this.roundModifiers.monsterAttackReduction = 0;
     this.bardBuffActive = false;
-    for (const pl of Object.values(this.players)) { delete pl.rolledFlaskType; }
+    for (const pl of this.getCombatPlayers()) { delete pl.rolledFlaskType; }
 
     const narrationDuration = Math.max(5, presentationQueue.length * 1.6 + 1.2);
     log.forEach(l => this.addLog(l.text, l.type));
@@ -7852,7 +7907,7 @@ export class Room {
     this.battlePresentationId += 1;
     normalizeCombatQueue(queue, this.code + ":" + this.battlePresentationId);
     this.career?.capture(this, queue);
-    this.pendingPresentationAcks = new Set(Object.values(this.players).filter(p => p.connected).map(p => p.id));
+    this.pendingPresentationAcks = new Set(this.getCombatPlayers().filter(p => p.connected).map(p => p.id));
     this.emitPublic('battle:presentation_queue', {
       queue, round: this.battleRound, presentationId: this.battlePresentationId,
       monsterKilled: allEnemiesDead
@@ -7863,7 +7918,7 @@ export class Room {
   // 處理客戶端演出結束確認回調 (Presentation Complete -> Next Round Start)
   handlePresentationComplete(socketId, presentationId, round) {
     if (this.state !== 'IN_BATTLE' || this.selectionState !== 'RESOLVING' ||
-        presentationId !== this.battlePresentationId || round !== this.battleRound || !this.players[socketId]?.connected) return;
+        presentationId !== this.battlePresentationId || round !== this.battleRound || !this.players[socketId]?.connected || !this.isStageParticipant(socketId)) return;
     this.pendingPresentationAcks.delete(socketId);
     if (!this.pendingPresentationAcks.size) this.finishTurnPresentation();
   }
@@ -7880,7 +7935,7 @@ export class Room {
     this.refreshPrimaryMonster();
     const monster = this.currentMonster;
     const allEnemiesDead = this.enemies?.length > 0 ? this.getLivingEnemies().length === 0 : Boolean(monster && monster.hp <= 0);
-    const remainingLiving = Object.values(this.players).filter(p => p.hp > 0);
+    const remainingLiving = this.getCombatPlayers().filter(p => p.hp > 0);
     if (remainingLiving.length === 0) {
       if (allEnemiesDead) {
         this.addLog(`⚠️ **敵我雙方同時血量歸零！優先結算我方血量，判定為挑戰失敗！**`, 'damage');
@@ -7889,7 +7944,7 @@ export class Room {
       return;
     }
 
-    const canFightLiving = Object.values(this.players).filter(p => p.hp > 0 && !p.isSurrendered);
+    const canFightLiving = this.getCombatPlayers().filter(p => p.hp > 0 && !p.isSurrendered);
     if (canFightLiving.length === 0 && monster && (monster.name === '暗影魔狼族長' || monster.name.includes('暗影魔狼族長'))) {
       this.addLog(`👑🐺💀 **【血脈臣服·全隊潰敗】** 隊伍其他成員皆已戰死，生還的德魯伊仍處於狼王臣服無法行動，場上已無人能繼續作戰，冒險直接判定挑戰失敗！`, 'damage');
       this.handleGameOver();
@@ -8073,6 +8128,7 @@ export class Room {
   togglePause(socketId) {
     const player = this.players[socketId];
     if (!player) return { success: false, message: '玩家不存在' };
+    if (this.isPaused && this.state === 'IN_BATTLE' && !this.getCombatPlayers().some(p => p.connected)) return { success: false, message: '等待本階段參戰者重新連線' };
     if (this.isPaused && this.persistence?.hasLostAuthority(this)) return { success: false, message: '執行權限已失效，請重新連線恢復冒險' };
     if (this.state === 'LOBBY' || this.state === 'GAME_OVER' || this.state === 'VICTORY') {
       return { success: false, message: '大廳或結算階段無法暫停遊戲！' };
@@ -8237,6 +8293,8 @@ export class Room {
       currentRoutes: this.currentRoutes || ROUTES.slice(0, 4),
       routeVotes: this.routeVotes || {},
       routeVoteCounts: routeVoteCounts,
+      spectatorJoin: this.spectators?.publicStatus() || null,
+      stageRoster: this.stageRoster,
       routePresentationId: this.routePresentationId,
       floorRevival: this.floorRevival,
       battlePresentationId: this.battlePresentationId,

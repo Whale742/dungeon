@@ -13,6 +13,13 @@ export class CareerStats {
     }, 5000); this.retryTimer.unref();
   }
   close() { clearInterval(this.retryTimer); }
+  joined(room, playerId) {
+    const c = contexts.get(room);
+    if (!c || c.members.has(playerId)) return;
+    c.members.add(playerId);
+    this.put(room, { playerId, adventureId: room.adventureId, kind: 'adventure', key: 'adventure:' + room.adventureId });
+    this.floor(room);
+  }
   release(room) { if (!this.status(room).pending) this.rooms.delete(room); }
   attach(room) {
     if (room.isDev || !room.adventureId) return;
@@ -50,6 +57,7 @@ export class CareerStats {
   participate(room, playerId, actualEffect = false) {
     const e = contexts.get(room)?.encounter, p = room.players[playerId];
     if (!e || e.ended || room.state !== 'IN_BATTLE' || !room.memberIds.includes(playerId) || !CLASSES[p?.role] ||
+        !room.isStageParticipant(playerId) ||
         (!actualEffect && (!p.connected || p.hp <= 0)) || e.participants.has(playerId)) return;
     e.participants.set(playerId, p.role);
     this.put(room, { ...e.context, encounterId: e.id, kind: 'encounter', playerId, role: p.role, key: 'encounter:' + e.id });

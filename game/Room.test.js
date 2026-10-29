@@ -2608,6 +2608,9 @@ test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanic
       const p = room.players.solo;
       room.players.p2 = { id: 'p2', name: 'Ally2', role: 'warrior', hp: 120, maxHp: 120, isDead: false, equipSlots: { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null }, equips: [], cooldowns: {}, statuses: [] };
       room.memberIds.push('p2');
+      // This fixture adds an ally after constructing the enemies; explicitly
+      // include it in the simulated stage rather than granting a late seat.
+      room.players.p2.connected = true; room.stageRoster = null; room.lockStageRoster();
       // Equip magic weapon (+5 MAtk) and physical accessory (+10 PAtk, must be ignored)
       p.equipSlots.WEAPON = { id: 'star_staff', name: '星紋法杖', slot: 'WEAPON', bonusMagAtk: 5, isMagic: true };
       p.equipSlots.ACCESSORY = { id: 'phys_ring', name: '物攻戒', slot: 'ACCESSORY', bonusPhysAtk: 10 };
@@ -2672,6 +2675,7 @@ test('Stargazer three exclusive equipments (sg_eye, sg_watch, sg_cloak) mechanic
 
       room.players.p2 = { id: 'p2', name: 'Ally2', role: 'mage', hp: 50, maxHp: 100, isDead: false, equipSlots: { WEAPON: null, ARMOR: null, ACCESSORY: null, CLASS_EXCLUSIVE: null }, equips: [], cooldowns: {}, statuses: [] };
       room.memberIds.push('p2');
+      room.players.p2.connected = true; room.stageRoster = null; room.lockStageRoster();
 
       const origRandom = Math.random;
       Math.random = () => 0.85; // boundary

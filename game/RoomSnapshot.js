@@ -6,7 +6,7 @@ import { gzipSync, gunzipSync } from 'node:zlib';
 export const SNAPSHOT_SCHEMA_VERSION = 1;
 // Authoritative data at a route boundary. Player records are data-only records:
 // preserve ALL their fields, including dynamically installed class/passive state.
-export const ROOM_SNAPSHOT_FIELDS = `leaderId memberIds players floor battleCount battlesInCurrentCycle battleRound
+export const ROOM_SNAPSHOT_FIELDS = `leaderId memberIds players stageRoster floor battleCount battlesInCurrentCycle battleRound
 warriorShieldTurn alcVulnerableTurns alcVulnerableNextTurn enemies _currentMonster
 gold squadInventory overflowItems hexMap currentHex currentRoutes scoutedCols leaderScoutBonus
 lockedLeaderId lockedLeaderRole pendingLeaderTransfer leaderSkillUsedThisBattle warriorLeaderGuarded
@@ -99,6 +99,12 @@ export function validateRoomSnapshot(snapshot) {
         !Number.isFinite(p.maxHp) || p.maxHp <= 0 || !Array.isArray(p.bag) || !Array.isArray(p.equips) ||
         !p.equipSlots || !p.cooldowns) throw new Error('存檔角色資料不完整');
   }
+  if (data.stageRoster != null) {
+    const r = data.stageRoster;
+    if (!Array.isArray(r.playerIds) || r.playerIds.length !== r.count || r.count < 1 || r.count > 10 ||
+      new Set(r.playerIds).size !== r.count || r.playerIds.some(id => !data.memberIds.includes(id)) ||
+      r.floor !== data.floor || !Number.isSafeInteger(r.routePresentationId)) throw new Error('存檔參戰名單不完整');
+  }
   return data;
 }
 
@@ -109,6 +115,12 @@ export function restoreRoomSnapshot(Room, snapshot, code, io, activeMemberIds, l
   // Constructor initializes runtime Sets/helpers; no real connection or broadcast.
   const room = new Room(code, { id: leader.id, join() {} }, leader.name, { to: () => ({ emit() {} }) });
   Object.assign(room, data);
+  // Legacy checkpoints predate the roster field. Use their recorded online
+  // status once, never the set of players who happen to reconnect first.
+  const ids = data.stageRoster?.playerIds || data.memberIds.filter(id => data.players[id].connected && data.players[id].hp > 0);
+  room.stageRoster = ids.length ? Object.freeze({ ...(data.stageRoster || { floor: data.floor, routePresentationId: data.routePresentationId }),
+    playerIds: Object.freeze([...ids]), count: ids.length }) : null;
+  room.stageRosterPending = !room.stageRoster;
   // Read legacy uncompressed V1 checkpoints too. Limit decompression to avoid
   // accepting a corrupt/unbounded payload before constructing runtime helpers.
   const content = snapshot.contentEncoding === 'gzip-base64'

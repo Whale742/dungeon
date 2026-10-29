@@ -43,8 +43,8 @@ export class MemoryAdventureStore {
     }
     if (!row) return checked({ error: 'NOT_FOUND' });
     if (['load', 'claim'].includes(action)) {
-      if (!row.members.includes(x.playerId)) return checked({ error: 'NOT_FOUND' });
       if (row.status !== 'active') return checked({ error: 'ENDED' });
+      if (!row.members.includes(x.playerId)) return checked({ error: 'NOT_FOUND' });
       if (!row.checkpoint) return checked({ error: 'NOT_FOUND' });
       if (action === 'claim') {
         if (row.lease_until > now && row.lease_owner !== x.owner) return checked({ error: 'BUSY' });
@@ -57,13 +57,14 @@ export class MemoryAdventureStore {
       if (action === 'finish' && row.status === x.status && row.lease_owner === x.owner) return structuredClone(row);
       return checked({ error: 'ENDED' });
     }
-    if (row.lease_owner !== x.owner || row.lease_generation !== x.generation || row.lease_until <= now) return checked({ error: 'CONFLICT' });
+    if (row.lease_owner !== x.owner || row.lease_generation !== x.generation || (row.lease_until <= now && action !== 'finish')) return checked({ error: 'CONFLICT' });
     if (action === 'save') {
       if (row.checkpoint_key !== x.key) {
         if (row.save_version !== x.version) return checked({ error: 'CONFLICT' });
         Object.assign(row, { checkpoint: structuredClone(x.snapshot), checkpoint_key: x.key,
           checkpoint_floor: x.snapshot.data.floor, checkpoint_state: 'CHOOSING_ROUTE', save_version: row.save_version + 1,
           saved_at: new Date(now).toISOString(), leader_id: x.leaderId });
+        row.members = [...new Set(x.snapshot.data.memberIds)];
       } else if (JSON.stringify(row.checkpoint) !== JSON.stringify(x.snapshot)) return checked({ error: 'CONFLICT' });
       row.lease_until = now + LEASE_MS;
     } else if (action === 'renew') row.lease_until = now + LEASE_MS;
@@ -73,11 +74,15 @@ export class MemoryAdventureStore {
     }
     else if (action === 'release') row.lease_until = now;
     else if (action === 'finish') {
-      if (row.save_version !== x.version || !['completed', 'failed', 'abandoned'].includes(x.status)) return checked({ error: 'CONFLICT' });
-      row.status = x.status;
+      if (!Number.isSafeInteger(x.version) || x.version > row.save_version || !['completed', 'failed', 'abandoned'].includes(x.status)) return checked({ error: 'CONFLICT' });
+      row.status = x.status; row.checkpoint = null; row.checkpoint_key = null;
+      row.checkpoint_floor = null; row.checkpoint_state = null; row.members = [];
     } else if (action === 'leave') {
       row.members = row.members.filter(id => id !== x.playerId);
-      if (!row.members.length) row.status = 'abandoned';
+      if (!row.members.length) {
+        row.status = 'abandoned'; row.checkpoint = null; row.checkpoint_key = null;
+        row.checkpoint_floor = null; row.checkpoint_state = null;
+      }
       else if (row.leader_id === x.playerId) row.leader_id = row.members[0];
     } else return checked({ error: 'CONFLICT' });
     const { checkpoint, ...metadata } = row;

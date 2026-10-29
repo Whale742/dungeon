@@ -6,7 +6,7 @@ export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage',
 export const countEquip = (p,id) => (p.equips || []).filter(e=>e.id===id).length;
 export const zanshinStacks = (enemy, sourceId) => Math.max(0, Math.min(8, enemy?.zanshin?.[sourceId] || 0));
 export const samuraiSoul = (p, room) => p.role === 'samurai' ? room.getLivingEnemies().reduce((n,e)=>n+zanshinStacks(e,p.id),0) : 0;
-const alive = room => Object.values(room.players).filter(p=>p.hp>0);
+const alive = room => (room.state === 'IN_BATTLE' ? room.getCombatPlayers() : Object.values(room.players)).filter(p=>p.hp>0);
 const roll = list => list[Math.min(list.length-1,Math.floor(Math.random()*list.length))];
 export const isPrime = n => Number.isInteger(n) && n>=2 && !Array.from({length:Math.max(0,Math.floor(Math.sqrt(n))-1)},(_,i)=>i+2).some(d=>n%d===0);
 export const eta = x => .4+1.75*x/(x+80);
@@ -129,7 +129,7 @@ export const phase8Methods = {
     for(const id of Object.keys(p.enemyEffects||{}))if(!id.startsWith('mark_')&&!p.enemyEffects[id].unavoidable)delete p.enemyEffects[id];
   },
   getSamuraiSoul(p) { return samuraiSoul(p,this); },
-  syncSamuraiSouls() { for(const p of Object.values(this.players))if(p.role==='samurai')p.soul=samuraiSoul(p,this); },
+  syncSamuraiSouls() { for(const p of this.getEffectPlayers())if(p.role==='samurai')p.soul=samuraiSoul(p,this); },
   addZanshin(p,enemy,amount=1,lethalHit=false) {
     if(!enemy||(!lethalHit&&enemy.hp<=0)||p.role!=='samurai')return 0;
     enemy.zanshin ||= {};
@@ -234,11 +234,11 @@ export const phase8Methods = {
   },
   p8RefreshEquipment() {
     const globalCorrosion = this.roundModifiers?.equipmentEffectMultiplier ?? 1;
-    const teamHp = Object.values(this.players).reduce((n, p) => {
+    const teamHp = this.getEffectPlayers().reduce((n, p) => {
       const c = (p.corrosionTurns > 0) ? 0.5 : globalCorrosion;
       return n + countEquip(p, 'dw_loom') * Math.floor(20 * c);
     }, 0);
-    for (const p of Object.values(this.players)) {
+    for (const p of this.getEffectPlayers()) {
       const corrosion = (p.corrosionTurns > 0) ? 0.5 : globalCorrosion;
       const corroded = (p.equips || []).filter(e => /^(dw_|sg_|g_|sa_|sge_|pal_)/.test(e.id)).reduce((n, e) => n + (e.bonusHp || 0) - Math.floor((e.bonusHp || 0) * corrosion), 0);
       const disabled = countEquip(p, 'sa_murasame') ? countEquip(p, 'sa_haori') * Math.floor(20 * corrosion) : 0;
@@ -255,7 +255,7 @@ export const phase8Methods = {
     return Math.max(0, Math.floor(amount * (1 + bonus / 100)));
   },
   clearAugurBattleDebts() {
-    for (const p of Object.values(this.players)) if (p.role === 'augur') p.augurFateDebts = [];
+    for (const p of this.getEffectPlayers()) if (p.role === 'augur') p.augurFateDebts = [];
   },
   recordAugurReaction(augur, actionId, targetId, before, outcome = {}, results = []) {
     const names = {aug_reverse:'逆位・違逆命運',aug_upright:'正位・順應命運',aug_tome:'禁忌厄運聖契',aug_debt_heal:'治療抵銷命債'};
@@ -329,7 +329,7 @@ export const phase8Methods = {
     return actualDeducted;
   },
   selectDefaultObservedTarget(augur) {
-    const livingAllies = Object.values(this.players).filter(pl => pl.hp > 0 && pl.id !== augur.id);
+    const livingAllies = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.id !== augur.id);
     if (!livingAllies.length) return augur.id;
     const p1 = ['mage', 'sage', 'assassin', 'samurai', 'archer', 'alchemist'];
     const p2 = ['bard', 'warrior', 'paladin'];
@@ -343,7 +343,7 @@ export const phase8Methods = {
     return livingAllies[Math.floor(Math.random() * livingAllies.length)].id;
   },
   getFateBlessing(player) {
-    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id);
+    const augurs = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id);
     if (!augurs.length) return 0;
     let totalBonus = 0;
     for (const augur of augurs) {
@@ -360,7 +360,7 @@ export const phase8Methods = {
     return Math.round(baseValue * (1 + bonus));
   },
   interveneNegative(player, skillName, baseChance) {
-    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
+    const augurs = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
     if (!augurs.length) {
       return { failed: Math.random() < (baseChance / 100), intercepted: false };
     }
@@ -390,7 +390,7 @@ export const phase8Methods = {
     }
   },
   intervenePositive(player, skillName, baseChance, rolledPercent) {
-    const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
+    const augurs = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === player.id && !pl.augurIntervenedThisRound);
     if (!augurs.length) {
       return { success: (rolledPercent ?? Math.random() * 100) < baseChance, boosted: false, finalChance: baseChance };
     }
@@ -411,7 +411,7 @@ export const phase8Methods = {
   p8ResetBattle() {
     this.clearZanshin();
     this.p8ExitArena(); this.arenaPending=null;this.enemyArena=null;this.enemyMechanicQueue=[];this.enemyReactionSteps=new WeakSet();
-    for(const p of Object.values(this.players)) {
+    for(const p of this.getEffectPlayers()) {
       p.enemyEffects={};p.enemyActionMultiplier=1;
       p.tempHp=Math.max(0,(p.tempHp||0)-(p.temporaryOverheal||0));p.temporaryOverheal=0;
       p.p8Effects={}; p.p8Shields=[]; p.warriorStacks=0;p.warriorRoundDamage=0;
@@ -447,7 +447,7 @@ export const phase8Methods = {
     }
     const rageConsumedSnapshot=this.getHpSnapshot();
     this.arena=null;
-    if(triumphApplied)for(const ally of Object.values(this.players)) {
+    if(triumphApplied)for(const ally of this.getEffectPlayers()) {
       if(ally.id===p.id)continue;
       // Applied at round end: the next two rounds are the two playable turns.
       this.p8Effect(ally,'triumph','凱旋',2,{value:triumphBonus,until:this.battleRound+2,duration:2});
@@ -499,7 +499,7 @@ export const phase8Methods = {
       }
       this.arenaPending=null;
     }
-    for(const p of Object.values(this.players)) {
+    for(const p of this.getEffectPlayers()) {
       this.cleanGladiatorDebuffs(p);p.inspirationRound=this.battleRound;p.gladiatorInspiration=(p.gladiatorInspiration||[]).filter(s=>s.until>=this.battleRound);
       if(p.rageRoundNumber!==this.battleRound){p.rageRoundNumber=this.battleRound;p.rageRoundGain=false;p.gladiatorChallengeGain=false;}
       this.p8Expire(p);p.parryChecked=false;p.kyoutou=false;p.parriedCount=0;p.parryChance=.4;p.gladiatorChallenge=null;p.warriorRoundDamage=0;p.sageInduction=false;p.sageEquationResolved=false;p.sageSolvedThisRound=false;
@@ -526,7 +526,7 @@ export const phase8Methods = {
         return false;
       });
     }
-    for(const p of Object.values(this.players)) {
+    for(const p of this.getEffectPlayers()) {
       if(p.role==='paladin'&&p.hp>0) {
         if(p.paladinGloryCastedRound && this.battleRound === p.paladinGloryCastedRound + 1) {
           const presentationBefore=this.getHpSnapshot();
@@ -537,7 +537,7 @@ export const phase8Methods = {
           if (hasPenalty) gloryShield = Math.floor(gloryShield * 0.50);
           gloryShield = Math.min(gloryShield, p.maxHp);
           if (gloryShield > 0) {
-            for (const ally of Object.values(this.players).filter(pl => pl.hp > 0)) {
+            for (const ally of this.getEffectPlayers().filter(pl => pl.hp > 0)) {
               this.p8GrantShield(ally, gloryShield, 2, 'paladin_glory');
             }
           }
@@ -549,7 +549,7 @@ export const phase8Methods = {
         if(p.paladinGrace && this.battleRound >= p.paladinGrace.startRound + 2) {
           const presentationBefore=this.getHpSnapshot();
           const intercepted = p.paladinGrace.interceptedDamage || 0;
-          const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+          const augurs = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
           const gainShield = this.roleRandom(p,'pal_grace_end',()=> (!augurs.length ? (Math.random() < 0.50) : !this.interveneNegative(p, '代受恩典・不獲護盾', 50).failed)?'success':'failure')==='success';
           if (gainShield && intercepted > 0) {
             const shieldVal = Math.floor(intercepted * 0.50);
@@ -566,7 +566,7 @@ export const phase8Methods = {
       }
     }
     // Operands are local to a two-turn cycle; expired shields never feed them.
-    for(const p of Object.values(this.players)) {
+    for(const p of this.getEffectPlayers()) {
       if(p.role==='sage'&&p.hp>0) {
         if(!p.sageCycleRound) {
           p.sageOperand=Number(this.roleRandom(p,'sage_operand',()=>Math.floor(Math.random()*30)+1));
@@ -651,7 +651,7 @@ export const phase8Methods = {
     if(p.role==='samurai'&&context.kind==='enemy_direct'&&raw>0) {
       if(!p.parryChecked) {
         p.parryChecked=true;
-        const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+        const augurs = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
         p.kyoutou = this.roleRandom(p,'sa_parry',()=> (augurs.length ? this.intervenePositive(p, '居合架式・格擋反擊', Math.round((p.parryChance ?? 0.4) * 100)).success : Math.random() < (p.parryChance ?? 0.4))?'success':'failure')==='success';
         if(p.kyoutou) {this.grantKyoutouZanshin(p);this.p8Log(`${p.name}進入【狂刀】，武魂：${this.getSamuraiSoul(p)}。`);}
       }
@@ -803,10 +803,10 @@ export const phase8Methods = {
       else if(p.action==='dw_false_dream' && this.monsterAllowsEffect('虛構歷史')) {
         const id=this.roleRandom(p,'dw_false_dream',()=>roll(['shallow','deep','lone','horde'])),living=alive(this).length;
         const floor=id==='shallow'?Math.floor((this.floor-1)/5)*5+1:id==='deep'?Math.floor((this.floor-1)/5)*5+5:this.floor;
-        const players=id==='lone'?Math.max(1,living-3):id==='horde'?living+3:this.memberIds.length;
+        const players=id==='lone'?Math.max(1,living-3):id==='horde'?living+3:this.getStagePlayerCount();
         const old=this.p8Has(m,'false_history');const originalMaxHp=old?.originalMaxHp||m.maxHp,originalAttack=old?.originalAttack||m.attack;
-        const hpScale=getFloorDifficultyMultiplier(floor)/getFloorDifficultyMultiplier(this.floor)*players/this.memberIds.length;
-        const atkScale=getFloorDifficultyMultiplier(floor)/getFloorDifficultyMultiplier(this.floor)*(1+(players-1)*.5)/(1+(this.memberIds.length-1)*.5);
+        const hpScale=getFloorDifficultyMultiplier(floor)/getFloorDifficultyMultiplier(this.floor)*players/this.getStagePlayerCount();
+        const atkScale=getFloorDifficultyMultiplier(floor)/getFloorDifficultyMultiplier(this.floor)*(1+(players-1)*.5)/(1+(this.getStagePlayerCount()-1)*.5);
         const ratio=m.hp/m.maxHp;m.maxHp=Math.max(1,Math.round(originalMaxHp*hpScale));m.hp=Math.max(1,Math.round(m.maxHp*ratio));m.attack=Math.max(1,Math.round(originalAttack*atkScale));
         const label={shallow:'淺層清夢',deep:'深淵墜夢',lone:'孤影殘夢 (-3人)',horde:'百鬼夜行 (+3人)'}[id];effect(m,'false_history',label,turns,{originalMaxHp,originalAttack,floor,players},true);outcome={type:id,label};
         this.p8Log(`虛構的歷史覆蓋了戰場！魔物陷入【${label}】的幻覺之中！`);
@@ -907,7 +907,7 @@ export const phase8Methods = {
       } else {
         const beforeMarks=this.getHpSnapshot();
         const baseBurstChance = Math.min(.7, .3 + .05 * soul);
-        const augurs = Object.values(this.players).filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
+        const augurs = this.getEffectPlayers().filter(pl => pl.hp > 0 && pl.role === 'augur' && pl.observedTargetId === p.id && !pl.augurIntervenedThisRound);
         const burst = p.action==='sa_cut'&&soul>0&&this.roleRandom(p,'sa_cut',()=> (augurs.length ? this.intervenePositive(p, '拔刀斬・一閃', Math.round(baseBurstChance * 100)).success : Math.random()<baseBurstChance)?'success':'failure')==='success';
         if(p.action==='sa_cut'&&soul===0)p.parryChance=.7;
         const baseCutDmg = value(p.action==='sa_cut'?'sa_cut':'basic');
@@ -1032,7 +1032,7 @@ export const phase8Methods = {
           const lensBonus=(lens?0.10+(lens-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
           const successChance=Math.min(growth.success+lensBonus,1-confusionChance);
           equationBefore=this.getHpSnapshot(); this.p8Results=[];
-          const augurs=Object.values(this.players).filter(pl=>pl.hp>0&&pl.role==='augur'&&pl.observedTargetId===p.id&&!pl.augurIntervenedThisRound);
+          const augurs=this.getEffectPlayers().filter(pl=>pl.hp>0&&pl.role==='augur'&&pl.observedTargetId===p.id&&!pl.augurIntervenedThisRound);
           let resolution;
           const reservedEquation=this.roleRandom(p,'sage_equation',()=>null);
           if(reservedEquation!==null)resolution=reservedEquation;
@@ -1134,7 +1134,7 @@ export const phase8Methods = {
   },
   p8EndRound(queue,log,resistance,bardMultiplier=1.0) {
     this.p8LogBuffer=log;
-    for(const p of Object.values(this.players))if(p.role==='gladiator')p.gladiatorChallenge=null;
+    for(const p of this.getEffectPlayers())if(p.role==='gladiator')p.gladiatorChallenge=null;
     const m=this.currentMonster;
     const event=(p,name,id,resolve,outcome={type:'normal'})=>{
       const before=this.getHpSnapshot();this.p8Results=[];this.p8Visuals=[];resolve();const after=this.getHpSnapshot();
@@ -1144,7 +1144,7 @@ export const phase8Methods = {
       this.p8Results=null;this.p8Visuals=null;
     };
     if (m?.hp<=0) this.clearAugurBattleDebts();
-    for(const p of Object.values(this.players)) {
+    for(const p of this.getEffectPlayers()) {
       if(m?.hp>0 && p.role==='augur' && p.augurFateDebts && p.augurFateDebts.length > 0) {
         const before=this.getHpSnapshot();
         const expired = p.augurFateDebts.filter(d => d.dueRound <= this.battleRound);

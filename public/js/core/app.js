@@ -878,7 +878,7 @@ socket.on('player:identity', ({ player }) => {
   PlayerIdentity.accept(player); socket.playerId = player.playerId;
   let recent;
   try { recent = JSON.parse(localStorage.getItem('dungeon_recent_adventure')); } catch {}
-  if (recent?.playerId === player.playerId && recent.adventureId) {
+  if (location.pathname !== '/dev' && recent?.playerId === player.playerId && recent.adventureId) {
     const epoch = ++recentAdventureRestoreEpoch, deadline = performance.now() + 90000;
     const restore = (attempt = 0) => {
       if (epoch !== recentAdventureRestoreEpoch || !socket.connected || myId !== player.playerId ||
@@ -934,9 +934,9 @@ function updateCheckpointNotice(state) {
   const retry = document.getElementById('btnRetryCheckpoint');
   const cp = state.checkpoint;
   const careerFailed = !!state.careerStatus?.failed;
-  if (notice) notice.classList.toggle('hidden', cp?.status !== 'failed' && !careerFailed);
+  if (notice) notice.classList.toggle('hidden', !['failed', 'waiting_players'].includes(cp?.status) && !careerFailed);
   if (text) text.textContent = cp?.status === 'failed' ? cp.message || '保存未完成，請重試。'
-    : careerFailed ? '生涯統計尚未同步，進度會在安全節點等待確認。請重試。' : '';
+    : cp?.status === 'waiting_players' ? cp.message : careerFailed ? '生涯統計尚未同步，進度會在安全節點等待確認。請重試。' : '';
   if (retry) retry.classList.toggle('hidden', cp?.status !== 'failed' && !careerFailed);
   const activeAdventure = !!state.adventureId && !['LOBBY', 'GAME_OVER', 'VICTORY'].includes(state.state);
   document.getElementById('btnDetachAdventure')?.classList.toggle('hidden', !activeAdventure);
@@ -2512,6 +2512,12 @@ function renderSageEquationPreview(me) {
 function renderMyActionBar(me) {
   syncEnemyTargetIndicators();
   if (!me || !me.role || !classesData[me.role]) return;
+  if (roomState?.stageRoster && !roomState.stageRoster.playerIds.includes(me.id)) {
+    elements.btnConfirmLock.disabled = true;
+    elements.myActionStatus.textContent = '本階段未參戰，請等待下一次路線選擇。';
+    elements.mySkillsRow.textContent = '你的角色仍在隊伍中；下一次路線選擇才會重新確認參戰資格。';
+    return;
+  }
   const pendingKey=battleRoundKey();
   if(!isProcessingPresentationQueue&&roomState.selectionState==='SELECTING'&&pendingActionRoundKey!==pendingKey){
     pendingActionRoundKey=pendingKey;currentPendingAction=null;currentPendingTarget=null;
@@ -4159,6 +4165,7 @@ elements.btnCpEnd.addEventListener('click', () => {
 // 重啟冒險回大廳
 elements.btnRestartLobby.addEventListener('click', () => {
   playSound('click');
+  if (roomState?.checkpoint?.status === 'ended') { void exitRoomToLobbyMenu({ temporary: true }); return; }
   socket.emit('game:restart', (res) => {
     if (!res.success) alert(res.message);
   });
