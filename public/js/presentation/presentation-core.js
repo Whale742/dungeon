@@ -53,6 +53,7 @@ class SFXManager {
   }
   loadAsset(profile) {
     if(typeof window!=='undefined'&&window.assetRegistry)profile=window.assetRegistry.audioProfile(profile);
+    if(!profile?.src)return Promise.resolve(null);
     if (this.assets.has(profile.src)) return this.assets.get(profile.src).promise;
     this.init(false);
     if (!this.ctx) return Promise.resolve(null);
@@ -71,9 +72,10 @@ class SFXManager {
         return entry.buffer;
       } catch (error) {
         entry.failed = true;
-        if(profile.localSrc&&profile.localSrc!==profile.src){
-          window.assetRegistry?.markFailed(profile.src);
-          return this.loadAsset({...profile,src:profile.localSrc,localSrc:null,bindingKey:null});
+        if(typeof window!=='undefined'&&window.assetRegistry){
+          window.assetRegistry.markFailed(profile.src);
+          const next=window.assetRegistry.audioProfile(profile);
+          if(next.src&&next.src!==profile.src)return this.loadAsset(next);
         }
         console.warn('[SFX] Asset unavailable; synth fallback:', profile.src, error.message);
         return null;
@@ -1214,7 +1216,7 @@ function syncBattlePortrait(image,descriptor,options={}) {
     image.onerror=null;mark(portrait.fallbackSrc===descriptor.battleAvatar);image.src=portrait.fallbackSrc;
     console.error('[Battle portrait unavailable]',portrait.src,'using',portrait.fallbackSrc);
   }:null;
-  image.src=portrait.src;
+  image.src=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(portrait.src):portrait.src;
 }
 function syncAbyssDialoguePortrait(image,abyss) {
   syncBattlePortrait(image,{id:abyss.bossTemplate?.id,role:abyss.bossRole,name:abyss.bossName,entityType:'monster',avatar:abyss.bossAvatar||'/assets/characters/portraits/Warrior.webp',battleAvatar:abyss.bossBattleAvatar});

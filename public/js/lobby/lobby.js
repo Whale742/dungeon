@@ -69,7 +69,6 @@ function renderRoleDetailPanel() {
   const avatar=document.getElementById('lobbyRoleAvatar');avatar.src=conf.avatar;avatar.alt=conf.name;
   document.getElementById('lobbyRoleName').textContent=conf.name;
   document.getElementById('lobbyRoleEnglish').textContent=profile.enName.toUpperCase();
-  document.getElementById('lobbyRoleHp').textContent='基礎生命  '+conf.maxHp+' HP';
   document.getElementById('lobbyRoleTags').innerHTML=renderLobbyRoleTags(role);
   let intro=document.getElementById('lobbyRoleIntro');if(!intro){intro=document.createElement('p');intro.id='lobbyRoleIntro';intro.className='role-intro-desc';document.getElementById('lobbyRoleTags').after(intro);}
   const published=window.StudioContent?.find('role_profiles',role);intro.textContent=published?.short_intro||conf.desc;intro.title=published?.full_intro||conf.desc;

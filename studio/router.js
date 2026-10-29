@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseRest, CloudError } from './supabase.js';
 import { catalog } from './catalog.js';
-import { refreshPublished } from './content.js';
+import { refreshPublished, contentCache, refreshMedia, mediaCache } from './content.js';
+import { AssetSourceSettings, assetSource } from './asset-source.js';
 import { kinds, validateIdentity, validateDraft, validateAsset, validateUpload, requireValid, assetFields } from './validation.js';
 import { getMigrationStatus, migrateAssets, migrateBindings } from './migration.js';
 import localPaths from '../public/js/shared/local-paths.cjs';
@@ -14,22 +15,9 @@ export function tokenMatches(supplied, expected) {
   const hash=v=>crypto.createHash('sha256').update(v||'').digest();
   return crypto.timingSafeEqual(hash(typeof supplied==='string'?supplied:''),hash(expected)) && !!expected && typeof supplied==='string' && supplied.length<=1024;
 }
-export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),onPublish=()=>refreshPublished(cloud),storageClient,publicDir}={}) {
-  const router=express.Router(), rates=new Map();
-  router.get('/config',(_req,res)=>res.json({SUPABASE_URL:env.SUPABASE_URL||'',SUPABASE_PUBLISHABLE_KEY:env.SUPABASE_PUBLISHABLE_KEY||''}));
-  router.get('/defaults',(_req,res)=>res.json(catalog));
-  router.get('/combat-lab', (_req,res)=>res.json(combatLabCatalog));
-  router.get('/combat-lab/scenes/:id', (req,res)=>{
-    const fixture=combatLabFixture(req.params.id);
-    if(!fixture)return res.status(404).json({error:'找不到正式演出樣本'});
-    res.json(fixture);
-  });
-  router.post('/combat-lab/preview',express.json({limit:'64kb',strict:true}),async(req,res,next)=>{
-    const origin=req.get('Origin');
-    if(req.get('Sec-Fetch-Site')==='cross-site'||origin&&origin!==`${req.protocol}://${req.get('Host')}`)return res.status(403).json({error:'不允許跨站預覽'});
-    try{res.json(await configuredSamuraiPreview(req.body?.config,req.body?.actionId,req.body?.sceneId));}catch(error){next(error);}
-  });
-  router.use((req,res,next)=>{
+export function studioAccess(env){
+  const rates=new Map();
+  return (req,res,next)=>{
     res.set('Cache-Control','no-store');
     const now=Date.now(),id=req.ip;
     let entry=rates.get(id);if(!entry||now-entry.at>60000){entry={at:now,count:0};rates.set(id,entry);}
@@ -41,13 +29,43 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
     if(!env.STUDIO_WRITE_TOKEN)return res.status(503).json({error:'後端尚未配置 STUDIO_WRITE_TOKEN'});
     if(!tokenMatches(req.get('X-Studio-Write-Token'),env.STUDIO_WRITE_TOKEN))return res.status(401).json({error:'需要正確的 Studio 通行碼'});
     next();
+  };
+}
+
+export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),onPublish=()=>refreshPublished(cloud),storageClient,publicDir,settings=env===process.env?assetSource:new AssetSourceSettings({env,cloud})}={}) {
+  const router=express.Router();
+  router.get('/config',async(_req,res)=>res.set('Cache-Control','no-store').json({...await settings.read({force:true}),SUPABASE_URL:env.SUPABASE_URL||''}));
+  router.get('/defaults',(req,res)=>{
+    const copy={schemaVersion:catalog.schemaVersion,role_profiles:catalog.role_profiles,skill_copies:catalog.skill_copies,story_copies:catalog.story_copies,skillMeta:catalog.skillMeta,rolePortraits:Object.fromEntries(catalog.asset_bindings.filter(b=>/^role\.[^.]+\.avatar$/.test(b.binding_key)).map(b=>[b.binding_key.split('.')[1],b.fallback_path]))};
+    res.set('Cache-Control','no-cache').json(req.query.scope==='copy'?copy:req.query.scope==='assets'?{schemaVersion:catalog.schemaVersion,game_assets:catalog.game_assets,asset_bindings:catalog.asset_bindings,usage:catalog.usage}:catalog);
   });
+  router.get('/published',async(req,res)=>{
+    res.set('Cache-Control','no-store');
+    if(req.query.scope!=='assets'&&!contentCache.data)await refreshPublished(cloud);
+    const wantsMedia=req.query.scope==='assets'||req.query.media==='1';
+    if(wantsMedia)await refreshMedia(cloud,req.query.refresh==='1');
+    const copy=req.query.scope==='assets'?{}:contentCache.data;
+    if(!copy||wantsMedia&&!mediaCache.data)return res.status(503).json({error:'發布內容暫時無法讀取；保留有效快取或本地預設'});
+    res.json({...copy,...(wantsMedia?mediaCache.data:{})});
+  });
+  router.get('/combat-lab', (_req,res)=>res.json(combatLabCatalog));
+  router.get('/combat-lab/scenes/:id', (req,res)=>{
+    const fixture=combatLabFixture(req.params.id);
+    if(!fixture)return res.status(404).json({error:'找不到正式演出樣本'});
+    res.json(fixture);
+  });
+  router.post('/combat-lab/preview',express.json({limit:'64kb',strict:true}),async(req,res,next)=>{
+    const origin=req.get('Origin');
+    if(req.get('Sec-Fetch-Site')==='cross-site'||origin&&origin!==`${req.protocol}://${req.get('Host')}`)return res.status(403).json({error:'不允許跨站預覽'});
+    try{res.json(await configuredSamuraiPreview(req.body?.config,req.body?.actionId,req.body?.sceneId));}catch(error){next(error);}
+  });
+  router.use(studioAccess(env));
   router.use(express.json({limit:'1mb',strict:true}));
   const route=fn=>async(req,res,next)=>{try{await fn(req,res);}catch(e){next(e);}};
   const params=item=>{const spec=validateIdentity(item);return `${spec.key}=eq.${encodeURIComponent(item.key)}${item.kind==='skill'?'&role_id=eq.'+encodeURIComponent(item.role_id):''}`;};
   const clean=(kind,row)=>Object.fromEntries(kinds[kind].fields.map(f=>[f,row[f]??(['asset_key','fallback_path','preload_group','volume_override'].includes(f)?null:'')]));
-  router.get('/drafts',route(async(_req,res)=>{
-    const tables=Object.values(kinds).map(s=>s.table),values=await Promise.all(tables.map(t=>cloud.rows(t,'status=eq.draft')));
+  router.get('/drafts',route(async(req,res)=>{
+    const tables=Object.entries(kinds).filter(([kind])=>req.query.scope==='copy'?kind!=='binding':req.query.scope==='assets'?kind==='binding':true).map(([,spec])=>spec.table),values=await Promise.all(tables.map(t=>cloud.rows(t,'status=eq.draft')));
     res.json(Object.fromEntries(tables.map((t,i)=>[t,values[i]])));
   }));
   router.post('/drafts',route(async(req,res)=>{
@@ -64,7 +82,7 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
     // Also validate old drafts that may have been written outside this API.
     for(const item of canonical){const list=await cloud.rows(kinds[item.kind].table,params(item)+'&status=eq.draft');requireValid(list.length===1,'找不到草稿');validateDraft({...item,data:clean(item.kind,list[0])});}
     const result=canonical.length===1?await cloud.request('/rest/v1/rpc/studio_publish_one',{method:'POST',body:{p_kind:canonical[0].kind,p_key:canonical[0].key,p_role_id:canonical[0].role_id||null}}):await cloud.request('/rest/v1/rpc/studio_publish_batch',{method:'POST',body:{p_items:canonical}});
-    await onPublish();res.json({published:result});
+    await onPublish();if(canonical.some(i=>i.kind==='binding'))await refreshMedia(cloud,true);res.json({published:result});
   }));
   router.get('/revisions',route(async(req,res)=>{
     const item={kind:req.query.kind,key:req.query.key,role_id:req.query.role_id};validateIdentity(item);
@@ -96,6 +114,18 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
     requireValid(Number(data.size)===signed.size_bytes,'實際檔案大小與申請不符');requireValid(data.contentType===signed.mime_type,'實際 MIME 與申請不符');
     return {...input,mime_type:signed.mime_type,size_bytes:signed.size_bytes};
   }
+  router.post('/assets/:assetKey/preview',route(async(req,res)=>{
+    const key=req.params.assetKey;requireValid(/^[a-zA-Z0-9._-]{1,180}$/.test(key),'無效 asset_key');
+    const [asset]=await cloud.rows('game_assets','asset_key=eq.'+encodeURIComponent(key));requireValid(asset,'找不到素材');
+    let url;
+    if(asset.source_type==='storage'){
+      requireValid(asset.storage_bucket==='game-assets'&&typeof asset.storage_path==='string'&&!asset.storage_path.split('/').some(p=>!p||p==='..'||p==='.'),'無效 Storage 路徑');
+      url=env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/public/game-assets/'+asset.storage_path.split('/').map(encodeURIComponent).join('/');
+    }else if(asset.source_type==='external'){
+      const parsed=new URL(asset.external_url);requireValid(parsed.protocol==='https:'&&!parsed.username&&!parsed.password,'無效外部 URL');url=parsed.href;
+    }else {const local=catalog.game_assets.find(a=>a.asset_key===key);requireValid(local,'找不到本地素材');url=local.local_path;}
+    res.json({url});
+  }));
   router.get('/assets',route(async(_req,res)=>res.json(await cloud.rows('game_assets'))));
   router.post('/assets/register',route(async(req,res)=>{
     let input=validateAsset(req.body.asset||req.body);
@@ -125,8 +155,15 @@ export function createStudioRouter({env=process.env,cloud=new SupabaseRest(env),
   router.use((error,_req,res,_next)=>res.status(error.status||500).json({error:error.type==='entity.too.large'?'JSON 請求超過 1 MB':error instanceof SyntaxError?'JSON 格式錯誤':error.status?error.message:'Studio 操作失敗，請重試'}));
   return router;
 }
-export function mountStudio(app, publicDir, options) {
+export function mountStudio(app, publicDir, options={}) {
+  const settings=options.settings||assetSource,env=options.env||process.env;
+  app.get('/api/config/assets',async(_req,res)=>res.set('Cache-Control','no-store').json(await settings.read({force:true})));
+  const admin=express.Router();admin.use(studioAccess(env));admin.use(express.json({limit:'2kb',strict:true}));
+  admin.get('/config',async(_req,res)=>res.json(await settings.read({force:true,admin:true})));
+  admin.put('/config',async(req,res,next)=>{try{res.json(await settings.write(req.body));}catch(error){next(error);}});
+  admin.use((error,_req,res,_next)=>res.status(error.status||500).json({error:error.status?error.message:'設定操作失敗'}));
+  app.use('/api/admin/assets',admin);
   app.get('/presentation-lab.html',(req,res)=>res.redirect(302,'/lab'+(req.url.includes('?')?req.url.slice(req.url.indexOf('?')):'')));
-  for(const [route,file]of [['lab','presentation-lab.html'],['edit','studio-editor.html'],['asset','studio-assets.html']])app.get('/'+route,(_req,res)=>res.sendFile(file,{root:publicDir}));
-  app.use('/api/studio',createStudioRouter({publicDir,...options}));
+  for(const [route,file]of [['admin','studio-admin.html'],['lab','presentation-lab.html'],['edit','studio-editor.html'],['asset','studio-assets.html']])app.get('/'+route,(_req,res)=>res.sendFile(file,{root:publicDir}));
+  app.use('/api/studio',createStudioRouter({publicDir,...options,settings}));
 }

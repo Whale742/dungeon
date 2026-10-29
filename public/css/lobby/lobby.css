@@ -69,7 +69,7 @@ body:has(#viewEntry.active) .main-content {
   position: absolute;
   inset: 0;
   background: 
-    radial-gradient(ellipse at 50% 30%, rgba(111, 183, 233, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 30%, rgba(214, 173, 96, 0.12) 0%, transparent 60%),
     radial-gradient(ellipse at 50% 90%, rgba(5, 10, 16, 0.8) 0%, transparent 70%);
   pointer-events: none;
 }
@@ -204,7 +204,7 @@ body:has(#viewEntry.active) .main-content {
 #viewLobby .btn:hover:not(:disabled),
 #viewLobby .role-skill-tabs button:hover:not(:disabled) {
   background: #2e5367;
-  border-color: var(--azure, #6FB7E9);
+  border-color: var(--azure, var(--ui-accent));
   color: #ffffff;
   transform: none !important;
   box-shadow: none !important;
@@ -250,7 +250,7 @@ body:has(#viewEntry.active) .main-content {
 .btn.primary:hover:not(:disabled),
 #viewLobby #btnToggleReady:hover:not(:disabled) {
   background: #4380A7 !important;
-  border-color: #9CDBF9 !important;
+  border-color: var(--ui-accent-bright) !important;
   color: #ffffff !important;
 }
 
@@ -330,7 +330,7 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .team-card h3 .svg-icon {
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   width: 18px;
   height: 18px;
 }
@@ -402,7 +402,7 @@ body:has(#viewEntry.active) .main-content {
 #viewLobby .member-avatar-box .svg-icon {
   width: 22px;
   height: 22px;
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
 }
 
 #viewLobby .member-info-col {
@@ -449,7 +449,7 @@ body:has(#viewEntry.active) .main-content {
   font-size: 10px;
   font-weight: 700;
   background: #122633;
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   border: 1px solid #344B59;
   border-radius: 2px;
   padding: 1px 5px;
@@ -549,7 +549,7 @@ body:has(#viewEntry.active) .main-content {
 #viewLobby .parchment-wax-mark {
   width: 4px;
   height: 18px;
-  background: var(--azure, #6FB7E9);
+  background: var(--azure, var(--ui-accent));
   border-radius: 1px;
   display: inline-block;
 }
@@ -686,12 +686,6 @@ body:has(#viewEntry.active) .main-content {
   border-color: #49C2C1;
 }
 
-#viewLobby .role-hp-meta {
-  font: 700 12px var(--pixel, 'Silkscreen', monospace);
-  color: var(--teal, #49C2C1);
-  letter-spacing: 0.5px;
-}
-
 /* Radar Chart (Azure Ruins Theme) */
 #viewLobby .role-radar {
   margin: 0;
@@ -737,14 +731,14 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .radar-shape {
-  fill: rgba(111, 183, 233, 0.28);
-  stroke: #6FB7E9;
+  fill: rgba(214, 173, 96, 0.28);
+  stroke: var(--ui-accent);
   stroke-width: 2.2;
   stroke-linejoin: round;
 }
 
 #viewLobby .radar-vertices circle {
-  fill: #9CDBF9;
+  fill: var(--ui-accent-bright);
 }
 
 #viewLobby .radar-label {
@@ -785,14 +779,14 @@ body:has(#viewEntry.active) .main-content {
   padding: 6px 14px;
   border-radius: var(--ui-radius, 2px);
   white-space: nowrap;
-  background: #1B303E;
+  background: var(--ui-surface-inset);
   border: 1px solid #4F6674;
   color: var(--secondary, #B9C4CE);
 }
 
 #viewLobby .role-skill-tabs button:hover:not(:disabled) {
-  background: #284458;
-  border-color: var(--azure, #6FB7E9);
+  background: var(--selection);
+  border-color: var(--azure, var(--ui-accent));
   color: #ffffff;
 }
 
@@ -845,13 +839,13 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .role-copy-toggle input:checked + .role-switch-track {
-  background: #1B303E;
-  border-color: var(--azure, #6FB7E9);
+  background: var(--ui-surface-inset);
+  border-color: var(--azure, var(--ui-accent));
 }
 
 #viewLobby .role-copy-toggle input:checked + .role-switch-track::before {
   transform: translateX(0);
-  background: var(--azure, #6FB7E9);
+  background: var(--azure, var(--ui-accent));
 }
 
 /* 技能詳細說明框 */
@@ -893,7 +887,7 @@ body:has(#viewEntry.active) .main-content {
 
 #viewLobby #lobbySkillMeta {
   font: 700 11px var(--pixel, 'Silkscreen', monospace);
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
 }
 
 #viewLobby .role-description p,
@@ -972,15 +966,15 @@ body:has(#viewEntry.active) .main-content {
 }
 
 #viewLobby .role-portrait-choice:hover {
-  border-color: var(--azure, #6FB7E9);
+  border-color: var(--azure, var(--ui-accent));
   filter: brightness(1.15);
   transform: none !important;
 }
 
 #viewLobby .role-portrait-choice.active,
 #viewLobby .role-portrait-choice[aria-pressed="true"] {
-  border-color: var(--azure, #6FB7E9);
-  box-shadow: 0 0 10px rgba(111, 183, 233, 0.45);
+  border-color: var(--azure, var(--ui-accent));
+  box-shadow: 0 0 10px rgba(214, 173, 96, 0.45);
 }
 
 #viewLobby .role-portrait-choice.active::after {
@@ -1057,7 +1051,7 @@ body:has(#viewEntry.active) .main-content {
 .recruit-code {
   display: block;
   font-family: var(--pixel, 'Silkscreen', monospace);
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   font-size: 13px;
   font-weight: 700;
 }
@@ -1113,7 +1107,7 @@ body:has(#viewEntry.active) .main-content {
 }
 
 .recruit-label .svg-icon {
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   width: 16px;
   height: 16px;
 }
@@ -1130,8 +1124,8 @@ body:has(#viewEntry.active) .main-content {
 }
 
 .recruit-input-row:focus-within {
-  border-color: var(--azure, #6FB7E9) !important;
-  box-shadow: 0 0 0 2px rgba(111, 183, 233, 0.25) !important;
+  border-color: var(--azure, var(--ui-accent)) !important;
+  box-shadow: 0 0 0 2px rgba(214, 173, 96, 0.25) !important;
 }
 
 .recruit-input-row .entry-avatar-wrapper {
@@ -1152,7 +1146,7 @@ body:has(#viewEntry.active) .main-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
 }
 
 .recruit-input-row .entry-avatar-badge {
@@ -1252,14 +1246,14 @@ body:has(#viewEntry.active) .main-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1B303E !important;
+  background: var(--ui-surface-inset) !important;
   border: 1px solid #4F6674 !important;
   color: var(--light, #E8EDF2) !important;
 }
 
 .lobby-menu-btn:hover:not(:disabled) {
-  background: #284458 !important;
-  border-color: var(--azure, #6FB7E9) !important;
+  background: var(--selection) !important;
+  border-color: var(--azure, var(--ui-accent)) !important;
   color: #ffffff !important;
 }
 
@@ -1269,7 +1263,7 @@ body:has(#viewEntry.active) .main-content {
 }
 
 .lobby-menu-btn .svg-icon.text-success { color: #49C2C1; }
-.lobby-menu-btn .svg-icon.text-primary { color: #6FB7E9; }
+.lobby-menu-btn .svg-icon.text-primary { color: var(--ui-accent); }
 .lobby-menu-btn .svg-icon.text-warning { color: #D7B86E; }
 
 .lobby-menu-bottom-grid {
@@ -1302,7 +1296,7 @@ body:has(#viewEntry.active) .main-content {
 .career-classes p { margin: 4px 0; }
 .career-definition { line-height: 1.7; }
 .adventure-leadership { display: grid; gap: 8px; padding: 12px; }
-.adventure-leadership select { width: 100%; padding: 8px; color: var(--light); background: #1B303E; }
+.adventure-leadership select { width: 100%; padding: 8px; color: var(--light); background: var(--ui-surface-inset); }
 .adventure-card { padding: 16px; }
 .adventure-card h3 { margin: 0 0 8px; font-size: 16px; }
 .adventure-card p { white-space: pre-line; line-height: 1.7; margin: 0 0 12px; }
@@ -1349,11 +1343,14 @@ body:has(#viewEntry.active) .main-content {
 }
 
 .server-slot-item {
+  flex: 0 0 auto;
+  gap: 12px;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: #1B303E;
+  background: var(--ui-surface-inset);
   border: 1px solid var(--border-subtle, #344B59);
   border-radius: var(--ui-radius, 2px);
   cursor: pointer;
@@ -1362,8 +1359,36 @@ body:has(#viewEntry.active) .main-content {
 
 .server-slot-item:hover,
 .server-slot-item.selected {
-  background: #284458;
-  border-color: var(--azure, #6FB7E9);
+  background: var(--selection);
+  border-color: var(--azure, var(--ui-accent));
+}
+
+.server-slot-item:focus-visible {
+  outline: 2px solid var(--ui-accent-bright);
+  outline-offset: 2px;
+}
+
+.server-slot-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.server-slot-icon { flex-shrink: 0; }
+.server-slot-info { min-width: 0; overflow-wrap: anywhere; }
+.server-slot-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 800; color: var(--light); }
+.server-slot-code-badge { font-size: 11px; color: var(--gold); border: 1px solid var(--border-subtle); padding: 2px 6px; }
+.server-slot-motd1 { margin-top: 6px; font-size: 12px; color: var(--secondary); line-height: 1.5; }
+.server-slot-motd2 { margin-top: 4px; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.server-slot-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.server-slot-count { font: 700 12px var(--font-stats); color: var(--gold); white-space: nowrap; }
+.server-ping-bars { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+.server-ping-bar { flex: 0 0 3px; width: 3px; border-radius: 1px; }
+
+@media (max-width: 480px) {
+  .server-slot-item { flex-wrap: wrap; padding: 10px; }
+  .server-slot-meta { flex-direction: row; align-items: center; justify-content: flex-end; width: 100%; }
 }
 
 .server-list-footer {
@@ -1378,6 +1403,10 @@ body:has(#viewEntry.active) .main-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .server-list-btn-row { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* =========================================================
@@ -1427,7 +1456,7 @@ body:has(#viewEntry.active) .main-content {
 }
 
 .modal-title .svg-icon {
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   width: 18px;
   height: 18px;
 }
@@ -1456,7 +1485,7 @@ body:has(#viewEntry.active) .main-content {
 .modal-close-btn:hover,
 .btn-close-modal:hover {
   background: #243e50;
-  border-color: var(--azure, #6FB7E9);
+  border-color: var(--azure, var(--ui-accent));
   color: #ffffff;
 }
 
@@ -1487,8 +1516,8 @@ body:has(#viewEntry.active) .main-content {
 .modal-input:focus,
 #inputRoomCode:focus,
 #profileNewNameInput:focus {
-  border-color: var(--azure, #6FB7E9) !important;
-  box-shadow: 0 0 0 2px rgba(111, 183, 233, 0.25) !important;
+  border-color: var(--azure, var(--ui-accent)) !important;
+  box-shadow: 0 0 0 2px rgba(214, 173, 96, 0.25) !important;
 }
 
 .avatar-choice-card {
@@ -1496,7 +1525,7 @@ body:has(#viewEntry.active) .main-content {
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  background: #1B303E;
+  background: var(--ui-surface-inset);
   border: 1px solid var(--border-subtle, #344B59);
   border-radius: var(--ui-radius, 2px);
   cursor: pointer;
@@ -1504,8 +1533,8 @@ body:has(#viewEntry.active) .main-content {
 }
 
 .avatar-choice-card:hover {
-  background: #284458;
-  border-color: var(--azure, #6FB7E9);
+  background: var(--selection);
+  border-color: var(--azure, var(--ui-accent));
 }
 
 .avatar-choice-title {

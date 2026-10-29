@@ -96,7 +96,7 @@ body.presentation-floor-active .narrative-controls,
 
 .map-story .eyebrow {
   letter-spacing: 0.18em;
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   font: 700 11px var(--pixel, 'Silkscreen', monospace);
 }
 
@@ -146,7 +146,7 @@ body.presentation-floor-active .narrative-controls,
   gap: 6px;
   align-items: center;
   white-space: nowrap;
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   background: #1d3445;
   border: 1px solid #416378;
   padding: 4px 10px;
@@ -224,7 +224,7 @@ body.presentation-floor-active .narrative-controls,
 
 .section-title .ico,
 .section-title svg {
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, var(--ui-accent));
   width: 18px;
   height: 18px;
 }
@@ -417,9 +417,9 @@ body.presentation-floor-active .narrative-controls,
 
 .hex-cell.hex-current .hex-poly {
   fill: #225C82;
-  stroke: var(--bright, #9CDBF9);
+  stroke: var(--bright, var(--ui-accent-bright));
   stroke-width: 3.2;
-  filter: drop-shadow(0 0 8px rgba(111, 183, 233, 0.55));
+  filter: drop-shadow(0 0 8px rgba(214, 173, 96, 0.55));
 }
 
 /* 可前進的相鄰選擇節點 */
@@ -432,9 +432,9 @@ body.presentation-floor-active .narrative-controls,
 
 .hex-cell.hex-selectable:not(:disabled) .hex-poly {
   fill: #1B3B52;
-  stroke: var(--azure, #6FB7E9);
+  stroke: var(--azure, var(--ui-accent));
   stroke-width: 2.4;
-  filter: drop-shadow(0 0 6px rgba(111, 183, 233, 0.35));
+  filter: drop-shadow(0 0 6px rgba(214, 173, 96, 0.35));
 }
 
 .hex-cell.hex-selectable:not(:disabled):hover .hex-poly {
@@ -462,7 +462,7 @@ body.presentation-floor-active .narrative-controls,
 
 .hex-cell.my-vote .hex-poly {
   fill: #1D4B68 !important;
-  stroke: var(--azure, #6FB7E9) !important;
+  stroke: var(--azure, var(--ui-accent)) !important;
   stroke-width: 3.4 !important;
 }
 

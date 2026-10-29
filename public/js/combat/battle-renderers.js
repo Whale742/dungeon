@@ -103,7 +103,7 @@ function getPlayerAvatarHtml(player, className = 'member-role-avatar') {
   // 1. 玩家自訂頭貼 (自訂照片或自訂頭像)
   if (player.customAvatar) {
     if (player.customAvatar.startsWith('data:image/') || player.customAvatar.startsWith('http') || player.customAvatar.startsWith('/')) {
-      return `<img src="${player.customAvatar}" class="${className}" alt="${escapeHtml(player.name)}">`;
+      return `<img src="${escapeHtml(typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(player.customAvatar):player.customAvatar)}" class="${className}" alt="${escapeHtml(player.name)}">`;
     } else {
       return `<div class="${className} avatar-emoji-badge">${escapeHtml(player.customAvatar)}</div>`;
     }
@@ -295,7 +295,8 @@ function renderBattleEnemiesStage(enemies, monster, me) {
     const cdText = isReady ? '!' : `CD ${cdTurns}`;
 
     let slot = elements.battleEnemiesStage.querySelector(`.battle-enemy-slot[data-enemy-id="${eid}"]`);
-    const avatarSrc = en.battleAvatar ? resolveBattlePortrait({...en,entityType:'monster'}).src : en.avatar || '';
+    const rawAvatar = en.battleAvatar ? resolveBattlePortrait({...en,entityType:'monster'}).src : en.avatar || '';
+    const avatarSrc = typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.resolvePath(rawAvatar):rawAvatar;
     if (!slot) {
       slot = document.createElement('div');
       slot.className = `battle-enemy-slot ${sizeClass}`;
@@ -832,7 +833,6 @@ function showPlayerTooltip(p, eOrTarget) {
   const liveP = (roomState?.players || []).find(x => x.id === p.id) || p;
   const roleConfig = classesData[liveP.role] || { name: '勇者' };
   const roleNameZh = window.StudioContent?.find('role_profiles', liveP.role)?.name_zh || roleConfig.name || '勇者';
-  const roleDesc = window.StudioContent?.find('role_profiles', liveP.role)?.desc || roleConfig.desc || '';
   const hpPct = Math.max(0, Math.min(100, Math.round((liveP.hp / Math.max(1, liveP.maxHp)) * 100)));
 
   const pEquips = liveP.equips || [];
@@ -884,7 +884,6 @@ function showPlayerTooltip(p, eOrTarget) {
       <span class="floating-tooltip-val">${escapeHtml(equipNames)}</span>
     </div>
     ${buffsHtml}
-    ${roleDesc ? `<div class="floating-tooltip-desc">${escapeHtml(roleDesc)}</div>` : ''}
   `;
 
   elements.floatingEnemyTooltip.classList.add('visible');

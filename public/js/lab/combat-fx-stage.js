@@ -38,7 +38,7 @@ function renderInitial(config){
   BattleHud.reset('ENEMY_ACTIONS');stageView.dataset.labIdle='true';
   document.getElementById('battleEncounterTitle').textContent=roomState.enemies.length>1?'ENCOUNTER / 敵方編隊':'ENCOUNTER / '+roomState.currentMonster.name;
   document.getElementById('battleRoundNum').textContent=roomState.battleRound;
-  document.body.style.setProperty('--lab-backdrop',`url('/assets/environments/backgrounds/background.webp')`);
+  document.body.style.setProperty('--lab-backdrop','var(--studio-game-background)');
 }
 function applyHpSnapshot(snapshot){
   const minionsChanged=(snapshot.players||[]).some(p=>'minions'in p&&JSON.stringify(p.minions)!==JSON.stringify(roomState.players.find(x=>x.id===p.id)?.minions));

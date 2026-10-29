@@ -1,0 +1,7537 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-10-28T22:36:00+08:00",
+  "sourceDirectory": "temp/",
+  "outputDirectory": "/assets/ui/gui-skin/",
+  "totalAssets": 177,
+  "sourceSheets": [
+    {
+      "file": "temp/gui-core-main-panel.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "semanticRole": "Main Nine-Slice Window Frame & 4 Fixed-Ratio Center-Edge Diamond Ornaments",
+      "transparencyRepairs": "Removed exterior low-alpha speckle (alpha <= 16); repaired interior dark-slate surface alpha; generated both intact full panel and straight-rail 9-slice base + 4 standalone center-edge diamond caps."
+    },
+    {
+      "file": "temp/gui-core-buttons.png",
+      "dimensions": {
+        "width": 1774,
+        "height": 887
+      },
+      "semanticRole": "4x4 Button Matrix (Azure, Gold, Danger, Slate x Normal, Hover, Pressed, Disabled)",
+      "transparencyRepairs": "Preserved soft golden outer glow on Column 2 (Hover state) while cleaning inter-row noise; ensured 100% solid interior button plates."
+    },
+    {
+      "file": "temp/gui-special-decorative-panels.png",
+      "dimensions": {
+        "width": 1448,
+        "height": 1086
+      },
+      "semanticRole": "Scroll Banner, Brass Nameplate, Boss Pedestal, Sapphire Mirror Frame, Victory Crest, Cracked Boss Emblem, Wax Seal, Hanging Signboard",
+      "transparencyRepairs": "Cleanly split touching parchment scroll (#1) and brass nameplate (#2) at x=1063; restored opaque parchment/stone interiors while keeping sapphire mirror center hollow."
+    },
+    {
+      "file": "temp/gui-lobby-character-panels.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "semanticRole": "Lobby Character Stage Archway, Attribute Radar Panel, 6 Hex Role Badges, 4 Party Slot Cards, 3 Portrait Medallions, 5 Ready Status Bars & Badges",
+      "transparencyRepairs": "Cleanly separated slightly touching tabs, role badges, and party cards; restored opaque slate interiors on cards/panels while keeping circular portrait openings cleanly transparent."
+    },
+    {
+      "file": "temp/gui-combat-hud.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "semanticRole": "7 Unit Portrait Frames, Red HP & Blue MP Bars, Empty Tracks, 5 Skill Slots (Normal/Hover/Cooldown/Disabled/Locked), Ornate Divider & Combat Panel",
+      "transparencyRepairs": "Split combined HP/MP bar component at y=353 and restored 100% solid alpha to bar fills; separated active skill slot (#2) from bottom ornate divider at y=679; cleaned residual floating dark specks inside hollow portrait centers."
+    },
+    {
+      "file": "temp/gui-exploration-hex-tiles.png",
+      "dimensions": {
+        "width": 1774,
+        "height": 887
+      },
+      "semanticRole": "6 Large Exploration Hex Tile States, 10 Map Event Node Icons, Hollow Hex Border Overlays, Fog Cloud, Wax Seal & Compass Waypoint Pin",
+      "transparencyRepairs": "Split 3 touching top-right hex tiles at x=1165 and x=1464; cleaned hollow hex overlay interiors; documented AI generation defect on bottom-left broken hex frame (hex-frame-broken-defect)."
+    },
+    {
+      "file": "temp/gui-core-input-controls.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "semanticRole": "Text Inputs, Search Box, Tabs, 4-State Option Bars, 4-State Dropdown Selects, 4-State Checkboxes, 4-State Radios, 4-State Toggles, Scrollbars & Tooltip Panel",
+      "transparencyRepairs": "Restored solid dark-slate interiors on all input fields, selects, checkboxes, radios, and toggles."
+    },
+    {
+      "file": "temp/gui-core-navigation-controls.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "semanticRole": "Wide Command Bars, Single & 3-Tab Strips, Diamond Sliders, Circular Arrow Buttons & Titled Window Panel",
+      "transparencyRepairs": "Cleaned exterior alpha noise and restored solid interior fills on command bars, tabs, and titled window panel."
+    },
+    {
+      "file": "temp/gui-core-ornaments.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "semanticRole": "Corner Brackets, Horizontal & Vertical Dividers, Heraldic Emblems, Faceted Gems & Header Ribbon Bars",
+      "transparencyRepairs": "Cleaned background alpha speckle while preserving sharp metallic bevels and gem highlights."
+    }
+  ],
+  "assets": [
+    {
+      "id": "main-panel-full",
+      "sourceFile": "temp/gui-core-main-panel.png",
+      "outputFile": "/assets/ui/gui-skin/panels/main-panel-full.png",
+      "category": "panels",
+      "subCategory": "main-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 25,
+        "y": 91,
+        "width": 1489,
+        "height": 820
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 1489,
+        "height": 820
+      },
+      "outputSize": {
+        "width": 1493,
+        "height": 824
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "composite",
+      "nineSlice": {
+        "top": 158,
+        "right": 158,
+        "bottom": 158,
+        "left": 158
+      },
+      "contentBox": {
+        "top": 68,
+        "right": 68,
+        "bottom": 68,
+        "left": 68
+      },
+      "aspectRatio": 1.8119,
+      "notes": "Intact ornate dark-gold slate main panel with 4 corner brackets and 4 center-edge diamond ornaments."
+    },
+    {
+      "id": "main-panel-gem-top",
+      "sourceFile": "temp/gui-core-main-panel.png",
+      "outputFile": "/assets/ui/gui-skin/panels/main-panel-gem-top.png",
+      "category": "panels",
+      "subCategory": "edge-ornament",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 675,
+        "y": 96,
+        "width": 187,
+        "height": 64
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 187,
+        "height": 64
+      },
+      "outputSize": {
+        "width": 191,
+        "height": 68
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 27,
+        "bottom": 14,
+        "left": 27
+      },
+      "aspectRatio": 2.8088,
+      "notes": "Top center-edge diamond ornament extracted from main panel; overlay centered (left: 50%) on 9-slice panel top border."
+    },
+    {
+      "id": "main-panel-gem-bottom",
+      "sourceFile": "temp/gui-core-main-panel.png",
+      "outputFile": "/assets/ui/gui-skin/panels/main-panel-gem-bottom.png",
+      "category": "panels",
+      "subCategory": "edge-ornament",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 675,
+        "y": 842,
+        "width": 187,
+        "height": 63
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 187,
+        "height": 63
+      },
+      "outputSize": {
+        "width": 191,
+        "height": 67
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 27,
+        "bottom": 13,
+        "left": 27
+      },
+      "aspectRatio": 2.8507,
+      "notes": "Bottom center-edge diamond ornament extracted from main panel; overlay centered (left: 50%) on 9-slice panel bottom border."
+    },
+    {
+      "id": "main-panel-gem-left",
+      "sourceFile": "temp/gui-core-main-panel.png",
+      "outputFile": "/assets/ui/gui-skin/panels/main-panel-gem-left.png",
+      "category": "panels",
+      "subCategory": "edge-ornament",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 38,
+        "y": 424,
+        "width": 65,
+        "height": 124
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 65,
+        "height": 124
+      },
+      "outputSize": {
+        "width": 69,
+        "height": 128
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 23,
+        "right": 10,
+        "bottom": 26,
+        "left": 10
+      },
+      "aspectRatio": 0.5391,
+      "notes": "Left center-edge diamond ornament extracted from main panel; overlay centered (top: 50%) on 9-slice panel left border."
+    },
+    {
+      "id": "main-panel-gem-right",
+      "sourceFile": "temp/gui-core-main-panel.png",
+      "outputFile": "/assets/ui/gui-skin/panels/main-panel-gem-right.png",
+      "category": "panels",
+      "subCategory": "edge-ornament",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1436,
+        "y": 424,
+        "width": 64,
+        "height": 124
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 64,
+        "height": 124
+      },
+      "outputSize": {
+        "width": 68,
+        "height": 128
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 23,
+        "right": 10,
+        "bottom": 26,
+        "left": 10
+      },
+      "aspectRatio": 0.5312,
+      "notes": "Right center-edge diamond ornament extracted from main panel; overlay centered (top: 50%) on 9-slice panel right border."
+    },
+    {
+      "id": "main-panel-9slice",
+      "sourceFile": "temp/gui-core-main-panel.png",
+      "outputFile": "/assets/ui/gui-skin/panels/main-panel-9slice.png",
+      "category": "panels",
+      "subCategory": "main-frame-9slice",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 25,
+        "y": 91,
+        "width": 1489,
+        "height": 820
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 1489,
+        "height": 820
+      },
+      "outputSize": {
+        "width": 1493,
+        "height": 824
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "nine-slice",
+      "nineSlice": {
+        "top": 156,
+        "right": 156,
+        "bottom": 156,
+        "left": 156
+      },
+      "contentBox": {
+        "top": 64,
+        "right": 64,
+        "bottom": 64,
+        "left": 64
+      },
+      "aspectRatio": 1.8119,
+      "notes": "Nine-slice base frame with straight top/bottom/left/right rails (center diamond ornaments removed into separate fixed-ratio cap assets so stretching never distorts center diamonds)."
+    },
+    {
+      "id": "btn-azure-normal",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-azure-normal.png",
+      "category": "buttons",
+      "subCategory": "btn-azure",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 24,
+        "y": 82,
+        "width": 422,
+        "height": 167
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 422,
+        "height": 167
+      },
+      "outputSize": {
+        "width": 426,
+        "height": 171
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4912,
+      "notes": "Primary ornate azure-slate button with side star-diamonds (normal state)."
+    },
+    {
+      "id": "btn-azure-hover",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-azure-hover.png",
+      "category": "buttons",
+      "subCategory": "btn-azure",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 456,
+        "y": 78,
+        "width": 430,
+        "height": 174
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 430,
+        "height": 174
+      },
+      "outputSize": {
+        "width": 434,
+        "height": 178
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4382,
+      "notes": "Primary ornate azure-slate button with side star-diamonds (hover state). Preserves soft outer golden hover glow."
+    },
+    {
+      "id": "btn-azure-pressed",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-azure-pressed.png",
+      "category": "buttons",
+      "subCategory": "btn-azure",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 895,
+        "y": 82,
+        "width": 424,
+        "height": 167
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 424,
+        "height": 167
+      },
+      "outputSize": {
+        "width": 428,
+        "height": 171
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.5029,
+      "notes": "Primary ornate azure-slate button with side star-diamonds (pressed state)."
+    },
+    {
+      "id": "btn-azure-disabled",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-azure-disabled.png",
+      "category": "buttons",
+      "subCategory": "btn-azure",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1332,
+        "y": 82,
+        "width": 421,
+        "height": 167
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 421,
+        "height": 167
+      },
+      "outputSize": {
+        "width": 425,
+        "height": 171
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4854,
+      "notes": "Primary ornate azure-slate button with side star-diamonds (disabled state)."
+    },
+    {
+      "id": "btn-gold-normal",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-gold-normal.png",
+      "category": "buttons",
+      "subCategory": "btn-gold",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 24,
+        "y": 269,
+        "width": 422,
+        "height": 169
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 422,
+        "height": 169
+      },
+      "outputSize": {
+        "width": 426,
+        "height": 173
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4624,
+      "notes": "Secondary/CTA illuminated amber-gold button with side star-diamonds (normal state)."
+    },
+    {
+      "id": "btn-gold-hover",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-gold-hover.png",
+      "category": "buttons",
+      "subCategory": "btn-gold",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 457,
+        "y": 266,
+        "width": 429,
+        "height": 175
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 429,
+        "height": 175
+      },
+      "outputSize": {
+        "width": 433,
+        "height": 179
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.419,
+      "notes": "Secondary/CTA illuminated amber-gold button with side star-diamonds (hover state). Preserves soft outer golden hover glow."
+    },
+    {
+      "id": "btn-gold-pressed",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-gold-pressed.png",
+      "category": "buttons",
+      "subCategory": "btn-gold",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 896,
+        "y": 269,
+        "width": 423,
+        "height": 169
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 423,
+        "height": 169
+      },
+      "outputSize": {
+        "width": 427,
+        "height": 173
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4682,
+      "notes": "Secondary/CTA illuminated amber-gold button with side star-diamonds (pressed state)."
+    },
+    {
+      "id": "btn-gold-disabled",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-gold-disabled.png",
+      "category": "buttons",
+      "subCategory": "btn-gold",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1331,
+        "y": 269,
+        "width": 421,
+        "height": 169
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 421,
+        "height": 169
+      },
+      "outputSize": {
+        "width": 425,
+        "height": 173
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4566,
+      "notes": "Secondary/CTA illuminated amber-gold button with side star-diamonds (disabled state)."
+    },
+    {
+      "id": "btn-danger-normal",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-danger-normal.png",
+      "category": "buttons",
+      "subCategory": "btn-danger",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 24,
+        "y": 458,
+        "width": 422,
+        "height": 168
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 422,
+        "height": 168
+      },
+      "outputSize": {
+        "width": 426,
+        "height": 172
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4767,
+      "notes": "Danger crimson-blood button with side star-diamonds (normal state)."
+    },
+    {
+      "id": "btn-danger-hover",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-danger-hover.png",
+      "category": "buttons",
+      "subCategory": "btn-danger",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 456,
+        "y": 455,
+        "width": 430,
+        "height": 173
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 430,
+        "height": 173
+      },
+      "outputSize": {
+        "width": 434,
+        "height": 177
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.452,
+      "notes": "Danger crimson-blood button with side star-diamonds (hover state). Preserves soft outer golden hover glow."
+    },
+    {
+      "id": "btn-danger-pressed",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-danger-pressed.png",
+      "category": "buttons",
+      "subCategory": "btn-danger",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 895,
+        "y": 458,
+        "width": 422,
+        "height": 167
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 422,
+        "height": 167
+      },
+      "outputSize": {
+        "width": 426,
+        "height": 171
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4912,
+      "notes": "Danger crimson-blood button with side star-diamonds (pressed state)."
+    },
+    {
+      "id": "btn-danger-disabled",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-danger-disabled.png",
+      "category": "buttons",
+      "subCategory": "btn-danger",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1330,
+        "y": 458,
+        "width": 423,
+        "height": 167
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 423,
+        "height": 167
+      },
+      "outputSize": {
+        "width": 427,
+        "height": 171
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4971,
+      "notes": "Danger crimson-blood button with side star-diamonds (disabled state)."
+    },
+    {
+      "id": "btn-slate-normal",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-slate-normal.png",
+      "category": "buttons",
+      "subCategory": "btn-slate",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 24,
+        "y": 646,
+        "width": 419,
+        "height": 162
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 419,
+        "height": 162
+      },
+      "outputSize": {
+        "width": 423,
+        "height": 166
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.5482,
+      "notes": "Subtle beveled dark-slate frame button without side star-diamonds (normal state)."
+    },
+    {
+      "id": "btn-slate-hover",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-slate-hover.png",
+      "category": "buttons",
+      "subCategory": "btn-slate",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 457,
+        "y": 644,
+        "width": 427,
+        "height": 169
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 427,
+        "height": 169
+      },
+      "outputSize": {
+        "width": 431,
+        "height": 173
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.4913,
+      "notes": "Subtle beveled dark-slate frame button without side star-diamonds (hover state). Preserves soft outer golden hover glow."
+    },
+    {
+      "id": "btn-slate-pressed",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-slate-pressed.png",
+      "category": "buttons",
+      "subCategory": "btn-slate",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 895,
+        "y": 647,
+        "width": 420,
+        "height": 163
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 420,
+        "height": 163
+      },
+      "outputSize": {
+        "width": 424,
+        "height": 167
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.5389,
+      "notes": "Subtle beveled dark-slate frame button without side star-diamonds (pressed state)."
+    },
+    {
+      "id": "btn-slate-disabled",
+      "sourceFile": "temp/gui-core-buttons.png",
+      "outputFile": "/assets/ui/gui-skin/buttons/btn-slate-disabled.png",
+      "category": "buttons",
+      "subCategory": "btn-slate",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1330,
+        "y": 647,
+        "width": 421,
+        "height": 163
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 421,
+        "height": 163
+      },
+      "outputSize": {
+        "width": 425,
+        "height": 167
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 92,
+        "bottom": 36,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 68,
+        "bottom": 30,
+        "left": 68
+      },
+      "aspectRatio": 2.5449,
+      "notes": "Subtle beveled dark-slate frame button without side star-diamonds (disabled state)."
+    },
+    {
+      "id": "banner-parchment-scroll",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/banner-parchment-scroll.png",
+      "category": "decorative",
+      "subCategory": "scroll-banner",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 18,
+        "y": 4,
+        "width": 1045,
+        "height": 327
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 1045,
+        "height": 327
+      },
+      "outputSize": {
+        "width": 1049,
+        "height": 331
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 60,
+        "right": 180,
+        "bottom": 60,
+        "left": 180
+      },
+      "contentBox": {
+        "top": 62,
+        "right": 150,
+        "bottom": 68,
+        "left": 150
+      },
+      "aspectRatio": 3.1692,
+      "notes": "Wide parchment scroll & brass header banner; cleanly split at x=1063 from adjacent brass nameplate."
+    },
+    {
+      "id": "plaque-brass-nameplate",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/plaque-brass-nameplate.png",
+      "category": "decorative",
+      "subCategory": "nameplate",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1064,
+        "y": 86,
+        "width": 383,
+        "height": 158
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 383,
+        "height": 158
+      },
+      "outputSize": {
+        "width": 387,
+        "height": 162
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 36,
+        "right": 76,
+        "bottom": 36,
+        "left": 76
+      },
+      "contentBox": {
+        "top": 32,
+        "right": 56,
+        "bottom": 32,
+        "left": 56
+      },
+      "aspectRatio": 2.3889,
+      "notes": "Ornate brass nameplate with side star-tips; cleanly split at x=1064 from parchment scroll."
+    },
+    {
+      "id": "pedestal-boss-stone-blue",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/pedestal-boss-stone-blue.png",
+      "category": "decorative",
+      "subCategory": "pedestal",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 10,
+        "y": 420,
+        "width": 616,
+        "height": 262
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 616,
+        "height": 262
+      },
+      "outputSize": {
+        "width": 620,
+        "height": 266
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 40,
+        "right": 90,
+        "bottom": 50,
+        "left": 90
+      },
+      "aspectRatio": 2.3308,
+      "notes": "Heavy stone & brass pedestal with lion heads and blue banners for character/boss stage."
+    },
+    {
+      "id": "frame-mirror-sapphire",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/frame-mirror-sapphire.png",
+      "category": "decorative",
+      "subCategory": "portrait-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 638,
+        "y": 329,
+        "width": 287,
+        "height": 374
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 287,
+        "height": 374
+      },
+      "outputSize": {
+        "width": 291,
+        "height": 378
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 72,
+        "right": 62,
+        "bottom": 72,
+        "left": 62
+      },
+      "aspectRatio": 0.7698,
+      "notes": "Ornate vertical mirror/portrait frame with sapphire gems and hollow interior."
+    },
+    {
+      "id": "medallion-victory-crest",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/medallion-victory-crest.png",
+      "category": "decorative",
+      "subCategory": "medallion",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 945,
+        "y": 297,
+        "width": 499,
+        "height": 456
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 499,
+        "height": 456
+      },
+      "outputSize": {
+        "width": 503,
+        "height": 460
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 130,
+        "right": 130,
+        "bottom": 130,
+        "left": 130
+      },
+      "aspectRatio": 1.0935,
+      "notes": "Grand victory crest medallion with laurel wreath, crossed spears, red ribbons, and parchment core."
+    },
+    {
+      "id": "emblem-boss-defeat-cracked",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/emblem-boss-defeat-cracked.png",
+      "category": "decorative",
+      "subCategory": "emblem",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 37,
+        "y": 701,
+        "width": 541,
+        "height": 355
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 541,
+        "height": 355
+      },
+      "outputSize": {
+        "width": 545,
+        "height": 359
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 80,
+        "right": 110,
+        "bottom": 110,
+        "left": 110
+      },
+      "aspectRatio": 1.5181,
+      "notes": "Cracked stone & brass emblem with tattered crimson banners for boss/hazard/defeat headers."
+    },
+    {
+      "id": "medallion-wax-seal-ribbon",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/medallion-wax-seal-ribbon.png",
+      "category": "decorative",
+      "subCategory": "medallion",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 638,
+        "y": 706,
+        "width": 305,
+        "height": 370
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 305,
+        "height": 370
+      },
+      "outputSize": {
+        "width": 309,
+        "height": 374
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 65,
+        "right": 65,
+        "bottom": 160,
+        "left": 65
+      },
+      "aspectRatio": 0.8262,
+      "notes": "Crimson wax-seal medallion with blue ribbon and gold tassels."
+    },
+    {
+      "id": "signboard-hanging-brass",
+      "sourceFile": "temp/gui-special-decorative-panels.png",
+      "outputFile": "/assets/ui/gui-skin/decorative/signboard-hanging-brass.png",
+      "category": "decorative",
+      "subCategory": "signboard",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 975,
+        "y": 758,
+        "width": 472,
+        "height": 254
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 472,
+        "height": 254
+      },
+      "outputSize": {
+        "width": 476,
+        "height": 258
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 95,
+        "right": 85,
+        "bottom": 45,
+        "left": 85
+      },
+      "contentBox": {
+        "top": 92,
+        "right": 68,
+        "bottom": 42,
+        "left": 68
+      },
+      "aspectRatio": 1.845,
+      "notes": "Hanging dark-slate & brass signboard with top leather straps for shop/floor/stage titles."
+    },
+    {
+      "id": "lobby-stage-archway",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-stage-archway.png",
+      "category": "lobby",
+      "subCategory": "character-stage",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 14,
+        "y": 5,
+        "width": 518,
+        "height": 627
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 518,
+        "height": 627
+      },
+      "outputSize": {
+        "width": 522,
+        "height": 631
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 85,
+        "right": 68,
+        "bottom": 135,
+        "left": 68
+      },
+      "aspectRatio": 0.8273,
+      "notes": "Gothic archway stage with stone & brass pedestal for character showcase."
+    },
+    {
+      "id": "lobby-attributes-panel",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-attributes-panel.png",
+      "category": "lobby",
+      "subCategory": "attribute-panel",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 535,
+        "y": 6,
+        "width": 367,
+        "height": 624
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 367,
+        "height": 624
+      },
+      "outputSize": {
+        "width": 371,
+        "height": 628
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "nine-slice",
+      "nineSlice": {
+        "top": 72,
+        "right": 48,
+        "bottom": 72,
+        "left": 48
+      },
+      "contentBox": {
+        "top": 44,
+        "right": 32,
+        "bottom": 44,
+        "left": 32
+      },
+      "aspectRatio": 0.5908,
+      "notes": "Tall ornate character attribute & radar summary panel."
+    },
+    {
+      "id": "lobby-tab-pair",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-tab-pair.png",
+      "category": "lobby",
+      "subCategory": "tabs",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 916,
+        "y": 46,
+        "width": 388,
+        "height": 64
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 388,
+        "height": 64
+      },
+      "outputSize": {
+        "width": 392,
+        "height": 68
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 24,
+        "bottom": 12,
+        "left": 24
+      },
+      "aspectRatio": 5.7647,
+      "notes": "Joined 2-tab header strip for lobby/character subviews."
+    },
+    {
+      "id": "lobby-tab-single",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-tab-single.png",
+      "category": "lobby",
+      "subCategory": "tabs",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1306,
+        "y": 46,
+        "width": 209,
+        "height": 65
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 209,
+        "height": 65
+      },
+      "outputSize": {
+        "width": 213,
+        "height": 69
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 36,
+        "bottom": 16,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 12,
+        "right": 24,
+        "bottom": 12,
+        "left": 24
+      },
+      "aspectRatio": 3.087,
+      "notes": "Single chamfered lobby tab button (normal)."
+    },
+    {
+      "id": "lobby-tab-gold-active",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-tab-gold-active.png",
+      "category": "lobby",
+      "subCategory": "tabs",
+      "state": "active",
+      "sourceBounds": {
+        "x": 915,
+        "y": 112,
+        "width": 272,
+        "height": 65
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 272,
+        "height": 65
+      },
+      "outputSize": {
+        "width": 276,
+        "height": 69
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 12,
+        "right": 28,
+        "bottom": 12,
+        "left": 28
+      },
+      "aspectRatio": 4.0,
+      "notes": "Active gold-trimmed lobby tab header."
+    },
+    {
+      "id": "lobby-tab-slanted",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-tab-slanted.png",
+      "category": "lobby",
+      "subCategory": "tabs",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1193,
+        "y": 112,
+        "width": 325,
+        "height": 66
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 325,
+        "height": 66
+      },
+      "outputSize": {
+        "width": 329,
+        "height": 70
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 46,
+        "bottom": 16,
+        "left": 46
+      },
+      "contentBox": {
+        "top": 12,
+        "right": 32,
+        "bottom": 12,
+        "left": 32
+      },
+      "aspectRatio": 4.7,
+      "notes": "Slanted ornate lobby tab bar."
+    },
+    {
+      "id": "lobby-divider-flourish",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-divider-flourish.png",
+      "category": "lobby",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 915,
+        "y": 189,
+        "width": 601,
+        "height": 47
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 601,
+        "height": 47
+      },
+      "outputSize": {
+        "width": 605,
+        "height": 51
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 10,
+        "right": 140,
+        "bottom": 10,
+        "left": 140
+      },
+      "contentBox": {
+        "top": 9,
+        "right": 85,
+        "bottom": 10,
+        "left": 85
+      },
+      "aspectRatio": 11.8627,
+      "notes": "Horizontal brass & diamond lobby divider flourish."
+    },
+    {
+      "id": "role-badge-warrior-sword",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/role-badge-warrior-sword.png",
+      "category": "lobby",
+      "subCategory": "role-badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 920,
+        "y": 240,
+        "width": 98,
+        "height": 121
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 98,
+        "height": 121
+      },
+      "outputSize": {
+        "width": 102,
+        "height": 125
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 22,
+        "right": 14,
+        "bottom": 25,
+        "left": 14
+      },
+      "aspectRatio": 0.816,
+      "notes": "Hexagonal role badge: Warrior / Melee (Sword)."
+    },
+    {
+      "id": "role-badge-mage-book",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/role-badge-mage-book.png",
+      "category": "lobby",
+      "subCategory": "role-badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1028,
+        "y": 244,
+        "width": 93,
+        "height": 112
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 93,
+        "height": 112
+      },
+      "outputSize": {
+        "width": 97,
+        "height": 116
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 14,
+        "bottom": 23,
+        "left": 14
+      },
+      "aspectRatio": 0.8362,
+      "notes": "Hexagonal role badge: Mage / Scholar (Tome)."
+    },
+    {
+      "id": "role-badge-rogue-moon",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/role-badge-rogue-moon.png",
+      "category": "lobby",
+      "subCategory": "role-badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1125,
+        "y": 245,
+        "width": 92,
+        "height": 110
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 92,
+        "height": 110
+      },
+      "outputSize": {
+        "width": 96,
+        "height": 114
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 13,
+        "bottom": 23,
+        "left": 13
+      },
+      "aspectRatio": 0.8421,
+      "notes": "Hexagonal role badge: Assassin / Night (Crescent Moon)."
+    },
+    {
+      "id": "role-badge-druid-leaf",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/role-badge-druid-leaf.png",
+      "category": "lobby",
+      "subCategory": "role-badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1223,
+        "y": 245,
+        "width": 91,
+        "height": 111
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 91,
+        "height": 111
+      },
+      "outputSize": {
+        "width": 95,
+        "height": 115
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 13,
+        "bottom": 23,
+        "left": 13
+      },
+      "aspectRatio": 0.8261,
+      "notes": "Hexagonal role badge: Support / Nature (Leaf)."
+    },
+    {
+      "id": "role-badge-augur-star",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/role-badge-augur-star.png",
+      "category": "lobby",
+      "subCategory": "role-badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1320,
+        "y": 244,
+        "width": 91,
+        "height": 112
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 91,
+        "height": 112
+      },
+      "outputSize": {
+        "width": 95,
+        "height": 116
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 13,
+        "bottom": 23,
+        "left": 13
+      },
+      "aspectRatio": 0.819,
+      "notes": "Hexagonal role badge: Augur / Stargazer (Starburst)."
+    },
+    {
+      "id": "role-badge-pyro-flame",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/role-badge-pyro-flame.png",
+      "category": "lobby",
+      "subCategory": "role-badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1417,
+        "y": 244,
+        "width": 92,
+        "height": 112
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 92,
+        "height": 112
+      },
+      "outputSize": {
+        "width": 96,
+        "height": 116
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 13,
+        "bottom": 23,
+        "left": 13
+      },
+      "aspectRatio": 0.8276,
+      "notes": "Hexagonal role badge: Destruction / Pyro (Flame)."
+    },
+    {
+      "id": "lobby-description-banner",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-description-banner.png",
+      "category": "lobby",
+      "subCategory": "banner-panel",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 916,
+        "y": 359,
+        "width": 597,
+        "height": 189
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 597,
+        "height": 189
+      },
+      "outputSize": {
+        "width": 601,
+        "height": 193
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "nine-slice",
+      "nineSlice": {
+        "top": 42,
+        "right": 85,
+        "bottom": 55,
+        "left": 85
+      },
+      "contentBox": {
+        "top": 28,
+        "right": 48,
+        "bottom": 36,
+        "left": 48
+      },
+      "aspectRatio": 3.114,
+      "notes": "Wide ornate lobby description panel with blue drape and hanging chain."
+    },
+    {
+      "id": "lobby-title-ribbon-bar",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-title-ribbon-bar.png",
+      "category": "lobby",
+      "subCategory": "title-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 914,
+        "y": 549,
+        "width": 497,
+        "height": 70
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 497,
+        "height": 70
+      },
+      "outputSize": {
+        "width": 501,
+        "height": 74
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 75,
+        "bottom": 18,
+        "left": 75
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 48,
+        "bottom": 14,
+        "left": 48
+      },
+      "aspectRatio": 6.7703,
+      "notes": "Narrow lobby section title bar with side diamond caps."
+    },
+    {
+      "id": "lobby-slot-card-leader",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-slot-card-leader.png",
+      "category": "lobby",
+      "subCategory": "slot-card",
+      "state": "active",
+      "sourceBounds": {
+        "x": 57,
+        "y": 612,
+        "width": 151,
+        "height": 270
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 151,
+        "height": 270
+      },
+      "outputSize": {
+        "width": 155,
+        "height": 274
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 44,
+        "right": 18,
+        "bottom": 28,
+        "left": 18
+      },
+      "aspectRatio": 0.5657,
+      "notes": "Vertical party member slot card with top gold crown and blue drape (Host/Leader)."
+    },
+    {
+      "id": "lobby-slot-card-banner",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-slot-card-banner.png",
+      "category": "lobby",
+      "subCategory": "slot-card",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 215,
+        "y": 630,
+        "width": 152,
+        "height": 254
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 152,
+        "height": 254
+      },
+      "outputSize": {
+        "width": 156,
+        "height": 258
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 18,
+        "bottom": 28,
+        "left": 18
+      },
+      "aspectRatio": 0.6047,
+      "notes": "Vertical party member slot card with blue-and-red heraldic drapes."
+    },
+    {
+      "id": "lobby-slot-card-standard",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-slot-card-standard.png",
+      "category": "lobby",
+      "subCategory": "slot-card",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 372,
+        "y": 618,
+        "width": 154,
+        "height": 266
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 154,
+        "height": 266
+      },
+      "outputSize": {
+        "width": 158,
+        "height": 270
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 18,
+        "bottom": 28,
+        "left": 18
+      },
+      "aspectRatio": 0.5852,
+      "notes": "Vertical party member slot card with standard brass frame."
+    },
+    {
+      "id": "lobby-slot-card-locked",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-slot-card-locked.png",
+      "category": "lobby",
+      "subCategory": "slot-card",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 531,
+        "y": 623,
+        "width": 154,
+        "height": 260
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 154,
+        "height": 260
+      },
+      "outputSize": {
+        "width": 158,
+        "height": 264
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 18,
+        "bottom": 28,
+        "left": 18
+      },
+      "aspectRatio": 0.5985,
+      "notes": "Vertical party member slot card in muted dark iron (Empty/Locked)."
+    },
+    {
+      "id": "lobby-portrait-crown-blue",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-portrait-crown-blue.png",
+      "category": "lobby",
+      "subCategory": "portrait-frame",
+      "state": "active",
+      "sourceBounds": {
+        "x": 705,
+        "y": 637,
+        "width": 159,
+        "height": 243
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 159,
+        "height": 243
+      },
+      "outputSize": {
+        "width": 163,
+        "height": 247
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 36,
+        "right": 24,
+        "bottom": 78,
+        "left": 24
+      },
+      "aspectRatio": 0.6599,
+      "notes": "Circular leader portrait frame with top gold crown and bottom blue drape."
+    },
+    {
+      "id": "lobby-portrait-brass-red",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-portrait-brass-red.png",
+      "category": "lobby",
+      "subCategory": "portrait-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 874,
+        "y": 644,
+        "width": 160,
+        "height": 234
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 160,
+        "height": 234
+      },
+      "outputSize": {
+        "width": 164,
+        "height": 238
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 24,
+        "bottom": 76,
+        "left": 24
+      },
+      "aspectRatio": 0.6891,
+      "notes": "Circular member portrait frame with brass rim and bottom crimson drape."
+    },
+    {
+      "id": "lobby-portrait-large-red",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-portrait-large-red.png",
+      "category": "lobby",
+      "subCategory": "portrait-frame",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 1040,
+        "y": 652,
+        "width": 197,
+        "height": 224
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 197,
+        "height": 224
+      },
+      "outputSize": {
+        "width": 201,
+        "height": 228
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 28,
+        "bottom": 68,
+        "left": 28
+      },
+      "aspectRatio": 0.8816,
+      "notes": "Ornate wide-shouldered circular portrait medallion with crimson drape."
+    },
+    {
+      "id": "lobby-ready-bar-empty",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-ready-bar-empty.png",
+      "category": "lobby",
+      "subCategory": "status-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 33,
+        "y": 901,
+        "width": 231,
+        "height": 87
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 231,
+        "height": 87
+      },
+      "outputSize": {
+        "width": 235,
+        "height": 91
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 36,
+        "bottom": 20,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 24,
+        "bottom": 18,
+        "left": 24
+      },
+      "aspectRatio": 2.5824,
+      "notes": "Horizontal lobby player status bar (default/empty state)."
+    },
+    {
+      "id": "lobby-ready-bar-leader",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-ready-bar-leader.png",
+      "category": "lobby",
+      "subCategory": "status-bar",
+      "state": "active",
+      "sourceBounds": {
+        "x": 272,
+        "y": 889,
+        "width": 211,
+        "height": 96
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 211,
+        "height": 96
+      },
+      "outputSize": {
+        "width": 215,
+        "height": 100
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 24,
+        "right": 36,
+        "bottom": 20,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 22,
+        "right": 24,
+        "bottom": 18,
+        "left": 24
+      },
+      "aspectRatio": 2.15,
+      "notes": "Horizontal lobby player status bar with gold crown (Host/Leader)."
+    },
+    {
+      "id": "lobby-ready-bar-muted",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-ready-bar-muted.png",
+      "category": "lobby",
+      "subCategory": "status-bar",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 491,
+        "y": 891,
+        "width": 208,
+        "height": 98
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 208,
+        "height": 98
+      },
+      "outputSize": {
+        "width": 212,
+        "height": 102
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 36,
+        "bottom": 20,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 24,
+        "bottom": 18,
+        "left": 24
+      },
+      "aspectRatio": 2.0784,
+      "notes": "Horizontal lobby player status bar in silver/muted slate."
+    },
+    {
+      "id": "lobby-ready-bar-crimson",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-ready-bar-crimson.png",
+      "category": "lobby",
+      "subCategory": "status-bar",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 706,
+        "y": 892,
+        "width": 205,
+        "height": 100
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 205,
+        "height": 100
+      },
+      "outputSize": {
+        "width": 209,
+        "height": 104
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 36,
+        "bottom": 20,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 24,
+        "bottom": 18,
+        "left": 24
+      },
+      "aspectRatio": 2.0096,
+      "notes": "Horizontal lobby player status bar with top crimson gem."
+    },
+    {
+      "id": "lobby-ready-bar-checked",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-ready-bar-checked.png",
+      "category": "lobby",
+      "subCategory": "status-bar",
+      "state": "active",
+      "sourceBounds": {
+        "x": 911,
+        "y": 889,
+        "width": 198,
+        "height": 99
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 198,
+        "height": 99
+      },
+      "outputSize": {
+        "width": 202,
+        "height": 103
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 36,
+        "bottom": 20,
+        "left": 56
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 24,
+        "bottom": 18,
+        "left": 48
+      },
+      "aspectRatio": 1.9612,
+      "notes": "Horizontal lobby player status bar with green Ready checkmark badge."
+    },
+    {
+      "id": "lobby-badge-banner-blue",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-badge-banner-blue.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1414,
+        "y": 556,
+        "width": 105,
+        "height": 133
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 105,
+        "height": 133
+      },
+      "outputSize": {
+        "width": 109,
+        "height": 137
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 25,
+        "right": 15,
+        "bottom": 27,
+        "left": 15
+      },
+      "aspectRatio": 0.7956,
+      "notes": "Blue diamond & gold-tassel hanging banner badge."
+    },
+    {
+      "id": "lobby-badge-banner-red",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-badge-banner-red.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1414,
+        "y": 689,
+        "width": 104,
+        "height": 118
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 104,
+        "height": 118
+      },
+      "outputSize": {
+        "width": 108,
+        "height": 122
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 22,
+        "right": 15,
+        "bottom": 24,
+        "left": 15
+      },
+      "aspectRatio": 0.8852,
+      "notes": "Red diamond & gold-tassel hanging banner badge."
+    },
+    {
+      "id": "lobby-icon-crown-gold",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-icon-crown-gold.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1245,
+        "y": 635,
+        "width": 100,
+        "height": 80
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 100,
+        "height": 80
+      },
+      "outputSize": {
+        "width": 104,
+        "height": 84
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 15,
+        "right": 15,
+        "bottom": 17,
+        "left": 15
+      },
+      "aspectRatio": 1.2381,
+      "notes": "Standalone gold leader crown emblem."
+    },
+    {
+      "id": "lobby-badge-check-circle",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-badge-check-circle.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1303,
+        "y": 813,
+        "width": 89,
+        "height": 96
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 89,
+        "height": 96
+      },
+      "outputSize": {
+        "width": 93,
+        "height": 100
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 18,
+        "right": 13,
+        "bottom": 20,
+        "left": 13
+      },
+      "aspectRatio": 0.93,
+      "notes": "Circular green checkmark Ready badge."
+    },
+    {
+      "id": "lobby-badge-check-shield",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-badge-check-shield.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1120,
+        "y": 880,
+        "width": 81,
+        "height": 114
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 81,
+        "height": 114
+      },
+      "outputSize": {
+        "width": 85,
+        "height": 118
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 12,
+        "bottom": 24,
+        "left": 12
+      },
+      "aspectRatio": 0.7203,
+      "notes": "Shield-shaped green checkmark Ready badge."
+    },
+    {
+      "id": "lobby-badge-lock-shield",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-badge-lock-shield.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "locked",
+      "sourceBounds": {
+        "x": 1218,
+        "y": 880,
+        "width": 82,
+        "height": 114
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 82,
+        "height": 114
+      },
+      "outputSize": {
+        "width": 86,
+        "height": 118
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 21,
+        "right": 12,
+        "bottom": 24,
+        "left": 12
+      },
+      "aspectRatio": 0.7288,
+      "notes": "Shield-shaped brass padlock Locked badge."
+    },
+    {
+      "id": "lobby-badge-party-users",
+      "sourceFile": "temp/gui-lobby-character-panels.png",
+      "outputFile": "/assets/ui/gui-skin/lobby/lobby-badge-party-users.png",
+      "category": "lobby",
+      "subCategory": "badge",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1316,
+        "y": 912,
+        "width": 64,
+        "height": 65
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 64,
+        "height": 65
+      },
+      "outputSize": {
+        "width": 68,
+        "height": 69
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 10,
+        "bottom": 14,
+        "left": 10
+      },
+      "aspectRatio": 0.9855,
+      "notes": "Square party/multiplayer group icon badge."
+    },
+    {
+      "id": "hud-portrait-oct-bronze",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-oct-bronze.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 38,
+        "y": 33,
+        "width": 205,
+        "height": 233
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 205,
+        "height": 233
+      },
+      "outputSize": {
+        "width": 209,
+        "height": 237
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 43,
+        "right": 29,
+        "bottom": 47,
+        "left": 29
+      },
+      "aspectRatio": 0.8819,
+      "notes": "Octagonal bronze combat unit portrait frame."
+    },
+    {
+      "id": "hud-portrait-circle-ornate",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-circle-ornate.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 268,
+        "y": 50,
+        "width": 197,
+        "height": 205
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 197,
+        "height": 205
+      },
+      "outputSize": {
+        "width": 201,
+        "height": 209
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 38,
+        "right": 28,
+        "bottom": 42,
+        "left": 28
+      },
+      "aspectRatio": 0.9617,
+      "notes": "Circular ornate brass combat portrait frame."
+    },
+    {
+      "id": "hud-portrait-circle-winged",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-circle-winged.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "active",
+      "sourceBounds": {
+        "x": 490,
+        "y": 35,
+        "width": 207,
+        "height": 237
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 207,
+        "height": 237
+      },
+      "outputSize": {
+        "width": 211,
+        "height": 241
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 43,
+        "right": 30,
+        "bottom": 48,
+        "left": 30
+      },
+      "aspectRatio": 0.8755,
+      "notes": "Winged circular combat portrait frame with top crest."
+    },
+    {
+      "id": "hud-portrait-crest-heavy",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-crest-heavy.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "active",
+      "sourceBounds": {
+        "x": 708,
+        "y": 15,
+        "width": 210,
+        "height": 268
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 210,
+        "height": 268
+      },
+      "outputSize": {
+        "width": 214,
+        "height": 272
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 49,
+        "right": 30,
+        "bottom": 54,
+        "left": 30
+      },
+      "aspectRatio": 0.7868,
+      "notes": "Heavy boss/hero crest portrait frame with cleaned hollow center."
+    },
+    {
+      "id": "hud-portrait-rect-silver",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-rect-silver.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 924,
+        "y": 32,
+        "width": 179,
+        "height": 237
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 179,
+        "height": 237
+      },
+      "outputSize": {
+        "width": 183,
+        "height": 241
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 43,
+        "right": 26,
+        "bottom": 48,
+        "left": 26
+      },
+      "aspectRatio": 0.7593,
+      "notes": "Vertical rectangular silver-slate unit portrait frame."
+    },
+    {
+      "id": "hud-portrait-rect-gold",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-rect-gold.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1112,
+        "y": 32,
+        "width": 195,
+        "height": 237
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 195,
+        "height": 237
+      },
+      "outputSize": {
+        "width": 199,
+        "height": 241
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 43,
+        "right": 28,
+        "bottom": 48,
+        "left": 28
+      },
+      "aspectRatio": 0.8257,
+      "notes": "Vertical rectangular brass-gold unit portrait frame."
+    },
+    {
+      "id": "hud-portrait-shield-horned",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-portrait-shield-horned.png",
+      "category": "combat",
+      "subCategory": "portrait-frame",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1314,
+        "y": 15,
+        "width": 198,
+        "height": 261
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 198,
+        "height": 261
+      },
+      "outputSize": {
+        "width": 202,
+        "height": 265
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 48,
+        "right": 28,
+        "bottom": 53,
+        "left": 28
+      },
+      "aspectRatio": 0.7623,
+      "notes": "Horned shield boss/elite portrait frame."
+    },
+    {
+      "id": "hud-bar-hp-red",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-hp-red.png",
+      "category": "combat",
+      "subCategory": "vital-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 28,
+        "y": 276,
+        "width": 614,
+        "height": 76
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 614,
+        "height": 76
+      },
+      "outputSize": {
+        "width": 618,
+        "height": 80
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 84
+      },
+      "aspectRatio": 7.725,
+      "notes": "Ornate crimson HP bar with left red diamond-gem socket; split from MP bar at y=352 and interior fill alpha restored."
+    },
+    {
+      "id": "hud-bar-mp-blue",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-mp-blue.png",
+      "category": "combat",
+      "subCategory": "vital-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 37,
+        "y": 354,
+        "width": 594,
+        "height": 70
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 594,
+        "height": 70
+      },
+      "outputSize": {
+        "width": 598,
+        "height": 74
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 92
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 84
+      },
+      "aspectRatio": 8.0811,
+      "notes": "Ornate sapphire MP/Resource bar with left shield socket; split from HP bar at y=354 and interior fill alpha restored."
+    },
+    {
+      "id": "hud-bar-track-empty-lg",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-track-empty-lg.png",
+      "category": "combat",
+      "subCategory": "vital-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 644,
+        "y": 286,
+        "width": 427,
+        "height": 62
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 427,
+        "height": 62
+      },
+      "outputSize": {
+        "width": 431,
+        "height": 66
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 14,
+        "right": 36,
+        "bottom": 14,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 10,
+        "right": 20,
+        "bottom": 10,
+        "left": 20
+      },
+      "aspectRatio": 6.5303,
+      "notes": "Empty dark-slate vital bar track (upper variant)."
+    },
+    {
+      "id": "hud-bar-track-empty-md",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-track-empty-md.png",
+      "category": "combat",
+      "subCategory": "vital-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 643,
+        "y": 357,
+        "width": 425,
+        "height": 61
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 425,
+        "height": 61
+      },
+      "outputSize": {
+        "width": 429,
+        "height": 65
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 14,
+        "right": 36,
+        "bottom": 14,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 10,
+        "right": 20,
+        "bottom": 10,
+        "left": 20
+      },
+      "aspectRatio": 6.6,
+      "notes": "Empty dark-slate vital bar track (lower variant)."
+    },
+    {
+      "id": "hud-bar-pips-3-top",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-pips-3-top.png",
+      "category": "combat",
+      "subCategory": "pip-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1089,
+        "y": 284,
+        "width": 239,
+        "height": 52
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 239,
+        "height": 52
+      },
+      "outputSize": {
+        "width": 243,
+        "height": 56
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 10,
+        "right": 34,
+        "bottom": 11,
+        "left": 34
+      },
+      "aspectRatio": 4.3393,
+      "notes": "3-segment resource/combo pip bar."
+    },
+    {
+      "id": "hud-bar-pips-3-bot",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-pips-3-bot.png",
+      "category": "combat",
+      "subCategory": "pip-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1089,
+        "y": 352,
+        "width": 238,
+        "height": 53
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 238,
+        "height": 53
+      },
+      "outputSize": {
+        "width": 242,
+        "height": 57
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 10,
+        "right": 34,
+        "bottom": 11,
+        "left": 34
+      },
+      "aspectRatio": 4.2456,
+      "notes": "3-segment resource/combo pip bar (variant B)."
+    },
+    {
+      "id": "hud-bar-thin-bronze",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-thin-bronze.png",
+      "category": "combat",
+      "subCategory": "vital-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 49,
+        "y": 430,
+        "width": 473,
+        "height": 57
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 473,
+        "height": 57
+      },
+      "outputSize": {
+        "width": 477,
+        "height": 61
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 12,
+        "right": 42,
+        "bottom": 12,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 11,
+        "right": 67,
+        "bottom": 12,
+        "left": 67
+      },
+      "aspectRatio": 7.8197,
+      "notes": "Slim bronze progress/cast bar track."
+    },
+    {
+      "id": "hud-bar-thin-crimson",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-bar-thin-crimson.png",
+      "category": "combat",
+      "subCategory": "vital-bar",
+      "state": "active",
+      "sourceBounds": {
+        "x": 544,
+        "y": 433,
+        "width": 476,
+        "height": 52
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 476,
+        "height": 52
+      },
+      "outputSize": {
+        "width": 480,
+        "height": 56
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 12,
+        "right": 42,
+        "bottom": 12,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 10,
+        "right": 67,
+        "bottom": 11,
+        "left": 67
+      },
+      "aspectRatio": 8.5714,
+      "notes": "Slim crimson filled cast/shield bar."
+    },
+    {
+      "id": "hud-buff-strip-4slot",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-buff-strip-4slot.png",
+      "category": "combat",
+      "subCategory": "buff-strip",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1072,
+        "y": 417,
+        "width": 273,
+        "height": 78
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 273,
+        "height": 78
+      },
+      "outputSize": {
+        "width": 277,
+        "height": 82
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 15,
+        "right": 39,
+        "bottom": 16,
+        "left": 39
+      },
+      "aspectRatio": 3.378,
+      "notes": "4-slot horizontal status/buff icon holder strip."
+    },
+    {
+      "id": "hud-skill-slot-normal",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-skill-slot-normal.png",
+      "category": "combat",
+      "subCategory": "skill-slot",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 46,
+        "y": 499,
+        "width": 181,
+        "height": 180
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 181,
+        "height": 180
+      },
+      "outputSize": {
+        "width": 185,
+        "height": 184
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      },
+      "aspectRatio": 1.0054,
+      "notes": "Square ornate skill slot frame (Normal state)."
+    },
+    {
+      "id": "hud-skill-slot-active",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-skill-slot-active.png",
+      "category": "combat",
+      "subCategory": "skill-slot",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 243,
+        "y": 497,
+        "width": 186,
+        "height": 182
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 186,
+        "height": 182
+      },
+      "outputSize": {
+        "width": 190,
+        "height": 186
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      },
+      "aspectRatio": 1.0215,
+      "notes": "Square ornate skill slot frame (Hover/Active state with golden rim glow; separated from divider at y=679)."
+    },
+    {
+      "id": "hud-skill-slot-cooldown",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-skill-slot-cooldown.png",
+      "category": "combat",
+      "subCategory": "skill-slot",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 444,
+        "y": 499,
+        "width": 181,
+        "height": 180
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 181,
+        "height": 180
+      },
+      "outputSize": {
+        "width": 185,
+        "height": 184
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      },
+      "aspectRatio": 1.0054,
+      "notes": "Square ornate skill slot frame (Cooldown/Recessed state)."
+    },
+    {
+      "id": "hud-skill-slot-disabled",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-skill-slot-disabled.png",
+      "category": "combat",
+      "subCategory": "skill-slot",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 642,
+        "y": 499,
+        "width": 182,
+        "height": 180
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 182,
+        "height": 180
+      },
+      "outputSize": {
+        "width": 186,
+        "height": 184
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      },
+      "aspectRatio": 1.0109,
+      "notes": "Square ornate skill slot frame (Disabled silver-grey state)."
+    },
+    {
+      "id": "hud-skill-slot-locked",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-skill-slot-locked.png",
+      "category": "combat",
+      "subCategory": "skill-slot",
+      "state": "locked",
+      "sourceBounds": {
+        "x": 841,
+        "y": 499,
+        "width": 202,
+        "height": 184
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 202,
+        "height": 184
+      },
+      "outputSize": {
+        "width": 206,
+        "height": 188
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 24,
+        "right": 24,
+        "bottom": 24,
+        "left": 24
+      },
+      "aspectRatio": 1.0957,
+      "notes": "Square ornate skill slot frame bound with chains and padlock (Locked state)."
+    },
+    {
+      "id": "hud-divider-banner-ornate",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-divider-banner-ornate.png",
+      "category": "combat",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 33,
+        "y": 681,
+        "width": 720,
+        "height": 144
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 720,
+        "height": 144
+      },
+      "outputSize": {
+        "width": 724,
+        "height": 148
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 24,
+        "right": 140,
+        "bottom": 24,
+        "left": 140
+      },
+      "contentBox": {
+        "top": 32,
+        "right": 120,
+        "bottom": 32,
+        "left": 120
+      },
+      "aspectRatio": 4.8919,
+      "notes": "Wide ornate combat HUD header/divider banner (separated from skill slots above y=681)."
+    },
+    {
+      "id": "hud-panel-combat-log",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-panel-combat-log.png",
+      "category": "combat",
+      "subCategory": "panel",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 34,
+        "y": 826,
+        "width": 672,
+        "height": 171
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 672,
+        "height": 171
+      },
+      "outputSize": {
+        "width": 676,
+        "height": 175
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "nine-slice",
+      "nineSlice": {
+        "top": 38,
+        "right": 48,
+        "bottom": 38,
+        "left": 48
+      },
+      "contentBox": {
+        "top": 22,
+        "right": 28,
+        "bottom": 22,
+        "left": 28
+      },
+      "aspectRatio": 3.8629,
+      "notes": "Ornate horizontal combat log / action bar panel container."
+    },
+    {
+      "id": "hud-divider-gold-lg",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-divider-gold-lg.png",
+      "category": "combat",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 776,
+        "y": 767,
+        "width": 713,
+        "height": 54
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 713,
+        "height": 54
+      },
+      "outputSize": {
+        "width": 717,
+        "height": 58
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 10,
+        "right": 120,
+        "bottom": 10,
+        "left": 120
+      },
+      "contentBox": {
+        "top": 10,
+        "right": 100,
+        "bottom": 12,
+        "left": 100
+      },
+      "aspectRatio": 12.3621,
+      "notes": "Long combat HUD gold-diamond horizontal divider."
+    },
+    {
+      "id": "hud-divider-gold-md",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-divider-gold-md.png",
+      "category": "combat",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 773,
+        "y": 822,
+        "width": 718,
+        "height": 57
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 718,
+        "height": 57
+      },
+      "outputSize": {
+        "width": 722,
+        "height": 61
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 10,
+        "right": 120,
+        "bottom": 10,
+        "left": 120
+      },
+      "contentBox": {
+        "top": 11,
+        "right": 101,
+        "bottom": 12,
+        "left": 101
+      },
+      "aspectRatio": 11.8361,
+      "notes": "Long combat HUD double-gem horizontal divider."
+    },
+    {
+      "id": "hud-status-slot-oct",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-status-slot-oct.png",
+      "category": "combat",
+      "subCategory": "status-icon",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 725,
+        "y": 885,
+        "width": 83,
+        "height": 86
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 83,
+        "height": 86
+      },
+      "outputSize": {
+        "width": 87,
+        "height": 90
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 16,
+        "right": 12,
+        "bottom": 18,
+        "left": 12
+      },
+      "aspectRatio": 0.9667,
+      "notes": "Octagonal status effect slot frame."
+    },
+    {
+      "id": "hud-status-slot-sq-a",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-status-slot-sq-a.png",
+      "category": "combat",
+      "subCategory": "status-icon",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 883,
+        "y": 893,
+        "width": 68,
+        "height": 73
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 68,
+        "height": 73
+      },
+      "outputSize": {
+        "width": 72,
+        "height": 77
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 14,
+        "right": 10,
+        "bottom": 15,
+        "left": 10
+      },
+      "aspectRatio": 0.9351,
+      "notes": "Square status/buff icon frame."
+    },
+    {
+      "id": "hud-status-slot-sq-b",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-status-slot-sq-b.png",
+      "category": "combat",
+      "subCategory": "status-icon",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 959,
+        "y": 897,
+        "width": 57,
+        "height": 63
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 57,
+        "height": 63
+      },
+      "outputSize": {
+        "width": 61,
+        "height": 67
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9104,
+      "notes": "Small brass buff slot."
+    },
+    {
+      "id": "hud-status-slot-pair",
+      "sourceFile": "temp/gui-combat-hud.png",
+      "outputFile": "/assets/ui/gui-skin/combat/hud-status-slot-pair.png",
+      "category": "combat",
+      "subCategory": "status-icon",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1133,
+        "y": 897,
+        "width": 115,
+        "height": 63
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 115,
+        "height": 63
+      },
+      "outputSize": {
+        "width": 119,
+        "height": 67
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 17,
+        "bottom": 13,
+        "left": 17
+      },
+      "aspectRatio": 1.7761,
+      "notes": "Joined pair of small brass buff slots."
+    },
+    {
+      "id": "hex-tile-fog-unexplored",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-tile-fog-unexplored.png",
+      "category": "exploration",
+      "subCategory": "hex-tile",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 28,
+        "y": 91,
+        "width": 273,
+        "height": 309
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 273,
+        "height": 309
+      },
+      "outputSize": {
+        "width": 277,
+        "height": 313
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 56,
+        "right": 39,
+        "bottom": 63,
+        "left": 39
+      },
+      "aspectRatio": 0.885,
+      "notes": "Pointy-top exploration hex tile: Unexplored dark mist/fog state."
+    },
+    {
+      "id": "hex-tile-terrain-revealed",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-tile-terrain-revealed.png",
+      "category": "exploration",
+      "subCategory": "hex-tile",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 316,
+        "y": 91,
+        "width": 272,
+        "height": 309
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 272,
+        "height": 309
+      },
+      "outputSize": {
+        "width": 276,
+        "height": 313
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 56,
+        "right": 39,
+        "bottom": 63,
+        "left": 39
+      },
+      "aspectRatio": 0.8818,
+      "notes": "Pointy-top exploration hex tile: Revealed mountain & forest terrain state."
+    },
+    {
+      "id": "hex-tile-terrain-current",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-tile-terrain-current.png",
+      "category": "exploration",
+      "subCategory": "hex-tile",
+      "state": "active",
+      "sourceBounds": {
+        "x": 603,
+        "y": 92,
+        "width": 272,
+        "height": 307
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 272,
+        "height": 307
+      },
+      "outputSize": {
+        "width": 276,
+        "height": 311
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 56,
+        "right": 39,
+        "bottom": 62,
+        "left": 39
+      },
+      "aspectRatio": 0.8875,
+      "notes": "Pointy-top exploration hex tile: Current player position with golden waypoint pin."
+    },
+    {
+      "id": "hex-tile-terrain-selectable",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-tile-terrain-selectable.png",
+      "category": "exploration",
+      "subCategory": "hex-tile",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 887,
+        "y": 80,
+        "width": 271,
+        "height": 330
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 271,
+        "height": 330
+      },
+      "outputSize": {
+        "width": 275,
+        "height": 334
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 60,
+        "right": 39,
+        "bottom": 67,
+        "left": 39
+      },
+      "aspectRatio": 0.8234,
+      "notes": "Pointy-top exploration hex tile: Selectable/Reachable golden-glowing border state (split at x=1158)."
+    },
+    {
+      "id": "hex-tile-special-castle",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-tile-special-castle.png",
+      "category": "exploration",
+      "subCategory": "hex-tile",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1164,
+        "y": 73,
+        "width": 299,
+        "height": 343
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 299,
+        "height": 343
+      },
+      "outputSize": {
+        "width": 303,
+        "height": 347
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 62,
+        "right": 42,
+        "bottom": 69,
+        "left": 42
+      },
+      "aspectRatio": 0.8732,
+      "notes": "Pointy-top exploration hex tile: Special sanctuary/castle compass ring state (split at x=1164..1463)."
+    },
+    {
+      "id": "hex-tile-locked-sealed",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-tile-locked-sealed.png",
+      "category": "exploration",
+      "subCategory": "hex-tile",
+      "state": "locked",
+      "sourceBounds": {
+        "x": 1468,
+        "y": 90,
+        "width": 273,
+        "height": 312
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 273,
+        "height": 312
+      },
+      "outputSize": {
+        "width": 277,
+        "height": 316
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 57,
+        "right": 39,
+        "bottom": 63,
+        "left": 39
+      },
+      "aspectRatio": 0.8766,
+      "notes": "Pointy-top exploration hex tile: Locked/Sealed with iron chains and crimson wax seal (split at x=1468)."
+    },
+    {
+      "id": "map-node-mountain",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-mountain.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 36,
+        "y": 461,
+        "width": 169,
+        "height": 147
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 169,
+        "height": 147
+      },
+      "outputSize": {
+        "width": 173,
+        "height": 151
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 27,
+        "right": 24,
+        "bottom": 30,
+        "left": 24
+      },
+      "aspectRatio": 1.1457,
+      "notes": "Exploration map node icon: Mountain Peak."
+    },
+    {
+      "id": "map-node-forest",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-forest.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 226,
+        "y": 454,
+        "width": 142,
+        "height": 153
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 142,
+        "height": 153
+      },
+      "outputSize": {
+        "width": 146,
+        "height": 157
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 20,
+        "bottom": 31,
+        "left": 20
+      },
+      "aspectRatio": 0.9299,
+      "notes": "Exploration map node icon: Pine Forest."
+    },
+    {
+      "id": "map-node-ruined-keep",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-ruined-keep.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 388,
+        "y": 457,
+        "width": 140,
+        "height": 150
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 140,
+        "height": 150
+      },
+      "outputSize": {
+        "width": 144,
+        "height": 154
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 20,
+        "bottom": 31,
+        "left": 20
+      },
+      "aspectRatio": 0.9351,
+      "notes": "Exploration map node icon: Ruined Keep / Stronghold."
+    },
+    {
+      "id": "map-node-dungeon-cave",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-dungeon-cave.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 553,
+        "y": 457,
+        "width": 138,
+        "height": 145
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 138,
+        "height": 145
+      },
+      "outputSize": {
+        "width": 142,
+        "height": 149
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 27,
+        "right": 20,
+        "bottom": 30,
+        "left": 20
+      },
+      "aspectRatio": 0.953,
+      "notes": "Exploration map node icon: Dungeon Cave Entrance."
+    },
+    {
+      "id": "map-node-crystal-mine",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-crystal-mine.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 716,
+        "y": 455,
+        "width": 123,
+        "height": 152
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 123,
+        "height": 152
+      },
+      "outputSize": {
+        "width": 127,
+        "height": 156
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 18,
+        "bottom": 31,
+        "left": 18
+      },
+      "aspectRatio": 0.8141,
+      "notes": "Exploration map node icon: Arcane Crystal Cluster."
+    },
+    {
+      "id": "map-node-treasure-chest",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-treasure-chest.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 866,
+        "y": 466,
+        "width": 153,
+        "height": 139
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 153,
+        "height": 139
+      },
+      "outputSize": {
+        "width": 157,
+        "height": 143
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 26,
+        "right": 22,
+        "bottom": 29,
+        "left": 22
+      },
+      "aspectRatio": 1.0979,
+      "notes": "Exploration map node icon: Treasure Chest."
+    },
+    {
+      "id": "map-node-campfire-rest",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-campfire-rest.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1042,
+        "y": 453,
+        "width": 134,
+        "height": 153
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 134,
+        "height": 153
+      },
+      "outputSize": {
+        "width": 138,
+        "height": 157
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 19,
+        "bottom": 31,
+        "left": 19
+      },
+      "aspectRatio": 0.879,
+      "notes": "Exploration map node icon: Campfire / Rest Site."
+    },
+    {
+      "id": "map-node-boss-skull",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-boss-skull.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1199,
+        "y": 458,
+        "width": 135,
+        "height": 155
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 135,
+        "height": 155
+      },
+      "outputSize": {
+        "width": 139,
+        "height": 159
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 29,
+        "right": 19,
+        "bottom": 32,
+        "left": 19
+      },
+      "aspectRatio": 0.8742,
+      "notes": "Exploration map node icon: Horned Skull Boss Banner."
+    },
+    {
+      "id": "map-node-abyss-portal",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-abyss-portal.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1366,
+        "y": 449,
+        "width": 172,
+        "height": 160
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 172,
+        "height": 160
+      },
+      "outputSize": {
+        "width": 176,
+        "height": 164
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 30,
+        "right": 25,
+        "bottom": 33,
+        "left": 25
+      },
+      "aspectRatio": 1.0732,
+      "notes": "Exploration map node icon: Abyssal Vortex Portal."
+    },
+    {
+      "id": "map-node-mystery-event",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/map-node-mystery-event.png",
+      "category": "exploration",
+      "subCategory": "map-node",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1570,
+        "y": 451,
+        "width": 145,
+        "height": 158
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 145,
+        "height": 158
+      },
+      "outputSize": {
+        "width": 149,
+        "height": 162
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 29,
+        "right": 21,
+        "bottom": 32,
+        "left": 21
+      },
+      "aspectRatio": 0.9198,
+      "notes": "Exploration map node icon: Mystery '?' Event."
+    },
+    {
+      "id": "hex-frame-broken-defect",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-frame-broken-defect.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 28,
+        "y": 650,
+        "width": 165,
+        "height": 192
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 165,
+        "height": 192
+      },
+      "outputSize": {
+        "width": 169,
+        "height": 196
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 35,
+        "right": 24,
+        "bottom": 39,
+        "left": 24
+      },
+      "aspectRatio": 0.8622,
+      "notes": "AI Generation Flaw Note: Bottom-left hex frame has a broken/missing top-right edge in source sheet; preserved & documented per specification."
+    },
+    {
+      "id": "hex-frame-double-brass",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-frame-double-brass.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 212,
+        "y": 649,
+        "width": 169,
+        "height": 194
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 169,
+        "height": 194
+      },
+      "outputSize": {
+        "width": 173,
+        "height": 198
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 36,
+        "right": 24,
+        "bottom": 40,
+        "left": 24
+      },
+      "aspectRatio": 0.8737,
+      "notes": "Hollow double-rimmed brass hex border overlay."
+    },
+    {
+      "id": "hex-frame-ornate-bronze",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-frame-ornate-bronze.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 396,
+        "y": 647,
+        "width": 174,
+        "height": 196
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 174,
+        "height": 196
+      },
+      "outputSize": {
+        "width": 178,
+        "height": 200
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 36,
+        "right": 25,
+        "bottom": 40,
+        "left": 25
+      },
+      "aspectRatio": 0.89,
+      "notes": "Hollow ornate corner-bracketed bronze hex border overlay."
+    },
+    {
+      "id": "hex-frame-spiked-boss",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-frame-spiked-boss.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "active",
+      "sourceBounds": {
+        "x": 568,
+        "y": 633,
+        "width": 205,
+        "height": 226
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 205,
+        "height": 226
+      },
+      "outputSize": {
+        "width": 209,
+        "height": 230
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 41,
+        "right": 29,
+        "bottom": 46,
+        "left": 29
+      },
+      "aspectRatio": 0.9087,
+      "notes": "Hollow spiked gothic hex border overlay for elite/boss nodes."
+    },
+    {
+      "id": "hex-frame-thin-gold",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-frame-thin-gold.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 775,
+        "y": 649,
+        "width": 172,
+        "height": 193
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 172,
+        "height": 193
+      },
+      "outputSize": {
+        "width": 176,
+        "height": 197
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 35,
+        "right": 25,
+        "bottom": 39,
+        "left": 25
+      },
+      "aspectRatio": 0.8934,
+      "notes": "Hollow thin gold hex border overlay."
+    },
+    {
+      "id": "hex-frame-corner-gems",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-frame-corner-gems.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "active",
+      "sourceBounds": {
+        "x": 963,
+        "y": 652,
+        "width": 188,
+        "height": 190
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 188,
+        "height": 190
+      },
+      "outputSize": {
+        "width": 192,
+        "height": 194
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 35,
+        "right": 27,
+        "bottom": 39,
+        "left": 27
+      },
+      "aspectRatio": 0.9897,
+      "notes": "Hollow hex border with 6 corner diamond studs."
+    },
+    {
+      "id": "hex-overlay-fog-cloud",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-overlay-fog-cloud.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1167,
+        "y": 646,
+        "width": 204,
+        "height": 196
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 204,
+        "height": 196
+      },
+      "outputSize": {
+        "width": 208,
+        "height": 200
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 36,
+        "right": 29,
+        "bottom": 40,
+        "left": 29
+      },
+      "aspectRatio": 1.04,
+      "notes": "Dark swirling fog-of-war cloud overlay for unexplored hexes."
+    },
+    {
+      "id": "hex-overlay-wax-seal",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-overlay-wax-seal.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "locked",
+      "sourceBounds": {
+        "x": 1400,
+        "y": 660,
+        "width": 161,
+        "height": 175
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 161,
+        "height": 175
+      },
+      "outputSize": {
+        "width": 165,
+        "height": 179
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 32,
+        "right": 23,
+        "bottom": 36,
+        "left": 23
+      },
+      "aspectRatio": 0.9218,
+      "notes": "Standalone crimson skull wax seal with parchment ribbons."
+    },
+    {
+      "id": "hex-overlay-waypoint-pin",
+      "sourceFile": "temp/gui-exploration-hex-tiles.png",
+      "outputFile": "/assets/ui/gui-skin/exploration/hex-overlay-waypoint-pin.png",
+      "category": "exploration",
+      "subCategory": "hex-overlay",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1580,
+        "y": 632,
+        "width": 162,
+        "height": 210
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 162,
+        "height": 210
+      },
+      "outputSize": {
+        "width": 166,
+        "height": 214
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 39,
+        "right": 23,
+        "bottom": 43,
+        "left": 23
+      },
+      "aspectRatio": 0.7757,
+      "notes": "Standalone golden compass waypoint pin marker."
+    },
+    {
+      "id": "input-text-normal",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-text-normal.png",
+      "category": "inputs",
+      "subCategory": "text-input",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 36,
+        "y": 56,
+        "width": 455,
+        "height": 72
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 455,
+        "height": 72
+      },
+      "outputSize": {
+        "width": 459,
+        "height": 76
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 36,
+        "bottom": 18,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 24,
+        "bottom": 14,
+        "left": 24
+      },
+      "aspectRatio": 6.0395,
+      "notes": "Standard dark-slate & brass text input field (Normal state)."
+    },
+    {
+      "id": "input-text-focus",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-text-focus.png",
+      "category": "inputs",
+      "subCategory": "text-input",
+      "state": "active",
+      "sourceBounds": {
+        "x": 508,
+        "y": 57,
+        "width": 488,
+        "height": 71
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 488,
+        "height": 71
+      },
+      "outputSize": {
+        "width": 492,
+        "height": 75
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 36,
+        "bottom": 18,
+        "left": 36
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 24,
+        "bottom": 14,
+        "left": 24
+      },
+      "aspectRatio": 6.56,
+      "notes": "Focused text input field with illuminated gold border."
+    },
+    {
+      "id": "input-text-short",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-text-short.png",
+      "category": "inputs",
+      "subCategory": "text-input",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1009,
+        "y": 55,
+        "width": 237,
+        "height": 74
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 237,
+        "height": 74
+      },
+      "outputSize": {
+        "width": 241,
+        "height": 78
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 32,
+        "bottom": 18,
+        "left": 32
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 20,
+        "bottom": 14,
+        "left": 20
+      },
+      "aspectRatio": 3.0897,
+      "notes": "Compact text/room-code input field."
+    },
+    {
+      "id": "input-search-box",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-search-box.png",
+      "category": "inputs",
+      "subCategory": "search-input",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1258,
+        "y": 56,
+        "width": 241,
+        "height": 74
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 241,
+        "height": 74
+      },
+      "outputSize": {
+        "width": 245,
+        "height": 78
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 56,
+        "bottom": 18,
+        "left": 32
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 52,
+        "bottom": 14,
+        "left": 20
+      },
+      "aspectRatio": 3.141,
+      "notes": "Search input box with integrated right magnifying glass icon."
+    },
+    {
+      "id": "input-tab-normal",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-tab-normal.png",
+      "category": "inputs",
+      "subCategory": "tab",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 36,
+        "y": 152,
+        "width": 307,
+        "height": 77
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 307,
+        "height": 77
+      },
+      "outputSize": {
+        "width": 311,
+        "height": 81
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 42,
+        "bottom": 18,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 28
+      },
+      "aspectRatio": 3.8395,
+      "notes": "Ornate tab button (Normal state)."
+    },
+    {
+      "id": "input-tab-active",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-tab-active.png",
+      "category": "inputs",
+      "subCategory": "tab",
+      "state": "active",
+      "sourceBounds": {
+        "x": 354,
+        "y": 152,
+        "width": 302,
+        "height": 78
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 302,
+        "height": 78
+      },
+      "outputSize": {
+        "width": 306,
+        "height": 82
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 42,
+        "bottom": 18,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 28
+      },
+      "aspectRatio": 3.7317,
+      "notes": "Ornate tab button (Active/Hover gold-lit state)."
+    },
+    {
+      "id": "input-tab-pressed",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-tab-pressed.png",
+      "category": "inputs",
+      "subCategory": "tab",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 667,
+        "y": 152,
+        "width": 302,
+        "height": 77
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 302,
+        "height": 77
+      },
+      "outputSize": {
+        "width": 306,
+        "height": 81
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 18,
+        "right": 42,
+        "bottom": 18,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 28
+      },
+      "aspectRatio": 3.7778,
+      "notes": "Ornate tab button (Pressed/Dark state)."
+    },
+    {
+      "id": "input-segmented-pair",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-segmented-pair.png",
+      "category": "inputs",
+      "subCategory": "segmented",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 980,
+        "y": 167,
+        "width": 253,
+        "height": 62
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 253,
+        "height": 62
+      },
+      "outputSize": {
+        "width": 257,
+        "height": 66
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 36,
+        "bottom": 13,
+        "left": 36
+      },
+      "aspectRatio": 3.8939,
+      "notes": "2-segment toggle/breadcrumb bar."
+    },
+    {
+      "id": "input-option-bar-normal",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-option-bar-normal.png",
+      "category": "inputs",
+      "subCategory": "option-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 30,
+        "y": 394,
+        "width": 466,
+        "height": 70
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 466,
+        "height": 70
+      },
+      "outputSize": {
+        "width": 470,
+        "height": 74
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 76
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 72
+      },
+      "aspectRatio": 6.3514,
+      "notes": "Icon-prefixed option/setting bar (Normal state)."
+    },
+    {
+      "id": "input-option-bar-hover",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-option-bar-hover.png",
+      "category": "inputs",
+      "subCategory": "option-bar",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 31,
+        "y": 467,
+        "width": 464,
+        "height": 69
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 464,
+        "height": 69
+      },
+      "outputSize": {
+        "width": 468,
+        "height": 73
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 76
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 72
+      },
+      "aspectRatio": 6.411,
+      "notes": "Icon-prefixed option/setting bar (Hover/Active gold state)."
+    },
+    {
+      "id": "input-option-bar-pressed",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-option-bar-pressed.png",
+      "category": "inputs",
+      "subCategory": "option-bar",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 31,
+        "y": 539,
+        "width": 465,
+        "height": 70
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 465,
+        "height": 70
+      },
+      "outputSize": {
+        "width": 469,
+        "height": 74
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 76
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 72
+      },
+      "aspectRatio": 6.3378,
+      "notes": "Icon-prefixed option/setting bar (Pressed state)."
+    },
+    {
+      "id": "input-option-bar-disabled",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-option-bar-disabled.png",
+      "category": "inputs",
+      "subCategory": "option-bar",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 31,
+        "y": 612,
+        "width": 465,
+        "height": 70
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 465,
+        "height": 70
+      },
+      "outputSize": {
+        "width": 469,
+        "height": 74
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 42,
+        "bottom": 16,
+        "left": 76
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 28,
+        "bottom": 14,
+        "left": 72
+      },
+      "aspectRatio": 6.3378,
+      "notes": "Icon-prefixed option/setting bar (Disabled state)."
+    },
+    {
+      "id": "input-select-normal",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-select-normal.png",
+      "category": "inputs",
+      "subCategory": "select",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 516,
+        "y": 394,
+        "width": 318,
+        "height": 69
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 318,
+        "height": 69
+      },
+      "outputSize": {
+        "width": 322,
+        "height": 73
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 64,
+        "bottom": 16,
+        "left": 32
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 60,
+        "bottom": 14,
+        "left": 22
+      },
+      "aspectRatio": 4.411,
+      "notes": "Dropdown select control with right chevron box (Normal state)."
+    },
+    {
+      "id": "input-select-hover",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-select-hover.png",
+      "category": "inputs",
+      "subCategory": "select",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 515,
+        "y": 467,
+        "width": 319,
+        "height": 68
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 319,
+        "height": 68
+      },
+      "outputSize": {
+        "width": 323,
+        "height": 72
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 64,
+        "bottom": 16,
+        "left": 32
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 60,
+        "bottom": 14,
+        "left": 22
+      },
+      "aspectRatio": 4.4861,
+      "notes": "Dropdown select control with right chevron box (Hover/Active gold state)."
+    },
+    {
+      "id": "input-select-pressed",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-select-pressed.png",
+      "category": "inputs",
+      "subCategory": "select",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 516,
+        "y": 539,
+        "width": 318,
+        "height": 69
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 318,
+        "height": 69
+      },
+      "outputSize": {
+        "width": 322,
+        "height": 73
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 64,
+        "bottom": 16,
+        "left": 32
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 60,
+        "bottom": 14,
+        "left": 22
+      },
+      "aspectRatio": 4.411,
+      "notes": "Dropdown select control with right chevron box (Pressed state)."
+    },
+    {
+      "id": "input-select-disabled",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/input-select-disabled.png",
+      "category": "inputs",
+      "subCategory": "select",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 516,
+        "y": 612,
+        "width": 318,
+        "height": 69
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 318,
+        "height": 69
+      },
+      "outputSize": {
+        "width": 322,
+        "height": 73
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 16,
+        "right": 64,
+        "bottom": 16,
+        "left": 32
+      },
+      "contentBox": {
+        "top": 14,
+        "right": 60,
+        "bottom": 14,
+        "left": 22
+      },
+      "aspectRatio": 4.411,
+      "notes": "Dropdown select control with right chevron box (Disabled state)."
+    },
+    {
+      "id": "checkbox-unchecked",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/checkbox-unchecked.png",
+      "category": "inputs",
+      "subCategory": "checkbox",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 874,
+        "y": 391,
+        "width": 58,
+        "height": 60
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 58,
+        "height": 60
+      },
+      "outputSize": {
+        "width": 62,
+        "height": 64
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9688,
+      "notes": "Square brass checkbox (Unchecked normal state)."
+    },
+    {
+      "id": "checkbox-checked-gold",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/checkbox-checked-gold.png",
+      "category": "inputs",
+      "subCategory": "checkbox",
+      "state": "active",
+      "sourceBounds": {
+        "x": 873,
+        "y": 464,
+        "width": 60,
+        "height": 63
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 60,
+        "height": 63
+      },
+      "outputSize": {
+        "width": 64,
+        "height": 67
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9552,
+      "notes": "Square brass checkbox (Checked gold checkmark state)."
+    },
+    {
+      "id": "checkbox-checked-dim",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/checkbox-checked-dim.png",
+      "category": "inputs",
+      "subCategory": "checkbox",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 873,
+        "y": 542,
+        "width": 60,
+        "height": 62
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 60,
+        "height": 62
+      },
+      "outputSize": {
+        "width": 64,
+        "height": 66
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9697,
+      "notes": "Square brass checkbox (Checked pressed/muted state)."
+    },
+    {
+      "id": "checkbox-disabled",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/checkbox-disabled.png",
+      "category": "inputs",
+      "subCategory": "checkbox",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 873,
+        "y": 620,
+        "width": 60,
+        "height": 62
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 60,
+        "height": 62
+      },
+      "outputSize": {
+        "width": 64,
+        "height": 66
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9697,
+      "notes": "Square brass checkbox (Disabled state)."
+    },
+    {
+      "id": "radio-unselected",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/radio-unselected.png",
+      "category": "inputs",
+      "subCategory": "radio",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 968,
+        "y": 393,
+        "width": 57,
+        "height": 57
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 57,
+        "height": 57
+      },
+      "outputSize": {
+        "width": 61,
+        "height": 61
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 11,
+        "right": 9,
+        "bottom": 12,
+        "left": 9
+      },
+      "aspectRatio": 1.0,
+      "notes": "Circular brass radio button (Unselected normal state)."
+    },
+    {
+      "id": "radio-selected-gold",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/radio-selected-gold.png",
+      "category": "inputs",
+      "subCategory": "radio",
+      "state": "active",
+      "sourceBounds": {
+        "x": 966,
+        "y": 457,
+        "width": 61,
+        "height": 62
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 61,
+        "height": 62
+      },
+      "outputSize": {
+        "width": 65,
+        "height": 66
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9848,
+      "notes": "Circular brass radio button (Selected glowing gold dot state)."
+    },
+    {
+      "id": "radio-selected-dim",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/radio-selected-dim.png",
+      "category": "inputs",
+      "subCategory": "radio",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 968,
+        "y": 527,
+        "width": 57,
+        "height": 59
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 57,
+        "height": 59
+      },
+      "outputSize": {
+        "width": 61,
+        "height": 63
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 11,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9683,
+      "notes": "Circular brass radio button (Selected pressed/dim dot state)."
+    },
+    {
+      "id": "radio-disabled",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/radio-disabled.png",
+      "category": "inputs",
+      "subCategory": "radio",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 968,
+        "y": 593,
+        "width": 57,
+        "height": 59
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 57,
+        "height": 59
+      },
+      "outputSize": {
+        "width": 61,
+        "height": 63
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 11,
+        "right": 9,
+        "bottom": 13,
+        "left": 9
+      },
+      "aspectRatio": 0.9683,
+      "notes": "Circular brass radio button (Disabled state)."
+    },
+    {
+      "id": "toggle-off-normal",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/toggle-off-normal.png",
+      "category": "inputs",
+      "subCategory": "toggle",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1077,
+        "y": 403,
+        "width": 144,
+        "height": 65
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 144,
+        "height": 65
+      },
+      "outputSize": {
+        "width": 148,
+        "height": 69
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 21,
+        "bottom": 14,
+        "left": 21
+      },
+      "aspectRatio": 2.1449,
+      "notes": "Horizontal toggle switch (Off / Left state)."
+    },
+    {
+      "id": "toggle-on-gold",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/toggle-on-gold.png",
+      "category": "inputs",
+      "subCategory": "toggle",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1077,
+        "y": 478,
+        "width": 144,
+        "height": 64
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 144,
+        "height": 64
+      },
+      "outputSize": {
+        "width": 148,
+        "height": 68
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 21,
+        "bottom": 14,
+        "left": 21
+      },
+      "aspectRatio": 2.1765,
+      "notes": "Horizontal toggle switch (On / Right illuminated gold state)."
+    },
+    {
+      "id": "toggle-off-pressed",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/toggle-off-pressed.png",
+      "category": "inputs",
+      "subCategory": "toggle",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 1077,
+        "y": 553,
+        "width": 137,
+        "height": 65
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 137,
+        "height": 65
+      },
+      "outputSize": {
+        "width": 141,
+        "height": 69
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 20,
+        "bottom": 14,
+        "left": 20
+      },
+      "aspectRatio": 2.0435,
+      "notes": "Horizontal toggle switch (Recessed/Pressed state)."
+    },
+    {
+      "id": "toggle-disabled",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/toggle-disabled.png",
+      "category": "inputs",
+      "subCategory": "toggle",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1076,
+        "y": 630,
+        "width": 141,
+        "height": 65
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 141,
+        "height": 65
+      },
+      "outputSize": {
+        "width": 145,
+        "height": 69
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 20,
+        "bottom": 14,
+        "left": 20
+      },
+      "aspectRatio": 2.1014,
+      "notes": "Horizontal toggle switch (Disabled state)."
+    },
+    {
+      "id": "scrollbar-track-thin",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/scrollbar-track-thin.png",
+      "category": "inputs",
+      "subCategory": "scrollbar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1250,
+        "y": 257,
+        "width": 38,
+        "height": 451
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 38,
+        "height": 451
+      },
+      "outputSize": {
+        "width": 42,
+        "height": 455
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-vertical",
+      "nineSlice": {
+        "top": 36,
+        "right": 10,
+        "bottom": 36,
+        "left": 10
+      },
+      "contentBox": {
+        "top": 82,
+        "right": 6,
+        "bottom": 91,
+        "left": 6
+      },
+      "aspectRatio": 0.0923,
+      "notes": "Vertical scrollbar track with top/bottom caps."
+    },
+    {
+      "id": "scrollbar-track-thumb-active",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/scrollbar-track-thumb-active.png",
+      "category": "inputs",
+      "subCategory": "scrollbar",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1309,
+        "y": 260,
+        "width": 46,
+        "height": 447
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 46,
+        "height": 447
+      },
+      "outputSize": {
+        "width": 50,
+        "height": 451
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-vertical",
+      "nineSlice": {
+        "top": 36,
+        "right": 12,
+        "bottom": 36,
+        "left": 12
+      },
+      "contentBox": {
+        "top": 81,
+        "right": 7,
+        "bottom": 90,
+        "left": 7
+      },
+      "aspectRatio": 0.1109,
+      "notes": "Vertical scrollbar with active gold thumb."
+    },
+    {
+      "id": "panel-tooltip-dialog",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/panel-tooltip-dialog.png",
+      "category": "inputs",
+      "subCategory": "dialog-panel",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 31,
+        "y": 725,
+        "width": 406,
+        "height": 174
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 406,
+        "height": 174
+      },
+      "outputSize": {
+        "width": 410,
+        "height": 178
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "nine-slice",
+      "nineSlice": {
+        "top": 42,
+        "right": 42,
+        "bottom": 42,
+        "left": 42
+      },
+      "contentBox": {
+        "top": 24,
+        "right": 26,
+        "bottom": 24,
+        "left": 26
+      },
+      "aspectRatio": 2.3034,
+      "notes": "Compact ornate tooltip / modal card container."
+    },
+    {
+      "id": "plaque-chamfered-label",
+      "sourceFile": "temp/gui-core-input-controls.png",
+      "outputFile": "/assets/ui/gui-skin/inputs/plaque-chamfered-label.png",
+      "category": "inputs",
+      "subCategory": "plaque",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 451,
+        "y": 720,
+        "width": 422,
+        "height": 90
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 422,
+        "height": 90
+      },
+      "outputSize": {
+        "width": 426,
+        "height": 94
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 22,
+        "right": 48,
+        "bottom": 22,
+        "left": 48
+      },
+      "contentBox": {
+        "top": 16,
+        "right": 32,
+        "bottom": 16,
+        "left": 32
+      },
+      "aspectRatio": 4.5319,
+      "notes": "Chamfered dark-slate label plaque."
+    },
+    {
+      "id": "nav-command-bar-focus",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-command-bar-focus.png",
+      "category": "navigation",
+      "subCategory": "command-bar",
+      "state": "active",
+      "sourceBounds": {
+        "x": 22,
+        "y": 57,
+        "width": 583,
+        "height": 94
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 583,
+        "height": 94
+      },
+      "outputSize": {
+        "width": 587,
+        "height": 98
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 22,
+        "right": 56,
+        "bottom": 22,
+        "left": 56
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 36,
+        "bottom": 18,
+        "left": 36
+      },
+      "aspectRatio": 5.9898,
+      "notes": "Wide ornate command/input bar (Focused state)."
+    },
+    {
+      "id": "nav-command-bar-hover",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-command-bar-hover.png",
+      "category": "navigation",
+      "subCategory": "command-bar",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 22,
+        "y": 158,
+        "width": 583,
+        "height": 94
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 583,
+        "height": 94
+      },
+      "outputSize": {
+        "width": 587,
+        "height": 98
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 22,
+        "right": 56,
+        "bottom": 22,
+        "left": 56
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 36,
+        "bottom": 18,
+        "left": 36
+      },
+      "aspectRatio": 5.9898,
+      "notes": "Wide ornate command/input bar (Hover gold state)."
+    },
+    {
+      "id": "nav-command-bar-disabled",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-command-bar-disabled.png",
+      "category": "navigation",
+      "subCategory": "command-bar",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 22,
+        "y": 259,
+        "width": 583,
+        "height": 94
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 583,
+        "height": 94
+      },
+      "outputSize": {
+        "width": 587,
+        "height": 98
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 22,
+        "right": 56,
+        "bottom": 22,
+        "left": 56
+      },
+      "contentBox": {
+        "top": 18,
+        "right": 36,
+        "bottom": 18,
+        "left": 36
+      },
+      "aspectRatio": 5.9898,
+      "notes": "Wide ornate command/input bar (Disabled dark state)."
+    },
+    {
+      "id": "nav-tab-single-normal",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-tab-single-normal.png",
+      "category": "navigation",
+      "subCategory": "tab",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 622,
+        "y": 14,
+        "width": 344,
+        "height": 81
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 344,
+        "height": 81
+      },
+      "outputSize": {
+        "width": 348,
+        "height": 85
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 48,
+        "bottom": 20,
+        "left": 48
+      },
+      "contentBox": {
+        "top": 16,
+        "right": 32,
+        "bottom": 16,
+        "left": 32
+      },
+      "aspectRatio": 4.0941,
+      "notes": "Navigation tab header (Normal state)."
+    },
+    {
+      "id": "nav-tab-single-active",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-tab-single-active.png",
+      "category": "navigation",
+      "subCategory": "tab",
+      "state": "active",
+      "sourceBounds": {
+        "x": 622,
+        "y": 112,
+        "width": 343,
+        "height": 81
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 343,
+        "height": 81
+      },
+      "outputSize": {
+        "width": 347,
+        "height": 85
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 48,
+        "bottom": 20,
+        "left": 48
+      },
+      "contentBox": {
+        "top": 16,
+        "right": 32,
+        "bottom": 16,
+        "left": 32
+      },
+      "aspectRatio": 4.0824,
+      "notes": "Navigation tab header (Active gold state)."
+    },
+    {
+      "id": "nav-tab-single-disabled",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-tab-single-disabled.png",
+      "category": "navigation",
+      "subCategory": "tab",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 621,
+        "y": 211,
+        "width": 345,
+        "height": 82
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 345,
+        "height": 82
+      },
+      "outputSize": {
+        "width": 349,
+        "height": 86
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 48,
+        "bottom": 20,
+        "left": 48
+      },
+      "contentBox": {
+        "top": 16,
+        "right": 32,
+        "bottom": 16,
+        "left": 32
+      },
+      "aspectRatio": 4.0581,
+      "notes": "Navigation tab header (Disabled state)."
+    },
+    {
+      "id": "nav-tab-strip-3-normal",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-tab-strip-3-normal.png",
+      "category": "navigation",
+      "subCategory": "tab-strip",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 974,
+        "y": 19,
+        "width": 541,
+        "height": 73
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 541,
+        "height": 73
+      },
+      "outputSize": {
+        "width": 545,
+        "height": 77
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 14,
+        "right": 76,
+        "bottom": 15,
+        "left": 76
+      },
+      "aspectRatio": 7.0779,
+      "notes": "Joined 3-tab navigation bar (Normal state)."
+    },
+    {
+      "id": "nav-tab-strip-3-active",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-tab-strip-3-active.png",
+      "category": "navigation",
+      "subCategory": "tab-strip",
+      "state": "active",
+      "sourceBounds": {
+        "x": 974,
+        "y": 114,
+        "width": 543,
+        "height": 67
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 543,
+        "height": 67
+      },
+      "outputSize": {
+        "width": 547,
+        "height": 71
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 13,
+        "right": 77,
+        "bottom": 14,
+        "left": 77
+      },
+      "aspectRatio": 7.7042,
+      "notes": "Joined 3-tab navigation bar (Center tab active gold state)."
+    },
+    {
+      "id": "nav-slider-gold-50",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-slider-gold-50.png",
+      "category": "navigation",
+      "subCategory": "slider",
+      "state": "active",
+      "sourceBounds": {
+        "x": 621,
+        "y": 317,
+        "width": 543,
+        "height": 60
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 543,
+        "height": 60
+      },
+      "outputSize": {
+        "width": 547,
+        "height": 64
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 12,
+        "right": 77,
+        "bottom": 13,
+        "left": 77
+      },
+      "aspectRatio": 8.5469,
+      "notes": "Ornate horizontal slider with center diamond thumb at 50%."
+    },
+    {
+      "id": "nav-slider-gold-65",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-slider-gold-65.png",
+      "category": "navigation",
+      "subCategory": "slider",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 621,
+        "y": 376,
+        "width": 542,
+        "height": 56
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 542,
+        "height": 56
+      },
+      "outputSize": {
+        "width": 546,
+        "height": 60
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "fixed-ratio",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 11,
+        "right": 76,
+        "bottom": 12,
+        "left": 76
+      },
+      "aspectRatio": 9.1,
+      "notes": "Ornate horizontal slider with glowing diamond thumb at 65%."
+    },
+    {
+      "id": "nav-arrow-btn-up",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-arrow-btn-up.png",
+      "category": "navigation",
+      "subCategory": "arrow-button",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 1426,
+        "y": 285,
+        "width": 79,
+        "height": 79
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 79,
+        "height": 79
+      },
+      "outputSize": {
+        "width": 83,
+        "height": 83
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 15,
+        "right": 12,
+        "bottom": 17,
+        "left": 12
+      },
+      "aspectRatio": 1.0,
+      "notes": "Circular brass Up arrow button."
+    },
+    {
+      "id": "nav-arrow-btn-up-hover",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-arrow-btn-up-hover.png",
+      "category": "navigation",
+      "subCategory": "arrow-button",
+      "state": "hover",
+      "sourceBounds": {
+        "x": 1426,
+        "y": 369,
+        "width": 79,
+        "height": 80
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 79,
+        "height": 80
+      },
+      "outputSize": {
+        "width": 83,
+        "height": 84
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 15,
+        "right": 12,
+        "bottom": 17,
+        "left": 12
+      },
+      "aspectRatio": 0.9881,
+      "notes": "Circular brass Up arrow button (Hover gold state)."
+    },
+    {
+      "id": "nav-arrow-btn-down",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-arrow-btn-down.png",
+      "category": "navigation",
+      "subCategory": "arrow-button",
+      "state": "pressed",
+      "sourceBounds": {
+        "x": 1426,
+        "y": 454,
+        "width": 79,
+        "height": 79
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 79,
+        "height": 79
+      },
+      "outputSize": {
+        "width": 83,
+        "height": 83
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 15,
+        "right": 12,
+        "bottom": 17,
+        "left": 12
+      },
+      "aspectRatio": 1.0,
+      "notes": "Circular brass Down/Recessed arrow button."
+    },
+    {
+      "id": "nav-arrow-btn-disabled",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-arrow-btn-disabled.png",
+      "category": "navigation",
+      "subCategory": "arrow-button",
+      "state": "disabled",
+      "sourceBounds": {
+        "x": 1426,
+        "y": 539,
+        "width": 79,
+        "height": 79
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 79,
+        "height": 79
+      },
+      "outputSize": {
+        "width": 83,
+        "height": 83
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 15,
+        "right": 12,
+        "bottom": 17,
+        "left": 12
+      },
+      "aspectRatio": 1.0,
+      "notes": "Circular iron Disabled arrow button."
+    },
+    {
+      "id": "nav-window-titled",
+      "sourceFile": "temp/gui-core-navigation-controls.png",
+      "outputFile": "/assets/ui/gui-skin/navigation/nav-window-titled.png",
+      "category": "navigation",
+      "subCategory": "window-panel",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 22,
+        "y": 737,
+        "width": 555,
+        "height": 268
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 555,
+        "height": 268
+      },
+      "outputSize": {
+        "width": 559,
+        "height": 272
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "nine-slice",
+      "nineSlice": {
+        "top": 68,
+        "right": 52,
+        "bottom": 48,
+        "left": 52
+      },
+      "contentBox": {
+        "top": 64,
+        "right": 32,
+        "bottom": 28,
+        "left": 32
+      },
+      "aspectRatio": 2.0551,
+      "notes": "Ornate window panel with integrated top header bar."
+    },
+    {
+      "id": "ornament-corner-tl-heavy",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-corner-tl-heavy.png",
+      "category": "ornaments",
+      "subCategory": "corner",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 31,
+        "y": 42,
+        "width": 153,
+        "height": 135
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 153,
+        "height": 135
+      },
+      "outputSize": {
+        "width": 157,
+        "height": 139
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 25,
+        "right": 22,
+        "bottom": 28,
+        "left": 22
+      },
+      "aspectRatio": 1.1295,
+      "notes": "Heavy brass top-left corner bracket with diamond stud."
+    },
+    {
+      "id": "ornament-corner-tl-scroll",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-corner-tl-scroll.png",
+      "category": "ornaments",
+      "subCategory": "corner",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 208,
+        "y": 37,
+        "width": 152,
+        "height": 163
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 152,
+        "height": 163
+      },
+      "outputSize": {
+        "width": 156,
+        "height": 167
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 30,
+        "right": 22,
+        "bottom": 33,
+        "left": 22
+      },
+      "aspectRatio": 0.9341,
+      "notes": "Scrollwork brass top-left corner bracket."
+    },
+    {
+      "id": "ornament-corner-tl-gothic",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-corner-tl-gothic.png",
+      "category": "ornaments",
+      "subCategory": "corner",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 31,
+        "y": 203,
+        "width": 157,
+        "height": 149
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 157,
+        "height": 149
+      },
+      "outputSize": {
+        "width": 161,
+        "height": 153
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 28,
+        "right": 23,
+        "bottom": 31,
+        "left": 23
+      },
+      "aspectRatio": 1.0523,
+      "notes": "Gothic filigree top-left corner bracket."
+    },
+    {
+      "id": "ornament-divider-crest-top",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-divider-crest-top.png",
+      "category": "ornaments",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 388,
+        "y": 24,
+        "width": 825,
+        "height": 126
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 825,
+        "height": 126
+      },
+      "outputSize": {
+        "width": 829,
+        "height": 130
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 20,
+        "right": 180,
+        "bottom": 20,
+        "left": 180
+      },
+      "contentBox": {
+        "top": 23,
+        "right": 116,
+        "bottom": 26,
+        "left": 116
+      },
+      "aspectRatio": 6.3769,
+      "notes": "Grand horizontal crest divider with center diamond."
+    },
+    {
+      "id": "ornament-divider-slim-diamond",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-divider-slim-diamond.png",
+      "category": "ornaments",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 432,
+        "y": 144,
+        "width": 735,
+        "height": 58
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 735,
+        "height": 58
+      },
+      "outputSize": {
+        "width": 739,
+        "height": 62
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 10,
+        "right": 140,
+        "bottom": 10,
+        "left": 140
+      },
+      "contentBox": {
+        "top": 11,
+        "right": 103,
+        "bottom": 12,
+        "left": 103
+      },
+      "aspectRatio": 11.9194,
+      "notes": "Slim brass horizontal divider with center diamond."
+    },
+    {
+      "id": "ornament-divider-wing-bar",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-divider-wing-bar.png",
+      "category": "ornaments",
+      "subCategory": "divider",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 399,
+        "y": 272,
+        "width": 787,
+        "height": 79
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 787,
+        "height": 79
+      },
+      "outputSize": {
+        "width": 791,
+        "height": 83
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 12,
+        "right": 160,
+        "bottom": 12,
+        "left": 160
+      },
+      "contentBox": {
+        "top": 15,
+        "right": 111,
+        "bottom": 17,
+        "left": 111
+      },
+      "aspectRatio": 9.5301,
+      "notes": "Winged horizontal section divider."
+    },
+    {
+      "id": "ornament-emblem-star",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-emblem-star.png",
+      "category": "ornaments",
+      "subCategory": "emblem",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 411,
+        "y": 351,
+        "width": 123,
+        "height": 137
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 123,
+        "height": 137
+      },
+      "outputSize": {
+        "width": 127,
+        "height": 141
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 25,
+        "right": 18,
+        "bottom": 28,
+        "left": 18
+      },
+      "aspectRatio": 0.9007,
+      "notes": "8-point brass star emblem."
+    },
+    {
+      "id": "ornament-emblem-fleur",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-emblem-fleur.png",
+      "category": "ornaments",
+      "subCategory": "emblem",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 549,
+        "y": 352,
+        "width": 88,
+        "height": 125
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 88,
+        "height": 125
+      },
+      "outputSize": {
+        "width": 92,
+        "height": 129
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 23,
+        "right": 13,
+        "bottom": 26,
+        "left": 13
+      },
+      "aspectRatio": 0.7132,
+      "notes": "Heraldic brass fleur-de-lis emblem."
+    },
+    {
+      "id": "ornament-emblem-rosette",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-emblem-rosette.png",
+      "category": "ornaments",
+      "subCategory": "emblem",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 931,
+        "y": 359,
+        "width": 144,
+        "height": 119
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 144,
+        "height": 119
+      },
+      "outputSize": {
+        "width": 148,
+        "height": 123
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 22,
+        "right": 21,
+        "bottom": 25,
+        "left": 21
+      },
+      "aspectRatio": 1.2033,
+      "notes": "Circular gothic rosette medallion."
+    },
+    {
+      "id": "ornament-gem-sapphire",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-gem-sapphire.png",
+      "category": "ornaments",
+      "subCategory": "gem",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1107,
+        "y": 496,
+        "width": 90,
+        "height": 126
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 90,
+        "height": 126
+      },
+      "outputSize": {
+        "width": 94,
+        "height": 130
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 23,
+        "right": 13,
+        "bottom": 26,
+        "left": 13
+      },
+      "aspectRatio": 0.7231,
+      "notes": "Faceted sapphire gem in brass diamond socket."
+    },
+    {
+      "id": "ornament-gem-ruby",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-gem-ruby.png",
+      "category": "ornaments",
+      "subCategory": "gem",
+      "state": "active",
+      "sourceBounds": {
+        "x": 1208,
+        "y": 496,
+        "width": 84,
+        "height": 122
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 84,
+        "height": 122
+      },
+      "outputSize": {
+        "width": 88,
+        "height": 126
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "icon",
+      "nineSlice": null,
+      "contentBox": {
+        "top": 23,
+        "right": 12,
+        "bottom": 25,
+        "left": 12
+      },
+      "aspectRatio": 0.6984,
+      "notes": "Faceted ruby gem in brass diamond socket."
+    },
+    {
+      "id": "ornament-header-ribbon-lg",
+      "sourceFile": "temp/gui-core-ornaments.png",
+      "outputFile": "/assets/ui/gui-skin/ornaments/ornament-header-ribbon-lg.png",
+      "category": "ornaments",
+      "subCategory": "header-bar",
+      "state": "normal",
+      "sourceBounds": {
+        "x": 404,
+        "y": 843,
+        "width": 478,
+        "height": 55
+      },
+      "trimBounds": {
+        "x": 2,
+        "y": 2,
+        "width": 478,
+        "height": 55
+      },
+      "outputSize": {
+        "width": 482,
+        "height": 59
+      },
+      "padding": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2
+      },
+      "recommendedRenderMode": "three-slice-horizontal",
+      "nineSlice": {
+        "top": 12,
+        "right": 90,
+        "bottom": 12,
+        "left": 90
+      },
+      "contentBox": {
+        "top": 10,
+        "right": 64,
+        "bottom": 10,
+        "left": 64
+      },
+      "aspectRatio": 8.1695,
+      "notes": "Ornate brass & slate header title bar."
+    }
+  ]
+}

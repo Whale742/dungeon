@@ -251,7 +251,7 @@
 
 .inventory-modal-card .modal-close-btn:hover {
   background: #233e50 !important;
-  border-color: #6fb7e9 !important;
+  border-color: var(--ui-accent) !important;
   color: #fff !important;
 }
 
@@ -292,7 +292,7 @@
 
 .inv-stat-hp { color: var(--teal, #49c2c1) !important; }
 .inv-stat-phys { color: var(--danger, #d46b6b) !important; }
-.inv-stat-mag { color: var(--azure, #6fb7e9) !important; }
+.inv-stat-mag { color: var(--azure, var(--ui-accent)) !important; }
 .inv-stat-def { color: var(--gold, #dfcf9e) !important; }
 
 /* Modal Body Layout */
@@ -349,7 +349,7 @@
 
 .inv-capacity-badge {
   font: 700 9px var(--pixel, 'Silkscreen', monospace) !important;
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
   border: 1px solid #35546a !important;
   background: #122432 !important;
   padding: 1px 7px !important;
@@ -462,7 +462,7 @@
   border-radius: 2px !important;
   border: 1px solid #416378 !important;
   background: #182e3d !important;
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
 }
 
 .inv-inspector-rarity-badge.rarity-exclusive {
@@ -603,7 +603,7 @@
 
 .shop-tab-btn:hover {
   background: #233e50 !important;
-  border-color: #6fb7e9 !important;
+  border-color: var(--ui-accent) !important;
   color: #fff !important;
 }
 
@@ -695,7 +695,7 @@
 }
 
 /* Shop slots have their own readable geometry; inventory sizing stays unchanged. */
-.shop-container .hex-slot { width: 90px !important; height: 104px !important; padding: 0; border: 0; background: transparent; box-shadow: none; gap: 0; }
+.shop-container .hex-slot { width: 90px !important; height: 104px !important; padding: 0; border: 0; background-color: transparent; box-shadow: none; gap: 0; }
 .shop-container .hex-grid-squad > .hex-row + .hex-row { margin-top: -28px !important; }
 .shop-container .item-layer { width: 88% !important; height: auto !important; padding-top: 12px; }
 .shop-container .item-layer-name { white-space: normal !important; overflow: visible !important; max-width: 78px !important; font-size: 11px !important; line-height: 1.25 !important; overflow-wrap: anywhere; }
@@ -803,4 +803,23 @@
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
+}
+
+/* Native drag image contains the item only, never the hex frame or its glow. */
+.inventory-drag-preview {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-tooltip);
+  width: 66px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.inventory-drag-preview .item-layer {
+  opacity: 1;
+}
+.inventory-drag-preview .item-layer-icon-box {
+  pointer-events: none;
 }

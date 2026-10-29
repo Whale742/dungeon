@@ -27,12 +27,10 @@ for(const [id,local,mime] of [
   const asset_key='storage.special.'+id;
   await cloud.upsert('game_assets',[{asset_key,display_name:local.split('/').pop(),kind:'image',category:id==='bite'?'effects':'bosses',source_type:'storage',local_path:null,storage_bucket:'game-assets',storage_path:storagePath,external_url:null,mime_type:mime,size_bytes:bytes.length,preload_group:id==='bite'?'effects':'bosses',volume:1,is_public:true}],'asset_key');
   const localKey='local.'+crypto.createHash('sha256').update(localPaths.legacy(local)).digest('hex').slice(0,20);
-  for(const status of ['draft','published'])await cloud.upsert('asset_bindings',[{binding_key:'path.'+localKey,status,asset_key,fallback_path:null,preload_group:id==='bite'?'effects':'bosses',volume_override:null}],'binding_key,status');
+  for(const status of ['draft','published'])await cloud.upsert('asset_bindings',[{binding_key:'path.'+localKey,status,asset_key,fallback_path:local,preload_group:id==='bite'?'effects':'bosses',volume_override:null}],'binding_key,status');
   console.log('Verified cloud asset: '+id);
 }
-fs.writeFileSync(new URL('../game/special-event-assets.js',import.meta.url),'// Verified public Supabase assets. Regenerate with scripts/sync-special-events.mjs.\nexport const SPECIAL_EVENT_ASSETS = Object.freeze('+JSON.stringify(urls,null,2)+');\n');
-const choreography=new URL('../public/js/combat/enemy-choreography.js',import.meta.url);
-fs.writeFileSync(choreography,fs.readFileSync(choreography,'utf8').replace(/https:\/\/[^'"\s]+\/images\/effects\/special-bite-[a-f0-9]+\.png/g,urls.bite));
+// Runtime sources stay local; publishing updates cloud backup bindings only.
 if(process.argv.includes('--assets-only'))process.exit(0);
 const {catalog}=await import('../studio/catalog.js');
 const keys=['event.shop.shady','event.shop.shady.leave','event.shop.shady.theft','event.chest','event.chest.mimic','enemy.shady_merchant','enemy.treasure_mimic'];

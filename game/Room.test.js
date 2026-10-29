@@ -139,7 +139,7 @@ test('Druid summons, companion attacks and forms retain their own existing sound
   for(const form of ['werewolf','treant'])await scope.playBattlefieldDruid({results:[{kind:'transform',targetAfter:{druidForm:form}}]},{});
   assert.deepEqual(sounds,['wolf_pup_attack','treant_action','wolf_action','treant_action','transform_wolf','transform_treant']);
   for(const file of ['druid-wolf-action-short','druid-wolf-action','druid-treant-action','druid-transform-wolf','druid-transform-treant'])assert.ok(readFileSync(new URL('../public/assets/sound/sfx/'+file+'.mp3',import.meta.url)).length);
-  assert.match(vm.runInContext('SFX_ASSETS.wolf_pup_attack.src',scope),/^https:\/\/.+\.supabase.co\/storage\/v1\/object\/public\//);
+  assert.equal(vm.runInContext('SFX_ASSETS.wolf_pup_attack.src',scope),'/assets/sound/sfx/druid-wolf-action-short.mp3');
 });
 
 test('Druid self casts glow on the original portrait and reveal results only after the full effect',async()=>{
@@ -2230,7 +2230,7 @@ test('Same-round room updates cannot reveal a gated encounter, and abort release
 test('Mimic ambush creates one strange chest elite and attacks before skill selection',t=>{
   const {room}=fixture(t);room.handleChestEvent({isMimic:true,col:2});assert.equal(room.currentEvent.isMimic,true);
   const result=room.handleChestAction('solo','open');assert.equal(result.isMimic,true);assert.equal(room.state,'IN_BATTLE');assert.equal(room.currentEvent,null);
-  assert.equal(room.enemies.length,1);assert.equal(room.currentMonster.name,'奇怪的寶箱');assert.equal(room.currentMonster.tier,'ELITE');assert.equal(room.currentMonster.baseHp,100);assert.match(room.currentMonster.avatar,/^https:\/\/.+supabase.co\//);assert.match(room.currentMonster.encounterStory,/金黃眼睛/);assert.equal(room.currentMonster.mechanics.ambushed,true);assert.equal(room.getClientState().battleRound,1);
+  assert.equal(room.enemies.length,1);assert.equal(room.currentMonster.name,'奇怪的寶箱');assert.equal(room.currentMonster.tier,'ELITE');assert.equal(room.currentMonster.baseHp,100);assert.equal(room.currentMonster.avatar,'/assets/enemies/elites/奇怪的寶箱.webp');assert.match(room.currentMonster.encounterStory,/金黃眼睛/);assert.equal(room.currentMonster.mechanics.ambushed,true);assert.equal(room.getClientState().battleRound,1);
 });
 
 test('Unopened normal and strange chests have identical options and cannot be pacified',t=>{
@@ -2419,27 +2419,35 @@ test('Image migration updates verified image paths while preserving remote seman
   assert.match(publicImageUrl('https://assets.example.test/',remote),/images\/roles\/%E5%9C%96.webp$/);
   assert.throws(()=>imageBindingPlan([image],new Map(),bindings,[]),/Unverified image/);
 });
-test('Cloud image registry resolves encoded and relative paths, SVG images, backgrounds and detached preloads',async()=>{
+test('Cloud-first registry resolves canonical images and bounded local fallback',async()=>{
   const domEvents={},events={},css=new Map(),nodes=[];
-  class Node{constructor(tag='img'){this.tagName=tag;this.dataset={};this.attrs={};this.style={};}getAttribute(k){return this.attrs[k]??null;}setAttribute(k,v){this.attrs[k]=v;}querySelectorAll(){return [];}}
-  class ImageNode extends Node{get src(){return this.attrs.src;}set src(v){this.attrs.src=v;}async decode(){if(this.src?.includes('broken'))throw Error('missing');}}
+  const ruleValues=new Map([['background-image','url("/assets/example.png")']]);
+  const ruleStyle={*[Symbol.iterator](){yield 'background-image';},getPropertyValue:key=>ruleValues.get(key)||'',getPropertyPriority:()=>'',setProperty:(key,value)=>ruleValues.set(key,value)};
+  class Node{constructor(tag='img'){this.tagName=tag;this.dataset={};this.attrs={};this.style={};this.complete=true;this.naturalWidth=1;}addEventListener(){}getAttribute(k){return this.attrs[k]??null;}setAttribute(k,v){this.attrs[k]=v;}querySelectorAll(){return [];}}
+  class ImageNode extends Node{get src(){return this.attrs.src;}set src(v){this.attrs.src=v;queueMicrotask(()=>v.includes('broken')?this.onerror?.():this.onload?.());}async decode(){if(this.src?.includes('broken'))throw Error('missing');}}
   const local=['/assets/example.png','/assets/icons/status/中毒.webp','/BOSS/深淵/test.png','/assets/environments/backgrounds/background.webp','/photo/Battle.webp'];
   const assets=local.map((p,i)=>({asset_key:'storage.'+i,source_type:'storage',storage_bucket:'game-assets',storage_path:'images/'+i+'.png',is_public:true})),bindings=local.map((p,i)=>({binding_key:'path.'+i,asset_key:'storage.'+i,fallback_path:p}));
   const body=new Node('body');body.querySelectorAll=()=>nodes;
-  const scope={URL,Image:ImageNode,HTMLImageElement:ImageNode,location:{origin:'http://localhost:3106',href:'http://localhost:3106/dev'},MutationObserver:class{observe(){}},
-    document:{body,querySelectorAll:()=>nodes.filter(n=>n.tagName==='link'),documentElement:{style:{setProperty:(k,v)=>css.set(k,v)}},addEventListener:(k,v)=>domEvents[k]=v},
-    StudioContent:{rows:t=>t==='game_assets'?assets:bindings,state:{config:{SUPABASE_URL:'https://assets.example.test'}},load:async()=>{}}};
+  const scope={URL,setTimeout,clearTimeout,Image:ImageNode,HTMLImageElement:ImageNode,location:{origin:'http://localhost:3106',href:'http://localhost:3106/dev'},MutationObserver:class{observe(){}},
+    document:{body,styleSheets:[{cssRules:[{cssRules:[],style:ruleStyle}]}],querySelectorAll:()=>nodes.filter(n=>n.tagName==='link'),documentElement:{style:{setProperty:(k,v)=>css.set(k,v)}},addEventListener:(k,v)=>domEvents[k]=v},
+    StudioContent:{rows:t=>t==='game_assets'?assets:bindings,state:{defaults:{asset_bindings:bindings},config:{asset_source_mode:'cloud_first',SUPABASE_URL:'https://assets.example.test'}},load:async()=>{}}};
   scope.window={StudioContent:scope.StudioContent,addEventListener:(k,v)=>events[k]=v};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/shared/local-paths.cjs',import.meta.url),'utf8'),scope);vm.runInContext(readFileSync(new URL('../public/js/studio/asset-registry.js',import.meta.url),'utf8'),scope);
   const img=new ImageNode();img.src='assets/example.png';const svg=new Node('image');svg.attrs.href='/BOSS/深淵/test.png';const icon=new Node('link');icon.attrs.rel='icon';icon.attrs.href='/assets/example.png';nodes.push(img,svg,icon);domEvents.DOMContentLoaded();
   const registry=scope.window.assetRegistry;
-  assert.equal(registry.resolvePath('/buff%20icon/%E4%B8%AD%E6%AF%92.webp?v=2'),'https://assets.example.test/storage/v1/object/public/game-assets/images/1.png');
+  assert.match(ruleValues.get('background-image'),/images\/0.png/);
+  assert.match(registry.resolvePath('/buff%20icon/%E4%B8%AD%E6%AF%92.webp?v=2'),/images\/1.png$/);
   bindings[1].fallback_path='/buff icon/中毒.webp';events['studio:content-ready']();
-  assert.equal(registry.resolvePath('/assets/icons/status/中毒.webp'),'https://assets.example.test/storage/v1/object/public/game-assets/images/1.png');
-  assert.match(icon.attrs.href,/images\/0.png$/);assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.match(css.get('--studio-battle-background'),/images\/4.png/);
-  const detached=await registry.preloadImage('/assets/example.png');assert.match(detached.src,/images\/0.png$/);assert.equal(detached.crossOrigin,'anonymous');
-  assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');
+  assert.match(registry.resolvePath('/assets/icons/status/中毒.webp'),/images\/1.png$/);
+  assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.match(css.get('--studio-battle-background'),/images\/4.png/);
+  const detached=await registry.preloadImage('/assets/example.png');assert.match(detached.src,/images\/0.png$/);
+  assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');registry.markFailed('/assets/example.png');await assert.rejects(registry.preloadImage('/assets/example.png'),/Asset unavailable/);
   assert.equal(registry.resolvePath('https://other.example.test/assets/example.png'),'https://other.example.test/assets/example.png');
+  assets.push({asset_key:'unbound',source_type:'storage',storage_bucket:'game-assets',storage_path:'images/unbound.png',is_public:true});events['studio:content-ready']();
+  const custom='https://assets.example.test/storage/v1/object/public/game-assets/images/unbound.png';
+  assert.equal(registry.resolvePath(custom),custom);
+  scope.StudioContent.state.config.asset_source_mode='local_only';events['studio:content-ready']();
+  assert.match(registry.resolvePath(custom),/^data:/);
 });
 
 test('All 15 roles can unequip exclusive equipment to bag or squad, sell in shop, discard, with exact stat reversal and cross-role guard', t => {

@@ -3767,7 +3767,16 @@ function renderServerSlots() {
   serverPartyList.forEach(srv => {
     const isSelected = srv.id === currentSelectedServerId || srv.code === currentSelectedServerId;
     const slot = document.createElement('div');
-    slot.className = `kraft-server-slot ${isSelected ? 'selected' : ''}`;
+    slot.className = `server-slot-item ${isSelected ? 'selected' : ''}`;
+    slot.tabIndex = 0;
+    slot.setAttribute('role', 'button');
+    slot.setAttribute('aria-pressed', String(isSelected));
+    slot.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectServerSlot(srv.id || srv.code);
+      }
+    };
     slot.onclick = () => selectServerSlot(srv.id || srv.code);
     slot.ondblclick = () => {
       selectServerSlot(srv.id || srv.code);
@@ -3777,7 +3786,7 @@ function renderServerSlots() {
     let pingBarsHtml = '';
     const bars = srv.pingBars || 5;
     for (let b = 1; b <= 5; b++) {
-      const activeColor = b <= bars ? '#15803d' : '#cbd5e1';
+      const activeColor = b <= bars ? 'var(--gold)' : 'var(--border-subtle)';
       pingBarsHtml += `<div class="server-ping-bar" style="height: ${b * 3}px; background: ${activeColor};"></div>`;
     }
 
@@ -5051,14 +5060,15 @@ function updateEntryAvatarPreview() {
   const hero = HERO_CLASS_PORTRAITS.find(h => h.photo === canonicalPath);
   if (hero) {
     savedAvatar = window.assetRegistry?.resolve('role.'+hero.key+'.avatar',hero.photo)||hero.photo;
-    localStorage.setItem('dungeon_custom_avatar',savedAvatar);
+    // Persist the selected local portrait, not a transient cloud URL or failed-load placeholder.
+    localStorage.setItem('dungeon_custom_avatar',hero.photo);
   }
   const previewEls = [elements.entryAvatarPreview].filter(Boolean);
   if (previewEls.length === 0) return;
   previewEls.forEach(el => {
     if (savedAvatar) {
       if (savedAvatar.startsWith('data:image/') || savedAvatar.startsWith('http') || savedAvatar.startsWith('/')) {
-        el.innerHTML = `<img src="${savedAvatar}" alt="avatar">`;
+        el.innerHTML = `<img src="${escapeHtml(window.assetRegistry?.resolvePath(savedAvatar)||savedAvatar)}" alt="avatar">`;
       } else {
         el.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:26px;">${escapeHtml(savedAvatar)}</span>`;
       }
@@ -5076,7 +5086,7 @@ function updateModalPreview(avatar) {
 
   if (avatar) {
     if (avatar.startsWith('data:image/') || avatar.startsWith('http') || avatar.startsWith('/')) {
-      elements.modalAvatarPreview.innerHTML = `<img src="${avatar}" alt="preview">`;
+      elements.modalAvatarPreview.innerHTML = `<img src="${escapeHtml(window.assetRegistry?.resolvePath(avatar)||avatar)}" alt="preview">`;
       elements.modalAvatarTypeLabel.textContent = '已選擇：自訂照片';
     } else {
       elements.modalAvatarPreview.innerHTML = `<span class="avatar-emoji-badge" style="width:100%; height:100%; font-size:32px;">${escapeHtml(avatar)}</span>`;
@@ -5686,6 +5696,7 @@ function updateHudInventoryButtonState() {
 window.updateHudInventoryButtonState = updateHudInventoryButtonState;
 
 function preloadBagAssets() {
+  if(window.assetRegistry)return Promise.all(['/assets/ui/inventory/bag1.webp','/assets/ui/inventory/bag2.webp'].map(path=>window.assetRegistry.preloadImage(path).catch(()=>null)));
   const closedSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.closed', '/assets/ui/inventory/bag1.webp') : '/assets/ui/inventory/bag1.webp';
   const openSrc = window.assetRegistry ? window.assetRegistry.resolve('ui.bag.open', '/assets/ui/inventory/bag2.webp') : '/assets/ui/inventory/bag2.webp';
   [closedSrc, openSrc].forEach(src => {
@@ -5859,6 +5870,7 @@ function positionItemTooltip(e, tooltip, force = false) {
 }
 
 function showItemTooltip(item, e, isShop = false, options = {}) {
+  if (draggedInventorySlot) return;
   if (pinnedTooltipInfo && !options.isPinned) {
     return;
   }
@@ -6350,11 +6362,47 @@ function handleInventoryDrop(source, target) {
   }
 }
 
+// Share one visual lifecycle across backpack, shop and reforge drags.
+function clearInventoryDragVisuals() {
+  document.querySelectorAll('.hex-slot.is-dragging, .hex-slot.drag-over, .inv-discard-dropzone.drag-over, .shop-sell-dropzone.drag-over, .drag-over-sell, .drag-over-reforge').forEach(el => {
+    el.classList.remove('is-dragging', 'drag-over', 'drag-over-sell', 'drag-over-reforge');
+  });
+  document.querySelectorAll('.inventory-drag-preview').forEach(el => el.remove());
+}
+
+function beginInventoryDragVisual(slot, event) {
+  clearInventoryDragVisuals();
+  const itemLayer = slot.querySelector('.item-layer');
+  let preview;
+  if (itemLayer && event.dataTransfer?.setDragImage) {
+    preview = document.createElement('div');
+    preview.className = 'inventory-drag-preview';
+    const bounds = slot.getBoundingClientRect();
+    preview.style.left = `${bounds.left}px`;
+    preview.style.top = `${bounds.top}px`;
+    preview.setAttribute('aria-hidden', 'true');
+    preview.appendChild(itemLayer.cloneNode(true));
+    document.body.appendChild(preview);
+    event.dataTransfer.setDragImage(preview, 33, 37);
+  }
+  // Let the browser capture the opaque item before dimming the source item.
+  requestAnimationFrame(() => {
+    preview?.remove();
+    if (draggedInventorySlot && slot.isConnected) slot.classList.add('is-dragging');
+  });
+}
+
+document.addEventListener('dragend', () => {
+  clearInventoryDragVisuals();
+  draggedInventorySlot = null;
+});
+document.addEventListener('drop', clearInventoryDragVisuals, true);
+
 function attachSlotDragAndTooltip(slot, area, idx, key, item) {
   // 懸浮提示面板與拖曳起點
   if (item) {
     slot.addEventListener('mouseenter', (e) => {
-      if (pinnedTooltipInfo) return;
+      if (pinnedTooltipInfo || draggedInventorySlot) return;
       showItemTooltip(item, e, false, { area, index: idx, key });
     });
     slot.addEventListener('mousemove', (e) => {
@@ -6369,7 +6417,7 @@ function attachSlotDragAndTooltip(slot, area, idx, key, item) {
     slot.setAttribute('draggable', 'true');
     slot.addEventListener('dragstart', (e) => {
       draggedInventorySlot = { area, index: idx, key, item };
-      slot.classList.add('is-dragging');
+      beginInventoryDragVisual(slot, e);
       hideItemTooltip(true);
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', JSON.stringify({ area, index: idx, key }));
@@ -6383,10 +6431,12 @@ function attachSlotDragAndTooltip(slot, area, idx, key, item) {
 
   // 拖曳放置目標
   slot.addEventListener('dragover', (e) => {
+    if (!draggedInventorySlot) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   });
   slot.addEventListener('dragenter', (e) => {
+    if (!draggedInventorySlot || slot.classList.contains('is-dragging')) return;
     e.preventDefault();
     slot.classList.add('drag-over');
   });
@@ -6979,7 +7029,7 @@ function renderReforgeEvent(ev) {
       <div class="shop-header-row">
         <div class="shop-gold-badge">
           ${getIconSvg('gold', 'ui-icon--sm')}
-          <span>小隊金幣：<b>${currentGold}</b> G</span>
+          <span><b>${currentGold}</b> G</span>
         </div>
         <div style="font-size:13px;color:var(--ui-text-muted);">
           ※ 矮人古法重鑄鐵砧：消耗 10G，隨機將選取的裝備重鑄為同階、二階稀有或職業專屬神裝
@@ -7069,7 +7119,7 @@ function renderReforgeEvent(ev) {
 
       slot.addEventListener('dragstart', (e) => {
         draggedInventorySlot = { area: 'REFORGE_SQUAD', index: idx, item };
-        slot.classList.add('is-dragging');
+        beginInventoryDragVisual(slot, e);
         hideItemTooltip(true);
         e.dataTransfer.effectAllowed = 'move';
       });
@@ -7161,7 +7211,7 @@ function renderGambleEvent(ev) {
       <div class="shop-header-row">
         <div class="shop-gold-badge">
           ${getIconSvg('gold', 'ui-icon--sm')}
-          <span>小隊金幣：<b>${currentGold}</b> G</span>
+          <span><b>${currentGold}</b> G</span>
         </div>
         <div style="font-size:13px;color:var(--ui-text-muted);">
           ※ 矮人幸運二十面骰：設定押注並決定押大或小，擲出幸運特賞點數可獲 3倍 獎金
@@ -7186,7 +7236,7 @@ function renderGambleEvent(ev) {
         <div class="gamble-wallet-bar">
           <div style="display:flex;align-items:center;gap:6px;">
             ${getIconSvg('gold', 'ui-icon--sm')}
-            <span>小隊金幣：</span>
+            <span></span>
             <span class="gamble-wallet-amount" id="gambleWalletGold">${currentGold}</span>
             <span>G</span>
           </div>
@@ -7658,7 +7708,7 @@ function renderInteractiveEvent(ev) {
         <div class="shop-header-row">
           <div class="shop-gold-badge">
             ${getIconSvg('gold', 'ui-icon--sm')}
-            <span>小隊金幣：<b>${currentGold}</b> G</span>
+            <span><b>${currentGold}</b> G</span>
           </div>
           <div style="font-size:13px;color:var(--ui-text-muted);">
             ${ev.isWanderingMerchant ? '※ 迷途流浪商人攜帶少量物資，提供以物易物與地圖情報服務' : '※ 可瀏覽裝備與補給，或出售行囊中的物資'}
@@ -7881,7 +7931,7 @@ function renderInteractiveEvent(ev) {
           slot.setAttribute('draggable', 'true');
           slot.addEventListener('dragstart', (e) => {
             draggedInventorySlot = { area: 'SHOP', index: idx, item };
-            slot.classList.add('is-dragging');
+            beginInventoryDragVisual(slot, e);
             hideItemTooltip(true);
             e.dataTransfer.effectAllowed = 'move';
           });
@@ -7913,7 +7963,7 @@ function renderInteractiveEvent(ev) {
         slot.setAttribute('draggable', 'true');
         slot.addEventListener('dragstart', (e) => {
           draggedInventorySlot = { area: 'SQUAD', index: idx, item };
-          slot.classList.add('is-dragging');
+          beginInventoryDragVisual(slot, e);
           hideItemTooltip(true);
           e.dataTransfer.effectAllowed = 'move';
         });

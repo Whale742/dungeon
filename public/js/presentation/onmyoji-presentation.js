@@ -878,6 +878,7 @@ function preloadOnmyojiAssets() {
     '/assets/combat-fx/onmyoji/Onmyoji-2.png',
     '/assets/characters/portraits/Onmyōji.webp'
   ].map(p => {
+    if(window.assetRegistry)return window.assetRegistry.preloadImage(p).catch(()=>null);
     return new Promise(resolve => {
       const img = new Image();
       img.onload = img.onerror = resolve;

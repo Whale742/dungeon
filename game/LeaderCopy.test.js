@@ -130,7 +130,7 @@ test('Ordinary and contextual copy survives draft, publish and public client rel
     published[table]=published[table].filter(r=>body.p_kind==='role'?r.role_id!==row.role_id:r.role_id!==row.role_id||r.skill_id!==row.skill_id);
     published[table].push({...row,status:'published'});return 1;
   }};
-  const app=express();app.use('/api/studio',createStudioRouter({env,cloud,onPublish:async()=>{}}));
+  const app=express();app.get('/api/studio/published',(_req,res)=>res.json(published));app.use('/api/studio',createStudioRouter({env,cloud,onPublish:async()=>{}}));
   app.get('/rest/v1/:table',(req,res)=>res.json(published[req.params.table]||[]));
   const server=app.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(resolve=>server.close(resolve)));
   const origin='http://127.0.0.1:'+server.address().port;env.SUPABASE_URL=origin;

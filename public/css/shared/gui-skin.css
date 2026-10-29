@@ -1,0 +1,2034 @@
+/* ==========================================================================
+   Unified Dark-Gold Fantasy GUI Skin System (gui-skin.css)
+   Extracted from temp/gui-*.png -> /assets/ui/gui-skin/...
+   ========================================================================== */
+
+:root {
+  /* Core Panel & Frame Assets */
+  --gui-panel-9slice: url('/assets/ui/gui-skin/panels/main-panel-9slice.png');
+  --gui-panel-full: url('/assets/ui/gui-skin/panels/main-panel-full.png');
+  --gui-panel-gem-top: url('/assets/ui/gui-skin/panels/main-panel-gem-top.png');
+  --gui-panel-gem-bottom: url('/assets/ui/gui-skin/panels/main-panel-gem-bottom.png');
+  --gui-panel-gem-left: url('/assets/ui/gui-skin/panels/main-panel-gem-left.png');
+  --gui-panel-gem-right: url('/assets/ui/gui-skin/panels/main-panel-gem-right.png');
+  --gui-window-titled: url('/assets/ui/gui-skin/navigation/nav-window-titled.png');
+  --gui-dialog-panel: url('/assets/ui/gui-skin/inputs/panel-tooltip-dialog.png');
+
+  /* 4x4 Button Matrix Assets */
+  --gui-btn-azure-normal: url('/assets/ui/gui-skin/buttons/btn-azure-normal.png');
+  --gui-btn-azure-hover: url('/assets/ui/gui-skin/buttons/btn-azure-hover.png');
+  --gui-btn-azure-pressed: url('/assets/ui/gui-skin/buttons/btn-azure-pressed.png');
+  --gui-btn-azure-disabled: url('/assets/ui/gui-skin/buttons/btn-azure-disabled.png');
+
+  --gui-btn-gold-normal: url('/assets/ui/gui-skin/buttons/btn-gold-normal.png');
+  --gui-btn-gold-hover: url('/assets/ui/gui-skin/buttons/btn-gold-hover.png');
+  --gui-btn-gold-pressed: url('/assets/ui/gui-skin/buttons/btn-gold-pressed.png');
+  --gui-btn-gold-disabled: url('/assets/ui/gui-skin/buttons/btn-gold-disabled.png');
+
+  --gui-btn-danger-normal: url('/assets/ui/gui-skin/buttons/btn-danger-normal.png');
+  --gui-btn-danger-hover: url('/assets/ui/gui-skin/buttons/btn-danger-hover.png');
+  --gui-btn-danger-pressed: url('/assets/ui/gui-skin/buttons/btn-danger-pressed.png');
+  --gui-btn-danger-disabled: url('/assets/ui/gui-skin/buttons/btn-danger-disabled.png');
+
+  --gui-btn-slate-normal: url('/assets/ui/gui-skin/buttons/btn-slate-normal.png');
+  --gui-btn-slate-hover: url('/assets/ui/gui-skin/buttons/btn-slate-hover.png');
+  --gui-btn-slate-pressed: url('/assets/ui/gui-skin/buttons/btn-slate-pressed.png');
+  --gui-btn-slate-disabled: url('/assets/ui/gui-skin/buttons/btn-slate-disabled.png');
+
+  /* Input & Navigation Assets */
+  --gui-input-normal: url('/assets/ui/gui-skin/inputs/input-text-normal.png');
+  --gui-input-focus: url('/assets/ui/gui-skin/inputs/input-text-focus.png');
+  --gui-input-short: url('/assets/ui/gui-skin/inputs/input-text-short.png');
+  --gui-input-search: url('/assets/ui/gui-skin/inputs/input-search-box.png');
+  --gui-select-normal: url('/assets/ui/gui-skin/inputs/input-select-normal.png');
+  --gui-select-hover: url('/assets/ui/gui-skin/inputs/input-select-hover.png');
+  --gui-tab-normal: url('/assets/ui/gui-skin/inputs/input-tab-normal.png');
+  --gui-tab-active: url('/assets/ui/gui-skin/inputs/input-tab-active.png');
+  --gui-tab-pressed: url('/assets/ui/gui-skin/inputs/input-tab-pressed.png');
+
+  /* Close Button Assets */
+  --gui-close-normal: url('/assets/ui/gui-skin/combat/hud-skill-slot-normal.png');
+  --gui-close-hover: url('/assets/ui/gui-skin/combat/hud-skill-slot-active.png');
+  --gui-close-pressed: url('/assets/ui/gui-skin/combat/hud-skill-slot-cooldown.png');
+
+  /* Hex Tiles & Map Event Nodes */
+  --gui-hex-empty: url('/assets/ui/gui-skin/exploration/hex-tile-fog-unexplored.png');
+  --gui-hex-stone: url('/assets/ui/gui-skin/exploration/hex-tile-terrain-revealed.png');
+  --gui-hex-selected: url('/assets/ui/gui-skin/exploration/hex-tile-terrain-current.png');
+  --gui-hex-terrain: url('/assets/ui/gui-skin/exploration/hex-tile-terrain-selectable.png');
+  --gui-hex-castle: url('/assets/ui/gui-skin/exploration/hex-tile-special-castle.png');
+  --gui-hex-locked: url('/assets/ui/gui-skin/exploration/hex-tile-locked-sealed.png');
+
+  /* Fantasy Hex Slot Frames (from temp/奇幻六角欄位介面素材表.png for Backpack & Shop) */
+  --gui-slot-normal: url('/assets/ui/gui-skin/slots/hex-slot-normal.png');
+  --gui-slot-hover: url('/assets/ui/gui-skin/slots/hex-slot-hover.png');
+  --gui-slot-selected: url('/assets/ui/gui-skin/slots/hex-slot-selected.png');
+  --gui-slot-equipped: url('/assets/ui/gui-skin/slots/hex-slot-equipped.png');
+  --gui-slot-magic: url('/assets/ui/gui-skin/slots/hex-slot-magic.png');
+  --gui-slot-disabled: url('/assets/ui/gui-skin/slots/hex-slot-disabled.png');
+  --gui-slot-ornate-ring: url('/assets/ui/gui-skin/slots/hex-slot-ornate-ring.png');
+  --gui-slot-frame-common: url('/assets/ui/gui-skin/slots/hex-frame-common.png');
+  --gui-slot-frame-uncommon: url('/assets/ui/gui-skin/slots/hex-frame-uncommon.png');
+  --gui-slot-frame-rare: url('/assets/ui/gui-skin/slots/hex-frame-rare.png');
+  --gui-slot-frame-epic: url('/assets/ui/gui-skin/slots/hex-frame-epic.png');
+  --gui-slot-frame-legendary: url('/assets/ui/gui-skin/slots/hex-frame-legendary.png');
+  --gui-slot-frame-mythic: url('/assets/ui/gui-skin/slots/hex-frame-mythic.png');
+
+  --gui-node-camp: url('/assets/ui/gui-skin/exploration/map-node-campfire-rest.png');
+  --gui-node-chest: url('/assets/ui/gui-skin/exploration/map-node-treasure-chest.png');
+  --gui-node-shop: url('/assets/ui/gui-skin/exploration/map-node-ruined-keep.png');
+  --gui-node-boss: url('/assets/ui/gui-skin/exploration/map-node-boss-skull.png');
+  --gui-node-event: url('/assets/ui/gui-skin/exploration/map-node-mystery-event.png');
+  --gui-node-battle: url('/assets/ui/gui-skin/exploration/map-node-dungeon-cave.png');
+
+  /* Decorative & Lobby & Combat */
+  --gui-banner-parchment: url('/assets/ui/gui-skin/decorative/banner-parchment-scroll.png');
+  --gui-plaque-brass: url('/assets/ui/gui-skin/decorative/plaque-brass-nameplate.png');
+  --gui-pedestal-stone: url('/assets/ui/gui-skin/decorative/pedestal-boss-stone-blue.png');
+  --gui-signboard-brass: url('/assets/ui/gui-skin/decorative/signboard-hanging-brass.png');
+  --gui-divider-crest: url('/assets/ui/gui-skin/ornaments/ornament-divider-crest-top.png');
+  --gui-divider-slim: url('/assets/ui/gui-skin/ornaments/ornament-divider-slim-diamond.png');
+  --gui-portrait-rect: url('/assets/ui/gui-skin/combat/hud-portrait-rect-gold.png');
+}
+
+/* ==========================================================================
+   0. Top Navigation Header Bar (.app-header)
+   ========================================================================== */
+.app-header {
+  background: linear-gradient(180deg, rgba(24, 30, 42, 0.96) 0%, rgba(12, 16, 23, 0.98) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.48) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 230, 175, 0.18) !important;
+}
+
+.app-header::after {
+  background: linear-gradient(90deg, transparent, rgba(214, 173, 96, 0.55), transparent) !important;
+}
+
+.logo .icon.brandmark {
+  background: #121722 !important;
+  border: 4px solid transparent !important;
+  border-image-source: var(--gui-panel-9slice) !important;
+  border-image-slice: 156 156 156 156 fill !important;
+  border-image-width: 10px !important;
+  padding: 4px !important;
+}
+.logo .icon.brandmark::before {
+  display: none !important;
+}
+
+.en-sub {
+  color: #e0b96c !important;
+}
+
+.header-actions .btn-icon {
+  background-color: transparent !important;
+  background-image: var(--gui-btn-slate-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  border: none !important;
+  color: #f4e6ca !important;
+  min-height: 36px !important;
+  padding: 6px 14px !important;
+  box-shadow: none !important;
+}
+.header-actions .btn-icon:hover:not(:disabled) {
+  background-image: var(--gui-btn-slate-hover) !important;
+  color: #fff8e6 !important;
+}
+.header-actions .btn-header-burger {
+  min-width: 40px !important;
+  padding: 6px 10px !important;
+}
+
+.header-burger-menu {
+  background-color: #121722 !important;
+  background-image: none !important;
+  border: 14px solid transparent !important;
+  border-image-source: var(--gui-dialog-panel) !important;
+  border-image-slice: 68 68 68 68 fill !important;
+  border-image-width: 20px !important;
+  padding: 10px 12px !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.8) !important;
+}
+
+#viewLobby .lobby-layout,
+.map-layout {
+  gap: 34px !important;
+}
+
+#transferLeaderModalDesc {
+  color: #e8dcc4 !important;
+}
+
+/* ==========================================================================
+   1. Nine-Slice Main Panel + 1:1 Unstretched Center-Edge Diamond Ornaments
+   ========================================================================== */
+.gui-skin-panel,
+.kraft-paper,
+.recruit-card,
+.lobby-menu-card,
+.server-list-card,
+.team-card,
+.role-command-panel,
+.lobby-panel,
+.modal-card,
+.map-story,
+.map-side,
+.event-card:not(.is-borderless-event),
+#viewEvent:has(.shop-container) .event-card,
+.event-card.is-shop-event,
+.abyss-dialogue-card,
+.checkpoint-card,
+.end-card,
+.player-action-card,
+.battle-log-card {
+  position: relative;
+  background-color: #161c26 !important;
+  background-image:
+    radial-gradient(circle at 50% 32%, rgba(56, 76, 104, 0.34), rgba(14, 18, 26, 0.94) 78%),
+    var(--gui-panel-9slice) !important;
+  background-size: 100% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  border: 26px solid transparent !important;
+  border-image-source: var(--gui-panel-9slice) !important;
+  border-image-slice: 156 156 156 156 fill !important;
+  border-image-width: 32px 32px 32px 32px !important;
+  border-image-outset: 0 !important;
+  border-image-repeat: stretch !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72) !important;
+  color: #efe4cf !important;
+}
+
+#battleLogCard:not(.is-open){
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+#battleLogCard:not(.is-open)::before{
+  opacity: 0;
+}
+
+#battleLogCard:not(.is-open)::after{
+  opacity: 0;
+}
+
+#battleLogCard:not(.is-open) .gui-skin-panel-rail-gems{
+  opacity: 0;
+}
+
+/* Fixed-ratio 1:1 Top & Bottom Center-Edge Diamond Ornaments (never stretched!) */
+.gui-skin-panel::before,
+.kraft-paper::before,
+#viewLobby .team-card::before,
+#viewLobby .role-command-panel::before,
+.recruit-card::before,
+.lobby-menu-card::before,
+.server-list-card::before,
+.lobby-panel::before,
+.modal-card::before,
+.map-story::before,
+.map-side::before,
+.event-card:not(.is-borderless-event)::before,
+#viewEvent:has(.shop-container) .event-card::before,
+.event-card.is-shop-event::before,
+.abyss-dialogue-card::before,
+.checkpoint-card::before,
+.end-card::before,
+.player-action-card::before,
+.battle-log-card::before {
+  content: '' !important;
+  position: absolute !important;
+  top: -32px !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  width: 98px !important;
+  height: 36px !important;
+  background-image: var(--gui-panel-gem-top) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center top !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  z-index: 5 !important;
+}
+
+.gui-skin-panel::after,
+.kraft-paper::after,
+#viewLobby .team-card::after,
+#viewLobby .role-command-panel::after,
+.recruit-card::after,
+.lobby-menu-card::after,
+.server-list-card::after,
+.lobby-panel::after,
+.modal-card::after,
+.map-story::after,
+.map-side::after,
+.event-card:not(.is-borderless-event)::after,
+#viewEvent:has(.shop-container) .event-card::after,
+.event-card.is-shop-event::after,
+.abyss-dialogue-card::after,
+.checkpoint-card::after,
+.end-card::after,
+.player-action-card::after,
+.battle-log-card::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: -32px !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  transform: translateX(-50%) !important;
+  width: 98px !important;
+  height: 36px !important;
+  background-image: var(--gui-panel-gem-bottom) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center bottom !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  z-index: 5 !important;
+}
+
+/* Side Center-Edge Diamond Ornaments for full 4-side ornate panels */
+.gui-skin-panel-rail-gems {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.gui-skin-panel-rail-gems::before {
+  content: '';
+  position: absolute;
+  left: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 68px;
+  background: var(--gui-panel-gem-left) center / contain no-repeat;
+}
+.gui-skin-panel-rail-gems::after {
+  content: '';
+  position: absolute;
+  right: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 68px;
+  background: var(--gui-panel-gem-right) center / contain no-repeat;
+}
+
+/* Preserve hidden state on narrated map side column */
+#viewRoute.is-narrating .map-side {
+  border-width: 0 !important;
+  border-image-width: 0 !important;
+  padding: 0 !important;
+}
+#viewRoute.is-narrating .map-side::before,
+#viewRoute.is-narrating .map-side::after,
+#viewRoute.is-narrating .map-side .gui-skin-panel-rail-gems {
+  display: none !important;
+}
+
+/* Typography on Dark-Gold Panels */
+.kraft-paper h1,
+.kraft-paper h2,
+.kraft-paper h3,
+.kraft-paper .recruit-main-title,
+.kraft-paper .server-list-title,
+.kraft-paper #rolePanelTitle,
+.kraft-paper #lobbyRoleName,
+.lobby-panel h1,
+.lobby-panel h2,
+.lobby-panel h3,
+.gui-skin-panel h1,
+.gui-skin-panel h2,
+.gui-skin-panel h3,
+.modal-card .modal-title,
+.map-story .story-title,
+.map-side .section-title {
+  color: #f6e7c8 !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85) !important;
+}
+
+.kraft-paper p,
+.kraft-paper label,
+.kraft-paper .recruit-sub-title,
+.kraft-paper .recruit-body-desc,
+.kraft-paper .lobby-menu-subtitle,
+.kraft-paper .card-tip,
+.kraft-paper .start-tip,
+.lobby-panel p,
+.lobby-panel label {
+  color: #dfd2bc !important;
+}
+
+.kraft-sub-panel {
+  background: rgba(14, 19, 28, 0.82) !important;
+  border: 1px solid rgba(212, 172, 98, 0.38) !important;
+  color: #f2e5cb !important;
+}
+
+/* ==========================================================================
+   2. Four-State Button System (Normal, Hover, Pressed, Disabled)
+   Explicitly overrides shorthand `background: ... !important` in base/lobby.css
+   ========================================================================== */
+.gui-skin-btn,
+.btn,
+button.btn,
+.parchment-btn,
+button.parchment-btn,
+.ui-button,
+button.ui-button,
+.lobby-menu-btn,
+#viewLobby .btn,
+.btn-shop-action,
+.btn-inv-action,
+.btn-chest-action,
+.btn-rand-action,
+.btn-confirm-hex-vote {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 74px;
+  padding: 9px 26px 10px 26px !important;
+  border: none !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-azure-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #f7ebd2 !important;
+  font-family: var(--font-display, 'Cinzel', 'Noto Serif TC', serif);
+  font-weight: 800 !important;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.92) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 1 !important;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+/* Compact buttons inside inventory inspector / shop / headers */
+.btn-inv-action,
+.btn-shop-action,
+.btn-small,
+.btn-tiny {
+  min-height: 36px !important;
+  padding: 6px 18px 7px 18px !important;
+  font-size: 12px !important;
+}
+
+.gui-skin-btn::before,
+.gui-skin-btn::after,
+.parchment-btn::before,
+.parchment-btn::after,
+button.parchment-btn::before,
+button.parchment-btn::after {
+  display: none !important;
+}
+
+/* Variant 1: Primary Azure (Default) */
+.gui-skin-btn:hover:not(:disabled),
+.btn:hover:not(:disabled),
+button.btn:hover:not(:disabled),
+.parchment-btn:hover:not(:disabled),
+button.parchment-btn:hover:not(:disabled),
+.ui-button:hover:not(:disabled),
+button.ui-button:hover:not(:disabled),
+.lobby-menu-btn:hover:not(:disabled),
+#viewLobby .btn:hover:not(:disabled),
+.btn-shop-action:hover:not(:disabled),
+.btn-inv-action:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-azure-hover) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff8e6 !important;
+  border: none !important;
+  filter: drop-shadow(0 0 8px rgba(242, 186, 82, 0.35));
+}
+
+.gui-skin-btn:active:not(:disabled),
+.gui-skin-btn.is-pressed:not(:disabled),
+.btn:active:not(:disabled),
+button.btn:active:not(:disabled),
+.parchment-btn:active:not(:disabled),
+button.parchment-btn:active:not(:disabled),
+.ui-button:active:not(:disabled),
+button.ui-button:active:not(:disabled),
+.lobby-menu-btn:active:not(:disabled),
+#viewLobby .btn:active:not(:disabled),
+.btn-shop-action:active:not(:disabled),
+.btn-inv-action:active:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-azure-pressed) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  transform: translateY(1px) !important;
+  color: #d7c7aa !important;
+  border: none !important;
+}
+
+.gui-skin-btn:disabled,
+.gui-skin-btn.is-disabled,
+.btn:disabled,
+button.btn:disabled,
+.parchment-btn:disabled,
+button.parchment-btn:disabled,
+.ui-button:disabled,
+button.ui-button:disabled,
+.lobby-menu-btn:disabled,
+#viewLobby .btn:disabled,
+.btn-shop-action:disabled,
+.btn-inv-action:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-azure-disabled) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: rgba(185, 190, 200, 0.62) !important;
+  border: none !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+/* Variant 2: Gold / Loot / Primary CTA */
+.gui-skin-btn--gold,
+.btn-gold,
+.btn.gold,
+.btn-primary,
+.btn.primary,
+.ui-button--primary,
+.btn-warning,
+.ui-button--warning,
+.btn-success,
+.ui-button--success,
+.btn-loot,
+.btn-shop-buy,
+.btn-inv-equip,
+.btn-inv-sell,
+.btn-confirm-hex-vote,
+.recruit-btn-submit,
+#btnSubmitRecruit,
+#btnCreateRoom,
+#viewLobby #btnStartGame,
+#viewLobby #btnToggleReady,
+#btnStartGame,
+#btnConfirmLock,
+#btnOpenChest,
+#btnAdvanceAbyss,
+#btnExecuteReforge,
+#btnSaveProfileModal,
+#btnJoinRoom,
+#btnSaveAvatar {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-gold-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff6df !important;
+  border: none !important;
+}
+
+.gui-skin-btn--gold:hover:not(:disabled),
+.btn-gold:hover:not(:disabled),
+.btn.gold:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn.primary:hover:not(:disabled),
+.ui-button--primary:hover:not(:disabled),
+.btn-warning:hover:not(:disabled),
+.ui-button--warning:hover:not(:disabled),
+.btn-success:hover:not(:disabled),
+.ui-button--success:hover:not(:disabled),
+.btn-loot:hover:not(:disabled),
+.btn-shop-buy:hover:not(:disabled),
+.btn-inv-equip:hover:not(:disabled),
+.btn-inv-sell:hover:not(:disabled),
+.btn-confirm-hex-vote:hover:not(:disabled),
+.recruit-btn-submit:hover:not(:disabled),
+#btnSubmitRecruit:hover:not(:disabled),
+#btnCreateRoom:hover:not(:disabled),
+#viewLobby #btnStartGame:hover:not(:disabled),
+#viewLobby #btnToggleReady:hover:not(:disabled),
+#btnStartGame:hover:not(:disabled),
+#btnConfirmLock:hover:not(:disabled),
+#btnOpenChest:hover:not(:disabled),
+#btnAdvanceAbyss:hover:not(:disabled),
+#btnExecuteReforge:hover:not(:disabled),
+#btnSaveProfileModal:hover:not(:disabled),
+#btnJoinRoom:hover:not(:disabled),
+#btnSaveAvatar:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-gold-hover) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fffdf4 !important;
+  border: none !important;
+  filter: drop-shadow(0 0 10px rgba(255, 196, 77, 0.45));
+}
+
+.gui-skin-btn--gold:active:not(:disabled),
+.gui-skin-btn--gold.is-pressed:not(:disabled),
+.btn-gold:active:not(:disabled),
+.btn.gold:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn.primary:active:not(:disabled),
+.ui-button--primary:active:not(:disabled),
+.btn-warning:active:not(:disabled),
+.ui-button--warning:active:not(:disabled),
+.btn-success:active:not(:disabled),
+.ui-button--success:active:not(:disabled),
+.btn-loot:active:not(:disabled),
+.btn-shop-buy:active:not(:disabled),
+.btn-inv-equip:active:not(:disabled),
+.btn-inv-sell:active:not(:disabled),
+.btn-confirm-hex-vote:active:not(:disabled),
+.recruit-btn-submit:active:not(:disabled),
+#btnSubmitRecruit:active:not(:disabled),
+#btnCreateRoom:active:not(:disabled),
+#viewLobby #btnStartGame:active:not(:disabled),
+#viewLobby #btnToggleReady:active:not(:disabled),
+#btnStartGame:active:not(:disabled),
+#btnConfirmLock:active:not(:disabled),
+#btnOpenChest:active:not(:disabled),
+#btnAdvanceAbyss:active:not(:disabled),
+#btnExecuteReforge:active:not(:disabled),
+#btnSaveProfileModal:active:not(:disabled),
+#btnJoinRoom:active:not(:disabled),
+#btnSaveAvatar:active:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-gold-pressed) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  transform: translateY(1px) !important;
+}
+
+.gui-skin-btn--gold:disabled,
+.btn-gold:disabled,
+.btn.gold:disabled,
+.btn-primary:disabled,
+.btn.primary:disabled,
+.ui-button--primary:disabled,
+.btn-warning:disabled,
+.ui-button--warning:disabled,
+.btn-success:disabled,
+.ui-button--success:disabled,
+.btn-loot:disabled,
+.btn-shop-buy:disabled,
+.btn-confirm-hex-vote:disabled,
+.recruit-btn-submit:disabled,
+#btnSubmitRecruit:disabled,
+#btnCreateRoom:disabled,
+#viewLobby #btnStartGame:disabled,
+#viewLobby #btnToggleReady:disabled,
+#btnStartGame:disabled,
+#btnConfirmLock:disabled,
+#btnOpenChest:disabled,
+#btnExecuteReforge:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-gold-disabled) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: rgba(195, 195, 200, 0.62) !important;
+  opacity: 1 !important;
+  border: none !important;
+}
+
+/* Variant 3: Danger / Crimson */
+.gui-skin-btn--danger,
+.btn-danger:not(#btnStartGame),
+button.btn.btn-danger:not(#btnStartGame),
+.ui-button--danger,
+.btn-inv-discard,
+#btnExitToRecruit,
+#btnLobbyExitRoom,
+#viewLobby #btnLobbyExitRoom,
+#btnConfirmRetreat,
+#btnConfirmDiscard,
+#btnLeaveParty,
+#btnEndBattle {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-danger-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #ffe8e5 !important;
+  border: none !important;
+}
+
+.gui-skin-btn--danger:hover:not(:disabled),
+.btn-danger:not(#btnStartGame):hover:not(:disabled),
+button.btn.btn-danger:not(#btnStartGame):hover:not(:disabled),
+.ui-button--danger:hover:not(:disabled),
+.btn-inv-discard:hover:not(:disabled),
+#btnExitToRecruit:hover:not(:disabled),
+#btnLobbyExitRoom:hover:not(:disabled),
+#viewLobby #btnLobbyExitRoom:hover:not(:disabled),
+#btnConfirmRetreat:hover:not(:disabled),
+#btnConfirmDiscard:hover:not(:disabled),
+#btnLeaveParty:hover:not(:disabled),
+#btnEndBattle:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-danger-hover) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff2f0 !important;
+  border: none !important;
+  filter: drop-shadow(0 0 9px rgba(235, 85, 75, 0.42));
+}
+
+.gui-skin-btn--danger:active:not(:disabled),
+.gui-skin-btn--danger.is-pressed:not(:disabled),
+.btn-danger:not(#btnStartGame):active:not(:disabled),
+button.btn.btn-danger:not(#btnStartGame):active:not(:disabled),
+.ui-button--danger:active:not(:disabled),
+.btn-inv-discard:active:not(:disabled),
+#btnExitToRecruit:active:not(:disabled),
+#btnLobbyExitRoom:active:not(:disabled),
+#viewLobby #btnLobbyExitRoom:active:not(:disabled),
+#btnConfirmRetreat:active:not(:disabled),
+#btnConfirmDiscard:active:not(:disabled),
+#btnLeaveParty:active:not(:disabled),
+#btnEndBattle:active:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-danger-pressed) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  transform: translateY(1px) !important;
+}
+
+.gui-skin-btn--danger:disabled,
+.btn-danger:not(#btnStartGame):disabled,
+button.btn.btn-danger:not(#btnStartGame):disabled,
+.ui-button--danger:disabled,
+#btnExitToRecruit:disabled,
+#btnLobbyExitRoom:disabled,
+#viewLobby #btnLobbyExitRoom:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-danger-disabled) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  opacity: 1 !important;
+}
+
+/* Variant 4: Slate / Secondary */
+.gui-skin-btn--slate,
+.btn-secondary,
+button.btn.btn-secondary,
+.ui-button--secondary,
+button.ui-button.ui-button--secondary,
+.btn-ghost,
+.ui-button--ghost,
+.btn-shop-leave,
+.btn-rand-leave,
+#btnCancelProfileModal,
+#btnCloseDirectConnectModal,
+#btnArchiveBackToMenu,
+#btnBackToLobbyMenu,
+#btnBackFromAdventures {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-slate-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #e6dac3 !important;
+  border: none !important;
+}
+
+.gui-skin-btn--slate:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+button.btn.btn-secondary:hover:not(:disabled),
+.ui-button--secondary:hover:not(:disabled),
+button.ui-button.ui-button--secondary:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled),
+.ui-button--ghost:hover:not(:disabled),
+.btn-shop-leave:hover:not(:disabled),
+.btn-rand-leave:hover:not(:disabled),
+#btnCancelProfileModal:hover:not(:disabled),
+#btnCloseDirectConnectModal:hover:not(:disabled),
+#btnArchiveBackToMenu:hover:not(:disabled),
+#btnBackToLobbyMenu:hover:not(:disabled),
+#btnBackFromAdventures:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-slate-hover) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff6e0 !important;
+  border: none !important;
+}
+
+.gui-skin-btn--slate:active:not(:disabled),
+.gui-skin-btn--slate.is-pressed:not(:disabled),
+.btn-secondary:active:not(:disabled),
+button.btn.btn-secondary:active:not(:disabled),
+.ui-button--secondary:active:not(:disabled),
+button.ui-button.ui-button--secondary:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.ui-button--ghost:active:not(:disabled),
+.btn-shop-leave:active:not(:disabled),
+.btn-rand-leave:active:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-slate-pressed) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  transform: translateY(1px) !important;
+}
+
+.gui-skin-btn--slate:disabled,
+.btn-secondary:disabled,
+button.btn.btn-secondary:disabled,
+.ui-button--secondary:disabled,
+button.ui-button.ui-button--secondary:disabled,
+.btn-shop-leave:disabled,
+.btn-rand-leave:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-btn-slate-disabled) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  opacity: 1 !important;
+}
+
+/* Ornate Close (X) Buttons on Modals & Tooltips */
+.modal-close-btn,
+.btn-close-modal,
+.inventory-modal-card .modal-close-btn,
+.btn-tooltip-close {
+  width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-close-normal) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+.modal-close-btn:hover,
+.btn-close-modal:hover,
+.inventory-modal-card .modal-close-btn:hover,
+.btn-tooltip-close:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-close-hover) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  border: none !important;
+}
+.modal-close-btn:active,
+.btn-close-modal:active,
+.inventory-modal-card .modal-close-btn:active,
+.btn-tooltip-close:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-close-pressed) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  transform: translateY(1px) !important;
+}
+.modal-close-btn svg,
+.btn-close-modal svg,
+.inventory-modal-card .modal-close-btn svg {
+  opacity: 1 !important;
+  color: #f6e7c8 !important;
+  width: 16px !important;
+  height: 16px !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9)) !important;
+}
+
+/* Forced state preview classes for verification matrix */
+.gui-skin-btn.force-hover { background-image: var(--gui-btn-azure-hover) !important; }
+.gui-skin-btn.force-pressed { background-image: var(--gui-btn-azure-pressed) !important; transform: translateY(1px) !important; }
+.gui-skin-btn.force-disabled { background-image: var(--gui-btn-azure-disabled) !important; color: rgba(185, 190, 200, 0.58) !important; }
+
+.gui-skin-btn--gold.force-hover { background-image: var(--gui-btn-gold-hover) !important; }
+.gui-skin-btn--gold.force-pressed { background-image: var(--gui-btn-gold-pressed) !important; transform: translateY(1px) !important; }
+.gui-skin-btn--gold.force-disabled { background-image: var(--gui-btn-gold-disabled) !important; color: rgba(185, 190, 200, 0.58) !important; }
+
+.gui-skin-btn--danger.force-hover { background-image: var(--gui-btn-danger-hover) !important; }
+.gui-skin-btn--danger.force-pressed { background-image: var(--gui-btn-danger-pressed) !important; transform: translateY(1px) !important; }
+.gui-skin-btn--danger.force-disabled { background-image: var(--gui-btn-danger-disabled) !important; color: rgba(185, 190, 200, 0.58) !important; }
+
+.gui-skin-btn--slate.force-hover { background-image: var(--gui-btn-slate-hover) !important; }
+.gui-skin-btn--slate.force-pressed { background-image: var(--gui-btn-slate-pressed) !important; transform: translateY(1px) !important; }
+.gui-skin-btn--slate.force-disabled { background-image: var(--gui-btn-slate-disabled) !important; color: rgba(185, 190, 200, 0.58) !important; }
+
+/* ==========================================================================
+   3. Inputs, Search Boxes, Tabs, Checkboxes, Radios & Toggles
+   ========================================================================== */
+.recruit-input-row {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.recruit-input-row:focus-within {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+input[type="text"],
+input[type="search"],
+input[type="number"],
+input[type="password"],
+.gui-skin-input,
+.recruit-name-input,
+.modal-input,
+.direct-connect-input,
+#inputPlayerName,
+#playerNameInput,
+#roomCodeInput,
+#spectatorCode,
+#inputRoomCode,
+#profileNewNameInput,
+#identityUsername,
+#identityPassword,
+#identityCurrentPassword,
+#identityRecoveryCode {
+  min-height: 46px !important;
+  padding: 10px 28px 10px 36px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-input-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #f5ead5 !important;
+  font-size: 0.96rem !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+.gui-skin-input:focus,
+.recruit-name-input:focus,
+.modal-input:focus,
+.direct-connect-input:focus,
+#inputPlayerName:focus,
+#playerNameInput:focus,
+#roomCodeInput:focus,
+#spectatorCode:focus,
+#inputRoomCode:focus,
+#profileNewNameInput:focus,
+#identityUsername:focus,
+#identityPassword:focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-input-focus) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff9ec !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 0 8px rgba(235, 184, 82, 0.28));
+}
+
+input[type="text"]::placeholder,
+input[type="search"]::placeholder,
+.recruit-name-input::placeholder,
+.modal-input::placeholder,
+.gui-skin-input::placeholder {
+  color: rgba(214, 200, 174, 0.56) !important;
+}
+
+.gui-skin-search {
+  padding-right: 48px !important;
+  background-image: var(--gui-input-search) !important;
+}
+
+.gui-skin-select,
+select.ui-select,
+.adventure-leadership select {
+  min-height: 44px;
+  padding: 8px 46px 8px 18px !important;
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-select-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  color: #f3e5ca !important;
+  appearance: none;
+  cursor: pointer;
+}
+.gui-skin-select:hover,
+select.ui-select:hover {
+  background-image: var(--gui-select-hover) !important;
+}
+
+.gui-skin-tab,
+.avatar-tab,
+.shop-tab-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 38px !important;
+  padding: 6px 22px !important;
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-tab-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #d8c8ad !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+.gui-skin-tab.is-active,
+.gui-skin-tab:hover,
+.avatar-tab.active,
+.avatar-tab:hover,
+.shop-tab-btn.active,
+.shop-tab-btn:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-tab-active) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff5dc !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   4. Lobby (#viewLobby) Character Stage, Radar, Tabs, Skill Detail & Roster
+   ========================================================================== */
+.lobby-character-stage-frame {
+  background-image: url('/assets/ui/gui-skin/lobby/lobby-stage-archway.png');
+  background-size: contain;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+}
+
+.lobby-attributes-skin {
+  background-image: url('/assets/ui/gui-skin/lobby/lobby-attributes-panel.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Left Team Member List Cards */
+#viewLobby .member-item {
+  background: linear-gradient(180deg, rgba(28, 35, 48, 0.94) 0%, rgba(14, 18, 26, 0.98) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.45) !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 232, 180, 0.14), 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+#viewLobby .member-item.is-me {
+  border-color: rgba(238, 194, 104, 0.82) !important;
+  box-shadow: inset 0 0 14px rgba(214, 173, 96, 0.18), 0 4px 12px rgba(0, 0, 0, 0.55) !important;
+}
+#viewLobby .member-avatar-box,
+#viewLobby .member-role-avatar {
+  background: #121722 !important;
+  border: 4px solid transparent !important;
+  border-image-source: var(--gui-panel-9slice) !important;
+  border-image-slice: 156 156 156 156 fill !important;
+  border-image-width: 10px !important;
+  padding: 2px !important;
+}
+#viewLobby .member-role-tag,
+#viewLobby .member-tag-badge {
+  background: rgba(18, 22, 31, 0.9) !important;
+  border: 1px solid rgba(214, 173, 96, 0.4) !important;
+  color: #ebd6ab !important;
+}
+#viewLobby .member-tag-badge.is-primary {
+  background: rgba(185, 138, 56, 0.24) !important;
+  border-color: #e6bc6a !important;
+  color: #ffe9b5 !important;
+}
+
+/* Hero Portrait & Attribute Radar Panel */
+#viewLobby .role-hero-portrait {
+  position: relative;
+  background: #121722 !important;
+  border: 8px solid transparent !important;
+  border-image-source: var(--gui-panel-9slice) !important;
+  border-image-slice: 156 156 156 156 fill !important;
+  border-image-width: 18px !important;
+  padding: 4px !important;
+}
+#viewLobby .role-hero-portrait::before {
+  display: none !important;
+}
+
+#viewLobby .role-profile-tags span {
+  background: rgba(20, 25, 35, 0.92) !important;
+  border: 1px solid rgba(214, 173, 96, 0.42) !important;
+  color: #ebd8b2 !important;
+}
+#viewLobby .role-profile-tags .is-primary {
+  background: rgba(185, 138, 56, 0.24) !important;
+  border-color: #e6bc6a !important;
+  color: #ffe9b5 !important;
+}
+
+#viewLobby .role-radar {
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.94) 0%, rgba(11, 15, 22, 0.98) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.44) !important;
+  border-image: none !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 232, 180, 0.12) !important;
+}
+#viewLobby .radar-outer {
+  stroke: rgba(214, 173, 96, 0.55) !important;
+  fill: rgba(20, 26, 36, 0.65) !important;
+}
+#viewLobby .radar-ring,
+#viewLobby .radar-axis {
+  stroke: rgba(214, 173, 96, 0.32) !important;
+}
+#viewLobby .radar-shape {
+  fill: rgba(226, 176, 82, 0.3) !important;
+  stroke: #f0c36d !important;
+}
+#viewLobby .radar-vertices circle {
+  fill: #ffe29e !important;
+}
+
+/* Role Skill Tabs (Normal & Selected) */
+#viewLobby .role-skill-tabs button {
+  min-height: 38px !important;
+  padding: 6px 20px !important;
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-tab-normal) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #dfd0b6 !important;
+  box-shadow: none !important;
+}
+
+#viewLobby .role-skill-tabs button[aria-selected="true"],
+#viewLobby .role-skill-tabs button:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: var(--gui-tab-active) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  color: #fff6df !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#viewLobby .role-switch-track {
+  width: 52px !important;
+  height: 24px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: url('/assets/ui/gui-skin/inputs/toggle-off-normal.png') center / contain no-repeat !important;
+}
+#viewLobby .role-switch-track::before {
+  display: none !important;
+}
+#viewLobby .role-copy-toggle input:checked + .role-switch-track {
+  background: url('/assets/ui/gui-skin/inputs/toggle-on-gold.png') center / contain no-repeat !important;
+  scale: -1 1;
+}
+
+/* Role Skill Detail Panel (#lobbyRoleDescription) */
+#viewLobby .role-description,
+#lobbyRoleDescription {
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.94) 0%, rgba(11, 15, 22, 0.98) 100%) !important;
+  background-image: linear-gradient(180deg, rgba(18, 23, 33, 0.94) 0%, rgba(11, 15, 22, 0.98) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.44) !important;
+  border-image: none !important;
+  border-radius: 6px !important;
+  padding: 14px 18px !important;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 232, 180, 0.12) !important;
+}
+
+/* Bottom 13-Class Roster Cards (.role-portrait-choice) */
+#viewLobby .role-portrait-choice {
+  background: #121722 !important;
+  border: 6px solid transparent !important;
+  border-image-source: var(--gui-panel-9slice) !important;
+  border-image-slice: 156 156 156 156 fill !important;
+  border-image-width: 14px !important;
+  padding: 2px !important;
+  border-radius: 4px !important;
+}
+#viewLobby .role-portrait-choice:hover {
+  filter: brightness(1.14) drop-shadow(0 0 6px rgba(235, 184, 82, 0.45)) !important;
+}
+#viewLobby .role-portrait-choice.active,
+#viewLobby .role-portrait-choice[aria-pressed="true"] {
+  box-shadow: none !important;
+  filter: brightness(1.16) drop-shadow(0 0 10px rgba(255, 200, 88, 0.78)) !important;
+}
+#viewLobby .role-portrait-choice.active::after {
+  display: none !important;
+}
+
+/* ==========================================================================
+   5. Backpack / Inventory (#inventoryModal), Shop & Forging Hex Slots & Panels
+   ========================================================================== */
+/* Replace legacy blue SVG polygons inside .hex-slot with temp/奇幻六角欄位介面素材表.png frames */
+.hex-slot .hex-bg-svg {
+  opacity: 0;
+  display: none;
+}
+
+/* Contexts may set geometry and background-color, but must preserve this image sizing. */
+.hex-slot {
+  box-shadow: none;
+  background-color: transparent;
+  background-image: var(--gui-slot-normal);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.hex-slot.has-item {
+  background-image: var(--gui-slot-normal);
+}
+
+#equippedSlotsGrid .hex-slot,
+.hex-slot[data-area="EQUIP"] {
+  background-image: var(--gui-slot-ornate-ring);
+}
+
+#equippedSlotsGrid .hex-slot.has-item,
+.hex-slot[data-area="EQUIP"].has-item {
+  background-image: var(--gui-slot-equipped);
+}
+
+.hex-slot:where(:not(.is-dragging)):hover {
+  background-image: var(--gui-slot-hover);
+  filter: brightness(1.08) drop-shadow(0 0 6px rgba(235, 184, 82, 0.38));
+}
+
+.hex-slot.selected-slot,
+.hex-slot.selected,
+.hex-slot.is-reforge-selected {
+  background-image: var(--gui-slot-selected);
+  filter: drop-shadow(0 0 8px rgba(255, 200, 92, 0.55));
+}
+
+.hex-slot.drag-over {
+  background-image: var(--gui-slot-selected);
+  filter: drop-shadow(0 0 5px rgba(214, 173, 96, 0.45));
+}
+
+.hex-slot.merchant-empty-slot {
+  background-image: var(--gui-slot-disabled);
+  filter: brightness(0.66) saturate(0.45);
+  opacity: 0.76;
+}
+
+.hex-slot.is-sold-out {
+  background-image: var(--gui-slot-disabled);
+  filter: brightness(0.55) saturate(0.35);
+  opacity: 0.72;
+}
+
+.slot-index-badge {
+  color: rgba(218, 186, 124, 0.72) !important;
+}
+
+.equip-watermark {
+  color: #d6b26e !important;
+  fill: #d6b26e !important;
+  opacity: 0.48 !important;
+}
+
+.equip-slot-labels-row {
+  color: #d8c298 !important;
+}
+
+/* Inventory & Shop Sub-Containers */
+.inventory-modal-card .modal-header,
+.shop-header-row {
+  border-bottom: 1px solid rgba(214, 173, 96, 0.35) !important;
+}
+
+.inventory-gold-badge,
+.shop-gold-badge {
+  background: var(--gui-plaque-brass) center / 100% 100% no-repeat !important;
+  border: none !important;
+  color: #fffaea !important;
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.5) !important;
+  padding: 12px 36px !important;
+  font-weight: 900 !important;
+  gap: 0 !important;
+}
+
+.inv-player-stats-bar {
+  background: linear-gradient(180deg, rgba(22, 28, 39, 0.94), rgba(12, 16, 24, 0.98)) !important;
+  border: 1px solid rgba(214, 173, 96, 0.44) !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.65) !important;
+}
+
+.inv-stat-pill {
+  border-right: 1px solid rgba(214, 173, 96, 0.25) !important;
+}
+.inv-stat-label {
+  color: #cbb68e !important;
+}
+
+.squad-backpack-section,
+.equipment-section,
+.personal-backpack-section,
+.shop-squad-col,
+.shop-goods-col,
+.reforge-inventory-col,
+.reforge-anvil-col {
+  background: linear-gradient(180deg, rgba(19, 24, 34, 0.92) 0%, rgba(11, 14, 21, 0.96) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.4) !important;
+  border-radius: 6px !important;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.72) !important;
+}
+
+.inv-capacity-badge {
+  background: rgba(20, 25, 36, 0.92) !important;
+  border: 1px solid rgba(214, 173, 96, 0.45) !important;
+  color: #f0cf88 !important;
+}
+
+.inv-discard-dropzone,
+.shop-sell-dropzone {
+  background: linear-gradient(180deg, rgba(46, 24, 28, 0.78), rgba(28, 14, 17, 0.9)) !important;
+  border: 1px dashed rgba(224, 132, 118, 0.58) !important;
+  border-radius: 4px !important;
+  color: #f4cfc8 !important;
+}
+.inv-discard-dropzone:hover,
+.inv-discard-dropzone.drag-over,
+.shop-sell-dropzone:hover,
+.shop-sell-dropzone.drag-over {
+  background: linear-gradient(180deg, rgba(72, 32, 38, 0.9), rgba(44, 18, 22, 0.95)) !important;
+  border-color: #f59384 !important;
+  color: #ffffff !important;
+}
+
+/* Detail & Inspector Panels (背包詳情面板 / 交易詳情 / 角色與僕從詳情) */
+.inv-inspector-card,
+#invInspectorPanel,
+.shop-trade-inspector,
+.reforge-slot-box,
+.reforge-info-panel,
+.gamble-rule-banner,
+.gamble-arena,
+.drop-item-card,
+.current-equips-section,
+.abyss-dialogue-text-box,
+#roleDetailBody,
+#minionDetailList {
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.94) 0%, rgba(11, 15, 22, 0.98) 100%) !important;
+  background-image: linear-gradient(180deg, rgba(18, 23, 33, 0.94) 0%, rgba(11, 15, 22, 0.98) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.44) !important;
+  border-image: none !important;
+  border-radius: 6px !important;
+  padding: 14px 16px !important;
+  color: #f2e5cb !important;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 232, 180, 0.12) !important;
+}
+
+.inv-inspector-empty {
+  color: #bfae8e !important;
+}
+
+/* Crafting Accordion Toggle Bar (#btnToggleCraftingPanel) */
+#btnToggleCraftingPanel,
+.btn-toggle-crafting {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 40px !important;
+  padding: 10px 16px !important;
+  background: linear-gradient(180deg, rgba(26, 34, 48, 0.96) 0%, rgba(14, 19, 28, 0.98) 100%) !important;
+  background-image: linear-gradient(180deg, rgba(26, 34, 48, 0.96) 0%, rgba(14, 19, 28, 0.98) 100%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.52) !important;
+  border-image: none !important;
+  border-radius: 6px !important;
+  color: #f6e7c8 !important;
+  font-family: var(--font-display, 'Cinzel', 'Noto Serif TC', serif) !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 232, 180, 0.16), 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+  cursor: pointer !important;
+  transition: border-color 0.15s ease, filter 0.15s ease !important;
+}
+#btnToggleCraftingPanel:hover,
+.btn-toggle-crafting:hover {
+  border-color: #f0c36d !important;
+  color: #fff8e6 !important;
+  filter: brightness(1.08) !important;
+}
+
+/* Mouse-Hover Info Cards (.floating-item-tooltip / .floating-status-tooltip / .battle-skill-tooltip)
+   Uses the Small-Size Popup (小尺寸弹窗 .gui-nineslice-box--sm) from the GUI Skin Showcase */
+.floating-item-tooltip,
+.floating-status-tooltip,
+.battle-skill-tooltip,
+#floatingItemTooltip,
+#floatingEnemyTooltip,
+#battleSkillTooltip {
+  position: fixed !important;
+  width: min(320px, calc(100vw - 36px)) !important;
+  min-height: 150px !important;
+  max-height: none !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  padding: 14px 16px !important;
+  background-color: #161c26 !important;
+  background-image:
+    radial-gradient(circle at 50% 32%, rgba(94, 78, 48, 0.20), rgba(14, 18, 26, 0.94) 78%),
+    var(--gui-panel-9slice) !important;
+  background-size: 100% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  border: 22px solid transparent !important;
+  border-image-source: var(--gui-panel-9slice) !important;
+  border-image-slice: 156 156 156 156 fill !important;
+  border-image-width: 26px 26px 26px 26px !important;
+  border-image-outset: 0 !important;
+  border-image-repeat: stretch !important;
+  border-radius: 0 !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.78) !important;
+  color: #efe4cf !important;
+  backdrop-filter: none !important;
+}
+
+.floating-item-tooltip::before,
+.floating-status-tooltip::before,
+.battle-skill-tooltip::before,
+#floatingItemTooltip::before,
+#floatingEnemyTooltip::before,
+#battleSkillTooltip::before {
+  content: '' !important;
+  position: absolute !important;
+  top: -26px !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  width: 82px !important;
+  height: 30px !important;
+  background-image: var(--gui-panel-gem-top) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center top !important;
+  pointer-events: none !important;
+  z-index: 5 !important;
+}
+
+.floating-item-tooltip::after,
+.floating-status-tooltip::after,
+.battle-skill-tooltip::after,
+#floatingItemTooltip::after,
+#floatingEnemyTooltip::after,
+#battleSkillTooltip::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: -26px !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  transform: translateX(-50%) !important;
+  width: 82px !important;
+  height: 30px !important;
+  background-image: var(--gui-panel-gem-bottom) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center bottom !important;
+  pointer-events: none !important;
+  z-index: 5 !important;
+}
+
+.floating-item-tooltip .gui-skin-panel-rail-gems::before,
+.floating-status-tooltip .gui-skin-panel-rail-gems::before,
+.battle-skill-tooltip .gui-skin-panel-rail-gems::before {
+  left: -26px !important;
+  width: 30px !important;
+  height: 56px !important;
+}
+
+.floating-item-tooltip .gui-skin-panel-rail-gems::after,
+.floating-status-tooltip .gui-skin-panel-rail-gems::after,
+.battle-skill-tooltip .gui-skin-panel-rail-gems::after {
+  right: -26px !important;
+  width: 30px !important;
+  height: 56px !important;
+}
+
+.btn-tooltip-sell,
+.btn-tooltip-use,
+.btn-tooltip-discard {
+  min-height: 36px !important;
+  padding: 6px 16px !important;
+  border: none !important;
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  box-shadow: none !important;
+  font-family: var(--font-display, 'Cinzel', 'Noto Serif TC', serif) !important;
+  font-weight: 800 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
+}
+.btn-tooltip-sell {
+  background-image: var(--gui-btn-gold-normal) !important;
+  color: #fff6df !important;
+}
+.btn-tooltip-sell:hover {
+  background-image: var(--gui-btn-gold-hover) !important;
+}
+.btn-tooltip-use {
+  background-image: var(--gui-btn-azure-normal) !important;
+  color: #f7ebd2 !important;
+}
+.btn-tooltip-use:hover {
+  background-image: var(--gui-btn-azure-hover) !important;
+}
+.btn-tooltip-discard {
+  background-image: var(--gui-btn-danger-normal) !important;
+  color: #ffe8e5 !important;
+}
+.btn-tooltip-discard:hover {
+  background-image: var(--gui-btn-danger-hover) !important;
+}
+
+/* ==========================================================================
+   6. Exploration Map (#viewRoute) Hex Tiles & Event Node Icons
+   ========================================================================== */
+.map-story .eyebrow {
+  color: #e2bd70 !important;
+}
+.map-meta-row .soft-tag {
+  background: rgba(20, 26, 37, 0.92) !important;
+  border: 1px solid rgba(214, 173, 96, 0.45) !important;
+  color: #f0d7a2 !important;
+}
+.route-voter-pill.thinking {
+  background: rgba(18, 23, 33, 0.9) !important;
+  border: 1px solid rgba(214, 173, 96, 0.32) !important;
+  color: #c2b294 !important;
+}
+.route-voter-pill.voted {
+  background: rgba(46, 36, 18, 0.92) !important;
+  border: 1px solid #e6bc6a !important;
+  color: #ffeab8 !important;
+}
+
+.abyss-map-canvas {
+  display: flex !important;
+  align-items: center !important;
+  background: radial-gradient(circle at 50% 50%, rgba(28, 36, 50, 0.76) 0%, rgba(10, 14, 21, 0.96) 85%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.44) !important;
+  border-radius: 6px !important;
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.8) !important;
+}
+
+.hex-cell {
+  clip-path: none !important;
+  background-color: transparent !important;
+  background-image: var(--gui-hex-stone) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+.hex-cell .hex-tile-svg {
+  opacity: 0 !important;
+  display: none !important;
+}
+
+/* Unlocked / out-of-vision / fogged map hex tiles: only adjust brightness & saturation on map tile (no lock/wax seal) */
+.hex-cell.hex-in-vision:not(.hex-selectable):not(.hex-current):not(.hex-visited) {
+  background-image: var(--gui-hex-stone) !important;
+  filter: brightness(0.62) saturate(0.42) !important;
+  opacity: 0.9 !important;
+}
+
+.hex-cell.hex-out-of-vision,
+.hex-cell.hex-fog-gradient.hex-out-of-vision {
+  background-image: var(--gui-hex-stone) !important;
+  filter: brightness(0.38) saturate(0.22) !important;
+  opacity: 0.78 !important;
+}
+
+.hex-cell.hex-in-vision,
+.hex-cell.hex-visited {
+  background-image: var(--gui-hex-stone) !important;
+}
+
+.hex-cell.hex-selectable:not(:disabled) {
+  background-image: var(--gui-hex-terrain) !important;
+  filter: drop-shadow(0 0 6px rgba(235, 190, 92, 0.35)) !important;
+}
+
+.hex-cell.hex-current,
+.hex-cell.hex-pending-select,
+.hex-cell.my-vote,
+.hex-cell.hex-selectable:not(:disabled):hover {
+  background-image: var(--gui-hex-selected) !important;
+  filter: drop-shadow(0 0 10px rgba(255, 206, 98, 0.65)) !important;
+}
+
+.hex-cell.hex-in-vision.hex-end-boss {
+  background-image: var(--gui-hex-castle) !important;
+}
+
+/* Map Event Node 3D Fantasy Icons inside .hex-node-icon */
+.hex-node-icon:has(use[href="#icon-camp"]),
+.hex-node-icon:has(use[href="#icon-chest"]),
+.hex-node-icon:has(use[href="#icon-shop"]),
+.hex-node-icon:has(use[href="#icon-death"]),
+.hex-node-icon:has(use[href="#icon-scroll"]),
+.hex-node-icon:has(use[href="#icon-sword"]) {
+  width: 34px !important;
+  height: 34px !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+.hex-node-icon:has(use[href="#icon-camp"]) svg,
+.hex-node-icon:has(use[href="#icon-chest"]) svg,
+.hex-node-icon:has(use[href="#icon-shop"]) svg,
+.hex-node-icon:has(use[href="#icon-death"]) svg,
+.hex-node-icon:has(use[href="#icon-scroll"]) svg,
+.hex-node-icon:has(use[href="#icon-sword"]) svg {
+  opacity: 0 !important;
+}
+.hex-node-icon:has(use[href="#icon-camp"]) { background-image: var(--gui-node-camp) !important; }
+.hex-node-icon:has(use[href="#icon-chest"]) { background-image: var(--gui-node-chest) !important; }
+.hex-node-icon:has(use[href="#icon-shop"]) { background-image: var(--gui-node-shop) !important; }
+.hex-node-icon:has(use[href="#icon-death"]) { background-image: var(--gui-node-boss) !important; }
+.hex-node-icon:has(use[href="#icon-scroll"]) { background-image: var(--gui-node-event) !important; }
+.hex-node-icon:has(use[href="#icon-sword"]) { background-image: var(--gui-node-battle) !important; }
+
+/* ==========================================================================
+   7. Combat HUD Vital Bars & Skill Slots
+   ========================================================================== */
+.battle-vital-bar--hp .battle-vital-track {
+  background-image: url('/assets/ui/gui-skin/combat/hud-bar-track-empty-lg.png');
+  background-size: 100% 100%;
+}
+.battle-vital-bar--mp .battle-vital-track {
+  background-image: url('/assets/ui/gui-skin/combat/hud-bar-track-empty-md.png');
+  background-size: 100% 100%;
+}
+
+.skill-btn,
+.combat-skill-slot {
+  background-image: url('/assets/ui/gui-skin/combat/hud-skill-slot-normal.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.skill-btn:hover:not(:disabled),
+.combat-skill-slot.is-active {
+  background-image: url('/assets/ui/gui-skin/combat/hud-skill-slot-active.png');
+}
+.skill-btn:active:not(:disabled),
+.combat-skill-slot.is-cooldown {
+  background-image: url('/assets/ui/gui-skin/combat/hud-skill-slot-cooldown.png');
+}
+.skill-btn:disabled,
+.combat-skill-slot.is-disabled {
+  background-image: url('/assets/ui/gui-skin/combat/hud-skill-slot-disabled.png');
+}
+
+/* ==========================================================================
+   8. Comprehensive Interactive GUI Skin Verification & Showcase View
+   (?guiSkinPreview=1 or toggle button)
+   ========================================================================== */
+.gui-skin-preview-fab {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9998;
+  min-height: 40px;
+  padding: 8px 18px !important;
+  font-size: 0.82rem;
+}
+
+.gui-skin-showcase-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: radial-gradient(circle at 50% 15%, #1c2432 0%, #0b0e14 100%);
+  color: #f2e5cc;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 28px 24px 64px 24px;
+  font-family: var(--font-body, 'Noto Sans SC', system-ui, sans-serif);
+}
+
+.gui-skin-showcase-overlay[hidden] {
+  display: none !important;
+}
+
+.gui-showcase-container {
+  max-width: 1480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.gui-showcase-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 28px 110px 32px 110px;
+  background: var(--gui-banner-parchment) center / 100% 100% no-repeat;
+  min-height: 128px;
+  color: #2b1d10;
+  box-sizing: border-box;
+}
+
+.gui-showcase-header h1 {
+  margin: 0;
+  font-size: clamp(1.1rem, 1.8vw, 1.65rem);
+  color: #26170a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.gui-showcase-header p {
+  margin: 4px 0 0 0;
+  font-size: 0.88rem;
+  color: #4a3319;
+  font-weight: 600;
+}
+
+.gui-showcase-section {
+  padding: 32px 30px;
+}
+
+.gui-showcase-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 18px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(214, 173, 96, 0.28);
+  font-size: 1.15rem;
+  color: #f7e6c4;
+}
+
+/* 9-Slice Multi-Ratio Verification Grid (Small / Medium / Large) */
+.gui-nineslice-demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+
+.gui-nineslice-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.gui-nineslice-box--sm {
+  width: 100%;
+  max-width: 320px;
+  min-height: 185px;
+}
+
+.gui-nineslice-box--md {
+  width: 100%;
+  max-width: 560px;
+  min-height: 250px;
+}
+
+.gui-nineslice-box--lg {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 290px;
+}
+
+/* 4x4 Button Matrix Grid */
+.gui-btn-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(165px, 1fr));
+  gap: 14px 18px;
+  align-items: center;
+}
+
+/* Inputs, Checkboxes, Radios, Toggles, Sliders Grid */
+.gui-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  align-items: center;
+}
+
+.gui-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gui-sprite-icon {
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+}
+
+/* Lobby, Combat & Exploration Showcase Strips */
+.gui-lobby-showcase-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(240px, 310px) 1fr;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.gui-hex-showcase-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  align-items: center;
+  justify-items: center;
+}
+
+.gui-node-showcase-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 12px;
+  align-items: center;
+  justify-items: center;
+}
+
+.gui-asset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(12, 16, 23, 0.68);
+  border: 1px solid rgba(214, 173, 96, 0.22);
+  border-radius: 8px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.gui-asset-card img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.gui-asset-card span {
+  font-size: 0.76rem;
+  color: #d6c5a8;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+@media (max-width: 960px) {
+  .gui-btn-matrix {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+  .gui-lobby-showcase-grid {
+    grid-template-columns: 1fr;
+  }
+  .gui-showcase-header {
+    padding: 26px 56px 30px 56px;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 6px;
+  }
+  .app-header {
+    padding: 8px 12px;
+    height: auto;
+    min-height: 58px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    min-width: 0;
+  }
+  .entry-sub-screen {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 2px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+  .recruit-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .recruit-header-right {
+    text-align: left;
+  }
+  .recruit-card,
+  .lobby-menu-card,
+  .server-list-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 14px 10px !important;
+    box-sizing: border-box !important;
+  }
+  .recruit-code {
+    word-break: break-all;
+    font-size: 11px;
+  }
+  .gui-nineslice-demo-grid,
+  .gui-controls-grid,
+  .gui-btn-matrix {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gui-nineslice-box--sm,
+  .gui-nineslice-box--md,
+  .gui-nineslice-box--lg {
+    max-width: 100%;
+    min-width: 0;
+    padding: 14px 10px;
+  }
+  .gui-skin-showcase-overlay {
+    padding: 12px 10px 52px 10px;
+  }
+  .gui-showcase-header {
+    background-image: none;
+    background-color: rgba(232, 213, 181, 0.96);
+    border: 3px solid #9b763c;
+    border-radius: 10px;
+    padding: 16px 16px;
+    min-height: auto;
+  }
+  .gui-showcase-section {
+    padding: 18px 12px;
+  }
+  .gui-skin-panel,
+  .kraft-paper,
+  .recruit-card,
+  .lobby-menu-card,
+  .server-list-card,
+  .team-card,
+  .role-command-panel,
+  .lobby-panel,
+  .modal-card,
+  .map-story,
+  .map-side {
+    border-width: 18px !important;
+    border-image-width: 22px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .gui-skin-panel::before,
+  .kraft-paper::before,
+  #viewLobby .team-card::before,
+  #viewLobby .role-command-panel::before,
+  .recruit-card::before,
+  .lobby-menu-card::before,
+  .server-list-card::before,
+  .lobby-panel::before,
+  .modal-card::before,
+  .map-story::before,
+  .map-side::before {
+    top: -22px !important;
+    width: 72px !important;
+    height: 27px !important;
+  }
+  .gui-skin-panel::after,
+  .kraft-paper::after,
+  #viewLobby .team-card::after,
+  #viewLobby .role-command-panel::after,
+  .recruit-card::after,
+  .lobby-menu-card::after,
+  .server-list-card::after,
+  .lobby-panel::after,
+  .modal-card::after,
+  .map-story::after,
+  .map-side::after {
+    bottom: -22px !important;
+    width: 72px !important;
+    height: 27px !important;
+  }
+  .gui-skin-panel-rail-gems::before {
+    left: -22px;
+    width: 27px;
+    height: 50px;
+  }
+  .gui-skin-panel-rail-gems::after {
+    right: -22px;
+    width: 27px;
+    height: 50px;
+  }
+  .gui-skin-preview-fab {
+    right: 10px;
+    bottom: 10px;
+    min-height: 34px;
+    padding: 5px 12px !important;
+    font-size: 0.74rem;
+  }
+}

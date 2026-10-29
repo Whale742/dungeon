@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Administration · Dungeon Abyss</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/css/studio/studio.css"></head>
+<body class="studio-body"><nav id="studioNav" class="studio-nav" aria-label="Studio 導覽"></nav>
+<main class="studio-page"><header class="studio-heading"><div><h1>Administration Console</h1><p class="studio-muted">全站素材來源管理。設定適用於重新整理或新開啟的遊戲。</p></div></header>
+<div id="studioNotice" class="studio-notice" role="status" aria-live="polite">正在讀取目前素材模式…</div>
+<section class="studio-panel"><h2>全域素材來源</h2><dl>
+<dt>目前生效模式</dt><dd id="adminEffectiveMode">讀取中…</dd>
+<dt>設定來源</dt><dd id="adminSource">驗證管理員後顯示</dd>
+<dt>Database 已儲存模式</dt><dd id="adminPersistedMode">尚未驗證</dd>
+<dt>設定版本</dt><dd id="adminVersion">—</dd>
+<dt>最後修改時間</dt><dd id="adminUpdatedAt">—</dd>
+<dt>儲存狀態</dt><dd id="adminSaveStatus" role="status">尚未驗證；不會自動寫入設定</dd>
+</dl><div class="studio-toolbar"><button id="adminReload" type="button">驗證並重新讀取設定</button></div>
+<form id="adminAssetForm"><label class="studio-field"><span>儲存至 Database 的模式</span><select id="adminMode" disabled><option value="local_only">local_only · 僅載入網站本地素材</option><option value="cloud_first">cloud_first · 優先雲端，失敗後使用本地素材</option></select></label>
+<p id="adminOverride" class="studio-notice" hidden>緊急覆寫 ASSET_SOURCE_OVERRIDE 正在控制生效模式。儲存只更新 Database；移除覆寫後才會採用 Database 設定。</p>
+<button id="adminSave" class="studio-primary" type="submit" disabled>儲存全域設定</button></form>
+<p class="studio-muted">local_only 不限制管理員主動上傳及預覽雲端素材。玩家登入、存檔和文案同步繼續使用原有服務。</p></section>
+</main><script src="/js/studio/write-client.js"></script><script src="/js/studio/ui.js"></script><script src="/js/studio/admin.js"></script></body></html>

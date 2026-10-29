@@ -112,7 +112,7 @@
   left: 50% !important;
   height: 140% !important;
   width: 22% !important;
-  background: linear-gradient(0deg, transparent, rgba(111, 183, 233, 0.20) 20%, rgba(178, 232, 254, 0.08) 60%, transparent) !important;
+  background: linear-gradient(0deg, transparent, rgba(214, 173, 96, 0.20) 20%, rgba(178, 232, 254, 0.08) 60%, transparent) !important;
   transform-origin: bottom center !important;
   clip-path: polygon(35% 100%, 65% 100%, 100% 0, 0 0) !important;
   filter: blur(5px) !important;
@@ -141,10 +141,10 @@
   left: 50% !important;
   width: 210px !important;
   height: 210px !important;
-  border: 1px solid rgba(111, 183, 233, 0.3) !important;
+  border: 1px solid rgba(214, 173, 96, 0.3) !important;
   border-radius: 50% !important;
   transform: translate(-50%, -50%) !important;
-  box-shadow: 0 0 50px rgba(111, 183, 233, 0.16), inset 0 0 40px rgba(111, 183, 233, 0.1) !important;
+  box-shadow: 0 0 50px rgba(214, 173, 96, 0.16), inset 0 0 40px rgba(214, 173, 96, 0.1) !important;
   pointer-events: none !important;
   z-index: 1 !important;
 }
@@ -175,14 +175,14 @@
   max-width: 110px !important;
   max-height: 110px !important;
   object-fit: contain !important;
-  filter: drop-shadow(0 0 22px rgba(111, 183, 233, 0.6)) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.85)) !important;
+  filter: drop-shadow(0 0 22px rgba(214, 173, 96, 0.6)) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.85)) !important;
 }
 
 .reward-visual svg {
   width: 76px !important;
   height: 76px !important;
   color: var(--gold, #dfcf9e) !important;
-  filter: drop-shadow(0 0 22px rgba(111, 183, 233, 0.6)) !important;
+  filter: drop-shadow(0 0 22px rgba(214, 173, 96, 0.6)) !important;
 }
 
 .reward-visual .reward-fallback-svg {
@@ -214,7 +214,7 @@
 
 .btn-skip-reward:hover {
   background: #233e50 !important;
-  border-color: #6fb7e9 !important;
+  border-color: var(--ui-accent) !important;
   color: #fff !important;
 }
 
@@ -234,7 +234,7 @@
 }
 
 .reward-rarity-badge.is-common {
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
 }
 
 .reward-rarity-badge.is-gold {
@@ -249,7 +249,7 @@
   letter-spacing: 0.05em !important;
   color: #f1eee4 !important;
   margin: 0 0 8px !important;
-  text-shadow: 0 0 18px rgba(111, 183, 233, 0.35) !important;
+  text-shadow: 0 0 18px rgba(214, 173, 96, 0.35) !important;
   line-height: 1.3 !important;
 }
 
@@ -265,7 +265,7 @@
 .reward-meta {
   z-index: 2 !important;
   font: 700 10.5px var(--pixel, 'Silkscreen', monospace) !important;
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -279,7 +279,7 @@
   border: 1px solid var(--border, #4F6674) !important;
   border-radius: var(--radius-sm, 2px) !important;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8),
-              0 0 35px rgba(111, 183, 233, 0.12) !important;
+              0 0 35px rgba(214, 173, 96, 0.12) !important;
   max-width: 520px !important;
   width: 90% !important;
   text-align: center !important;
@@ -299,7 +299,7 @@
 }
 
 .presentation-reward-rarity.is-common {
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
 }
 
 .presentation-reward-title {
@@ -309,7 +309,7 @@
   letter-spacing: 0.05em !important;
   color: #f1eee4 !important;
   margin: 0 0 8px !important;
-  text-shadow: 0 0 16px rgba(111, 183, 233, 0.3) !important;
+  text-shadow: 0 0 16px rgba(214, 173, 96, 0.3) !important;
 }
 
 .presentation-reward-desc {
@@ -321,7 +321,7 @@
 
 .presentation-reward-meta {
   font: 700 10.5px var(--pixel, 'Silkscreen', monospace) !important;
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -339,7 +339,7 @@
   border-radius: var(--radius-sm, 2px) !important;
   padding: 24px 28px !important;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8),
-              0 0 40px rgba(111, 183, 233, 0.12) !important;
+              0 0 40px rgba(214, 173, 96, 0.12) !important;
   color: #e8edf2 !important;
   text-align: center !important;
   box-sizing: border-box !important;
@@ -409,7 +409,7 @@
 
 .drop-item-type {
   font: 700 10.5px var(--pixel, 'Silkscreen', monospace) !important;
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
@@ -527,7 +527,7 @@
 
 .current-equip-item:hover {
   background: #1a303f !important;
-  border-color: #6fb7e9 !important;
+  border-color: var(--ui-accent) !important;
 }
 
 .current-equip-item.selected-to-replace {
@@ -727,7 +727,7 @@
 
 .pulse-waiting {
   font: 700 11px var(--pixel, 'Silkscreen', monospace) !important;
-  color: var(--azure, #6fb7e9) !important;
+  color: var(--azure, var(--ui-accent)) !important;
   display: inline-flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -757,7 +757,7 @@
   border: 1px solid var(--border, #4F6674) !important;
   border-radius: var(--radius-sm, 2px) !important;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85),
-              0 0 50px rgba(111, 183, 233, 0.12) !important;
+              0 0 50px rgba(214, 173, 96, 0.12) !important;
   padding: 28px 28px !important;
   text-align: center !important;
   box-sizing: border-box !important;
@@ -771,10 +771,10 @@
   align-items: center !important;
   justify-content: center !important;
   border-radius: 50% !important;
-  background: radial-gradient(circle, rgba(111, 183, 233, 0.25) 0%, transparent 70%) !important;
-  border: 1px solid rgba(111, 183, 233, 0.4) !important;
+  background: radial-gradient(circle, rgba(214, 173, 96, 0.25) 0%, transparent 70%) !important;
+  border: 1px solid rgba(214, 173, 96, 0.4) !important;
   color: var(--gold, #dfcf9e) !important;
-  box-shadow: 0 0 24px rgba(111, 183, 233, 0.3) !important;
+  box-shadow: 0 0 24px rgba(214, 173, 96, 0.3) !important;
 }
 
 .end-card h2 {
@@ -848,24 +848,11 @@
   gap: 12px !important;
 }
 
+/* The shared GUI button owns its four interaction states. */
 #btnRestartLobby {
-  background: #1e3a4e !important;
-  border: 1px solid #6fb7e9 !important;
-  color: #f1eee4 !important;
-  padding: 12px 28px !important;
-  font-size: 13.5px !important;
-  font-weight: 700 !important;
-  border-radius: 2px !important;
-  cursor: pointer !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  transition: all 0.14s ease !important;
-}
-
-#btnRestartLobby:hover {
-  background: #274b65 !important;
-  box-shadow: 0 0 16px rgba(111, 183, 233, 0.4) !important;
+  min-height: 48px;
+  min-width: min(260px, 100%);
+  font-size: 13.5px;
 }
 
 /* --------------------------------------------------------------------------

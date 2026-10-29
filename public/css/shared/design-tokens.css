@@ -1,24 +1,24 @@
-/* Dungeon Abyss — Azure Ruins (蒼藍遺跡) UI Design Tokens */
+/* Dungeon Abyss — Dark Gold (暗金幻想) UI Design Tokens */
 :root {
   /* =========================================================
-     1. Azure Ruins Palette Base Tokens
+     1. Dark Gold Palette Base Tokens
      ========================================================= */
-  --abyss: #0D131A;            /* 深淵背景 */
-  --deep: #16212B;             /* 遺跡深板 */
-  --panel: #1D2C36;            /* 石板 Surface */
-  --panel2: #243743;           /* 次級 Surface */
-  --panel3: #2A4050;           /* 第三級 Surface */
-  --border: #4F6674;           /* 冷灰藍邊框 */
-  --border-subtle: #344B59;    /* 冷灰藍結構線/微邊框 */
-  --line: #344B59;             /* 分隔線 */
+  --abyss: #101319;            /* 深淵背景 */
+  --deep: #181c24;             /* 遺跡深板 */
+  --panel: #20252d;            /* 石板 Surface */
+  --panel2: #292e35;           /* 次級 Surface */
+  --panel3: #34383e;           /* 第三級 Surface */
+  --border: #807153;           /* 仿舊黃銅邊框 */
+  --border-subtle: #4d4639;    /* 暗金結構線 */
+  --line: #4d4639;             /* 分隔線 */
   --ornament: #CBB98A;         /* 淡金飾線 */
-  --light: #E8EDF2;            /* 主文字 (高對比冷白) */
-  --secondary: #B9C4CE;        /* 次文字 (冷灰次要文字) */
-  --muted: #7E8C96;            /* 弱文字 (冷藍灰輔助文字) */
-  --azure: #6FB7E9;            /* 遺跡藍光 (微光/強調) */
-  --bright: #9CDBF9;           /* 遺跡亮藍 (焦點/光暈) */
-  --selection: #285878;        /* 選取藍 */
-  --selection-bright: #3E88D6; /* 高亮選取藍 */
+  --light: #f2e7d3;            /* 主文字 (暖象牙白) */
+  --secondary: #c8bda7;        /* 次文字 (暖灰) */
+  --muted: #9e9586;            /* 弱文字 (暖灰輔助文字) */
+  --azure: #d6ad60;            /* 黃銅金 (微光/強調，沿用舊變數名稱) */
+  --bright: #f2d79e;           /* 亮金 (焦點/光暈) */
+  --selection: #50412b;        /* 選取暗金 */
+  --selection-bright: #92703d; /* 高亮選取金 */
   --teal: #49C2C1;             /* 魔力青綠 (治療/護盾/MP) */
   --danger: #D46B6B;           /* 危險紅 (警告/扣血/放棄) */
   --gold: #D7B86E;             /* 戰利品金 (金幣/傳奇/重點) */
@@ -28,7 +28,7 @@
   --ui-bg-secondary: var(--deep);
   --ui-surface: var(--panel);
   --ui-surface-raised: var(--panel2);
-  --ui-surface-inset: #121C24;
+  --ui-surface-inset: #14171d;
 
   --ui-border: var(--border);
   --ui-border-subtle: var(--border-subtle);
@@ -40,8 +40,8 @@
 
   --ui-accent: var(--azure);
   --ui-accent-bright: var(--bright);
-  --ui-primary: #336C91;
-  --ui-primary-hover: #4380A7;
+  --ui-primary: #745a32;
+  --ui-primary-hover: #927343;
 
   --ui-success: var(--teal);
   --ui-warning: var(--gold);
@@ -121,7 +121,7 @@
   --color-guild-ink-secondary: var(--ui-text-secondary);
   --color-guild-ink-muted: var(--ui-text-muted);
   --color-guild-blue: var(--ui-primary);
-  --color-guild-blue-dark: #224357;
+  --color-guild-blue-dark: #423522;
   --color-guild-blue-hover: var(--ui-primary-hover);
 
   /* HUD & Status Bar */
@@ -134,7 +134,7 @@
   /* Semantic */
   --color-primary: var(--ui-primary);
   --color-primary-hover: var(--ui-primary-hover);
-  --color-primary-soft: rgba(111, 183, 233, 0.18);
+  --color-primary-soft: rgba(214, 173, 96, 0.18);
   --color-loot-gold: var(--gold);
   --color-loot-gold-hover: #E8D196;
   --color-danger: var(--danger);
@@ -174,7 +174,7 @@
   --surface-exploration: var(--ui-surface);
   --surface-combat: var(--ui-surface);
   --surface-modal: var(--deep);
-  --surface-tooltip: #101F2B;
+  --surface-tooltip: #161c26;
   --surface-inset: var(--ui-surface-inset);
   --surface-raised: var(--ui-surface-raised);
   --surface-overlay: var(--ui-bg-secondary);
@@ -220,10 +220,10 @@
   --hex-h: 78.5px;
   --hex-row-overlap: -14px;
   --hex-col-overlap: -2px;
-  --hex-bg: #122633;
-  --hex-bg-hover: #1c394b;
-  --hex-bg-active: #23475d;
-  --hex-border: #4F6674;
+  --hex-bg: #191c23;
+  --hex-bg-hover: #343027;
+  --hex-bg-active: #4a3c29;
+  --hex-border: #807153;
 
   /* Motion */
   --motion-fast: 120ms;
@@ -330,12 +330,12 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   margin: 0;
-  color: var(--light, #E8EDF2);
+  color: var(--light, #f2e7d3);
 }
 
 .section-title .ico,
 .section-title svg {
-  color: var(--azure, #6FB7E9);
+  color: var(--azure, #d6ad60);
   width: 18px;
   height: 18px;
 }
@@ -356,8 +356,8 @@
   align-items: center;
   white-space: nowrap;
   color: var(--azure);
-  background: #1d3445;
-  border: 1px solid #416378;
+  background: #302b22;
+  border: 1px solid #807153;
   padding: 4px 9px;
   font: 700 10px var(--pixel);
   border-radius: 2px;
@@ -371,7 +371,7 @@
 
 .soft-tag.buff-tag {
   color: var(--azure);
-  border-color: #385970;
-  background: #152c3c;
+  border-color: #65563b;
+  background: #25231f;
 }
 

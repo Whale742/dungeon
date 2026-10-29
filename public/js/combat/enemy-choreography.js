@@ -39,7 +39,7 @@ const ENEMY_PAINTED_ART=Object.freeze({
   abyss_paladin:['common/sword-slash.png'],abyss_gladiator:['common/slash-texture.png'],abyss_samurai:['common/sword-slash.png']
 });
 function enemyPaintedAssetUrl(path){
-  return path==='enemies/strange_chest_bite.png'?'https://xhuckxmagojrpfurcmbf.supabase.co/storage/v1/object/public/game-assets/images/effects/special-bite-b699902fe4b93dab.png':'/assets/combat-fx/'+path;
+  return '/assets/combat-fx/'+path;
 }
 function enemyPaintedPaths(step,result){
   // Self HP costs, shield consumption and form bookkeeping are not attacks.

@@ -15,6 +15,7 @@
     });
   }
   async function preload(url, fallback, signal) {
+    if(global.assetRegistry){try{const image=await global.assetRegistry.preloadImage(fallback||url);return signal?.aborted?null:image.src;}catch{return null;}}
     for (const candidate of [...new Set([url, fallback].filter(Boolean))]) {
       if (signal?.aborted) return null;
       const loaded = await new Promise(resolve => {

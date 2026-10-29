@@ -7,7 +7,21 @@
   const categories={all:'全部',roles:'職業頭像',bosses:'BOSS 頭像',ui:'UI 介面素材',sfx:'SFX',bgm:'BGM',effects:'技能特效圖片',backgrounds:'背景圖片',other:'其他素材'};
   const sourceLabels={local:'Local 本地',storage:'Supabase Storage',external:'External URL'};
 
-  function assetUrl(asset){const url=assetRegistry.url(asset);return asset.kind==='image'?assetRegistry.resolvePath(url):url;}
+  function localPreview(asset){
+    if(asset.source_type==='local')return asset.local_path;
+    const same=assets.get('local.'+asset.asset_key.replace(/^storage\./,''));if(same?.local_path)return same.local_path;
+    const uses=StudioContent.rows('asset_bindings').filter(b=>b.asset_key===asset.asset_key);
+    for(const b of uses){const fallback=b.fallback_path||StudioContent.state.defaults.asset_bindings.find(d=>d.binding_key===b.binding_key)?.fallback_path;if(fallback)return fallback;}
+    return null;
+  }
+  function previewControls(asset){
+    const box=el('div'),slot=el('div',{class:'studio-preview'}),controls=el('div',{class:'studio-toolbar'}),local=localPreview(asset);
+    function show(url){slot.replaceChildren();const media=asset.kind==='audio'?el('audio',{src:url,controls:true,preload:'none'}):el('img',{src:url,alt:asset.display_name});media.onerror=()=>{slot.replaceChildren(el('p',{text:'預覽載入失敗；不會自動重試。'}));};slot.append(media);}
+    if(local)controls.append(button('載入本地預覽',()=>show(local)));
+    if(asset.source_type!=='local')controls.append(button(asset.source_type==='storage'?'查看 Supabase 版本':'載入外部預覽',async()=>{const {url}=await StudioWrite.request('/assets/'+encodeURIComponent(asset.asset_key)+'/preview',{method:'POST',body:{}});show(url);}));
+    controls.append(button('清除預覽',()=>{slot.querySelectorAll('audio').forEach(a=>{a.pause();a.removeAttribute('src');a.load();});slot.replaceChildren();}));
+    box.append(controls,slot);return box;
+  }
   function refreshMap(){
     assets.clear();
     for(const asset of StudioContent.rows('game_assets'))assets.set(asset.asset_key,asset);
@@ -55,16 +69,16 @@
       }});
       card.append(chk);
 
-      const url=assetUrl(a);
-      if(a.kind==='image')card.append(el('img',{src:url,alt:a.display_name,loading:'lazy'}));
-      else card.append(el('div',{class:'studio-audio-icon',text:a.kind==='audio'?'AUDIO':'ASSET'}));
+      card.append(el('div',{class:'studio-audio-icon',text:a.kind==='audio'?'AUDIO':'IMAGE'}),el('code',{text:a.asset_key}),el('span',{class:'studio-muted',text:formatBytes(a.size_bytes)}));
 
       card.append(el('strong',{text:a.display_name}));
 
       const badges=el('div',{class:'studio-asset-card-badges'},[
         el('span',{class:'studio-badge badge-'+a.source_type,text:a.source_type.toUpperCase()}),
         el('span',{class:'studio-muted',text:categories[a.category]||a.category}),
-        el('span',{class:'studio-muted',text:a.is_public?'公開':'未公開'})
+        el('span',{class:'studio-muted',text:a.is_public?'公開':'未公開'}),
+        el('span',{class:'studio-muted',text:(StudioContent.state.data.asset_bindings||[]).some(b=>b.asset_key===a.asset_key)?'已發布綁定':'尚未發布綁定'}),
+        el('span',{class:'studio-muted',text:localPreview(a)?'有本地副本':'無本地副本'})
       ]);
       card.append(badges);
       return card;
@@ -93,7 +107,7 @@
 
   function detail(){
     const a=assets.get(selected);if(!a)return;
-    const target=byId('assetDetail'),url=assetUrl(a);
+    const target=byId('assetDetail');
     target.replaceChildren();
 
     const titleRow=el('div',{style:'display:flex;align-items:center;justify-content:space-between;gap:8px;'},[
@@ -102,12 +116,7 @@
     ]);
     target.append(titleRow);
 
-    if(a.kind==='image')target.append(el('img',{src:url,alt:a.display_name}));
-    if(a.kind==='audio'){
-      const audio=el('audio',{src:url,controls:true,preload:'none'});
-      audio.volume=Number(a.volume)||0;
-      target.append(audio,formField('試聽音量',audio.volume,v=>audio.volume=Number(v),{type:'range',min:0,max:1,step:.01}));
-    }
+    target.append(previewControls(a));
 
     const pairs=[
       ['asset_key',a.asset_key],
@@ -115,12 +124,11 @@
       ['檔案類型',a.mime_type||a.kind],
       ['檔案大小',formatBytes(a.size_bytes)],
       ['儲存路徑',a.local_path||[a.storage_bucket,a.storage_path].filter(Boolean).join('/')||a.external_url],
-      ['公開 URL',url],
       ['公開狀態',a.is_public?'已公開':'尚未公開'],
       ['版本',a.version||1]
     ];
     target.append(el('dl',{},pairs.flatMap(([label,value])=>[el('dt',{text:label}),el('dd',{text:value})])));
-    if(url)target.append(el('a',{href:url,target:'_blank',rel:'noopener',text:'在新分頁開啟公開 URL'}));
+
 
     // If local asset: show button to migrate single asset to Storage
     if(a.source_type==='local'){
@@ -158,13 +166,13 @@
           el('div',{class:'studio-asset-compare-grid'},[
             el('div',{class:'studio-compare-col'},[
               el('strong',{text:'雲端 Storage (新)'}),
-              a.kind==='image'?el('img',{src:url}):el('p',{text:'音訊'}),
+              previewControls(a),
               el('div',{text:'大小: '+formatBytes(a.size_bytes)}),
               el('div',{class:'studio-muted',text:a.storage_path})
             ]),
             el('div',{class:'studio-compare-col'},[
               el('strong',{text:'本地 Local (舊)'}),
-              localCounterpart.kind==='image'?el('img',{src:assetUrl(localCounterpart)}):el('p',{text:'音訊'}),
+              previewControls(localCounterpart),
               el('div',{text:'大小: '+formatBytes(localCounterpart.size_bytes)}),
               el('div',{class:'studio-muted',text:localCounterpart.local_path})
             ])
@@ -513,7 +521,7 @@
     // Draft / Refresh
     byId('assetLoadDrafts').onclick=()=>StudioUI.run(async()=>{
       if(unsaved&&!confirm('載入會放棄未儲存綁定，確定？'))return;
-      const [data,list]=await Promise.all([StudioWrite.request('/drafts'),StudioWrite.request('/assets')]);
+      const [data,list]=await Promise.all([StudioWrite.request('/drafts?scope=assets'),StudioWrite.request('/assets')]);
       for(const a of list)assets.set(a.asset_key,a);
       for(const b of data.asset_bindings)draftBindings.set(b.binding_key,b);
       unsaved=false;

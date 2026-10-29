@@ -245,8 +245,8 @@
 }
 
 .presentation-reward-rarity.is-common {
-  color: #38bdf8;
-  text-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+  color: var(--ui-accent);
+  text-shadow: 0 0 8px rgba(214, 173, 96, 0.4);
 }
 
 .presentation-reward-title {
@@ -392,8 +392,8 @@
 }
 .exploration-chest[data-variant="abyss"] .particle,
 .presentation-chest[data-variant="abyss"] .particle {
-  color: #38bdf8;
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+  color: var(--ui-accent);
+  text-shadow: 0 0 10px rgba(214, 173, 96, 0.9);
 }
 
 /* --- Chest Tuning Parameters --- */
@@ -406,7 +406,7 @@
 /* Glow tuning */
 [data-glow="off"] .chest-inner-glow { display: none !important; }
 [data-glow="medium"] .chest-inner-glow { filter: drop-shadow(0 0 16px rgba(251, 191, 36, 0.8)); }
-[data-variant="abyss"][data-glow="medium"] .chest-inner-glow { filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.8)); }
+[data-variant="abyss"][data-glow="medium"] .chest-inner-glow { filter: drop-shadow(0 0 16px rgba(214, 173, 96, 0.8)); }
 
 /* Particles tuning */
 [data-particles="off"] .presentation-chest-particles { display: none !important; }

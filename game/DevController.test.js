@@ -413,7 +413,7 @@ test('Dev guarantees chest ambush independently of RNG and preserves the opening
   }
 });
 
-test('Dev exposes both special elites for direct combat with their production stories and cloud portraits', t => {
+test('Dev exposes both special elites for direct combat with their production stories and local portraits', t => {
   for (const enemyId of ['shady_merchant','treasure_mimic']) {
     const { room, socket, controller: c, request } = setup(t);
     const status=c.inspect(socket,room);
@@ -422,7 +422,7 @@ test('Dev exposes both special elites for direct combat with their production st
     room.resolveRouteChoice(room.currentRoutes[0]);const transition=room.timerCallback;room.clearTimer();transition();
     const enemy=room.currentMonster;
     assert.equal(enemy.id,enemyId);assert.equal(room.enemies.length,1);assert.equal(enemy.tier,'ELITE');
-    assert.match(enemy.avatar,/^https:\/\/.+\.supabase.co\//);
+    assert.match(enemy.avatar,/^\/assets\/enemies\/elites\//);
     assert.match(enemy.encounterStory,enemyId==='treasure_mimic'?/金黃眼睛/:/攔住了小隊/);
     if(enemyId==='treasure_mimic')assert.ok(enemy.chestTreasure.drop);
     else assert.equal(enemy.isShadyMerchant,true);

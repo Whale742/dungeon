@@ -4,12 +4,12 @@ export class CloudError extends Error {
 export class SupabaseRest {
   constructor(env = process.env, fetcher = fetch) { this.env = env; this.fetcher = fetcher; }
   get configured() { return !!(this.env.SUPABASE_URL && this.env.SUPABASE_SECRET_KEY); }
-  async request(route, { method = 'GET', body, headers = {}, publicRead = false } = {}) {
+  async request(route, { method = 'GET', body, headers = {}, publicRead = false, timeoutMs = 10000 } = {}) {
     const key = this.env[publicRead ? 'SUPABASE_PUBLISHABLE_KEY' : 'SUPABASE_SECRET_KEY'];
     if (!this.env.SUPABASE_URL || !key) throw new CloudError('Supabase 尚未設定；本地預設仍可讀取');
     const response = await this.fetcher(this.env.SUPABASE_URL.replace(/\/$/, '') + route, {
       method, headers: { apikey: key, ...(key.startsWith('eyJ') ? { Authorization: 'Bearer ' + key } : {}), 'Content-Type': 'application/json', ...headers },
-      body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(10000)
+      body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs)
     });
     const result = await response.json().catch(() => null);
     if (!response.ok) throw new CloudError(result?.message || result?.error || 'Supabase 操作失敗', response.status >= 500 ? 503 : 400);

@@ -7,12 +7,21 @@ export const contentCache={data:null,loadedAt:0,pending:null,hash:null};
 export async function refreshPublished(cloud=new SupabaseRest()) {
   if(contentCache.pending)return contentCache.pending;
   contentCache.pending=(async()=>{
-    try {const tables=['role_profiles','skill_copies','story_copies','game_assets','asset_bindings'];
+    try {const tables=['role_profiles','skill_copies','story_copies'];
       const rows=await Promise.all(tables.map(t=>cloud.rows(t,t==='game_assets'?'is_public=eq.true':'status=eq.published',true)));
       const data=Object.fromEntries(tables.map((t,i)=>[t,rows[i]])),hash=createHash('sha256').update(JSON.stringify(data)).digest('hex');
       if(hash!==contentCache.hash){contentCache.data=data;contentCache.hash=hash;contentCache.loadedAt=Date.now();}return true;
     }catch{return false;}finally{contentCache.pending=null;}
   })();return contentCache.pending;
+}
+export const mediaCache={data:null,loadedAt:0,pending:null};
+export async function refreshMedia(cloud=new SupabaseRest(),force=false){
+  if(mediaCache.pending)return mediaCache.pending;
+  if(!force&&mediaCache.data&&Date.now()-mediaCache.loadedAt<60000)return true;
+  mediaCache.pending=(async()=>{try{
+    const [game_assets,asset_bindings]=await Promise.all([cloud.rows('game_assets','is_public=eq.true',true),cloud.rows('asset_bindings','status=eq.published',true)]);
+    mediaCache.data={game_assets,asset_bindings};mediaCache.loadedAt=Date.now();return true;
+  }catch{return false;}finally{mediaCache.pending=null;}})();return mediaCache.pending;
 }
 export function createRoomContent(source = contentCache.data) {
   const data=structuredClone(source||{}), rows=new Map((data.story_copies||[]).map(s=>[s.story_key,s]));
