@@ -209,6 +209,7 @@ io.on('connection', (transport) => {
   socket.emit('init:constants', { classes: displayClasses, routes: ROUTES, roleDetails: ROLE_DETAILS });
   const existing = rooms.get(socketToRoom.get(socket.id));
   const sameMode = !!existing?.isDev === (socket.handshake.auth?.devMode === true);
+  if (existing?.isDev && sameMode) devController.register(existing, socket);
   if (existing && sameMode && existing.state !== 'LOBBY' && !adventures.hasLostAuthority(existing) && reconnectPlayer(existing, socket, { newConnection: true })) {
     socket.emit('studio:content', existing.studioContent.snapshot); existing.spectators?.notify();
   }
@@ -284,6 +285,7 @@ io.on('connection', (transport) => {
 
   socket.on('adventure:restore', async (data, callback) => {
     try {
+      if (socket.handshake.auth?.devMode === true) throw Object.assign(new Error('/dev 不載入正式冒險；請建立 Dev 房間，或回到一般入口繼續冒險'), { code: 'DEV_MODE' });
       const id = data?.adventureId;
       if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) throw new Error('無效的冒險代碼');
       const current = rooms.get(socketToRoom.get(socket.id));
@@ -354,14 +356,19 @@ io.on('connection', (transport) => {
       }
       devAccess.revoke(socket);
       const existingCode = socketToRoom.get(socket.id);
-      if (rooms.get(existingCode)?.adventureId && rooms.get(existingCode).checkpoint?.status !== 'ended') {
+      const previous = rooms.get(existingCode);
+      const activeAdventure = previous?.adventureId && previous.checkpoint?.status !== 'ended';
+      if (activeAdventure && !isDev) {
         if (typeof callback === 'function') callback({ success: false, message: '請先暫離或永久離開目前冒險' });
         return;
       }
       if (existingCode && rooms.has(existingCode)) {
         socket.leave(existingCode);
-        const previous = rooms.get(existingCode);
-        previous.removePlayer(socket.id);
+        if (activeAdventure) {
+          // Entering Dev temporarily detaches the permanent formal character.
+          // Never withdraw it or transfer its equipment into the formal party.
+          disconnectPlayer(previous, socket.id); scheduleOfflineCleanup(previous);
+        } else previous.removePlayer(socket.id);
         if (previous.memberIds.length === 0) {
           previous.clearTimer();
           rooms.delete(existingCode);

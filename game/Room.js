@@ -8234,6 +8234,7 @@ export class Room {
 
     return {
       code: this.code,
+      isDev: this.isDev === true,
       adventureId: this.adventureId || null,
       checkpoint: this.checkpoint ? { ...this.checkpoint } : null,
       careerStatus: this.career?.status(this) || null,

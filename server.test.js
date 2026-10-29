@@ -446,3 +446,76 @@ test('spectator sockets apply, reject, approve and become a single formal member
   await request(observer, 'room:list'); await request(leader, 'room:list');
   assert.equal((await request(observer, 'route:vote', { routeId: state.currentRoutes[0].id })).success, true);
 });
+
+
+test('Dev entry cannot restore a formal multiplayer adventure; creating Dev detaches without withdrawing its permanent member', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t);
+  const [leader, peer] = await Promise.all([connect(), connect()]);
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(peer, 'room:join', { code });
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  await request(peer, 'player:select_role', { roleKey: 'mage' }); await request(peer, 'room:toggle_ready');
+  await request(leader, 'game:start'); await request(leader, 'prologue:skip');
+  await request(leader, 'event:shop_action', { action: 'leave' }); await request(peer, 'event:shop_action', { action: 'leave' });
+  const id = (await request(leader, 'adventure:list', {})).adventures[0].id;
+  const dev = await connect(true, leader.sessionCookie); await request(dev, 'room:list');
+  assert.equal(dev.playerId, leader.playerId); assert.notEqual(dev.id, dev.playerId);
+  const restored = await request(dev, 'adventure:restore', { adventureId: id });
+  assert.equal(restored.success, false, '/dev must not restore a formal room into its control panel');
+  const rejected = await request(dev, 'dev:authorize', { token }); assert.equal(rejected.code, 'NOT_DEV_ROOM');
+  const created = await request(dev, 'room:create', {}); assert.equal(created.success, true);
+  await request(dev, 'player:select_role', { roleKey: 'warrior' }); await request(dev, 'game:start');
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  const update = once(peer, 'room:update', { signal: t.signal }); peer.emit('room:resync');
+  const state = (await update)[0]; assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === leader.playerId).connected, false);
+  assert.equal(state.checkpoint.saveVersion, 1); assert.equal(state.isDev, false);
+  assert.equal((await request(peer, 'dev:authorize', { token })).code, 'NOT_DEV_ROOM');
+  assert.equal((await request(dev, 'player:career', {})).stats.adventures, 1);
+  assert.equal((await request(dev, 'adventure:list', {})).adventures.length, 1);
+});
+
+
+for (const bound of [false, true]) test((bound ? 'bound account' : 'guest') + ': Dev refresh preserves permanent solo identity, reauthorizes current transport and keeps formal stores empty', { timeout: 20000 }, async t => {
+  const { url, connect } = await launch(t);
+  let dev = await connect(true); await request(dev, 'room:list');
+  const id = dev.playerId;
+  if (bound) {
+    const response = await fetch(url + '/api/player/bind', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: dev.sessionCookie },
+      body: JSON.stringify({ username: 'dev_refresh_account', password: 'local-dev-qa-password-123' }) });
+    assert.equal(response.status, 200);
+    const cookie = response.headers.get('set-cookie').split(';')[0];
+    dev.disconnect(); dev = await connect(true, cookie); await request(dev, 'room:list');
+  }
+  const code = (await request(dev, 'room:create', {})).roomCode;
+  await request(dev, 'player:select_role', { roleKey: 'warrior' }); await request(dev, 'game:start');
+  await request(dev, 'prologue:skip'); await request(dev, 'event:shop_action', { action: 'leave' });
+  const stateOf = async socket => {
+    await request(socket, 'room:list'); const updated = once(socket, 'room:update', { signal: t.signal });
+    socket.emit('room:resync'); return (await updated)[0];
+  };
+  const first = await stateOf(dev); assert.equal(first.isDev, true); assert.equal(first.leaderId, id);
+  assert.equal(first.players.length, 1); assert.notEqual(dev.id, id);
+  dev.emit('route:interaction_ready', { presentationId: first.routePresentationId }); await request(dev, 'room:list');
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  const before = await request(dev, 'dev:inspect');
+  const change = { id: 'refresh-gold', roomCode: code, context: before.context, command: 'gold.set', params: { value: 321 } };
+  assert.equal((await request(dev, 'dev:command', change)).success, true);
+  const oldTransport = dev.id, cookie = dev.sessionCookie; dev.disconnect();
+  const fresh = await connect(true, cookie); await request(fresh, 'room:list');
+  assert.equal(fresh.playerId, id); assert.notEqual(fresh.id, oldTransport);
+  const state = await stateOf(fresh); assert.equal(state.code, code); assert.equal(state.players.length, 1); assert.equal(state.gold, 321);
+  assert.equal((await request(fresh, 'dev:command', change)).code, 'NOT_AUTHORIZED');
+  assert.equal((await request(fresh, 'dev:authorize', { token })).success, true);
+  const status = await request(fresh, 'dev:inspect'); assert.equal(status.audit.length, 1);
+  assert.equal((await request(fresh, 'dev:command', change)).duplicate, true);
+  fresh.emit('route:interaction_ready', { presentationId: state.routePresentationId }); await request(fresh, 'room:list');
+  const command = async (name, params) => { const status = await request(fresh, 'dev:inspect'); return request(fresh, 'dev:command', {
+    id: name.replaceAll('.', '-'), roomCode: code, context: status.context, command: name, params }); };
+  const grant = await command('item.grant', { playerId: id, itemId: 'short_sword', bag: 'personal' });
+  assert.equal(grant.success, true, grant.message);
+  assert.equal((await command('item.equip', { playerId: id, bag: 'personal', index: 0 })).success, true);
+  const equipped = await stateOf(fresh); assert.ok(equipped.players[0].equips.some(e => e.id === 'short_sword'));
+  assert.deepEqual((await request(fresh, 'adventure:list', {})).adventures, []);
+  assert.equal((await request(fresh, 'player:career', {})).stats.adventures, 0);
+});

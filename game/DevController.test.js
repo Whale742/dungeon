@@ -43,6 +43,28 @@ function randomBattle(t,role='druid') {
   f.ack=()=>{for(let i=0;i<4&&room.selectionState==='RESOLVING';i++)room.handlePresentationComplete('solo',room.battlePresentationId,room.battleRound);room.handleSelectionReady('solo',room.battleRound);};
   return f;
 }
+
+test('Dev reconnect rebinds broadcasts and random authorization without wrapping the old socket again', t => {
+  const { room, socket, access, controller } = setup(t, 'druid');
+  const record = controller.rooms.get(room);
+  access.revoke(socket);
+  const events = [];
+  const fresh = { id: socket.id, emit: (...args) => events.push(args) };
+  controller.register(room, fresh);
+  assert.equal(controller.rooms.get(room), record, 'reconnect must preserve the room command/audit record');
+  assert.equal(access.authorize(fresh, room, 'test-secret-123456789').success, true);
+  const request = { id: 'reconnected-gold', roomCode: room.code, context: controller.context(room), command: 'gold.set', params: { value: 234 } };
+  assert.equal(controller.execute(fresh, room, request).success, true);
+  assert.equal(events.filter(([event]) => event === 'dev:update').length, 1);
+  assert.equal(controller.inspect(socket, room).success, false);
+  assert.equal(controller.rooms.get(room).audit.length, 1);
+  room.broadcastState();
+  assert.equal(events.filter(([event]) => event === 'dev:update').length, 2);
+  const reserve = { id: 'reconnected-random', roomCode: room.code, context: controller.context(room), command: 'role.random.reserve',
+    params: { playerId: socket.id, skill: 'dru_transform', outcome: 'werewolf' } };
+  assert.equal(controller.execute(fresh, room, reserve).success, true);
+  assert.ok(roleRandomSnapshot(room).pending.solo);
+});
 const beast=()=>structuredClone([...TIER1_EQUIPMENTS,...LOOT_TABLE].find(e=>e.id==='dru_beast'));
 
 test('Druid natural form partitions are exactly halves or thirds, without chance sampling',()=>{
