@@ -1562,3 +1562,5 @@ body:has(#viewEntry.active) .main-content {
 #spectatorBanner.hidden { display:none; }
 .spectator-mode #playerActionCard, .spectator-mode #btnOpenInventory, .spectator-mode #btnLobbyExitRoom { display:none!important; }
 .spectator-mode .view-panel:not(#viewEntry) button, .spectator-mode .view-panel:not(#viewEntry) input, .spectator-mode .view-panel:not(#viewEntry) select { pointer-events:none; opacity:.65; }
+.spectator-mode .shop-squad-col, .spectator-mode .shop-special-actions, .spectator-mode .shop-trade-inspector { display:none!important; }
+.spectator-mode .shop-dual-column { display:block; }

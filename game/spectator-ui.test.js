@@ -12,7 +12,7 @@ function harness() {
     return nodes.get(key);
   };
   const state = { code: 'WATCH', stateVersion: 1, battleRound: 1, viewer: { spectator: true } };
-  const scope = { window: {}, document: { body: node('body'), createElement: () => node(Symbol()), getElementById: node, addEventListener() {} },
+  const scope = { window: {}, document: { body: node('body'), createElement: () => node(Symbol()), getElementById: node, querySelector: () => null, addEventListener() {} },
     socket: { on: (event, cb) => handlers[event] = cb, emit: (...args) => calls.push(args), timeout() { return this; } },
     roomState: state, console, receiveRoomState(s) { rendered.push(s.stateVersion); scope.roomState = s; },
     runPresentationQueue(queue, round, killed, id) { played.push(id); return new Promise(resolve => releases.push(resolve)); } };
