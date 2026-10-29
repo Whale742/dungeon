@@ -569,7 +569,7 @@ function preloadAugurAssets() {
   return augurPreloadPromise ||= Promise.all(['/assets/combat-fx/augur/augur1.png','/assets/combat-fx/augur/augur2.png','/assets/characters/portraits/Augur.webp'].map(path=>{
     if(typeof window!=='undefined' && window.assetRegistry)return window.assetRegistry.preloadImage(path).catch(()=>null);
     return new Promise(resolve=>{const img=new Image();img.onload=img.onerror=resolve;img.src=path;});
-  }));
+  })).then(results=>{if(results.some(result=>result===null))augurPreloadPromise=null;return results;});
 }
 if(typeof window!=='undefined')window.addEventListener('studio:content-ready',()=>{augurPreloadPromise=null;});
 

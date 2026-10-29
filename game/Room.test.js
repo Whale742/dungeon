@@ -2441,7 +2441,7 @@ test('Cloud-first registry resolves canonical images and bounded local fallback'
   assert.match(registry.resolvePath('/assets/icons/status/中毒.webp'),/images\/1.png$/);
   assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.match(css.get('--studio-battle-background'),/images\/4.png/);
   const detached=await registry.preloadImage('/assets/example.png');assert.match(detached.src,/images\/0.png$/);
-  assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');registry.markFailed('/assets/example.png');await assert.rejects(registry.preloadImage('/assets/example.png'),/Asset unavailable/);
+  assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');registry.markFailed('/assets/example.png');assert.equal((await registry.preloadImage('/assets/example.png')).src,'/assets/example.png','transient failures must be retryable');
   assert.equal(registry.resolvePath('https://other.example.test/assets/example.png'),'https://other.example.test/assets/example.png');
   assets.push({asset_key:'unbound',source_type:'storage',storage_bucket:'game-assets',storage_path:'images/unbound.png',is_public:true});events['studio:content-ready']();
   const custom='https://assets.example.test/storage/v1/object/public/game-assets/images/unbound.png';

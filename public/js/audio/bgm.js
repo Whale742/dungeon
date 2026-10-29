@@ -1,6 +1,6 @@
 const BGM_TRACKS=Object.freeze({
- normal:{src:'/assets/sound/bgm/bgm-normal.mp3',bindingKey:'bgm.normal',volume:.22,loadTimeoutMs:5000},
- boss:{src:'/assets/sound/bgm/bgm-boss.mp3',bindingKey:'bgm.boss',volume:.25,loadTimeoutMs:5000}
+ normal:{src:'/assets/sound/bgm/bgm-normal.mp3',bindingKey:'bgm.normal',volume:.22},
+ boss:{src:'/assets/sound/bgm/bgm-boss.mp3',bindingKey:'bgm.boss',volume:.25}
 });
 // Music uses the shared AudioContext/master mute, with its own looping voices.
 class BGMManager {
@@ -18,37 +18,45 @@ class BGMManager {
   if(!this.musicGain){this.musicGain=this.ctx.createGain();this.musicGain.gain.value=this.volume;this.musicGain.connect(this.audio.masterGain);}
   return this.musicGain;
  }
- preload(){this.audio.init(false);if(!this.ctx)return Promise.resolve([]);return Promise.all(Object.values(BGM_TRACKS).map(profile=>this.audio.loadAsset(profile)));}
+ preload(){return Promise.resolve([]);} // Long music streams on demand, never decode whole MP3s.
  async startTrack(name,fadeMs=0){
   const epoch=this.epoch,base=BGM_TRACKS[name],profile=typeof window!=='undefined'&&window.assetRegistry?window.assetRegistry.audioProfile(base):base;
   this.audio.init();if(!this.ctx)return null;
-  const buffer=await this.audio.loadAsset(profile);
-  if(!buffer||epoch!==this.epoch||this.mode!==name)return null;
+  if(!profile.src||epoch!==this.epoch||this.mode!==name)return null;
   if(this.voices[name])return this.voices[name];
-  const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),start=this.ctx.currentTime;
-  const offset=name==='normal'?this.normalOffset%buffer.duration:0;
-  source.buffer=buffer;source.loop=true;source.connect(gain);gain.connect(this.ensureMusicGain());
+  const media=new Audio(profile.src),source=this.ctx.createMediaElementSource(media),gain=this.ctx.createGain(),start=this.ctx.currentTime;
+  media.loop=true;media.preload='metadata';media.preservesPitch=false;
+  const offset=name==='normal'?this.normalOffset:0;
+  if(offset)media.addEventListener('loadedmetadata',()=>{if(Number.isFinite(media.duration))media.currentTime=offset%media.duration;},{once:true});
+  source.connect(gain);gain.connect(this.ensureMusicGain());
   gain.gain.value=fadeMs?0:profile.volume;
   gain.gain.setValueAtTime(fadeMs?0:profile.volume,start);
   if(fadeMs)gain.gain.linearRampToValueAtTime(profile.volume,start+fadeMs/1000);
-  const voice={source,gain,start,offset,buffer};
+  const voice={source,gain,start,offset,media};
   this.voices[name]=voice;
-  source.onended=()=>{if(this.voices[name]===voice)this.voices[name]=null;source.disconnect();gain.disconnect();};
-  source.start(start,offset);return voice;
+  media.onerror=()=>{if(this.voices[name]!==voice)return;this.stopTrack(name);this.retryCount=(this.retryCount||0)+1;if(this.retryCount<=2&&epoch===this.epoch&&this.mode===name&&!this.retryTimer){this.retryTimer=setTimeout(()=>{this.retryTimer=null;void this.startTrack(name,fadeMs);},1500);}};
+  media.addEventListener('playing',()=>{this.retryCount=0;},{once:true});
+  try{await media.play();}catch(error){if(this.voices[name]===voice)this.stopTrack(name);console.warn('[BGM] Playback awaiting gesture or network:',error.message);}
+  return this.voices[name];
  }
  stopTrack(name,save=false){
   const voice=this.voices[name];if(!voice)return;
-  if(save)this.normalOffset=(voice.offset+this.ctx.currentTime-voice.start)%voice.buffer.duration;
-  this.voices[name]=null;try{voice.source.stop();}catch{}
+  if(save)this.normalOffset=voice.media.currentTime;
+  this.voices[name]=null;voice.media.onerror=null;voice.media.pause();voice.media.removeAttribute('src');voice.media.load();voice.source.disconnect();voice.gain.disconnect();
  }
  async resumeNormal(){
   if(this.mode==='normal'&&this.voices.normal)return;
   this.mode='normal';this.epoch++;clearTimeout(this.bossTimer);this.bossTimer=null;
   this.stopTrack('boss');await this.startTrack('normal',1200);
  }
+ async resumeBoss(){
+  if(this.mode==='boss'&&this.voices.boss)return;
+  this.mode='boss';this.epoch++;clearTimeout(this.bossTimer);this.bossTimer=null;
+  this.stopTrack('normal',true);await this.startTrack('boss',500);
+ }
  async prepareBoss(signal){
   this.audio.init();
-  const preload=this.ctx?this.audio.loadAsset(BGM_TRACKS.boss):Promise.resolve(null);
+  const preload=Promise.resolve();
   this.mode='encounter';this.epoch++;const epoch=this.epoch;
   clearTimeout(this.bossTimer);this.bossTimer=null;
   this.encounterController?.abort();this.encounterController=new AbortController();
@@ -83,14 +91,15 @@ class BGMManager {
   const voice=this.voices[name];
   if(!voice){this.mode=finalMode;return Promise.resolve();}
   const now=this.ctx.currentTime;
-  voice.source.playbackRate.cancelScheduledValues(now);
-  voice.source.playbackRate.setValueAtTime(voice.source.playbackRate.value,now);
-  voice.source.playbackRate.linearRampToValueAtTime(0,now+2);
+  const started=performance.now();
+  const slowTimer=setInterval(()=>{voice.media.playbackRate=Math.max(.1,1-(performance.now()-started)/2000);},50);
+  this.slowTimer=slowTimer;
   this.deathPromise=new Promise(resolve=>{
    this.finishDeath=resolve;
    this.deathTimer=setTimeout(()=>{
-    this.deathTimer=null;this.stopTrack(name);this.mode=finalMode;
+    clearInterval(slowTimer);this.slowTimer=null;this.deathTimer=null;this.stopTrack(name);this.mode=finalMode;
     this.finishDeath=null;resolve();
+    if(typeof window!=='undefined')window.dispatchEvent?.(new Event('bgm:stopped'));
    },2000);
   });
   return this.deathPromise;
@@ -110,6 +119,7 @@ class BGMManager {
  }
  reset(){
   this.epoch++;this.mode='idle';clearTimeout(this.bossTimer);clearTimeout(this.deathTimer);
+  clearInterval(this.slowTimer);clearTimeout(this.retryTimer);this.retryTimer=null;this.retryCount=0;
   this.bossTimer=null;this.deathTimer=null;this.finishDeath?.();this.finishDeath=null;this.deathPromise=null;
   this.encounterController?.abort();this.encounterController=null;
   this.stopTrack('normal');this.stopTrack('boss');this.normalOffset=0;
@@ -119,4 +129,5 @@ const bgmManager=new BGMManager();
 if(typeof window!=='undefined'){
  window.bgmManager=bgmManager;window.BGMManager=BGMManager;
  window.addEventListener('pagehide',()=>bgmManager.reset());
+ for(const type of ['pointerup','keydown'])window.addEventListener(type,event=>{if(event.isTrusted&&['normal','boss'].includes(bgmManager.mode)&&!bgmManager.voices[bgmManager.mode])void bgmManager.startTrack(bgmManager.mode,500);});
 }
