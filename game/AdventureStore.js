@@ -54,10 +54,10 @@ export class MemoryAdventureStore {
       return structuredClone(row);
     }
     if (row.status !== 'active') {
-      if (action === 'finish' && row.status === x.status && row.lease_owner === x.owner) return structuredClone(row);
+      if (action === 'finish' && row.status === x.status && row.lease_owner === x.owner && row.lease_generation === x.generation) return structuredClone(row);
       return checked({ error: 'ENDED' });
     }
-    if (row.lease_owner !== x.owner || row.lease_generation !== x.generation || (row.lease_until <= now && action !== 'finish')) return checked({ error: 'CONFLICT' });
+    if (row.lease_owner !== x.owner || row.lease_generation !== x.generation || row.lease_until <= now) return checked({ error: 'CONFLICT' });
     if (action === 'save') {
       if (row.checkpoint_key !== x.key) {
         if (row.save_version !== x.version) return checked({ error: 'CONFLICT' });
@@ -74,7 +74,8 @@ export class MemoryAdventureStore {
     }
     else if (action === 'release') row.lease_until = now;
     else if (action === 'finish') {
-      if (!Number.isSafeInteger(x.version) || x.version > row.save_version || !['completed', 'failed', 'abandoned'].includes(x.status)) return checked({ error: 'CONFLICT' });
+      if (!Number.isSafeInteger(x.version) || x.version !== row.save_version ||
+          (x.requesterId && x.requesterId !== row.leader_id) || !['completed', 'failed', 'abandoned'].includes(x.status)) return checked({ error: 'CONFLICT' });
       row.status = x.status; row.checkpoint = null; row.checkpoint_key = null;
       row.checkpoint_floor = null; row.checkpoint_state = null; row.members = [];
     } else if (action === 'leave') {

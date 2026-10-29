@@ -39,12 +39,13 @@ BEGIN
   END IF;
  ELSE
   IF a.status<>'active' THEN
-   IF action='finish' AND a.status=payload->>'status' AND a.lease_owner=(payload->>'owner')::uuid THEN
+   IF action='finish' AND a.status=payload->>'status' AND a.lease_owner=(payload->>'owner')::uuid
+      AND a.lease_generation=(payload->>'generation')::bigint THEN
     RETURN to_jsonb(a)-'checkpoint';
    END IF;
    RETURN jsonb_build_object('error','ENDED');
   END IF;
-  IF a.lease_owner IS DISTINCT FROM (payload->>'owner')::uuid OR a.lease_generation IS DISTINCT FROM (payload->>'generation')::bigint OR (a.lease_until<=stamp AND action<>'finish')
+  IF a.lease_owner IS DISTINCT FROM (payload->>'owner')::uuid OR a.lease_generation IS DISTINCT FROM (payload->>'generation')::bigint OR a.lease_until<=stamp
    THEN RETURN jsonb_build_object('error','CONFLICT'); END IF;
   IF action='save' THEN
    IF a.checkpoint_key IS DISTINCT FROM (payload->>'key')::uuid THEN
@@ -77,7 +78,9 @@ BEGIN
   ELSIF action='release' THEN
    UPDATE public.game_adventures SET lease_until=stamp WHERE id=a.id RETURNING * INTO a;
   ELSIF action='finish' THEN
-   IF (payload->>'version') IS NULL OR (payload->>'version')::bigint > a.save_version OR payload->>'status' IS NULL OR payload->>'status' NOT IN ('completed','failed','abandoned')
+   IF a.save_version IS DISTINCT FROM (payload->>'version')::bigint OR
+      (payload ? 'requesterId' AND a.leader_id IS DISTINCT FROM (payload->>'requesterId')::uuid) OR
+      payload->>'status' IS NULL OR payload->>'status' NOT IN ('completed','failed','abandoned')
     THEN RETURN jsonb_build_object('error','CONFLICT'); END IF;
    UPDATE public.game_adventures SET status=payload->>'status',ended_at=stamp,checkpoint=NULL,checkpoint_key=NULL,checkpoint_floor=NULL,checkpoint_state=NULL WHERE id=a.id RETURNING * INTO a;
   ELSIF action='leave' THEN

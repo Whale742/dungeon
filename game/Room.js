@@ -1306,6 +1306,7 @@ export class Room {
   }
 
   startRouteSelection(options = {}) {
+    if (this.persistence?.executionStopped(this)) return;
     if (this.adventureId && this.state === 'CHOOSING_ROUTE' && this.checkpoint?.boundaryFloor === this.floor) return;
     this.clearTimer();
     this.timerCallback = null;
@@ -5399,6 +5400,7 @@ export class Room {
 
   // 戰鬥結算
   resolveTurnActions() {
+    if (this.persistence?.executionStopped(this)) return;
     this.clearTimer();
     this.selectionState = 'RESOLVING';
     this.isNarrating = true;
@@ -6793,7 +6795,6 @@ export class Room {
           } else {
             const countedCharms = Math.min(10, totalCharms);
             const hasMirror = (p.equips || []).some(e => e.id === 'onm_mirror');
-            const bonusPerCharm = hasMirror ? 5 : 3;
             const baseDamage = this.skillValue(p,'onm_detonate',{stacks:countedCharms}) + (hasMirror?2*countedCharms:0);
             const raw = Math.floor((this.applyFateBlessing(p,baseDamage)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
@@ -7925,6 +7926,7 @@ export class Room {
 
   // 演出完全結束後，進行勝負判定與下一回合過渡
   finishTurnPresentation() {
+    if (this.persistence?.executionStopped(this)) return;
     if (this.career?.deferUntilPersisted(this, () => this.finishTurnPresentation())) return;
     if (this.presentationSafetyTimer) {
       clearTimeout(this.presentationSafetyTimer);
@@ -7963,6 +7965,7 @@ export class Room {
   }
 
   advanceToNextFloorOrCheckpoint() {
+    if (this.persistence?.executionStopped(this)) return;
     this.clearTimer();
     const isCol9Boss = this.getHexNode(this.currentHex?.col, this.currentHex?.row)?.type === 'END_ELITE' || this.currentHex?.type === 'END_ELITE';
     if (isCol9Boss) {
@@ -8176,6 +8179,7 @@ export class Room {
     if (this.state === 'LOBBY' || this.state === 'GAME_OVER' || this.state === 'VICTORY') {
       return { success: false, message: '目前非戰鬥或探索狀態！' };
     }
+    if (this.adventureId && this.persistence) return this.persistence.end(this, socketId);
 
     this.clearTimer();
     this.isPaused = false;

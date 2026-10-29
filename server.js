@@ -186,9 +186,14 @@ io.on('connection', (transport) => {
       }
       const allowedWhileSaving = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry', 'route:interaction_ready', 'adventure:retry_save',
         'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'narrative:accelerate', 'player:rename'];
-      if (room?.adventureId && adventures.blocked(room) && !allowedWhileSaving.includes(_packet[0])) {
+      const terminalPending = room && adventures.isEnding(room);
+      const allowedWhileEnding = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry',
+        'adventure:retry_save', 'adventure:restore', 'adventure:detach', 'game:end_battle'];
+      if (room?.adventureId && adventures.blocked(room) && !(terminalPending ? allowedWhileEnding : allowedWhileSaving).includes(_packet[0])) {
+        adventures.trace(room, 'socket:rejected:' + String(_packet[0]).slice(0, 80));
         const reply = _packet.at(-1);
-        if (typeof reply === 'function') reply({ success: false, message: '冒險尚未安全保存或執行權限已失效，請重試保存或重新連線' });
+        if (typeof reply === 'function') reply({ success: false, code: 'ADVENTURE_BLOCKED', event: _packet[0],
+          reason: adventures.blockedReason(room), message: '冒險尚未安全保存或執行權限已失效，請重試保存或重新連線' });
         return;
       }
       next();
@@ -221,6 +226,7 @@ io.on('connection', (transport) => {
       if (rooms.get(socketToRoom.get(socket.id))?.players[socket.id]) throw new Error('請先暫離或離開目前隊伍');
       const room = rooms.get(String(data?.code || '').trim().toUpperCase());
       if (!room || room.isDev || ['GAME_OVER', 'VICTORY'].includes(room.state)) throw new Error('找不到可觀戰的房間');
+      if (socket.data.spectating && socket.data.spectating !== room.code) throw new Error('請先離開目前觀戰房間');
       const configured = Number(process.env.SPECTATOR_LIMIT ?? 5);
       room.spectators ||= new Spectators(room, io, Number.isInteger(configured) ? Math.max(0, Math.min(50, configured)) : 5, {
         onPromote(joining, target) { socketToRoom.set(joining.id, target.code); joining.emit('studio:content', target.studioContent.snapshot); }
@@ -842,12 +848,13 @@ io.on('connection', (transport) => {
   });
 
   // 11. 結束戰鬥 / 中止冒險
-  socket.on('game:end_battle', (data, callback) => {
+  socket.on('game:end_battle', async (data, callback) => {
     const cb = typeof data === 'function' ? data : callback;
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
-    if (!room) return;
-    const res = room.endBattle(socket.id);
+    if (!room) { if (typeof cb === 'function') cb({ success: !!socket.data.terminalState, message: '找不到冒險，請先恢復雲端冒險' }); return; }
+    adventures.trace(room, 'socket:received:game:end_battle');
+    const res = await room.endBattle(socket.id);
     if (typeof cb === 'function') cb(res);
   });
 

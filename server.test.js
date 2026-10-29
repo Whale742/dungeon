@@ -56,6 +56,34 @@ export function request(socket, event, data) {
   });
 }
 
+for (const [count, observers] of [[1, 1], [4, 1], [10, 5]]) test(`${count} saved members/${observers} late observers preserve checkpoint and leader termination ACK follows commit`, { timeout: 25000 }, async t => {
+  const { connect } = await launch(t, false);
+  const leader = await connect(), code = (await request(leader, 'room:create', {})).roomCode;
+  const roles = ['warrior', 'mage', 'archer', 'assassin', 'bard', 'alchemist', 'druid', 'samurai', 'sage', 'augur'];
+  const members = [leader, ...await Promise.all(Array.from({ length: count - 1 }, () => connect()))];
+  for (const [i, member] of members.entries()) {
+    if (i) assert.equal((await request(member, 'room:join', { code })).success, true);
+    await request(member, 'player:select_role', { roleKey: roles[i] });
+    if (i) await request(member, 'room:toggle_ready');
+  }
+  await request(leader, 'game:start'); await request(leader, 'prologue:skip');
+  for (const member of members) await request(member, 'event:shop_action', { action: 'leave' });
+  const stateOf = async member => {
+    const update = once(member, 'room:update', { signal: t.signal }); member.emit('room:resync'); return (await update)[0];
+  };
+  const before = await stateOf(leader); assert.equal(before.checkpoint.status, 'saved');
+  const watchers = await Promise.all(Array.from({ length: observers }, () => connect()));
+  for (const watcher of watchers) assert.equal((await request(watcher, 'spectator:join', { code })).success, true);
+  const after = await stateOf(leader);
+  assert.deepEqual(after.checkpoint, before.checkpoint); assert.equal(after.players.length, count);
+  if (count > 1) assert.equal((await request(members[1], 'game:end_battle', {})).success, false);
+  const ended = watchers.map(watcher => once(watcher, 'spectator:ended', { signal: t.signal }));
+  assert.equal((await request(leader, 'game:end_battle', {})).success, true); await Promise.all(ended);
+  const final = await stateOf(leader); assert.equal(final.checkpoint.status, 'ended'); assert.equal(final.state, 'GAME_OVER');
+  assert.equal((await request(leader, 'game:end_battle', {})).success, true);
+  assert.equal((await request(leader, 'adventure:restore', { adventureId: before.adventureId })).code, 'ENDED');
+});
+
 test('ten members plus five spectator sockets are separate, capped, read-only and can reconnect without blocking members', { timeout: 40000 }, async t => {
   const { connect } = await launch(t, false);
   const leader = await connect(), code = (await request(leader, 'room:create', {})).roomCode;

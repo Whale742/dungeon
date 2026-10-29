@@ -4954,12 +4954,21 @@ if (elements.btnCancelEndBattle) {
 }
 
 if (elements.btnConfirmRetreat) {
-  elements.btnConfirmRetreat.addEventListener('click', () => {
+  elements.btnConfirmRetreat.addEventListener('click', async () => {
+    if (elements.btnConfirmRetreat.disabled) return;
+    elements.btnConfirmRetreat.disabled = true;
     ModalMotion.hide(elements.endBattleModal);
     playSound('click');
-    socket.emit('game:end_battle', {}, (res) => {
-      if (!res.success) alert(res.message);
-    });
+    try {
+      const res = await new Promise(resolve => socket.timeout(20000).emit('game:end_battle', {}, (error, reply) =>
+        resolve(error ? { success: false, message: '結束尚未確認，請保持連線並重試結束。' } : reply)));
+      if (res?.code === 'RESTORE_REQUIRED' && res.adventureId) {
+        const restored = await new Promise(resolve => socket.timeout(20000).emit('adventure:restore',
+          { adventureId: res.adventureId }, (error, reply) => resolve(error ? null : reply)));
+        if (restored?.success) showToast('已恢復雲端冒險，請確認目前隊長後再次選擇結束冒險。', 'warning', 6000);
+        else showToast(restored?.message || '目前無法取得執行權限，請稍後重新連線並從冒險列表恢復。', 'warning', 8000);
+      } else if (!res?.success) showToast(res?.message || '結束尚未確認，請重試。', 'warning', 6000);
+    } finally { elements.btnConfirmRetreat.disabled = false; }
   });
 }
 

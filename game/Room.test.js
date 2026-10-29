@@ -573,8 +573,9 @@ function onmyojiBattle(t) {
   return {...f,enemy};
 }
 for(const [name,equips,resistance,expected] of [
-  ['initial',[],0,15],['magic gear',[{bonusMagAtk:8}],0,23],
-  ['physical gear excluded',[{bonusPhysAtk:80}],0,15],['magic resistance',[],20,12]
+  ['initial',[],0,20],['magic gear',[{bonusMagAtk:8}],0,32],
+  ['half rounds up',[{bonusMagAtk:1}],0,22],
+  ['physical gear excluded',[{bonusPhysAtk:80}],0,20],['magic resistance',[],20,16]
 ])test('Onmyoji direct talisman damage: '+name,t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
   player.equips=equips;enemy.resistances.magic=resistance;player.action='onm_talisman';
@@ -589,7 +590,7 @@ for(const [name,equips,resistance,expected] of [
 test('Onmyoji capped target still takes damage; lethal direct hit never rolls or attaches a talisman',t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
   enemy.talismans=Array(10).fill('seal');player.action='onm_talisman';room.resolveTurnActions();
-  assert.equal(enemy.hp,985);assert.equal(enemy.talismans.length,10);
+  assert.equal(enemy.hp,980);assert.equal(enemy.talismans.length,10);
   let step=resolutionQueue(events).find(s=>s.actionId==='onm_talisman');
   assert.equal(step.results.filter(r=>r.finalDamage>0).length,1);
   enemy.hp=10;enemy.talismans=[];player.action='onm_talisman';
@@ -601,8 +602,8 @@ for(const count of [0,1,2])test('Onmyoji first drain retains existing stack rule
   enemy.talismans=Array(count).fill('drain');player.rolledTalisman='drain';player.action='onm_talisman';
   room.resolveTurnActions();
   const step=resolutionQueue(events).find(s=>s.actionId==='onm_talisman');
-  assert.deepEqual(step.results.filter(r=>r.finalDamage>0).map(r=>r.finalDamage),[15,50*(count+1)]);
-  assert.equal(enemy.hp,1000-15-50*(count+1));
+  assert.deepEqual(step.results.filter(r=>r.finalDamage>0).map(r=>r.finalDamage),[20,50*(count+1)]);
+  assert.equal(enemy.hp,1000-20-50*(count+1));
 });
 test('Onmyoji brush and leader drain use 5% without changing their stack rules',t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
@@ -653,11 +654,11 @@ test('Onmyoji production animation commits each damage result once, including ca
     assert.equal(flights,state==='drain'?2:1);
     const hits=committed.filter(r=>r.finalDamage>0);
     assert.equal(hits.length,state==='drain'?2:1);
-    assert.equal(hits.reduce((sum,r)=>sum+r.actualDamage,0),state==='drain'?65:state==='lethal'?10:15);
+    assert.equal(hits.reduce((sum,r)=>sum+r.actualDamage,0),state==='drain'?70:state==='lethal'?10:20);
   }
 });
-for(const [count,mirror,expected] of [[0,false,0],[1,false,13],[10,false,40],[10,true,60],[12,false,40]])
-test(`Onmyoji detonation unchanged: ${count} charms, mirror=${mirror}`,t=>{
+for(const [count,mirror,expected] of [[0,false,0],[1,false,19],[10,false,127],[10,true,147],[12,false,127]])
+test(`Onmyoji detonation scaling: ${count} charms, mirror=${mirror}`,t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
   enemy.talismans=Array(count).fill('blind');enemy.permanentTalismans=[...enemy.talismans];
   player.equips=mirror?[{id:'onm_mirror'}]:[];player.action='onm_detonate';room.resolveTurnActions();
@@ -799,6 +800,17 @@ for(const [action,cd] of [['sg_observe',1],['sg_clock',2]])test('Stargazer reduc
   const {room,player}=phase1Battle(t,'stargazer');t.mock.method(Math,'random',()=>.95);
   assert.equal(getPlayerSkills(player).find(s=>s.id===action).cd,cd);
   player.action=action;room.resolveTurnActions();assert.equal(player.cooldowns[action],cd);
+});
+for(const [equips,expected] of [[[],22],[[{bonusMagAtk:1}],23],[[{bonusMagAtk:2}],25],[[{bonusPhysAtk:80}],22]])
+test('Stargazer constellation uses rounded magical attack scaling: '+JSON.stringify(equips),t=>{
+  const {room,player,events}=phase1Battle(t,'stargazer');
+  t.mock.method(Math,'random',()=>.1);
+  player.equips=equips;
+  const enemy=room.enemies[1];enemy.DEF=0;enemy.defense=0;enemy.resistances={physical:0,magic:0,effect:0};
+  player.action='sg_observe';room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.sourceId===player.id&&s.actionId==='sg_observe');
+  assert.equal(step.outcome.type,'star');
+  assert.deepEqual(step.results.filter(r=>r.kind==='damage').map(r=>r.finalDamage),[expected]);
 });
 for(const [roll,outcome] of [[.1,'star'],[.65,'planet'],[.75,'galaxy'],[.85,'blackhole'],[.95,'boundary']])test('Phase 4 actual observation branch owns its concrete targets: '+outcome,t=>{
   const {room,player,events}=phase1Battle(t,'stargazer');t.mock.method(Math,'random',()=>roll);

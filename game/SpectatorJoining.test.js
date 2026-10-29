@@ -116,7 +116,8 @@ test('join checkpoint failure retains spectator permissions and retry promotes e
   const h = fixture(t, { store }), id = h.approve(); h.room.startRouteSelection(); h.choose(id);
   await h.persistence.saveBoundary(h.room);
   assert.equal(h.room.checkpoint.status, 'failed'); assert.equal(h.room.spectators.members.has('observer'), true);
-  assert.equal(h.room.players.observer.connected, false); assert.deepEqual(h.promoted, []);
+  assert.equal(h.room.players.observer, undefined); assert.equal(h.room.memberIds.includes('observer'), false);
+  assert.deepEqual(h.promoted, []);
   fail = false; assert.equal((await h.persistence.retry(h.room, 'leader')).success, true);
   assert.deepEqual(h.promoted, ['observer']); assert.equal(memory.rows.size, 1);
   h.room.spectators.checkpointSaved(); assert.deepEqual(h.promoted, ['observer']);
@@ -153,12 +154,12 @@ test('all-offline suspension drops live mutations and releases lease for last su
   t.after(() => restored.clearTimer()); assert.equal(restored.gold, gold); assert.notEqual(restored, h.room);
 });
 
-test('termination can retry after lease expiry if ownership has not changed', async t => {
+test('expired authority cannot terminate, even when ownership has not changed', async t => {
   let time = Date.now(); const store = new MemoryAdventureStore({ now: () => time });
   const h = fixture(t, { store }); h.room.startRouteSelection(); await h.persistence.saveBoundary(h.room);
-  time += LEASE_MS + 1;
-  h.room.handleGameOver(); assert.equal(await h.persistence.finish(h.room), true);
-  assert.equal(store.rows.get(h.room.adventureId).checkpoint, null);
+  time += LEASE_MS + 1; h.persistence.now = () => time;
+  assert.equal((await h.room.endBattle('leader')).code, 'RESTORE_REQUIRED');
+  assert.notEqual(store.rows.get(h.room.adventureId).checkpoint, null);
 });
 
 test('last veteran disconnecting during admission does not retire the newly committed connected member', async t => {
