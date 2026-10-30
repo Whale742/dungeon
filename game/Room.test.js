@@ -185,26 +185,55 @@ test('HUD queue retirement respects reduced motion, playback speed and cancellat
   }
 });
 
-test('Sage feedback follows the battlefield actor and selected enemy in both phases',async()=>{
-  const scope={innerWidth:1440,innerHeight:810,getBattleEffectAnchor:()=>({rect:{width:75,height:85}})};vm.createContext(scope);
-  vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+test('Sage Canvas follows moving stage anchors and commits each authoritative result once at contact',async()=>{
   for(const phase of ['hypothesis','solve'])for(const actionId of ['basic','sge_deduce','sge_induce']){
-    const actor={x:840,y:680},enemy={x:1100,y:260},renderers=[],positions=[];
-    const stage={local:{sourceId:'actor',battlefield:true},anchors:new Map([['actor',actor],['monster',enemy]]),
-      root:{dataset:{}},signal:{aborted:false},reduced:false,
-      el:(tag,className)=>({className,style:{},remove(){this.removed=true;}}),
-      position:(node,x,y)=>{node.x=x;node.y=y;positions.push({node,x,y});},
-      startRenderer:render=>{renderers.push(render);render();},animate(){},wait:async()=>{},
-      tick:async(ms,render)=>{render(0);render(1);}};
-    const anchor=scope.sageOperandAnchor(stage,17);
-    await scope.sageOperandFeedback(stage,{sourceId:'actor',actionId},{sagePhase:phase,operandBefore:17,operandAfter:26,operandDelta:9,actualDamage:9},anchor);
-    assert.equal(anchor.number.textContent,actionId==='sge_induce'&&phase==='hypothesis'?'17':'26');
-    const ghost=positions.find(p=>p.node.className==='sage-skill-damage-ghost');
-    if(ghost){assert.deepEqual([ghost.x,ghost.y],[enemy.x,enemy.y]);assert.equal(ghost.node.removed,true);}
-    actor.x=520;actor.y=550;renderers.forEach(render=>render());
-    assert.deepEqual([anchor.node.x,anchor.node.y],[520,450]);
-    for(const p of positions.filter(p=>p.node.className==='sage-momentum-cue'))assert.notEqual(p.x,260);
+    const actor={x:840,y:680},enemy={x:1100,y:260},frames=[],commits=[],timings=[],nodes=[];
+    let elapsed=0,snapshots=0;
+    const hit=actionId==='basic'?550:actionId==='sge_deduce'?1050:phase==='solve'?1100:1090;
+    const scope={
+      createSageSkillRenderer:()=>({clear(){},render:(skill,t,solve,a,b,handoffAge)=>frames.push({skill,t,solve,a:{...a},b:{...b},handoffAge})}),
+      commitBattlefieldGroup:(_s,step,results)=>commits.push({elapsed,results}),applyHpSnapshot:()=>snapshots++,
+      withSkillPresentationStage:async(_step,_context,play)=>play({
+        local:{battlefield:true},anchors:new Map([['actor',actor],['monster',enemy]]),signal:{aborted:false},
+        el:(tag,className)=>{const n={className,setAttribute(){},remove(){this.removed=true;}};nodes.push(n);return n;},
+        timeline:async(ms,update)=>{for(elapsed=0;elapsed<ms;elapsed+=10){if(elapsed===200){actor.x=520;enemy.y=310;}update(elapsed/ms);}elapsed=ms;update(1);}
+      })
+    };
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+    const result={resultId:'real-result',actualDamage:37},snapshot={players:[]};
+    await scope.playSageSkillPresentation({sourceId:'actor',actionId,results:[result],hpSnapshot:snapshot,sagePresentation:{sagePhase:phase}},
+      {onTiming:beat=>timings.push(beat)});
+    assert.equal(commits.length,1);assert.equal(commits[0].elapsed,hit);assert.equal(commits[0].results[0],result);
+    assert.equal(frames[0].a.x,840);assert.equal(frames.at(-1).a.x,520);assert.equal(frames.at(-1).b.y,310);
+    assert.equal(frames.at(-1).solve,phase==='solve');assert.equal(frames.at(-1).handoffAge,phase==='solve'?.24:null);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
+    assert.equal(timings.filter(b=>b==='sage_equation_handoff').length,phase==='solve'?1:0);
   }
+});
+
+test('Sage Canvas cancellation never commits a later hit or final snapshot',async()=>{
+  let commits=0,snapshots=0;
+  const scope={createSageSkillRenderer:()=>({clear(){},render(){}}),commitBattlefieldGroup:()=>commits++,applyHpSnapshot:()=>snapshots++,
+    withSkillPresentationStage:async(_step,_context,play)=>play({local:{battlefield:true},anchors:new Map([['actor',{x:800,y:600}],['monster',{x:700,y:200}]]),signal:{aborted:false},
+      el:()=>({setAttribute(){},remove(){}}),timeline:async(_ms,update)=>{update(.2);throw new DOMException('cancelled','AbortError');}})};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+  await assert.rejects(scope.playSageSkillPresentation({sourceId:'actor',actionId:'sge_deduce',hpSnapshot:{},sagePresentation:{sagePhase:'solve'}}),{name:'AbortError'});
+  assert.equal(commits,0);assert.equal(snapshots,0);assert.equal(vm.runInContext('sageSamplingVisuals.casting.size',scope),0);
+});
+
+test('Sage sampling payload accepts only real enemy direct HP or shield loss',t=>{
+  const {room,player}=fixture(t,'sage');player.sageInduction=true;player.sageOperand=17;
+  for(const kind of ['dot','friendly','environment','self','sage_confusion']){
+    const result={hpDmg:5,tempAbsorbed:3};room.p8RecordDamage(player,result,{kind});
+    assert.equal(player.sageOperand,17);assert.equal(result.sageMomentumCapture,undefined);
+  }
+  const avoided={hpDmg:0,tempAbsorbed:0};room.p8RecordDamage(player,avoided,{kind:'enemy_direct'});
+  assert.equal(avoided.sageMomentumCapture,undefined);assert.equal(player.sageOperand,17);
+  const absorbed={hpDmg:0,tempAbsorbed:7};room.p8RecordDamage(player,absorbed,{kind:'enemy_direct'});
+  assert.deepEqual(absorbed.sageMomentumCapture,{operandBefore:17,operandAfter:24,delta:7});
+  const hit={hpDmg:4,tempAbsorbed:2};room.p8RecordDamage(player,hit,{kind:'enemy_direct'});
+  assert.deepEqual(hit.sageMomentumCapture,{operandBefore:24,operandAfter:30,delta:6});
+  player.sageInduction=false;const expired={hpDmg:9,tempAbsorbed:0};room.p8RecordDamage(player,expired,{kind:'enemy_direct'});
+  assert.equal(expired.sageMomentumCapture,undefined);assert.equal(player.sageOperand,30);
 });
 
 test('Painted archer projectile leaves the bow and tracks a moving concrete target',async()=>{

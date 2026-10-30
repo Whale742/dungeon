@@ -982,6 +982,7 @@ function receiveRoomState(state) {
     return;
   }
   if(state.state!=='IN_BATTLE'&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
+  if(state.state!=='IN_BATTLE'&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
   if (battlePhaseController && (state.state !== 'IN_BATTLE' || battlePhaseController.battleKey !== battleSceneKey(state))) {
     battlePhaseController.abort();
     releaseBattleEncounterScene();
@@ -1106,6 +1107,7 @@ function releaseBattleEncounterScene(){
 let audioView = null;
 
 function switchView(viewName) {
+  if(viewName!=='battle'&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
   if(viewName!=='battle')releaseBattleEncounterScene();
   if(viewName==='battle'&&battleEncounterScene){gateDestinationView('battle');return;}
   document.body.classList.toggle("is-exploring", ["route", "transition", "event", "battle"].includes(viewName));
@@ -4746,9 +4748,11 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
-    if(controller.signal.aborted&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
     if (combatQueueController === controller) {
       if (controller.signal.aborted && queue.at(-1)?.hpSnapshot) applyHpSnapshot(queue.at(-1).hpSnapshot);
+      // Final authoritative reconciliation may recreate status visuals; clear
+      // cancelled Sage models after that snapshot, within this queue's ownership.
+      if(controller.signal.aborted&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
       combatQueueController = null;
       isProcessingPresentationQueue = false;
       isPlayingBattleNarrative = false;

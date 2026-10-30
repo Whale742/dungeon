@@ -128,3 +128,7 @@
 .sage-properties{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 12px}
 .sage-properties span{flex:0 0 auto;font-size:16px}
 .skill-production-stage[data-reduced-motion=true] .sage-confusion-cutin{filter:none}
+
+/* Sage Canvas sits below official floating feedback and required HUD. */
+.sage-skill-canvas{position:absolute;inset:0;width:1440px;height:810px;pointer-events:none;z-index:0}
+.sage-sampling-canvas{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:14990}

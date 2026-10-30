@@ -1,158 +1,125 @@
-// Choreography only: every displayed number is a server field. The shared stage
-// owns animations, cancellation, audio, impact and authoritative HP rendering.
+// Production queue owns results, audio, cancellation and authoritative snapshots.
+// The renderer only receives skill/phase/time and current scene coordinates.
 function sagePresentationData(step) {
   if(step.sagePresentation)return step.sagePresentation;
   const before=step.hpSnapshotBefore?.players?.find(p=>p.id===step.sourceId);
   const after=step.hpSnapshot?.players?.find(p=>p.id===step.sourceId);
   return {sagePhase:before?.sagePhase,operandBefore:before?.sageOperand,
-    operandAfter:after?.sageOperand,xBefore:before?.sageX,xAfter:after?.sageX,actualDamage:step.finalDamage};
+    operandAfter:after?.sageOperand,xBefore:before?.sageX,xAfter:after?.sageX};
 }
-function sageOperandAnchor(s,value) {
-  // One temporary operand anchor, not a second resource HUD. The existing battle
-  // HUD remains the owner of 變量(X), 運算元 and phase.
-  const actor=s.anchors.get(s.local?.sourceId)||s.phase5Actor||{x:260,y:430};
-  const n=s.el('div','sage-skill-operand');s.position(n,actor.x,actor.y+(s.local?.battlefield?-100:100));
-  const label=s.el('small','',null,n);label.textContent='運算元';
-  const number=s.el('span','sage-skill-number',null,n);number.textContent=String(value??'—');
-  s.startRenderer(()=>{const a=s.anchors.get(s.local?.sourceId)||actor;s.position(n,a.x,a.y+(s.local?.battlefield?-100:100));});
-  return {node:n,number};
-}
-function sageVector(s,offset=0) {
-  const a=s.phase5Actor||{x:320,y:430},b=s.anchors.get('monster')||{x:1170,y:430};
-  const line=s.el('div','sage-vector-line');s.position(line,a.x,a.y);
-  const length=Math.hypot(b.x-a.x,b.y-a.y);line.style.width=length+'px';line.style.rotate=Math.atan2(b.y-a.y,b.x-a.x)+'rad';
-  for(const fraction of [.18,.42,.7]){const tick=s.el('i','sage-vector-tick',null,line);tick.style.left=(length*fraction)+'px';}
-  s.startRenderer(()=>{
-    const from=s.anchors.get(s.local?.sourceId)||a,to=s.anchors.get('monster')||b;
-    const distance=Math.hypot(to.x-from.x,to.y-from.y);
-    s.position(line,from.x,from.y);line.style.width=distance+'px';line.style.rotate=Math.atan2(to.y-from.y,to.x-from.x)+'rad';
-    [...line.children].forEach((tick,i)=>tick.style.left=(distance*[.18,.42,.7][i])+'px');
-  });
-  if(offset)s.animate(line,[{transform:`translateY(${offset}px) rotate(${offset*.12}deg)`,opacity:.35},{transform:'translateY(0) rotate(0)',opacity:.95}],230);
-  return line;
-}
-function sageImpulse(s,x,y) {
-  const n=s.el('div','sage-vector-impulse');s.position(n,x,y);
-  s.animate(n,[{opacity:.8,transform:'scaleX(.15)'},{opacity:0,transform:'scaleX(1)'}],160);
-}
-function sageScan(s,anchor) {
-  const n=s.el('i','sage-skill-scan',null,anchor.node);
-  s.animate(n,[{opacity:.8,transform:'translateY(-20px)'},{opacity:0,transform:'translateY(20px)'}],260);
-}
-async function sageOperandFeedback(s,step,data,anchor) {
-  const solve=data.sagePhase==='solve',id=step.actionId;
-  const actor=()=>s.anchors.get(step.sourceId)||s.phase5Actor||{x:260,y:430};
-  if(id==='sge_induce'&&solve){
-    const cue=s.el('span','sage-momentum-cue');
-    cue.textContent=`${data.operandBefore} + ${data.operandDelta} = ${data.operandAfter}`;
-    s.startRenderer(()=>{const a=actor();s.position(cue,a.x,a.y+(s.local?.battlefield?-135:135));});
-    s.root.dataset.operandOperation='add';
-    sageScan(s,anchor);
-    s.animate(cue,[{opacity:0,transform:'translate(-50%,calc(-50% - 8px))'},{opacity:1,transform:'translate(-50%,-50%)'}],260);
-    await s.wait(260);if(s.signal.aborted)return;
-    cue.remove();anchor.number.textContent=String(data.operandAfter);
-    const a=actor();sageImpulse(s,a.x,a.y+(s.local?.battlefield?-100:100));await s.wait(200);return;
-  }
-  if(id==='sge_induce'){
-    const frame=s.el('div','sage-sampling-frame');
-    s.startRenderer(()=>{
-      const a=actor();s.position(frame,a.x,a.y);
-      if(s.local?.battlefield){
-        const target=getBattleEffectAnchor(step.sourceId),scale=Math.min(innerWidth/1440,innerHeight/810)||1;
-        if(target){frame.style.width=(target.rect.width+12)/scale+'px';frame.style.height=(target.rect.height+12)/scale+'px';}
-      }
-    });
-    frame.innerHTML=sageSamplingMarkup();sageScan(s,anchor);await s.wait(280);return;
-  }
-  const replace=!solve&&id==='basic';
-  let returnMotion=Promise.resolve();
-  if(!solve){
-    const ghost=s.el('span','sage-skill-damage-ghost');ghost.textContent=String(data.actualDamage);
-    const returnLine=s.el('div','sage-vector-line');
-    s.startRenderer(()=>{
-      const a=actor(),b=s.anchors.get('monster')||SKILL_STAGE.target;
-      s.position(returnLine,b.x,b.y);returnLine.style.width=Math.hypot(a.x-b.x,a.y+(s.local?.battlefield?-100:100)-b.y)+'px';
-      returnLine.style.rotate=Math.atan2(a.y+(s.local?.battlefield?-100:100)-b.y,a.x-b.x)+'rad';
-    });
-    returnMotion=s.tick(replace?220:280,p=>{
-      const a=actor(),b=s.anchors.get('monster')||SKILL_STAGE.target;
-      s.position(ghost,s.reduced?a.x:b.x+(a.x-b.x)*p,s.reduced?a.y+(s.local?.battlefield?-100:100):b.y+(a.y+(s.local?.battlefield?-100:100)-b.y)*p);
-      ghost.style.opacity=String(.65*(1-p));returnLine.style.opacity=String(.25*(1-p));
-    }).finally(()=>{ghost.remove();returnLine.remove();});
-    returnMotion.catch(()=>{});
-  }
-  const cue=s.el('span','sage-skill-delta',null,anchor.node);
-  // Fixed skill cues communicate the rule; all operands still come from payload.
-  if(!replace)cue.textContent=solve?(id==='basic'?'+2':'+5'):'+'+data.actualDamage;
-  if(solve&&id==='basic'){
-    const calibration=s.el('i','sage-skill-two-ticks',null,anchor.node),marker=s.el('b','',null,calibration);
-    s.animate(marker,[{transform:'translateX(0)'},{transform:'translateX(12px)',offset:.5},{transform:'translateX(24px)'}],220);
-  }else sageScan(s,anchor);
-  await Promise.all([s.wait(replace?220:280),returnMotion]);if(s.signal.aborted)return;
-  anchor.number.textContent=String(data.operandAfter);cue.remove();
-  s.root.dataset.operandOperation=replace?'replace':solve?'increment':'add';
-}
+const SAGE_SKILL_CUES=Object.freeze({
+  basic:{skill:'basic',hit:550,duration:750,gap:160},
+  sge_deduce:{skill:'vector',hit:1050,duration:1500,gap:25},
+  sge_induce:{skill:'momentum',hit:1100,hypothesisHit:1090,duration:1500,gap:160}
+});
 async function playSageSkillPresentation(step,context={}) {
-  const data=sagePresentationData(step),basic=step.actionId==='basic',vector=step.actionId==='sge_deduce';
-  const parentSignal=context.signal;
-  let prepared;
-  const prepareStage=s=>{
-    s.root.classList.add('sage-skill-stage');s.root.dataset.sagePhase=data.sagePhase||'';
-    s.phase5Actor=s.anchors.get(step.sourceId)||{x:320,y:430};
-    const anchor=sageOperandAnchor(s,data.operandBefore);
-    const lines=vector?[sageVector(s),sageVector(s)]:[sageVector(s)];
-    const point=s.el('div','sage-vector-mass');s.position(point,s.phase5Actor.x,s.phase5Actor.y);
-    let contour;
-    if(vector){const target=s.anchors.get('monster')||{x:1170,y:430};contour=s.el('div','sage-vector-contour');s.position(contour,target.x,target.y);}
-    prepared={anchor,lines,point,contour};
-  };
-  await withSkillPresentationStage(step,{...context,castAudioNoHold:true,prepareStage},async s=>{
-    const {anchor,lines,point,contour}=prepared;
-    if(vector){
-      lines.forEach((line,i)=>{const offset=i?9:-9;s.animate(line,[{transform:`translateY(${offset}px) rotate(${offset*.12}deg)`,opacity:.35},{transform:'translateY(0) rotate(0)',opacity:.95}],230);});
-      await s.wait(230);
-    }
-    await s.tick(basic?200:250,p=>{const a=s.anchors.get(step.sourceId)||s.phase5Actor,b=s.anchors.get('monster')||SKILL_STAGE.target;
-      s.position(point,a.x+(b.x-a.x)*p,a.y+(b.y-a.y)*p);});if(s.signal.aborted)return;
-    point.style.opacity='0';for(const line of lines)s.animate(line,[{opacity:.7},{opacity:0}],180);
-    if(contour)s.animate(contour,[{opacity:.3,transform:'translate(-50%,-50%)'},{opacity:0,transform:'translate(-50%,calc(-50% + 8px))'}],160);
-    const target=s.anchors.get('monster')||SKILL_STAGE.target;
-    sageImpulse(s,target.x,target.y);context.onTiming?.('sage_projectile_contact',{step});
-    await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false});if(s.signal.aborted)return;
-    await sageOperandFeedback(s,step,data,anchor);
-    if(!s.signal.aborted&&step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
-    context.onTiming?.('sage_operand_update',{step,data});await s.wait(basic?60:100);
-  });
-  if(!parentSignal?.aborted)context.onTiming?.('sage_skill_exit',{step});
-}
-function sageSamplingMarkup(){return '<i></i><i></i><i></i><i></i><b></b><em></em>';}
-function syncSageSamplingIndicator(entity,layer) {
-  let n=layer.querySelector('.sage-sampling-indicator');
-  if(!entity?.sageSampling||entity.hp<=0){n?.remove();return;}
-  if(!n){n=document.createElement('div');n.className='sage-sampling-indicator';n.innerHTML=sageSamplingMarkup();layer.appendChild(n);}
-}
-function clearSageSamplingIndicators(){document.querySelectorAll('.sage-sampling-indicator').forEach(n=>n.remove());}
-async function playSageMomentumCapture(result,card,context={}) {
-  const d=result.sageMomentumCapture;if(!d||context.signal?.aborted)return;
-  const actual=typeof getActorAnchor==='function'?getActorAnchor(resolvePresentationTarget(result))?.element:null;
-  if(actual)card=actual;
-  const root=document.createElement('div');root.className='sage-momentum-feedback';
-  root.textContent=`運算元 ${d.operandBefore} +${d.delta}`;card.appendChild(root);
-  const ghost=document.createElement('span');ghost.className='sage-momentum-capture-ghost';ghost.textContent=String(d.delta);root.appendChild(ghost);
-  const reduced=context.reducedMotion||matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const a=root.animate([{opacity:.75,transform:'translateY(-12px)'},{opacity:1,transform:'translateY(0)'}],{duration:(reduced?80:200)/(context.speed||1),fill:'forwards'});
-  const flow=ghost.animate(reduced?[{opacity:.4},{opacity:0}]:[{opacity:.6,transform:'translate(55px,-140px)'},{opacity:0,transform:'translate(0,0)'}],{duration:(reduced?80:200)/(context.speed||1),fill:'forwards'});
-  a.finished.catch(()=>{});flow.finished.catch(()=>{});const stop=()=>{a.cancel();flow.cancel();root.remove();};context.signal?.addEventListener('abort',stop,{once:true});
+  const data=sagePresentationData(step),solve=data.sagePhase==='solve',cue=SAGE_SKILL_CUES[step.actionId];
+  const hit=!solve&&cue.hypothesisHit||cue.hit;
+  // Prototype's 3.25s hypothesis includes a simulated enemy turn. In production
+  // that idle/capture section lives with the real sampling status, not this cast.
+  // The original hook signals handoff at .24s. Its later placeholder hold is
+  // replaced by the already queued production equation, never a second effect.
+  const duration=cue.duration+(solve?cue.gap+240:0);
+  sageSamplingVisuals.casting.add(step.sourceId);
   try {
-    context.onTiming?.('sage_capture',{result});
-    await waitForPresentation(reduced?80:200,context.signal,context.speed||1);
-    if(!context.signal?.aborted){
-      root.textContent='運算元 '+d.operandAfter;
-      if(result.targetAfter&&typeof applyHpSnapshot==='function')applyHpSnapshot({players:[result.targetAfter]});
-      await waitForPresentation(60,context.signal,context.speed||1);
-    }
-  }finally{context.signal?.removeEventListener('abort',stop);stop();}
+    await withSkillPresentationStage(step,{...context,castAudioNoHold:true},async s=>{
+      const canvas=s.el('canvas','sage-skill-canvas');canvas.setAttribute('aria-hidden','true');
+      const renderer=createSageSkillRenderer(canvas);
+      let time=0,ended=false,contact=false;
+      const draw=()=>{
+        if(ended)return;renderer.clear(1440,810);
+        const source=s.anchors.get(step.sourceId)||SKILL_STAGE.actor;
+        const target=s.anchors.get('monster')||s.anchors.get(step.targetId)||SKILL_STAGE.target;
+        renderer.render(cue.skill,Math.min(time,cue.duration)/1000,solve,source,target,
+          solve&&time>cue.duration+cue.gap?(time-cue.duration-cue.gap)/1000:null);
+      };
+      if(!s.local?.battlefield){
+        let origin;
+        s.startRenderer(elapsed=>{origin??=elapsed;time=(elapsed-origin)*1000;draw();});
+      }
+      if(s.local?.battlefield){
+        // A single production timeline commits the server results once at the
+        // authored contact frame. Rings, flashes and fragments emit no results.
+        await s.timeline(duration,p=>{
+          time=p*duration;draw();
+          if(!contact&&time>=hit){
+            contact=true;commitBattlefieldGroup(s,step,step.results||[]);
+            context.onTiming?.('sage_projectile_contact',{step});
+          }
+        });
+      }else{
+        // Legacy result-card stage uses its existing result presentation path.
+        await s.wait(hit);if(s.signal.aborted)return;
+        context.onTiming?.('sage_projectile_contact',{step});
+        await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false});
+        await s.wait(Math.max(0,duration-time));
+      }
+      if(s.signal?.aborted)return;
+      ended=true;canvas.remove();
+      if(step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
+      context.onTiming?.('sage_operand_update',{step,data});
+      if(solve)context.onTiming?.('sage_equation_handoff',{step});
+    });
+  }finally{sageSamplingVisuals.casting.delete(step.sourceId);}
+  if(!context.signal?.aborted)context.onTiming?.('sage_skill_exit',{step});
 }
+
+// All persistent sampling models share one viewport canvas and one RAF. Portrait
+// status reconciliation owns membership; no per-hit DOM, timer or resource state.
+const sageSamplingVisuals={models:new Map(),casting:new Set(),canvas:null,renderer:null,raf:0};
+function clearSageSamplingIndicators(){
+  const v=sageSamplingVisuals;cancelAnimationFrame(v.raf);v.raf=0;
+  v.canvas?.remove();v.canvas=v.renderer=null;v.models.clear();v.casting.clear();
+}
+function syncSageSamplingIndicator(entity,layer) {
+  const v=sageSamplingVisuals,id=entity?.id;
+  if(!id)return;
+  if(!entity.sageSampling||entity.hp<=0){v.models.delete(id);if(!v.models.size)clearSageSamplingIndicators();return;}
+  const model=v.models.get(id)||{born:performance.now(),captures:[]};
+  model.layer=layer;v.models.set(id,model);
+  if(v.raf)return;
+  if(!v.canvas){
+    v.canvas=document.createElement('canvas');v.canvas.className='sage-sampling-canvas';
+    v.canvas.setAttribute('aria-hidden','true');document.body.appendChild(v.canvas);
+    v.renderer=createSageSkillRenderer(v.canvas);
+  }
+  const draw=now=>{
+    v.raf=0;if(!v.canvas)return;
+    v.renderer.clear(innerWidth,innerHeight);
+    for(const [id,m] of v.models){
+      if(!m.layer.isConnected){v.models.delete(id);continue;}
+      m.captures=m.captures.filter(c=>(now-c.at)*c.speed<500);
+      if(v.casting.has(id))continue;
+      const a=typeof getBattleEffectAnchor==='function'?getBattleEffectAnchor(id):null;
+      const r=(a?.element||m.layer.closest('.portrait-root')||m.layer).getBoundingClientRect();
+      if(!r.width||!r.height)continue;
+      const anchor=a||{x:r.left+r.width/2,y:r.top+r.height/2};
+      const radius=Math.max(32,Math.min(90,(a?.rect.width||r.width)*.7));
+      v.renderer.sampling((now-m.born)/1000,anchor,radius,m.captures.map(c=>(now-c.at)/1000*c.speed));
+    }
+    if(v.models.size)v.raf=requestAnimationFrame(draw);else clearSageSamplingIndicators();
+  };
+  v.raf=requestAnimationFrame(draw);
+}
+async function playSageMomentumCapture(result,card,context={}) {
+  if(!result.sageMomentumCapture||context.signal?.aborted)return;
+  const id=resolvePresentationTarget(result);
+  // This payload is emitted by p8RecordDamage only for accepted enemy_direct
+  // HP/shield absorption. Never infer eligibility from client damage amounts.
+  const target=result.targetAfter;
+  if(target?.hp<=0){sageSamplingVisuals.models.delete(id);return;}
+  let model=sageSamplingVisuals.models.get(id);
+  if(!model){
+    const root=typeof getActorAnchor==='function'?getActorAnchor(id)?.element:card;
+    const layer=root?.querySelector('.status-fx-surface')||root;
+    if(layer&&target?.sageSampling){syncSageSamplingIndicator({...target,id},layer);model=sageSamplingVisuals.models.get(id);}
+  }
+  if(model)model.captures.push({at:performance.now(),speed:context.speed||1});
+  context.onTiming?.('sage_capture',{result});
+  await waitForPresentation(500,context.signal,context.speed||1);
+}
+if(typeof window!=='undefined')window.addEventListener('pagehide',clearSageSamplingIndicators);
+
 async function playSageEquationOutcome(s,step,context,operand,variable) {
   const o=step.outcome;
   if(o.xBefore==null||o.xAfter==null)return;
