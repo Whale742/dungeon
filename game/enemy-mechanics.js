@@ -119,7 +119,7 @@ export const enemyCanParticipate = (room, enemy) => {
   const arena = lockedArena(room) || room.arenaRoundLock;
   return !arena || !arena.enemyId || arena.enemyId === enemy.instanceId;
 };
-const players = room => Object.values(room.players).filter(p => p.hp > 0 &&
+const players = room => room.getCombatPlayers().filter(p => p.hp > 0 &&
   (!(lockedArena(room) || room.arenaRoundLock) || (lockedArena(room) || room.arenaRoundLock).playerId === p.id));
 const living = room => room.getLivingEnemies().filter(e => enemyCanParticipate(room, e));
 const find = (room, id) => living(room).find(e => state(e).id === id);
@@ -259,7 +259,7 @@ export function sweepEnemyDeaths(room,step=null) {
     record(room,enemy,enemy,'死亡','death',()=>{state(enemy).deathProcessed=true;enemy.tempHp=0;enemy.untargetableThisRound=false;});
     if(state(enemy).id==='lava_larva') for(const p of players(room)) strike(room,enemy,p,B.explosionDamage,'焦油自爆',{posthumous:true,type:'mag'});
     if(room.enemyArena?.enemyId===enemy.instanceId)room.enemyArena=null;
-    for(const p of Object.values(room.players))for(const [id,e] of Object.entries(p.enemyEffects||{})) {
+    for(const p of room.getCombatPlayers())for(const [id,e] of Object.entries(p.enemyEffects||{})) {
       if((e.sourceId===enemy.instanceId && (id.startsWith('mark_') || id==='parasite')) || (state(enemy).id==='glutton'&&id==='parasite'))record(room,enemy,p,'來源死亡・標記解除','cleanse',()=>{delete p.enemyEffects[id];});
     }
   }
@@ -275,7 +275,7 @@ export function enemyRoundStart(room) {
   if(room.arena && room.arena.until<room.battleRound)room.p8ExitArena(room.enemyMechanicQueue ||= []);
   if(room.enemyArena && room.enemyArena.until<room.battleRound)room.enemyArena=null;
   if(room.arena && !room.arena.enemyId)room.arena.enemyId=room.currentMonster?.instanceId;
-  for(const p of Object.values(room.players)) {
+  for(const p of room.getCombatPlayers()) {
     p.enemyActionMultiplier=1;
     for(const [id,e] of Object.entries(p.enemyEffects||{}))if(e.until<room.battleRound){
       const source=(room.enemies||[]).find(enemy=>enemy.instanceId===e.sourceId);
@@ -469,7 +469,7 @@ export function runEnemyAction(room,enemy,queue) {
   const interceptedMinions=new Map();
   const intercept=(damage)=>{
     if(lockedArena(room))return damage;
-    for(const owner of Object.values(room.players))for(const minion of owner.minions||[]) {
+    for(const owner of room.getCombatPlayers())for(const minion of owner.minions||[]) {
       if(minion.hp<=0||damage<=0)continue;
       const amount=Math.min(minion.hp,damage);
       if(amount>0)interceptedOwners.add(owner.id);

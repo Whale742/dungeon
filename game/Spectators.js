@@ -1,4 +1,6 @@
 import { metrics } from './performance.js';
+import { randomUUID } from 'node:crypto';
+import { CLASSES } from './constants.js';
 
 const fields = text => new Set(text.split(/\s+/));
 // Closed projection shared by state and already-published visual events. Unknown
@@ -82,23 +84,163 @@ export function spectatorState(room, state = room.getClientState()) {
   projected.viewer = { spectator: true, count: room.spectators?.members.size || 0, limit: room.spectators?.limit || 0 };
   return projected;
 }
-export const spectatorReads = new Set(['spectator:leave', 'room:resync', 'room:list', 'player:career', 'player:rename', 'adventure:list']);
+export const spectatorReads = new Set(['spectator:leave', 'spectator:apply', 'spectator:cancel', 'spectator:select_role', 'room:resync', 'room:list', 'player:career', 'player:rename', 'adventure:list']);
 const publicEvents = new Set(['room:update', 'battle:presentation_queue', 'battle:visual_events', 'prologue:skipped',
   'narrative:accelerated', 'abyss:red_eye_flash', 'event:shop_closed', 'event:shop_player_ready']);
 export class Spectators {
-  constructor(room, io, limit = 5) {
+  constructor(room, io, limit = 5, { now = Date.now, timeoutMs = 60000, onPromote = () => {} } = {}) {
     this.room = room; this.io = io; this.limit = limit; this.members = new Map();
     this.channel = 'spectators:' + room.code;
+    this.requests = new Map(); this.now = now; this.timeoutMs = timeoutMs; this.onPromote = onPromote;
+    this.waiting = false; this.committing = false;
   }
   join(socket) {
-    if (this.room.isDev || this.room.players[socket.id]) return { success: false, message: '正式隊員及 Dev 房間不能加入觀戰' };
+    if (this.room.isDev || this.room.players[socket.id] || ['GAME_OVER', 'VICTORY'].includes(this.room.state)) return { success: false, message: '正式隊員、已結束或 Dev 房間不能加入觀戰' };
+    const code = this.room.persistence?.spectatorAccess(this.room);
+    if (code) {
+      this.room.persistence.trace(this.room, 'spectator:rejected');
+      return { success: false, code, message: '冒險已暫停、正在停用或執行權限已失效，請等待正式玩家恢復冒險後再觀戰' };
+    }
     if (!this.members.has(socket.id) && this.members.size >= this.limit) return { success: false, message: '觀戰名額已滿' };
     this.members.set(socket.id, socket); socket.join(this.channel);
+    this.room.persistence?.trace(this.room, 'spectator:join');
     socket.emit('room:update', spectatorState(this.room));
+    this.notify();
     return { success: true, roomCode: this.room.code, spectator: true };
   }
-  leave(id) { const socket = this.members.get(id); socket?.leave(this.channel); this.members.delete(id); }
-  close() { for (const [id, socket] of this.members) { socket.data.spectating = null; socket.emit('spectator:ended'); this.leave(id); } }
+  leave(id) {
+    const socket = this.members.get(id); socket?.leave(this.channel); this.members.delete(id);
+    this.room.persistence?.trace(this.room, 'spectator:leave');
+    if (!this.committing) { this.requests.delete(id); this.maybeCommit(); this.notify(); }
+  }
+  close() {
+    clearTimeout(this.deadlineTimer); this.waiting = false; this.committing = false; this.requests.clear();
+    for (const [id, socket] of this.members) { socket.data.spectating = null; socket.emit('spectator:ended'); socket.leave(this.channel); }
+    this.members.clear();
+  }
+  active() {
+    const r = this.room;
+    return !r.isDev && !!r.adventureId && !['LOBBY', 'GAME_OVER', 'VICTORY'].includes(r.state) &&
+      !r.persistence?.executionStopped(r) && !r.persistence?.hasLostAuthority(r);
+  }
+  publicStatus() {
+    return { waiting: this.waiting, committing: this.committing, deadline: this.deadline || null,
+      requests: [...this.requests.values()].map(({ playerId, name, requestId, status, role }) => ({ playerId, name, requestId, status, role })),
+      checkpoint: this.room.routePresentationId };
+  }
+  notify() {
+    const state = this.publicStatus();
+    this.io.to(this.room.leaderId).emit('spectator:requests', state);
+    for (const [id, socket] of this.members) socket.emit('spectator:application', {
+      ...state, requests: state.requests.filter(r => r.playerId === id) });
+  }
+  apply(id) {
+    if (!this.active() || !this.members.has(id) || this.room.players[id] || this.committing || this.room.persistence?.blocked(this.room)) return { success: false, message: '目前無法申請加入冒險' };
+    if (this.requests.has(id)) return { success: false, message: '已有待處理的申請' };
+    if (this.room.memberIds.length + this.requests.size >= 10) return { success: false, message: '正式隊伍或候補名額已滿' };
+    const socket = this.members.get(id);
+    const request = { playerId: id, name: socket.data.identity.display_name, requestId: randomUUID(), status: 'requested', role: null };
+    this.requests.set(id, request); this.notify();
+    return { success: true, requestId: request.requestId };
+  }
+  review(leaderId, { playerId, requestId, approve } = {}) {
+    const r = this.requests.get(playerId);
+    if (!this.active() || this.room.leaderId !== leaderId || !this.room.players[leaderId]?.connected ||
+      !r || r.requestId !== requestId || typeof approve !== 'boolean' || r.status !== 'requested') return { success: false, message: '隊長或申請版本無效' };
+    if (approve) r.status = 'approved_pending_checkpoint'; else this.requests.delete(playerId);
+    this.notify(); return { success: true };
+  }
+  cancel(id, requestId) {
+    const r = this.requests.get(id);
+    if (this.committing || !r || r.requestId !== requestId) return { success: false, message: '申請版本已變更或正在保存' };
+    this.requests.delete(id); this.maybeCommit(); this.notify(); return { success: true };
+  }
+  beginCheckpoint() {
+    if (!this.active() || this.waiting || this.committing) return this.waiting || this.committing;
+    for (const [id, r] of this.requests) {
+      if (r.status !== 'approved_pending_checkpoint') continue;
+      if (!this.members.has(id) || this.room.players[id] || this.room.memberIds.length >= 10) { this.requests.delete(id); continue; }
+      r.status = 'choosing_role'; r.role = null;
+    }
+    this.waiting = [...this.requests.values()].some(r => r.status === 'choosing_role');
+    if (!this.waiting) return false;
+    this.deadline = this.now() + this.timeoutMs;
+    this.deadlineTimer = setTimeout(() => this.expire(), this.timeoutMs); this.deadlineTimer.unref();
+    this.notify(); return true;
+  }
+  selectRole(id, { requestId, role, checkpoint } = {}) {
+    const r = this.requests.get(id);
+    if (!this.active() || !this.waiting || this.committing || !this.members.has(id) || !r || r.requestId !== requestId ||
+      r.status !== 'choosing_role' || checkpoint !== this.room.routePresentationId || this.now() >= this.deadline || !CLASSES[role] ||
+      Object.values(this.room.players).some(p => p.role === role) || [...this.requests.values()].some(q => q !== r && q.role === role)) return { success: false, message: '職業、申請或檢查點已失效，請重新選擇' };
+    r.role = role; r.status = 'ready'; this.maybeCommit(); this.notify(); return { success: true };
+  }
+  expire() {
+    if (!this.waiting || this.committing) return;
+    for (const [id, r] of this.requests) if (r.status === 'choosing_role') this.requests.delete(id);
+    this.maybeCommit(); this.notify();
+  }
+  maybeCommit() {
+    if (!this.waiting || this.committing || [...this.requests.values()].some(r => r.status === 'choosing_role')) return;
+    clearTimeout(this.deadlineTimer); this.committing = true;
+    const room = this.room;
+    this.admissions = new Map();
+    for (const [id, r] of this.requests) {
+      if (r.status !== 'ready') continue;
+      if (!this.members.has(id) || room.memberIds.length >= 10 || room.players[id] || Object.values(room.players).some(p => p.role === r.role)) { this.requests.delete(id); continue; }
+      room.players[id] = room.createPlayer(id, r.name);
+      room.initializeRole(room.players[id], r.role); room.memberIds.push(id);
+      room.players[id].connected = false;
+      this.admissions.set(id, room.players[id]);
+      r.status = 'saving';
+    }
+    room.broadcastState();
+    room.finalizeRouteCheckpoint();
+    this.admissionRoster = room.stageRoster;
+  }
+  checkpointFailed() {
+    if (!this.committing || !this.admissions?.size) return;
+    const room = this.room;
+    for (const id of this.admissions.keys()) {
+      delete room.players[id];
+      room.memberIds = room.memberIds.filter(member => member !== id);
+    }
+    if (room.stageRoster) {
+      const playerIds = room.stageRoster.playerIds.filter(id => !this.admissions.has(id));
+      room.stageRoster = playerIds.length ? Object.freeze({ ...room.stageRoster,
+        playerIds: Object.freeze(playerIds), count: playerIds.length }) : null;
+      room.stageRosterPending = !room.stageRoster;
+    }
+  }
+  checkpointSaved() {
+    if (!this.committing) return;
+    // The immutable save job contains these same characters and membership.
+    // Restore staged characters only after a successful (possibly retried) CAS.
+    for (const [id, player] of this.admissions || []) {
+      this.room.players[id] = player;
+      if (!this.room.memberIds.includes(id)) this.room.memberIds.push(id);
+    }
+    if (this.admissionRoster) { this.room.stageRoster = this.admissionRoster; this.room.stageRosterPending = false; }
+    this.waiting = false; this.committing = false; this.deadline = null;
+    for (const [id, r] of this.requests) if (r.status === 'saving') {
+      const socket = this.members.get(id);
+      this.requests.delete(id); this.members.delete(id);
+      if (socket) {
+        this.room.players[id].connected = true;
+        socket.leave(this.channel); socket.data.spectating = null;
+        this.onPromote(socket, this.room); socket.join(this.room.code);
+        socket.emit('spectator:promoted');
+        this.room.pendingPresentationAcks.add(id);
+        if (this.room.identityOfflinePause && !this.room.persistence?.hasLostAuthority(this.room)) {
+          this.room.identityOfflinePause = false;
+          if (this.room.isPaused) this.room.togglePause(id);
+        }
+      } else this.room.players[id].connected = false;
+      this.room.career?.joined(this.room, id);
+    }
+    this.admissions = null; this.admissionRoster = null;
+    this.notify();
+  }
   emit(event, data) {
     if (!this.members.size || !publicEvents.has(event)) return;
     const start = metrics.enabled ? performance.now() : 0;

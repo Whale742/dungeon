@@ -2225,8 +2225,8 @@ export const LEADER_SKILLS = Object.freeze({
     role: 'onmyoji',
     name: '萬符歸宗',
     type: 'ACTIVE',
-    desc: '可以一次性貼上所有類型符咒各兩張，此方式貼上的符咒不會掉落。',
-    combatDesc: '可以一次性貼上所有類型符咒各兩張，此方式貼上的符咒不會掉落（每場戰鬥限使用一次）'
+    desc: '先造成 round(2 + 150% × A魔) 魔法傷害，再貼上所有類型符咒各兩張，此方式貼上的符咒不會掉落。',
+    combatDesc: '先造成 round(2 + 150% × A魔) 魔法傷害，再貼上所有類型符咒各兩張，此方式貼上的符咒不會掉落（每場戰鬥限使用一次）'
   },
   sage: {
     id: 'leader_sage',

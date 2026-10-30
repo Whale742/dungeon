@@ -21,7 +21,10 @@ function fixture(t, { count = 2, store = new MemoryCareerStore(), roles = Object
   t.after(() => { career.close(); room.clearTimer(); for (const k of ['roundStartTimer', 'selectionReadyTimer', 'presentationSafetyTimer']) clearTimeout(room[k]); });
   return { room, career, store, sockets, queues, io };
 }
-const battle = h => h.room.handleBattleEvent(null, false, { col: 1, rng: () => .8 });
+const battle = h => {
+  h.room.startRouteSelection({ skipIntro: true });
+  return h.room.handleBattleEvent(null, false, { col: 1, rng: () => .8 });
+};
 function hit(h, { owner = h.sockets[0].id, value = 8, shield = 0, minion = false } = {}) {
   const room = h.room, before = room.getHpSnapshot(), enemy = room.currentMonster;
   enemy.tempHp = shield;

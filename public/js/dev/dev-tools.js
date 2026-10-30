@@ -57,7 +57,7 @@ export function mountDevTools(socket) {
     if (rows.some(r => r[key] === selected)) select.value = selected;
   }
   function render() {
-    const active = socket.connected && state?.state !== 'LOBBY' && state?.players?.some(p => p.id === socket.playerId);
+    const active = socket.connected && state?.isDev === true && !['LOBBY', 'GAME_OVER', 'VICTORY'].includes(state.state) && state?.players?.some(p => p.id === socket.playerId);
     $('#dev-toggle').hidden = !active;
     if (!active) { close(); status = null; }
     $('#dev-auth').hidden = Boolean(status?.success);
@@ -108,7 +108,7 @@ export function mountDevTools(socket) {
       else socket.timeout(5000).emit(event, data, ack);
     });
   }
-  async function refresh() { status = await emit('dev:inspect'); render(); }
+  async function refresh() { status = await emit('dev:inspect'); if (!status.success) message(status.message); render(); }
   $('#dev-toggle').onclick = async () => {
     $('#dev-drawer').hidden = false; $('#dev-toggle').setAttribute('aria-expanded', 'true');
     try { await refresh(); if (!status.success) $('#dev-token').focus(); } catch (e) { message(e.message); }
@@ -168,4 +168,6 @@ export function mountDevTools(socket) {
   socket.on('room:update', value => { state = value; render(); });
   socket.on('dev:update', value => { status = value; render(); });
   socket.on('disconnect', () => { state = null; status = null; catalogLoaded = false; render(); message('連線已中斷，重新連線後必須再次授權'); });
+  // The dynamic import can finish after the reconnect's first room:update.
+  if (socket.connected) socket.emit('room:resync');
 }

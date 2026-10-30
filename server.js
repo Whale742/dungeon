@@ -131,6 +131,37 @@ function generateRoomCode() {
   return code;
 }
 
+function retireRoom(room) {
+  room.spectators?.close(); room.clearTimer();
+  rooms.delete(room.code); career.release(room);
+  for (const id of room.memberIds) {
+    if (socketToRoom.get(id) === room.code) socketToRoom.delete(id);
+    activeConnections.get(id)?.leave(room.code);
+  }
+}
+function bindLifecycle(room) {
+  // The adventure ends, but the formal party keeps its room and channels.
+  room.onAdventureEnded = () => {
+    room.broadcastState();
+    for (const id of room.memberIds) {
+      const connection = activeConnections.get(id);
+      if (connection) connection.data.terminalState = room.getClientState();
+    }
+    room.spectators?.close();
+    career.release(room);
+  };
+}
+const offlineCleanup = new WeakMap();
+function scheduleOfflineCleanup(room) {
+  clearTimeout(offlineCleanup.get(room));
+  const timer = setTimeout(async () => {
+    if (Object.values(room.players).some(p => p.connected)) return;
+    if (room.state === 'LOBBY' || room.isDev) retireRoom(room);
+    else if (await adventures.suspend(room)) retireRoom(room);
+  }, room.adventureId ? 0 : Number(process.env.ROOM_OFFLINE_GRACE_MS) || 30000);
+  timer.unref(); offlineCleanup.set(room, timer);
+}
+
 io.on('connection', (transport) => {
   const socket = playerSocket(transport);
   const previous = activeConnections.get(socket.id);
@@ -147,11 +178,22 @@ io.on('connection', (transport) => {
         return;
       }
       const room = rooms.get(socketToRoom.get(socket.id));
-      const allowedWhileSaving = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry', 'route:interaction_ready', 'adventure:retry_save',
-        'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'narrative:accelerate', 'player:rename'];
-      if (room?.adventureId && adventures.blocked(room) && !allowedWhileSaving.includes(_packet[0])) {
+      if (room?.state === 'IN_BATTLE' && !room.isStageParticipant(socket.id) &&
+          (_packet[0].startsWith('battle:') || _packet[0] === 'leader:use_skill' || _packet[0] === 'inventory:use_item')) {
         const reply = _packet.at(-1);
-        if (typeof reply === 'function') reply({ success: false, message: '冒險尚未安全保存或執行權限已失效，請重試保存或重新連線' });
+        if (typeof reply === 'function') reply({ success: false, message: '本階段未參戰，請等待下一次路線選擇' });
+        return;
+      }
+      const allowedWhileSaving = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry', 'route:interaction_ready', 'adventure:retry_save',
+        'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'game:restart', 'narrative:accelerate', 'player:rename'];
+      const terminalPending = room && adventures.isEnding(room);
+      const allowedWhileEnding = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry',
+        'adventure:retry_save', 'adventure:restore', 'adventure:detach', 'game:end_battle', 'game:restart'];
+      if (room?.adventureId && adventures.blocked(room) && !(terminalPending ? allowedWhileEnding : allowedWhileSaving).includes(_packet[0])) {
+        adventures.trace(room, 'socket:rejected:' + String(_packet[0]).slice(0, 80));
+        const reply = _packet.at(-1);
+        if (typeof reply === 'function') reply({ success: false, code: 'ADVENTURE_BLOCKED', event: _packet[0],
+          reason: adventures.blockedReason(room), message: '冒險尚未安全保存或執行權限已失效，請重試保存或重新連線' });
         return;
       }
       next();
@@ -171,7 +213,11 @@ io.on('connection', (transport) => {
   // 發送職業與基礎資料給新客戶端
   socket.emit('init:constants', { classes: displayClasses, routes: ROUTES, roleDetails: ROLE_DETAILS });
   const existing = rooms.get(socketToRoom.get(socket.id));
-  if (existing && reconnectPlayer(existing, socket, { newConnection: true })) socket.emit('studio:content', existing.studioContent.snapshot);
+  const sameMode = !!existing?.isDev === (socket.handshake.auth?.devMode === true);
+  if (existing?.isDev && sameMode) devController.register(existing, socket);
+  if (existing && sameMode && !adventures.hasLostAuthority(existing) && reconnectPlayer(existing, socket, { newConnection: true })) {
+    socket.emit('studio:content', existing.studioContent.snapshot); existing.spectators?.notify();
+  }
 
   socket.on('spectator:join', (data, callback) => {
     const reply = typeof callback === 'function' ? callback : () => {};
@@ -180,16 +226,38 @@ io.on('connection', (transport) => {
       if (rooms.get(socketToRoom.get(socket.id))?.players[socket.id]) throw new Error('請先暫離或離開目前隊伍');
       const room = rooms.get(String(data?.code || '').trim().toUpperCase());
       if (!room || room.isDev || ['GAME_OVER', 'VICTORY'].includes(room.state)) throw new Error('找不到可觀戰的房間');
+      if (socket.data.spectating && socket.data.spectating !== room.code) throw new Error('請先離開目前觀戰房間');
       const configured = Number(process.env.SPECTATOR_LIMIT ?? 5);
-      room.spectators ||= new Spectators(room, io, Number.isInteger(configured) ? Math.max(0, Math.min(50, configured)) : 5);
+      room.spectators ||= new Spectators(room, io, Number.isInteger(configured) ? Math.max(0, Math.min(50, configured)) : 5, {
+        onPromote(joining, target) { socketToRoom.set(joining.id, target.code); joining.emit('studio:content', target.studioContent.snapshot); }
+      });
       const result = room.spectators.join(socket);
       if (result.success) socket.data.spectating = room.code;
       reply(result);
     } catch (error) { reply({ success: false, message: error.message }); }
   });
   socket.on('spectator:leave', callback => {
+    const watching = rooms.get(socket.data.spectating)?.spectators;
+    if (watching?.committing && watching.requests.get(socket.id)?.status === 'saving') {
+      if (typeof callback === 'function') callback({ success: false, message: '正在保存加入檢查點，請稍候' });
+      return;
+    }
     rooms.get(socket.data.spectating)?.spectators?.leave(socket.id); socket.data.spectating = null;
     if (typeof callback === 'function') callback({ success: true });
+  });
+  for (const event of ['apply', 'cancel', 'select_role']) socket.on('spectator:' + event, (data, callback) => {
+    try {
+      identity.limit('spectator-join:' + socket.id, 60);
+      const spectators = rooms.get(socket.data.spectating)?.spectators;
+      const result = !spectators ? { success: false, message: '目前不是觀戰者' } :
+        event === 'apply' ? spectators.apply(socket.id) : event === 'cancel' ? spectators.cancel(socket.id, data?.requestId) : spectators.selectRole(socket.id, data);
+      if (typeof callback === 'function') callback(result);
+    } catch (error) { if (typeof callback === 'function') callback({ success: false, message: error.message }); }
+  });
+  socket.on('spectator:review', (data, callback) => {
+    const room = rooms.get(socketToRoom.get(socket.id));
+    const result = room?.spectators?.review(socket.id, data) || { success: false, message: '找不到申請' };
+    if (typeof callback === 'function') callback(result);
   });
 
   socket.on('player:career', async (data, callback) => {
@@ -223,12 +291,14 @@ io.on('connection', (transport) => {
 
   socket.on('adventure:restore', async (data, callback) => {
     try {
+      if (socket.handshake.auth?.devMode === true) throw Object.assign(new Error('/dev 不載入正式冒險；請建立 Dev 房間，或回到一般入口繼續冒險'), { code: 'DEV_MODE' });
       const id = data?.adventureId;
       if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) throw new Error('無效的冒險代碼');
       const current = rooms.get(socketToRoom.get(socket.id));
       if (current && current.adventureId !== id) throw new Error('請先離開目前房間');
       const before = adventures.active.get(id);
       const restored = await adventures.restore(id, socket.id, { Room, code: generateRoomCode, io });
+      bindLifecycle(restored);
       career.attach(restored);
       if (activeConnections.get(socket.id) !== transport) throw new Error('連線已變更，請重新連線');
       const afterRestore = rooms.get(socketToRoom.get(socket.id));
@@ -264,7 +334,7 @@ io.on('connection', (transport) => {
   });
   socket.on('adventure:detach', callback => {
     const room = rooms.get(socketToRoom.get(socket.id));
-    if (room) { socket.data.detachedAdventure = room.adventureId || null; socket.leave(room.code); socketToRoom.delete(socket.id); disconnectPlayer(room, socket.id); }
+    if (room) { socket.data.detachedAdventure = room.adventureId || null; socket.leave(room.code); socketToRoom.delete(socket.id); disconnectPlayer(room, socket.id); scheduleOfflineCleanup(room); }
     if (typeof callback === 'function') callback({ success: true });
   });
 
@@ -292,15 +362,20 @@ io.on('connection', (transport) => {
       }
       devAccess.revoke(socket);
       const existingCode = socketToRoom.get(socket.id);
-      if (rooms.get(existingCode)?.adventureId && rooms.get(existingCode).checkpoint?.status !== 'ended') {
+      const previous = rooms.get(existingCode);
+      const activeAdventure = previous?.adventureId && previous.checkpoint?.status !== 'ended';
+      if (activeAdventure && !isDev) {
         if (typeof callback === 'function') callback({ success: false, message: '請先暫離或永久離開目前冒險' });
         return;
       }
       if (existingCode && rooms.has(existingCode)) {
         socket.leave(existingCode);
-        const previous = rooms.get(existingCode);
-        previous.removePlayer(socket.id);
-        if (previous.isDev && previous.memberIds.length === 0) {
+        if (activeAdventure) {
+          // Entering Dev temporarily detaches the permanent formal character.
+          // Never withdraw it or transfer its equipment into the formal party.
+          disconnectPlayer(previous, socket.id); scheduleOfflineCleanup(previous);
+        } else previous.removePlayer(socket.id);
+        if (previous.memberIds.length === 0) {
           previous.clearTimer();
           rooms.delete(existingCode);
         }
@@ -308,8 +383,10 @@ io.on('connection', (transport) => {
 
       const code = generateRoomCode();
       const room = new Room(code, socket, socket.data.identity.display_name, io, avatar);
+      socket.data.terminalState = null;
       room.isDev = isDev;
       if (!isDev) { room.persistence = adventures; room.career = career; }
+      bindLifecycle(room);
       if (isDev) devController.register(room, socket);
       socket.emit('studio:content', room.studioContent.snapshot);
       rooms.set(code, room);
@@ -521,6 +598,7 @@ io.on('connection', (transport) => {
     if (watching?.spectators?.members.has(socket.id)) { socket.emit('room:update', spectatorState(watching)); return; }
     const room = rooms.get(socketToRoom.get(socket.id));
     if (room) socket.emit('room:update', room.getClientState());
+    else if (socket.data.terminalState) socket.emit('room:update', socket.data.terminalState);
   });
 
   // 6. 戰鬥技能選擇與鎖定 / 取消鎖定 / 切換攻擊目標
@@ -751,13 +829,18 @@ io.on('connection', (transport) => {
   });
 
   // 8. 重新開始
-  socket.on('game:restart', (callback) => {
+  socket.on('game:restart', (data, callback) => {
+    const cb = typeof data === 'function' ? data : callback;
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
-    if (!room) return;
-    const res = room.restartToLobby(socket.id);
+    if (!room) { if (typeof cb === 'function') cb({ success: false, message: '找不到準備房間，請重新連線' }); return; }
+    const res = room.restartToLobby(socket.id, typeof data === 'function' ? undefined : data?.adventureId);
+    if (res?.success) for (const id of room.memberIds) {
+      const connection = activeConnections.get(id);
+      if (connection) { connection.data.terminalState = null; connection.data.detachedAdventure = null; }
+    }
     if (res?.success) devAccess.revoke(socket);
-    if (typeof callback === 'function') callback(res);
+    if (typeof cb === 'function') cb(res);
   });
 
   // 10. 暫停 / 繼續遊戲
@@ -770,12 +853,13 @@ io.on('connection', (transport) => {
   });
 
   // 11. 結束戰鬥 / 中止冒險
-  socket.on('game:end_battle', (data, callback) => {
+  socket.on('game:end_battle', async (data, callback) => {
     const cb = typeof data === 'function' ? data : callback;
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
-    if (!room) return;
-    const res = room.endBattle(socket.id);
+    if (!room) { if (typeof cb === 'function') cb({ success: !!socket.data.terminalState, message: '找不到冒險，請先恢復雲端冒險' }); return; }
+    adventures.trace(room, 'socket:received:game:end_battle');
+    const res = room.checkpoint?.status === 'ended' && room.leaderId === socket.id ? { success: true } : await room.endBattle(socket.id);
     if (typeof cb === 'function') cb(res);
   });
 
@@ -804,12 +888,13 @@ io.on('connection', (transport) => {
 
   // Transport loss preserves the character; explicit leave_party remains destructive.
   socket.on('disconnect', () => {
-    rooms.get(socket.data.spectating)?.spectators?.leave(socket.id);
     clearTimeout(expiry); devAccess.revoke(socket);
+    const watching = rooms.get(socket.data.spectating)?.spectators;
+    if (watching?.members.get(socket.id) === socket) watching.leave(socket.id);
     if (activeConnections.get(socket.id) !== transport) return;
     activeConnections.delete(socket.id);
     const room = rooms.get(socketToRoom.get(socket.id));
-    if (room) disconnectPlayer(room, socket.id);
+    if (room) { disconnectPlayer(room, socket.id); scheduleOfflineCleanup(room); }
   });
 });
 

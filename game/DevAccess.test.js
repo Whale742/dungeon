@@ -37,3 +37,18 @@ test('token guessing is bounded per connection', () => {
   for (let i = 0; i < 5; i++) access.authorize(socket, room, 'wrong');
   assert.match(access.authorize(socket, room, token).message, /嘗試過多/);
 });
+
+test('Dev refusal reasons distinguish mode, members, permanent identity, spectator and connection state', () => {
+  const { access, socket, room } = setup();
+  const code = (candidate, client = socket) => access.authorize(client, candidate, token).code;
+  assert.equal(code(null), 'NO_ROOM');
+  assert.equal(code({ ...room, isDev: false }), 'NOT_DEV_ROOM');
+  assert.equal(code({ ...room, memberIds: ['one', 'offline'], players: { ...room.players, offline: { connected: false } } }), 'NOT_SOLO');
+  assert.equal(code({ ...room, memberIds: ['transport-id'] }), 'IDENTITY_MISMATCH');
+  assert.equal(code({ ...room, leaderId: 'transport-id' }), 'NOT_LEADER');
+  assert.equal(code({ ...room, players: { one: { connected: false } } }), 'DISCONNECTED');
+  assert.equal(code({ ...room, state: 'LOBBY' }), 'NOT_STARTED');
+  assert.equal(code({ ...room, state: 'VICTORY' }), 'ROOM_ENDED');
+  assert.equal(code(room, { ...socket, data: { spectating: 'WATCH' } }), 'SPECTATOR');
+  assert.equal(access.authorize(socket, room, 'invalid').code, 'INVALID_TOKEN');
+});

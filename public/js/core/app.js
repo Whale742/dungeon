@@ -878,7 +878,7 @@ socket.on('player:identity', ({ player }) => {
   PlayerIdentity.accept(player); socket.playerId = player.playerId;
   let recent;
   try { recent = JSON.parse(localStorage.getItem('dungeon_recent_adventure')); } catch {}
-  if (recent?.playerId === player.playerId && recent.adventureId) {
+  if (location.pathname !== '/dev' && recent?.playerId === player.playerId && recent.adventureId) {
     const epoch = ++recentAdventureRestoreEpoch, deadline = performance.now() + 90000;
     const restore = (attempt = 0) => {
       if (epoch !== recentAdventureRestoreEpoch || !socket.connected || myId !== player.playerId ||
@@ -934,9 +934,9 @@ function updateCheckpointNotice(state) {
   const retry = document.getElementById('btnRetryCheckpoint');
   const cp = state.checkpoint;
   const careerFailed = !!state.careerStatus?.failed;
-  if (notice) notice.classList.toggle('hidden', cp?.status !== 'failed' && !careerFailed);
+  if (notice) notice.classList.toggle('hidden', !['failed', 'waiting_players'].includes(cp?.status) && !careerFailed);
   if (text) text.textContent = cp?.status === 'failed' ? cp.message || '保存未完成，請重試。'
-    : careerFailed ? '生涯統計尚未同步，進度會在安全節點等待確認。請重試。' : '';
+    : cp?.status === 'waiting_players' ? cp.message : careerFailed ? '生涯統計尚未同步，進度會在安全節點等待確認。請重試。' : '';
   if (retry) retry.classList.toggle('hidden', cp?.status !== 'failed' && !careerFailed);
   const activeAdventure = !!state.adventureId && !['LOBBY', 'GAME_OVER', 'VICTORY'].includes(state.state);
   document.getElementById('btnDetachAdventure')?.classList.toggle('hidden', !activeAdventure);
@@ -2512,6 +2512,12 @@ function renderSageEquationPreview(me) {
 function renderMyActionBar(me) {
   syncEnemyTargetIndicators();
   if (!me || !me.role || !classesData[me.role]) return;
+  if (roomState?.stageRoster && !roomState.stageRoster.playerIds.includes(me.id)) {
+    elements.btnConfirmLock.disabled = true;
+    elements.myActionStatus.textContent = '本階段未參戰，請等待下一次路線選擇。';
+    elements.mySkillsRow.textContent = '你的角色仍在隊伍中；下一次路線選擇才會重新確認參戰資格。';
+    return;
+  }
   const pendingKey=battleRoundKey();
   if(!isProcessingPresentationQueue&&roomState.selectionState==='SELECTING'&&pendingActionRoundKey!==pendingKey){
     pendingActionRoundKey=pendingKey;currentPendingAction=null;currentPendingTarget=null;
@@ -3481,7 +3487,7 @@ function renderGameOver(isLeader) {
     elements.endSubtitle.textContent = `小隊全員在深淵第 ${state.floor || 1} 層壯烈倒下，未能成功突破，挑戰失敗！`;
   }
   renderEndStats();
-  elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
+  updateRestartLobbyButton(state);
   if(typeof bgmManager!=='undefined')void bgmManager.battleDefeated().catch(error=>console.warn('[Defeat:BGM]',error));
 }
 
@@ -3491,7 +3497,7 @@ function renderVictory(isLeader) {
   elements.endTitle.textContent = '榮耀凱旋歸來！';
   elements.endSubtitle.textContent = `小隊成功突破至深淵第 ${state.floor || 10} 層並滿載而歸！勇者威名永垂不朽！`;
   renderEndStats();
-  elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
+  updateRestartLobbyButton(state);
   playSound('victory');
 }
 
@@ -4156,12 +4162,29 @@ elements.btnCpEnd.addEventListener('click', () => {
   });
 });
 
-// 重啟冒險回大廳
-elements.btnRestartLobby.addEventListener('click', () => {
+// 返回原隊伍的準備房間
+function updateRestartLobbyButton(state) {
+  const member = !state.viewer?.spectator && state.players?.some(p => p.id === myId);
+  const ready = !state.adventureId || state.checkpoint?.status === 'ended';
+  elements.btnRestartLobby.style.display = member ? 'inline-flex' : 'none';
+  elements.btnRestartLobby.disabled = !ready;
+  elements.btnRestartLobby.textContent = ready ? '返回準備房間' : '正在結束冒險，完成後即可返回準備房間。';
+}
+let restartLobbyPending = false;
+elements.btnRestartLobby.addEventListener('click', async () => {
+  if (restartLobbyPending || elements.btnRestartLobby.disabled) return;
+  restartLobbyPending = true;
+  elements.btnRestartLobby.disabled = true;
   playSound('click');
-  socket.emit('game:restart', (res) => {
-    if (!res.success) alert(res.message);
-  });
+  try {
+    const result = await new Promise(resolve => socket.timeout(15000).emit('game:restart',
+      { adventureId: roomState?.adventureId || undefined }, (error, reply) =>
+        resolve(error ? { success: false, message: '返回尚未確認，請同步房間後重試。' } : reply)));
+    if (!result?.success) showToast(result?.message || '暫時無法返回準備房間', 'warning', 6000);
+  } finally {
+    restartLobbyPending = false;
+    if (roomState) updateRestartLobbyButton(roomState);
+  }
 });
 
 // ==========================================
@@ -4947,12 +4970,21 @@ if (elements.btnCancelEndBattle) {
 }
 
 if (elements.btnConfirmRetreat) {
-  elements.btnConfirmRetreat.addEventListener('click', () => {
+  elements.btnConfirmRetreat.addEventListener('click', async () => {
+    if (elements.btnConfirmRetreat.disabled) return;
+    elements.btnConfirmRetreat.disabled = true;
     ModalMotion.hide(elements.endBattleModal);
     playSound('click');
-    socket.emit('game:end_battle', {}, (res) => {
-      if (!res.success) alert(res.message);
-    });
+    try {
+      const res = await new Promise(resolve => socket.timeout(20000).emit('game:end_battle', {}, (error, reply) =>
+        resolve(error ? { success: false, message: '結束尚未確認，請保持連線並重試結束。' } : reply)));
+      if (res?.code === 'RESTORE_REQUIRED' && res.adventureId) {
+        const restored = await new Promise(resolve => socket.timeout(20000).emit('adventure:restore',
+          { adventureId: res.adventureId }, (error, reply) => resolve(error ? null : reply)));
+        if (restored?.success) showToast('已恢復雲端冒險，請確認目前隊長後再次選擇結束冒險。', 'warning', 6000);
+        else showToast(restored?.message || '目前無法取得執行權限，請稍後重新連線並從冒險列表恢復。', 'warning', 8000);
+      } else if (!res?.success) showToast(res?.message || '結束尚未確認，請重試。', 'warning', 6000);
+    } finally { elements.btnConfirmRetreat.disabled = false; }
   });
 }
 

@@ -6,7 +6,7 @@ import { createServer } from 'node:net';
 import { io } from 'socket.io-client';
 
 const token = 'local-integration-test-token';
-export async function launch(t, enabled = true) {
+export async function launch(t, enabled = true, extraEnv = {}) {
   const probe = createServer();
   probe.listen(0, '127.0.0.1');
   await once(probe, 'listening');
@@ -15,7 +15,7 @@ export async function launch(t, enabled = true) {
   const child = spawn(process.execPath, ['server.js'], {
     cwd: new URL('.', import.meta.url), windowsHide: true,
     env: { ...process.env, PORT: String(port), DEV_TOOLS_ENABLED: String(enabled), DEV_ACCESS_TOKEN: token,
-      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '', IDENTITY_STORE: 'memory' },
+      SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', SUPABASE_PUBLISHABLE_KEY: '', IDENTITY_STORE: 'memory', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   const clients = [];
@@ -50,11 +50,55 @@ export async function launch(t, enabled = true) {
 }
 export function request(socket, event, data) {
   return new Promise((resolve, reject) => {
-    const ack = (error, result) => error ? reject(error) : resolve(result);
+    const ack = (error, result) => error ? reject(new Error(event + ': ' + error.message)) : resolve(result);
     if (data === undefined) socket.timeout(3000).emit(event, ack);
     else socket.timeout(3000).emit(event, data, ack);
   });
 }
+
+for (const [count, observers] of [[1, 1], [2, 1], [4, 1], [10, 5]]) test(`${count} saved members/${observers} late observers preserve checkpoint and leader termination ACK follows commit`, { timeout: 25000 }, async t => {
+  const { connect } = await launch(t, false);
+  const leader = await connect(), code = (await request(leader, 'room:create', {})).roomCode;
+  const roles = ['warrior', 'mage', 'archer', 'assassin', 'bard', 'alchemist', 'druid', 'samurai', 'sage', 'augur'];
+  const members = [leader, ...await Promise.all(Array.from({ length: count - 1 }, () => connect()))];
+  for (const [i, member] of members.entries()) {
+    if (i) assert.equal((await request(member, 'room:join', { code })).success, true);
+    await request(member, 'player:select_role', { roleKey: roles[i] });
+    if (i) await request(member, 'room:toggle_ready');
+  }
+  await request(leader, 'game:start'); await request(leader, 'prologue:skip');
+  for (const member of members) await request(member, 'event:shop_action', { action: 'leave' });
+  const stateOf = async member => {
+    const update = once(member, 'room:update', { signal: t.signal }); member.emit('room:resync'); return (await update)[0];
+  };
+  const before = await stateOf(leader); assert.equal(before.checkpoint.status, 'saved');
+  const watchers = await Promise.all(Array.from({ length: observers }, () => connect()));
+  for (const watcher of watchers) assert.equal((await request(watcher, 'spectator:join', { code })).success, true);
+  const after = await stateOf(leader);
+  assert.deepEqual(after.checkpoint, before.checkpoint); assert.equal(after.players.length, count);
+  if (count > 1) assert.equal((await request(members[1], 'game:end_battle', {})).success, false);
+  const ended = watchers.map(watcher => once(watcher, 'spectator:ended', { signal: t.signal }));
+  assert.equal((await request(leader, 'game:end_battle', {})).success, true); await Promise.all(ended);
+  const final = await stateOf(leader); assert.equal(final.checkpoint.status, 'ended'); assert.equal(final.state, 'GAME_OVER');
+  assert.equal((await request(leader, 'game:end_battle', {})).success, true);
+  assert.equal((await request(leader, 'adventure:restore', { adventureId: before.adventureId })).code, 'ENDED');
+  assert.equal((await request(watchers[0], 'game:restart', { adventureId: before.adventureId })).success, false);
+  const returner = members[1] || leader;
+  assert.equal((await request(returner, 'game:restart', { adventureId: before.adventureId })).success, true);
+  const lobbies = await Promise.all(members.map(stateOf));
+  for (const lobby of lobbies) {
+    assert.equal(lobby.state, 'LOBBY'); assert.equal(lobby.code, code); assert.equal(lobby.leaderId, leader.playerId);
+    assert.equal(lobby.players.length, count); assert.equal(lobby.adventureId, null);
+  }
+  assert.ok((await Promise.all(members.map(member => request(member, 'game:restart', { adventureId: before.adventureId })))).every(r => r.success));
+  const refreshed = await connect(false, returner.sessionCookie);
+  assert.equal((await stateOf(refreshed)).players.length, count);
+  for (const member of members.slice(1)) await request(member === returner ? refreshed : member, 'room:toggle_ready');
+  const captain = returner === leader ? refreshed : leader;
+  assert.equal((await request(captain, 'game:start')).success, true);
+  assert.notEqual((await stateOf(captain)).adventureId, before.adventureId);
+  assert.equal((await request(captain, 'game:restart', { adventureId: before.adventureId })).success, false);
+});
 
 test('ten members plus five spectator sockets are separate, capped, read-only and can reconnect without blocking members', { timeout: 40000 }, async t => {
   const { connect } = await launch(t, false);
@@ -376,4 +420,146 @@ test('Saved static URLs and canonical paths serve identical files, including enc
     assert.equal((await head.arrayBuffer()).byteLength, 0);
   }
   assert.equal((await fetch(url + '/photo/not-an-asset.webp')).status, 404);
+});
+
+
+test('solo and multiplayer Lobby refresh reuse Player IDs; offline Lobby cleanup does not contaminate Dev ownership', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t, true, { ROOM_OFFLINE_GRACE_MS: '150' });
+  const leader = await connect();
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  const cookie = leader.sessionCookie, id = leader.playerId; leader.disconnect();
+  const fresh = await connect(false, cookie);
+  await request(fresh, 'room:list');
+  assert.equal(fresh.playerId, id);
+  assert.deepEqual((await request(fresh, 'adventure:list', {})).adventures, []);
+  assert.equal((await request(fresh, 'room:join', { code })).success, true);
+  const peer = await connect(); await request(peer, 'room:join', { code });
+  fresh.disconnect();
+  const again = await connect(false, cookie); await request(again, 'room:join', { code });
+  const update = once(again, 'room:update', { signal: t.signal }); again.emit('room:resync');
+  const state = (await update)[0];
+  assert.equal(state.state, 'LOBBY'); assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === id).role, 'warrior');
+  assert.equal((await request(again, 'dev:authorize', { token })).success, false);
+  again.disconnect(); peer.disconnect();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const dev = await connect(true, cookie);
+  assert.equal((await request(dev, 'room:join', { code })).success, false);
+  assert.equal((await request(dev, 'room:create', {})).success, true);
+  await request(dev, 'player:select_role', { roleKey: 'warrior' });
+  assert.equal((await request(dev, 'game:start')).success, true);
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  assert.deepEqual((await request(dev, 'adventure:list', {})).adventures, []);
+  assert.equal((await request(dev, 'player:career', {})).stats.adventures, 0);
+});
+
+test('spectator sockets apply, reject, approve and become a single formal member only after checkpoint save', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t, false);
+  const [leader, observer, intruder] = await Promise.all([connect(), connect(), connect()]);
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  await request(leader, 'game:start');
+  await request(observer, 'spectator:join', { code });
+  const first = await request(observer, 'spectator:apply', {}); assert.equal(first.success, true);
+  assert.equal((await request(observer, 'spectator:apply', {})).success, false);
+  const review = { playerId: observer.playerId, requestId: first.requestId, approve: false };
+  assert.equal((await request(intruder, 'spectator:review', review)).success, false);
+  assert.equal((await request(observer, 'spectator:review', review)).success, false);
+  assert.equal((await request(leader, 'spectator:review', review)).success, true);
+  const second = await request(observer, 'spectator:apply', {});
+  assert.equal((await request(leader, 'spectator:review', { ...review, requestId: second.requestId, approve: true })).success, true);
+  assert.equal((await request(observer, 'route:vote', { routeId: 'x' })).success, false);
+  await request(leader, 'prologue:skip');
+  const boundary = once(observer, 'spectator:application', { signal: t.signal });
+  await request(leader, 'event:shop_action', { action: 'leave' });
+  const application = (await boundary)[0]; assert.equal(application.requests[0].status, 'choosing_role');
+  const promoted = once(observer, 'spectator:promoted', { signal: t.signal });
+  assert.equal((await request(observer, 'spectator:select_role', { requestId: second.requestId, checkpoint: application.checkpoint, role: 'mage' })).success, true);
+  await promoted;
+  await request(observer, 'room:list');
+  const update = once(observer, 'room:update', { signal: t.signal }); observer.emit('room:resync');
+  const state = (await update)[0];
+  assert.equal(state.viewer?.spectator, undefined); assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === observer.playerId).role, 'mage'); assert.equal(state.checkpoint.status, 'saved');
+  assert.equal((await request(observer, 'player:career', {})).stats.battles, 0);
+  assert.equal((await request(observer, 'adventure:list', {})).adventures[0].id, state.adventureId);
+  assert.equal((await request(observer, 'spectator:apply', {})).success, false);
+  leader.emit('route:interaction_ready', { presentationId: state.routePresentationId });
+  observer.emit('route:interaction_ready', { presentationId: state.routePresentationId });
+  await request(observer, 'room:list'); await request(leader, 'room:list');
+  assert.equal((await request(observer, 'route:vote', { routeId: state.currentRoutes[0].id })).success, true);
+});
+
+
+test('Dev entry cannot restore a formal multiplayer adventure; creating Dev detaches without withdrawing its permanent member', { timeout: 20000 }, async t => {
+  const { connect } = await launch(t);
+  const [leader, peer] = await Promise.all([connect(), connect()]);
+  const code = (await request(leader, 'room:create', {})).roomCode;
+  await request(peer, 'room:join', { code });
+  await request(leader, 'player:select_role', { roleKey: 'warrior' });
+  await request(peer, 'player:select_role', { roleKey: 'mage' }); await request(peer, 'room:toggle_ready');
+  await request(leader, 'game:start'); await request(leader, 'prologue:skip');
+  await request(leader, 'event:shop_action', { action: 'leave' }); await request(peer, 'event:shop_action', { action: 'leave' });
+  const id = (await request(leader, 'adventure:list', {})).adventures[0].id;
+  const dev = await connect(true, leader.sessionCookie); await request(dev, 'room:list');
+  assert.equal(dev.playerId, leader.playerId); assert.notEqual(dev.id, dev.playerId);
+  const restored = await request(dev, 'adventure:restore', { adventureId: id });
+  assert.equal(restored.success, false, '/dev must not restore a formal room into its control panel');
+  const rejected = await request(dev, 'dev:authorize', { token }); assert.equal(rejected.code, 'NOT_DEV_ROOM');
+  const created = await request(dev, 'room:create', {}); assert.equal(created.success, true);
+  await request(dev, 'player:select_role', { roleKey: 'warrior' }); await request(dev, 'game:start');
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  const update = once(peer, 'room:update', { signal: t.signal }); peer.emit('room:resync');
+  const state = (await update)[0]; assert.equal(state.players.length, 2);
+  assert.equal(state.players.find(p => p.id === leader.playerId).connected, false);
+  assert.equal(state.checkpoint.saveVersion, 1); assert.equal(state.isDev, false);
+  assert.equal((await request(peer, 'dev:authorize', { token })).code, 'NOT_DEV_ROOM');
+  assert.equal((await request(dev, 'player:career', {})).stats.adventures, 1);
+  assert.equal((await request(dev, 'adventure:list', {})).adventures.length, 1);
+});
+
+
+for (const bound of [false, true]) test((bound ? 'bound account' : 'guest') + ': Dev refresh preserves permanent solo identity, reauthorizes current transport and keeps formal stores empty', { timeout: 20000 }, async t => {
+  const { url, connect } = await launch(t);
+  let dev = await connect(true); await request(dev, 'room:list');
+  const id = dev.playerId;
+  if (bound) {
+    const response = await fetch(url + '/api/player/bind', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: dev.sessionCookie },
+      body: JSON.stringify({ username: 'dev_refresh_account', password: 'local-dev-qa-password-123' }) });
+    assert.equal(response.status, 200);
+    const cookie = response.headers.get('set-cookie').split(';')[0];
+    dev.disconnect(); dev = await connect(true, cookie); await request(dev, 'room:list');
+  }
+  const code = (await request(dev, 'room:create', {})).roomCode;
+  await request(dev, 'player:select_role', { roleKey: 'warrior' }); await request(dev, 'game:start');
+  await request(dev, 'prologue:skip'); await request(dev, 'event:shop_action', { action: 'leave' });
+  const stateOf = async socket => {
+    await request(socket, 'room:list'); const updated = once(socket, 'room:update', { signal: t.signal });
+    socket.emit('room:resync'); return (await updated)[0];
+  };
+  const first = await stateOf(dev); assert.equal(first.isDev, true); assert.equal(first.leaderId, id);
+  assert.equal(first.players.length, 1); assert.notEqual(dev.id, id);
+  dev.emit('route:interaction_ready', { presentationId: first.routePresentationId }); await request(dev, 'room:list');
+  assert.equal((await request(dev, 'dev:authorize', { token })).success, true);
+  const before = await request(dev, 'dev:inspect');
+  const change = { id: 'refresh-gold', roomCode: code, context: before.context, command: 'gold.set', params: { value: 321 } };
+  assert.equal((await request(dev, 'dev:command', change)).success, true);
+  const oldTransport = dev.id, cookie = dev.sessionCookie; dev.disconnect();
+  const fresh = await connect(true, cookie); await request(fresh, 'room:list');
+  assert.equal(fresh.playerId, id); assert.notEqual(fresh.id, oldTransport);
+  const state = await stateOf(fresh); assert.equal(state.code, code); assert.equal(state.players.length, 1); assert.equal(state.gold, 321);
+  assert.equal((await request(fresh, 'dev:command', change)).code, 'NOT_AUTHORIZED');
+  assert.equal((await request(fresh, 'dev:authorize', { token })).success, true);
+  const status = await request(fresh, 'dev:inspect'); assert.equal(status.audit.length, 1);
+  assert.equal((await request(fresh, 'dev:command', change)).duplicate, true);
+  fresh.emit('route:interaction_ready', { presentationId: state.routePresentationId }); await request(fresh, 'room:list');
+  const command = async (name, params) => { const status = await request(fresh, 'dev:inspect'); return request(fresh, 'dev:command', {
+    id: name.replaceAll('.', '-'), roomCode: code, context: status.context, command: name, params }); };
+  const grant = await command('item.grant', { playerId: id, itemId: 'short_sword', bag: 'personal' });
+  assert.equal(grant.success, true, grant.message);
+  assert.equal((await command('item.equip', { playerId: id, bag: 'personal', index: 0 })).success, true);
+  const equipped = await stateOf(fresh); assert.ok(equipped.players[0].equips.some(e => e.id === 'short_sword'));
+  assert.deepEqual((await request(fresh, 'adventure:list', {})).adventures, []);
+  assert.equal((await request(fresh, 'player:career', {})).stats.adventures, 0);
 });

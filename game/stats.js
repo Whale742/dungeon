@@ -29,7 +29,7 @@ export function resolveStats(actor, equipmentMultiplier=1) {
   const growth=actor.victoryAtkBonus ?? Math.max(0,(actor.bonusAtk||0)-legacy);
   const baseAttack=(actor.ATK_base ?? initial.attack)+growth+(actor.warriorStacks||0);
   const penalty=actor.role==='gladiator'&&!actor.instanceId&&!actor.enemyEffects?.attack_down?.unavoidable?0:actor.enemyEffects?.attack_down?.value||0;
-  const ATK_base=baseAttack-penalty;
+  const ATK_base=baseAttack-penalty+(actor.p8Effects?.galaxy?.attackBonus||0);
   const gearPenalty=Math.max(0,penalty-baseAttack);
   let physical=0,magic=0;
   for(const e of equips) {
@@ -74,8 +74,8 @@ export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,b
     b_heal:1+.3*H,b_single:.4*H,b_miss:.07*H,b_nocturne:6+M,b_frenzy:7+2*M,
     alc_flask:5+M,poison:3+.5*M,burn:5+.5*M,fracture:2+.3*M,chill:3+.3*M,
     alc_success:20+2*M,alc_failure:5+.5*M,alc_stable:5+M,
-    sg_star:4+M,sg_planet:3+2*M,sg_bonus:1+.35*M,sg_blackhole:M,sg_eye_planet:2+3*M,sg_eye_galaxy:1+.75*M,sg_eye_blackhole:2.5*M,
-    aug_reckon:5+M,aug_heal:5+.5*M,onm_talisman:3+M,onm_detonate:stacks?4+.5*M+stacks*.25*M:0,
+    sg_star:5+1.5*M,sg_planet:3+2*M,sg_bonus:1+.35*M,sg_blackhole:M,sg_eye_planet:2+3*M,sg_eye_galaxy:1+.75*M,sg_eye_blackhole:2.5*M,
+    aug_reckon:5+M,aug_heal:5+.5*M,onm_talisman:2+1.5*M,onm_detonate:stacks?4+.25*M+stacks*M:0,
     sge_deduce:3+.5*P,sge_induce:3+.5*P,s_stab:3+2*P,s_smoke:6+1.5*P+stacks*(7+.5*P)};
   if(!(key in values))throw new Error(`Unknown v2 skill formula: ${key}`);
   return Math.round(values[key]);

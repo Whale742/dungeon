@@ -12,9 +12,10 @@ export function disconnectPlayer(room, id) {
   const player = room.players[id];
   if (!player) return;
   player.connected = false;
+  room.persistence?.trace(room, 'player:disconnect');
   const hadPresentation = room.pendingPresentationAcks?.delete(id);
   room.pendingSelectionAcks?.delete(id);
-  const remaining = Object.values(room.players).filter(p => p.connected);
+  const remaining = (room.state === 'IN_BATTLE' ? room.getCombatPlayers() : Object.values(room.players)).filter(p => p.connected);
   if (!remaining.length) {
     if (hadPresentation) room.identityDeferredPresentation = room.state;
     if (!room.isPaused && !['LOBBY', 'GAME_OVER', 'VICTORY'].includes(room.state)) {
@@ -53,13 +54,15 @@ export function reconnectPlayer(room, socket, { newConnection = false } = {}) {
     return true;
   }
   player.connected = true;
+  room.persistence?.trace(room, 'player:reconnect');
   player.name = socket.data.identity.display_name;
   socket.join(room.code);
-  if (room.identityOfflinePause) {
+  if (room.state === 'CHOOSING_ROUTE' && room.stageRosterPending && !room.spectators?.waiting) room.finalizeRouteCheckpoint();
+  if (room.identityOfflinePause && (room.state !== 'IN_BATTLE' || room.isStageParticipant(socket.id))) {
     room.identityOfflinePause = false;
     if (room.isPaused) room.togglePause(socket.id);
   }
-  if (room.identityDeferredPresentation) {
+  if (room.identityDeferredPresentation && (room.state !== 'IN_BATTLE' || room.isStageParticipant(socket.id))) {
     const state = room.identityDeferredPresentation; room.identityDeferredPresentation = null;
     if (state === room.state && !room.pendingPresentationAcks?.size) {
       if (state === 'IN_BATTLE') room.finishTurnPresentation();

@@ -52,9 +52,15 @@ export class DevController {
   }
 
   register(room, socket) {
-    const record = { revision: 0, busy: false, results: new Map(), audit: [] };
+    const existing = this.rooms.get(room);
+    if (existing) {
+      if (existing.socket !== socket) clearRoleRandom(room);
+      existing.socket = socket;
+      return;
+    }
+    const record = { socket, revision: 0, busy: false, results: new Map(), audit: [] };
     this.rooms.set(room, record);
-    registerRoleRandom(room,()=>this.access.authorized(socket,room),(playerId,result)=>{
+    registerRoleRandom(room,()=>this.access.authorized(record.socket,room),(playerId,result)=>{
       record.audit.push({command:'role.random.consume',playerId,result,success:true,context:this.context(room)});
       if(record.audit.length>100)record.audit.shift();
     });
@@ -62,10 +68,10 @@ export class DevController {
     room.broadcastState = () => {
       if (record.busy) return; // Commit once, after invariant checks.
       if (room.state === 'LOBBY') room.devEncounter = null;
-      if (room.state === 'LOBBY'||!this.access.authorized(socket,room)) clearRoleRandom(room);
+      if (room.state === 'LOBBY'||!this.access.authorized(record.socket,room)) clearRoleRandom(room);
       record.revision++;
       broadcast();
-      if (this.access.authorized(socket, room)) socket.emit('dev:update', this.inspect(socket, room));
+      if (this.access.authorized(record.socket, room)) record.socket.emit('dev:update', this.inspect(record.socket, room));
     };
   }
 
@@ -84,7 +90,7 @@ export class DevController {
   }
 
   inspect(socket, room) {
-    if (!this.access.authorized(socket, room) || !this.rooms.has(room)) return fail('尚未授權 Dev 操作');
+    if (!this.access.authorized(socket, room) || !this.rooms.has(room)) return this.access.denial(socket, room, { started: true }) || { ...fail('此連線尚未授權，重連後請重新輸入 Dev 通行碼'), code: 'NOT_AUTHORIZED' };
     const record = this.rooms.get(room);
     return { success: true, roomCode: room.code, context: this.context(room),
       locked: record.busy || Boolean(this.lockReason(room)), reason: this.lockReason(room),
@@ -109,7 +115,7 @@ export class DevController {
   }
 
   execute(socket, room, request) {
-    if (!this.access.authorized(socket, room) || !this.rooms.has(room)) return fail('尚未授權 Dev 操作');
+    if (!this.access.authorized(socket, room) || !this.rooms.has(room)) return this.access.denial(socket, room, { started: true }) || { ...fail('此連線尚未授權，重連後請重新輸入 Dev 通行碼'), code: 'NOT_AUTHORIZED' };
     const record = this.rooms.get(room);
     if (!exact(request, ['id', 'roomCode', 'context', 'command', 'params']) ||
         typeof request.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(request.id) || request.roomCode !== room.code) return fail('無效的請求或房間');

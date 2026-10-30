@@ -71,7 +71,7 @@ for (const role of roles) test(`${role}: checkpoint round trip preserves class r
 });
 
 test('all Room/module assigned fields are explicitly persisted or classified as runtime-only', () => {
-  const runtimeOnly = `code io studioContent state selectionState currentEvent currentTransition isNarrating checkpointChoice gameOverReason
+  const runtimeOnly = `stageRosterPending identityOfflinePause code io studioContent state selectionState currentEvent currentTransition isNarrating checkpointChoice gameOverReason
 routeVotes currentVictory floorRevival pendingDrop pendingPresentationAcks pendingSelectionAcks presentationSafetyTimer turnTimer
 timerEndsAt timerCallback isPaused pausedRemainingSeconds logs narrativeControl actionCleansedSnapshot actionHeals healingSourceId
 augurReactions augurVisuals enemyCounterResolution enemyDamageReceipts enemyMechanicQueue enemyReactionSteps
@@ -170,7 +170,7 @@ test('browser recovery retries a BUSY lease, stops on room change and discards o
     PlayerIdentity: { accept(p) { scope.myId = p.playerId; } }, showToast: (...args) => notices.push(args),
     socket: { connected: true, on: (event, handler) => events[event] = handler,
       timeout() { return { emit: (...args) => calls.push(args) }; } } };
-  vm.createContext(scope);
+  scope.location = { pathname: '/' }; vm.createContext(scope);
   vm.runInContext(source.slice(source.indexOf('let recentAdventureRestoreTimer'), source.indexOf("socket.on('player:session_invalid'")), scope);
   events['player:identity']({ player: { playerId: 'member' } });
   assert.equal(calls.length, 1); calls[0][2](null, { success: false, code: 'BUSY' });
@@ -258,7 +258,7 @@ test('disconnect retains equipped characters; permanent withdrawal survives chec
   assert.equal(restored.squadInventory.some(item => item?.id === 'retained'), true);
 });
 
-for (const status of ['completed', 'failed', 'abandoned']) test(`${status}: terminal metadata preserves the checkpoint and blocks restore/restart until committed`, async t => {
+for (const status of ['completed', 'failed', 'abandoned']) test(`${status}: terminal tombstone deletes the checkpoint and blocks restore/restart until committed`, async t => {
   const h = fixture(t); await boundary(h);
   const old = structuredClone(h.store.rows.get(h.room.adventureId).checkpoint);
   if (status === 'completed') { h.room.state = 'CHECKPOINT'; h.room.handleCheckpointChoice(h.room.leaderId, 'end'); }
@@ -267,7 +267,7 @@ for (const status of ['completed', 'failed', 'abandoned']) test(`${status}: term
   assert.equal(h.room.restartToLobby(h.room.leaderId).success, false);
   await h.persistence.finish(h.room);
   const row = h.store.rows.get(h.room.adventureId);
-  assert.equal(row.status, status); assert.deepEqual(row.checkpoint, old); assert.equal(row.save_version, 1);
+  assert.equal(row.status, status); assert.equal(row.checkpoint, null); assert.equal(row.save_version, 1);
   await assert.rejects(h.persistence.restore(row.id, h.room.leaderId, restoreOptions()), /結束/);
   assert.equal(h.room.restartToLobby(h.room.leaderId).success, true);
   assert.equal(h.room.startAdventure(h.room.leaderId).success, true); assert.notEqual(h.room.adventureId, row.id);
