@@ -56,7 +56,7 @@ export function request(socket, event, data) {
   });
 }
 
-for (const [count, observers] of [[1, 1], [4, 1], [10, 5]]) test(`${count} saved members/${observers} late observers preserve checkpoint and leader termination ACK follows commit`, { timeout: 25000 }, async t => {
+for (const [count, observers] of [[1, 1], [2, 1], [4, 1], [10, 5]]) test(`${count} saved members/${observers} late observers preserve checkpoint and leader termination ACK follows commit`, { timeout: 25000 }, async t => {
   const { connect } = await launch(t, false);
   const leader = await connect(), code = (await request(leader, 'room:create', {})).roomCode;
   const roles = ['warrior', 'mage', 'archer', 'assassin', 'bard', 'alchemist', 'druid', 'samurai', 'sage', 'augur'];
@@ -82,6 +82,22 @@ for (const [count, observers] of [[1, 1], [4, 1], [10, 5]]) test(`${count} saved
   const final = await stateOf(leader); assert.equal(final.checkpoint.status, 'ended'); assert.equal(final.state, 'GAME_OVER');
   assert.equal((await request(leader, 'game:end_battle', {})).success, true);
   assert.equal((await request(leader, 'adventure:restore', { adventureId: before.adventureId })).code, 'ENDED');
+  assert.equal((await request(watchers[0], 'game:restart', { adventureId: before.adventureId })).success, false);
+  const returner = members[1] || leader;
+  assert.equal((await request(returner, 'game:restart', { adventureId: before.adventureId })).success, true);
+  const lobbies = await Promise.all(members.map(stateOf));
+  for (const lobby of lobbies) {
+    assert.equal(lobby.state, 'LOBBY'); assert.equal(lobby.code, code); assert.equal(lobby.leaderId, leader.playerId);
+    assert.equal(lobby.players.length, count); assert.equal(lobby.adventureId, null);
+  }
+  assert.ok((await Promise.all(members.map(member => request(member, 'game:restart', { adventureId: before.adventureId })))).every(r => r.success));
+  const refreshed = await connect(false, returner.sessionCookie);
+  assert.equal((await stateOf(refreshed)).players.length, count);
+  for (const member of members.slice(1)) await request(member === returner ? refreshed : member, 'room:toggle_ready');
+  const captain = returner === leader ? refreshed : leader;
+  assert.equal((await request(captain, 'game:start')).success, true);
+  assert.notEqual((await stateOf(captain)).adventureId, before.adventureId);
+  assert.equal((await request(captain, 'game:restart', { adventureId: before.adventureId })).success, false);
 });
 
 test('ten members plus five spectator sockets are separate, capped, read-only and can reconnect without blocking members', { timeout: 40000 }, async t => {

@@ -3085,7 +3085,8 @@ export class Room {
       this.isNarrating = true;
       this.broadcastState();
       // 稍微延遲 300ms 讓畫面呈現 ALL PLAYERS LOCKED，再展開結算
-      setTimeout(() => { if (this.state === 'IN_BATTLE' && this.selectionState === 'RESOLVING') this.resolveTurnActions(); }, 300);
+      const adventureId = this.adventureId;
+      setTimeout(() => { if (this.adventureId === adventureId && this.state === 'IN_BATTLE' && this.selectionState === 'RESOLVING') this.resolveTurnActions(); }, 300);
       return true;
     }
   }
@@ -3320,8 +3321,9 @@ export class Room {
     this.pendingDrop = null;
     this.broadcastState();
 
+    const adventureId = this.adventureId;
     if (this.state !== 'BATTLE_VICTORY') setTimeout(() => {
-      this.advanceToNextFloorOrCheckpoint();
+      if (this.adventureId === adventureId && this.state !== 'LOBBY') this.advanceToNextFloorOrCheckpoint();
     }, 700);
     return { success: true };
   }
@@ -8028,9 +8030,37 @@ export class Room {
     this.broadcastState();
   }
 
-  restartToLobby(socketId) {
-    if (socketId !== this.leaderId) return { success: false, message: '只有隊長能重啟冒險！' };
+  restartToLobby(socketId, adventureId = undefined) {
+    if (!this.memberIds.includes(socketId) || !this.players[socketId]?.connected) return { success: false, message: '只有在線正式隊員可以返回準備房間' };
+    if (adventureId !== undefined && adventureId !== (this.adventureId || this.lastEndedAdventureId)) return { success: false, message: '冒險已變更，請同步最新房間狀態' };
+    if (this.state === 'LOBBY') return { success: true };
+    if (this.isDev && socketId !== this.leaderId) return { success: false, message: '只有 Dev 房主可以重置測試房間' };
+    if (!this.isDev && !['GAME_OVER', 'VICTORY'].includes(this.state)) return { success: false, message: '冒險尚未結束，無法返回準備房間' };
     if (this.adventureId && this.checkpoint?.status !== 'ended') return { success: false, message: '請先正式結束冒險並確認結束狀態保存成功' };
+    if (this.adventureId) {
+      const endedId = this.adventureId;
+      const versions = Object.fromEntries(['stateVersion', 'routePresentationId', 'battlePresentationId',
+        'victoryPresentationId', 'trapPresentationId', 'chestPresentationId'].map(key => [key, this[key] || 0]));
+      const { code, io, leaderId, memberIds, players, persistence, career, onAdventureEnded, studioContent } = this;
+      persistence.resetEndedRoom(this);
+      this.clearTimer();
+      for (const key of ['roundStartTimer', 'selectionReadyTimer', 'presentationSafetyTimer']) clearTimeout(this[key]);
+      this.spectators?.close();
+      const fresh = new Room(code, { id: leaderId, join() {} }, players[leaderId].name, { to: () => ({ emit() {} }) });
+      fresh.memberIds = [...memberIds]; fresh.players = {};
+      for (const id of memberIds) {
+        const previous = players[id], player = fresh.createPlayer(id, previous.name);
+        fresh.players[id] = player;
+        if (previous.role) fresh.initializeRole(player, previous.role);
+        Object.assign(player, { connected: previous.connected, customAvatar: previous.customAvatar });
+      }
+      for (const key of Object.keys(this)) delete this[key];
+      Object.assign(this, fresh, versions, { io, persistence, career, onAdventureEnded, studioContent,
+        adventureId: null, checkpoint: null, lastEndedAdventureId: endedId });
+      clearRoleRandom(this);
+      this.broadcastState();
+      return { success: true };
+    }
     this.clearTimer();
     if (this.state === 'PROLOGUE' || this.state === 'CHOOSING_ROUTE') this.pendingPresentationAcks.clear();
     clearRoleRandom(this);

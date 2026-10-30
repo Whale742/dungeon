@@ -3487,7 +3487,7 @@ function renderGameOver(isLeader) {
     elements.endSubtitle.textContent = `小隊全員在深淵第 ${state.floor || 1} 層壯烈倒下，未能成功突破，挑戰失敗！`;
   }
   renderEndStats();
-  elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
+  updateRestartLobbyButton(state);
   if(typeof bgmManager!=='undefined')void bgmManager.battleDefeated().catch(error=>console.warn('[Defeat:BGM]',error));
 }
 
@@ -3497,7 +3497,7 @@ function renderVictory(isLeader) {
   elements.endTitle.textContent = '榮耀凱旋歸來！';
   elements.endSubtitle.textContent = `小隊成功突破至深淵第 ${state.floor || 10} 層並滿載而歸！勇者威名永垂不朽！`;
   renderEndStats();
-  elements.btnRestartLobby.style.display = isLeader ? 'inline-flex' : 'none';
+  updateRestartLobbyButton(state);
   playSound('victory');
 }
 
@@ -4162,13 +4162,29 @@ elements.btnCpEnd.addEventListener('click', () => {
   });
 });
 
-// 重啟冒險回大廳
-elements.btnRestartLobby.addEventListener('click', () => {
+// 返回原隊伍的準備房間
+function updateRestartLobbyButton(state) {
+  const member = !state.viewer?.spectator && state.players?.some(p => p.id === myId);
+  const ready = !state.adventureId || state.checkpoint?.status === 'ended';
+  elements.btnRestartLobby.style.display = member ? 'inline-flex' : 'none';
+  elements.btnRestartLobby.disabled = !ready;
+  elements.btnRestartLobby.textContent = ready ? '返回準備房間' : '正在結束冒險，完成後即可返回準備房間。';
+}
+let restartLobbyPending = false;
+elements.btnRestartLobby.addEventListener('click', async () => {
+  if (restartLobbyPending || elements.btnRestartLobby.disabled) return;
+  restartLobbyPending = true;
+  elements.btnRestartLobby.disabled = true;
   playSound('click');
-  if (roomState?.checkpoint?.status === 'ended') { void exitRoomToLobbyMenu({ temporary: true }); return; }
-  socket.emit('game:restart', (res) => {
-    if (!res.success) alert(res.message);
-  });
+  try {
+    const result = await new Promise(resolve => socket.timeout(15000).emit('game:restart',
+      { adventureId: roomState?.adventureId || undefined }, (error, reply) =>
+        resolve(error ? { success: false, message: '返回尚未確認，請同步房間後重試。' } : reply)));
+    if (!result?.success) showToast(result?.message || '暫時無法返回準備房間', 'warning', 6000);
+  } finally {
+    restartLobbyPending = false;
+    if (roomState) updateRestartLobbyButton(roomState);
+  }
 });
 
 // ==========================================

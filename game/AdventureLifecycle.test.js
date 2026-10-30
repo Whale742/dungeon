@@ -29,7 +29,7 @@ async function fixture(t, { count = 1, intercept = (_, run) => run() } = {}) {
   room.startAdventure(room.leaderId, { skipPrepShop: true });
   room.startRouteSelection({ skipIntro: true }); await persistence.saveBoundary(room);
   room.spectators = new Spectators(room, io);
-  t.after(() => { room.spectators.close(); room.clearTimer(); persistence.close(); });
+  t.after(() => { room.spectators?.close(); room.clearTimer(); persistence.close(); });
   return { room, members, persistence, memory, calls, store, advance: ms => { time += ms; } };
 }
 
@@ -178,6 +178,58 @@ test('lost terminal response retries the same CAS without repeating settlements'
   assert.equal(h.room.state, 'CHOOSING_ROUTE'); assert.equal(h.memory.rows.get(h.room.adventureId).checkpoint, null);
   assert.equal((await h.room.endBattle(h.room.leaderId)).success, true);
   assert.deepEqual(payloads[0], payloads[1]);
+});
+
+test('a non-leader can return the ended party with an offline captain, preserving identity and career data', async t => {
+  const h = await fixture(t, { count: 4 }), { room } = h;
+  const career = new CareerStats(new MemoryCareerStore()); t.after(() => career.close());
+  career.attach(room); await career.flush(room);
+  const stats = await career.read(room.leaderId);
+  const id = room.adventureId, code = room.code, ids = [...room.memberIds], leader = room.leaderId;
+  assert.equal(room.restartToLobby(ids[1], id).success, false);
+  room.gold = 999; room.players[ids[1]].bag = [{ id: 'old' }];
+  assert.equal((await room.endBattle(leader)).success, true);
+  disconnectPlayer(room, leader);
+  assert.equal(room.restartToLobby('observer', id).success, false);
+  assert.equal(room.restartToLobby(ids[1], id).success, true);
+  assert.equal(room.state, 'LOBBY'); assert.equal(room.code, code); assert.equal(room.leaderId, leader);
+  assert.deepEqual(room.memberIds, ids); assert.equal(room.players[leader].connected, false);
+  assert.equal(room.gold, 0); assert.deepEqual(room.players[ids[1]].bag, []);
+  assert.equal(room.adventureId, null); assert.equal(room.checkpoint, null);
+  assert.equal(h.persistence.diagnostics(room), null);
+  room.gold = 12;
+  assert.equal(room.restartToLobby(ids[2], id).success, true); assert.equal(room.gold, 12);
+  assert.equal(h.memory.rows.get(id).checkpoint, null);
+  assert.deepEqual(await career.read(leader), stats);
+});
+
+test('failed cloud termination keeps the room intact and refuses return until retry succeeds', async t => {
+  let fail = true;
+  const h = await fixture(t, { count: 4, intercept: (action, run) => {
+    if (action === 'finish' && fail) return Promise.reject(new Error('offline'));
+    return run();
+  } });
+  const { room } = h, id = room.adventureId, members = [...room.memberIds];
+  room.handleGameOver(); await h.persistence.finish(room);
+  assert.equal(room.checkpoint.status, 'failed');
+  assert.equal(room.restartToLobby(members[1], id).success, false);
+  assert.equal(room.adventureId, id); assert.deepEqual(room.memberIds, members);
+  assert.ok(h.memory.rows.get(id).checkpoint);
+  fail = false; await h.persistence.finish(room);
+  assert.equal(room.restartToLobby(members[1], id).success, true);
+});
+
+test('return button is available to formal non-leaders only after terminal commit', () => {
+  const source = readFileSync(new URL('../public/js/core/app.js', import.meta.url), 'utf8');
+  const start = source.indexOf('function updateRestartLobbyButton('), end = source.indexOf('let restartLobbyPending', start);
+  const button = { style: {} }, scope = { myId: 'member', elements: { btnRestartLobby: button } };
+  vm.runInNewContext(source.slice(start, end), scope);
+  const state = { adventureId: 'a', checkpoint: { status: 'ending' }, players: [{ id: 'member' }], leaderId: 'leader' };
+  scope.updateRestartLobbyButton(state);
+  assert.equal(button.disabled, true); assert.equal(button.textContent, '正在結束冒險，完成後即可返回準備房間。');
+  state.checkpoint.status = 'ended'; scope.updateRestartLobbyButton(state);
+  assert.equal(button.disabled, false); assert.equal(button.style.display, 'inline-flex');
+  state.viewer = { spectator: true }; scope.updateRestartLobbyButton(state); assert.equal(button.style.display, 'none');
 });
 
 test('retreat UI sends only end, deduplicates clicks and offers authoritative restore after lost lease', async () => {

@@ -13,6 +13,12 @@ export class AdventurePersistence {
     this.heartbeat.unref();
   }
   close() { clearInterval(this.heartbeat); }
+  resetEndedRoom(room) {
+    const c = runtime.get(room);
+    if (!c?.ended || room.checkpoint?.status !== 'ended') throw new Error('冒險尚未正式結束');
+    this.active.delete(room.adventureId);
+    runtime.delete(room);
+  }
   attach(room, metadata = null) {
     room.persistence = this;
     room.adventureId = metadata?.id || randomUUID();

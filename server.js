@@ -140,15 +140,15 @@ function retireRoom(room) {
   }
 }
 function bindLifecycle(room) {
-  // Keep the terminal result screen available, but detach every transport and
-  // registration. It can no longer be mistaken for a live room or Dev party.
+  // The adventure ends, but the formal party keeps its room and channels.
   room.onAdventureEnded = () => {
     room.broadcastState();
     for (const id of room.memberIds) {
       const connection = activeConnections.get(id);
       if (connection) connection.data.terminalState = room.getClientState();
     }
-    retireRoom(room);
+    room.spectators?.close();
+    career.release(room);
   };
 }
 const offlineCleanup = new WeakMap();
@@ -185,10 +185,10 @@ io.on('connection', (transport) => {
         return;
       }
       const allowedWhileSaving = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry', 'route:interaction_ready', 'adventure:retry_save',
-        'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'narrative:accelerate', 'player:rename'];
+        'adventure:restore', 'adventure:detach', 'game:toggle_pause', 'game:end_battle', 'game:restart', 'narrative:accelerate', 'player:rename'];
       const terminalPending = room && adventures.isEnding(room);
       const allowedWhileEnding = ['room:resync', 'room:list', 'adventure:list', 'player:career', 'player:career_retry',
-        'adventure:retry_save', 'adventure:restore', 'adventure:detach', 'game:end_battle'];
+        'adventure:retry_save', 'adventure:restore', 'adventure:detach', 'game:end_battle', 'game:restart'];
       if (room?.adventureId && adventures.blocked(room) && !(terminalPending ? allowedWhileEnding : allowedWhileSaving).includes(_packet[0])) {
         adventures.trace(room, 'socket:rejected:' + String(_packet[0]).slice(0, 80));
         const reply = _packet.at(-1);
@@ -215,7 +215,7 @@ io.on('connection', (transport) => {
   const existing = rooms.get(socketToRoom.get(socket.id));
   const sameMode = !!existing?.isDev === (socket.handshake.auth?.devMode === true);
   if (existing?.isDev && sameMode) devController.register(existing, socket);
-  if (existing && sameMode && existing.state !== 'LOBBY' && !adventures.hasLostAuthority(existing) && reconnectPlayer(existing, socket, { newConnection: true })) {
+  if (existing && sameMode && !adventures.hasLostAuthority(existing) && reconnectPlayer(existing, socket, { newConnection: true })) {
     socket.emit('studio:content', existing.studioContent.snapshot); existing.spectators?.notify();
   }
 
@@ -829,13 +829,18 @@ io.on('connection', (transport) => {
   });
 
   // 8. 重新開始
-  socket.on('game:restart', (callback) => {
+  socket.on('game:restart', (data, callback) => {
+    const cb = typeof data === 'function' ? data : callback;
     const code = socketToRoom.get(socket.id);
     const room = rooms.get(code);
-    if (!room) return;
-    const res = room.restartToLobby(socket.id);
+    if (!room) { if (typeof cb === 'function') cb({ success: false, message: '找不到準備房間，請重新連線' }); return; }
+    const res = room.restartToLobby(socket.id, typeof data === 'function' ? undefined : data?.adventureId);
+    if (res?.success) for (const id of room.memberIds) {
+      const connection = activeConnections.get(id);
+      if (connection) { connection.data.terminalState = null; connection.data.detachedAdventure = null; }
+    }
     if (res?.success) devAccess.revoke(socket);
-    if (typeof callback === 'function') callback(res);
+    if (typeof cb === 'function') cb(res);
   });
 
   // 10. 暫停 / 繼續遊戲
@@ -854,7 +859,7 @@ io.on('connection', (transport) => {
     const room = rooms.get(code);
     if (!room) { if (typeof cb === 'function') cb({ success: !!socket.data.terminalState, message: '找不到冒險，請先恢復雲端冒險' }); return; }
     adventures.trace(room, 'socket:received:game:end_battle');
-    const res = await room.endBattle(socket.id);
+    const res = room.checkpoint?.status === 'ended' && room.leaderId === socket.id ? { success: true } : await room.endBattle(socket.id);
     if (typeof cb === 'function') cb(res);
   });
 
