@@ -47,6 +47,24 @@ test('Image retries release failed promises, tolerate renderable decode errors, 
   assert.equal(requests,count,'local-only must never request Storage');
 });
 
+test('Registry rebuild preloads only shipped backgrounds in local mode',async()=>{
+  const events={},requests=[];
+  class ImageNode{
+    set src(value){this.value=value;requests.push(value);queueMicrotask(()=>this.onload?.());}
+    get src(){return this.value;}getAttribute(){return this.value;}
+  }
+  const content={state:{defaults:{},config:{asset_source_mode:'local_only'}},load:async()=>{}};
+  const scope=vm.createContext({URL,Image:ImageNode,HTMLImageElement:ImageNode,setTimeout,clearTimeout,
+    location:{href:'http://localhost/',origin:'http://localhost'},MutationObserver:class{observe(){}},
+    document:{body:{querySelectorAll:()=>[]},documentElement:{style:{setProperty(){}}},addEventListener:(name,fn)=>events[name]=fn},
+    StudioContent:content,window:{StudioContent:content,addEventListener:(name,fn)=>events[name]=fn}});
+  vm.runInContext(fs.readFileSync(new URL('../public/js/studio/asset-registry.js',import.meta.url),'utf8'),scope);
+  events.DOMContentLoaded();events['studio:content-ready']();
+  await new Promise(setImmediate);
+  assert.deepEqual(requests,['/assets/environments/backgrounds/background.webp']);
+  assert.ok(fs.existsSync(new URL('../public'+requests[0],import.meta.url)));
+});
+
 test('Streaming music resumes normal position and switches boss tracks without decoding MP3 buffers',async()=>{
   const timers=new Map();let timerId=0;
   const param={value:1,cancelScheduledValues(){},setValueAtTime(){},linearRampToValueAtTime(){}};

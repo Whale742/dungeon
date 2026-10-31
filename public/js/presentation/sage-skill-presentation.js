@@ -8,30 +8,45 @@ function sagePresentationData(step) {
     operandAfter:after?.sageOperand,xBefore:before?.sageX,xAfter:after?.sageX};
 }
 const SAGE_SKILL_CUES=Object.freeze({
-  basic:{skill:'basic',hit:550,duration:750,gap:160},
-  sge_deduce:{skill:'vector',hit:1050,duration:1500,gap:25},
-  sge_induce:{skill:'momentum',hit:1100,hypothesisHit:1090,duration:1500,gap:160}
+  basic:{skill:'basic',hit:550,duration:750},
+  sge_deduce:{skill:'vector',hit:1050,duration:1500},
+  sge_induce:{skill:'momentum',hit:1100,duration:1500}
 });
 async function playSageSkillPresentation(step,context={}) {
   const data=sagePresentationData(step),solve=data.sagePhase==='solve',cue=SAGE_SKILL_CUES[step.actionId];
-  const hit=!solve&&cue.hypothesisHit||cue.hit;
-  // Prototype's 3.25s hypothesis includes a simulated enemy turn. In production
-  // that idle/capture section lives with the real sampling status, not this cast.
-  // The original hook signals handoff at .24s. Its later placeholder hold is
-  // replaced by the already queued production equation, never a second effect.
-  const duration=cue.duration+(solve?cue.gap+240:0);
+  const hit=cue.hit,duration=cue.duration;
+  // Both phases play the same complete body. Only the existing queue decides
+  // whether a separate equation follows; no solve-only body or handoff cut.
   sageSamplingVisuals.casting.add(step.sourceId);
   try {
     await withSkillPresentationStage(step,{...context,castAudioNoHold:true},async s=>{
-      const canvas=s.el('canvas','sage-skill-canvas');canvas.setAttribute('aria-hidden','true');
+      // A viewport canvas avoids the fixed 1440x810 letterbox clipping lower
+      // party positions on tall/mobile screens. Numbers keep their existing lane.
+      const battlefield=!!s.local?.battlefield;
+      const canvas=s.el('canvas','sage-skill-canvas',null,battlefield?s.root:s.frame);
+      canvas.setAttribute('aria-hidden','true');
+      if(battlefield&&canvas.style){canvas.style.width='100%';canvas.style.height='100%';}
       const renderer=createSageSkillRenderer(canvas);
-      let time=0,ended=false,contact=false;
+      if(battlefield)s.revealRecipient?.(step.sourceId);
+      let time=0,ended=false,contact=false,lastSource,lastTarget;
       const draw=()=>{
-        if(ended)return;renderer.clear(1440,810);
-        const source=s.anchors.get(step.sourceId)||SKILL_STAGE.actor;
-        const target=s.anchors.get('monster')||s.anchors.get(step.targetId)||SKILL_STAGE.target;
-        renderer.render(cue.skill,Math.min(time,cue.duration)/1000,solve,source,target,
-          solve&&time>cue.duration+cue.gap?(time-cue.duration-cue.gap)/1000:null);
+        if(ended)return;
+        const viewport=battlefield&&typeof innerWidth==='number';
+        const width=viewport?innerWidth:1440,height=viewport?innerHeight:810;
+        renderer.clear(width,height);
+        // Use actual party/target artwork anchors, not the shared legacy spell
+        // point at 18%/48%. Keep the last location while a dead target retires.
+        if(viewport&&typeof getBattleEffectAnchor==='function'){
+          lastSource=getBattleEffectAnchor(step.sourceId)||lastSource;
+          const id=battlefieldPlayerTarget(step);
+          lastTarget=getBattleEffectAnchor(id)||lastTarget;
+        }
+        const source=lastSource||s.anchors.get(step.sourceId)||SKILL_STAGE.actor;
+        const target=lastTarget||s.anchors.get('monster')||s.anchors.get(step.targetId)||SKILL_STAGE.target;
+        renderer.render(cue.skill,Math.min(time,duration)/1000,false,source,target,{
+          targetWidth:lastTarget?.rect?.width,
+          edgeRoom:Math.max(1,Math.min(target.x,width-target.x,target.y,height-target.y)-6)
+        });
       };
       if(!s.local?.battlefield){
         let origin;

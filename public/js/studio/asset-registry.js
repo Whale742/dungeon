@@ -33,7 +33,7 @@
       }
       const remote=rawUrl(assets.get(b.asset_key));if(remote&&!safeLocal(remote))remotePaths.set(remote,b.binding_key);
     }
-    for(const [name,path] of [['--studio-game-background','/assets/environments/backgrounds/background.webp'],['--studio-battle-background','/photo/Battle.webp']]){
+    for(const [name,path] of [['--studio-game-background','/assets/environments/backgrounds/background.webp']]){
       const target=resolvePath(path);document.documentElement.style.setProperty(name,'url("'+target+'")');
       preloadImage(path).then(image=>{if(resolvePath(path)===image.getAttribute('src'))document.documentElement.style.setProperty(name,'url("'+image.src+'")');}).catch(()=>{});
     }

@@ -307,7 +307,7 @@ function createSageSkillRenderer(canvas) {
     dot(cx,cy,3.8,color(C.white,1),alpha,14);
     ctx.restore();
   }
-  function drawVector(t,solve){
+  function drawVector(t,solve,releaseCue=true){
     const cx=TARGET.x,cy=TARGET.y;
     const birth=ease(t,0,.18),accel=ease(t,.18,.52),unstable=ease(t,.52,.78),collapse=ease(t,.78,.98);
     const still=t>=.98&&t<1.05;
@@ -365,7 +365,7 @@ function createSageSkillRenderer(canvas) {
     }
     // The hand artwork slot remains empty: only a restrained procedural
     // release cue near Sage is present. Skill remains complete with no hand.
-    drawSageSnapCue(t,.98,395,401);
+    if(releaseCue)drawSageSnapCue(t,.98,395,401);
   }
 
   function drawTransitionCore(t,start,finish,x,y){
@@ -657,19 +657,33 @@ function createSageSkillRenderer(canvas) {
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
     ctx.lineCap='round';ctx.lineJoin='round';ctx.globalCompositeOperation='source-over';
   }
-  function render(skill,t,solve,source,target,handoffAge=null) {
-    // Similarity transform keeps 3D circles/projection intact at every aspect ratio.
-    // Both endpoints follow the production stage, including non-primary enemies.
+  function render(skill,t,_phase,source,target,geometry={}) {
+    // Same authored left-to-right curves, rotated onto the live lower-party to
+    // upper-enemy axis. A similarity transform preserves the 3D projection.
     const dx=target.x-source.x,dy=target.y-source.y;
     const bx=TARGET.x-483,by=TARGET.y-401,den=bx*bx+by*by;
     const a=(dx*bx+dy*by)/den,b=(dy*bx-dx*by)/den;
+    const axisScale=Math.max(.0001,Math.hypot(a,b));
     ctx.save();ctx.translate(source.x,source.y);ctx.transform(a,b,-b,a,0,0);ctx.translate(-483,-401);
     samples=[];
-    if(handoffAge!==null)drawEquationHook(handoffAge,skill);
-    else if(skill==='basic')drawBasic(t,solve);
-    else if(skill==='vector')drawVector(t,solve);
-    else if(solve)drawMomentumSolve(t);
-    else drawMomentumHyp(t,{start:0});
+    if(skill==='basic')drawBasic(t,false);
+    else if(skill==='vector'){
+      // Fit the unscaled model to enemy artwork, then enlarge the WHOLE atom
+      // 1.4x: nucleus, orbits, electrons, trails, collapse and burst fragments.
+      // Reserve the largest fragment radius so viewport edges cannot cut rings.
+      const atomMultiplier=1.4;
+      const enemyScale=geometry.targetWidth?geometry.targetWidth*.35/119:axisScale;
+      const fitScale=geometry.edgeRoom?Math.min(enemyScale,geometry.edgeRoom/(285*atomMultiplier)):enemyScale;
+      const atomScale=fitScale*atomMultiplier/axisScale;
+      ctx.save();ctx.translate(TARGET.x,TARGET.y);ctx.scale(atomScale,atomScale);ctx.translate(-TARGET.x,-TARGET.y);
+      drawVector(t,false,false);ctx.restore();
+      // The release cue belongs near Sage, not inside the enlarged atom.
+      drawSageSnapCue(t,.98,395,401);
+    }else{
+      // Reuse the existing attack's rotating/folding target geometry and pulse
+      // in both phases. Hypothesis sampling is a separate status-owned model.
+      drawMomentumSolve(t);
+    }
     ctx.restore();
   }
   function sampling(time,anchor,radius,ages=[]) {

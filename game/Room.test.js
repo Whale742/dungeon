@@ -187,14 +187,14 @@ test('HUD queue retirement respects reduced motion, playback speed and cancellat
 
 test('Sage Canvas follows moving stage anchors and commits each authoritative result once at contact',async()=>{
   for(const phase of ['hypothesis','solve'])for(const actionId of ['basic','sge_deduce','sge_induce']){
-    const actor={x:840,y:680},enemy={x:1100,y:260},frames=[],commits=[],timings=[],nodes=[];
+    const actor={x:840,y:680,rect:{width:90}},enemy={x:1100,y:260,rect:{width:160}},frames=[],commits=[],timings=[],nodes=[];
     let elapsed=0,snapshots=0;
-    const hit=actionId==='basic'?550:actionId==='sge_deduce'?1050:phase==='solve'?1100:1090;
-    const scope={
-      createSageSkillRenderer:()=>({clear(){},render:(skill,t,solve,a,b,handoffAge)=>frames.push({skill,t,solve,a:{...a},b:{...b},handoffAge})}),
+    const hit=actionId==='basic'?550:actionId==='sge_deduce'?1050:1100;
+    const scope={innerWidth:1440,innerHeight:810,battlefieldPlayerTarget:()=> 'enemy',getBattleEffectAnchor:id=>id==='actor'?actor:enemy,
+      createSageSkillRenderer:()=>({clear(){},render:(skill,t,solve,a,b,geometry)=>frames.push({skill,t,solve,a:{...a},b:{...b},geometry})}),
       commitBattlefieldGroup:(_s,step,results)=>commits.push({elapsed,results}),applyHpSnapshot:()=>snapshots++,
       withSkillPresentationStage:async(_step,_context,play)=>play({
-        local:{battlefield:true},anchors:new Map([['actor',actor],['monster',enemy]]),signal:{aborted:false},
+        local:{battlefield:true},anchors:new Map([['actor',{x:259,y:389}],['monster',enemy]]),signal:{aborted:false},
         el:(tag,className)=>{const n={className,setAttribute(){},remove(){this.removed=true;}};nodes.push(n);return n;},
         timeline:async(ms,update)=>{for(elapsed=0;elapsed<ms;elapsed+=10){if(elapsed===200){actor.x=520;enemy.y=310;}update(elapsed/ms);}elapsed=ms;update(1);}
       })
@@ -204,10 +204,26 @@ test('Sage Canvas follows moving stage anchors and commits each authoritative re
     await scope.playSageSkillPresentation({sourceId:'actor',actionId,results:[result],hpSnapshot:snapshot,sagePresentation:{sagePhase:phase}},
       {onTiming:beat=>timings.push(beat)});
     assert.equal(commits.length,1);assert.equal(commits[0].elapsed,hit);assert.equal(commits[0].results[0],result);
-    assert.equal(frames[0].a.x,840);assert.equal(frames.at(-1).a.x,520);assert.equal(frames.at(-1).b.y,310);
-    assert.equal(frames.at(-1).solve,phase==='solve');assert.equal(frames.at(-1).handoffAge,phase==='solve'?.24:null);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
+    assert.equal(frames[0].a.x,840);assert.equal(frames[0].geometry.targetWidth,160);assert.equal(frames.at(-1).a.x,520);assert.equal(frames.at(-1).b.y,310);
+    assert.equal(frames.at(-1).solve,false);assert.equal(frames.at(-1).t,actionId==='basic'?.75:1.5);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
     assert.equal(timings.filter(b=>b==='sage_equation_handoff').length,phase==='solve'?1:0);
   }
+});
+
+test('Sage phases draw identical Canvas bodies and enlarge the whole target-centered atom 1.4x',()=>{
+  const calls=[];
+  const gradient={addColorStop(...args){calls.push(['stop',...args]);}};
+  const ctx=new Proxy({}, {get(_t,key){return (...args)=>{calls.push([key,...args]);if(key==='createRadialGradient')return gradient;};},set(_t,key,value){calls.push(['set',key,typeof value==='object'?'gradient':value]);return true;}});
+  const scope={console,canvas:{getContext:()=>ctx}};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-renderer.js',import.meta.url),'utf8')+';var renderer=createSageSkillRenderer(canvas);',scope);
+  for(const skill of ['basic','vector','momentum'])for(const time of [.1,.45,.7,1.05,1.12,1.5]){
+    calls.length=0;scope.renderer.render(skill,time,false,{x:483,y:401},{x:1171,y:384});const hypothesis=JSON.stringify(calls);
+    calls.length=0;scope.renderer.render(skill,time,true,{x:483,y:401},{x:1171,y:384});assert.equal(JSON.stringify(calls),hypothesis,skill+' '+time);
+  }
+  calls.length=0;scope.renderer.render('vector',.45,false,{x:483,y:401},{x:1171,y:384});
+  const scaleIndex=calls.findIndex(c=>c[0]==='scale');assert.deepEqual(calls[scaleIndex],['scale',1.4,1.4]);
+  assert.deepEqual(calls[scaleIndex-1],['translate',1171,384]);assert.deepEqual(calls[scaleIndex+1],['translate',-1171,-384]);
+  assert.ok(calls.slice(scaleIndex).some(c=>c[0]==='stroke'));assert.ok(calls.slice(scaleIndex).some(c=>c[0]==='arc'));
 });
 
 test('Sage Canvas cancellation never commits a later hit or final snapshot',async()=>{
@@ -2498,7 +2514,7 @@ test('Cloud-first registry resolves canonical images and bounded local fallback'
   const ruleStyle={*[Symbol.iterator](){yield 'background-image';},getPropertyValue:key=>ruleValues.get(key)||'',getPropertyPriority:()=>'',setProperty:(key,value)=>ruleValues.set(key,value)};
   class Node{constructor(tag='img'){this.tagName=tag;this.dataset={};this.attrs={};this.style={};this.complete=true;this.naturalWidth=1;}addEventListener(){}getAttribute(k){return this.attrs[k]??null;}setAttribute(k,v){this.attrs[k]=v;}querySelectorAll(){return [];}}
   class ImageNode extends Node{get src(){return this.attrs.src;}set src(v){this.attrs.src=v;queueMicrotask(()=>v.includes('broken')?this.onerror?.():this.onload?.());}async decode(){if(this.src?.includes('broken'))throw Error('missing');}}
-  const local=['/assets/example.png','/assets/icons/status/中毒.webp','/BOSS/深淵/test.png','/assets/environments/backgrounds/background.webp','/photo/Battle.webp'];
+  const local=['/assets/example.png','/assets/icons/status/中毒.webp','/BOSS/深淵/test.png','/assets/environments/backgrounds/background.webp'];
   const assets=local.map((p,i)=>({asset_key:'storage.'+i,source_type:'storage',storage_bucket:'game-assets',storage_path:'images/'+i+'.png',is_public:true})),bindings=local.map((p,i)=>({binding_key:'path.'+i,asset_key:'storage.'+i,fallback_path:p}));
   const body=new Node('body');body.querySelectorAll=()=>nodes;
   const scope={URL,setTimeout,clearTimeout,Image:ImageNode,HTMLImageElement:ImageNode,location:{origin:'http://localhost:3106',href:'http://localhost:3106/dev'},MutationObserver:class{observe(){}},
@@ -2512,7 +2528,7 @@ test('Cloud-first registry resolves canonical images and bounded local fallback'
   assert.match(registry.resolvePath('/buff%20icon/%E4%B8%AD%E6%AF%92.webp?v=2'),/images\/1.png$/);
   bindings[1].fallback_path='/buff icon/中毒.webp';events['studio:content-ready']();
   assert.match(registry.resolvePath('/assets/icons/status/中毒.webp'),/images\/1.png$/);
-  assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.match(css.get('--studio-battle-background'),/images\/4.png/);
+  assert.match(img.src,/images\/0.png$/);assert.match(svg.attrs.href,/images\/2.png$/);assert.match(css.get('--studio-game-background'),/images\/3.png/);assert.equal(css.has('--studio-battle-background'),false);
   const detached=await registry.preloadImage('/assets/example.png');assert.match(detached.src,/images\/0.png$/);
   assets[0].storage_path='images/broken.png';events['studio:content-ready']();const fallback=await registry.preloadImage('/assets/example.png');assert.equal(fallback.src,'/assets/example.png');registry.markFailed('/assets/example.png');assert.equal((await registry.preloadImage('/assets/example.png')).src,'/assets/example.png','transient failures must be retryable');
   assert.equal(registry.resolvePath('https://other.example.test/assets/example.png'),'https://other.example.test/assets/example.png');
