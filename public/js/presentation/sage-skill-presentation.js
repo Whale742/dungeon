@@ -8,9 +8,9 @@ function sagePresentationData(step) {
     operandAfter:after?.sageOperand,xBefore:before?.sageX,xAfter:after?.sageX};
 }
 const SAGE_SKILL_CUES=Object.freeze({
-  basic:{skill:'basic',hit:550,duration:750},
-  sge_deduce:{skill:'vector',hit:3300,duration:3830},
-  sge_induce:{skill:'momentum',hit:1100,hypothesisHit:1090,duration:1500}
+  basic:{skill:'basic',hit:550,duration:750,audio:[[390,'sage-attack'],[550,'sage_pong']]},
+  sge_deduce:{skill:'vector',hit:3300,duration:4360,audio:[[0,'sage-skill1-1'],[3300,'sage-skill1-2']]},
+  sge_induce:{skill:'momentum',hit:2180,duration:2800,audio:[[0,'sage-skill2'],[2180,'sage_pong']]}
 });
 // Animate only the target artwork. Its layout anchor, HP/HUD and official
 // damage labels stay stable. Every touched style is restored on exit/abort.
@@ -40,14 +40,14 @@ function sageQuantumTargetFeedback(s,step,renderer) {
 }
 async function playSageSkillPresentation(step,context={}) {
   const data=sagePresentationData(step),solve=data.sagePhase==='solve',cue=SAGE_SKILL_CUES[step.actionId];
-  const hit=(!solve&&cue.hypothesisHit)||cue.hit,duration=cue.duration;
-  // Deduce uses the complete 3.83s quantum attack; its authoritative result
-  // is presented at collapse (3.30s), not the earlier visual-only blast.
-  // Induce follows the prototype's hypothesis/solve branches; real sampling
-  // continues as a status after the initial 1.5s cast, without simulated hits.
+  const hit=cue.hit,duration=cue.duration;
+  // Deduce still commits at collapse (3.30s); its horizontal beam now lasts
+  // 1.06s rather than .53s. V2 commits once at 2.18s and ends at 2.80s.
+  // Real sampling persists as a status; the prototype's mock hit/round is absent.
+  const stageContext={...context,skipCastAudio:true,castAudioNoHold:true};
   sageSamplingVisuals.casting.add(step.sourceId);
   try {
-    await withSkillPresentationStage(step,{...context,castAudioNoHold:true},async s=>{
+    await withSkillPresentationStage(step,stageContext,async s=>{
       // A viewport canvas avoids the fixed 1440x810 letterbox clipping lower
       // party positions on tall/mobile screens. Numbers keep their existing lane.
       const battlefield=!!s.local?.battlefield;
@@ -59,8 +59,19 @@ async function playSageSkillPresentation(step,context={}) {
       try {
         if(battlefield)s.revealRecipient?.(step.sourceId);
         let time=0,ended=false,contact=false,lastSource,lastTarget;
+        const playedAudio=new Set();
+        const playAudio=()=>{
+          if(s.signal?.aborted)return;
+          for(const [at,key] of cue.audio)if(time>=at&&!playedAudio.has(key)){
+            playedAudio.add(key);
+            (s.local?.audioScope||stageContext.audioScope)?.play(key,{noHold:true,signal:s.signal});
+          }
+        };
+        // Cues share the visual clock and abortable production audio scope.
+        playAudio();
         const draw=()=>{
           if(ended)return;
+          playAudio();
           const viewport=battlefield&&typeof innerWidth==='number';
           const width=viewport?innerWidth:1440,height=viewport?innerHeight:810;
           renderer.clear(width,height);
@@ -97,7 +108,7 @@ async function playSageSkillPresentation(step,context={}) {
           // Legacy result-card stage uses its existing result presentation path.
           await s.wait(hit);if(s.signal.aborted)return;
           context.onTiming?.('sage_projectile_contact',{step});
-          await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false});
+          await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false,skipResultAudio:true});
           await s.wait(Math.max(0,duration-time));
         }
         if(s.signal?.aborted)return;
@@ -135,7 +146,7 @@ function syncSageSamplingIndicator(entity,layer) {
     v.renderer.clear(innerWidth,innerHeight);
     for(const [id,m] of v.models){
       if(!m.layer.isConnected){v.models.delete(id);continue;}
-      m.captures=m.captures.filter(c=>(now-c.at)*c.speed<500);
+      m.captures=m.captures.filter(c=>(now-c.at)*c.speed<640);
       if(v.casting.has(id))continue;
       const a=typeof getBattleEffectAnchor==='function'?getBattleEffectAnchor(id):null;
       const r=(a?.element||m.layer.closest('.portrait-root')||m.layer).getBoundingClientRect();
@@ -163,7 +174,7 @@ async function playSageMomentumCapture(result,card,context={}) {
   }
   if(model)model.captures.push({at:performance.now(),speed:context.speed||1});
   context.onTiming?.('sage_capture',{result});
-  await waitForPresentation(500,context.signal,context.speed||1);
+  await waitForPresentation(640,context.signal,context.speed||1);
 }
 if(typeof window!=='undefined')window.addEventListener('pagehide',clearSageSamplingIndicators);
 

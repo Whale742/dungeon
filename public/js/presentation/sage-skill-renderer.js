@@ -5,7 +5,6 @@ function createSageSkillRenderer(canvas) {
   const ctx=canvas.getContext('2d',{alpha:true});
   const TWO_PI=Math.PI*2;
   const TARGET={x:1171,y:384};
-  let samples=[];
   // Latest prototype defaults: immediate acceleration, doubling every 500ms.
   const quantumOrbit=Object.freeze({delayMs:0,intervalMs:500,base:2});
   const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
@@ -130,7 +129,7 @@ function createSageSkillRenderer(canvas) {
     }
   }
 
-  // Rotation and perspective primitives are shared by orbit and icosahedron FX.
+  // Rotation and perspective primitives are shared by orbit and lattice FX.
   function rotate3({x,y,z},rx,ry,rz){
     let cy=Math.cos(rx),sy=Math.sin(rx);let Y=y*cy-z*sy,Z=y*sy+z*cy,X=x;
     cy=Math.cos(ry);sy=Math.sin(ry);const nX=X*cy+Z*sy,nY=Y,nZ=-X*sy+Z*cy;
@@ -390,10 +389,10 @@ function createSageSkillRenderer(canvas) {
 
     }else{
       const age=t-.30,appear=out5(between(age,0,.065));
-      const collapse=ease(t,3.30,3.40), shrink=ease(t,3.70,3.83);
+      const collapse=ease(t,3.30,3.40), shrink=ease(t,4.23,4.36);
       const scale=appear*.85*(1+.10*between(age,0,3));
       const {instability,pulse,opacity}=quantumFlicker(t);
-      const alpha=(1-ease(t,3.70,3.83))*opacity;
+      const alpha=(1-shrink)*opacity;
       drawAtomicBurst(t+.75);
       // A brief white flash marks the moment of the blast.
       if(age<.14){
@@ -514,270 +513,11 @@ function createSageSkillRenderer(canvas) {
   }
 
   const PHI=(1+Math.sqrt(5))/2;
-  const RAW_VERTICES=[
-    [-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],
-    [0,-1,PHI],[0,1,PHI],[0,-1,-PHI],[0,1,-PHI],
-    [PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]
-  ];
-  const norm=Math.sqrt(1+PHI*PHI);
-  const ICO_VERTICES=RAW_VERTICES.map(([x,y,z])=>({x:x/norm,y:y/norm,z:z/norm}));
-  const ICO_EDGES=[];
-  for(let i=0;i<RAW_VERTICES.length;i++)for(let j=i+1;j<RAW_VERTICES.length;j++){
-    const a=RAW_VERTICES[i],b=RAW_VERTICES[j],dist=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
-    if(Math.abs(dist-2)<.00001)ICO_EDGES.push([i,j]);
-  }
-  // A 20-faced polyhedron is expected to have exactly 30 edges.
-  if(ICO_EDGES.length!==30)console.warn('Unexpected icosahedron topology',ICO_EDGES.length);
-
-  function wireframeVertices({cx,cy,scale,time,appear=1,distortion=0,collapse=0,sample=0,velocity=1}){
-    const rx=.25+time*.37*velocity,ry=time*.56*velocity,rz=time*.18*velocity;
-    const pts=[];
-    for(let i=0;i<ICO_VERTICES.length;i++){
-      let p={...ICO_VERTICES[i]};
-      if(distortion){
-        p.x+=Math.sin(i*5.1+time*20)*distortion*.29;
-        p.y+=Math.cos(i*3.4+time*14)*distortion*.20;
-        p.z+=Math.sin(i*7.3+time*9)*distortion*.23;
-      }
-      if(sample){
-        const facing=clamp((p.x+.30)*.8);
-        p.x-=sample*facing*.86; // local indentation toward the attack source
-        p.y+=Math.sin(i*2.7)*sample*facing*.09;
-      }
-      p=rotate3(p,rx,ry,rz);
-      p.x*=(1-collapse*.91);p.y*=(1-collapse*.91);p.z*=(1-collapse*.9);
-      pts.push(project3(p,cx,cy,scale*appear));
-    }
-    return pts;
-  }
-  function drawWireframe(points,{birth=1,alpha=1,reconnection=0,time=0,sample=0,glowStrength=1}){
-    if(alpha<=0)return;
-    const edgeCount=Math.floor(ICO_EDGES.length*clamp(birth));
-    ctx.save();ctx.globalCompositeOperation='screen';
-    for(let i=0;i<edgeCount;i++){
-      const e=ICO_EDGES[i],a=points[e[0]],b=points[reconnection>.08&&i%6===0?(e[1]+5)%12:e[1]];
-      const depth=clamp((a.z+b.z+2.7)/5);
-      const brightness=(.38+.6*depth)*alpha;
-      if(glowStrength>.2)line(a.x,a.y,b.x,b.y,color(C.gold,.14),3.6,brightness*glowStrength);
-      line(a.x,a.y,b.x,b.y,color(C.gold,.79),1.25,brightness);
-      if(sample>0){
-        const p=(time*2.0+i/30)%1;
-        if(p<.65)dot(lerp(a.x,b.x,p/.65),lerp(a.y,b.y,p/.65),1.8,color(C.white,.8),sample*.7*alpha,3);
-      }else if(i%4===0){
-        const p=(time*.58+i/30)%1;
-        dot(lerp(a.x,b.x,p),lerp(a.y,b.y,p),1.5,color(C.bright,.7),alpha*.48,3);
-      }
-    }
-    for(let i=0;i<points.length;i++){
-      const p=points[i],reveal=birth>=1?1:ease(birth,(i-1)/12,(i+1)/12);
-      const light=(.54+.4*clamp((p.z+1)/2))*alpha*reveal;
-      if(light<.01)continue;
-      dot(p.x,p.y,2.25,color(C.bright,.9),light,4*glowStrength);
-      if(i%3===0)ring(p.x,p.y,3.4,color(C.gold,.5),.7,light*.62);
-    }
-    ctx.restore();
-  }
-  function drawSampleWave(points,age,alpha){
-    const u=between(age,0,.45),strength=Math.sin(Math.PI*u)*alpha;
-    if(strength<=.001)return;
-    const sx=483,sy=397;
-    for(let k=0;k<5;k++){
-      const p=points[k*2%12],dist=lerp(0,1,u);
-      line(sx-30+(p.x-sx)*dist,sy+(p.y-sy)*dist,sx+(p.x-sx)*dist,sy+(p.y-sy)*dist,color(C.white,.5),1.1,strength*.6);
-      dot(p.x,p.y,5.0,color(C.white,.9),strength,13);
-    }
-    ring(sx,sy,31+120*u,color(C.gold,.72),1.4,strength*.8,.77,-.3);
-    for(let j=0;j<7;j++){
-      const start=Math.max(0,Math.min(1,(u-j*.055)/.60));
-      const px=lerp(sx+153,sx+8,out3(start));
-      const py=sy+(j-3)*13*(1-out3(start));
-      dot(px,py,2.5,color(C.bright,.95),strength*(1-.6*start),8);
-      if(start>.04)line(px+18*(1-start),py,px,py,color(C.gold,.6),1.1,strength*.7);
-    }
-    for(let i=0;i<9;i++){
-      const angle=TWO_PI*i/9+u*3;
-      const px=lerp(590,483,u)+Math.cos(angle)*50*(1-u),py=400+Math.sin(angle)*52*(1-u);
-      dot(px,py,2,color(C.bright,.95),strength*.85,7);
-    }
-  }
-  function sampleEffectsFor(){return samples;}
-  // A single visual projectile: timing is independent of the hit event.
-  function drawMomentumPulse(t,hitAt){
-    const start=hitAt-.59, age=t-start;
-    if(age<0||t>hitAt+.025)return;
-    const birth=ease(age,0,.11), layers=ease(age,.09,.22);
-    const travel=ease(age,.20,.56), compress=ease(age,.45,.59);
-    const fade=1-ease(t,hitAt-.015,hitAt+.025);
-    const sx=568,sy=406,tx=TARGET.x-12,ty=TARGET.y;
-    const x=lerp(sx,tx,travel),y=lerp(sy,ty,travel),alpha=birth*fade;
-    const pointForm=ease(travel,.05,.9);
-    const radius=(31+9*layers)*(1-.88*pointForm);
-    ctx.save();ctx.globalCompositeOperation='screen';
-    // Trails begin at the source and taper with distance behind the moving core.
-    const trail=ease(age,.20,.30)*fade;
-    for(let i=0;i<4;i++){
-      const offset=(i-1.5)*7*(1-compress*.5),len=(45+i*17)*trail;
-      const endX=Math.max(sx,x-len);
-      line(endX,y+offset+(sy-ty)*(x-endX)/(tx-sx),x-8,y+offset,color(C.gold,.12),4,trail);
-      line(endX,y+offset+(sy-ty)*(x-endX)/(tx-sx),x-8,y+offset,color(C.bright,.55),1,trail);
-    }
-    glow(x,y,80,alpha*(.32+1.05*pointForm));
-    for(let layer=0;layer<2;layer++){
-      const size=radius*(layer===0?.67:1.14),spin=age*(layer===0?9:-6)+layer*2;
-      const pts=ICO_VERTICES.map(p=>project3(rotate3(p,.55+spin*.35,spin,.25+spin*.3),x,y,size));
-      ctx.beginPath();
-      for(let i=0;i<ICO_EDGES.length;i++){
-        if(layer===1&&i%2)continue;
-        const [a,b]=ICO_EDGES[i];ctx.moveTo(pts[a].x,pts[a].y);ctx.lineTo(pts[b].x,pts[b].y);
-      }
-      ctx.strokeStyle=color(C.gold,.14*alpha*layers*(1-pointForm));ctx.lineWidth=4;ctx.stroke();
-      ctx.strokeStyle=color(layer===0?C.bright:C.gold,(layer===0?.8:.48)*alpha*layers*(1-pointForm));ctx.lineWidth=1.1;ctx.stroke();
-    }
-    dot(x,y,3+35*pointForm,color(C.white,.98),alpha,8+20*pointForm);
-    ctx.restore();
-  }
-  function drawMomentumHyp(t,seg){
-    const formation=ease(t,.06,.30),linked=ease(t,.30,.65),activated=ease(t,.65,1.0);
-    const x=483,y=401;
-    const samples=sampleEffectsFor(seg,seg.start+t);
-    const active=samples.find(s=>s.age>=0&&s.age<.5);
-    const pulse=active?Math.sin(Math.PI*between(active.age,0,.5))**1.2:0;
-    const spin=t<1.5?t:1.5+(t-1.5)*.35;
-    const points=wireframeVertices({cx:x,cy:y,scale:142,time:spin,appear:.90,distortion:0,collapse:0,sample:pulse});
-    const halo=formation*.65;
-    if(halo>.001){
-      ctx.save();ctx.globalCompositeOperation='screen';
-      glow(x,y,155,halo*.3);
-      ring(x,y,152,color(C.gold,.30),.9,formation*.58,.67,-.3);
-      for(let axis=0;axis<3;axis++){
-        const an=axis*Math.PI/3+t*.15;
-        line(x-Math.cos(an)*132,y-Math.sin(an)*132,x+Math.cos(an)*132,y+Math.sin(an)*132,color(C.gold,.12),.7,activated*.5);
-      }
-      ctx.restore();
-      drawWireframe(points,{birth:linked,alpha:formation*.95,reconnection:0,time:spin,sample:activated,glowStrength:.7});
-      for(let i=0;i<7;i++){
-        const q=(t*.12+i/7)%1;
-        const a=i*TWO_PI/7,px=x+Math.cos(a)*155,py=y+Math.sin(a)*125;
-        dot(px,py,1.3,color(C.gold,.6),activated*(.3+.3*Math.sin(t*2+i)));
-      }
-      // Initial cast still delivers its independent basic physical hit.
-      drawMomentumPulse(t,1.09);
-      for(const s of samples)if(s.age>=0&&s.age<.5)drawSampleWave(points,s.age,1);
-    }
-    drawImpact(t,1.09,TARGET.x,TARGET.y);
-  }
-  // Faces share the same topology and projected vertices as the existing wireframe.
-  const ICO_FACES=[];
-  for(let a=0;a<12;a++)for(let b=a+1;b<12;b++)for(let c=b+1;c<12;c++){
-    if([[a,b],[a,c],[b,c]].every(pair=>ICO_EDGES.some(e=>e[0]===pair[0]&&e[1]===pair[1])))ICO_FACES.push([a,b,c]);
-  }
-  function drawFoldedFaces(points,t,alpha){
-    const fold=ease(t,.62,.91),burst=ease(t,1.09,1.28);
-    const faces=ICO_FACES.map((ids,i)=>({ids,i,z:ids.reduce((sum,id)=>sum+points[id].z,0)/3})).sort((a,b)=>a.z-b.z);
-    ctx.save();ctx.globalCompositeOperation='screen';
-    for(const face of faces){
-      const a=face.i*2.4,offset=burst*(22+face.i%4*13),shiftX=Math.cos(a)*offset,shiftY=Math.sin(a)*offset;
-      const p=face.ids.map(id=>points[id]);
-      ctx.beginPath();ctx.moveTo(p[0].x+shiftX,p[0].y+shiftY);
-      for(let j=1;j<3;j++)ctx.lineTo(p[j].x+shiftX,p[j].y+shiftY);
-      ctx.closePath();
-      ctx.fillStyle=color(C.gold,(.025+.075*clamp((face.z+1.5)/3))*alpha*(.4+fold));ctx.fill();
-      ctx.strokeStyle=color(C.bright,(.16+.35*fold)*alpha);ctx.lineWidth=1;ctx.stroke();
-    }
-    ctx.restore();
-  }
-  function drawDimensionFracture(t,cx,cy){
-    const enter=ease(t,1.075,1.13),fade=1-ease(t,1.22,1.43),alpha=enter*fade;
-    if(alpha<=0)return;
-    ctx.save();ctx.globalCompositeOperation='screen';
-    // Four oblique planes with depth-dependent perspective, each crossing once.
-    for(let i=0;i<4;i++){
-      const travel=between(t,1.075+i*.012,1.25+i*.012);
-      const angle=-.85+i*.48, offset=(travel-.5)*180;
-      const shape=[{x:-1.05,y:-.045,z:-.8},{x:.975,y:-.095,z:.8},{x:1.05,y:.045,z:.8},{x:-.975,y:.095,z:-.8}];
-      const pts=shape.map(p=>project3(rotate3(p,.35+i*.3,.4+i*.37,angle),cx+Math.cos(angle+1.57)*offset,cy+Math.sin(angle+1.57)*offset,200));
-      ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let j=1;j<4;j++)ctx.lineTo(pts[j].x,pts[j].y);ctx.closePath();
-      ctx.fillStyle=color(C.gold,.12*alpha);ctx.fill();ctx.strokeStyle=color(C.bright,.72*alpha);ctx.lineWidth=2;ctx.stroke();
-      line(pts[0].x,pts[0].y,pts[2].x,pts[2].y,color(C.white,.85),1.4,alpha);
-    }
-    const crackFade=1-ease(t,1.23,1.48);
-    for(let i=0;i<12;i++){
-      const a=TWO_PI*i/12+.12, r=48+i%3*12, length=65+i%4*20;
-      const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
-      const mx=cx+Math.cos(a+.10)* (r+length*.48),my=cy+Math.sin(a+.10)*(r+length*.48);
-      const ex=cx+Math.cos(a-.04)*(r+length),ey=cy+Math.sin(a-.04)*(r+length);
-      line(x,y,mx,my,color(C.bright,.85),1.5,enter*crackFade);
-      line(mx,my,ex,ey,color(C.gold,.7),1,enter*crackFade);
-      if(i%2===0)line(mx,my,mx+Math.cos(a+.6)*35,my+Math.sin(a+.6)*35,color(C.gold,.6),1,enter*crackFade);
-    }
-    ctx.restore();
-  }
-  function drawMomentumSolve(t){
-    const build=ease(t,0,.30),structure=ease(t,.12,.33),rotate=ease(t,.30,.65);
-    const distort=ease(t,.60,.91),collapse=ease(t,.90,1.06)*.94;
-    const visible=(1-ease(t,1.09,1.36));
-    const expansion=1+.24*ease(t,.48,.70)*(1-ease(t,.78,.95));
-    const cx=TARGET.x-12,cy=TARGET.y;
-    const points=wireframeVertices({cx,cy,scale:210*expansion,time:t<.3?t: .3+(t-.3)*(1+rotate*3.5),appear:1,distortion:distort,collapse,sample:0,velocity:1});
-    ctx.save();ctx.globalCompositeOperation='screen';
-    glow(cx,cy,194,build*.18*visible);
-    ring(cx,cy,194-135*collapse,color(C.gold,.27),1,build*visible,.88,-t);
-    if(t>=.65&&t<1.15)for(let k=0;k<10;k++){
-      const r=189*(1-collapse*.96),a=TWO_PI*k/10+t*6;
-      line(cx+r*Math.cos(a),cy+r*Math.sin(a),cx+(r-15)*Math.cos(a+.2),cy+(r-15)*Math.sin(a+.2),color(C.bright,.74),1.2,distort*visible*.85);
-    }
-    ctx.restore();
-    if(visible>.005){
-      drawFoldedFaces(points,t,build*visible);
-      drawWireframe(points,{birth:structure,alpha:build*visible,reconnection:distort,time:t*2.8,sample:distort*.3,glowStrength:.9});
-      for(let i=0;i<points.length;i++) if(distort>.02){
-        const p=points[i],a=t*10+i*1.3;
-        dot(p.x+Math.cos(a)*9*distort,p.y+Math.sin(a)*9*distort,1.4,color(C.bright,.75),distort*visible,5);
-      }
-    }
-    if(t>=.91&&t<1.24){
-      const c=collapse*(1-ease(t,1.135,1.24));
-      glow(cx,cy,103,c*.9);dot(cx,cy,5+8*collapse,color(C.white,1),c,21);
-    }
-    drawMomentumPulse(t,1.09);
-    drawDimensionFracture(t,cx,cy);
-    drawImpact(t,1.10,cx,cy,'geometry');
-    if(t>=1.13){
-      const p=between(t,1.13,1.50),a=1-ease(t,1.42,1.55);
-      const toX=lerp(cx,936,out3(p)),toY=lerp(cy,400,out3(p));
-      ctx.save();ctx.globalCompositeOperation='lighter';
-      for(let i=0;i<30;i++){
-        const theta=TWO_PI*i/30+t*2.5,from=lerp(145,60,out5(p)),r=from*(.72+.28*Math.sin(i*3.1)**2);
-        const ex=toX+Math.cos(theta)*r,ey=toY+Math.sin(theta)*r*.76;
-        const ex2=toX+Math.cos(theta+.12)*r,ey2=toY+Math.sin(theta+.12)*r*.76;
-        line(ex,ey,ex2,ey2,color(C.bright,.8),1.2,.76*a);
-        if(i%3===0)dot(ex,ey,1.7,color(C.white,.7),a,5);
-      }
-      glow(toX,toY,86,a*.6);ring(toX,toY,46,color(C.gold,.67),1.25,a,.78,t*1.3);
-      ctx.restore();
-    }
-  }
-  function drawEquationHook(t,skill){
-    const p=between(t,0,1.40),alpha=(.72+.28*ease(t,0,.14))*(1-ease(t,1.24,1.40));
-    const x=skill==='vector'?lerp(TARGET.x,899,ease(t,.05,.35)):899,y=skill==='vector'?lerp(TARGET.y,399,ease(t,.05,.35)):399;
-    if(alpha>.001){
-      ctx.save();ctx.globalCompositeOperation='screen';
-      glow(x,y,113,alpha*.45);
-      ring(x,y,54+2*Math.sin(t*8),color(C.gold,.6),1.5,alpha,.72,t*.9);
-      ring(x,y,81+4*Math.sin(t*4),color(C.gold,.33),1,alpha,.77,-t*.55);
-      for(let i=0;i<26;i++){
-        const a=TWO_PI*i/26+t*1.6,r=71+8*Math.sin(i*4+t*3);
-        const xx=x+Math.cos(a)*r,yy=y+Math.sin(a)*r*.65;
-        if(i%2===0)dot(xx,yy,1.65,color(C.white,.9),alpha*.85,8);
-        else line(xx-8,yy,xx+8,yy,color(C.bright,.75),.95,alpha*.8);
-      }
-      dot(x,y,5,color(C.white,.9),alpha,12);
-      ctx.restore();
-    }
-  }
-
+  const momentumSource={x:720,y:667.5},momentumTarget={x:711.5,y:204.5};
+  let momentum;
+  const momentumRenderer=()=>momentum||(momentum=createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source:momentumSource,target:momentumTarget}));
   function targetPose(t) {
-    if(t<1.30||t>=3.83)return null;
+    if(t<1.30||t>=4.36)return null;
     const collapse=ease(t,3.30,3.40);
     return {opacity:quantumFlicker(t).opacity*(1-collapse),
       scaleX:1-.96*collapse,scaleY:1-.98*collapse,origin:'50% 45%'};
@@ -790,6 +530,20 @@ function createSageSkillRenderer(canvas) {
     ctx.lineCap='round';ctx.lineJoin='round';ctx.globalCompositeOperation='source-over';
   }
   function render(skill,t,solve,source,target,geometry={}) {
+    if(skill==='momentum'){
+      // V2 is already authored bottom-to-top. Map both anchors without the
+      // old left-to-right rotation, preserving its perspective and mesh motion.
+      const bx=momentumTarget.x-momentumSource.x,by=momentumTarget.y-momentumSource.y;
+      const dx=target.x-source.x,dy=target.y-source.y,den=bx*bx+by*by;
+      const a=(dx*bx+dy*by)/den,b=(dy*bx-dx*by)/den;
+      ctx.save();ctx.translate(source.x,source.y);ctx.transform(a,b,-b,a,0,0);ctx.translate(-momentumSource.x,-momentumSource.y);
+      momentumRenderer().draw(t,[],!solve);
+      if(solve&&t>=2.53){
+        ctx.save();ctx.translate(720-401*.5,790);ctx.transform(0,-.5,.5,0,0,0);
+        drawTransitionCore(t,2.55,2.80,936,400);ctx.restore();
+      }
+      ctx.restore();return;
+    }
     // Same authored left-to-right curves, rotated onto the live lower-party to
     // upper-enemy axis. A similarity transform preserves the 3D projection.
     const dx=target.x-source.x,dy=target.y-source.y;
@@ -797,7 +551,6 @@ function createSageSkillRenderer(canvas) {
     const a=(dx*bx+dy*by)/den,b=(dy*bx-dx*by)/den;
     const axisScale=Math.max(.0001,Math.hypot(a,b));
     ctx.save();ctx.translate(source.x,source.y);ctx.transform(a,b,-b,a,0,0);ctx.translate(-483,-401);
-    samples=[];
     if(skill==='basic')drawBasic(t,false);
     else if(skill==='vector'){
       // Keep the new prototype's internal 1.65x composition. Do not multiply
@@ -809,19 +562,14 @@ function createSageSkillRenderer(canvas) {
       ctx.save();ctx.translate(TARGET.x,TARGET.y);ctx.scale(atomScale,atomScale);ctx.translate(-TARGET.x,-TARGET.y);
       drawVector(t,false,false,Math.atan2(b,a));ctx.restore();
       drawSageSnapCue(t,.28,395,401);
-    }else if(solve){
-      drawMomentumSolve(t);
-    }else{
-      drawMomentumHyp(t,{start:0});
     }
     ctx.restore();
   }
   function sampling(time,anchor,radius,ages=[]) {
-    ctx.save();ctx.translate(anchor.x,anchor.y);ctx.rotate(-Math.PI/2);ctx.scale(radius/142,radius/142);ctx.translate(-483,-401);
-    samples=ages.filter(age=>age>=0&&age<.5).map(age=>({age}));
-    // Same idle, indentation, travelling gold wave, lit nodes and inward photons.
-    // Use the original idle section; its initial attack has already completed.
-    drawMomentumHyp(1.5+time,{start:0});ctx.restore();samples=[];
+    ctx.save();ctx.translate(anchor.x,anchor.y);ctx.scale(radius/65,radius/65);
+    ctx.translate(-momentumSource.x,-momentumSource.y);
+    momentumRenderer().sampling(ages.filter(age=>age>=0&&age<.64).map(age=>({age})));
+    ctx.restore();
   }
   return {clear,render,sampling,targetPose};
 }
