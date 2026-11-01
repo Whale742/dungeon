@@ -129,7 +129,16 @@ const BattleHud = (() => {
     const banner = byId('cinematicSkillBanner');
     byId('cinematicActorName').textContent = step.sourceName || roomState.players.find(p=>p.id===step.sourceId)?.name || '';
     byId('cinematicActorRole').textContent = getClassDisplayName(step.sourceRole);
-    byId('cinematicSkillName').textContent = step.skillName.replace(/\s*[（(][^）)]*[）)]/g,'').trim();
+    let skillName = step.skillName;
+    if (step.type === 'player_action' && step.actionId === 'basic') {
+      const actor = {
+        ...roomState.players.find(p => p.id === step.sourceId),
+        ...step.hpSnapshotBefore?.players?.find(p => p.id === step.sourceId),
+        ...(step.druidForm ? { druidForm: step.druidForm } : {})
+      };
+      skillName = window.StudioGame?.skillDisplay(step.sourceRole, { id: step.actionId, label: skillName }, actor)?.label || skillName;
+    }
+    byId('cinematicSkillName').textContent = step.actionId === 'basic' ? skillName : skillName.replace(/\s*[（(][^）)]*[）)]/g,'').trim();
     banner.classList.add('is-active');
     try {
       await Promise.all([
