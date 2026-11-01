@@ -9,14 +9,42 @@ function sagePresentationData(step) {
 }
 const SAGE_SKILL_CUES=Object.freeze({
   basic:{skill:'basic',hit:550,duration:750},
-  sge_deduce:{skill:'vector',hit:1050,duration:1500},
-  sge_induce:{skill:'momentum',hit:1100,duration:1500}
+  sge_deduce:{skill:'vector',hit:3300,duration:3830},
+  sge_induce:{skill:'momentum',hit:1100,hypothesisHit:1090,duration:1500}
 });
+// Animate only the target artwork. Its layout anchor, HP/HUD and official
+// damage labels stay stable. Every touched style is restored on exit/abort.
+function sageQuantumTargetFeedback(s,step,renderer) {
+  const originals=new Map();let disposed=false;
+  const restore=()=>{for(const [image,style]of originals){
+    image.style.opacity=style.opacity;image.style.scale=style.scale;
+    image.style.transformOrigin=style.transformOrigin;
+  }originals.clear();};
+  const dispose=()=>{disposed=true;restore();s.signal?.removeEventListener?.('abort',dispose);};
+  s.signal?.addEventListener?.('abort',dispose,{once:true});
+  return {dispose,update(t){
+    if(disposed)return;
+    const pose=renderer.targetPose?.(t);
+    if(!pose){restore();return;}
+    const id=s.local?.battlefield?battlefieldPlayerTarget(step):step.targetId;
+    const visual=s.targetFor?.(id)||s.cards?.get(id)||s.cards?.get('monster');
+    const image=visual?.querySelector?.('.enemy-sprite-img')||visual?.querySelector?.('img')||
+      (visual?.tagName==='IMG'?visual:null);
+    if(!image?.style)return;
+    if(!originals.has(image))originals.set(image,{opacity:image.style.opacity,
+      scale:image.style.scale,transformOrigin:image.style.transformOrigin});
+    image.style.opacity=String(pose.opacity);
+    image.style.scale=`${pose.scaleX} ${pose.scaleY}`;
+    image.style.transformOrigin=pose.origin;
+  }};
+}
 async function playSageSkillPresentation(step,context={}) {
   const data=sagePresentationData(step),solve=data.sagePhase==='solve',cue=SAGE_SKILL_CUES[step.actionId];
-  const hit=cue.hit,duration=cue.duration;
-  // Both phases play the same complete body. Only the existing queue decides
-  // whether a separate equation follows; no solve-only body or handoff cut.
+  const hit=(!solve&&cue.hypothesisHit)||cue.hit,duration=cue.duration;
+  // Deduce uses the complete 3.83s quantum attack; its authoritative result
+  // is presented at collapse (3.30s), not the earlier visual-only blast.
+  // Induce follows the prototype's hypothesis/solve branches; real sampling
+  // continues as a status after the initial 1.5s cast, without simulated hits.
   sageSamplingVisuals.casting.add(step.sourceId);
   try {
     await withSkillPresentationStage(step,{...context,castAudioNoHold:true},async s=>{
@@ -27,53 +55,57 @@ async function playSageSkillPresentation(step,context={}) {
       canvas.setAttribute('aria-hidden','true');
       if(battlefield&&canvas.style){canvas.style.width='100%';canvas.style.height='100%';}
       const renderer=createSageSkillRenderer(canvas);
-      if(battlefield)s.revealRecipient?.(step.sourceId);
-      let time=0,ended=false,contact=false,lastSource,lastTarget;
-      const draw=()=>{
-        if(ended)return;
-        const viewport=battlefield&&typeof innerWidth==='number';
-        const width=viewport?innerWidth:1440,height=viewport?innerHeight:810;
-        renderer.clear(width,height);
-        // Use actual party/target artwork anchors, not the shared legacy spell
-        // point at 18%/48%. Keep the last location while a dead target retires.
-        if(viewport&&typeof getBattleEffectAnchor==='function'){
-          lastSource=getBattleEffectAnchor(step.sourceId)||lastSource;
-          const id=battlefieldPlayerTarget(step);
-          lastTarget=getBattleEffectAnchor(id)||lastTarget;
-        }
-        const source=lastSource||s.anchors.get(step.sourceId)||SKILL_STAGE.actor;
-        const target=lastTarget||s.anchors.get('monster')||s.anchors.get(step.targetId)||SKILL_STAGE.target;
-        renderer.render(cue.skill,Math.min(time,duration)/1000,false,source,target,{
-          targetWidth:lastTarget?.rect?.width,
-          edgeRoom:Math.max(1,Math.min(target.x,width-target.x,target.y,height-target.y)-6)
-        });
-      };
-      if(!s.local?.battlefield){
-        let origin;
-        s.startRenderer(elapsed=>{origin??=elapsed;time=(elapsed-origin)*1000;draw();});
-      }
-      if(s.local?.battlefield){
-        // A single production timeline commits the server results once at the
-        // authored contact frame. Rings, flashes and fragments emit no results.
-        await s.timeline(duration,p=>{
-          time=p*duration;draw();
-          if(!contact&&time>=hit){
-            contact=true;commitBattlefieldGroup(s,step,step.results||[]);
-            context.onTiming?.('sage_projectile_contact',{step});
+      const targetFeedback=step.actionId==='sge_deduce'?sageQuantumTargetFeedback(s,step,renderer):null;
+      try {
+        if(battlefield)s.revealRecipient?.(step.sourceId);
+        let time=0,ended=false,contact=false,lastSource,lastTarget;
+        const draw=()=>{
+          if(ended)return;
+          const viewport=battlefield&&typeof innerWidth==='number';
+          const width=viewport?innerWidth:1440,height=viewport?innerHeight:810;
+          renderer.clear(width,height);
+          targetFeedback?.update(time/1000);
+          // Use actual party/target artwork anchors, not the shared legacy spell
+          // point at 18%/48%. Keep the last location while a dead target retires.
+          if(viewport&&typeof getBattleEffectAnchor==='function'){
+            lastSource=getBattleEffectAnchor(step.sourceId)||lastSource;
+            const id=battlefieldPlayerTarget(step);
+            lastTarget=getBattleEffectAnchor(id)||lastTarget;
           }
-        });
-      }else{
-        // Legacy result-card stage uses its existing result presentation path.
-        await s.wait(hit);if(s.signal.aborted)return;
-        context.onTiming?.('sage_projectile_contact',{step});
-        await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false});
-        await s.wait(Math.max(0,duration-time));
-      }
-      if(s.signal?.aborted)return;
-      ended=true;canvas.remove();
-      if(step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
-      context.onTiming?.('sage_operand_update',{step,data});
-      if(solve)context.onTiming?.('sage_equation_handoff',{step});
+          const source=lastSource||s.anchors.get(step.sourceId)||SKILL_STAGE.actor;
+          const target=lastTarget||s.anchors.get('monster')||s.anchors.get(step.targetId)||SKILL_STAGE.target;
+          renderer.render(cue.skill,Math.min(time,duration)/1000,step.actionId==='sge_induce'&&solve,source,target,{
+            targetWidth:lastTarget?.rect?.width,
+            edgeRoom:Math.max(1,Math.min(target.x,width-target.x,target.y,height-target.y)-6)
+          });
+        };
+        if(!s.local?.battlefield){
+          let origin;
+          s.startRenderer(elapsed=>{origin??=elapsed;time=(elapsed-origin)*1000;draw();});
+        }
+        if(s.local?.battlefield){
+          // A single production timeline commits the server results once at the
+          // authored contact frame. Rings, flashes and fragments emit no results.
+          await s.timeline(duration,p=>{
+            time=p*duration;draw();
+            if(!contact&&time>=hit){
+              contact=true;commitBattlefieldGroup(s,step,step.results||[]);
+              context.onTiming?.('sage_projectile_contact',{step});
+            }
+          });
+        }else{
+          // Legacy result-card stage uses its existing result presentation path.
+          await s.wait(hit);if(s.signal.aborted)return;
+          context.onTiming?.('sage_projectile_contact',{step});
+          await s.resolveResults({fastResult:true,immediateImpact:true,applyFinalSnapshot:false});
+          await s.wait(Math.max(0,duration-time));
+        }
+        if(s.signal?.aborted)return;
+        ended=true;canvas.remove();
+        if(step.hpSnapshot&&typeof applyHpSnapshot==='function')applyHpSnapshot(step.hpSnapshot);
+        context.onTiming?.('sage_operand_update',{step,data});
+        if(solve)context.onTiming?.('sage_equation_handoff',{step});
+      }finally{targetFeedback?.dispose();}
     });
   }finally{sageSamplingVisuals.casting.delete(step.sourceId);}
   if(!context.signal?.aborted)context.onTiming?.('sage_skill_exit',{step});

@@ -189,7 +189,7 @@ test('Sage Canvas follows moving stage anchors and commits each authoritative re
   for(const phase of ['hypothesis','solve'])for(const actionId of ['basic','sge_deduce','sge_induce']){
     const actor={x:840,y:680,rect:{width:90}},enemy={x:1100,y:260,rect:{width:160}},frames=[],commits=[],timings=[],nodes=[];
     let elapsed=0,snapshots=0;
-    const hit=actionId==='basic'?550:actionId==='sge_deduce'?1050:1100;
+    const hit=actionId==='basic'?550:actionId==='sge_deduce'?3300:phase==='solve'?1100:1090;
     const scope={innerWidth:1440,innerHeight:810,battlefieldPlayerTarget:()=> 'enemy',getBattleEffectAnchor:id=>id==='actor'?actor:enemy,
       createSageSkillRenderer:()=>({clear(){},render:(skill,t,solve,a,b,geometry)=>frames.push({skill,t,solve,a:{...a},b:{...b},geometry})}),
       commitBattlefieldGroup:(_s,step,results)=>commits.push({elapsed,results}),applyHpSnapshot:()=>snapshots++,
@@ -205,32 +205,77 @@ test('Sage Canvas follows moving stage anchors and commits each authoritative re
       {onTiming:beat=>timings.push(beat)});
     assert.equal(commits.length,1);assert.equal(commits[0].elapsed,hit);assert.equal(commits[0].results[0],result);
     assert.equal(frames[0].a.x,840);assert.equal(frames[0].geometry.targetWidth,160);assert.equal(frames.at(-1).a.x,520);assert.equal(frames.at(-1).b.y,310);
-    assert.equal(frames.at(-1).solve,false);assert.equal(frames.at(-1).t,actionId==='basic'?.75:1.5);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
+    assert.equal(frames.at(-1).solve,actionId==='sge_induce'&&phase==='solve');assert.equal(frames.at(-1).t,actionId==='basic'?.75:actionId==='sge_deduce'?3.83:1.5);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
     assert.equal(timings.filter(b=>b==='sage_equation_handoff').length,phase==='solve'?1:0);
   }
 });
 
-test('Sage phases draw identical Canvas bodies and enlarge the whole target-centered atom 1.4x',()=>{
+test('Sage quantum body keeps native 1.65x composition and Induce follows the prototype phase branches',()=>{
   const calls=[];
   const gradient={addColorStop(...args){calls.push(['stop',...args]);}};
   const ctx=new Proxy({}, {get(_t,key){return (...args)=>{calls.push([key,...args]);if(key==='createRadialGradient')return gradient;};},set(_t,key,value){calls.push(['set',key,typeof value==='object'?'gradient':value]);return true;}});
   const scope={console,canvas:{getContext:()=>ctx}};vm.createContext(scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-renderer.js',import.meta.url),'utf8')+';var renderer=createSageSkillRenderer(canvas);',scope);
-  for(const skill of ['basic','vector','momentum'])for(const time of [.1,.45,.7,1.05,1.12,1.5]){
+  for(const skill of ['basic','vector'])for(const time of [.1,.3,.45,1.3,2.5,3.3,3.7,3.83]){
     calls.length=0;scope.renderer.render(skill,time,false,{x:483,y:401},{x:1171,y:384});const hypothesis=JSON.stringify(calls);
     calls.length=0;scope.renderer.render(skill,time,true,{x:483,y:401},{x:1171,y:384});assert.equal(JSON.stringify(calls),hypothesis,skill+' '+time);
   }
   calls.length=0;scope.renderer.render('vector',.45,false,{x:483,y:401},{x:1171,y:384});
-  const scaleIndex=calls.findIndex(c=>c[0]==='scale');assert.deepEqual(calls[scaleIndex],['scale',1.4,1.4]);
+  const scaleIndex=calls.findIndex(c=>c[0]==='scale'&&c[1]===1.65);
+  assert.ok(scaleIndex>=0);assert.deepEqual(calls[scaleIndex],['scale',1.65,1.65]);
   assert.deepEqual(calls[scaleIndex-1],['translate',1171,384]);assert.deepEqual(calls[scaleIndex+1],['translate',-1171,-384]);
-  assert.ok(calls.slice(scaleIndex).some(c=>c[0]==='stroke'));assert.ok(calls.slice(scaleIndex).some(c=>c[0]==='arc'));
+  calls.length=0;scope.renderer.render('momentum',.65,false,{x:483,y:401},{x:1171,y:384});const hypothesis=JSON.stringify(calls);
+  calls.length=0;scope.renderer.render('momentum',.65,true,{x:483,y:401},{x:1171,y:384});assert.notEqual(JSON.stringify(calls),hypothesis);
+
+});
+
+test('Sage target shares prototype flicker/collapse and restores artwork on completion or abort',()=>{
+  for(const abort of [false,true]){
+    const image={style:{opacity:'.8',scale:'1.1',transformOrigin:'center'}},untouched={style:{opacity:'.6'}};
+    const before={...image.style},controller=new AbortController(),scope={console};vm.createContext(scope);
+    vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-renderer.js',import.meta.url),'utf8')+';var renderer=createSageSkillRenderer({getContext:()=>({})});',scope);
+    vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+    const feedback=scope.sageQuantumTargetFeedback({signal:controller.signal,targetFor:()=>({querySelector:()=>image})},{targetId:'enemy'},scope.renderer);
+    assert.equal(scope.renderer.targetPose(1.29),null);
+    const t=2.13,u=Math.max(0,Math.min(1,(t-1.3)/.12)),smooth=u*u*(3-2*u);
+    const instability=smooth,pulse=(1+Math.sin(((t-1.3)+(t-1.3)**2)*12))*.5;
+    feedback.update(t);assert.ok(Math.abs(Number(image.style.opacity)-(1+(pulse-1)*instability))<1e-12);
+    feedback.update(3.35);assert.equal(image.style.transformOrigin,'50% 45%');
+    assert.ok(Math.abs(parseFloat(image.style.scale)-.52)<1e-12);
+    feedback.update(3.4);assert.equal(Number(image.style.opacity),0);
+    const scales=image.style.scale.split(' ').map(Number);assert.ok(Math.abs(scales[0]-.04)<1e-12);assert.ok(Math.abs(scales[1]-.02)<1e-12);
+    if(abort)controller.abort();else feedback.update(3.83);
+    assert.deepEqual(image.style,before);assert.equal(untouched.style.opacity,'.6');
+    feedback.dispose();feedback.update(2);assert.deepEqual(image.style,before);
+  }
+});
+
+test('Sage collapse beam remains screen-horizontal and centered for oblique and moving attack axes',()=>{
+  for(const source of [{x:200,y:700},{x:1100,y:650},{x:620,y:740}]){
+    let m=[1,0,0,1,0,0],path=[],props={};const stack=[],beams=[],stars=[];
+    const mul=n=>{const[a,b,c,d,e,f]=m,[A,B,C,D,E,F]=n;m=[a*A+c*B,b*A+d*B,a*C+c*D,b*C+d*D,a*E+c*F+e,b*E+d*F+f];};
+    const point=(x,y)=>({x:m[0]*x+m[2]*y+m[4],y:m[1]*x+m[3]*y+m[5]});
+    const methods={save(){stack.push({m:[...m],props:{...props}});},restore(){const old=stack.pop();m=old.m;props=old.props;},
+      translate:(x,y)=>mul([1,0,0,1,x,y]),scale:(x,y)=>mul([x,0,0,y,0,0]),
+      rotate:r=>mul([Math.cos(r),Math.sin(r),-Math.sin(r),Math.cos(r),0,0]),transform:(...n)=>mul(n),
+      beginPath(){path=[];},moveTo:(x,y)=>path.push(point(x,y)),lineTo:(x,y)=>path.push(point(x,y)),
+      stroke(){if(props.lineWidth===9&&props.strokeStyle==='rgba(255,255,255,0.22)')beams.push([...path]);},
+      fill(){if(props.fillStyle==='rgb(255,255,255)'&&path.length===8)stars.push([...path]);},createRadialGradient:()=>({addColorStop(){}})};
+    const ctx=new Proxy({}, {get(_t,key){return methods[key]||(()=>{});},set(_t,key,v){props[key]=v;return true;}}),scope={console,canvas:{getContext:()=>ctx}};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-renderer.js',import.meta.url),'utf8')+';var renderer=createSageSkillRenderer(canvas);',scope);
+    const target={x:710,y:230};scope.renderer.render('vector',3.5,false,source,target,{targetWidth:170,edgeRoom:220});
+    assert.equal(beams.length,1);const[a,b]=beams[0];assert.ok(Math.abs(a.y-b.y)<1e-9);
+    assert.ok(Math.abs((a.x+b.x)/2-target.x)<1e-9);assert.ok(Math.abs(a.y-target.y)<1e-9);assert.ok(Math.abs(a.x-b.x)>20);
+    assert.equal(stars.length,1);const star=stars[0];assert.ok(Math.abs(star[0].y-star[4].y)<1e-9);
+    assert.ok(Math.abs(star[2].x-star[6].x)<1e-9);assert.equal(stack.length,0);
+  }
 });
 
 test('Sage Canvas cancellation never commits a later hit or final snapshot',async()=>{
   let commits=0,snapshots=0;
   const scope={createSageSkillRenderer:()=>({clear(){},render(){}}),commitBattlefieldGroup:()=>commits++,applyHpSnapshot:()=>snapshots++,
     withSkillPresentationStage:async(_step,_context,play)=>play({local:{battlefield:true},anchors:new Map([['actor',{x:800,y:600}],['monster',{x:700,y:200}]]),signal:{aborted:false},
-      el:()=>({setAttribute(){},remove(){}}),timeline:async(_ms,update)=>{update(.2);throw new DOMException('cancelled','AbortError');}})};
+      el:()=>({setAttribute(){},remove(){}}),timeline:async(_ms,update)=>{update(.05);throw new DOMException('cancelled','AbortError');}})};
   vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
   await assert.rejects(scope.playSageSkillPresentation({sourceId:'actor',actionId:'sge_deduce',hpSnapshot:{},sagePresentation:{sagePhase:'solve'}}),{name:'AbortError'});
   assert.equal(commits,0);assert.equal(snapshots,0);assert.equal(vm.runInContext('sageSamplingVisuals.casting.size',scope),0);

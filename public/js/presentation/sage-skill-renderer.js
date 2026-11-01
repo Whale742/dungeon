@@ -1,4 +1,4 @@
-// Canvas choreography extracted from temp/sage_skill_prototype/app.js V1.1.
+// Canvas choreography extracted from temp/sage_skill_prototype/app.js (latest quantum/orbit revision).
 // Visuals only: no damage arithmetic, text, DOM UI, timers or battle authority.
 // Authored geometry stays in its original coordinates; the host supplies anchors.
 function createSageSkillRenderer(canvas) {
@@ -6,6 +6,8 @@ function createSageSkillRenderer(canvas) {
   const TWO_PI=Math.PI*2;
   const TARGET={x:1171,y:384};
   let samples=[];
+  // Latest prototype defaults: immediate acceleration, doubling every 500ms.
+  const quantumOrbit=Object.freeze({delayMs:0,intervalMs:500,base:2});
   const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
   const lerp=(a,b,t)=>a+(b-a)*t;
   const smooth=t=>{t=clamp(t);return t*t*(3-2*t)};
@@ -307,65 +309,190 @@ function createSageSkillRenderer(canvas) {
     dot(cx,cy,3.8,color(C.white,1),alpha,14);
     ctx.restore();
   }
-  function drawVector(t,solve,releaseCue=true){
+  // Probability amplitudes wrap around the target in three projected planes.
+  function drawQuantumField(t,radius,alpha,instability){
+    if(alpha<.003)return;
+    ctx.save();ctx.globalCompositeOperation='screen';
+    for(let k=0;k<3;k++){
+      const points=[];
+      for(let i=0;i<=128;i++){
+        const theta=TWO_PI*i/128;
+        const amplitude=1+.16*Math.sin(theta*5-t*(11+k*2)+k*2)*(.45+instability);
+        const p=rotate3({x:Math.cos(theta)*amplitude,y:Math.sin(theta)*amplitude,z:.18*Math.sin(theta*3+t*8+k)},
+          .55+k*.82+t*.19,k*.8+t*.36,k*.48-t*.22);
+        points.push(project3(p,TARGET.x,TARGET.y,radius));
+      }
+      strokePoints(points,color(C.gold,.12),4,alpha,0);
+      strokePoints(points,color(C.bright,.65),1.1,alpha,0);
+      // Broken phase marks suggest superposition rather than orbiting particles.
+      for(let j=0;j<8;j++){
+        const n=(j*16+k*7+Math.floor(t*22))%128;
+        const p=points[n],q=points[(n+3)%128];
+        line(p.x,p.y,q.x,q.y,color(C.white,.7),1.5,alpha*(.4+.4*clamp((p.z+1)/2)));
+      }
+    }
+    for(let i=0;i<12;i++){
+      const a=i*TWO_PI/12+t*.7, r=radius*(.32+.38*rand(i+20));
+      const intensity=(.25+.35*(.5+.5*Math.sin(t*17+i*4)))*alpha;
+      dot(TARGET.x+Math.cos(a)*r,TARGET.y+Math.sin(a)*r*.72,1.3,color(C.bright,.8),intensity);
+    }
+    ctx.restore();
+  }
+  function drawQuantumGlowBall(x,y,r,alpha){
+    if(r<=0||alpha<=0)return;
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    const halo=ctx.createRadialGradient(x,y,r*.45,x,y,r*3.2);
+    halo.addColorStop(0,color('255,248,218',.8*alpha));
+    halo.addColorStop(.28,color('255,213,72',.55*alpha));
+    halo.addColorStop(.55,color('255,230,161',.20*alpha));
+    halo.addColorStop(1,color(C.white,0));
+    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(x,y,r*3.2,0,TWO_PI);ctx.fill();
+    const body=ctx.createRadialGradient(x-r*.3,y-r*.3,r*.03,x,y,r);
+    body.addColorStop(0,color('255,250,210',alpha));
+    body.addColorStop(.35,color('255,220,91',alpha));
+    body.addColorStop(1,color('200,145,24',alpha));
+    ctx.fillStyle=body;ctx.beginPath();ctx.arc(x,y,r,0,TWO_PI);ctx.fill();
+    ctx.strokeStyle=color(C.white,.9*alpha);ctx.lineWidth=Math.max(1,r*.08);
+    ctx.shadowColor='rgba(255,250,225,.95)';ctx.shadowBlur=r*.65;ctx.stroke();
+    ctx.restore();
+  }
+  function quantumFlicker(t){
+    const instability=ease(t,1.30,1.42)*(1-ease(t,3.30,3.40));
+    const flickerAge=Math.max(0,t-1.30);
+    // Each 100 ms adds 0.2 times the initial frequency.
+    const phase=flickerAge+flickerAge*flickerAge;
+    const pulse=(1+Math.sin(phase*12))*.5;
+    return {instability,pulse,opacity:lerp(1,pulse,instability)};
+  }
+  function drawVector(t,solve,releaseCue=true,screenAngle=-Math.PI/2){
     const cx=TARGET.x,cy=TARGET.y;
-    const birth=ease(t,0,.18),accel=ease(t,.18,.52),unstable=ease(t,.52,.78),collapse=ease(t,.78,.98);
-    const still=t>=.98&&t<1.05;
-    const beforeBlast=t<1.05;
-    if(beforeBlast){
-      const ringAlpha=birth*(1-ease(t,.955,.985));
-      const radius=atomRadius(t),instability=unstable*(1-.65*collapse);
-      ctx.save();ctx.globalCompositeOperation='screen';
-      // Distinct converging photons form the nucleus directly over the Boss.
-      if(t<.26){
-        const converge=out5(ease(t,0,.19));
-        for(let i=0;i<11;i++){
-          const a=TWO_PI*i/11+rand(i+9)*.4,d=66*(1-converge)+3;
-          const x=cx+Math.cos(a)*d,y=cy+Math.sin(a)*d*.70;
-          dot(x,y,1.3+rand(i+1),color(C.bright,.9),.7*(1-converge)+.08,7);
+    const collapseFrame=-Math.PI/2-screenAngle;
+    ctx.save();ctx.translate(cx,cy);ctx.scale(1.65,1.65);ctx.translate(-cx,-cy);
+    ctx.globalCompositeOperation='screen';
+    if(t<.30){
+      // Two opposed points follow a logarithmic spiral with golden-ratio growth.
+      const u=ease(t,.005,.25),birth=ease(t,0,.08);
+      const angle=(1-u)*Math.PI*2.4, r=145*(Math.pow(PHI,4*(1-u))-1)/(Math.pow(PHI,4)-1);
+      for(let i=0;i<2;i++){
+        const a=angle+i*Math.PI,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r*.78;
+        const size=(18-5*u)*birth*(1-ease(t,.25,.30));
+        const trail=[];
+        for(let j=9;j>=0;j--){
+          const past=ease(Math.max(0,t-j*.006),.005,.25);
+          const pa=(1-past)*Math.PI*2.4+i*Math.PI;
+          const pr=145*(Math.pow(PHI,4*(1-past))-1)/(Math.pow(PHI,4)-1);
+          trail.push({x:cx+Math.cos(pa)*pr,y:cy+Math.sin(pa)*pr*.78});
         }
+        strokePoints(trail,color(C.gold,.20),5,birth*(1-ease(t,.25,.30)),0);
+        strokePoints(trail,color(C.bright,.65),1.4,birth*(1-ease(t,.25,.30)),0);
+        drawQuantumGlowBall(x,y,size,birth);
       }
-      for(let k=0;k<3;k++){
-        const appearing=ease(t,k*.042,.14+k*.018)*ringAlpha;
-        if(appearing>.005){
-          drawAtomOrbit(k,t,radius,appearing,{instability});
-          drawAtomElectrons(k,t,radius,appearing,accel,unstable);
+
+    }else{
+      const age=t-.30,appear=out5(between(age,0,.065));
+      const collapse=ease(t,3.30,3.40), shrink=ease(t,3.70,3.83);
+      const scale=appear*.85*(1+.10*between(age,0,3));
+      const {instability,pulse,opacity}=quantumFlicker(t);
+      const alpha=(1-ease(t,3.70,3.83))*opacity;
+      drawAtomicBurst(t+.75);
+      // A brief white flash marks the moment of the blast.
+      if(age<.14){
+        const flash=1-ease(age,0,.14);
+        const flare=ctx.createRadialGradient(cx,cy,0,cx,cy,110);
+        flare.addColorStop(0,color('255,255,255',.95*flash));
+        flare.addColorStop(.28,color('255,250,233',.72*flash));
+        flare.addColorStop(1,color('255,245,220',0));
+        ctx.fillStyle=flare;ctx.beginPath();ctx.arc(cx,cy,110,0,TWO_PI);ctx.fill();
+      }
+      if(scale>.002){
+        ctx.save();ctx.translate(cx,cy);
+        // Compress in screen space, even when the caster/target axis is oblique.
+        // Conjugation keeps the orbit orientation unchanged before collapse.
+        ctx.rotate(collapseFrame);ctx.scale(scale*(1-.96*collapse),scale*(1-.9*shrink));ctx.rotate(-collapseFrame);
+        ctx.translate(-cx,-cy);
+        // The canvas is rotated for the battlefield; these become 0, 60 and 120 degrees on screen.
+        for(let k=0;k<3;k++){
+          const angle=-Math.PI/2+k*Math.PI/3,points=[];
+          const position=theta=>{
+            const x=Math.cos(theta)*150,y=Math.sin(theta)*150*.48;
+            return {x:cx+x*Math.cos(angle)-y*Math.sin(angle),y:cy+x*Math.sin(angle)+y*Math.cos(angle)};
+          };
+          const segments=96;
+          for(let i=0;i<=segments;i++)points.push(position(TWO_PI*i/96));
+          const delay=quantumOrbit.delayMs/1000,interval=quantumOrbit.intervalMs/1000;
+          const elapsed=Math.max(0,age-delay),logBase=Math.log(quantumOrbit.base);
+          const exponent=Math.min(20,elapsed/interval*logBase);
+          const speedMultiplier=Math.exp(exponent);
+          const fastTrail=ease(speedMultiplier,4,5);
+          strokePoints(points,color(C.gold,.12),5,alpha,0);
+          strokePoints(points,color(C.white,.72),1.5,alpha,0);
+          const extra=logBase<1e-8?elapsed:Math.expm1(exponent)*interval/logBase;
+          const spin=3.1*(Math.min(age,delay)+extra);
+          const direction=k===1?-1:1;
+          const phase=[Math.PI,0,Math.PI][k]+spin*direction;
+          if(fastTrail>0){
+            // A continuous taper on the same orbit, not a chain of extra balls.
+            const length=Math.min(Math.PI*1.5,3.1*speedMultiplier*.045);
+            for(let j=0;j<20;j++){
+              const from=j/20,to=(j+1)/20;
+              const a=position(phase-direction*length*from),b=position(phase-direction*length*to);
+              const strength=alpha*fastTrail*(1-to)**1.5;
+              line(a.x,a.y,b.x,b.y,color(C.gold,.28),5,strength);
+              line(a.x,a.y,b.x,b.y,color(C.white,.85),2,strength);
+            }
+          }
+          const ball=position(phase);
+          drawQuantumGlowBall(ball.x,ball.y,7,alpha);
         }
+        drawQuantumGlowBall(cx,cy,32,alpha);
+        // White light follows the same pulse as the whole structure.
+        const pulseLight=instability*pulse*pulse*alpha;
+        if(pulseLight>.001){
+          const flash=ctx.createRadialGradient(cx,cy,0,cx,cy,105);
+          flash.addColorStop(0,color('255,255,255',.65*pulseLight));
+          flash.addColorStop(.3,color('255,250,235',.28*pulseLight));
+          flash.addColorStop(1,color(C.white,0));
+          ctx.fillStyle=flash;ctx.beginPath();ctx.arc(cx,cy,105,0,TWO_PI);ctx.fill();
+        }
+        ctx.restore();
       }
-      if(t>=.78)drawAtomConvergence(t,collapse);
-      const breathe=t<.52?1+.18*Math.sin(t*23):1+.24*Math.sin(t*(23+unstable*49));
-      const hold=still?1.48:1;
-      const centerAlpha=still?1.0:birth;
-      glow(cx,cy,67+20*unstable+50*collapse,centerAlpha*(.40+.44*unstable+.49*collapse));
-      ring(cx,cy,(19+3*accel)*(1-.82*collapse),color(C.gold,.5),1.15,centerAlpha,.86,t*.74);
-      dot(cx,cy,(5.2+3*unstable)*breathe*(1-.68*collapse)*hold+2.2*collapse,color(C.white,1),centerAlpha,22);
-      if(still){
-        // Seven hundredths of absolute silence: an intentionally fixed point.
-        dot(cx,cy,5.5,color(C.white,1),1,25);
-        glow(cx,cy,37,.78);
+      // The final pulse blooms into pure white immediately before collapse.
+      const finalWhite=ease(t,3.08,3.29)*(1-ease(t,3.30,3.38));
+      if(finalWhite>.001){
+        const radius=80+160*finalWhite;
+        const flash=ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+        flash.addColorStop(0,color('255,255,255',finalWhite));
+        flash.addColorStop(.55,color('255,255,255',finalWhite));
+        flash.addColorStop(1,color('255,255,255',0));
+        ctx.fillStyle=flash;ctx.beginPath();ctx.arc(cx,cy,radius,0,TWO_PI);ctx.fill();
       }
-      ctx.restore();
-    }
-    if(t>=1.05){
-      const age=t-1.05,explosion=between(age,0,.20);
-      const fade=(1-ease(age,.20,solve?.37:.41));
-      for(let k=0;k<3;k++){
-        const stagger=k*.011,local=between(age-stagger,0,.195+k*.015);
-        if(age<stagger)continue;
-        const radius=10+([222,249,239][k]-10)*out5(local);
-        const alpha=fade*(.84-.08*k),tear=ease(age,.105,.33);
-        drawAtomOrbit(k,t,radius,alpha,{tear,burst:true,instability:tear*.29});
-        if(age<.22)drawAtomElectrons(k,t,radius,alpha*(1-ease(age,.14,.23)),1,tear*.5,true);
+      // Cancel the live attack-axis angle: local Y must be screen-horizontal.
+      const beam=collapse*(1-shrink),width=180*(1-shrink);
+      const collapseFlash=ease(t,3.30,3.34)*(1-ease(t,3.34,3.46));
+      if(collapseFlash>.001){
+        const flash=ctx.createRadialGradient(cx,cy,0,cx,cy,95);
+        flash.addColorStop(0,color('255,255,255',.9*collapseFlash));
+        flash.addColorStop(.3,color('255,250,230',.55*collapseFlash));
+        flash.addColorStop(1,color(C.white,0));
+        ctx.fillStyle=flash;ctx.beginPath();ctx.arc(cx,cy,95,0,TWO_PI);ctx.fill();
       }
-      drawAtomicBurst(t);
+      if(beam>.001){
+        ctx.save();ctx.translate(cx,cy);ctx.rotate(collapseFrame);ctx.translate(-cx,-cy);
+        line(cx,cy-width,cx,cy+width,color('255,255,255',.22),9,beam);
+        line(cx,cy-width,cx,cy+width,color('255,255,255',1),2,beam);
+        const star=20*(1-shrink),inner=star*.17;
+        ctx.save();ctx.globalAlpha=beam;ctx.fillStyle='rgb(255,255,255)';
+        ctx.shadowColor='white';ctx.shadowBlur=12;
+        ctx.beginPath();ctx.moveTo(cx,cy-star);ctx.lineTo(cx+inner,cy-inner);
+        ctx.lineTo(cx+star,cy);ctx.lineTo(cx+inner,cy+inner);
+        ctx.lineTo(cx,cy+star);ctx.lineTo(cx-inner,cy+inner);
+        ctx.lineTo(cx-star,cy);ctx.lineTo(cx-inner,cy-inner);ctx.closePath();ctx.fill();ctx.restore();
+        ctx.restore();
+      }
     }
-    if(solve){
-      drawAtomicSolveVectors(t);
-      drawAtomicResidualCore(t);
-    }
-    // The hand artwork slot remains empty: only a restrained procedural
-    // release cue near Sage is present. Skill remains complete with no hand.
-    if(releaseCue)drawSageSnapCue(t,.98,395,401);
+    ctx.restore();
+    if(solve){drawAtomicSolveVectors(t);drawAtomicResidualCore(t-2.33);}
+    if(releaseCue)drawSageSnapCue(t,.28,395,401);
   }
 
   function drawTransitionCore(t,start,finish,x,y){
@@ -630,7 +757,6 @@ function createSageSkillRenderer(canvas) {
       ctx.restore();
     }
   }
-
   function drawEquationHook(t,skill){
     const p=between(t,0,1.40),alpha=(.72+.28*ease(t,0,.14))*(1-ease(t,1.24,1.40));
     const x=skill==='vector'?lerp(TARGET.x,899,ease(t,.05,.35)):899,y=skill==='vector'?lerp(TARGET.y,399,ease(t,.05,.35)):399;
@@ -650,6 +776,12 @@ function createSageSkillRenderer(canvas) {
     }
   }
 
+  function targetPose(t) {
+    if(t<1.30||t>=3.83)return null;
+    const collapse=ease(t,3.30,3.40);
+    return {opacity:quantumFlicker(t).opacity*(1-collapse),
+      scaleX:1-.96*collapse,scaleY:1-.98*collapse,origin:'50% 45%'};
+  }
   function clear(width,height) {
     const dpr=Math.min(2,window.devicePixelRatio||1);
     const w=Math.max(1,Math.round(width*dpr)),h=Math.max(1,Math.round(height*dpr));
@@ -657,7 +789,7 @@ function createSageSkillRenderer(canvas) {
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
     ctx.lineCap='round';ctx.lineJoin='round';ctx.globalCompositeOperation='source-over';
   }
-  function render(skill,t,_phase,source,target,geometry={}) {
+  function render(skill,t,solve,source,target,geometry={}) {
     // Same authored left-to-right curves, rotated onto the live lower-party to
     // upper-enemy axis. A similarity transform preserves the 3D projection.
     const dx=target.x-source.x,dy=target.y-source.y;
@@ -668,30 +800,28 @@ function createSageSkillRenderer(canvas) {
     samples=[];
     if(skill==='basic')drawBasic(t,false);
     else if(skill==='vector'){
-      // Fit the unscaled model to enemy artwork, then enlarge the WHOLE atom
-      // 1.4x: nucleus, orbits, electrons, trails, collapse and burst fragments.
-      // Reserve the largest fragment radius so viewport edges cannot cut rings.
-      const atomMultiplier=1.4;
+      // Keep the new prototype's internal 1.65x composition. Do not multiply
+      // it by the former 1.4x adaptation; only fit its authored extent to the
+      // real enemy and available viewport space.
       const enemyScale=geometry.targetWidth?geometry.targetWidth*.35/119:axisScale;
-      const fitScale=geometry.edgeRoom?Math.min(enemyScale,geometry.edgeRoom/(285*atomMultiplier)):enemyScale;
-      const atomScale=fitScale*atomMultiplier/axisScale;
+      const fitScale=geometry.edgeRoom?Math.min(enemyScale,geometry.edgeRoom/(285*1.65)):enemyScale;
+      const atomScale=fitScale/axisScale;
       ctx.save();ctx.translate(TARGET.x,TARGET.y);ctx.scale(atomScale,atomScale);ctx.translate(-TARGET.x,-TARGET.y);
-      drawVector(t,false,false);ctx.restore();
-      // The release cue belongs near Sage, not inside the enlarged atom.
-      drawSageSnapCue(t,.98,395,401);
-    }else{
-      // Reuse the existing attack's rotating/folding target geometry and pulse
-      // in both phases. Hypothesis sampling is a separate status-owned model.
+      drawVector(t,false,false,Math.atan2(b,a));ctx.restore();
+      drawSageSnapCue(t,.28,395,401);
+    }else if(solve){
       drawMomentumSolve(t);
+    }else{
+      drawMomentumHyp(t,{start:0});
     }
     ctx.restore();
   }
   function sampling(time,anchor,radius,ages=[]) {
-    ctx.save();ctx.translate(anchor.x,anchor.y);ctx.scale(radius/142,radius/142);ctx.translate(-483,-401);
+    ctx.save();ctx.translate(anchor.x,anchor.y);ctx.rotate(-Math.PI/2);ctx.scale(radius/142,radius/142);ctx.translate(-483,-401);
     samples=ages.filter(age=>age>=0&&age<.5).map(age=>({age}));
     // Same idle, indentation, travelling gold wave, lit nodes and inward photons.
     // Use the original idle section; its initial attack has already completed.
     drawMomentumHyp(1.5+time,{start:0});ctx.restore();samples=[];
   }
-  return {clear,render,sampling};
+  return {clear,render,sampling,targetPose};
 }
