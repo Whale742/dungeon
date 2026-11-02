@@ -75,7 +75,7 @@ export function skillValue(actor,key,{equipmentMultiplier=1,stacks=0,players=1,b
     alc_flask:5+M,poison:3+.5*M,burn:5+.5*M,fracture:2+.3*M,chill:3+.3*M,
     alc_success:20+2*M,alc_failure:5+.5*M,alc_stable:5+M,
     sg_star:5+1.5*M,sg_planet:3+2*M,sg_bonus:1+.35*M,sg_blackhole:M,sg_eye_planet:2+3*M,sg_eye_galaxy:1+.75*M,sg_eye_blackhole:2.5*M,
-    aug_reckon:5+M,aug_heal:5+.5*M,onm_talisman:2+1.5*M,onm_detonate:stacks?4+.25*M+stacks*M:0,
+    aug_reckon:5+M,aug_heal:5+.5*M,onm_talisman:2+1.5*M,onm_detonate:stacks*M,
     sge_deduce:3+.5*P,sge_induce:3+.5*P,s_stab:3+2*P,s_smoke:6+1.5*P+stacks*(7+.5*P)};
   if(!(key in values))throw new Error(`Unknown v2 skill formula: ${key}`);
   return Math.round(values[key]);

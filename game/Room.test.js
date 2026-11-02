@@ -873,7 +873,7 @@ test('Onmyoji production animation commits each damage result once, including ca
     assert.equal(hits.reduce((sum,r)=>sum+r.actualDamage,0),state==='drain'?70:state==='lethal'?10:20);
   }
 });
-for(const [count,mirror,expected] of [[0,false,0],[1,false,19],[10,false,127],[10,true,147],[12,false,127]])
+for(const [count,mirror,expected] of [[0,false,0],[1,false,12],[10,false,120],[10,true,140],[12,false,120]])
 test(`Onmyoji detonation scaling: ${count} charms, mirror=${mirror}`,t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
   enemy.talismans=Array(count).fill('blind');enemy.permanentTalismans=[...enemy.talismans];
