@@ -189,7 +189,7 @@ test('Sage Canvas follows moving stage anchors and commits each authoritative re
   for(const phase of ['hypothesis','solve'])for(const actionId of ['basic','sge_deduce','sge_induce']){
     const actor={x:840,y:680,rect:{width:90}},enemy={x:1100,y:260,rect:{width:160}},frames=[],commits=[],timings=[],nodes=[],audio=[];
     let elapsed=0,snapshots=0;
-    const hit=actionId==='basic'?550:actionId==='sge_deduce'?3300:2180;
+    const hit=actionId==='basic'?3600:actionId==='sge_deduce'?3300:2180;
     const scope={innerWidth:1440,innerHeight:810,battlefieldPlayerTarget:()=> 'enemy',getBattleEffectAnchor:id=>id==='actor'?actor:enemy,
       createSageSkillRenderer:()=>({clear(){},render:(skill,t,solve,a,b,geometry)=>frames.push({skill,t,solve,a:{...a},b:{...b},geometry})}),
       commitBattlefieldGroup:(_s,step,results)=>commits.push({elapsed,results}),applyHpSnapshot:()=>snapshots++,
@@ -203,11 +203,11 @@ test('Sage Canvas follows moving stage anchors and commits each authoritative re
     const result={resultId:'real-result',actualDamage:37},snapshot={players:[]};
     await scope.playSageSkillPresentation({sourceId:'actor',actionId,results:[result],hpSnapshot:snapshot,sagePresentation:{sagePhase:phase}},
       {onTiming:beat=>timings.push(beat)});
-    assert.deepEqual(audio.map(({key,at})=>[at,key]),actionId==='basic'?[[390,'sage-attack'],[550,'sage_pong']]:actionId==='sge_deduce'?[[0,'sage-skill1-1'],[3300,'sage-skill1-2']]:[[0,'sage-skill2'],[2180,'sage_pong']]);
+    assert.deepEqual(audio.map(({key,at})=>[at,key]),actionId==='basic'?[[3320,'sage-attack'],[3600,'sage_pong']]:actionId==='sge_deduce'?[[0,'sage-skill1-1'],[3300,'sage-skill1-2']]:[[0,'sage-skill2'],[2180,'sage_pong']]);
     assert.ok(audio.every(c=>c.options.noHold));
     assert.equal(commits.length,1);assert.equal(commits[0].elapsed,hit);assert.equal(commits[0].results[0],result);
     assert.equal(frames[0].a.x,840);assert.equal(frames[0].geometry.targetWidth,160);assert.equal(frames.at(-1).a.x,520);assert.equal(frames.at(-1).b.y,310);
-    assert.equal(frames.at(-1).solve,actionId==='sge_induce'&&phase==='solve');assert.equal(frames.at(-1).t,actionId==='basic'?.75:actionId==='sge_deduce'?4.36:2.8);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
+    assert.equal(frames.at(-1).solve,actionId==='sge_induce'&&phase==='solve');assert.equal(frames.at(-1).t,actionId==='basic'?4.2:actionId==='sge_deduce'?4.36:4.18);assert.equal(snapshots,1);assert.ok(nodes.every(n=>n.removed));
     assert.equal(timings.filter(b=>b==='sage_equation_handoff').length,phase==='solve'?1:0);
   }
 });
@@ -232,7 +232,31 @@ test('Sage quantum body keeps native 1.65x composition and Induce uses the V2 sh
 
 });
 
-test('Sage B V2 mesh, fracture and real-event sampler retain prototype drawing at every stage',()=>{
+test('Sage basic axes stay screen aligned and lock-on grows by 20 percent',()=>{
+  for(const source of [{x:200,y:700},{x:1100,y:650},{x:710,y:740}]){
+    let m=[1,0,0,1,0,0],path=[],props={};const stack=[],axes=[],vectors=[],circles=[],labels=[];
+    const mul=n=>{const[a,b,c,d,e,f]=m,[A,B,C,D,E,F]=n;m=[a*A+c*B,b*A+d*B,a*C+c*D,b*C+d*D,a*E+c*F+e,b*E+d*F+f];};
+    const point=(x,y)=>({x:m[0]*x+m[2]*y+m[4],y:m[1]*x+m[3]*y+m[5]});
+    const methods={save(){stack.push({m:[...m],props:{...props}});},restore(){const old=stack.pop();m=old.m;props=old.props;},
+      translate:(x,y)=>mul([1,0,0,1,x,y]),scale:(x,y)=>mul([x,0,0,y,0,0]),
+      rotate:r=>mul([Math.cos(r),Math.sin(r),-Math.sin(r),Math.cos(r),0,0]),transform:(...n)=>mul(n),
+      beginPath(){path=[];},moveTo:(x,y)=>path.push(point(x,y)),lineTo:(x,y)=>path.push(point(x,y)),
+      ellipse(x,y,r){path=[{...point(x,y),radius:r*Math.hypot(m[0],m[1])}];},
+      stroke(){if(props.strokeStyle==='rgba(229,186,98,0.39)'&&props.lineWidth===6)axes.push([...path]);
+        if(props.strokeStyle==='rgba(255,255,255,1)'&&path.length===2)vectors.push({path:[...path],width:props.lineWidth});
+        if(props.strokeStyle==='rgba(255,125,125,0.9)'&&path[0]?.radius)circles.push({...path[0],width:props.lineWidth*Math.hypot(m[0],m[1])});},
+      fillText(text){if(text.endsWith('°'))labels.push(text);},createRadialGradient:()=>({addColorStop(){}})};
+    const ctx=new Proxy({}, {get(_t,key){return methods[key]||(()=>{});},set(_t,key,v){props[key]=v;return true;}}),scope={canvas:{getContext:()=>ctx}};
+    vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-renderer.js',import.meta.url),'utf8')+';var renderer=createSageSkillRenderer(canvas);',scope);
+    const target={x:710,y:230};scope.renderer.render('basic',2,false,source,target,{targetWidth:180});
+    assert.equal(axes.length,2);assert.ok(Math.abs(axes[0][0].y-axes[0][1].y)<1e-9);assert.ok(Math.abs(axes[1][0].x-axes[1][1].x)<1e-9);
+    assert.equal(vectors.length,3);assert.ok(vectors.every(v=>Math.abs(v.width-3)<1e-9));const[a,b]=vectors[0].path;assert.ok(Math.hypot(a.x-source.x,a.y-source.y)<1e-9);assert.ok(Math.hypot(b.x-target.x,b.y-target.y)<1e-9);
+    const angle=Math.round(Math.abs(Math.atan2(target.y-source.y,target.x-source.x))*180/Math.PI);assert.equal(labels[0],angle+'°');
+    assert.equal(circles.length,1);assert.ok(Math.abs(circles[0].width-2)<1e-9);assert.ok(Math.abs(circles[0].radius-180*.65*.3*1.2)<1e-9);assert.ok(Math.hypot(circles[0].x-target.x,circles[0].y-target.y)<1e-9);assert.equal(stack.length,0);
+  }
+});
+
+test('Sage B V2 formation and real-event sampler retain prototype drawing',()=>{
   const calls=[],gradient={addColorStop:(...args)=>calls.push(['stop',...args])};
   const ctx=new Proxy({}, {get(_t,key){return (...args)=>{calls.push([key,...args]);if(key==='createLinearGradient')return gradient;};},set(_t,key,value){calls.push(['set',key,typeof value==='object'?'gradient':value]);return true;}});
   const helper=name=>(...args)=>calls.push([name,...args]);
@@ -246,14 +270,56 @@ test('Sage B V2 mesh, fracture and real-event sampler retain prototype drawing a
   vm.runInContext(readFileSync(new URL('../temp/sage_skill_prototype/momentum-v2.js',import.meta.url),'utf8'),scope);
   vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-momentum-v2.js',import.meta.url),'utf8'),scope);
   const original=scope.window.createSageMomentumV2(args),production=scope.createSageMomentumV2(args);
-  for(const time of [0,.15,.45,.60,1.02,1.22,1.48,1.65,1.80,1.98,2.10,2.18,2.24,2.5,2.72,2.8]){
+  for(const time of [0,.15,.45,.60,1.02,1.22,1.48,1.65,1.80]){
     calls.length=0;original.draw(time,'b',[],false);const expected=JSON.stringify(calls);
     calls.length=0;production.draw(time,[],false);assert.equal(JSON.stringify(calls),expected,'B V2 attack '+time);
+  }
+  for(const time of [1.98,2.18,2.24,2.42,2.72,3,3.17]){
+    calls.length=0;production.draw(time,[],false);assert.ok(calls.length>2);
+    const finite=value=>{if(typeof value==='number')assert.ok(Number.isFinite(value),'debris coordinate '+time);
+      else if(value&&typeof value==='object')Object.values(value).forEach(finite);};
+    calls.forEach(finite);
   }
   for(const age of [-1,0,.08,.17,.32,.55,.63,.64]){
     const samples=age<0?[]:[{age}];
     calls.length=0;original.draw(3,'b',samples,true);const expected=JSON.stringify(calls);
     calls.length=0;production.sampling(samples);assert.equal(JSON.stringify(calls),expected,'B V2 sample '+age);
+  }
+});
+
+test('Sage lattice faces and bonds share the parent minimum and 2.5x post-impact rebound',()=>{
+  const source=readFileSync(new URL('../public/js/presentation/sage-momentum-v2.js',import.meta.url),'utf8').replace('  return Object.freeze({','  return Object.freeze({pose:(t,x,y)=>latticeDebrisPose(t,cells.find(c=>c.x===x&&c.y===y&&c.z===1)),');
+  const scope={};vm.createContext(scope);vm.runInContext(source,scope);
+  const renderer=scope.createSageMomentumV2({ctx:{},rotate3:p=>p,source:{x:720,y:667.5},target:{x:711.5,y:204.5}});
+  for(let x=0;x<2;x++)for(let y=0;y<3;y++){
+    const before=renderer.pose(1.98,x,y),minimum=renderer.pose(2.18,x,y),rebound=renderer.pose(4.18,x,y);
+    const early=renderer.pose(2.42,x,y),late=renderer.pose(3,x,y);
+    const distance=p=>Math.hypot(p.centroid.x-711.5,p.centroid.y-204.5);
+    assert.ok(distance(late)>distance(early));assert.ok(early.size<late.size);
+    assert.ok(Math.abs(distance(rebound)-2*(55+(y*4+x+2)%3*22)*Math.hypot(Math.cos((y*4+x+2)*2.399),Math.sin((y*4+x+2)*2.399)*.58))<1e-9);
+    const first=distance(renderer.pose(2.68,x,y)),second=distance(renderer.pose(3.18,x,y)),third=distance(renderer.pose(3.68,x,y));
+    assert.ok(first>second-first && second-first>third-second);
+    assert.equal(before.size,1);assert.ok(Math.abs(minimum.size-.04)<1e-12);assert.equal(minimum.eject,0);
+    assert.ok(Math.abs(minimum.centroid.x-711.5)<1e-9);assert.ok(Math.abs(minimum.centroid.y-204.5)<1e-9);
+    assert.ok(Math.abs(rebound.size/(.12*2)-2.5)<1e-12);
+    const p={x:700,y:420,z:30},q={x:760,y:430,z:70};
+    for(const pose of [before,minimum,rebound]){
+      const a=pose.transform(p),b=pose.transform(q);
+      assert.ok(Math.abs(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)/Math.hypot(p.x-q.x,p.y-q.y,p.z-q.z)-pose.size)<1e-10);
+    }
+  }
+});
+
+test('Sage momentum target shakes only after contact and restores artwork on finish or abort',()=>{
+  for(const abort of [false,true]){
+    const image={style:{translate:'2px 1px',rotate:'1deg'},getBoundingClientRect:()=>({width:180})};
+    const initial={...image.style},controller=new AbortController(),scope={};vm.createContext(scope);
+    vm.runInContext(readFileSync(new URL('../public/js/presentation/sage-skill-presentation.js',import.meta.url),'utf8'),scope);
+    const feedback=scope.sageMomentumTargetFeedback({signal:controller.signal,targetFor:()=>({querySelector:()=>image})},{targetId:'enemy'});
+    feedback.update(2.17);assert.deepEqual(image.style,initial);
+    feedback.update(2.20);assert.notEqual(image.style.translate,initial.translate);assert.notEqual(image.style.rotate,initial.rotate);
+    if(abort)controller.abort();else feedback.update(2.79);
+    assert.deepEqual(image.style,initial);feedback.dispose();feedback.update(2.3);assert.deepEqual(image.style,initial);
   }
 });
 

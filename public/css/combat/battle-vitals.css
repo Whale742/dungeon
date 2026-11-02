@@ -13,6 +13,7 @@
 #targetModalList .target-btn{gap:8px;min-height:148px}
 @keyframes vitalDebtPulse{50%{filter:brightness(1.65);opacity:.65}}
 #viewBattle .enemy-target-reticle{color:#ff4c59;opacity:1;filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px #fff8);width:44px;height:44px}
+#viewBattle.battle-presentation-playing .enemy-target-reticle{visibility:hidden}
 #viewBattle .enemy-target-reticle:after{display:none;content:none}
 #viewBattle .enemy-target-reticle svg{width:100%;height:100%;animation:targetGlyphPulse 1.4s ease-in-out infinite}
 #viewBattle .enemy-target-reticle.is-group-target{width:38px;height:38px}

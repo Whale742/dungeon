@@ -116,11 +116,17 @@ test('a recorded butterfly cocoon can target a chosen ally without also changing
   assert.notDeepEqual(steps[0].hpSnapshot.players[1].statuses,config.party[1].statuses);
 });
 
-test('solve previews include the dependent equation and maintain the selected enemy',()=>{
+test('solve previews distribute the dependent equation across living enemies',()=>{
   const config=scenario('sage'),selected=entry('sage_sge_induce_solve','sge_induce');
+  config.enemies.forEach(e=>{e.hp=e.maxHp=500;});
   const {steps}=preparePlayback(config,combatLabFixture(selected.id),selected);
   assert.deepEqual(steps.map(s=>s.actionId),['sge_induce','sge_equation']);
-  assert.ok(steps.every(s=>s.results.filter(r=>r.kind==='damage').every(r=>r.targetEnemyId===config.primaryId)));
+  assert.equal(steps[0].results[0].targetEnemyId,config.primaryId);
+  const hits=steps[1].results.filter(r=>r.kind==='damage'&&r.targetEnemyId);
+  assert.deepEqual(new Set(hits.map(r=>r.targetEnemyId)),new Set(config.enemies.map(e=>e.instanceId)));
+  assert.equal(hits.reduce((sum,r)=>sum+r.actualDamage,0),20);
+  assert.ok(hits.every(r=>r.targetAfter.hp<r.targetBefore.hp));
+  assert.ok(steps[1].hpSnapshot.enemies.every(e=>e.hp<500));
 });
 
 test('transform uses the production result and updates only the configured druid',()=>{

@@ -8,9 +8,9 @@ function sagePresentationData(step) {
     operandAfter:after?.sageOperand,xBefore:before?.sageX,xAfter:after?.sageX};
 }
 const SAGE_SKILL_CUES=Object.freeze({
-  basic:{skill:'basic',hit:550,duration:750,audio:[[390,'sage-attack'],[550,'sage_pong']]},
+  basic:{skill:'basic',hit:3600,duration:4200,audio:[[3320,'sage-attack'],[3600,'sage_pong']]},
   sge_deduce:{skill:'vector',hit:3300,duration:4360,audio:[[0,'sage-skill1-1'],[3300,'sage-skill1-2']]},
-  sge_induce:{skill:'momentum',hit:2180,duration:2800,audio:[[0,'sage-skill2'],[2180,'sage_pong']]}
+  sge_induce:{skill:'momentum',hit:2180,duration:4180,audio:[[0,'sage-skill2'],[2180,'sage_pong']]}
 });
 // Animate only the target artwork. Its layout anchor, HP/HUD and official
 // damage labels stay stable. Every touched style is restored on exit/abort.
@@ -38,11 +38,31 @@ function sageQuantumTargetFeedback(s,step,renderer) {
     image.style.transformOrigin=pose.origin;
   }};
 }
+// Shake artwork only: target anchors, HP bars and damage labels remain stable.
+function sageMomentumTargetFeedback(s,step){
+  const originals=new Map();let disposed=false;
+  const restore=()=>{for(const [image,style]of originals){image.style.translate=style.translate;image.style.rotate=style.rotate;}originals.clear();};
+  const dispose=()=>{disposed=true;restore();s.signal?.removeEventListener?.('abort',dispose);};
+  s.signal?.addEventListener?.('abort',dispose,{once:true});
+  return {dispose,update(t){
+    if(disposed)return;
+    const age=t-2.18;if(age<0||age>=.60){restore();return;}
+    const id=s.local?.battlefield?battlefieldPlayerTarget(step):step.targetId;
+    const visual=s.targetFor?.(id)||s.cards?.get(id)||s.cards?.get('monster');
+    const image=visual?.querySelector?.('.enemy-sprite-img')||visual?.querySelector?.('img')||(visual?.tagName==='IMG'?visual:null);
+    if(!image?.style)return;
+    if(!originals.has(image))originals.set(image,{translate:image.style.translate,rotate:image.style.rotate});
+    const width=image.getBoundingClientRect?.().width||160;
+    const amplitude=Math.max(10,Math.min(20,width*.09))*(s.reduced ? .25 : 1),fade=(1-age/.60)**2;
+    image.style.translate=`${Math.sin(age*85+.6)*amplitude*fade}px ${Math.sin(age*107)*amplitude*.35*fade}px`;
+    image.style.rotate=`${Math.sin(age*78)*3.2*fade*(s.reduced ? .25 : 1)}deg`;
+  }};
+}
 async function playSageSkillPresentation(step,context={}) {
   const data=sagePresentationData(step),solve=data.sagePhase==='solve',cue=SAGE_SKILL_CUES[step.actionId];
   const hit=cue.hit,duration=cue.duration;
   // Deduce still commits at collapse (3.30s); its horizontal beam now lasts
-  // 1.06s rather than .53s. V2 commits once at 2.18s and ends at 2.80s.
+  // 1.06s rather than .53s. V2 commits once at 2.18s, then drifts/rotates outward until 4.18s.
   // Real sampling persists as a status; the prototype's mock hit/round is absent.
   const stageContext={...context,skipCastAudio:true,castAudioNoHold:true};
   sageSamplingVisuals.casting.add(step.sourceId);
@@ -55,7 +75,8 @@ async function playSageSkillPresentation(step,context={}) {
       canvas.setAttribute('aria-hidden','true');
       if(battlefield&&canvas.style){canvas.style.width='100%';canvas.style.height='100%';}
       const renderer=createSageSkillRenderer(canvas);
-      const targetFeedback=step.actionId==='sge_deduce'?sageQuantumTargetFeedback(s,step,renderer):null;
+      const targetFeedback=step.actionId==='sge_deduce'?sageQuantumTargetFeedback(s,step,renderer):
+        step.actionId==='sge_induce'?sageMomentumTargetFeedback(s,step):null;
       try {
         if(battlefield)s.revealRecipient?.(step.sourceId);
         let time=0,ended=false,contact=false,lastSource,lastTarget;
@@ -86,7 +107,7 @@ async function playSageSkillPresentation(step,context={}) {
           const source=lastSource||s.anchors.get(step.sourceId)||SKILL_STAGE.actor;
           const target=lastTarget||s.anchors.get('monster')||s.anchors.get(step.targetId)||SKILL_STAGE.target;
           renderer.render(cue.skill,Math.min(time,duration)/1000,step.actionId==='sge_induce'&&solve,source,target,{
-            targetWidth:lastTarget?.rect?.width,
+            targetWidth:lastTarget?.rect?.width,width,height,
             edgeRoom:Math.max(1,Math.min(target.x,width-target.x,target.y,height-target.y)-6)
           });
         };

@@ -63,6 +63,7 @@ async function stop(){
   document.querySelectorAll('.battlefield-player-effects,.enemy-effect-overlay,.boss-encounter-stage,.round-start-overlay,#presentationCombatStage').forEach(n=>n.remove());
   document.querySelectorAll('.is-skill-recipient,.is-skill-actor').forEach(n=>n.classList.remove('is-skill-recipient','is-skill-actor'));
   appliedBattleResults.clear();
+  stageView.classList.remove('battle-presentation-playing');
   stageView.dataset.labIdle='true';
   stageView.style.opacity='';
 }
@@ -96,6 +97,7 @@ async function play(config,fixture,entry,options,runId){
     else{
       let steps=playback.steps;
       if(options.step!=='all')steps=steps.slice(Number(options.step),Number(options.step)+1);
+      stageView.classList.add('battle-presentation-playing');
       stageView.dataset.labIdle='false';BattleHud.begin(steps);
       for(const [index,step]of steps.entries()){
         if(context.signal.aborted)return;
@@ -110,7 +112,7 @@ async function play(config,fixture,entry,options,runId){
         BattleHud.finish(step,context);report('progress',{runId,value:index+1,total:steps.length});
       }
     }
-    if(current===generation){stageView.dataset.labIdle='true';BattleHud.setPhase('ENEMY_ACTIONS');report('finished',{runId});}
+    if(current===generation){stageView.classList.remove('battle-presentation-playing');stageView.dataset.labIdle='true';BattleHud.setPhase('ENEMY_ACTIONS');report('finished',{runId});}
   })();
   try{await runTask;}catch(error){if(current===generation&&error.name!=='AbortError'){await stop();report('error',{runId,message:error.message});}}
 }

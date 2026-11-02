@@ -82,6 +82,63 @@ function createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source,tar
     gradient.addColorStop(1,'rgba(180,130,54,0)');
     polygon(points,gradient,gold(opacity*(.10+lit*.22+rim*.3)),.8+depth*.5);
   }
+  // Every detached face and bond uses the same bay pivot and shrink/rebound
+  // as its parent lattice. Nothing escapes ahead of the 2.18s collision.
+  let debrisTime;const debrisPoses=new Map();
+  function latticeDebrisPose(t,cell){
+    if(debrisTime!==t){debrisTime=t;debrisPoses.clear();}
+    const key=cell.y*2+cell.x;if(debrisPoses.has(key))return debrisPoses.get(key);
+    const bay=cells.find(c=>c.x===cell.x&&c.y===cell.y&&c.z===1);
+    const d=ease(t,bay.breakAt,bay.breakAt+.16),fall=ease(t,1.98,2.18),eject=1-(1-ramp(t,2.18,4.18))**3;
+    const ids=[idx(cell.x,cell.y,0),idx(cell.x+1,cell.y,0),idx(cell.x+1,cell.y+1,0),idx(cell.x,cell.y+1,0),
+      idx(cell.x,cell.y,2),idx(cell.x+1,cell.y,2),idx(cell.x+1,cell.y+1,2),idx(cell.x,cell.y+1,2)];
+    const center=ids.reduce((p,id)=>({x:p.x+latticeRest[id].x/8,y:p.y+latticeRest[id].y/8,z:p.z+latticeRest[id].z/8}),{x:0,y:0,z:0});
+    const centroid=lerp3(center,{...target,z:0},fall),angle=bay.id*2.399,throwDistance=eject*2*(55+bay.id%3*22);
+    centroid.x+=Math.cos(angle)*throwDistance;centroid.y+=Math.sin(angle)*throwDistance*.58;
+    const size=((1-fall*.96)*(1-eject)+eject*.12)*(1+eject)*(1+1.5*eject);
+    const transform=p=>{
+      const v=rotate3({x:p.x-center.x,y:p.y-center.y,z:p.z-center.z},d*(cell.x?1:-1)*.65+eject*(cell.x?.65:-.65),d*(cell.x?-.55:.55)+eject*(cell.x?-.55:.55),d*(cell.y-1)*.42+eject*(.25+cell.y*.15));
+      return {x:centroid.x+v.x*size,y:centroid.y+v.y*size,z:centroid.z+v.z*size};
+    };
+    const pose={ids,transform,centroid,d,eject,size};debrisPoses.set(key,pose);return pose;
+  }
+  function drawLatticeShards(t){
+    const fade=1-ease(t,3.88,4.18);
+    if(t<1.83||fade<=0)return;
+    const pieces=[];
+    for(const cell of cells){
+      if(cell.id%2)continue;
+      for(let f=0;f<cellFaces.length;f++){
+        if((cell.id*7+f*5)%3!==0)continue;
+        const face=cellFaces[f].map(i=>latticeRest[cell.ids[i]]);
+        const centroid=face.reduce((p,v)=>({x:p.x+v.x/4,y:p.y+v.y/4,z:p.z+v.z/4}),{x:0,y:0,z:0});
+        const tris=[[face[0],face[1],centroid],[face[1],face[2],centroid],[face[2],face[3],face[0]]];
+        for(let i=0;i<tris.length;i++){
+          const start=cell.breakAt+.07+i*.025,split=ease(t,start,start+.20);
+          if(split<=0)continue;
+          const pose=latticeDebrisPose(t,cell),vertices=tris[i].map(pose.transform);
+          pieces.push({world:vertices,alpha:split*fade,center:pose.centroid,z:vertices.reduce((n,v)=>n+v.z/3,0)});
+        }
+      }
+    }
+    pieces.sort((a,b)=>a.z-b.z);
+    for(const p of pieces)latticeFaceMaterial(p.world,p.alpha*.8,0,clamp((p.z+200)/400),p.center);
+    // Broken bonds follow their original axis, with a smaller outward stress drift.
+    for(let i=0;i<edges.length;i+=4){
+      const e=edges[i],a=latticeRest[e.a],b=latticeRest[e.b],start=1.90+Math.min(failureDistance[e.a],failureDistance[e.b])*.025;
+      const breakage=ease(t,start,start+.12);if(breakage<=0)continue;
+      const mid=lerp3(a,b,.5);
+      const cell=cells.find(c=>c.x===Math.min(1,nodes[e.a].x)&&c.y===Math.min(2,nodes[e.a].y)&&c.z===1);
+      const pose=latticeDebrisPose(t,cell);
+      const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+      for(const side of [-1,1]){
+        const segment=u=>project(pose.transform({x:mid.x+dx*u,y:mid.y+dy*u,z:mid.z+dz*u}));
+        const p=segment(side*.08),q=segment(side*.30);
+        line(p.x,p.y,q.x,q.y,bright(.8),1.6,breakage*fade);
+      }
+      if(i%12===0){const p=project(pose.transform(mid));dot(p.x,p.y,2.5,bright(.9),breakage*fade,4);}
+    }
+  }
   function drawB(t){
     const world=latticeFrame(t),ps=world.map(project),fade=1-ease(t,2.17,2.35);
     const surfaces=[];
@@ -141,20 +198,9 @@ function createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source,tar
       // preserves recognizable large volumes instead of 12 overlapping cages.
       if(cell.z!==1)continue;
       const d=ease(t,cell.breakAt,cell.breakAt+.16);if(d<=0)continue;
-      const fall=ease(t,1.98,2.18),eject=ease(t,2.18,2.42),alpha=d*(1-ease(t,2.32,2.72));
-      const ids=[idx(cell.x,cell.y,0),idx(cell.x+1,cell.y,0),idx(cell.x+1,cell.y+1,0),idx(cell.x,cell.y+1,0),
-        idx(cell.x,cell.y,2),idx(cell.x+1,cell.y,2),idx(cell.x+1,cell.y+1,2),idx(cell.x,cell.y+1,2)];
-      const rest=latticeRest,center=ids.reduce((p,id)=>({x:p.x+rest[id].x/8,y:p.y+rest[id].y/8,z:p.z+rest[id].z/8}),{x:0,y:0,z:0});
-      const centroid=lerp3(center,{...target,z:0},fall);
-      const angle=cell.id*2.399,throwDistance=eject*(55+cell.id%3*22);
-      centroid.x+=Math.cos(angle)*throwDistance;centroid.y+=Math.sin(angle)*throwDistance*.58;
-      const vertices=ids.map(id=>{
-        const local={x:rest[id].x-center.x,y:rest[id].y-center.y,z:rest[id].z-center.z};
-        const v=rotate3(local,d*(cell.x?1:-1)*.65,d*(cell.x?-.55:.55),d*(cell.y-1)*.42);
-        const size=(1-fall*.96)*(1-eject)+eject*.12;
-        return {x:centroid.x+v.x*size,y:centroid.y+v.y*size,z:centroid.z+v.z*size};
-      });
-      fragments.push({vertices,alpha,z:centroid.z});
+      const pose=latticeDebrisPose(t,cell),alpha=d*(1-ease(t,3.88,4.18));
+      const vertices=pose.ids.map(id=>pose.transform(latticeRest[id]));
+      fragments.push({vertices,alpha,z:pose.centroid.z});
     }
     fragments.sort((a,b)=>a.z-b.z);
     for(const f of fragments){
@@ -171,6 +217,7 @@ function createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source,tar
       const x=target.x+Math.cos(angle)*r,y=target.y+Math.sin(angle)*r*.62;
       line(x,y,x+Math.cos(angle+.65)*24,y+Math.sin(angle+.65)*24,bright(.7),1.4,residual);
     }
+    drawLatticeShards(t);
     drawFracture(t);
   }
 
@@ -179,12 +226,6 @@ function createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source,tar
     if(pre*fade<=0)return;
     // A planar, broken seam and a brief transverse impact. No expanding sphere/rings.
     const kick=ease(t,2.18,2.21)*(1-ease(t,2.22,2.36));
-    const seam=[[-147,-81],[-83,-43],[-26,-39],[10,3],[52,13],[93,69],[143,84]];
-    for(const side of [-1,1]){
-      const points=seam.map(([x,y],i)=>({x:target.x+x,y:target.y+y+side*(3+kick*8)*(i%2?1:.5)}));
-      strokePoints(points,gold(.18),8,pre*fade);
-      strokePoints(points,bright(.94),1.8,pre*fade);
-    }
     if(kick>0){
       const x=target.x,y=target.y;
       polygon([{x:x-184*kick,y:y-5},{x:x+30,y:y-2},{x:x+184*kick,y:y+5},{x:x-30,y:y+2}],bright(.8*kick));
@@ -197,12 +238,18 @@ function createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source,tar
     const sample=samples.find(s=>s.age>=0&&s.age<.64),age=sample?.age??-1;
     const pulse=age<0?0:Math.sin(Math.PI*ramp(age,0,.64));
 
-    const points=[];
+    const points=[],worldPoints=[];
     for(let z=0;z<2;z++)for(let y=0;y<3;y++)for(let x=0;x<3;x++){
       const influence=Math.exp(-((x-2)**2+y*y)*.8),v=rotate3({x:(x-1)*44-pulse*influence*30,y:(y-1)*44+Math.sin(age*65+x+y)*pulse*influence*7,z:(z-.5)*49},.24,-.38,.05);
-      points.push(project({x:source.x+v.x,y:source.y-24+v.y,z:v.z}));
+      const world={x:source.x+v.x,y:source.y-24+v.y,z:v.z};
+      worldPoints.push(world);points.push(project(world));
     }
     const id=(x,y,z)=>(z*3+y)*3+x;
+    for(const [x,y,z] of [[0,0,0],[1,1,1]]){
+      const face=[worldPoints[id(x,y,z)],worldPoints[id(x+1,y,z)],worldPoints[id(x+1,y+1,z)],worldPoints[id(x,y+1,z)]];
+      const center={x:source.x,y:source.y-24,z:0};
+      latticeFaceMaterial(face,alpha*.38,pulse*.25,z?.7:.3,center);
+    }
     for(let z=0;z<2;z++)for(let y=0;y<3;y++)for(let x=0;x<3;x++){
       const a=points[id(x,y,z)],neighbors=[];
       if(x<2)neighbors.push(id(x+1,y,z));if(y<2)neighbors.push(id(x,y+1,z));if(z<1)neighbors.push(id(x,y,z+1));
@@ -217,8 +264,8 @@ function createSageMomentumV2({ctx,rotate3,line,strokePoints,dot,glow,source,tar
     }
   }
   return Object.freeze({
-    draw(t,samples=[],hypothesis=false){ctx.save();if(t<2.8)drawB(t);if(hypothesis)drawSampler(t,samples);ctx.restore();},
-    // The real status owns lifetime; the prototype's mock round-end fade is omitted.
+    draw(t,samples=[],hypothesis=false){ctx.save();if(t<4.18)drawB(t);if(hypothesis)drawSampler(t-.38,samples);ctx.restore();},
+    // Real battle status owns lifetime; omit the prototype's simulated round end.
     sampling(samples=[]){ctx.save();drawSampler(3,samples);ctx.restore();}
   });
 }

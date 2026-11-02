@@ -90,9 +90,34 @@ export function preparePlayback(config, fixture, entry) {
     const selectedSupport=entry.role&&entry.targetMode!=='self'&&entry.targetSide==='party'&&!allParty&&((raw.results||[]).every(r=>['heal','shield'].includes(r.kind))||['dw_butterfly','dw_false_dream'].includes(entry.skillId));
     const results=[];
     const firstEnemyResult=raw.results?.find(isEnemyResult),firstAllyResult=raw.results?.find(r=>!isEnemyResult(r));
+    const equationBeats = new Set();
     for (const result of raw.results || []) {
       const oldId=result.canonicalTargetId || result.targetEnemyId || result.targetId;
       const enemyResult=oldId==='monster' || originalEnemies.some(e => [e.id,e.instanceId].includes(oldId)) || !!result.targetBefore?.instanceId;
+      if (raw.actionId==='sge_equation' && enemyResult && result.kind==='damage') {
+        const beat=result.presentationBeat || 'equation_main';
+        if(equationBeats.has(beat))continue;
+        equationBeats.add(beat);
+        const recorded=(raw.results||[]).filter(r=>r.kind==='damage'&&isEnemyResult(r)&&(r.presentationBeat||'equation_main')===beat);
+        const total=recorded.reduce((n,r)=>n+(r.actualDamage ?? r.finalDamage ?? 0),0);
+        const living=state.enemies.filter(e=>e.hp>0);
+        const distribution=[];
+        living.forEach((enemy,i)=>{
+          const damage=Math.floor(total/living.length)+(i<total%living.length?1:0);
+          const beforeTarget=clone(enemy),absorbed=Math.min(enemy.tempHp||0,damage);
+          enemy.tempHp=(enemy.tempHp||0)-absorbed;
+          enemy.hp=Math.max(0,enemy.hp-(damage-absorbed));
+          const hpDamage=beforeTarget.hp-enemy.hp,actual=hpDamage+absorbed,id=idOf(enemy);
+          distribution.push({enemyId:id,damage});
+          state.monster=state.enemies.find(e=>e.instanceId===primary.instanceId);state.currentMonster=state.monster;
+          results.push({...clone(result),resultId:`lab-${index}-${beat}-${id}`,targetId:id,canonicalTargetId:id,targetEnemyId:id,
+            presentationBeat:beat,equationShare:damage,finalDamage:actual,actualDamage:actual,actualHpDamage:hpDamage,hpDmg:hpDamage,
+            actualAbsorbed:absorbed,absorbed,tempAbsorbed:absorbed,targetBefore:beforeTarget,targetAfter:clone(enemy),hpSnapshot:clone(state)});
+        });
+        step.outcome ||= {};
+        step.outcome[beat==='equation_prime'?'primeDistribution':'distribution']=distribution;
+        continue;
+      }
       if(allEnemies&&enemyResult&&oldId!==(firstEnemyResult?.canonicalTargetId||firstEnemyResult?.targetEnemyId||firstEnemyResult?.targetId))continue;
       if(allParty&&!enemyResult&&oldId!==(firstAllyResult?.canonicalTargetId||firstAllyResult?.targetEnemyId||firstAllyResult?.targetId))continue;
       let receivers = allEnemies && enemyResult ? state.enemies.map(idOf) : allParty && !enemyResult ? state.players.map(idOf) : [ids.get(oldId)];

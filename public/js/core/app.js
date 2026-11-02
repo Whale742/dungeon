@@ -4741,6 +4741,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
     }
   };
   isProcessingPresentationQueue = true;
+  elements.views.battle.classList.add('battle-presentation-playing');
   isPlayingBattleNarrative = true;
   presentationManager.setBlocking(true);
   let completed = false;
@@ -4755,6 +4756,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       if(controller.signal.aborted&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
       combatQueueController = null;
       isProcessingPresentationQueue = false;
+      elements.views.battle.classList.remove('battle-presentation-playing');
       isPlayingBattleNarrative = false;
       presentationManager.setBlocking(false);
       const stage = document.getElementById('presentationCombatStage');

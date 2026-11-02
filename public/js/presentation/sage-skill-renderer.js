@@ -76,11 +76,76 @@ function createSageSkillRenderer(canvas) {
     dot(x,y,2.6,color(C.white,1),o,13);
   }
 
+  function drawBasicAim(t,targetRadius,screenAngle,axisExtent,axisScale){
+    const build=ease(t,0,.30),vector=ease(t,.30,.60);
+    const axisFade=1-ease(t,1.71,1.94),targetFade=1-ease(t,1.71,1.94);
+    const origin={x:515,y:401},target=TARGET;
+    // Undo only the attack-axis rotation for the coordinate frame.
+    const cs=Math.cos(screenAngle),sn=Math.sin(screenAngle);
+    const point=(x,y)=>({x:origin.x+x*cs+y*sn,y:origin.y-x*sn+y*cs});
+    ctx.save();ctx.globalCompositeOperation='screen';
+    if(axisFade>.001){
+      const center=point(0,0),axes=[point(axisExtent*build,0),point(0,axisExtent*build)];
+      for(let axis=0;axis<2;axis++){
+        const negative=axis===0?point(-axisExtent*build,0):point(0,-axisExtent*build);
+        line(negative.x,negative.y,axes[axis].x,axes[axis].y,color(C.gold,.39),6,axisFade);
+      }
+      for(let i=1;i*28.75<=axisExtent*build;i++){
+        const u=i*28.75;
+        for(const sign of [-1,1])for(let axis=0;axis<2;axis++){
+          const p=axis===0?point(sign*u,0,0):point(0,sign*u,0);
+          const major=i%16===0,size=major?10:6;
+          const dx=(axis===0?sn:cs)*size,dy=(axis===0?cs:-sn)*size;
+          line(p.x-dx,p.y-dy,p.x+dx,p.y+dy,color(C.bright,major?.2125:.1375),major?4:2.4,axisFade);
+          if(sign===1&&major){
+            ctx.save();ctx.translate(p.x+12*cs+8*sn,p.y-12*sn+8*cs);ctx.rotate(-screenAngle);
+            ctx.fillStyle=color(C.bright,.2*axisFade);ctx.font='30px sans-serif';ctx.fillText(String(i/16),0,0);ctx.restore();
+          }
+        }
+      }
+      dot(center.x,center.y,3,color(C.white,.45),build*axisFade,5);
+      if(vector>0){
+        const x=lerp(center.x,target.x,vector),y=lerp(center.y,target.y,vector);
+        ctx.save();ctx.setLineDash([15,12]);line(center.x,center.y,x,y,color('255,255,255',1),3,axisFade);ctx.restore();
+        const angle=Math.atan2(y-center.y,x-center.x),axisAngle=-screenAngle;
+        const delta=Math.atan2(Math.sin(angle-axisAngle),Math.cos(angle-axisAngle));
+        ctx.beginPath();ctx.arc(center.x,center.y,42,axisAngle,axisAngle+delta,delta<0);ctx.strokeStyle=color(C.gold,.65*axisFade);ctx.lineWidth=1.8;ctx.stroke();
+        const labelAngle=axisAngle+delta*.5;
+        ctx.save();ctx.translate(center.x+62*Math.cos(labelAngle),center.y+62*Math.sin(labelAngle));ctx.rotate(-screenAngle);
+        ctx.font='17px sans-serif';ctx.fillStyle=color(C.bright,.9*axisFade);ctx.fillText(`${Math.round(Math.abs(delta)*180/Math.PI)}°`,0,0);ctx.restore();
+        line(x,y,x-15*Math.cos(angle-.4),y-15*Math.sin(angle-.4),color('255,255,255',1),3,axisFade);
+        line(x,y,x-15*Math.cos(angle+.4),y-15*Math.sin(angle+.4),color('255,255,255',1),3,axisFade);
+      }
+    }
+    const lock=ease(t,.30,.42),rotation=ease(t,.30,.60)*Math.PI;
+    if(lock*targetFade>.001){
+      const x=target.x,y=target.y;
+      ctx.save();ctx.translate(x,y);ctx.scale(.3,.3);ctx.translate(-x,-y);
+      const r=targetRadius*1.2,red='255,125,125',opacity=lock*targetFade;
+      const redWidth=2/(axisScale*.3);
+      ring(x,y,r,color(red,.9),redWidth,opacity);
+      const outlined=(x1,y1,x2,y2)=>{
+        line(x1,y1,x2,y2,color(red,.9),redWidth,opacity);
+      };
+      for(let i=0;i<16;i++){
+        const a=TWO_PI*i/16+rotation,inner=r-2.5/(axisScale*.3),outer=r+(i%4===0?6:4)/(axisScale*.3);
+        outlined(x+Math.cos(a)*inner,y+Math.sin(a)*inner,x+Math.cos(a)*outer,y+Math.sin(a)*outer);
+      }
+      outlined(x-20,y,x+20,y);outlined(x,y-20,x,y+20);
+      ctx.save();ctx.translate(x,y);ctx.rotate(-rotation);
+      for(let i=0;i<2;i++){
+        const a=i*Math.PI;ctx.beginPath();ctx.arc(0,0,r*1.3*(1+.4*Math.sin(Math.PI*ease(t,.30,.60))),a-.50,a+.50);
+        ctx.strokeStyle=color(red,.9*opacity);ctx.lineWidth=redWidth;ctx.stroke();
+      }
+      ctx.restore();ctx.restore();
+    }
+    ctx.restore();
+  }
   function drawBasic(t,solve){
     const birth=ease(t,.0,.12),interference=ease(t,.12,.34),converge=ease(t,.35,.53);
     const fade=1-ease(t,.43,.59),waveAlpha=birth*fade;
     if(waveAlpha>.004){
-      const left=404,right=878,y=402,span=right-left;
+      const left=515,right=989,y=401,span=right-left;
       const a=65*(1-converge*.95),f=1.4+interference*3.9;
       // Actual per-frame sin / cos evaluation with dynamic phase, frequency, envelope.
       const counts=Math.floor(212*birth);
@@ -94,7 +159,7 @@ function createSageSkillRenderer(canvas) {
           const u=i/212,env=.45+.55*Math.sin(u*Math.PI),osc=TWO_PI*(f*u-2.7*t)+which*Math.PI/2;
           const yy=(which===0?Math.sin(osc):Math.cos(osc))*a*env;
           const cross=14*Math.sin(TWO_PI*(u*5+t*4))*(which===0?-1:1)*interference*(1-converge);
-          points.push({x:left+u*span,y:y+yy+cross});
+          points.push({x:left+u*span,y:y+(yy+cross)*ease(u,0,.08)});
         }
         if(points.length>1){
           strokePoints(points,color(C.gold,.23),7,waveAlpha,6);
@@ -102,11 +167,11 @@ function createSageSkillRenderer(canvas) {
           const p=points[Math.floor(points.length*.95)];dot(p.x,p.y,2.4,color(C.white,1),waveAlpha,6);
         }
       }
-      glow(415,402,44,waveAlpha*.5);
+      glow(left,y,44,waveAlpha*.5);
     }
-    const shot=ease(t,.39,.55),shaftFade=(1-ease(t,.56,.72));
+    const shot=ease(t,.53,.60),shaftFade=(1-ease(t,.61,.74));
     if(shot>0&&shaftFade>.001){
-      const from=464,to=TARGET.x-7,lead=lerp(from,to,shot),beamAlpha=shaftFade;
+      const from=515,to=TARGET.x-7,lead=lerp(from,to,shot),beamAlpha=shaftFade;
       // The projectile is a moving energy line, not a scaled sprite.
       for(let trail=0;trail<4;trail++){
         const y=402+(trail-1.5)*2.8;
@@ -117,7 +182,7 @@ function createSageSkillRenderer(canvas) {
       glow(lead,402+(TARGET.y-402)*shot,62,beamAlpha*.75);
     }
     drawSageSnapCue(t,.355,395,403);
-    drawImpact(t,.55);
+    drawImpact(t,.60);
     if(solve){
       const on=ease(t,.59,.66)*(1-ease(t,.73,.83));
       for(let k=0;k<2;k++){
@@ -538,20 +603,24 @@ function createSageSkillRenderer(canvas) {
       const a=(dx*bx+dy*by)/den,b=(dy*bx-dx*by)/den;
       ctx.save();ctx.translate(source.x,source.y);ctx.transform(a,b,-b,a,0,0);ctx.translate(-momentumSource.x,-momentumSource.y);
       momentumRenderer().draw(t,[],!solve);
-      if(solve&&t>=2.53){
+      if(solve&&t>=3.91){
         ctx.save();ctx.translate(720-401*.5,790);ctx.transform(0,-.5,.5,0,0,0);
-        drawTransitionCore(t,2.55,2.80,936,400);ctx.restore();
+        drawTransitionCore(t,3.93,4.18,936,400);ctx.restore();
       }
       ctx.restore();return;
     }
     // Same authored left-to-right curves, rotated onto the live lower-party to
     // upper-enemy axis. A similarity transform preserves the 3D projection.
     const dx=target.x-source.x,dy=target.y-source.y;
-    const bx=TARGET.x-483,by=TARGET.y-401,den=bx*bx+by*by;
+    const sourceX=skill==='basic'?515:483;
+    const bx=TARGET.x-sourceX,by=TARGET.y-401,den=bx*bx+by*by;
     const a=(dx*bx+dy*by)/den,b=(dy*bx-dx*by)/den;
     const axisScale=Math.max(.0001,Math.hypot(a,b));
-    ctx.save();ctx.translate(source.x,source.y);ctx.transform(a,b,-b,a,0,0);ctx.translate(-483,-401);
-    if(skill==='basic')drawBasic(t,false);
+    ctx.save();ctx.translate(source.x,source.y);ctx.transform(a,b,-b,a,0,0);ctx.translate(-sourceX,-401);
+    if(skill==='basic'){
+      drawBasicAim(t/2,geometry.targetWidth?geometry.targetWidth/axisScale*.65:160,Math.atan2(b,a),Math.hypot(geometry.width||1440,geometry.height||810)*2/axisScale,axisScale);
+      if(t>=1.20)drawBasic((t-1.20)*.25,false);
+    }
     else if(skill==='vector'){
       // Keep the new prototype's internal 1.65x composition. Do not multiply
       // it by the former 1.4x adaptation; only fit its authored extent to the
