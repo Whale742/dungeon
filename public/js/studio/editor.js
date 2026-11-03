@@ -20,11 +20,12 @@
     const recruit=value.kind==='story'&&value.key.startsWith('entry.recruit.');
     const isEquipment=value.kind==='story'&&(row.category==='equipment'||value.key.startsWith('equip.'));
     const isEventStory=value.kind==='story'&&(row.category==='event'||value.key.startsWith('event.'));
-    const editFields=value.kind==='role'&&byId('editorCategory').value==='passive'?['passive_short','passive_full']:recruit?['body']:isEquipment||isEventStory?['title','body']:fields;
+    const isStatus=value.kind==='story'&&value.key.startsWith('status.');
+    const editFields=value.kind==='role'&&byId('editorCategory').value==='passive'?['passive_short','passive_full']:recruit?['body']:isEquipment||isEventStory||isStatus?['title','body']:fields;
     const nodes=editFields.map(field=>{
       if(field.startsWith('radar_')){const index=RadarRenderer.fields.indexOf(field),output=el('output',{text:row[field]+' / '+RadarRenderer.grade(row[field])}),slider=el('input',{type:'range',min:1,max:5,step:1,value:row[field],oninput:event=>{const v=Number(event.target.value);output.textContent=v+' / '+RadarRenderer.grade(v);dirtyChange(field,v);}});return el('label',{class:'studio-field'},[el('span',{text:RadarRenderer.axes[index]+(field==='radar_difficulty'?'（5 = S，最難操作）':'')}),slider,output]);}
       const array=['tags','paragraphs'].includes(field);
-      const label=recruit?'顯示文案':isEquipment?(field==='title'?'裝備名稱':field==='body'?'裝備說明文案':labels[field]||field):isEventStory?(field==='title'?'事件標題':field==='body'?'故事敘述':labels[field]||field):labels[field]||field;
+      const label=recruit?'顯示文案':isStatus?(field==='title'?'狀態名稱（留空保留動態名稱）':'狀態說明（留空沿用原說明）'):isEquipment?(field==='title'?'裝備名稱':field==='body'?'裝備說明文案':labels[field]||field):isEventStory?(field==='title'?'事件標題':field==='body'?'故事敘述':labels[field]||field):labels[field]||field;
       return formField(label,array?row[field].join(field==='tags'?', ':'\n'):row[field],v=>dirtyChange(field,array?v.split(field==='tags'?/[,，]/:/\n/).map(s=>s.trim()).filter(Boolean):v),{type:field.includes('copy')||field.includes('intro')||field.includes('passive')||['body','paragraphs'].includes(field)?'textarea':'text'});
     });
     byId('editorForm').replaceChildren(...nodes);

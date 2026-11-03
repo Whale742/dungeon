@@ -802,3 +802,32 @@ body.presentation-floor-active .narrative-controls,
     text-align: center;
   }
 }
+ .route-travel-closeup {
+  position: fixed; inset: 0; z-index: 9999; overflow: hidden; pointer-events: none;
+  background: radial-gradient(circle at 45% 50%, rgba(22, 45, 66, .98), rgba(9, 17, 26, .99) 80%);
+  animation: route-travel-overlay 1.85s ease both;
+}
+.route-travel-board {
+  position: absolute; left: 50%; top: 50%; box-sizing: border-box;
+  transform-origin: 0 0;
+  animation: route-travel-camera 1.6s .08s ease-in-out both;
+}
+.route-travel-marker {
+  position: absolute; z-index: 20; pointer-events: none;
+  animation: route-travel-walk 1.35s .15s ease-in-out both;
+  filter: drop-shadow(0 0 7px rgba(190, 235, 255, .9));
+}
+.route-travel-title {
+  position: absolute; bottom: max(10%, 35px); left: 0; right: 0;
+  text-align: center; color: #e5f4fa; letter-spacing: .18em; font-size: 18px;
+  text-shadow: 0 2px 8px #000;
+}
+@keyframes route-travel-walk {
+  from { transform: translate(-50%, -50%); }
+  to { transform: translate(calc(-50% + var(--travel-dx)), calc(-50% + var(--travel-dy))); }
+}
+@keyframes route-travel-camera {
+  from { transform: translate(var(--travel-from-x), var(--travel-from-y)) scale(var(--travel-zoom)); }
+  to { transform: translate(var(--travel-to-x), var(--travel-to-y)) scale(var(--travel-zoom)); }
+}
+@keyframes route-travel-overlay { 0% { opacity: 0; } 12%, 82% { opacity: 1; } 100% { opacity: 0; } }

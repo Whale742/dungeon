@@ -1,7 +1,7 @@
 import { enemyEffect, afterPlayerDamage, drainEnemyEvents } from './enemy-mechanics.js';
 // Phase 8 hooks in Room's existing action, damage, shield and lifecycle owners.
 import { getFloorDifficultyMultiplier } from './constants.js';
-import { resolveStats, gladiatorInspirationAttack, GLADIATOR_INSPIRATION_CAP } from './stats.js';
+import { resolveStats, equipmentAttack, INITIAL_STATS, gladiatorInspirationAttack, GLADIATOR_INSPIRATION_CAP } from './stats.js';
 export const P8_ROLES = ['dreamweaver','stargazer','gladiator','samurai','sage','augur'];
 export const countEquip = (p,id) => (p.equips || []).filter(e=>e.id===id).length;
 export const zanshinStacks = (enemy, sourceId) => Math.max(0, Math.min(8, enemy?.zanshin?.[sourceId] || 0));
@@ -9,7 +9,14 @@ export const samuraiSoul = (p, room) => p.role === 'samurai' ? room.getLivingEne
 const alive = room => (room.state === 'IN_BATTLE' ? room.getCombatPlayers() : Object.values(room.players)).filter(p=>p.hp>0);
 const roll = list => list[Math.min(list.length-1,Math.floor(Math.random()*list.length))];
 export const isPrime = n => Number.isInteger(n) && n>=2 && !Array.from({length:Math.max(0,Math.floor(Math.sqrt(n))-1)},(_,i)=>i+2).some(d=>n%d===0);
-export const eta = x => .4+1.75*x/(x+80);
+export const sageEquationAttack = p => {
+  const equips = p.equips || [];
+  const legacy = equips.reduce((n, e) => n + (e.bonusAtk || 0), 0);
+  const growth = p.victoryAtkBonus ?? Math.max(0, (p.bonusAtk || 0) - legacy);
+  return (p.ATK_base ?? INITIAL_STATS.sage.attack) + growth + (p.PAtk_gear || 0) +
+    equips.reduce((n, e) => n + equipmentAttack(e, p.role).physical, 0);
+};
+export const eta = (x, attack = INITIAL_STATS.sage.attack) => attack * .03 + 1.75*x/(x+80);
 export const sageConfusionChance = x => Math.min(.25,.05+Math.floor(Math.max(0,x-60)/10)*.01);
 export const sageDecay = x => Math.ceil(Math.max(0,x-60)*.20);
 export const sageGrowth = {
@@ -33,9 +40,10 @@ export function sageEquationPreview(p,room) {
   const ruleMultiplier=1+(rule ? .10+(rule-1)*.05 : 0)*corrosion;
   const confusionChance=sageConfusionChance(x),lensBonus=(lens ? .10+(lens-1)*.05 : 0)*corrosion;
   const enemies=room.getAttackableEnemies(p);
-  return {eta:eta(x),confusionChance,decayAmount:sageDecay(x),livingEnemyCount:enemies.length,options:Object.entries(sageGrowth).map(([id,growth])=>{
+  const attack=sageEquationAttack(p);
+  return {eta:eta(x,attack),equationAttack:attack,confusionChance,decayAmount:sageDecay(x),livingEnemyCount:enemies.length,options:Object.entries(sageGrowth).map(([id,growth])=>{
     const op=sageSolveOperand(operand,id);
-    const baseEquationDamage=Math.round(Math.abs(op*eta(x)));
+    const baseEquationDamage=Math.round(Math.abs(op*eta(x,attack)));
     return {id,operand:op,properties:sageProperties(op),
       baseEquationDamage,damageAfterEquipment:Math.round(baseEquationDamage*ruleMultiplier),damageAfterConfusion:Math.round(baseEquationDamage*ruleMultiplier*.8),
       livingEnemyCount:enemies.length,distribution:splitEquationDamage(Math.round(baseEquationDamage*ruleMultiplier),enemies),
@@ -1031,7 +1039,7 @@ export const phase8Methods = {
           // Lock the resources before decay, growth, debt or friendly damage.
           const operand=Math.round(p.sageOperand), x=Math.max(0,p.sageX??30), lens=countEquip(p,'sge_lens'),rule=countEquip(p,'sge_rule');
           const even=operand%2===0,prime=isPrime(operand),square=Number.isInteger(Math.sqrt(operand));
-          const etaVal=eta(x),growth=sageGrowth[p.sageLastAction]||sageGrowth.basic;
+          const equationAttack=sageEquationAttack(p),etaVal=eta(x,equationAttack),growth=sageGrowth[p.sageLastAction]||sageGrowth.basic;
           const R=1+(rule?0.10+(rule-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
           const confusionChance=sageConfusionChance(x);
           const lensBonus=(lens?0.10+(lens-1)*0.05:0)*(this.roundModifiers?.equipmentEffectMultiplier??1);
@@ -1062,7 +1070,7 @@ export const phase8Methods = {
           // Round the combined modifiers once, never the intermediate ruler value.
           const raw=Math.round(baseEquationDamage*R*(resolution==='CONFUSION'?.8:1));
           const properties=sageProperties(operand);
-          const outcome={type:'equation',label:'方程結算',operand,x,xBefore:x,eta:etaVal,
+          const outcome={type:'equation',label:'方程結算',operand,x,xBefore:x,eta:etaVal,equationAttack,
             baseEquationDamage,damageAfterEquipment,damageAfterConfusion:raw,equationDamage:raw,ruleMultiplier:R,properties,
             resolution,confusionTriggered:resolution==='CONFUSION',confusionChance,successChance,nothingChance:Math.max(0,1-confusionChance-successChance),
             confusionTargetId:null,confusionDamage:0,confusionHpDamage:0,confusionAbsorbed:0,debtScheduled:0};

@@ -36,14 +36,14 @@ element tag tags tint showValue sourceEnemyId targetPlayerId sourcePlayerId dama
 nodeId connections iconName description visited revealed scouted selectable isReachable isVisible danger
 combatState currentPhase phaseName bossId bossName hasShield broken exposed playerIds enemyIds targets hits
 prologue leaderId speed accelerated revision key contentKey portraitKey background backgroundImage tierLabel
-routeId routeName story healAmt drop discardedDrop ownerName depositTarget consumables recycleRate sellRatio priceMultiplier shadyBuyMult
+routeId routeName fromHex toHex col row story healAmt drop discardedDrop ownerName depositTarget consumables recycleRate sellRatio priceMultiplier shadyBuyMult
 restPrice readyToLeave hasBought boughtCount canLeave canOpen canPacify isShady description readyList speedMultiplier
 isKnownMimic isKnownShady isAccessible bossAvatar bossPortrait dialogueText selectedChoice
 ammoBefore archerTrap augurReactions consumedStacks dmgType enemyCastMembers flaskType gainedStacks gladiatorPresentation
 hiddenBeforeAction hiddenEffectNote isCritical isLethal isUlt monsterAvatar monsterName png shieldDamage targetHpAfter targetHpBefore targetMaxHp tempHpDamage
 isHiddenThisRound stealthBrokenThisRound arenaBlocked nextTurnStunFlag actualHeal actualShield actualTempHpDamage
 stealthStacks followUpsThisRound followUpCap isAdjacent isInVision canSelect voteCount floor storyTitle storyText
-fateBlessing sageX sageOperand sagePhase sageDebt sageConfusionChance sageSampling observedTargetId augurCardState
+fateBlessing sageX sageOperand sagePhase sageDebt sageConfusionChance sageSampling equationAttack observedTargetId augurCardState
 augurIntervenedThisRound augurFateDebts augurEquipment amethyst gilded forbidden rage bloodStacks warriorStacks
 gladiatorBloodsong paladinFatalGuard paladinGrace presentationShields arenaActive noReviveThisFloor
 gold experience xp reward rewards itemId version rate startedAt updatedAt acceleration actualBloodsongAbsorbed targetRelation

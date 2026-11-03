@@ -909,7 +909,7 @@ test('Equation resolves once across legal enemies, independently mitigates and p
   assert.equal(preview.options[0].distribution.reduce((n,s)=>n+s.damage,0),preview.options[0].damageAfterEquipment);
   const resistance=(raw,type,{enemy})=>{calls.push({id:enemy.instanceId,raw,type});return {dmg:Math.floor(raw*(1-(enemy.resistances?.physical||0)/100))};};
   room.p8ResolveEquation(player,queue,[],resistance);
-  assert.deepEqual(calls.map(c=>c.raw),[15,15]);
+  assert.deepEqual(calls.map(c=>c.raw),[16,16]);
   assert.equal(queue.length,1);assert.equal(queue[0].results.filter(r=>r.kind==='damage').length,2);
   assert.ok(room.enemies.slice(0,2).every(e=>e.p8Effects.sage_exposed));
   assert.equal(room.enemies[2].p8Effects?.sage_exposed,undefined);
@@ -920,7 +920,7 @@ test('PRIME reallocates its total 15 only after lethal main hits; cooldown reset
   player.cooldowns.sge_deduce=3;
   room.p8ResolveEquation(player,queue,[],raw=>({dmg:raw}));
   const step=queue[0],main=step.results.filter(r=>r.presentationBeat==='equation_main'),prime=step.results.filter(r=>r.presentationBeat==='equation_prime');
-  assert.equal(main.reduce((n,r)=>n+r.equationShare,0),32);
+  assert.equal(main.reduce((n,r)=>n+r.equationShare,0),33);
   assert.deepEqual(prime.map(r=>r.equationShare),[8,7]);assert.ok(prime.every(r=>r.targetBefore.hp>0));
   assert.equal(player.cooldowns.sge_deduce,0);assert.equal(player.sageX,10);
 });
@@ -973,7 +973,7 @@ test('Equation confusion, decay and scheduled debt remain one resolution even wi
   const {room,player}=equationBattle(t,79),queue=[];player.sageX=100;player.sageLastAction='sge_induce';room.roleRandom=()=> 'CONFUSION';
   room.p8ResolveEquation(player,queue,[],raw=>({dmg:raw}));
   const outcome=queue[0].outcome;
-  assert.equal(outcome.equationDamage,Math.round(Math.round(79*(.4+1.75*100/180))*.8));
+  assert.equal(outcome.equationDamage,Math.round(Math.round(79*(.42+1.75*100/180))*.8));
   assert.equal(outcome.distribution.reduce((n,s)=>n+s.damage,0),outcome.equationDamage);
   assert.equal(queue[0].results.filter(r=>r.presentationBeat==='sage_confusion').length,1);
   assert.equal(player.sageX,96);assert.equal(player.sageDebt,20);assert.equal(outcome.baseXGain,4);

@@ -232,7 +232,7 @@ function syncEnemyMechanicVisual(enemy, node) {
       dotDmg!==null?`每回合 ${dotDmg} 傷害`:nonDotVal,
       s.turns>0?`剩餘 ${s.turns} 回合`:''
     ].filter(Boolean);
-    if(titleParts.length)icon.title=titleParts.join('｜');
+    if(titleParts.length)icon.title=typeof formatStatusDisplay==='function'?formatStatusDisplay(s).fullTitle:titleParts.join('｜');
     const count=s.id==='enemy_mechanic'&&typeof s.value==='number'?s.value:(hasStacks?s.stacks:null);
     const isMimicMechanic=s.id==='enemy_mechanic'&&info.mechanicId==='treasure_mimic';
     const isDruidNonFormMechanic=s.id==='enemy_mechanic'&&info.mechanicId==='abyss_druid'&&!['werewolf','bear'].includes(enemy.mechanics?.form);

@@ -673,8 +673,11 @@ function formatStatusDisplay(s) {
     : '';
   const dmgText = dotDmg !== null ? `每回合 ${dotDmg} 傷害` : nonDotVal;
   const turnsText = typeof s.turns === 'number' && s.turns > 0 ? `剩餘 ${s.turns} 回合` : '';
-  const desc = s.desc ? String(s.desc) : '';
-  const baseLabel = String(s.label || s.id || '');
+  const statusKey = String(s.id || '').startsWith('zanshin_') ? 'zanshin' : String(s.id || '').startsWith('mark_') ? 'mark' : s.id;
+  // Only published overrides are used; defaults preserve dynamic labels and descriptions.
+  const copy = typeof window === 'undefined' ? null : window.StudioContent?.state?.data?.story_copies?.find(row => row.story_key === 'status.' + statusKey);
+  const desc = String(copy?.body || s.desc || '');
+  const baseLabel = String(copy?.title || s.label || s.id || '');
   const head = stacksText ? `${baseLabel} ${stacksText}` : baseLabel;
   const detailText = [dmgText, turnsText, desc].filter(Boolean).join('｜');
   const fullTitle = [head, dmgText, turnsText, desc].filter(Boolean).join('｜');

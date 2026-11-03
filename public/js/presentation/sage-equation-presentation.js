@@ -40,7 +40,7 @@ async function playSageEquationPresentation(step,context) {
     const variable=el('div','sage-term','<small>變量(X)</small><span class="sage-number-motion">0</span>');position(variable,970,355);
     const opNum=operand.lastChild,xNum=variable.lastChild,etaNum=eta.lastChild;
     operand.style.opacity=variable.style.opacity=eta.style.opacity='0';
-    const fraction=el('div','sage-fraction','<span class="constant">0.4 +</span><span class="fraction"><span class="numerator">1.75 × '+escapeHtml(String(o.xBefore))+'</span><span class="denominator">'+escapeHtml(String(o.xBefore))+' + 80</span></span>');
+    const fraction=el('div','sage-fraction','<span class="constant">'+escapeHtml(String(Number(((o.equationAttack ?? 14) * 0.03).toFixed(4))))+' +</span><span class="fraction"><span class="numerator">1.75 × '+escapeHtml(String(o.xBefore))+'</span><span class="denominator">'+escapeHtml(String(o.xBefore))+' + 80</span></span>');
     const answer=el('div','sage-answer');answer.textContent='解 = '+o.damageAfterEquipment;
     const wave=el('div','sage-wave'),beam=el('div','sage-beam');
     const properties=el('div','sage-properties');

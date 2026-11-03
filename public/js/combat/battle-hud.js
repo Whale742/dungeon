@@ -192,7 +192,8 @@ const BattleHud = (() => {
             return icon ? `<img src="${escapeHtml(icon)}" alt="">` : getIconSvg(status.icon || 'status');
           })();
       const hasStacks=typeof status.stacks==='number'&&status.stacks>0;
-      return `<button type="button" class="hud-status-icon${isLeader?' teammate-buff-exclusive':''}" aria-label="${escapeHtml((status.label||status.id)+(hasStacks?` ×${status.stacks}`:''))}"><span class="hud-status-icon-inner">${inner}</span></button>`;
+      const statusLabel=typeof formatStatusDisplay==='function'?formatStatusDisplay(status).head:(status.label||status.id)+(hasStacks?` ×${status.stacks}`:'');
+      return `<button type="button" class="hud-status-icon${isLeader?' teammate-buff-exclusive':''}" aria-label="${escapeHtml(statusLabel)}"><span class="hud-status-icon-inner">${inner}</span></button>`;
     }).join('');
     [...statusHost.children].forEach((button,index)=>{
       const status=visibleStatuses[index];
@@ -256,7 +257,7 @@ const BattleHud = (() => {
     body.innerHTML=`<h3>演算終端 / EQUATION TERMINAL</h3><p>待付透支 ${player.sageDebt || 0} X · 自然衰減 ${preview?.decayAmount ?? '—'}</p><h4>求解路徑比較</h4><div class="sage-paths">${options.map(o=>`<button type="button" data-equation-path="${o.id}" aria-pressed="${o===chosen}"><strong>${names[o.id]}</strong><span>Op ${o.operand} · ${o.properties.map(p=>({EVEN:'偶數',ODD:'奇數',PRIME:'質數',SQUARE:'平方數'})[p]).join('、')}</span><span>正常／紊亂 ${o.damageAfterEquipment}／${o.damageAfterConfusion}</span><small>${o.blocked?'前輪已使用':o.cooldown?'冷卻 '+o.cooldown:'可選擇'}</small></button>`).join('')}</div>`;
     if(chosen){
       const detail=document.createElement('div');detail.className='sage-path-analysis';
-      detail.innerHTML=`<h4>目前分析：${names[chosen.id]}</h4><p>右側已選技能：${names[action] || '尚未選擇'}</p>${chosen.properties.map(p=>`<p>${propertyText[p]}</p>`).join('')}<p>預估總方程傷害 ${chosen.damageAfterEquipment} · 受擊敵人 ${chosen.livingEnemyCount}</p><ul>${(chosen.distribution||[]).map(d=>`<li>${escapeHtml(d.name)}：${d.damage}</li>`).join('')}</ul><p>固定成長 ${chosen.baseXGain} · 額外成長 ${chosen.bonusXGain} · 成功率 ${(chosen.successChance*100).toFixed(0)}% · 排定透支 ${chosen.debtScheduled}</p><p>η(X) = 0.4 + (1.75 × X) / (X + 80)</p><small>以目前存活敵人預估，以上均為抗性前數值。實際傷害依結算時編隊重新分配。路徑點擊只切換分析，請在右側選擇並鎖定行動。</small>`;
+      detail.innerHTML=`<h4>目前分析：${names[chosen.id]}</h4><p>右側已選技能：${names[action] || '尚未選擇'}</p>${chosen.properties.map(p=>`<p>${propertyText[p]}</p>`).join('')}<p>預估總方程傷害 ${chosen.damageAfterEquipment} · 受擊敵人 ${chosen.livingEnemyCount}</p><ul>${(chosen.distribution||[]).map(d=>`<li>${escapeHtml(d.name)}：${d.damage}</li>`).join('')}</ul><p>固定成長 ${chosen.baseXGain} · 額外成長 ${chosen.bonusXGain} · 成功率 ${(chosen.successChance*100).toFixed(0)}% · 排定透支 ${chosen.debtScheduled}</p><p>η(X) = 物理攻擊 × 3% + (1.75 × X) / (X + 80)</p><small>以目前存活敵人預估，以上均為抗性前數值。實際傷害依結算時編隊重新分配。路徑點擊只切換分析，請在右側選擇並鎖定行動。</small>`;
       body.appendChild(detail);
     }
     for(const button of body.querySelectorAll('[data-equation-path]'))button.onclick=()=>{analyzedAction=button.dataset.equationPath;renderEquation(player,action);};

@@ -6,6 +6,51 @@ const EXPLORATION_TIMING = Object.freeze({
   character: 35, comma: 140, sentence: 280, newline: 380, paragraph: 600
 });
 
+// The server supplies both endpoints; the overlay never advances game state.
+function playRouteTravelCloseup(transition) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const board = elements.hexMapContainer?.querySelector('.hex-grid-board');
+  const from = board?.querySelector('.hex-current');
+  const to = [...(board?.querySelectorAll('[data-hex-id]') || [])].find(cell => cell.dataset.hexId === String(transition.hexId));
+  if (!from || !to) return;
+  const boardRect = board.getBoundingClientRect(), fromRect = from.getBoundingClientRect(), toRect = to.getBoundingClientRect();
+  const fromX = fromRect.left - boardRect.left + fromRect.width / 2;
+  const fromY = fromRect.top - boardRect.top + fromRect.height / 2;
+  const toX = toRect.left - boardRect.left + toRect.width / 2;
+  const toY = toRect.top - boardRect.top + toRect.height / 2;
+  const zoom = Math.min(2.4, Math.max(1.35, window.innerWidth / 220));
+  document.querySelector('.route-travel-closeup')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'route-travel-closeup';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.inert = true;
+  const stage = board.cloneNode(true);
+  stage.classList.add('route-travel-board');
+  stage.style.width = `${boardRect.width}px`;
+  stage.style.setProperty('--travel-zoom', zoom);
+  stage.style.setProperty('--travel-from-x', `${-fromX * zoom}px`);
+  stage.style.setProperty('--travel-from-y', `${-fromY * zoom}px`);
+  stage.style.setProperty('--travel-to-x', `${-toX * zoom}px`);
+  stage.style.setProperty('--travel-to-y', `${-toY * zoom}px`);
+  // The local vote may differ from the winning vote. Reuse the map's own arrow renderer.
+  stage.querySelectorAll('.hex-route-arrow-layer').forEach(layer => layer.remove());
+  const nodes = (roomState?.hexMap || []).flat().filter(Boolean);
+  const target = nodes.find(node => node.id === transition.hexId);
+  if (target) {
+    const maxRow = nodes.reduce((max, node) => Math.max(max, Number(node.row) || 0), 6);
+    stage.insertAdjacentHTML('beforeend', buildHexRouteArrowHtml(transition.fromHex.col, transition.fromHex.row, target, maxRow >= 3 ? 3 : 1));
+  }
+  stage.querySelector('.hex-current-icon')?.remove();
+  const marker = document.createElement('div'); marker.className = 'route-travel-marker';
+  marker.style.left = `${fromX}px`; marker.style.top = `${fromY}px`;
+  marker.style.setProperty('--travel-dx', `${toX - fromX}px`);
+  marker.style.setProperty('--travel-dy', `${toY - fromY}px`);
+  marker.innerHTML = '<span class="hex-node-icon hex-current-icon"><svg class="ui-icon ui-icon--md hex-current-svg" aria-hidden="true"><use href="#icon-camp"></use></svg></span>';
+  const title = document.createElement('div'); title.className = 'route-travel-title'; title.textContent = `前往 ${transition.routeName || '下一格'}`;
+  stage.append(marker); overlay.append(stage, title); document.body.append(overlay);
+  setTimeout(() => overlay.remove(), 1850);
+}
+
 function routePresentationKey() {
   return roomState ? 'ROUTE_' + roomState.routePresentationId : null;
 }

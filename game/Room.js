@@ -1656,6 +1656,7 @@ export class Room {
   resolveRouteChoice(route) {
     const devEncounter = this.isDev ? consumeEncounter(this, route) : null;
     this.decayDebuffsOnParty();
+    const fromHex = { ...this.currentHex };
     let hexNode = this.getHexNodeById(route?.hexId || route?.id);
     let outcomeType = 'battle';
     let isWeakenedBoss = false;
@@ -1744,6 +1745,8 @@ export class Room {
       title: `【前進路線・${routeDisplayName}】`,
       routeId: storyKey,
       hexId: hexNode?.id || route?.id,
+      fromHex,
+      toHex: hexNode ? { col: hexNode.col, row: hexNode.row } : null,
       routeName: routeDisplayName,
       routeIcon: routeDisplayIcon,
       outcomeType: isWeakenedBoss ? 'battle_weakened' : outcomeType,

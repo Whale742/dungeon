@@ -6,6 +6,7 @@ import { MemoryAdventureStore } from './AdventureStore.js';
 import { createRoomSnapshot, restoreRoomSnapshot } from './RoomSnapshot.js';
 import { CLASSES, ENCOUNTERS, SPECIAL_ELITES, ABYSS_BOSSES, getFloorDifficultyMultiplier } from './constants.js';
 import { disconnectPlayer, reconnectPlayer } from './player-connection.js';
+import { publicVisual } from './Spectators.js';
 
 const io = { to: () => ({ emit() {} }) };
 function fixture(t, count = 1) {
@@ -16,6 +17,19 @@ function fixture(t, count = 1) {
   t.after(() => { room.clearTimer(); for (const k of ['roundStartTimer', 'selectionReadyTimer', 'presentationSafetyTimer']) clearTimeout(room[k]); });
   return { room, sockets };
 }
+
+test('route transition exposes the chosen movement endpoints to players and spectators', t => {
+  const { room } = fixture(t);
+  room.startRouteSelection({ skipIntro: true });
+  const before = { ...room.currentHex };
+  const route = room.currentRoutes[0];
+  const target = room.getHexNodeById(route.hexId || route.id);
+  room.resolveRouteChoice(route);
+  assert.deepEqual(room.currentTransition.fromHex, before);
+  assert.deepEqual(room.currentTransition.toHex, {col:target.col,row:target.row});
+  assert.equal(room.currentTransition.hexId, target.id);
+  assert.deepEqual(publicVisual(room.currentTransition).toHex, {col:target.col,row:target.row});
+});
 
 for (const count of [1, 2, 4, 6, 10]) test(`${count} locked participants: all formation columns, elites, special encounters and abyss bosses keep original scaling formulas`, t => {
   const { room } = fixture(t, count); room.floor = 4; room.startRouteSelection({ skipIntro: true });

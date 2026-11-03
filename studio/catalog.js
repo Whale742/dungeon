@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import localPaths from '../public/js/shared/local-paths.cjs';
+import statusCopy from '../game/status-copy.json' with { type: 'json' };
+import statusDescriptions from '../game/status-descriptions.json' with { type: 'json' };
 import { CLASSES, ROLE_DETAILS, LOOT_TABLE, ENCOUNTERS, STORY_TEXTS, ROUTE_STORIES, ROUTE_BOSS_STORIES, BATTLE_NARRATIVES, getPlayerSkills, EXCLUSIVE_MINIONS, GENERAL_MINIONS, ABYSS_MINIONS } from '../game/constants.js';
 
 const publicDir = new URL('../public/', import.meta.url);
@@ -89,6 +91,7 @@ export function buildCatalog() {
   for(const id of ['alc_acid','alc_poison'])if(skillMeta['alchemist:'+id])skillMeta['alchemist:'+id].editable=false;
   addSkill('bard',{id:'b_revive',label:'甦生之歌',desc:'對已倒下且可復活的隊友施放甦生之歌。可否施放與回復量仍由伺服器判定。'});
   const addStory = (key, category, title, body = '', paragraphs = []) => stories.push({story_key:key, category, title, body, paragraphs});
+  for (const [id, label] of Object.entries(statusCopy)) addStory('status.' + id, 'status', label, statusDescriptions[id] || '');
   for (const field of recruitFields) addStory(field.key, 'recruit', field.label, field.body);
   for (const [key,s] of Object.entries(STORY_TEXTS)) addStory('story.'+key,key==='prologue'?'prologue':'route',typeof s.title === 'function' ? '【第 {floor} 層・迷霧分歧點】' : s.title,'',s.paragraphs);
   for (const [route, outcomes] of Object.entries(ROUTE_STORIES)) for (const [outcome, data] of Object.entries(outcomes)) addStory(storyKey('route',route,outcome),typeof data==='string'?'route':outcome==='battle'?'boss':outcome,typeof data==='string'?data:data.title || route,typeof data==='string'?data:data.story);
