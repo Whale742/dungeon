@@ -39,9 +39,9 @@ const scenes = Object.entries(fixtures).flatMap(([id, scene]) => {
     const key = [role, name, skillId].join(':');
     if (actors.has(key)) continue;
     actors.set(key, {
-      id, label: scene.label || id, role, enemyName: name,
+      id, label: role==='onmyoji' ? (step.actionId==='onm_detonate' ? `百符引爆｜${(step.hpSnapshotBefore?.enemies?.find(e=>e.instanceId===step.targetEnemyId)?.talismans || step.hpSnapshotBefore?.monster?.talismans || []).length} 張（正式結算）` : step.skillName || scene.label || id) : scene.label || id, role, enemyName: name,
       actionId: step.actionId, skillId, skillName: step.skillName || step.actionId,
-      ...(role==='gladiator'?{skillDescription:getPlayerSkills({role,hp:player?.hp||85,arenaActive:!!player?.arenaActive,equips:equipmentFor(id,step.actionId).map(gear=>LOOT_TABLE.find(e=>e.id===gear)).filter(Boolean)}).find(s=>s.id===skillId)?.desc}:{}),
+      ...(['gladiator','onmyoji'].includes(role)?{skillDescription:getPlayerSkills({role,hp:player?.hp||85,arenaActive:!!player?.arenaActive,equips:equipmentFor(id,step.actionId).map(gear=>LOOT_TABLE.find(e=>e.id===gear)).filter(Boolean)}).find(s=>s.id===skillId)?.desc}:{}),
       equips: player?.equips || [], actor: player || null, enemyState:enemy?sourceEnemy:null,
       targetSide,
       targetMode:!['dw_butterfly','dw_false_dream'].includes(skillId)&&step.results?.length&&step.results.every(r=>r.targetId===step.sourceId&&!['heal','shield'].includes(r.kind))?'self':'selected',
@@ -74,8 +74,10 @@ export async function configuredSamuraiPreview(config,actionId,sceneId){
   const integer=(n,min,max)=>Number.isSafeInteger(n)&&n>=min&&n<=max;
   const validId=id=>typeof id==='string'&&/^[\w-]{1,80}$/.test(id)&&!['__proto__','constructor','prototype'].includes(id);
   if(!config||!Array.isArray(config.party)||!Array.isArray(config.enemies)||!integer(config.party.length,1,10)||!integer(config.enemies.length,1,3))invalid('隊伍或敵人配置無效');
-  if(!['basic','sa_cut','sa_tsubame'].includes(actionId))invalid('此技能尚未支援自訂結算');
-  if(sceneId!==undefined&&!scenes.some(s=>s.id===sceneId&&s.role==='samurai'&&s.actionId===actionId))invalid('演出情境不符');
+  const onmyoji = config.party.find(p=>p.id===config.actorId)?.role === 'onmyoji';
+  const role = onmyoji ? 'onmyoji' : 'samurai';
+  if(!(onmyoji?['basic','onm_talisman','onm_detonate','onm_all_talismans']:['basic','sa_cut','sa_tsubame']).includes(actionId))invalid('此技能尚未支援自訂結算');
+  if(sceneId!==undefined&&!scenes.some(s=>s.id===sceneId&&s.role===role&&s.actionId===actionId))invalid('演出情境不符');
   if(new Set([...config.party.map(p=>p.id),...config.enemies.map(e=>e.instanceId)]).size!==config.party.length+config.enemies.length)invalid('角色識別重複');
   for(const p of config.party)if(!validId(p.id)||!Object.hasOwn(CLASSES,p.role)||!integer(p.maxHp,1,1000000)||!integer(p.hp,0,p.maxHp))invalid('我方血量或職業無效');
   for(const e of config.enemies){
@@ -83,7 +85,7 @@ export async function configuredSamuraiPreview(config,actionId,sceneId){
     for(const p of config.party)if(!integer(e.zanshin?.[p.id]??0,0,8))invalid('每名敵人的殘心必須為 0–8');
   }
   const actor=config.party.find(p=>p.id===config.actorId);
-  if(actor?.role!=='samurai'||actor.hp<=0)invalid('請選擇存活武士');
+  if(actor?.role!==role||actor.hp<=0)invalid('請選擇存活演出者');
   const soul=config.enemies.filter(e=>e.hp>0).reduce((n,e)=>n+(e.zanshin?.[actor.id]||0),0);
   if(actionId==='sa_tsubame'&&soul<4)invalid('燕返需要至少 4 層武魂');
   if(!config.enemies.some(e=>e.hp>0))invalid('需要存活敵人');
@@ -103,6 +105,16 @@ export async function configuredSamuraiPreview(config,actionId,sceneId){
     room.state='IN_BATTLE';room.battleRound=integer(config.round,1,99)?config.round:1;
     room.setEnemies(config.enemies.map((source,index)=>{
       const template=enemies.find(e=>e.id===source.id),e=room.createEnemyInstance(template,index,{tier:template.tier});
+      if(onmyoji){
+        const sample = combatLabFixture(sceneId)?.steps.find(s=>s.actionId===actionId);
+        const recorded = sample?.hpSnapshotBefore?.enemies?.find(e=>e.instanceId===sample.targetEnemyId) || sample?.hpSnapshotBefore?.monster;
+        const cards = source.talismans ?? (source.instanceId===config.primaryId ? recorded?.talismans : []) ?? [];
+        if(!Array.isArray(cards)||cards.length>10||cards.some(t=>!['blind','seal','corrode','confuse','drain'].includes(t)))invalid('符咒資料無效');
+        e.talismans=[...cards];
+        const actorPlayer=room.players[actor.id];
+        const rolled = sample?.outcome?.type?.replace('talisman_','');
+        if(['blind','seal','corrode','confuse','drain'].includes(rolled)) actorPlayer.rolledTalisman=rolled;
+      }
       Object.assign(e,{instanceId:source.instanceId,hp:source.hp,maxHp:source.maxHp,zanshin:Object.fromEntries(config.party.filter(p=>p.role==='samurai').map(p=>[p.id,source.zanshin?.[p.id]||0]))});return e;
     }));
     room.currentMonster=room.enemies.find(e=>e.instanceId===config.primaryId&&e.hp>0)||room.getLivingEnemies()[0];

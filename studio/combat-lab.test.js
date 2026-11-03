@@ -67,15 +67,24 @@ test('Gladiator cuirass Lab records shield and heal inspiration separately witho
   assert.equal(step.hpSnapshot.players[0].hp,120);assert.equal(step.hpSnapshot.players[0].tempHp||0,0);
 });
 
-for(const [id,damage]of [['onm_talisman_blind',15],['onm_talisman_seal',15],['onm_talisman_corrode',15],['onm_talisman_confuse',16],['onm_talisman_drain',41],['phase5_onmyoji_onm_all_talismans',50],['onm_detonate_5',25],['onm_detonate_10_max',48]])
-test('Onmyoji Lab replay keeps damage, HP and talismans consistent: '+id,()=>{
-  const config=scenario('onmyoji');config.enemies.forEach(e=>{e.hp=1000;e.maxHp=1000;});
-  const selected=entry(id),fixture=combatLabFixture(id);
-  const {steps}=preparePlayback(config,fixture,selected);const step=steps[0];
-  const hits=step.results.filter(r=>r.kind==='damage'&&r.actualDamage>0);
-  assert.equal(hits.reduce((n,r)=>n+r.actualDamage,0),damage);
-  assert.equal(step.hpSnapshot.enemies.find(e=>e.instanceId===config.primaryId).hp,1000-damage);
-  assert.equal(step.results.at(-1).targetAfter.talismans.length,fixture.steps[0].hpSnapshot.enemies?.find(e=>e.instanceId===fixture.steps[0].targetEnemyId)?.talismans.length??fixture.steps[0].hpSnapshot.monster.talismans.length);
+for(const [count,expected] of [[0,0],[1,6],[5,31],[10,62]])
+test('Onmyoji Lab uses the production resolver for detonation: '+count,async t=>{
+  t.mock.method(Math,'random',()=>.5);
+  const config=scenario('onmyoji',1,1);
+  config.enemies=[{...structuredClone(catalog.enemies.find(e=>e.id==='gel_slime')),instanceId:'configured-enemy',hp:1000,maxHp:1000,talismans:Array(count).fill('blind')}];
+  config.primaryId='configured-enemy';
+  const saved=structuredClone(config),fixture=await configuredSamuraiPreview(config,'onm_detonate');
+  const step=fixture.steps[0];assert.equal(step.finalDamage,expected);
+  assert.equal(step.hpSnapshot.enemies[0].hp,1000-expected);
+  assert.deepEqual(step.hpSnapshot.enemies[0].talismans,[]);assert.deepEqual(step.hpSnapshot.enemies[0].talismanStates,[]);
+  assert.deepEqual(config,saved);assert.deepEqual(preparePlayback(config,fixture,{}).steps,fixture.steps);
+});
+test('Onmyoji Lab leader creates one action with ten cards distributed to actual enemies',async()=>{
+  const config=scenario('onmyoji',1,3);config.enemies.forEach(e=>e.hp=e.maxHp=1000);
+  const {steps}=await configuredSamuraiPreview(config,'onm_all_talismans');
+  assert.equal(steps.length,1);const enemies=steps[0].hpSnapshot.enemies;
+  assert.equal(enemies.reduce((n,e)=>n+e.talismans.length,0),10);
+  assert.ok(enemies.every(e=>e.talismans.length<=10&&e.talismanStates.every(t=>t.source==='leader'&&t.dropRate===0)));
 });
 
 test('four-hit Tsubame retains all hits, selected enemy and immutable replay inputs',()=>{

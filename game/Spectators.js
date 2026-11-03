@@ -9,7 +9,7 @@ const visible = fields(`id instanceId name originalName role type kind tier avat
 hp maxHp tempHp temporaryOverheal shieldHp displayHp displayMaxHp alive connected downedForFloor customAvatar
 attack atk ATK_base PAtk_gear MAtk_gear DEF bonusAtk bonusDef statuses category turns stacks damage value isNegative isDot
 poisonTurns poisonDmg burnTurns burnDmg fractureTurns fractureDmg chillTurns chillDmg corrosionTurns bleedTurns bleedDmg
-flawMarks talismans permanentTalismans minions minion minionIndex owner ownerId druidForm druidFormTurns
+flawMarks talismans talismanStates activeTalismans source dropRate permanentTalismans minions minion minionIndex owner ownerId druidForm druidFormTurns
 isStealthed isSurrendered stunnedNextTurn cannotCrit ammo isCrouchedThisRound archerNextDodgeBonus
 presentation mechanics resistances physical magic effect ultName isWeakened arena playerId enemyId until enemyForced
 sourceId targetId targetEnemyId targetIds sourceName targetName actionId actionName skillId skillName resultId eventId

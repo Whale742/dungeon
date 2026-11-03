@@ -25,7 +25,7 @@ function formalSkills(actor){
 }
 function currentEntries(){
   const actor=actorFor(config),gear=actor?.equips?.[0]?.id,filter=actor?.labFilter;
-  return actorEntries().filter(s=>s.skillId===skillId&&(!gear||s.equipmentIds.includes(gear))&&(!filter||String(s.actor?.[filter.key]??'')===filter.value));
+  return actorEntries().filter(s=>s.skillId===skillId&&(!gear||actor?.role==='onmyoji'||s.equipmentIds.includes(gear))&&(!filter||String(s.actor?.[filter.key]??'')===filter.value));
 }
 function chooseEntry(){const entries=currentEntries();entry=entries.find(s=>s.id===variantId)||entries.find(s=>s.id==='samurai_tsubame')||entries.find(s=>s.id.startsWith('basic_'))||entries[0]||null;variantId=entry?.id||'';}
 function configForStage(){return {...clone(config),classes:catalog.classes,previewAction:skillId};}
@@ -148,10 +148,10 @@ async function play(){
   try{
     let fixture={steps:[]};
     if(ui.phase.value==='action'){
-      if(actorFor(config)?.role==='samurai'&&['basic','sa_cut','sa_tsubame'].includes(skillId)){
+      if(((actorFor(config)?.role==='samurai'&&['basic','sa_cut','sa_tsubame'].includes(skillId)) || actorFor(config)?.role==='onmyoji')){
         const previewConfig={actorId:config.actorId,primaryId:config.primaryId,round:config.round,
           party:config.party.map(({id,name,role,hp,maxHp,equips})=>({id,name,role,hp,maxHp,equips:(equips||[]).map(({id})=>({id}))})),
-          enemies:config.enemies.map(({id,instanceId,hp,maxHp,zanshin})=>({id,instanceId,hp,maxHp,zanshin}))};
+          enemies:config.enemies.map(({id,instanceId,hp,maxHp,zanshin,talismans})=>({id,instanceId,hp,maxHp,zanshin,talismans}))};
         const response=await fetch('/api/studio/combat-lab/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:previewConfig,actionId:skillId,sceneId:entry.id})});
         fixture=await response.json();if(!response.ok)throw new Error(fixture.error||'無法建立正式結算預覽');
       }else{

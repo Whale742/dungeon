@@ -437,3 +437,19 @@ test('cloud: actual RPC atomic overwrite, permissions, recovery fencing, termina
     metrics.values.clear();
   }
 });
+
+test('Onmyoji pending aging, per-card metadata and legacy leaders survive strict checkpoint restoration', async t => {
+  const { normalizeTalismans, ageTalismans } = await import('./onmyoji.js');
+  const h=fixture(t,{role:'onmyoji'}),{room}=h;
+  await boundary(h);
+  room.enemies=[{instanceId:'onm-old',hp:1000,maxHp:1000,talismans:['drain','seal'],permanentTalismans:['seal']},
+    {instanceId:'onm-new',hp:1000,maxHp:1000,talismans:['blind'],talismanStates:[{type:'blind',source:'normal',dropRate:40}],talismanRound:2,talismanPendingRound:3,talismanGrowthIncrement:7.5}];
+  room._currentMonster=room.enemies[0];
+  const snapshot=JSON.parse(JSON.stringify(createRoomSnapshot(room)));
+  const restored=restoreRoomSnapshot(Room,snapshot,'ONM-SAVE',io,room.memberIds);t.after(()=>restored.clearTimer());
+  assert.deepEqual(restored.enemies[0].talismanStates,[{type:'drain',source:'normal',dropRate:0},{type:'seal',source:'leader',dropRate:0}]);
+  assert.equal(restored.enemies[0].talismans.length,2);
+  const e=restored.enemies[1];normalizeTalismans(e);assert.equal(e.talismanPendingRound,3);
+  ageTalismans(e,3,e.talismanGrowthIncrement,()=>.99);assert.equal(e.talismanStates[0].dropRate,47.5);
+  assert.equal(ageTalismans(e,3,10,()=>{throw Error('restored round must not repeat');}),null);
+});

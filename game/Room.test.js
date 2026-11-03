@@ -1,3 +1,4 @@
+import { normalizeTalismans, attachTalisman, activeTalismans, clearTalismans, ageTalismans, distributeLeaderTalismans } from './onmyoji.js';
 import { DEV_ENEMIES } from './DevEncounter.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -797,8 +798,8 @@ test('Onmyoji brush and leader drain use 5% without changing their stack rules',
   assert.deepEqual(step.results.filter(r=>r.finalDamage>0).map(r=>r.finalDamage),[10,50]);
   enemy.hp=1000;enemy.talismans=[];player.action='onm_all_talismans';room.resolveTurnActions();
   step=resolutionQueue(events).find(s=>s.actionId==='onm_all_talismans');
-  assert.equal(enemy.hp,880);assert.equal(enemy.permanentTalismans.length,10);
-  assert.equal(step.results.filter(r=>r.finalDamage>0).reduce((n,r)=>n+r.finalDamage,0),120);
+  assert.equal(room.enemies.reduce((n,e)=>n+e.talismans.length,0),10);assert.equal(enemy.permanentTalismans.length,0);
+  assert.ok(step.results.some(r=>r.finalDamage>=20));
 });
 test('Onmyoji leader damage uses magic attack and does not attach charms to a defeated target',t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
@@ -832,22 +833,22 @@ for(const enhanced of [false,true])test('Galaxy raises the whole party attack st
   room.battleRound++;room.p8Expire(player);room.p8Expire(ally);
   assert.equal(resolveStats(player).ATK_base,before);assert.equal(resolveStats(ally).ATK_base,allyBefore);
 });
-for(const [equipped,roll,kept] of [[false,.349,false],[false,.35,true],[true,.199,false],[true,.20,true]])
-test(`Onmyoji independent drop threshold: kariginu=${equipped}, roll=${roll}`,t=>{
+for(const [equipped,corrosion,increment] of [[false,0,10],[true,0,5],[true,2,7.5]])
+test(`Onmyoji round-start aging and equipment: ${equipped}/${corrosion}`,t=>{
   const {room,player,enemy}=onmyojiBattle(t);
-  player.equips=equipped?[{id:'onm_kariginu'}]:[];
-  enemy.talismans=['drain','drain'];let calls=0;enemy.talismanDropRng=()=>{calls++;return roll;};
-  room.executeRoundStart();
-  assert.equal(calls,2);assert.equal(enemy.talismans.length,kept?2:0);
-  assert.equal(enemy.hp,kept?900:1000);
+  player.equips=equipped?[{id:'onm_kariginu'}]:[];player.corrosionTurns=corrosion;
+  enemy.talismans=['drain','drain'];enemy.talismanDropRng=()=>.99;
+  room.executeRoundStart();room.resolveTalismanRoundStart([]);
+  assert.equal(enemy.hp,900);assert.deepEqual(enemy.talismanStates.map(s=>s.dropRate),[increment,increment]);
+  const before=structuredClone(enemy.talismanStates);room.executeRoundStart();room.resolveTalismanRoundStart([]);room.resolveTalismanRoundStart([]);
+  assert.equal(enemy.hp,900);assert.deepEqual(enemy.talismanStates,before);
 });
-test('Onmyoji permanent and temporarily locked talismans bypass natural dropping',t=>{
+test('Onmyoji old permanent and locked cards migrate without duplicates and now age',t=>{
   const {room,enemy}=onmyojiBattle(t);
-  enemy.talismans=['drain'];enemy.permanentTalismans=['drain'];
-  enemy.talismanDropRng=()=>{throw new Error('locked talismans must not roll');};
-  room.executeRoundStart();assert.equal(enemy.hp,950);assert.deepEqual(enemy.talismans,['drain']);
-  enemy.permanentTalismans=[];enemy.talismansLockedTurns=1;
-  room.executeRoundStart();assert.equal(enemy.hp,900);assert.equal(enemy.talismansLockedTurns,0);
+  enemy.talismans=['drain','seal','drain'];enemy.permanentTalismans=['drain'];enemy.talismansLockedTurns=2;
+  enemy.talismanDropRng=()=>.99;room.executeRoundStart();room.resolveTalismanRoundStart([]);
+  assert.deepEqual(enemy.talismanStates.map(s=>[s.source,s.dropRate]),[['leader',5],['normal',10],['normal',10]]);
+  assert.equal(enemy.talismans.length,3);assert.deepEqual(enemy.permanentTalismans,[]);
 });
 test('Onmyoji production animation commits each damage result once, including capped and lethal hits',async t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
@@ -873,7 +874,7 @@ test('Onmyoji production animation commits each damage result once, including ca
     assert.equal(hits.reduce((sum,r)=>sum+r.actualDamage,0),state==='drain'?70:state==='lethal'?10:20);
   }
 });
-for(const [count,mirror,expected] of [[0,false,0],[1,false,12],[10,false,120],[10,true,140],[12,false,120]])
+for(const [count,mirror,expected] of [[0,false,0],[1,false,9],[5,false,45],[10,false,90],[10,true,110],[12,false,90]])
 test(`Onmyoji detonation scaling: ${count} charms, mirror=${mirror}`,t=>{
   const {room,player,enemy,events}=onmyojiBattle(t);
   enemy.talismans=Array(count).fill('blind');enemy.permanentTalismans=[...enemy.talismans];
@@ -3746,4 +3747,93 @@ test('Bloodsong participates in lethal barrier checks without consuming protecti
   assert.equal(room.p8Has(player,'boundary').barrier,true);assert.equal(room.arena.bloodsong,10);assert.equal(player.hp,35);
   room.applyDamageToPlayer(player,45,{kind:'enemy_direct',trueDamage:true});
   assert.equal(room.p8Has(player,'boundary').barrier,false);assert.equal(room.arena.bloodsong,10);assert.equal(player.hp,35);
+});
+
+test('Onmyoji per-card checks use the old rate before increment and cap independently',()=>{
+  for(const [source,increment,cap] of [['normal',10,70],['leader',5,30]]) {
+    const e={hp:1000,talismans:[]};attachTalisman(e,'drain',source);
+    for(let round=1;round<=12;round++) {
+      ageTalismans(e,round,increment,()=>.999);
+      assert.equal(e.talismanResolution.rolls[0].dropRate,Math.min(cap,(round-1)*increment));
+      assert.equal(e.talismanStates[0].dropRate,Math.min(cap,round*increment));
+    }
+  }
+  const e={hp:1000,talismans:[]};attachTalisman(e,'blind');
+  ageTalismans(e,1,10,()=>.999);attachTalisman(e,'blind');ageTalismans(e,2,10,()=>.999);
+  assert.deepEqual(e.talismanResolution.rolls.map(s=>s.dropRate),[10,0]);
+  assert.deepEqual(e.talismanStates.map(s=>s.dropRate),[20,10]);
+});
+test('Onmyoji drop pass finishes before sampling distinct survivors, per enemy',()=>{
+  for(const id of ['a','b']) {
+    const e={id,hp:1000,talismans:Array(10).fill('drain')};normalizeTalismans(e);
+    e.talismanStates.forEach((s,i)=>s.dropRate=i<4?70:0);
+    const result=ageTalismans(e,1,10,()=>.5);
+    assert.equal(result.dropped.length,4);assert.equal(result.kept.length,6);assert.equal(result.selected.length,5);
+    assert.equal(new Set(e.talismanResolution.selected).size,5);
+    assert.equal(ageTalismans(e,1,10,()=>{throw Error('must not reroll');}),null);
+  }
+});
+test('Onmyoji leader fills legal capacity with five types twice without overwriting existing cards',()=>{
+  const a={hp:1000,talismans:Array(9).fill('seal')},b={hp:1000,talismans:[]};let i=0;
+  const additions=distributeLeaderTalismans([a,b],()=>i++%2?.99:0);
+  assert.equal(a.talismans.length,10);assert.equal(b.talismans.length,9);
+  const types=[...additions.values()].flat();for(const type of ['blind','seal','corrode','confuse','drain'])assert.equal(types.filter(t=>t===type).length,2);
+  const solo={hp:1000,talismans:[]};distributeLeaderTalismans([solo],()=>.5);assert.equal(solo.talismans.length,10);
+  assert.equal(distributeLeaderTalismans([solo]).size,0);
+  assert.ok([...a.talismanStates.slice(9),...b.talismanStates].every(s=>s.source==='leader'&&s.dropRate===0));
+});
+test('Onmyoji unselected controls stay dormant; repeated drain retains five-card damage',t=>{
+  const {room,enemy}=onmyojiBattle(t);
+  enemy.talismans=['drain','drain','drain','drain','drain','seal','blind','confuse'];
+  let n=0;enemy.talismanDropRng=()=>n++<8?.99:0;
+  room.executeRoundStart();room.resolveTalismanRoundStart([]);
+  assert.equal(enemy.hp,750);assert.deepEqual(activeTalismans(enemy),Array(5).fill('drain'));
+  assert.equal(enemy.sealedThisRound,false);assert.equal(enemy.talismans.length,8);
+  clearTalismans(enemy);assert.deepEqual(enemy.talismanStates,[]);assert.deepEqual(activeTalismans(enemy),[]);
+});
+for(const [equips,corrosion,expected] of [
+  [[{bonusPhysAtk:100}],0,45],[[{bonusMagAtk:1}],0,49],[[{id:'onm_mirror'}],2,50]
+])test('Onmyoji detonation typed attack, rounding and half equipment: '+expected,t=>{
+  const {room,player,enemy}=onmyojiBattle(t);player.equips=equips;player.corrosionTurns=corrosion;
+  enemy.talismans=Array(5).fill('blind');player.action='onm_detonate';room.resolveTurnActions();
+  assert.equal(enemy.hp,1000-expected);assert.deepEqual(enemy.talismanStates,[]);assert.deepEqual(activeTalismans(enemy),[]);
+});
+
+test('Onmyoji confirmed detonation precedes natural drops; other enemies still age once',t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);
+  const other=room.enemies.find(e=>e!==enemy);other.hp=other.maxHp=1000;other.talismans=['blind'];
+  enemy.talismans=Array(10).fill('blind');normalizeTalismans(enemy);enemy.talismanStates.forEach(s=>s.dropRate=70);
+  enemy.talismanDropRng=()=>{throw Error('detonated enemy must not roll');};other.talismanDropRng=()=>.99;
+  room.executeRoundStart();
+  assert.equal(enemy.talismans.length,10);assert.equal(other.talismanStates[0].dropRate,0);
+  player.action='onm_detonate';player.targetEnemyId=enemy.instanceId;room.resolveTurnActions();
+  const queue=resolutionQueue(events);
+  assert.equal(queue.find(s=>s.type==='player_action').actionId,'onm_detonate');
+  assert.equal(queue.find(s=>s.actionId==='onm_detonate').finalDamage,90);
+  assert.equal(enemy.hp,910);assert.deepEqual(enemy.talismans,[]);assert.deepEqual(enemy.talismanStates,[]);
+  assert.equal(other.talismanStates[0].dropRate,10);assert.equal(other.talismanRound,room.battleRound);
+  const saved=structuredClone(other.talismanStates);room.resolveTalismanRoundStart([]);assert.deepEqual(other.talismanStates,saved);
+});
+test('Onmyoji round start waits for skill confirmation and non-detonation ages before attaching new cards',t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);enemy.talismans=['blind'];
+  enemy.talismanDropRng=()=>.99;room.executeRoundStart();assert.equal(enemy.talismanStates[0].dropRate,0);
+  player.action='onm_talisman';player.rolledTalisman='seal';room.resolveTurnActions();
+  assert.deepEqual(enemy.talismanStates.map(s=>s.dropRate),[10,0]);
+  const queue=resolutionQueue(events);assert.equal(queue[0].skillName,'符咒老化與重觸發');
+});
+
+test('Onmyoji leader presentation flies cards to every assigned enemy with one stage and one commit per result',async t=>{
+  const {room,player,enemy,events}=onmyojiBattle(t);player.action='onm_all_talismans';
+  let roll=0;t.mock.method(Math,'random',()=>roll++%2?.8:.1);room.resolveTurnActions();
+  const step=resolutionQueue(events).find(s=>s.actionId==='onm_all_talismans');
+  const flights=[],committed=[];let stages=0;
+  const scope={AugurPresentationEngine:class{}};vm.createContext(scope);
+  vm.runInContext(readFileSync(new URL('../public/js/presentation/extended-role-effects.js',import.meta.url),'utf8'),scope);
+  Object.assign(scope,{preloadPhase5Art:async()=>{},battlefieldPlayerTarget:()=>enemy.instanceId,resolvePresentationTarget:r=>r.targetId,
+    withBattlefieldSkillStage:async(s,c,fn)=>{stages++;await fn({wait:async()=>{},animate(){}});},
+    phase5Pulse(){},phase5Image:()=>({dataset:{}}),phase5Fly:async(s,p,from,to)=>flights.push(to),
+    phase5Result:async(s,step,r)=>committed.push(r),applyHpSnapshot(){}});
+  await scope.playBattlefieldOnmyoji(step,{});
+  assert.equal(stages,1);assert.equal(flights.length,10);assert.ok(new Set(flights).size>1);
+  assert.deepEqual(committed,step.results);
 });

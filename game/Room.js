@@ -1,3 +1,4 @@
+import { normalizeTalismans, attachTalisman, activeTalismans, clearTalismans, ageTalismans, distributeLeaderTalismans } from './onmyoji.js';
 import { metrics, operationContext } from './performance.js';
 import { resolveRoleRandom, clearRoleRandom } from './DevRoleRandom.js';
 import {SPECIAL_EVENT_COPY} from './special-event-content.js';
@@ -538,6 +539,7 @@ export class Room {
 
   formatEnemySnapshot(enemy) {
     if (!enemy) return null;
+    normalizeTalismans(enemy);
     return {
       instanceId: enemy.instanceId || enemy.id || 'enemy_0',
       id: enemy.id || enemy.instanceId || 'enemy_0',
@@ -565,6 +567,8 @@ export class Room {
       reversedOmenBonus: enemy.reversedOmenBonus || 0,
       flawMarks: enemy.flawMarks || 0,
       talismans: [...(enemy.talismans || [])],
+      talismanStates: structuredClone(enemy.talismanStates),
+      activeTalismans: [...activeTalismans(enemy)],
       permanentTalismans: [...(enemy.permanentTalismans || [])],
       presentation: enemyPresentationInfo(enemy, this),
       mechanics: structuredClone(enemy.mechanics || mechanicState(enemy)),
@@ -2443,6 +2447,7 @@ export class Room {
   // 戰鬥回合流程 - Round Start (1. DoT 2. Regeneration 3. Abyssal Corruption 4. 其他回合初效果)
   executeRoundStart() {
     this.clearTimer();this.healingSourceId=null;
+    const talismanEquipMultipliers = new Map(this.getCombatPlayers().map(p => [p.id, this.statMultiplier(p)]));
     this.roundModifiers = { equipmentEffectMultiplier: 1.0, acidFlaskCount: 0 }; // 每回合初確保裝備倍率恢復 100%
     this.getCombatPlayers().forEach(p => { p.isCrouchedThisRound = false; this.cleanGladiatorDebuffs(p); });
     for (const enemy of (this.enemies || [])) {
@@ -2651,91 +2656,13 @@ export class Room {
           log.push({ text: `❄️ **${targetMonster.name}** 寒氣侵蝕受到 **${cDmg}** 點寒冷傷害！（剩餘寒冷: ${targetMonster.chillTurns} 回合，每回合 ${cDmg} 點）`, type: 'damage' });
         }
       }
-      if (targetMonster.hp > 0 && targetMonster.talismans && targetMonster.talismans.length > 0) {
-        const TALISMAN_NAMES = {
-          blind: '障目符',
-          seal: '封勁符',
-          corrode: '蝕體符',
-          confuse: '惑心符',
-          drain: '抽髓符'
-        };
+      // Player choices are not known yet. Only the talisman phase is deferred;
+      // poison, burn and all other round-start systems keep their existing order.
+      targetMonster.talismanPendingRound = this.battleRound;
+      targetMonster.talismanGrowthIncrement = 10 - Math.max(0, ...this.getCombatPlayers()
+        .filter(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'))
+        .map(p => 5 * (talismanEquipMultipliers.get(p.id) ?? this.statMultiplier(p))));
 
-        const droppedTalismans = [];
-        const keptTalismans = [];
-
-        const hasKariginu = this.getCombatPlayers().some(p => p.role === 'onmyoji' && (p.equips || []).some(e => e.id === 'onm_kariginu'));
-        const dropThreshold = hasKariginu ? 0.20 : 0.35;
-
-        if (targetMonster.talismansLockedTurns > 0) {
-          targetMonster.talismansLockedTurns -= 1;
-          keptTalismans.push(...targetMonster.talismans);
-          log.push({
-            text: `📜🔒 【百鬼敕令】陰陽師隊長符咒封印生效，魔物身上所有符咒（共 ${targetMonster.talismans.length} 張）全數鎖定保留，未發生脫落！`,
-            type: 'buff'
-          });
-        } else {
-          const permList = [...(targetMonster.permanentTalismans || [])];
-          for (const talisman of targetMonster.talismans) {
-            const pIdx = permList.indexOf(talisman);
-            if (pIdx !== -1) {
-              permList.splice(pIdx, 1);
-              keptTalismans.push(talisman);
-              continue; // 萬符歸宗貼上的符咒永不脫落
-            }
-            const dropRoll = typeof targetMonster.talismanDropRng === 'function' ? targetMonster.talismanDropRng() : Math.random();
-            if (dropRoll < dropThreshold) {
-              droppedTalismans.push(talisman);
-            } else {
-              keptTalismans.push(talisman);
-            }
-          }
-        }
-
-        targetMonster.talismans = keptTalismans;
-
-        if (droppedTalismans.length > 0) {
-          const droppedSummary = droppedTalismans.map(t => TALISMAN_NAMES[t] || t).join('、');
-          log.push({
-            text: `📜🍃 魔物身上的符咒受到氣勁衝擊脫落：${droppedSummary}（共 ${droppedTalismans.length} 張掉落，剩餘 ${keptTalismans.length} 張未掉落）！`,
-            type: 'info'
-          });
-        }
-
-        // 沒掉落的符咒再次觸發每一個效果
-        for (const talisman of keptTalismans) {
-          if (targetMonster.hp <= 0) break;
-
-          if (talisman === 'drain') {
-            const drainDmg = this.augmentOmenDamage(Math.max(1, Math.floor(targetMonster.maxHp * 0.05)));
-            targetMonster.hp = Math.max(0, targetMonster.hp - drainDmg);
-            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: targetKey, dmgType: 'mag', value: drainDmg, label: '抽髓符' });
-            if (targetMonster.hp <= 0) {
-              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 5%（${drainDmg} 點削血），魔物倒下！💀`, type: 'damage' });
-            } else {
-              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 5%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'damage' });
-            }
-          } else if (talisman === 'confuse') {
-            const confuseRatio = typeof targetMonster.talismanConfuseRatio === 'number'
-              ? targetMonster.talismanConfuseRatio
-              : (0.50 + Math.random() * 0.50);
-            const confuseDmg = Math.max(1, Math.round((targetMonster.attack || 20) * confuseRatio));
-            targetMonster.hp = Math.max(0, targetMonster.hp - confuseDmg);
-            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: targetKey, dmgType: 'mag', value: confuseDmg, label: '惑心反噬' });
-            if (targetMonster.hp <= 0) {
-              log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身倒下！💀`, type: 'warning' });
-            } else {
-              log.push({ text: `📜🌀💥 **【惑心符】** 未掉落再次觸發！魔物心智混亂將攻擊傷害的 ${Math.round(confuseRatio * 100)}%（${confuseDmg} 點）作用在自身！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'warning' });
-            }
-          } else if (talisman === 'blind') {
-            log.push({ text: `📜👁️ **【障目符】** 未掉落再次觸發！魔物視界持續受障，攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！`, type: 'buff' });
-          } else if (talisman === 'seal') {
-            targetMonster.sealedThisRound = true;
-            log.push({ text: `📜🔒 **【封勁符】** 未掉落再次觸發！封鎖魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
-          } else if (talisman === 'corrode') {
-            log.push({ text: `📜🩸 **【蝕體符】** 未掉落再次結算易傷判定！魔物肉體受蝕，受到的所有攻擊傷害提升 25%！`, type: 'buff' });
-          }
-        }
-      }
     }
     if (this._currentMonster && this._currentMonster.hp <= 0 && this.getLivingEnemies().length > 0) {
       this.refreshPrimaryMonster();
@@ -2857,6 +2784,75 @@ export class Room {
     } else if (arenaQueue.length) this.publishCombatQueue(arenaQueue,'round_start');
     else this.startSkillSelection();
     this.augurVisuals=null;
+  }
+
+  resolveTalismanRoundStart(queue) {
+    const before = this.getHpSnapshot(), log = [], visualEvents = [];
+    for (const targetMonster of this.getLivingEnemies()) {
+      if (targetMonster.talismanPendingRound !== this.battleRound) continue;
+      targetMonster.talismanPendingRound = null;
+      if (targetMonster.untargetableThisRound || !enemyCanParticipate(this,targetMonster)) continue;
+      const targetKey = targetMonster.instanceId;
+      if (targetMonster.hp > 0 && targetMonster.talismans && targetMonster.talismans.length > 0) {
+        const TALISMAN_NAMES = {
+          blind: '障目符',
+          seal: '封勁符',
+          corrode: '蝕體符',
+          confuse: '惑心符',
+          drain: '抽髓符'
+        };
+
+
+        const resolution = ageTalismans(targetMonster, this.battleRound, targetMonster.talismanGrowthIncrement ?? 10,
+          typeof targetMonster.talismanDropRng === 'function' ? targetMonster.talismanDropRng : Math.random);
+        if (!resolution) continue;
+        const {dropped: droppedTalismans, kept: keptTalismans, selected} = resolution;
+        log.push({text: `📜 符咒逐漸老化；本輪抽選 ${selected.length} 張重觸發，保留 ${keptTalismans.length} 張。`, type: 'info'});
+        const controls = new Set();
+        if (droppedTalismans.length > 0) {
+          const droppedSummary = droppedTalismans.map(t => TALISMAN_NAMES[t] || t).join('、');
+          log.push({
+            text: `📜🍃 魔物身上的符咒受到氣勁衝擊脫落：${droppedSummary}（共 ${droppedTalismans.length} 張掉落，剩餘 ${keptTalismans.length} 張未掉落）！`,
+            type: 'info'
+          });
+        }
+
+        // 沒掉落的符咒再次觸發每一個效果
+        for (const talisman of selected) {
+          if (talisman !== 'drain' && controls.has(talisman)) continue;
+          controls.add(talisman);
+          if (targetMonster.hp <= 0) break;
+
+          if (talisman === 'drain') {
+            const drainDmg = this.augmentOmenDamage(Math.max(1, Math.floor(targetMonster.maxHp * 0.05)));
+            targetMonster.hp = Math.max(0, targetMonster.hp - drainDmg);
+            visualEvents.push({ type: 'player_attack', sourceId: 'onmyoji', target: targetKey, dmgType: 'mag', value: drainDmg, label: '抽髓符' });
+            if (targetMonster.hp <= 0) {
+              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 5%（${drainDmg} 點削血），魔物倒下！💀`, type: 'damage' });
+            } else {
+              log.push({ text: `📜💀 **【抽髓符】** 未掉落再次觸發！扣除魔物最大生命 5%（${drainDmg} 點削血）！（❤️ 魔物 HP: ${targetMonster.hp}/${targetMonster.maxHp}）`, type: 'damage' });
+            }
+          } else if (talisman === 'confuse') {
+            log.push({text: '📜🌀 【惑心符】本回合出手時反噬一次。', type: 'buff'});
+          } else if (talisman === 'blind') {
+            log.push({ text: `📜👁️ **【障目符】** 未掉落再次觸發！魔物視界持續受障，攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！`, type: 'buff' });
+          } else if (talisman === 'seal') {
+            targetMonster.sealedThisRound = true;
+            log.push({ text: `📜🔒 **【封勁符】** 未掉落再次觸發！封鎖魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
+          } else if (talisman === 'corrode') {
+            log.push({ text: `📜🩸 **【蝕體符】** 未掉落再次結算易傷判定！魔物肉體受蝕，受到的所有攻擊傷害提升 25%！`, type: 'buff' });
+          }
+        }
+      }
+    }
+    if (!log.length && !visualEvents.length) return;
+    const after = this.getHpSnapshot();
+    const step = {type:'status_action',category:'STATUS_TICK',skillName:'符咒老化與重觸發',
+      outcome:{type:'normal'},hpSnapshotBefore:before,hpSnapshot:after,detail:log.map(l=>l.text).join('\n')};
+    step.results = buildActionResults(step,before,after,visualEvents);
+    queue.push(step);
+    log.forEach(l=>this.addLog(l.text,l.type));
+    this.refreshPrimaryMonster();
   }
 
   // 回合初效果 (DoT / Regen 等) 演出完畢回調
@@ -5221,17 +5217,8 @@ export class Room {
       target.augurAbsolutePositive = true;
       this.addLog(`🔮 【命運宣告】卜者隊長命運干涉！**${target.name}** 本回合機率判定獲得絕對正面結果且免除命債！`, 'buff');
     } else if (role === 'onmyoji') {
-      const targetEnemy = this.getTargetEnemy(options.targetEnemyId);
-      if (targetEnemy) {
-        targetEnemy.talismans = targetEnemy.talismans || [];
-        targetEnemy.permanentTalismans = targetEnemy.permanentTalismans || [];
-        const ALL_TYPES = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
-        for (const type of ALL_TYPES) {
-          targetEnemy.talismans.push(type, type);
-          targetEnemy.permanentTalismans.push(type, type);
-        }
-      }
-      this.addLog(`📜✨ 【萬符歸宗】陰陽師隊長施展萬符歸宗！向 **${targetEnemy?.name || '目標'}** 一次性貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, 'buff');
+      const additions = distributeLeaderTalismans(this.getAttackableEnemies().filter(e => enemyCanParticipate(this,e)));
+      this.addLog(`📜✨ 【萬符歸宗】五種符咒各兩張隨機分配，實際附加 ${[...additions.values()].flat().length} 張；掉落率由 0% 起，每輪 +5 個百分點，最高 30%。`, 'buff');
     }
 
     this.leaderSkillUsedThisBattle = true;
@@ -5496,7 +5483,7 @@ export class Room {
         const triumph=this.p8Has(triumphActor,'triumph');
         if(triumph)rawDmg=Math.floor(rawDmg*(1+triumph.value/100));
         if(this.p8Has(targetEnemy,'dissociate') || (this.p8Has(targetEnemy,'sage_exposed')?.starts<=this.battleRound))rawDmg=Math.floor(rawDmg*1.1);
-        const corrodeStacks = (targetEnemy.talismans || []).filter(t => t === 'corrode').length;
+        const corrodeStacks = activeTalismans(targetEnemy).filter(t => t === 'corrode').length;
         if(corrodeStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.25 * corrodeStacks));
         const flawStacks = Math.min(5, targetEnemy.flawMarks || 0);
         if(flawStacks > 0) rawDmg = Math.floor(rawDmg * (1 + 0.10 * flawStacks));
@@ -5572,14 +5559,22 @@ export class Room {
     const sortedPlayers = this.getCombatPlayers()
       .filter(p => p.hp > 0)
       .sort((a, b) => {
-        const prioA = getActionPriority(a.action);
-        const prioB = getActionPriority(b.action);
+        const prioA = a.role === 'onmyoji' && a.action === 'onm_detonate' ? -1 : getActionPriority(a.action);
+        const prioB = b.role === 'onmyoji' && b.action === 'onm_detonate' ? -1 : getActionPriority(b.action);
         if (prioA !== prioB) return prioA - prioB;
         return playerKeys.indexOf(a.id) - playerKeys.indexOf(b.id);
       });
 
     const baseBardDmgMultiplier = bardDmgMultiplier;
+    let talismansResolved = false;
+    const resolvePendingTalismans = () => {
+      if (talismansResolved) return;
+      talismansResolved = true;
+      this.resolveTalismanRoundStart(presentationQueue);
+      monster = this.currentMonster;
+    };
     for (const p of sortedPlayers) {
+      if (p.role !== 'onmyoji' || p.action !== 'onm_detonate') resolvePendingTalismans();
       this.cleanGladiatorDebuffs(p);
       if (this.getLivingEnemies().length === 0) break;
       if (arenaRoundPlayerId && arenaRoundPlayerId !== p.id) continue;
@@ -5876,10 +5871,10 @@ export class Room {
               for (const ally of this.getCombatPlayers().filter(x => x.hp > 0)) {
                 this.p8GrantShield(ally, shieldGained, Infinity, 'paladin_basic');
               }
-              log.push({ text: `🛡️✨ **【聖光庇護】** 聖騎士隊長聖光普照！全體隊員皆獲得了基於普攻傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
+              log.push({ text: `🛡️✨ **【聖光庇護】** 聖騎士隊長聖光普照！全體隊員皆獲得了基於普攻傷害 2 倍的護盾（**${shieldGained}** 點，隨回合逐漸老化）！`, type: 'buff' });
             } else {
               this.p8GrantShield(p, shieldGained, Infinity, 'paladin_basic');
-              log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，無回合限制）！`, type: 'buff' });
+              log.push({ text: `🛡️✨ **${p.name}** 獲得了基於普攻造成傷害 2 倍的護盾（**${shieldGained}** 點，隨回合逐漸老化）！`, type: 'buff' });
             }
           }
           if (p.role === 'alchemist') {
@@ -5920,10 +5915,10 @@ export class Room {
                 if (monster.talismans.length < 10) {
                   const TALISMANS = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
                   const talisman = this.roleRandom(p,'onm_brush_type',()=>p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)]);
-                  monster.talismans.push(talisman);
+                  attachTalisman(monster, talisman);
                   const count = monster.talismans.length;
                   const TALISMAN_NAMES = { blind: '障目符', seal: '封勁符', corrode: '蝕體符', confuse: '惑心符', drain: '抽髓符' };
-                  log.push({ text: `📜🖌️ **${p.name}**【硃砂引靈筆】靈光顯現！普通攻擊額外依附了一道【五鬼攝魂符・${TALISMAN_NAMES[talisman]}】！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'buff' });
+                  log.push({ text: `📜🖌️ **${p.name}**【硃砂引靈筆】靈光顯現！普通攻擊額外依附了一道【五鬼攝魂符・${TALISMAN_NAMES[talisman]}】！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'buff' });
                   if (talisman === 'drain') {
                     const drainCount = monster.talismans.filter(t => t === 'drain').length;
                     const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.05));
@@ -6755,24 +6750,24 @@ export class Room {
           }
           const TALISMANS = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
           const talisman = this.roleRandom(p,'onm_talisman',()=>p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)]);
-          monster.talismans.push(talisman);
+          attachTalisman(monster, talisman);
           const count = monster.talismans.length;
 
           if (talisman === 'blind') {
             actionOutcome = { type: 'talisman_blind', label: '障目符', secondary: '命中大幅下降' };
-            log.push({ text: `📜👁️ **${p.name}** 擲出【五鬼攝魂符・障目符】！目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜👁️ **${p.name}** 擲出【五鬼攝魂符・障目符】！目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '障目符' });
           } else if (talisman === 'seal') {
             actionOutcome = { type: 'talisman_seal', label: '封勁符', secondary: '100%封勁' };
-            log.push({ text: `📜🔒 **${p.name}** 擲出【五鬼攝魂符・封勁符】！目標有 100% 機率在當前回合完全不造成任何傷害！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜🔒 **${p.name}** 擲出【五鬼攝魂符・封勁符】！目標有 100% 機率在當前回合完全不造成任何傷害！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '封勁符' });
           } else if (talisman === 'corrode') {
             actionOutcome = { type: 'talisman_corrode', label: '蝕體符', secondary: '易傷 +25%' };
-            log.push({ text: `📜🩸 **${p.name}** 擲出【五鬼攝魂符・蝕體符】！目標進入易傷狀態，受到的所有攻擊傷害提升 25%！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜🩸 **${p.name}** 擲出【五鬼攝魂符・蝕體符】！目標進入易傷狀態，受到的所有攻擊傷害提升 25%！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '蝕體符' });
           } else if (talisman === 'confuse') {
             actionOutcome = { type: 'talisman_confuse', label: '惑心符', secondary: '惑心反噬' };
-            log.push({ text: `📜🌀 **${p.name}** 擲出【五鬼攝魂符・惑心符】！目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜🌀 **${p.name}** 擲出【五鬼攝魂符・惑心符】！目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '惑心符' });
           } else if (talisman === 'drain') {
             actionOutcome = { type: 'talisman_drain', label: '抽髓符', secondary: '削血 5%' };
@@ -6781,7 +6776,7 @@ export class Room {
             const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);
             monster.hp = Math.max(0, monster.hp - totalDrain);
             const drainNote = drainCount > 1 ? `（觸發 ${drainCount} 重削血，共扣除 ${totalDrain} 點）` : `（扣除 ${totalDrain} 點）`;
-            log.push({ text: `📜💀 **${p.name}** 擲出【五鬼攝魂符・抽髓符】！扣除目標最大生命值 5% 的血量${drainNote}！（目前累積 ${count}/10 張符咒，無回合限制）`, type: 'combat' });
+            log.push({ text: `📜💀 **${p.name}** 擲出【五鬼攝魂符・抽髓符】！扣除目標最大生命值 5% 的血量${drainNote}！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
           }
           break;
@@ -6797,7 +6792,7 @@ export class Room {
           } else {
             const countedCharms = Math.min(10, totalCharms);
             const hasMirror = (p.equips || []).some(e => e.id === 'onm_mirror');
-            const baseDamage = this.skillValue(p,'onm_detonate',{stacks:countedCharms}) + (hasMirror?2*countedCharms:0);
+            const baseDamage = this.skillValue(p,'onm_detonate',{stacks:countedCharms}) + (hasMirror?2*countedCharms*this.statMultiplier(p):0);
             const raw = Math.floor((this.applyFateBlessing(p,baseDamage)) * bardDmgMultiplier);
             const { dmg, isResisted, resistPercent } = applyResistanceDamage(raw, 'mag');
             monster.hp -= dmg;
@@ -6805,10 +6800,9 @@ export class Room {
             actionOutcome = { type: 'detonate_burst', label: '百符引爆', secondary: `${countedCharms}張符咒` };
             log.push({ text: `📜💥🔥 **${p.name}** 高念真言施展【急急如律令・百符引爆】！引爆目標身上所有未掉落的符咒（共 **${totalCharms}** 張，結算上限 ${countedCharms} 張），造成 **${dmg}** 點【魔法】傷害！${resNote}`, type: 'combat' });
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '百符引爆' });
-            monster.talismans = [];
-            monster.permanentTalismans = [];
             log.push({ text: `📜✨ 技能結算完成，目標身上所有符咒全數脫落並銷毀！`, type: 'buff' });
           }
+          clearTalismans(monster);
           break;
         }
 
@@ -6829,22 +6823,15 @@ export class Room {
           monster.hp = Math.max(0, monster.hp - dmg);
           log.push({ text: `📜 **${p.name}** 的【萬符歸宗】造成 **${dmg}** 點【魔法】傷害！`, type: 'combat' });
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '萬符歸宗' });
-          if (monster.hp <= 0) { this.leaderSkillUsedThisBattle = true; break; }
-          monster.talismans = monster.talismans || [];
-          monster.permanentTalismans = monster.permanentTalismans || [];
-          const ALL_TYPES = ['blind', 'seal', 'corrode', 'confuse', 'drain'];
-          for (const type of ALL_TYPES) {
-            monster.talismans.push(type, type);
-            monster.permanentTalismans.push(type, type);
+          const additions = distributeLeaderTalismans(this.getAttackableEnemies().filter(e => enemyCanParticipate(this,e)));
+          actionOutcome = { type: 'talisman_all', label: '萬符歸宗', secondary: `${[...additions.values()].flat().length}道符咒` };
+          log.push({text: '📜✨ 【萬符歸宗】五種符咒各兩張隨機分配至存活且有容量的敵人，符咒逐漸老化。',type:'combat'});
+          for (const [target, types] of additions) {
+            if (!types.includes('drain')) continue;
+            const totalDrain = this.augmentOmenDamage(Math.max(1, Math.floor(target.maxHp * .05)) * target.talismans.filter(t => t === 'drain').length);
+            target.hp = Math.max(0, target.hp - totalDrain);
+            visualEvents.push({type:'player_attack',sourceId:p.id,target:target.instanceId,targetEnemyId:target.instanceId,dmgType:'mag',value:totalDrain,isCrit:false,label:'抽髓符'});
           }
-          actionOutcome = { type: 'talisman_all', label: '萬符歸宗', secondary: '10道符咒' };
-          log.push({ text: `📜✨ **${p.name}** 施展隊長技【萬符歸宗】！漫天靈符呼嘯而出，一次性向 **${monster.name}** 貼上所有類型符咒各兩張（共 10 道符咒），且敕令符咒永久固鎖，絕不脫落！`, type: 'combat' });
-          const drainCount = monster.talismans.filter(t => t === 'drain').length;
-          const singleDrain = Math.max(1, Math.floor(monster.maxHp * 0.05));
-          const totalDrain = this.augmentOmenDamage(singleDrain * drainCount);
-          monster.hp = Math.max(0, monster.hp - totalDrain);
-          log.push({ text: `📜💀 **【抽髓符】** 削血觸發！扣除目標最大生命值（共扣除 ${totalDrain} 點）！（❤️ 魔物 HP: ${monster.hp}/${monster.maxHp}）`, type: 'combat' });
-          visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: totalDrain, isCrit: false, label: '抽髓符' });
           this.leaderSkillUsedThisBattle = true;
           break;
         }
@@ -7146,6 +7133,7 @@ export class Room {
         }
       }
     }
+    resolvePendingTalismans();
     this.healingSourceId=null;
     bardDmgMultiplier = baseBardDmgMultiplier;
 
@@ -7333,7 +7321,7 @@ export class Room {
         }
 
         // 惑心符：目標陷入心智混亂，出手時將造成的傷害 50%~100% 作用在自身。
-        const confuseCount = (monster.talismans || []).filter(t => t === 'confuse').length;
+        const confuseCount = Math.min(1, activeTalismans(monster).filter(t => t === 'confuse').length);
         if (confuseCount > 0) {
           let totalBacklashDmg = 0;
           let totalRatioPercent = 0;
@@ -7355,7 +7343,7 @@ export class Room {
         }
 
         // 封勁符：目標有 100% 機率在當前回合完全不造成任何傷害。
-        const sealCount = (monster.talismans || []).filter(t => t === 'seal').length;
+        const sealCount = activeTalismans(monster).filter(t => t === 'seal').length;
         let sealTriggered = Boolean(monster.sealedThisRound) || sealCount > 0;
         if (sealTriggered && !monster.sealedThisRound) {
           log.push({ text: `📜🔒 **【封勁符】** 咒印爆發！封鎖了魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
@@ -7518,7 +7506,7 @@ export class Room {
           }
 
           // 障目符：目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。
-          const blindCount = (monster.talismans || []).filter(t => t === 'blind').length;
+          const blindCount = activeTalismans(monster).filter(t => t === 'blind').length;
           if (blindCount > 0) {
             const avoidRate = typeof monster.talismanBlindAvoidRate === 'number'
               ? monster.talismanBlindAvoidRate
@@ -8319,6 +8307,8 @@ export class Room {
         corrosionTurns: this.currentMonster.corrosionTurns || 0,
         corrosionMaxHpDeducted: this.currentMonster.corrosionMaxHpDeducted || 0,
         talismans: [...(this.currentMonster.talismans || [])],
+        talismanStates: structuredClone(normalizeTalismans(this.currentMonster)),
+        activeTalismans: [...activeTalismans(this.currentMonster)],
         permanentTalismans: [...(this.currentMonster.permanentTalismans || [])]
       } : null,
       currentEvent: this.currentEvent?.type === 'chest'

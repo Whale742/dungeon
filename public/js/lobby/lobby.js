@@ -14,7 +14,7 @@ const LOBBY_ROLE_PROFILES = Object.freeze(Object.fromEntries(Object.entries({
   samurai:{enName:'Samurai',tags:['DPS','物理','招架'],radar:['S','A','C','B','A'],passiveSummary:'殘心標記決定全場武魂，以狂刀招架反擊，再施展 N 段全體燕返。'},
   sage:{enName:'Sage',tags:['DPS','物理','演算'],radar:['A','C','B','C','S'],passiveSummary:'交替進行假設與求解，以運算元與變量推導方程結算。'},
   augur:{enName:'Augur',tags:['魔法','預言','命債','SUPPORT'],radar:['C','C','S','A','B'],passiveSummary:'鎖定一名隊友為【觀測目標】使其基礎數值提高 20%，並以【正位／逆位】干涉正負面機率；卜者造成直接魔傷時降低敵方效果抗性。'},
-  onmyoji:{enName:'Onmyōji',tags:['DPS','魔法','符咒','詛咒'],radar:['S','B','A','B','A'],passiveSummary:'擲出五鬼攝魂符施加無回合限制負面效果，再以百符引爆造成連鎖爆發傷害。'}
+  onmyoji:{enName:'Onmyōji',tags:['DPS','魔法','符咒','詛咒'],radar:['S','B','A','B','A'],passiveSummary:'符咒隨回合逐漸老化，每敵最多重觸發五張，把握時機以百符引爆造成爆發傷害。'}
 }).map(([id,profile])=>[id,{...profile,radar:profile.radar.map(grade=>({S:5,A:4,B:3,C:2,D:1})[grade])}])));
 const LOBBY_ROLE_ORDER=['warrior','mage','archer','assassin','bard','alchemist','druid','paladin','gladiator','stargazer','dreamweaver','samurai','sage','augur','onmyoji'];
 const LOBBY_RADAR_AXES=['輸出','生存','團隊','穩定性','難度'];

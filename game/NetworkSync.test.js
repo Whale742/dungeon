@@ -126,3 +126,16 @@ test('opt-in metrics keep processing, building and payload measurements separate
     for (const key of ['battle:lock.ms', 'state.build.ms', 'state.bytes', 'state.broadcasts']) assert.ok(snapshot[key].count > 0);
   } finally { metrics.enabled = false; metrics.values.clear(); }
 });
+
+test('Onmyoji authoritative resync snapshots retain card ages and never reroll or alias state',async t=>{
+  const {ageTalismans}=await import('./onmyoji.js');
+  const {room}=fixture(2);t.after(()=>room.clearTimer());
+  room.enemies=[{instanceId:'onm-sync',id:'onm-sync',name:'同步魔物',hp:1000,maxHp:1000,talismans:['blind','drain'],attack:0}];
+  room._currentMonster=room.enemies[0];const enemy=room.enemies[0];let rolls=0;
+  ageTalismans(enemy,1,10,()=>{rolls++;return .99;});const count=rolls;
+  const first=room.getHpSnapshot(),second=room.getHpSnapshot();
+  assert.deepEqual(first.enemies[0].talismanStates,second.enemies[0].talismanStates);
+  assert.deepEqual(first.enemies[0].talismans,['blind','drain']);assert.equal(rolls,count);
+  first.enemies[0].talismanStates[0].dropRate=70;assert.equal(enemy.talismanStates[0].dropRate,10);
+  assert.equal(ageTalismans(enemy,1,10,()=>{throw Error('resync must not replay');}),null);
+});

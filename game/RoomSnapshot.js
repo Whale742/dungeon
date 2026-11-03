@@ -1,3 +1,4 @@
+import { normalizeTalismans } from './onmyoji.js';
 import { CLASSES } from './constants.js';
 import { createRoomContent } from '../studio/content.js';
 import { metrics } from './performance.js';
@@ -115,6 +116,7 @@ export function restoreRoomSnapshot(Room, snapshot, code, io, activeMemberIds, l
   // Constructor initializes runtime Sets/helpers; no real connection or broadcast.
   const room = new Room(code, { id: leader.id, join() {} }, leader.name, { to: () => ({ emit() {} }) });
   Object.assign(room, data);
+  for (const enemy of new Set([...(room.enemies || []), room._currentMonster].filter(Boolean))) normalizeTalismans(enemy);
   // Legacy checkpoints predate the roster field. Use their recorded online
   // status once, never the set of players who happen to reconnect first.
   const ids = data.stageRoster?.playerIds || data.memberIds.filter(id => data.players[id].connected && data.players[id].hp > 0);

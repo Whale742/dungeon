@@ -496,7 +496,7 @@ class OnmyojiPresentationEngine {
     const sealEmblem = this.container.querySelector('#onmSealEmblem');
 
     // 【前奏階段 0：蓋下大尺寸去背書法「令」字敕令】
-    this.setActionText(isLeader ? `【隊長技・萬符歸宗】漫天靈符呼嘯而出，一次性向目標貼上所有符咒！` : `施法前奏：Boss 正中央蓋下「令」字敕令印記！`);
+    this.setActionText(isLeader ? `【隊長技・萬符歸宗】漫天靈符呼嘯而出，向存活敵人隨機分配十道符咒！` : `施法前奏：Boss 正中央蓋下「令」字敕令印記！`);
     this.playSound('ling_stamp');
 
     if (casterBox) {
@@ -602,7 +602,7 @@ class OnmyojiPresentationEngine {
       sealEmblem.style.animation = `sealStage4Flash calc(0.72s * var(--onm-speed-mult, 1)) cubic-bezier(0.16, 1, 0.3, 1) forwards`;
     }
 
-    this.showFloatingText(`【${talisman.name}】${talisman.shortEffect}`, talisman.color, isRepeat ? talisman.repeatDesc : '無回合限制印記已生效');
+    this.showFloatingText(`【${talisman.name}】${talisman.shortEffect}`, talisman.color, isRepeat ? talisman.repeatDesc : '符咒已生效，將隨回合逐漸老化');
 
     await this.waitMs(700);
     if (speech) speech.style.opacity = '0';

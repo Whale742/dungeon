@@ -201,14 +201,17 @@ async function playBattlefieldOnmyoji(step,context) {
         s.animate(paper,[{opacity:1},{opacity:0}],160);
         await phase5Result(s,step,direct);
       }
-      const count=Math.max(0,afterCount-beforeCount);
-      // Leader art uses the ten actual additions (five elements twice); no
-      // papers are fabricated when the server supplied no attachments.
-      for(let i=0;i<count;i++) {
-        const paper=phase5Image(s,PHASE5_ART.talisman,step.sourceId,'paper');papers.push(paper);
-        paper.dataset.element=(after.talismans||[])[beforeCount+i]||'';
-        await phase5Fly(s,paper,step.sourceId,id,s.reduced?60:180,18*(i%2?1:-1));
-        s.animate(paper,[{opacity:1,transform:'translate(-50%,-50%) scale(1)'},{opacity:0,transform:'translate(-50%,-50%) scale(.16)'}],160);
+      const destinations = action === 'onm_all_talismans' ? (step.hpSnapshot?.enemies || [after]) : [after];
+      for (const target of destinations) {
+        const targetId = target.instanceId || id;
+        const old = step.hpSnapshotBefore?.enemies?.find(e => e.instanceId === targetId) || before;
+        const count = Math.max(0, (target.talismans || []).length - (old.talismans || []).length);
+        for (let i=0;i<count;i++) {
+          const paper=phase5Image(s,PHASE5_ART.talisman,step.sourceId,'paper');papers.push(paper);
+          paper.dataset.element=target.talismans[(old.talismans || []).length+i]||'';
+          await phase5Fly(s,paper,step.sourceId,targetId,s.reduced?60:180,18*(i%2?1:-1));
+          s.animate(paper,[{opacity:1,transform:'translate(-50%,-50%) scale(1)'},{opacity:0,transform:'translate(-50%,-50%) scale(.16)'}],160);
+        }
       }
     } else if(action==='onm_detonate'&&beforeCount>0) {
       for(let i=0;i<beforeCount;i++) {

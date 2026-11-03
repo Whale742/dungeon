@@ -1,3 +1,4 @@
+import { activeTalismans, clearTalismans } from './onmyoji.js';
 import { CLASSES, GAME_BALANCE } from './constants.js';
 import { isAssassinHidden } from './assassin.js';
 import { resolveStats, mitigateDirectDamage } from './stats.js';
@@ -408,11 +409,11 @@ export function runEnemyAction(room,enemy,queue) {
   if(!id)return false;
   if(!enemyCanParticipate(room,enemy)||enemy.hp<=0||s.actedRound===room.battleRound)return true;
   s.actedRound=room.battleRound;
-  const blocked=enemy.stunnedThisRound||enemy.stunnedNextTurn||enemy.sealedThisRound||(enemy.talismans||[]).includes('seal');
+  const blocked=enemy.stunnedThisRound||enemy.stunnedNextTurn||enemy.sealedThisRound||activeTalismans(enemy).includes('seal');
   if(blocked){record(room,enemy,enemy,'行動受阻','status',()=>false);enemy.stunnedThisRound=false;enemy.stunnedNextTurn=false;drainEnemyEvents(room,queue);return true;}
-  const blind=(enemy.talismans||[]).filter(t=>t==='blind').length;
+  const blind=activeTalismans(enemy).filter(t=>t==='blind').length;
   if(blind && (typeof enemy.talismanBlindMiss==='boolean'?enemy.talismanBlindMiss:Math.random()<(enemy.talismanBlindAvoidRate??(B.talismanBlindMin+Math.random()*B.talismanBlindRange)))){record(room,enemy,enemy,'障目符・攻擊失敗','status',()=>false);drainEnemyEvents(room,queue);return true;}
-  const confuse=(enemy.talismans||[]).filter(t=>t==='confuse').length;
+  const confuse=Math.min(1,activeTalismans(enemy).filter(t=>t==='confuse').length);
   if(confuse){record(room,enemy,enemy,'惑心反噬','damage',()=>{enemy.hp=Math.max(0,enemy.hp-Math.floor(enemy.attack*(enemy.talismanConfuseRatio??(B.talismanConfuseMin+Math.random()*B.talismanConfuseRange))*confuse));});if(enemy.hp<=0){drainEnemyEvents(room,queue);return true;}}
   const ult=isEnemyUltimate(room,enemy);
   const label=ult?enemy.ultName:enemy.basicName || '普通攻擊';
@@ -438,7 +439,7 @@ export function runEnemyAction(room,enemy,queue) {
     if(ult&&script.specialCleanseSelf)record(room,enemy,enemy,'禁忌淨化','cleanse',()=>{
       for(const key of ['poison','burn','fracture','chill']){enemy[key+'Turns']=0;enemy[key+'Dmg']=0;}
       if(enemy.corrosionMaxHpDeducted){enemy.maxHp+=enemy.corrosionMaxHpDeducted;enemy.corrosionMaxHpDeducted=0;}
-      enemy.corrosionTurns=0;enemy.talismans=[];enemy.p8Effects={};
+      enemy.corrosionTurns=0;clearTalismans(enemy);enemy.p8Effects={};
     });
     if(ult&&script.specialSelfHealMaxHpRatio)heal(room,enemy,enemy,enemy.maxHp*script.specialSelfHealMaxHpRatio,label);
     if(ult&&script.specialWolfDamage) {record(room,enemy,enemy,'深淵變形・預告','status',()=>{s.transformRound=room.battleRound+1;});raw=0;}
