@@ -761,6 +761,7 @@ body:has(#viewEntry.active) .main-content {
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   border-top: 1px solid var(--border-subtle, #344B59);
   padding-top: 10px;
   margin-top: 2px;
@@ -797,6 +798,15 @@ body:has(#viewEntry.active) .main-content {
   box-shadow: inset 0 0 0 1px #3E88D6 !important;
 }
 
+#viewLobby .role-copy-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
 #viewLobby .role-copy-toggle {
   display: flex;
   align-items: center;
@@ -822,7 +832,6 @@ body:has(#viewEntry.active) .main-content {
   border: 1px solid #4F6674;
   border-radius: 8px;
   position: relative;
-  transition: all 0.15s ease;
 }
 
 #viewLobby .role-switch-track::before {
@@ -1566,3 +1575,8 @@ body:has(#viewEntry.active) .main-content {
 .spectator-mode .shop-dual-column { display:block; }
 #spectatorJoinPanel { position:fixed; z-index:12000; right:16px; top:80px; max-width:360px; max-height:65vh; overflow:auto; padding:16px; background:#211d19; color:#f4e4c6; border:1px solid #9d8358; box-shadow:0 6px 24px #0009; }
 #spectatorJoinPanel button, #spectatorJoinPanel select { margin:4px; }
+
+#viewLobby .role-form-toggle:not([hidden]) { display: flex; align-items: center; gap: 6px; color: #dfd0b6; font-size: 12px; font-weight: 700; white-space: nowrap; }
+#viewLobby .role-form-toggle select { min-width: 150px; max-width: 200px; font: inherit; color: #fff6df !important; }
+#viewLobby .role-form-toggle select option { color: #f3e5ca; background: #30271f; }
+#viewLobby .role-form-toggle select:focus-visible { outline: 2px solid #f0c36d; outline-offset: 2px; }

@@ -23,7 +23,8 @@ function getLobbyProfile(role){const base=LOBBY_ROLE_PROFILES[role],p=window.Stu
 function renderLobbyRoleTags(role,className='') {
   return (getLobbyProfile(role)?.tags||[]).map((tag,index)=>`<span class="${className}${index===0?' is-primary':''}">${escapeHtml(tag)}</span>`).join('');
 }
-const lobbyRoleUi={role:null,confirmedRole:null,tab:'passive',detailed:true,data:null,radarValues:null,radarFrame:0};
+const lobbyRoleUi={role:null,confirmedRole:null,tab:'passive',detailed:true,data:null,radarValues:null,radarFrame:0,forms:{}};
+const LOBBY_FORMS={gladiator:[['outside','角鬥場外'],['arena','死亡角鬥場']],sage:[['hypothesis','假設階段'],['solve','求解階段']],druid:[['human','人形態'],['werewolf','狼人形態'],['treant','樹精形態'],['bear','巨熊形態']]};
 
 function radarPoint(index, value, radius=76) {
   const angle=-Math.PI/2+index*Math.PI*2/5;
@@ -55,7 +56,18 @@ function renderRadarChart(role) {
 function updateRoleDescriptionPanel() {
   const {classes,details}=lobbyRoleUi.data||{},role=lobbyRoleUi.role;
   if(!classes?.[role])return;
-  const detail=details?.[role],conf=classes[role],isPassive=lobbyRoleUi.tab==='passive',isLeader=lobbyRoleUi.tab==='leader',skill=isLeader?conf.leaderSkill:isPassive?null:conf.skills[Number(lobbyRoleUi.tab)];
+  const detail=details?.[role],conf=classes[role],isPassive=lobbyRoleUi.tab==='passive',isLeader=lobbyRoleUi.tab==='leader';
+  const formKey=role==='druid'&&lobbyRoleUi.tab==='2'?'druid_summon':role;
+  const options=formKey==='druid_summon'?[['treant','召喚小樹精'],['wolf','召喚幼狼']]:LOBBY_FORMS[role];
+  const form=lobbyRoleUi.forms[formKey]||options?.[0][0];
+  let skill=isLeader?conf.leaderSkill:isPassive?null:conf.skills[Number(lobbyRoleUi.tab)];
+  if(skill&&!isLeader){
+    if(role==='druid'&&lobbyRoleUi.tab==='2'&&form==='wolf')skill=conf.skills.find(s=>s.id==='dru_summon_wolf')||skill;
+    let key=role==='sage'?skill.id+'__'+form:role==='gladiator'&&skill.id!=='basic'?skill.id+'__'+form:role==='druid'&&skill.id==='basic'&&form!=='human'?'basic__'+form:null;
+    if(key)skill={...skill,copyKey:key,contextualCopy:true};
+  }
+  const formWrap=document.getElementById('lobbyRoleFormWrap'),formSelect=document.getElementById('lobbyRoleForm');
+  if(formWrap&&formSelect){formWrap.hidden=!options;if(options){formSelect.replaceChildren(...options.map(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;return option;}));formSelect.value=form;}}
   const detailed=document.getElementById('lobbyRoleDetailed').checked;
   document.querySelectorAll('[data-role-tab]').forEach(button=>{const active=button.dataset.roleTab===lobbyRoleUi.tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;button.classList.toggle('parchment-btn-crimson',active);});
   document.getElementById('lobbySkillName').textContent=isPassive?'被動與特性':getSkillDisplayName(role,skill||{})||'普通攻擊';
@@ -113,6 +125,8 @@ function renderRoleLobby(data) {
   lobbyRoleUi.data=data;
   const me=data.players.find(p=>p.id===data.myId);
   if(!data.classes[lobbyRoleUi.role]||me?.role!==lobbyRoleUi.confirmedRole){lobbyRoleUi.role=me?.role||lobbyRoleUi.role||'warrior';lobbyRoleUi.confirmedRole=me?.role;}
+  const formSelect=document.getElementById('lobbyRoleForm');
+  if(formSelect&&!formSelect.dataset.bound){formSelect.dataset.bound='true';formSelect.addEventListener('change',()=>{lobbyRoleUi.forms[lobbyRoleUi.role==='druid'&&lobbyRoleUi.tab==='2'?'druid_summon':lobbyRoleUi.role]=formSelect.value;updateRoleDescriptionPanel();});}
   const toggle=document.getElementById('lobbyRoleDetailed');
   toggle.checked=lobbyRoleUi.detailed;
   if(!toggle.dataset.bound){

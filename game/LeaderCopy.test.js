@@ -105,6 +105,23 @@ test('class archive and room panel read published leader text in both copy modes
     }
   }
 });
+test('lobby form selection uses published contextual skill copy', () => {
+  const nodes=Object.fromEntries(['lobbyRoleDetailed','lobbySkillName','lobbySkillMeta','lobbySkillCopy','lobbyRoleDescription','lobbyRoleFormWrap','lobbyRoleForm'].map(id=>[id,{checked:true,classList:{toggle(){}},replaceChildren(...children){this.children=children;}}]));
+  const context=vm.createContext({localStorage:{getItem(){return null;}},window:{StudioContent:{skill(role,skill){const key=skill.copyKey||skill.id;return {display_name:key,short_copy:'short '+key,full_copy:'full '+key};},template(text){return text;}}},document:{getElementById(id){return nodes[id];},querySelectorAll(){return [];},createElement(){return {};}}});
+  vm.runInContext(fs.readFileSync(new URL('../public/js/shared/skill-copy.js',import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../public/js/lobby/lobby.js',import.meta.url),'utf8'),context);
+  context.classes=CLASSES;
+  vm.runInContext('registerSkillCopies(classes); lobbyRoleUi.data={classes,details:{}};',context);
+  for(const [role,tab,form,key] of [['gladiator','1','arena','g_sacrifice__arena'],['sage','0','solve','basic__solve'],['druid','0','werewolf','basic__werewolf'],['druid','2','wolf','dru_summon_wolf']]){
+    Object.assign(context,{role,tab,form});
+    vm.runInContext('lobbyRoleUi.role=role;lobbyRoleUi.tab=tab;lobbyRoleUi.forms[role==="druid"&&tab==="2"?"druid_summon":role]=form;updateRoleDescriptionPanel();',context);
+    assert.equal(nodes.lobbySkillName.textContent,key);
+    assert.equal(nodes.lobbySkillCopy.textContent,'full '+key);
+    nodes.lobbyRoleDetailed.checked=false;vm.runInContext('updateRoleDescriptionPanel()',context);
+    assert.equal(nodes.lobbySkillCopy.textContent,'short '+key);nodes.lobbyRoleDetailed.checked=true;
+  }
+});
+
 test('Studio accepts leader drafts and publishes through existing Supabase RPC', async t => {
   const saved = [], calls = [];
   const cloud = {upsert:async(table,row)=>{saved.push({table,row});return [row];},rows:async()=>saved.map(value=>value.row),request:async(route,options)=>{calls.push({route,body:options.body});return 1;}};
