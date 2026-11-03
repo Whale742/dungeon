@@ -49,6 +49,7 @@ function applyHpSnapshot(snapshot){
   roomState.currentMonster=roomState.enemies.find(e=>e.instanceId===displayConfig.primaryId)||roomState.enemies[0];
   roomState.monster=roomState.currentMonster;
   renderBattle();
+  BattleHud.syncQueueResources(snapshot.players||[]);
   SageResourceHud.snapshot(snapshot);
   if(minionsChanged)renderTeammatesGrid(getMyPlayer());
   syncEnemyArenaVisual(roomState.arena);

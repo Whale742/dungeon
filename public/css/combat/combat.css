@@ -1007,3 +1007,17 @@ body:has(#viewBattle.active) .main-content{padding:0;border:0;box-shadow:none;ba
 /* Finish a confirmed return even if choreography has already changed phase. */
 #viewBattle:not([data-hud-phase=SELECTING]) .battle-hud-player.has-sage-resources:has([data-sage-returning]){opacity:1;visibility:visible;transform:none;right:auto;width:120px;pointer-events:none}
 #viewBattle:not([data-hud-phase=SELECTING]) .has-sage-resources:has([data-sage-returning]) .hud-player-copy{display:none}
+
+/* Portraits own their art; surrounding HUD containers must not clip attached resources. */
+#viewBattle :is(.teammate-top,.teammate-name-group,.teammate-avatar-wrap,.queue-avatar-item),
+#viewBattle .battle-hud-queue{overflow:visible}
+.presentation-result-card .presentation-result-portrait:is(.samurai-soul-host,.sage-resource-host){overflow:visible}
+#viewBattle .queue-avatar-item:is(.samurai-soul-host,.sage-resource-host){position:absolute;container-type:normal}
+#viewBattle .queue-avatar-item .sage-resource-hud{container-type:inline-size}
+#viewBattle .queue-avatar-item .sage-values{font-size:clamp(10px,12cqw,15px)}
+#viewBattle .queue-avatar-item .sage-phase-face strong{font-size:clamp(10px,11cqw,14px)}
+
+@media(max-width:650px){
+  /* Retain the companion row's horizontal scrolling, with room for portrait overlays. */
+  #viewBattle #battleTeammatesGrid:has(.teammate-card-minion){padding:24px;scroll-padding-inline:24px}
+}

@@ -53,6 +53,16 @@ const BattleHud = (() => {
     }
     positionQueue();
   }
+  function syncActorResources(player,host){
+    if(typeof SamuraiSoulHud!=='undefined')SamuraiSoulHud.sync(player,host);
+    if(typeof SageResourceHud!=='undefined')SageResourceHud.sync(player,host);
+  }
+  function syncQueueResources(players){
+    for(const [step,node] of entries){
+      if(step.results?.some(r=>r.minion))continue;
+      const player=players.find(p=>p.id===step.sourceId);if(player)syncActorResources(player,node);
+    }
+  }
   function addEntry(step,first=false) {
     const player = step.hpSnapshotBefore?.players?.find(p => p.id === step.sourceId) ||
       roomState.players.find(p => p.id === step.sourceId) || {role: step.sourceRole};
@@ -74,6 +84,7 @@ const BattleHud = (() => {
     node.setAttribute('aria-label', `${step.sourceName || player.name || ''} · ${step.skillName || ''}`);
     byId('hudActionQueue').appendChild(node);
     if(first)entries=new Map([[step,node],...entries]);else entries.set(step,node);
+    if(!minion&&!companions.length)syncActorResources(roomState.players.find(p=>p.id===step.sourceId)||player,node);
   }
   function start(step) {
     if(allyStep(step)&&isReaction(step)&&!entries.has(step)){
@@ -158,8 +169,7 @@ const BattleHud = (() => {
     const hud = byId('hudPlayerInfo');
     const portrait=byId('hudPlayerAvatar'),markup=getPlayerAvatarHtml(player,'hud-player-avatar');
     if(portrait._avatarMarkup!==markup){portrait.innerHTML=markup;portrait._avatarMarkup=markup;}
-    if(typeof SamuraiSoulHud!=='undefined')SamuraiSoulHud.sync(player,portrait);
-    if(typeof SageResourceHud!=='undefined')SageResourceHud.sync(player,portrait);
+    syncActorResources(player,portrait);
     hud.classList.toggle('has-sage-resources',player.role==='sage');
     byId('hudPlayerName').textContent = player.name;
     byId('hudPlayerRole').textContent = getClassDisplayName(player.role);
@@ -273,12 +283,12 @@ const BattleHud = (() => {
   }
   function updateActorPortrait(step, player) {
     const entry=entries.get(step);
-    if(entry&&player)entry.innerHTML=getPlayerAvatarHtml(player,'queue-avatar');
+    if(entry&&player){entry.innerHTML=getPlayerAvatarHtml(player,'queue-avatar');syncActorResources(player,entry);}
   }
   function revealDruidResult(step) {
     for(const pending of deferredSteps)if(pending.sourceId===step.sourceId){addEntry(pending);deferredSteps.delete(pending);}
     entries=new Map([...entries].sort(([a],[b])=>queuedSteps.indexOf(a)-queuedSteps.indexOf(b)));
     positionQueue();
   }
-  return {setPhase,reset,begin,start,finish,startCompanion,finishCompanion,phaseFor,announce,updatePlayer,renderEquation,bindSkill,actorPortrait,updateActorPortrait,revealDruidResult,get phase(){return phase;}};
+  return {setPhase,reset,begin,start,finish,syncQueueResources,startCompanion,finishCompanion,phaseFor,announce,updatePlayer,renderEquation,bindSkill,actorPortrait,updateActorPortrait,revealDruidResult,get phase(){return phase;}};
 })();

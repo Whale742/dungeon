@@ -4629,7 +4629,7 @@ function applyHpSnapshot(snapshot) {
   if (!snapshot) return;
   if (expandedDisplay) expandedDisplay.snapshot = mergePresentationSnapshot(expandedDisplay.snapshot, snapshot);
   updateBattleHudFromSnapshot(snapshot);
-  if (typeof BattleHud !== 'undefined') BattleHud.updatePlayer(getMyPlayer());
+  if (typeof BattleHud !== 'undefined'){BattleHud.updatePlayer(getMyPlayer());BattleHud.syncQueueResources(snapshot.players||[]);}
   if(typeof SageResourceHud!=='undefined')SageResourceHud.snapshot(snapshot);
   if(Object.hasOwn(snapshot,'arena')){
     if(roomState){roomState.arena=snapshot.arena?.enemyForced?null:snapshot.arena;roomState.enemyArena=snapshot.arena?.enemyForced?snapshot.arena:null;}
