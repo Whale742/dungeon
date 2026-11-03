@@ -1103,7 +1103,7 @@ select.ui-select:hover {
   border-image-source: var(--gui-panel-9slice) !important;
   border-image-slice: 156 156 156 156 fill !important;
   border-image-width: 18px !important;
-  padding: 4px !important;
+  padding: 0px !important;
 }
 #viewLobby .role-hero-portrait::before {
   display: none !important;
