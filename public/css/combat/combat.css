@@ -959,3 +959,51 @@ body:has(#viewBattle.active) .main-content{padding:0;border:0;box-shadow:none;ba
 @media(min-width:651px) and (max-width:1550px){#viewBattle #battleEnemiesStage{bottom:calc(39vh + 100px)}}
 @media(max-height:540px) and (min-width:651px){#viewBattle #playerActionCard{max-height:48vh}.battle-hud-player{bottom:12px}.sage-equation-terminal{bottom:150px}#viewBattle #battleEnemiesStage{--enemy-cap:calc(51vh - 20px);bottom:calc(48vh + 70px);top:18%}}
 @media(prefers-reduced-motion:reduce){#viewBattle *,#viewBattle *::before,#viewBattle *::after{animation-duration:1ms;transition-duration:1ms;transition-delay:0ms}}
+
+/* Sage resources sit below their portrait, above the party HP bar. */
+#viewBattle .sage-resource-host{position:relative;overflow:visible;container-type:inline-size}
+.sage-resource-hud{position:absolute;inset:0;pointer-events:none;z-index:7;color:#f1dfb2;font-style:normal;text-shadow:0 1px 3px #000}
+/* Engraved brass instrument plates; only the confirmed phase controls the face. */
+.sage-values{position:absolute;left:-7%;bottom:-8%;transform:none;display:grid;gap:3px;width:52%;padding:6px 5px 5px 7px;background:linear-gradient(115deg,#8d76432e,transparent 48%),repeating-linear-gradient(0deg,transparent 0 5px,#d1b97906 6px 7px),#0a1018f5;border:1px solid #b6a06b;border-radius:3px 1px 3px 1px;box-shadow:inset 0 0 0 2px #0a1018,inset 0 0 0 3px #bca56c36,0 3px 9px #0009;box-sizing:border-box;font:600 clamp(11px,12cqw,16px)/1.1 ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;text-align:left}
+.sage-values::before{content:"";position:absolute;left:-3px;top:5px;bottom:5px;width:2px;background:linear-gradient(transparent,#edda9a,transparent);box-shadow:0 0 5px #d9ba7466}
+.sage-values::after{content:"";position:absolute;right:4px;top:4px;width:3px;height:3px;border-top:1px solid #e9d89a;border-right:1px solid #e9d89a}
+.sage-values>span{position:relative;display:flex;gap:5px;align-items:baseline;transform-origin:left center}.sage-values b{font-size:.75em;font-weight:400;color:#ccb77e}.sage-values i{font-style:normal;color:#fff1c6;overflow-wrap:anywhere;text-shadow:0 0 8px #f3d38840}.sage-values>span+span{font-size:.84em;padding-top:3px;border-top:1px solid #c3a56b38}.sage-values>span+span i{color:#cbd6d8}
+.sage-phase-card{position:absolute;right:-7%;bottom:-8%;width:40%;height:43%;min-height:29px;transform:rotateY(0deg);transform-style:preserve-3d}
+.sage-resource-hud[data-phase=solve] .sage-phase-card{transform:rotateY(180deg)}
+.sage-phase-face{position:absolute;inset:0;isolation:isolate;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid #c4a86d;border-radius:3px 1px 3px 1px;background:linear-gradient(145deg,#94805255,transparent 45%,#0005),repeating-linear-gradient(45deg,transparent 0 7px,#c2a9670c 8px 9px),#27291fed;color:#e3cc91;box-shadow:inset 0 0 0 2px #191d1b,inset 0 0 0 3px #c3a56955,0 3px 8px #0009;box-sizing:border-box}
+.sage-phase-face::before{content:"";position:absolute;inset:5px;border:1px solid #e4cc8f24;border-radius:50%;z-index:-1;background:linear-gradient(90deg,transparent 48%,#e4cc8f1c 50%,transparent 52%),linear-gradient(transparent 48%,#e4cc8f1c 50%,transparent 52%);transform:rotate(-25deg)}
+.sage-phase-face::after{content:"";position:absolute;left:calc(50% - 2px);top:-3px;width:4px;height:4px;border:1px solid #c7aa70;background:#292b23;transform:rotate(45deg)}
+.sage-phase-face em{font:normal 8px/1 ui-monospace,Consolas,monospace;letter-spacing:1px;color:#c8b47b}
+.sage-phase-face strong{font:600 clamp(11px,11cqw,14px)/1.25 var(--font-body,sans-serif);white-space:nowrap;letter-spacing:.06em;text-shadow:0 1px 3px #000,0 0 8px #efd29835}
+.sage-solve{transform:rotateY(180deg);border-color:#f1dfa7;color:#fff5d2;background:linear-gradient(145deg,#dbc79644,transparent 45%,#0004),repeating-linear-gradient(90deg,transparent 0 7px,#ffeec30d 8px 9px),#454737f2;box-shadow:inset 0 0 0 2px #252b25,inset 0 0 0 3px #e7d29b77,0 0 9px #edda9f26,0 3px 8px #0009}.sage-solve em{color:#f6e6b9}
+.sage-phase-spark{position:absolute;right:8%;bottom:30%;color:#ffe5a6;font:12px monospace}
+.sage-resource-hud.is-dead{opacity:.55}
+.sage-resource-flight{position:fixed;pointer-events:none;z-index:31000;border:1px solid #bfa16699;border-radius:3px;padding:3px 7px;background:#111a22e8;color:#ffe5a6;text-shadow:0 0 7px #cdae6f;font:600 14px/1.2 ui-monospace,Consolas,monospace;white-space:nowrap}
+#viewBattle[data-hud-phase=ALLY_ACTIONS] .battle-hud-player.has-sage-resources{opacity:1;visibility:visible;transform:none;right:auto;width:120px;pointer-events:none}
+#viewBattle[data-hud-phase=ALLY_ACTIONS] .has-sage-resources .hud-player-copy{display:none}
+#viewBattle:has(.has-sage-resources)[data-hud-phase=ALLY_ACTIONS] .battle-hud-queue{bottom:165px}
+#viewBattle .skill-btn.has-sage-preview{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px}
+.sage-skill-preview{grid-column:1/-1;display:grid;gap:2px;min-width:0;font:10px/1.4 var(--font-body,sans-serif);color:#c6c1b4;white-space:normal;overflow-wrap:anywhere}
+.sage-skill-preview strong{font:600 13px/1.3 ui-monospace,Consolas,monospace;color:#f0db9c}.sage-skill-preview small{font-size:10px;color:#e2b18c}
+#viewBattle .has-sage-preview[aria-disabled=true] .sage-skill-preview{opacity:.65}
+#viewBattle .sage-equation-terminal:not(:has(details[open])){width:auto;max-width:40vw}
+#viewBattle .sage-equation-terminal summary>strong{display:none}#viewBattle .sage-equation-terminal summary>span{display:none}
+@media(max-width:650px){#viewBattle .sage-equation-terminal:not(:has(details[open])){max-width:calc(50vw - 24px);bottom:154px}.sage-skill-preview{font-size:10px}#viewBattle .skill-btn.has-sage-preview{padding:6px 8px;gap:2px 5px}}
+@media(prefers-reduced-motion:reduce){.sage-resource-hud *{animation:none!important;transition:none!important}}
+
+/* Keep all three solve paths together inside the existing command panel. */
+#viewBattle #playerActionCard:has(.has-sage-preview){max-height:min(65dvh,560px)}
+@media(max-width:650px){
+  #viewBattle #playerActionCard:has(.has-sage-preview){width:calc(100vw - 24px);max-height:39dvh}
+  #viewBattle .skill-btn.has-sage-preview{padding:4px 8px}
+  #viewBattle .has-sage-preview :is(.skill-name,.skill-bottom){line-height:1.2}
+  #viewBattle .sage-skill-preview{gap:1px;line-height:1.2}
+  #viewBattle .sage-skill-preview strong{font-size:12px;line-height:1.1}
+  #viewBattle:has(.has-sage-preview) #battleEnemiesStage{bottom:calc(238px + 36vh)}
+  #viewBattle:has(.has-sage-preview) #battleLogCard{top:72px}
+  #viewBattle:has(.has-sage-preview) #partyOverviewToggle{left:132px;top:76px}
+}
+
+/* Finish a confirmed return even if choreography has already changed phase. */
+#viewBattle:not([data-hud-phase=SELECTING]) .battle-hud-player.has-sage-resources:has([data-sage-returning]){opacity:1;visibility:visible;transform:none;right:auto;width:120px;pointer-events:none}
+#viewBattle:not([data-hud-phase=SELECTING]) .has-sage-resources:has([data-sage-returning]) .hud-player-copy{display:none}

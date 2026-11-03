@@ -260,24 +260,24 @@ const DEFAULT_ROLE_DETAILS = {
   "skills": [
     {
       "type": "普攻",
-      "name": "普通攻擊",
+      "name": "基礎演算",
       "cd": "CD 0",
       "dmgType": "【物理】",
-      "desc": "對敵方造成 10 點基礎物理傷害。\n\n【假設階段】\n將本次攻擊實際造成的傷害作為新的運算元，取代原本數值。\n\n【求解階段】\n使運算元 +2。\n求解結束後固定獲得 10 點變量，並有 60% 機率【推演成功】，額外獲得 round(5 + 運算元 × 30%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 10 X。"
+      "desc": "對敵方造成 10 點基礎物理傷害。\n\n【假設階段】\n將本次攻擊實際造成的直接傷害之 50%（無條件捨去）加入當前運算元：N_new = N_old + floor(actualDamage × 0.5)。不含方程結算、DoT 或附加傷害。\n\n【求解階段】\n使運算元 +2。\n求解結束後固定獲得 10 點變量，並有 60% 機率【推演成功】，額外獲得 round(5 + 運算元 × 30%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 10 X。"
     },
     {
       "type": "1 技能",
-      "name": "向量定軌・貫穿演算",
+      "name": "原子坍縮",
       "cd": "CD 1",
       "dmgType": "【物理】",
       "desc": "對敵方造成 10 點物理傷害，附帶 50% 物理穿透。（CD1）\n\n【假設階段】\n將本次攻擊實際造成的傷害加入當前運算元。\n\n【求解階段】\n使運算元 +5。\n求解結束後固定獲得 14 點變量，並有 50% 機率【推演成功】，額外獲得 round(7 + 運算元 × 30%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 14 X。"
     },
     {
       "type": "2 技能",
-      "name": "動量回授・慣性取樣",
+      "name": "慣性取樣",
       "cd": "CD 1",
       "dmgType": "【物理】",
-      "desc": "對敵方造成 10 點物理傷害。（CD1）\n\n【假設階段】\n施放時記錄當前運算元；直到本回合結束前，將 Boss 對智者主動造成的直接傷害加入運算元，包括生命損失與既有護盾實際吸收的部分。\n不記錄 DoT、流血、毒傷、友軍誤傷、自傷或完全免疫／閃避而未承受的傷害；不額外提供護盾。\n\n【求解階段】\n提前透支變量：下一次可行動的戰鬥回合開始時消耗 20 X，不影響本次方程倍率；透支跨戰鬥、樓層與休息站保留，死亡復活也不清除，X 不足時扣至 0，支付後不重複扣除。\n先判斷目前運算元奇偶：奇數 +20，偶數 +21，最終必為奇數。\n求解結束後固定獲得 4 點變量，並有 40% 機率【推演成功】，額外獲得 round(2 + 運算元 × 15%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 4 X。"
+      "desc": "對敵方造成 10 點物理傷害。（CD1）\n\n【假設階段】\n施放時記錄當前運算元；直到本回合結束前，將 Boss 對智者主動造成的直接傷害加入運算元，包括生命損失與既有護盾實際吸收的部分。\n不記錄 DoT、流血、毒傷、友軍誤傷、自傷或完全免疫／閃避而未承受的傷害；不額外提供護盾。\n\n【求解階段】\n提前透支變量：下一次可行動的戰鬥回合開始時消耗 20 X，不影響本次方程倍率；透支跨戰鬥、樓層與休息站保留，死亡復活也不清除，X 不足時扣至 0，支付後不重複扣除。\n先判斷目前運算元奇偶：奇數 +8，偶數 +9，最終必為奇數。\n求解結束後固定獲得 4 點變量，並有 40% 機率【推演成功】，額外獲得 round(2 + 運算元 × 15%) 點變量。\n無事發生或思緒紊亂時，僅獲得固定 4 X。"
     }
   ],
   "equipment": [
@@ -866,6 +866,7 @@ socket.on('disconnect', () => {
   battlePhaseController?.abort();
   combatQueueController?.abort();
   BattleHud.reset('ROUND_TICK');
+  if(typeof SageResourceHud!=='undefined')SageResourceHud.clear({dispose:true});
   releaseBattleEncounterScene();
   document.body.classList.remove('battle-intro-active');
   window.RecruitCopy?.setPlayerId(null);
@@ -983,6 +984,7 @@ function receiveRoomState(state) {
   }
   if(state.state!=='IN_BATTLE'&&typeof clearGladiatorPresentationState==='function')clearGladiatorPresentationState();
   if(state.state!=='IN_BATTLE'&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
+  if(state.state!=='IN_BATTLE')SageResourceHud.clear({dispose:true});
   if (battlePhaseController && (state.state !== 'IN_BATTLE' || battlePhaseController.battleKey !== battleSceneKey(state))) {
     battlePhaseController.abort();
     releaseBattleEncounterScene();
@@ -1108,7 +1110,7 @@ let audioView = null;
 
 function switchView(viewName) {
   if(viewName!=='battle'&&typeof clearSageSamplingIndicators==='function')clearSageSamplingIndicators();
-  if(viewName!=='battle')releaseBattleEncounterScene();
+  if(viewName!=='battle'){SageResourceHud.clear({dispose:true});releaseBattleEncounterScene();}
   if(viewName==='battle'&&battleEncounterScene){gateDestinationView('battle');return;}
   document.body.classList.toggle("is-exploring", ["route", "transition", "event", "battle"].includes(viewName));
   if (audioView !== viewName) {
@@ -2655,9 +2657,10 @@ function renderMyActionBar(me) {
   const activeSkills = ((me.availableSkills && me.availableSkills.length > 0) ? me.availableSkills : roleConfig.skills).map(skill=>window.StudioGame?.skillDisplay(me.role,skill,me)||skill);
 
   activeSkills.forEach(skill => {
+    const equation=me.role==='sage'&&me.sagePhase==='solve'?me.sageEquationPreview?.options?.find(o=>o.id===skill.id):null;
     let cd = me.cooldowns[skill.id] || 0;
-    let isCoolingDown = skill.phaseBlocked || skill.hpBlocked || cd > 0 || (skill.id==='sa_tsubame' && (me.soul||0)<4);
-    let cdBadgeText = skill.hpBlocked?'生命須大於1':skill.phaseBlocked?'求解：前輪技能不可重複':`CD: ${cd}`;
+    let isCoolingDown = equation?.blocked || equation?.cooldown>0 || skill.phaseBlocked || skill.hpBlocked || cd > 0 || (skill.id==='sa_tsubame' && (me.soul||0)<4);
+    let cdBadgeText = skill.hpBlocked?'生命須大於1':(skill.phaseBlocked||equation?.blocked)?'前輪已使用':`CD: ${cd}`;
     if(skill.id==='sa_tsubame'&&(me.soul||0)<4)cdBadgeText='需要 4 武魂';
 
     if (skill.id === 'dru_transform' && me.druidFormTurns > 0) {
@@ -2698,12 +2701,15 @@ function renderMyActionBar(me) {
       btn.style.cursor = 'not-allowed';
     }
 
+    const equationCopy=equation?`<span class="sage-skill-preview"><strong>N → ${equation.operand}</strong><span>${equation.properties.map(p=>({EVEN:'偶數 · 團隊護盾',ODD:'奇數 · 無視物抗',PRIME:'質數 · 真傷 · 刷新',SQUARE:'平方數 · 敵方減傷'})[p]).join(' · ')}</span>${equation.debtScheduled?`<small>下次可行動回合開始：透支 ${equation.debtScheduled} X</small>`:''}</span>`:'';
+    btn.classList.toggle('has-sage-preview',!!equation);
     btn.innerHTML = `
       <span class="skill-name">${escapeHtml(displayLabel)}</span>
       <div class="skill-bottom">
         <span class="skill-kind">${escapeHtml(tags[0] || 'ACTION')}</span>
         ${isCoolingDown ? `<span class="skill-cd">${cdBadgeText}</span>` : `<span class="skill-cd">READY</span>`}
       </div>
+      ${equationCopy}
       <div class="skill-popover hidden">
         <div class="skill-popover-title">
           <span>${escapeHtml(skill.label)}</span>
@@ -4624,6 +4630,7 @@ function applyHpSnapshot(snapshot) {
   if (expandedDisplay) expandedDisplay.snapshot = mergePresentationSnapshot(expandedDisplay.snapshot, snapshot);
   updateBattleHudFromSnapshot(snapshot);
   if (typeof BattleHud !== 'undefined') BattleHud.updatePlayer(getMyPlayer());
+  if(typeof SageResourceHud!=='undefined')SageResourceHud.snapshot(snapshot);
   if(Object.hasOwn(snapshot,'arena')){
     if(roomState){roomState.arena=snapshot.arena?.enemyForced?null:snapshot.arena;roomState.enemyArena=snapshot.arena?.enemyForced?snapshot.arena:null;}
     syncEnemyArenaVisual(snapshot.arena);
@@ -4805,6 +4812,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
       BattleHud.start(step);
       BattleHud.setPhase(BattleHud.phaseFor(step,roundStartPresentation));
       await BattleHud.announce(step,activeCombatContext);
+      SageResourceHud.start(step,activeCombatContext);
       try { await playPresentationStep(step, round); }
       catch(error) {
         if(error.name==='AbortError'||controller.signal.aborted)throw error;
@@ -4816,6 +4824,7 @@ async function runPresentationQueue(queue, round, monsterKilled, presentationId)
         await waitForPresentation(350,controller.signal);
         if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);
       }
+      SageResourceHud.finish();
       BattleHud.finish(step,activeCombatContext);
       if(['sa_counter','w_counter'].includes(step.actionId)&&previousHudPhase==='ENEMY_ACTIONS')BattleHud.setPhase(previousHudPhase);
     }

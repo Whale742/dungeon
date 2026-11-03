@@ -49,6 +49,7 @@ function applyHpSnapshot(snapshot){
   roomState.currentMonster=roomState.enemies.find(e=>e.instanceId===displayConfig.primaryId)||roomState.enemies[0];
   roomState.monster=roomState.currentMonster;
   renderBattle();
+  SageResourceHud.snapshot(snapshot);
   if(minionsChanged)renderTeammatesGrid(getMyPlayer());
   syncEnemyArenaVisual(roomState.arena);
 }
@@ -57,7 +58,7 @@ async function stop(){
   ++generation;runController?.abort();runController=null;
   sfxManager.stopAll();bgmManager.reset();
   await runTask.catch(()=>{});
-  clearGladiatorPresentationState();clearSageSamplingIndicators();
+  clearGladiatorPresentationState();clearSageSamplingIndicators();SageResourceHud.clear({dispose:true});
   hideEnemyTooltip();hideMinionDetailModal();
   for(const animation of document.getAnimations())animation.cancel();
   document.querySelectorAll('.battlefield-player-effects,.enemy-effect-overlay,.boss-encounter-stage,.round-start-overlay,#presentationCombatStage').forEach(n=>n.remove());
@@ -104,11 +105,13 @@ async function play(config,fixture,entry,options,runId){
         applyHpSnapshot(step.hpSnapshotBefore);
         BattleHud.start(step);BattleHud.setPhase(BattleHud.phaseFor(step));
         if(entry.role)await BattleHud.announce(step,context);
+        SageResourceHud.start(step,context);
         if(step.actionId==='a_trap')await playBattlefieldTick(step,context);
         else if(['boss_action','enemy_mechanic'].includes(step.type))await playEnemyMechanicPresentation(step,context);
         else await playBattlefieldPlayerPresentation(step,{...context,battlefield:true});
         if(context.signal.aborted)return;
         if(step.hpSnapshot)applyHpSnapshot(step.hpSnapshot);
+        SageResourceHud.finish();
         BattleHud.finish(step,context);report('progress',{runId,value:index+1,total:steps.length});
       }
     }

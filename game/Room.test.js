@@ -26,7 +26,7 @@ test('HUD distinguishes enemy STATUS_TICK attacks from the next-round passive qu
 test('HUD holds basic attacks and skill names equally before starting their effects',async()=>{
   for(const actionId of ['basic','sa_cut','sa_counter','m_blast']){
     const nodes=new Map(),trace=[];
-    const scope={AbortController,document:{addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,{classList:{add:()=>trace.push('show'),remove:()=>trace.push('hide')}});return nodes.get(id);}},
+    const scope={AbortController,window:{},document:{addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,{classList:{add:()=>trace.push('show'),remove:()=>trace.push('hide')}});return nodes.get(id);}},
       isBattlefieldPlayerStep:()=>true,roomState:{players:[]},getClassDisplayName:()=> '武士',
       waitForPresentation:async(ms,_signal,speed)=>{trace.push({ms,speed});}};
     vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/battle-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=BattleHud;',scope);
@@ -3836,4 +3836,57 @@ test('Onmyoji leader presentation flies cards to every assigned enemy with one s
   await scope.playBattlefieldOnmyoji(step,{});
   assert.equal(stages,1);assert.equal(flights.length,10);assert.ok(new Set(flights).size>1);
   assert.deepEqual(committed,step.results);
+});
+
+for(const [damage,hp,expected] of [[10,100,30],[11,100,30],[0,100,25],[40,3,26]])test(`Sage hypothesis basic accumulates half actual direct HP damage: ${damage}/${hp}`,t=>{
+  const {room,player}=phase1Battle(t,'sage',hp);
+  player.action='basic';player.sagePhase='hypothesis';player.sageOperand=25;
+  room.p8Action(player,()=>({dmg:damage}),1,[],[]);
+  assert.equal(player.sageOperand,expected);assert.equal(player.sageX,30);
+  assert.equal(room.p8Results.filter(r=>r.kind==='damage').length,1);
+});
+for(const n of [0,2,9,16,25,26])for(const id of ['basic','sge_deduce','sge_induce'])test(`Sage solve preview shares official operand and stacked properties: ${n}/${id}`,t=>{
+  const {room,player}=phase1Battle(t,'sage',1000);
+  player.action=id;player.sagePhase='solve';player.sageOperand=n;player.sagePreviousAction='basic';
+  const preview=sageEquationPreview(player,room).options.find(o=>o.id===id);
+  room.p8Action(player,()=>({dmg:10}),1,[],[]);
+  assert.equal(player.sageOperand,preview.operand);
+  assert.equal(preview.operand,n+(id==='basic'?2:id==='sge_deduce'?5:n%2===0?9:8));
+  assert.equal(preview.blocked,id==='basic');assert.equal(preview.debtScheduled,id==='sge_induce'?20:0);
+  if(preview.operand===2)assert.deepEqual(preview.properties,['EVEN','PRIME']);
+  if(preview.operand===9)assert.deepEqual(preview.properties,['ODD','SQUARE']);
+  if(preview.operand===16)assert.deepEqual(preview.properties,['EVEN','SQUARE']);
+});
+
+test('Sage resource HUD uses confirmed events once, separates two Sages, and cancels flights without changing resources',()=>{
+  const emitted=[],nodes=[];
+  const element=()=>{
+    const classes=new Set(),parts=new Map();
+    const n={id:'',dataset:{},style:{},children:[],isConnected:true,textContent:'',className:'',
+      classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),contains:c=>classes.has(c),toggle(c,on){if(on)classes.add(c);else classes.delete(c);}},
+      checkVisibility:()=>true,getBoundingClientRect:()=>({left:10,top:20,width:100,height:100}),setAttribute(){},getAnimations:()=>[],
+      appendChild(child){n.children.push(child);if(child.className==='sage-resource-flight')emitted.push(child);},contains:c=>n.children.includes(c),
+      querySelector(selector){if(!parts.has(selector))parts.set(selector,element());return parts.get(selector);},
+      remove(){n.isConnected=false;},animate(){return {finished:new Promise(()=>{}),cancel(){}}}};
+    nodes.push(n);return n;
+  };
+  const root=element(),hostA=element(),hostB=element();hostA.id='hudPlayerAvatar';
+  const scope={document:{hidden:false,createElement:element,getElementById:()=>root},matchMedia:()=>({matches:false}),
+    getActorAnchor:id=>({element:{getBoundingClientRect:()=>({left:id==='enemy'?200:40,top:60,width:100,height:100})}})};
+  vm.createContext(scope);vm.runInContext(readFileSync(new URL('../public/js/combat/sage-resource-hud.js',import.meta.url),'utf8')+'\nglobalThis.hud=SageResourceHud;',scope);
+  const hud=scope.hud,a={id:'A',role:'sage',hp:70,sageOperand:25,sageX:30,sagePhase:'hypothesis'},b={...a,id:'B',sageOperand:50};
+  hud.sync(a,hostA);hud.sync(b,hostB);assert.equal(emitted.length,0);
+  const controller=new AbortController();
+  hud.start({sourceId:'A',targetId:'enemy',sagePresentation:{operandBefore:25,operandAfter:30}},{signal:controller.signal});
+  hud.snapshot({players:[a,b]});assert.equal(emitted.length,0);
+  hud.snapshot({players:[{...a,sageOperand:30},b]});hud.snapshot({players:[{...a,sageOperand:30},b]});
+  assert.equal(emitted.length,1);assert.equal(emitted[0].textContent,'+5 N');assert.equal(emitted[0].dataset.playerId,'A');assert.equal(emitted[0].style.left,'250px');
+  hud.start({sourceId:'enemy',results:[{targetId:'B',sageMomentumCapture:{operandAfter:58,delta:8}}]},{signal:controller.signal});
+  hud.snapshot({players:[{...b,sageOperand:58}]});assert.equal(emitted[1].dataset.playerId,'B');assert.equal(emitted[1].style.left,'90px');
+  hud.start({sourceId:'A',targetId:'enemy',actionId:'sge_equation',outcome:{xAfter:26,decayAmount:18,baseXGain:14,bonusXGain:0,resolution:'CONFUSION'}},{signal:controller.signal});
+  hud.snapshot({players:[{...a,sageX:26}]});hud.snapshot({players:[{...a,sageX:26}]});
+  assert.deepEqual(emitted.slice(2).map(n=>n.textContent),['−18 X 衰減','∫ +14 X']);
+  controller.abort();assert.ok(emitted.every(n=>!n.isConnected));
+  hud.snapshot({players:[{...a,sageX:26}]});assert.equal(emitted.length,4);
+  hud.clear({dispose:true});assert.equal(a.sageOperand,25);assert.equal(a.sageX,30);assert.equal(b.sageOperand,50);
 });

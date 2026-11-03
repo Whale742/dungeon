@@ -15,6 +15,11 @@ for (const file of ['samurai-lab-scenes.js', 'gladiator-lab-scenes.js', 'augur-l
 const fixtures = vm.runInContext('({...PHASE6_LAB_SCENES,...PHASE5_ACCEPTANCE_SCENES,...SAMURAI_LAB_SCENES,...GLADIATOR_LAB_SCENES,...AUGUR_LAB_SCENES,...ONMYOJI_LAB_SCENES})', context);
 // Saved Lab IDs reuse the current Gladiator recordings, including nonlethal judgment.
 for(const [legacy,current] of Object.entries({p8_gladiator_sacrifice:'gladiator_sacrifice',p8_gladiator_challenge:'gladiator_challenge',p8_arena_g_sacrifice:'gladiator_assault',p8_arena_g_arena:'gladiator_suicide',basic_gladiator:'gladiator_basic',phase5_gladiator_basic:'gladiator_basic'}))fixtures[legacy]=fixtures[current];
+// Historical fixtures keep their outcomes; display names follow current production skills.
+for(const fixture of Object.values(fixtures))for(const step of fixture.steps||[])if(step.sourceRole==='sage'){
+  const name=CLASSES.sage.skills.find(s=>s.id===step.actionId)?.label;
+  if(name){step.skillName=name;fixture.label=fixture.label?.replace(/向量定軌・貫穿演算|向量定軌/g,'原子坍縮').replace(/動量回授・慣性取樣|動量回授/g,'慣性取樣').replace('普通攻擊','基礎演算');}
+}
 const enemies = [
   ...ENCOUNTERS.map((e, i) => ({ ...e, id: 'boss_' + i, tier: 'ELITE', isBoss: true })),
   ...GENERAL_MINIONS, ...EXCLUSIVE_MINIONS, ...ABYSS_MINIONS,

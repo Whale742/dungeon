@@ -24,6 +24,8 @@ export function splitEquationDamage(total, enemies) {
   const each=Math.floor(amount/enemies.length),remainder=amount%enemies.length;
   return enemies.map((enemy,index)=>({enemyId:enemy.instanceId,name:enemy.name,damage:each+(index<remainder?1:0)}));
 }
+export const sageSolveOperand = (operand, id) => operand + (id==='sge_induce' ? (operand%2===0?9:8) : id==='sge_deduce'?5:2);
+export const sageProperties = operand => [operand%2===0?'EVEN':'ODD',...(isPrime(operand)?['PRIME']:[]),...(Number.isInteger(Math.sqrt(operand))?['SQUARE']:[])];
 export function sageEquationPreview(p,room) {
   const x=Math.max(0,p.sageX??30),operand=p.sageOperand||0;
   const corrosion=room.roundModifiers?.equipmentEffectMultiplier??1;
@@ -32,9 +34,9 @@ export function sageEquationPreview(p,room) {
   const confusionChance=sageConfusionChance(x),lensBonus=(lens ? .10+(lens-1)*.05 : 0)*corrosion;
   const enemies=room.getAttackableEnemies(p);
   return {eta:eta(x),confusionChance,decayAmount:sageDecay(x),livingEnemyCount:enemies.length,options:Object.entries(sageGrowth).map(([id,growth])=>{
-    const op=operand+(id==='sge_induce'?(operand%2===0?9:8):id==='sge_deduce'?5:2);
+    const op=sageSolveOperand(operand,id);
     const baseEquationDamage=Math.round(Math.abs(op*eta(x)));
-    return {id,operand:op,properties:[op%2===0?'EVEN':'ODD',...(isPrime(op)?['PRIME']:[]),...(Number.isInteger(Math.sqrt(op))?['SQUARE']:[])],
+    return {id,operand:op,properties:sageProperties(op),
       baseEquationDamage,damageAfterEquipment:Math.round(baseEquationDamage*ruleMultiplier),damageAfterConfusion:Math.round(baseEquationDamage*ruleMultiplier*.8),
       livingEnemyCount:enemies.length,distribution:splitEquationDamage(Math.round(baseEquationDamage*ruleMultiplier),enemies),
       confusionDistribution:splitEquationDamage(Math.round(baseEquationDamage*ruleMultiplier*.8),enemies),primeDistribution:isPrime(op)?splitEquationDamage(15,enemies):[],
@@ -927,13 +929,13 @@ export const phase8Methods = {
       p.sageX ??=30;p.sageOperand ??=Math.floor(Math.random()*30)+1;p.sagePhase ||= 'hypothesis';
       const actual=damage(Math.floor(value('basic')*bardMultiplier),'phys',{penetration:p.action==='sge_deduce'?.5:0});
       if(p.sagePhase==='hypothesis') {
-        if(p.action==='basic')p.sageOperand=actual;
+        if(p.action==='basic')p.sageOperand+=Math.floor((this.p8Results?.at(-1)?.kind==='damage'?Math.max(0,actual):0)*.5);
         else if(p.action==='sge_deduce')p.sageOperand+=actual;
         else {
           p.sageInduction=true;p.sageSamplingEnded=false;
         }
       } else {
-        p.sageOperand+=p.action==='sge_induce'?(p.sageOperand%2===0?9:8):(p.action==='sge_deduce'?5:2);
+        p.sageOperand=sageSolveOperand(p.sageOperand,p.action);
         p.sageSolvedThisRound=true;
       }
       if(p.sagePhase==='hypothesis')p.sagePreviousAction=p.action;
@@ -1059,7 +1061,7 @@ export const phase8Methods = {
           const damageAfterEquipment=Math.round(baseEquationDamage*R);
           // Round the combined modifiers once, never the intermediate ruler value.
           const raw=Math.round(baseEquationDamage*R*(resolution==='CONFUSION'?.8:1));
-          const properties=[even?'EVEN':'ODD',...(prime?['PRIME']:[]),...(square?['SQUARE']:[])];
+          const properties=sageProperties(operand);
           const outcome={type:'equation',label:'方程結算',operand,x,xBefore:x,eta:etaVal,
             baseEquationDamage,damageAfterEquipment,damageAfterConfusion:raw,equationDamage:raw,ruleMultiplier:R,properties,
             resolution,confusionTriggered:resolution==='CONFUSION',confusionChance,successChance,nothingChance:Math.max(0,1-confusionChance-successChance),

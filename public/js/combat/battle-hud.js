@@ -32,6 +32,7 @@ const BattleHud = (() => {
   }
   function reset(next='SELECTING') {
     announcement?.abort(); announcement = null;
+    if(typeof SageResourceHud!=='undefined')SageResourceHud.finish();
     for(const animation of queueAnimations)animation.cancel();queueAnimations.clear();
     entries.clear(); companionEntries.clear(); byId('hudActionQueue')?.replaceChildren();
     queuedSteps = []; deferredSteps.clear();
@@ -158,6 +159,8 @@ const BattleHud = (() => {
     const portrait=byId('hudPlayerAvatar'),markup=getPlayerAvatarHtml(player,'hud-player-avatar');
     if(portrait._avatarMarkup!==markup){portrait.innerHTML=markup;portrait._avatarMarkup=markup;}
     if(typeof SamuraiSoulHud!=='undefined')SamuraiSoulHud.sync(player,portrait);
+    if(typeof SageResourceHud!=='undefined')SageResourceHud.sync(player,portrait);
+    hud.classList.toggle('has-sage-resources',player.role==='sage');
     byId('hudPlayerName').textContent = player.name;
     byId('hudPlayerRole').textContent = getClassDisplayName(player.role);
     const vitals=battleVitals(player);
@@ -232,12 +235,12 @@ const BattleHud = (() => {
   };
   function renderEquation(player, action) {
     const terminal=byId('sageEquationTerminal');
-    terminal.hidden=!player || player.role!=='sage'; if(terminal.hidden)return;
+    terminal.hidden=!player || player.role!=='sage'||player.sagePhase!=='solve'; if(terminal.hidden)return;
     if(action!==selectedAction){selectedAction=action;analyzedAction=action;}
     const preview=player.sageEquationPreview;
     byId('sageTerminalPhase').textContent=player.sagePhase==='solve'?'∑ 求解階段':'∑ 假設階段';
-    byId('sageTerminalSummary').textContent=`X ${player.sageX ?? '—'}   Op ${player.sageOperand ?? '—'}   η(X) ${preview?.eta?.toFixed(3) ?? '—'}   紊亂率 ${preview ? (preview.confusionChance*100).toFixed(0)+'%' : '—'}`;
-    const options=preview?.options || [],names={basic:'普通攻擊',sge_deduce:'向量定軌',sge_induce:'動量回授'};
+    byId('sageTerminalSummary').textContent='公式、機率與結算細節';
+    const options=preview?.options || [],names={basic:'基礎演算',sge_deduce:'原子坍縮',sge_induce:'慣性取樣'};
     const chosen=options.find(o=>o.id===analyzedAction) || options[0];
     const body=byId('sageTerminalDetails');
     body.innerHTML=`<h3>演算終端 / EQUATION TERMINAL</h3><p>待付透支 ${player.sageDebt || 0} X · 自然衰減 ${preview?.decayAmount ?? '—'}</p><h4>求解路徑比較</h4><div class="sage-paths">${options.map(o=>`<button type="button" data-equation-path="${o.id}" aria-pressed="${o===chosen}"><strong>${names[o.id]}</strong><span>Op ${o.operand} · ${o.properties.map(p=>({EVEN:'偶數',ODD:'奇數',PRIME:'質數',SQUARE:'平方數'})[p]).join('、')}</span><span>正常／紊亂 ${o.damageAfterEquipment}／${o.damageAfterConfusion}</span><small>${o.blocked?'前輪已使用':o.cooldown?'冷卻 '+o.cooldown:'可選擇'}</small></button>`).join('')}</div>`;

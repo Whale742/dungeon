@@ -281,6 +281,7 @@ function ensurePortraitLayers(portraitRoot) {
 function syncPortraitStatusFx(entity, portraitRoot, options = {}) {
   if (!portraitRoot) return;
   if(typeof SamuraiSoulHud!=='undefined')SamuraiSoulHud.sync(entity,portraitRoot);
+  if(typeof SageResourceHud!=='undefined')SageResourceHud.sync(entity,portraitRoot);
   const layers = ensurePortraitLayers(portraitRoot);
   if (!layers) return;
   if(typeof syncSageSamplingIndicator==='function')syncSageSamplingIndicator(entity,layers.surface);

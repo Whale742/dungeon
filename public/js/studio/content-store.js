@@ -22,8 +22,17 @@
     }catch{emit();}finally{assetsDone();}return state.data;})();
     return state.ready;
   }
-  function rows(table){const map=new Map((state.defaults?.[table]||[]).map(r=>[key(table,r),r]));for(const row of state.data[table]||[])map.set(key(table,row),row);return [...map.values()];}
-  function find(table,id){return state.data[table]?.find(row=>key(table,row)===id)||state.defaults?.[table]?.find(row=>key(table,row)===id);}
+  // Migrate legacy published Sage copy on read; stable skill IDs and stored rows stay intact.
+  function currentCopy(table,row){
+    if(table!=='skill_copies'||row?.role_id!=='sage')return row;
+    const id=row.skill_id?.split('__')[0],name={basic:'基礎演算',sge_deduce:'原子坍縮',sge_induce:'慣性取樣'}[id];
+    if(!name)return row;
+    const text=value=>typeof value==='string'?value.replaceAll('向量定軌・貫穿演算','原子坍縮').replaceAll('動量回授・慣性取樣','慣性取樣').replace(/將本次攻擊實際造成的傷害(?:設為新的運算元，直接替換原本數值|作為新的運算元，取代原本數值)。/g,'將本次攻擊實際造成的直接傷害之 50%（無條件捨去）加入當前運算元：N_new = N_old + floor(actualDamage × 0.5)。'):value;
+    const legacy=['普通攻擊','向量定軌','向量定軌・貫穿演算','動量回授','動量回授・慣性取樣'];
+    return {...row,display_name:legacy.includes(row.display_name)?name:row.display_name,short_copy:text(row.short_copy),full_copy:text(row.full_copy)};
+  }
+  function rows(table){const map=new Map((state.defaults?.[table]||[]).map(r=>[key(table,r),r]));for(const row of state.data[table]||[])map.set(key(table,row),row);return [...map.values()].map(row=>currentCopy(table,row));}
+  function find(table,id){return currentCopy(table,state.data[table]?.find(row=>key(table,row)===id)||state.defaults?.[table]?.find(row=>key(table,row)===id));}
   function role(id,fallback){return {...fallback,...find('role_profiles',id)};}
   function isEditable(table,row){
     const id=key(table,row);
