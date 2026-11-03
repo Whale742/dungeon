@@ -5221,7 +5221,7 @@ export class Room {
       this.addLog(`🔮 【命運宣告】卜者隊長命運干涉！**${target.name}** 本回合機率判定獲得絕對正面結果且免除命債！`, 'buff');
     } else if (role === 'onmyoji') {
       const additions = distributeLeaderTalismans(this.getAttackableEnemies().filter(e => enemyCanParticipate(this,e)));
-      this.addLog(`📜✨ 【萬符歸宗】五種符咒各兩張隨機分配，實際附加 ${[...additions.values()].flat().length} 張；掉落率由 0% 起，每輪 +5 個百分點，最高 30%。`, 'buff');
+      this.addLog(`📜✨ 【萬符歸宗】每隻存活敵人隨機附加 2～5 張符咒，實際附加 ${[...additions.values()].flat().length} 張；掉落率由 0% 起，每輪 +5 個百分點，最高 30%。`, 'buff');
     }
 
     this.leaderSkillUsedThisBattle = true;
@@ -6828,7 +6828,7 @@ export class Room {
           visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: '萬符歸宗' });
           const additions = distributeLeaderTalismans(this.getAttackableEnemies().filter(e => enemyCanParticipate(this,e)));
           actionOutcome = { type: 'talisman_all', label: '萬符歸宗', secondary: `${[...additions.values()].flat().length}道符咒` };
-          log.push({text: '📜✨ 【萬符歸宗】五種符咒各兩張隨機分配至存活且有容量的敵人，符咒逐漸老化。',type:'combat'});
+          log.push({text: '📜✨ 【萬符歸宗】每隻存活敵人隨機附加 2～5 張符咒（每敵最多 10 張），符咒逐漸老化。',type:'combat'});
           for (const [target, types] of additions) {
             if (!types.includes('drain')) continue;
             const totalDrain = this.augmentOmenDamage(Math.max(1, Math.floor(target.maxHp * .05)) * target.talismans.filter(t => t === 'drain').length);

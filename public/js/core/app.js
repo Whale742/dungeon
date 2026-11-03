@@ -3009,7 +3009,7 @@ function updateSkillSelectionBar(me, isDead, isStunned, isSurrendered, isTree, i
     } else if (currentPendingAction === 'leader_assassin_execute') {
       descEl.textContent = '【隊長技・絕命處決】瞬身刺破死穴，打出一次必定爆擊的致命打擊（每場戰鬥限使用一次）。';
     } else if (currentPendingAction === 'onm_all_talismans') {
-      descEl.textContent = '先對指定敵人造成 round(2 + 150% × A魔) 魔法傷害。五種符咒各兩張，共 10 張，每張獨立隨機分配給存活、可施符且有容量的敵人；每敵上限 10 張，全場容量用盡才捨棄。隊長符初始掉落率 0%，每回合先判定，存留後 +5 個百分點，最高 30%，不受狩衣影響；與一般符共用每敵每輪隨機最多 5 張重觸發上限。每場戰鬥限使用一次。';
+      descEl.textContent = '先對指定敵人造成 round(2 + 150% × A魔) 魔法傷害。每隻存活、可施符的敵人各隨機附加 2～5 張符咒，每張種類獨立隨機；每敵上限 10 張，超出容量的符咒不附加。隊長符初始掉落率 0%，每回合先判定，存留後 +5 個百分點，最高 30%，不受狩衣影響；與一般符共用每敵每輪隨機最多 5 張重觸發上限。每場戰鬥限使用一次。';
     } else if (currentPendingAction === 'dru_form_wolf') {
       descEl.textContent = '【隊長技・自在化形】化身為狼人，造成傷害提升至 40 點，持續 2 回合（每場戰鬥限使用一次）。';
     } else if (currentPendingAction === 'dru_form_treant') {

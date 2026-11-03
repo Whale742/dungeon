@@ -817,6 +817,12 @@ body.presentation-floor-active .narrative-controls,
   animation: route-travel-walk 1.35s .15s ease-in-out both;
   filter: drop-shadow(0 0 7px rgba(190, 235, 255, .9));
 }
+.route-travel-avatar {
+  display: block; width: 34px; height: 34px; box-sizing: border-box;
+  object-fit: cover; border: 2px solid #d7b86e; border-radius: 50%;
+  background: #172b38; box-shadow: 0 2px 6px rgba(0, 0, 0, .65);
+  text-align: center; line-height: 30px;
+}
 .route-travel-title {
   position: absolute; bottom: max(10%, 35px); left: 0; right: 0;
   text-align: center; color: #e5f4fa; letter-spacing: .18em; font-size: 18px;

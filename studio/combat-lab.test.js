@@ -79,11 +79,11 @@ test('Onmyoji Lab uses the production resolver for detonation: '+count,async t=>
   assert.deepEqual(step.hpSnapshot.enemies[0].talismans,[]);assert.deepEqual(step.hpSnapshot.enemies[0].talismanStates,[]);
   assert.deepEqual(config,saved);assert.deepEqual(preparePlayback(config,fixture,{}).steps,fixture.steps);
 });
-test('Onmyoji Lab leader creates one action with ten cards distributed to actual enemies',async()=>{
+test('Onmyoji Lab leader gives each actual enemy 2–5 cards',async()=>{
   const config=scenario('onmyoji',1,3);config.enemies.forEach(e=>e.hp=e.maxHp=1000);
   const {steps}=await configuredSamuraiPreview(config,'onm_all_talismans');
   assert.equal(steps.length,1);const enemies=steps[0].hpSnapshot.enemies;
-  assert.equal(enemies.reduce((n,e)=>n+e.talismans.length,0),10);
+  assert.ok(enemies.every(e=>e.talismans.length>=2&&e.talismans.length<=5));
   assert.ok(enemies.every(e=>e.talismans.length<=10&&e.talismanStates.every(t=>t.source==='leader'&&t.dropRate===0)));
 });
 
