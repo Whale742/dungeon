@@ -1,3 +1,5 @@
+import { activeTalismans } from './onmyoji.js';
+
 // Percentages are stored as integers (20 means 20%). Each battle rolls once.
 export function rollBonusResistance(floor, random = Math.random) {
   // Roll 0, 5, ... 50. Floor 1 is uniform; deeper floors bias toward high values.
@@ -31,6 +33,7 @@ export function getBossResistance(monster, type) {
   if (monster?.tier === 'MINION') {
     res = Math.min(30, res);
   }
+  if ((type === 'physical' || type === 'magic') && monster && activeTalismans(monster).includes('blind')) res = Math.max(0, res - 20);
   if(type==='physical' && monster?.openDefenseReduction)res=Math.max(0,res*(1-monster.openDefenseReduction));
   return Math.min(100, res + (type === 'effect' ? monster?.enemyEffectResistanceBonus || 0 : 0));
 }

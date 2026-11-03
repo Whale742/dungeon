@@ -3695,7 +3695,7 @@ test('Gladiator ordinary healing consumable cannot bypass inspiration at full or
   vm.runInContext('function renderStatusIconMarkup'+app.split('function renderStatusIconMarkup')[1].split('// 判斷是否為職業特殊機制')[0],scope);
   const presentation=readFileSync(new URL('../public/js/presentation/onmyoji-presentation.js',import.meta.url),'utf8');
   vm.runInContext(presentation.slice(0,presentation.indexOf('function onmyojiAsset'))+';globalThis.colors=ONMYOJI_TALISMAN_CONFIGS;',scope);
-  for(const [type,color] of Object.entries({blind:'#ef4444',seal:'#ef4444',corrode:'#facc15',confuse:'#c084fc',drain:'#ffffff'})){
+  for(const [type,color] of Object.entries({blind:'#22c55e',seal:'#ef4444',corrode:'#facc15',confuse:'#c084fc',drain:'#ffffff'})){
     assert.equal(scope.colors[type].color,color);
     for(const variant of ['enemy','tooltip','hud'])assert.ok(scope.renderStatusIconMarkup({id:'talisman_'+type},{variant}).includes('color:'+color));
   }

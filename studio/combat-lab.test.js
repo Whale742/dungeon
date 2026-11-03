@@ -67,7 +67,7 @@ test('Gladiator cuirass Lab records shield and heal inspiration separately witho
   assert.equal(step.hpSnapshot.players[0].hp,120);assert.equal(step.hpSnapshot.players[0].tempHp||0,0);
 });
 
-for(const [count,expected] of [[0,0],[1,6],[5,31],[10,62]])
+for(const [count,expected] of [[0,0],[1,8],[5,40],[10,81]])
 test('Onmyoji Lab uses the production resolver for detonation: '+count,async t=>{
   t.mock.method(Math,'random',()=>.5);
   const config=scenario('onmyoji',1,1);

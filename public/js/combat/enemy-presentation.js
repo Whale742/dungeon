@@ -171,7 +171,7 @@ function enemyDisplayStatuses(enemy) {
   if(enemy.reversedOmenRemaining>0&&!statuses.has('reversed_omen'))statuses.set('reversed_omen',{id:'reversed_omen',label:'凶兆逆位',icon:'debuff',turns:enemy.reversedOmenRemaining,value:'受傷 +'+(enemy.reversedOmenBonus||10)+'%'});
   if(enemy.flawMarks>0&&!statuses.has('flaw_mark'))statuses.set('flaw_mark',{id:'flaw_mark',label:`破綻印記 (${enemy.flawMarks})`,icon:'flaw_mark',stacks:enemy.flawMarks});
   if(enemy.isWeakened&&!statuses.has('weakened'))statuses.set('weakened',{id:'weakened',label:'負傷',icon:'status'});
-  if(enemy.talismans?.length&&!statuses.has('talismans')){const names={blind:'障目',seal:'封勁',corrode:'蝕體',confuse:'惑心',drain:'抽髓'};statuses.set('talismans',{id:'talismans',label:'符咒',icon:'status',stacks:enemy.talismans.length,value:enemy.talismans.map(t=>names[t]||t).join('、')});}
+  if(enemy.talismans?.length&&!statuses.has('talismans')){const names={blind:'敵霸',seal:'封勁',corrode:'蝕體',confuse:'惑心',drain:'抽髓'};statuses.set('talismans',{id:'talismans',label:'符咒',icon:'status',stacks:enemy.talismans.length,value:enemy.talismans.map(t=>names[t]||t).join('、')});}
   return [...statuses.values()];
 }
 // Classify actual results, including self costs and form changes, before selecting art.

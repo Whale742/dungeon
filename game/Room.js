@@ -586,7 +586,7 @@ export class Room {
         ...(this.roundModifiers?.monsterAttackReduction ? [{ id: 'attack_down', label: 'ATK DOWN', icon: 'debuff', turns: 1, value: this.roundModifiers.monsterAttackReduction }] : []),
         ...(enemy.talismans && enemy.talismans.length > 0 ? [
           { id: 'talismans', label: `符咒 (${enemy.talismans.length})`, icon: 'debuff', stacks: enemy.talismans.length, isNegative: true, category: 'DEBUFF' },
-          ...(enemy.talismans.includes('blind') ? [{ id: 'talisman_blind', label: '障目符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'blind').length }] : []),
+          ...(enemy.talismans.includes('blind') ? [{ id: 'talisman_blind', label: '敵霸符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'blind').length }] : []),
           ...(enemy.talismans.includes('seal') ? [{ id: 'talisman_seal', label: '封勁符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'seal').length }] : []),
           ...(enemy.talismans.includes('corrode') ? [{ id: 'talisman_corrode', label: '蝕體符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'corrode').length }] : []),
           ...(enemy.talismans.includes('confuse') ? [{ id: 'talisman_confuse', label: '惑心符', icon: 'debuff', isNegative: true, category: 'DEBUFF', stacks: enemy.talismans.filter(t => t === 'confuse').length }] : []),
@@ -2795,7 +2795,7 @@ export class Room {
       const targetKey = targetMonster.instanceId;
       if (targetMonster.hp > 0 && targetMonster.talismans && targetMonster.talismans.length > 0) {
         const TALISMAN_NAMES = {
-          blind: '障目符',
+          blind: '敵霸符',
           seal: '封勁符',
           corrode: '蝕體符',
           confuse: '惑心符',
@@ -2835,7 +2835,7 @@ export class Room {
           } else if (talisman === 'confuse') {
             log.push({text: '📜🌀 【惑心符】本回合出手時反噬一次。', type: 'buff'});
           } else if (talisman === 'blind') {
-            log.push({ text: `📜👁️ **【障目符】** 未掉落再次觸發！魔物視界持續受障，攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！`, type: 'buff' });
+            log.push({ text: `📜👁️ **【敵霸符】** 未掉落再次觸發！魔物物理與魔法抗性降低 20 個百分點！`, type: 'buff' });
           } else if (talisman === 'seal') {
             targetMonster.sealedThisRound = true;
             log.push({ text: `📜🔒 **【封勁符】** 未掉落再次觸發！封鎖魔物全部氣勁，目標有 100% 機率在當前回合完全不造成任何傷害！`, type: 'buff' });
@@ -5917,7 +5917,7 @@ export class Room {
                   const talisman = this.roleRandom(p,'onm_brush_type',()=>p.rolledTalisman || TALISMANS[Math.floor(Math.random() * TALISMANS.length)]);
                   attachTalisman(monster, talisman);
                   const count = monster.talismans.length;
-                  const TALISMAN_NAMES = { blind: '障目符', seal: '封勁符', corrode: '蝕體符', confuse: '惑心符', drain: '抽髓符' };
+                  const TALISMAN_NAMES = { blind: '敵霸符', seal: '封勁符', corrode: '蝕體符', confuse: '惑心符', drain: '抽髓符' };
                   log.push({ text: `📜🖌️ **${p.name}**【硃砂引靈筆】靈光顯現！普通攻擊額外依附了一道【五鬼攝魂符・${TALISMAN_NAMES[talisman]}】！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'buff' });
                   if (talisman === 'drain') {
                     const drainCount = monster.talismans.filter(t => t === 'drain').length;
@@ -6018,7 +6018,7 @@ export class Room {
             visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: dmg, isCrit: false, label: isBackfire ? '奧術爆破(走火)' : '奧術爆破' });
             for (const sec of secTargets) {
               const secRaw = Math.floor((this.applyFateBlessing(p, this.skillValue(p, 'm_secondary'))) * bardDmgMultiplier);
-              const secDmg = mitigateDirectDamage(secRaw, { damageType: 'mag', defense: sec.DEF || sec.defense || 0, resistance: sec.resistances?.magic || 0 });
+              const secDmg = mitigateDirectDamage(secRaw, { damageType: 'mag', defense: sec.DEF || sec.defense || 0, resistance: getBossResistance(sec, 'magic') });
               sec.hp = Math.max(0, sec.hp - secDmg);
               visualEvents.push({ type: 'player_attack', sourceId: p.id, target: sec.instanceId, targetEnemyId: sec.instanceId,
                 isSecondaryEnemy: true, dmgType: 'mag', value: secDmg, label: '奧術爆破・次要目標' });
@@ -6754,9 +6754,9 @@ export class Room {
           const count = monster.talismans.length;
 
           if (talisman === 'blind') {
-            actionOutcome = { type: 'talisman_blind', label: '障目符', secondary: '命中大幅下降' };
-            log.push({ text: `📜👁️ **${p.name}** 擲出【五鬼攝魂符・障目符】！目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
-            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '障目符' });
+            actionOutcome = { type: 'talisman_blind', label: '敵霸符', secondary: '物抗與魔抗 -20%' };
+            log.push({ text: `📜👁️ **${p.name}** 擲出【五鬼攝魂符・敵霸符】！目標物理與魔法抗性降低 20 個百分點！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
+            visualEvents.push({ type: 'player_attack', sourceId: p.id, target: 'monster', dmgType: 'mag', value: 0, isCrit: false, label: '敵霸符' });
           } else if (talisman === 'seal') {
             actionOutcome = { type: 'talisman_seal', label: '封勁符', secondary: '100%封勁' };
             log.push({ text: `📜🔒 **${p.name}** 擲出【五鬼攝魂符・封勁符】！目標有 100% 機率在當前回合完全不造成任何傷害！（目前累積 ${count}/10 張符咒，隨回合逐漸老化）`, type: 'combat' });
@@ -7502,27 +7502,6 @@ export class Room {
                 hpSnapshot: this.getHpSnapshot()
               });
               continue;
-            }
-          }
-
-          // 障目符：目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。
-          const blindCount = activeTalismans(monster).filter(t => t === 'blind').length;
-          if (blindCount > 0) {
-            const avoidRate = typeof monster.talismanBlindAvoidRate === 'number'
-              ? monster.talismanBlindAvoidRate
-              : (0.60 + Math.random() * 0.40);
-            const isFullMiss = typeof monster.talismanBlindMiss === 'boolean'
-              ? monster.talismanBlindMiss
-              : (Math.random() < avoidRate);
-
-            if (isFullMiss) {
-              log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊判定有 ${Math.round(avoidRate * 100)}% 不對我方造成傷害，攻擊判定為 Miss（失誤），未能命中 **${p.name}**！`, type: 'buff' });
-              monsterHits.push({ targetId: p.id, role: p.role, dodged: true, value: 0, outcome: { type: 'dodge', label: 'MISS' }, targetBefore, targetAfter: snapshotTarget(this.getHpSnapshot(), p.id), hpSnapshot: this.getHpSnapshot() });
-              continue;
-            } else {
-              // 若未直接判定完全失誤，此次攻擊依然有 60%~100% 的傷害不對我方造成傷害
-              playerRawScatter[p.id] = Math.round((playerRawScatter[p.id] || 0) * (1 - avoidRate));
-              log.push({ text: `📜👁️ **【障目符】** 視界遮蔽！目標攻擊命中率大幅下降，此次攻擊有 ${Math.round(avoidRate * 100)}% 的傷害未對 **${p.name}** 生效！`, type: 'buff' });
             }
           }
 

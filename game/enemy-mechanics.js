@@ -34,7 +34,7 @@ export const ENEMY_BALANCE = Object.freeze({
   arenaTurns: 1, markedTauntChance: .30, wolfFormChance: .50,
   scatterStepMin: 2, scatterStepRange: 4, scatterAoeRatio: .50,
   legacyWarriorShield: [.10, .60], guardShare: .50, existingBowDodgePenalty: .20,
-  talismanBlindMin: .60, talismanBlindRange: .40, talismanConfuseMin: .50, talismanConfuseRange: .50,
+  talismanConfuseMin: .50, talismanConfuseRange: .50,
   flaskDots: { poison: { damage: 8, turns: 2 }, burn: { damage: 10, turns: 1 },
     fracture: { damage: 5, turns: 3 }, chill: { damage: 6, turns: 2 } }
 });
@@ -411,8 +411,6 @@ export function runEnemyAction(room,enemy,queue) {
   s.actedRound=room.battleRound;
   const blocked=enemy.stunnedThisRound||enemy.stunnedNextTurn||enemy.sealedThisRound||activeTalismans(enemy).includes('seal');
   if(blocked){record(room,enemy,enemy,'行動受阻','status',()=>false);enemy.stunnedThisRound=false;enemy.stunnedNextTurn=false;drainEnemyEvents(room,queue);return true;}
-  const blind=activeTalismans(enemy).filter(t=>t==='blind').length;
-  if(blind && (typeof enemy.talismanBlindMiss==='boolean'?enemy.talismanBlindMiss:Math.random()<(enemy.talismanBlindAvoidRate??(B.talismanBlindMin+Math.random()*B.talismanBlindRange)))){record(room,enemy,enemy,'障目符・攻擊失敗','status',()=>false);drainEnemyEvents(room,queue);return true;}
   const confuse=Math.min(1,activeTalismans(enemy).filter(t=>t==='confuse').length);
   if(confuse){record(room,enemy,enemy,'惑心反噬','damage',()=>{enemy.hp=Math.max(0,enemy.hp-Math.floor(enemy.attack*(enemy.talismanConfuseRatio??(B.talismanConfuseMin+Math.random()*B.talismanConfuseRange))*confuse));});if(enemy.hp<=0){drainEnemyEvents(room,queue);return true;}}
   const ult=isEnemyUltimate(room,enemy);

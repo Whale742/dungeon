@@ -350,7 +350,7 @@ const DEFAULT_ROLE_DETAILS = {
         name: '五鬼攝魂符',
         dmgType: '【魔法】',
         cd: '無 CD',
-        desc: '先對指定敵人造成 round(2 + 150% × A魔) 魔法傷害（初始 20）；A魔＝基礎 ATK＋裝備魔攻，不含物攻。目標仍存活且未滿 10 張時，隨機附加一般符咒並保留施加當下的既有觸發規則。障目：60%～100% 機率不造成攻擊傷害；封勁：本輪不造成傷害；蝕體：每張使受到攻擊傷害 +25%；惑心：出手時以攻擊傷害 50%～100% 反噬自身；抽髓：每張削減最大生命 5%，施加抽髓時依既有張數結算。一般符咒由 0% 起逐輪老化，每輪先判定掉落，再從存留符咒隨機重觸發最多 5 張；同類控制每敵每輪僅有效一次。'
+        desc: '先對指定敵人造成 round(2 + 150% × A魔) 魔法傷害（初始 20）；A魔＝基礎 ATK＋裝備魔攻，不含物攻。目標仍存活且未滿 10 張時，隨機附加一般符咒並保留施加當下的既有觸發規則。敵霸：物理與魔法抗性各降低 20 個百分點（最低 0%，不疊加）；封勁：本輪不造成傷害；蝕體：每張使受到攻擊傷害 +25%；惑心：出手時以攻擊傷害 50%～100% 反噬自身；抽髓：每張削減最大生命 5%，施加抽髓時依既有張數結算。一般符咒由 0% 起逐輪老化，每輪先判定掉落，再從存留符咒隨機重觸發最多 5 張；同類控制每敵每輪僅有效一次。'
       },
       {
         type: '2 技能',
@@ -2450,7 +2450,7 @@ function renderBattle(me, isLeader) {
       buffHtml += `<span class="buff-badge tag-stun" style="background: rgba(234, 179, 8, 0.25); border: 1px solid #eab308; color: #fef08a;"><img src="/assets/icons/status/暈眩.png" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 暈眩 (無法行動)</span>`;
     }
     if (monster.talismans && monster.talismans.length > 0) {
-      const TALISMAN_NAMES = { blind: '障目', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
+      const TALISMAN_NAMES = { blind: '敵霸', seal: '封勁', corrode: '蝕體', confuse: '惑心', drain: '抽髓' };
       const details = monster.talismans.map(t => TALISMAN_NAMES[t] || t).join('、');
       buffHtml += `<span class="buff-badge tag-talismans" style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fbbf24;"><img src="/assets/icons/status/符咒.webp" class="buff-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> 符咒 (${monster.talismans.length} 張: ${details})</span>`;
     }

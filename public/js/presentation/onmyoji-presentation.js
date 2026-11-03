@@ -10,12 +10,12 @@
 const ONMYOJI_TALISMAN_CONFIGS = Object.freeze({
   blind: {
     id: 'blind',
-    name: '障目符',
-    color: '#ef4444',
-    glow: 'rgba(239, 68, 68, 0.75)',
-    shortEffect: '命中大幅下降 (Miss)',
-    firstDesc: '目標攻擊命中率大幅下降，此次攻擊有 60%~100% 的不對我方傷害。',
-    repeatDesc: '【重複觸發】再次觸發自殘反噬檢定！'
+    name: '敵霸符',
+    color: '#22c55e',
+    glow: 'rgba(34, 197, 94, 0.75)',
+    shortEffect: '物抗與魔抗 -20%',
+    firstDesc: '目標物理與魔法抗性各降低 20 個百分點，最低為 0%，不疊加。',
+    repeatDesc: '【重複觸發】物理與魔法抗性降低 20 個百分點。'
   },
   seal: {
     id: 'seal',
@@ -824,9 +824,9 @@ function buildOnmyojiPresentationPlan(step = {}) {
   } else if (ONMYOJI_TALISMAN_CONFIGS[talismanTypeMatch]) {
     talisman = ONMYOJI_TALISMAN_CONFIGS[talismanTypeMatch];
   } else if (step.visualEvents) {
-    const atk = step.visualEvents.find(v => v.label && ['障目符', '封勁符', '蝕體符', '惑心符', '抽髓符'].includes(v.label));
+    const atk = step.visualEvents.find(v => v.label && ['敵霸符', '封勁符', '蝕體符', '惑心符', '抽髓符'].includes(v.label));
     if (atk) {
-      const map = { '障目符': 'blind', '封勁符': 'seal', '蝕體符': 'corrode', '惑心符': 'confuse', '抽髓符': 'drain' };
+      const map = { '敵霸符': 'blind', '封勁符': 'seal', '蝕體符': 'corrode', '惑心符': 'confuse', '抽髓符': 'drain' };
       talisman = ONMYOJI_TALISMAN_CONFIGS[map[atk.label]];
     }
   }

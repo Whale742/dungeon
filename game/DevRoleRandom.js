@@ -44,8 +44,8 @@ const catalog = [
     const success=Math.min((sageGrowth[p.sageLastAction]||sageGrowth.basic).success+(lens ? .10+(lens-1)*.05 : 0)*(r.roundModifiers?.equipmentEffectMultiplier??1),1-confusion);
     return choices([...(confusion>0?[['CONFUSION','思緒紊亂']]:[]),...(success>0?[['SUCCESS','推演成功']]:[]),...(1-confusion-success>1e-9?[['NOTHING','無額外結果']]:[])]);
   },{hint:'依當前 X、上次技能與裝備，僅接受機率大於零的結果。'}),
-  entry('onmyoji','onm_talisman','onm_talisman','五鬼攝魂符：種類','技能',choices([['blind','障目符'],['seal','封勁符'],['corrode','蝕體符'],['confuse','惑心符'],['drain','抽髓符']])),
-  entry('onmyoji','onm_brush_type','basic','硃砂引靈筆：符咒種類','裝備被動',choices([['blind','障目符'],['seal','封勁符'],['corrode','蝕體符'],['confuse','惑心符'],['drain','抽髓符']]),{available:(r,p)=>has(p,'onm_brush'),hint:'需要硃砂引靈筆；僅在正式附符成功且未達上限時消耗，不覆蓋觸發機率。'}),
+  entry('onmyoji','onm_talisman','onm_talisman','五鬼攝魂符：種類','技能',choices([['blind','敵霸符'],['seal','封勁符'],['corrode','蝕體符'],['confuse','惑心符'],['drain','抽髓符']])),
+  entry('onmyoji','onm_brush_type','basic','硃砂引靈筆：符咒種類','裝備被動',choices([['blind','敵霸符'],['seal','封勁符'],['corrode','蝕體符'],['confuse','惑心符'],['drain','抽髓符']]),{available:(r,p)=>has(p,'onm_brush'),hint:'需要硃砂引靈筆；僅在正式附符成功且未達上限時消耗，不覆蓋觸發機率。'}),
   entry('paladin','pal_glory_echo',null,'榮耀迴響：護盾判定','回合開始',negative('護盾減半')),
   entry('paladin','pal_grace_end',null,'恩典結束：護盾判定','回合開始',binary)
 ];
