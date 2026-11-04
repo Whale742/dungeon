@@ -57,11 +57,13 @@ export function ageTalismans(enemy, round, increment, rng = Math.random) {
 export function distributeLeaderTalismans(enemies, rng = Math.random) {
   const additions = new Map();
   for (const enemy of enemies) normalizeTalismans(enemy);
-  for (const type of TALISMAN_TYPES.flatMap(t => [t,t])) {
-    const targets = enemies.filter(e => e.hp > 0 && e.talismans.length < 10);
-    if (!targets.length) break;
-    const target = targets[Math.floor(rng() * targets.length)];
-    if (attachTalisman(target,type,'leader')) additions.set(target,[...(additions.get(target)||[]),type]);
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0 || enemy.talismans.length >= 10) continue;
+    const count = 2 + Math.floor(rng() * 4);
+    for (let i = 0; i < count && enemy.talismans.length < 10; i++) {
+      const type = TALISMAN_TYPES[Math.floor(rng() * TALISMAN_TYPES.length)];
+      if (attachTalisman(enemy, type, 'leader')) additions.set(enemy, [...(additions.get(enemy) || []), type]);
+    }
   }
   return additions;
 }

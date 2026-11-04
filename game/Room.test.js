@@ -3773,14 +3773,16 @@ test('Onmyoji drop pass finishes before sampling distinct survivors, per enemy',
     assert.equal(ageTalismans(e,1,10,()=>{throw Error('must not reroll');}),null);
   }
 });
-test('Onmyoji leader fills legal capacity with five types twice without overwriting existing cards',()=>{
-  const a={hp:1000,talismans:Array(9).fill('seal')},b={hp:1000,talismans:[]};let i=0;
-  const additions=distributeLeaderTalismans([a,b],()=>i++%2?.99:0);
-  assert.equal(a.talismans.length,10);assert.equal(b.talismans.length,9);
-  const types=[...additions.values()].flat();for(const type of ['blind','seal','corrode','confuse','drain'])assert.equal(types.filter(t=>t===type).length,2);
-  const solo={hp:1000,talismans:[]};distributeLeaderTalismans([solo],()=>.5);assert.equal(solo.talismans.length,10);
-  assert.equal(distributeLeaderTalismans([solo]).size,0);
+test('Onmyoji leader gives each living enemy 2–5 random cards within capacity',()=>{
+  const a={hp:1000,talismans:Array(9).fill('seal')},b={hp:1000,talismans:[]}, dead={hp:0,talismans:[]};
+  const additions=distributeLeaderTalismans([a,b,dead],()=>0);
+  assert.equal(additions.get(a).length,1);assert.deepEqual(additions.get(b),['blind','blind']);
+  assert.equal(dead.talismans.length,0);
   assert.ok([...a.talismanStates.slice(9),...b.talismanStates].every(s=>s.source==='leader'&&s.dropRate===0));
+  const solo={hp:1000,talismans:[]};distributeLeaderTalismans([solo],()=>.999);
+  assert.deepEqual(solo.talismans,Array(5).fill('drain'));
+  distributeLeaderTalismans([solo],()=>.999);assert.equal(solo.talismans.length,10);
+  assert.equal(distributeLeaderTalismans([solo]).size,0);
 });
 test('Onmyoji unselected controls stay dormant; repeated drain retains five-card damage',t=>{
   const {room,enemy}=onmyojiBattle(t);
@@ -3834,7 +3836,7 @@ test('Onmyoji leader presentation flies cards to every assigned enemy with one s
     phase5Pulse(){},phase5Image:()=>({dataset:{}}),phase5Fly:async(s,p,from,to)=>flights.push(to),
     phase5Result:async(s,step,r)=>committed.push(r),applyHpSnapshot(){}});
   await scope.playBattlefieldOnmyoji(step,{});
-  assert.equal(stages,1);assert.equal(flights.length,10);assert.ok(new Set(flights).size>1);
+  assert.equal(stages,1);assert.equal(flights.length,step.hpSnapshot.enemies.reduce((n,e)=>n+e.talismans.length,0));assert.ok(new Set(flights).size>1);
   assert.deepEqual(committed,step.results);
 });
 

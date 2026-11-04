@@ -27,6 +27,11 @@ function playRouteTravelCloseup(transition) {
   const stage = board.cloneNode(true);
   stage.classList.add('route-travel-board');
   stage.style.width = `${boardRect.width}px`;
+  // The cloned board is outside the map container, so preserve its inherited tile dimensions.
+  const boardStyle = window.getComputedStyle(board);
+  for (const property of ['--hex-w', '--hex-h']) {
+    stage.style.setProperty(property, boardStyle.getPropertyValue(property));
+  }
   stage.style.setProperty('--travel-zoom', zoom);
   stage.style.setProperty('--travel-from-x', `${-fromX * zoom}px`);
   stage.style.setProperty('--travel-from-y', `${-fromY * zoom}px`);
@@ -45,7 +50,8 @@ function playRouteTravelCloseup(transition) {
   marker.style.left = `${fromX}px`; marker.style.top = `${fromY}px`;
   marker.style.setProperty('--travel-dx', `${toX - fromX}px`);
   marker.style.setProperty('--travel-dy', `${toY - fromY}px`);
-  marker.innerHTML = '<span class="hex-node-icon hex-current-icon"><svg class="ui-icon ui-icon--md hex-current-svg" aria-hidden="true"><use href="#icon-camp"></use></svg></span>';
+  const leader = roomState?.players?.find(player => player.id === roomState.leaderId);
+  marker.innerHTML = getPlayerAvatarHtml(leader, 'route-travel-avatar');
   const title = document.createElement('div'); title.className = 'route-travel-title'; title.textContent = `前往 ${transition.routeName || '下一格'}`;
   stage.append(marker); overlay.append(stage, title); document.body.append(overlay);
   setTimeout(() => overlay.remove(), 1850);

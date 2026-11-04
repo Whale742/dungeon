@@ -14,8 +14,8 @@ test('travel closeup copies the map and moves between the selected cell centers'
     copied=makeElement();copied.querySelectorAll=()=>[];copied.querySelector=()=>null;copied.insertAdjacentHTML=(_pos,html)=>{copied.arrow=html;};return copied;
   }};
   const body=makeElement(),target={id:'chosen',col:1,row:4};
-  const context=vm.createContext({window:{innerWidth:1000,matchMedia:()=>({matches:false})},elements:{hexMapContainer:{querySelector:()=>board}},
-    roomState:{hexMap:[[target]]},document:{querySelector:()=>null,createElement:makeElement,body},
+  const context=vm.createContext({window:{innerWidth:1000,matchMedia:()=>({matches:false}),getComputedStyle:()=>({getPropertyValue:key=>({'--hex-w':'70px','--hex-h':'80px'}[key])})},elements:{hexMapContainer:{querySelector:()=>board}},
+    roomState:{hexMap:[[target]],leaderId:'captain',players:[{id:'captain',customAvatar:'captain.png'}]},getPlayerAvatarHtml:(player,css)=>player.customAvatar+':'+css,document:{querySelector:()=>null,createElement:makeElement,body},
     buildHexRouteArrowHtml:(_col,_row,node)=>'arrow:'+node.id,setTimeout:()=>{}});
   vm.runInContext(code+'\nplayRouteTravelCloseup',context)({hexId:'chosen',fromHex:{col:0,row:3},routeName:'道路'});
   assert.equal(body.children[0].children[0],copied);
@@ -23,4 +23,7 @@ test('travel closeup copies the map and moves between the selected cell centers'
   assert.equal(copied.children[0].style['--travel-dx'],'68px');
   assert.equal(copied.children[0].style['--travel-dy'],'59px');
   assert.equal(copied.style.width,'500px');
+  assert.equal(copied.style['--hex-w'],'70px');
+  assert.equal(copied.style['--hex-h'],'80px');
+  assert.equal(copied.children[0].innerHTML,'captain.png:route-travel-avatar');
 });

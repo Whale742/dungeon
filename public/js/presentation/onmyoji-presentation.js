@@ -496,7 +496,7 @@ class OnmyojiPresentationEngine {
     const sealEmblem = this.container.querySelector('#onmSealEmblem');
 
     // 【前奏階段 0：蓋下大尺寸去背書法「令」字敕令】
-    this.setActionText(isLeader ? `【隊長技・萬符歸宗】漫天靈符呼嘯而出，向存活敵人隨機分配十道符咒！` : `施法前奏：Boss 正中央蓋下「令」字敕令印記！`);
+    this.setActionText(isLeader ? `【隊長技・萬符歸宗】漫天靈符呼嘯而出，向每隻存活敵人附加二至五道符咒！` : `施法前奏：Boss 正中央蓋下「令」字敕令印記！`);
     this.playSound('ling_stamp');
 
     if (casterBox) {
