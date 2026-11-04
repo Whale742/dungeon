@@ -32,7 +32,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-if(process.env.RENDER)app.set('trust proxy',1);
+if (process.env.RENDER || process.env.TRUST_PROXY === '1') {
+  app.set('trust proxy', 'loopback');
+}
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
