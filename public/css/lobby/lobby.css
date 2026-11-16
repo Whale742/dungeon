@@ -3,16 +3,30 @@
    Lobby, Entry & Hero Archive Stylesheet
    ========================================================= */
 
-.game-container { position: relative; z-index: 1; }
+.game-container { position: relative; z-index: 1; min-width: 0; }
+
+.app-header { position: relative; z-index: 20; }
 
 body:has(#viewLobby.active),
 body:has(#viewEntry.active) {
   font-family: var(--font-body, 'Noto Sans TC', sans-serif);
 }
 
-@media (min-width: 901px) {
+@media (min-width: 901px) and (min-height: 620px) {
   body:has(#viewLobby.active) {
     overflow-y: hidden;
+  }
+
+  body:has(#viewLobby.active) .game-container {
+    height: calc(100dvh - 24px);
+    min-height: calc(100dvh - 24px);
+  }
+
+  body:has(#viewLobby.active) .main-content {
+    height: calc(100dvh - var(--header-height, 74px) - 36px);
+    min-height: calc(100dvh - var(--header-height, 74px) - 36px);
+    max-height: calc(100dvh - var(--header-height, 74px) - 36px);
+    overflow: hidden;
   }
 }
 
@@ -21,7 +35,6 @@ body:has(#viewEntry.active) .game-container {
   max-width: 1460px;
   position: relative;
   z-index: 1;
-  height: calc(100dvh - 24px);
   min-height: calc(100dvh - 24px);
 }
 
@@ -34,22 +47,33 @@ body:has(#viewEntry.active) .main-content {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   flex: 1;
-  height: calc(100dvh - var(--header-height, 74px) - 36px);
-  min-height: calc(100dvh - var(--header-height, 74px) - 36px);
-  max-height: calc(100dvh - var(--header-height, 74px) - 36px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  overflow: hidden;
+  overflow: visible;
+}
+
+#viewEntry.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 .entry-sub-screen {
-  display: grid;
-  justify-items: center;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  min-width: 0;
+  flex: 1 0 auto;
+  padding: 8px 0;
+}
+
+.entry-sub-screen > * {
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 /* 蒼藍遺跡背景 (Ancient Abyss Ruins Background) */
@@ -94,18 +118,98 @@ body:has(#viewEntry.active) .main-content {
 
 #viewLobby.archive-mode .lobby-layout { grid-template-columns: minmax(0, 1fr); }
 #viewLobby .role-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-@media (max-width: 900px) {
+@media (max-width: 900px), (max-height: 619px) {
+  body:has(#viewLobby.active),
+  body:has(#viewEntry.active) {
+    overflow-y: auto;
+  }
+  body:has(#viewLobby.active) .game-container,
+  body:has(#viewEntry.active) .game-container {
+    height: auto;
+    min-height: calc(100dvh - 16px);
+  }
   body:has(#viewLobby.active) .main-content,
   body:has(#viewEntry.active) .main-content {
     height: auto;
     max-height: none;
-    min-height: calc(100dvh - var(--header-height, 74px) - 36px);
+    min-height: 0;
     overflow: visible;
   }
+}
+
+@media (max-width: 900px) {
   #viewLobby .lobby-layout {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
     min-height: 0;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .entry-sub-screen {
+    padding: 4px 0 max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .recruit-card,
+  .lobby-menu-card,
+  .server-list-card {
+    padding: 16px 22px;
+    gap: 12px;
+  }
+
+  .recruit-header {
+    padding-bottom: 10px;
+    gap: 10px;
+  }
+
+  .recruit-main-title {
+    font-size: 20px;
+  }
+
+  .recruit-body {
+    gap: 8px;
+  }
+
+  .recruit-body-highlight {
+    padding: 10px 14px;
+    line-height: 1.65;
+  }
+
+  .recruit-form {
+    gap: 8px;
+  }
+
+  .server-slots-scroll {
+    max-height: 180px;
+  }
+
+  #viewLobby.active {
+    height: auto;
+  }
+
+  #viewLobby .lobby-layout {
+    grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+    gap: 14px !important;
+    height: auto;
+  }
+
+  #viewLobby .team-card,
+  #viewLobby .role-command-panel {
+    height: auto;
+    padding: 12px 14px;
+  }
+
+  #viewLobby .role-overview {
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 12px;
+  }
+
+  #viewLobby .role-hero-portrait {
+    flex: 0 0 96px;
+  }
+
+  #viewLobby .role-identity h2 {
+    font-size: 20px;
   }
 }
 

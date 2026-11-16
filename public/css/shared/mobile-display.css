@@ -164,8 +164,12 @@
 }
 
 /* ==========================================================================
-   手機橫向安全區域與全螢幕高度相容（僅作用於行動裝置）
+   手機橫向安全區域與全螢幕高度相容
    ========================================================================== */
+html {
+  overflow-x: clip;
+}
+
 html.mobile-display-active body {
   min-height: 100dvh;
   padding-left: max(12px, env(safe-area-inset-left, 0px));
@@ -181,6 +185,54 @@ html.mobile-display-active:has(#viewBattle.active) .app-header,
 html.mobile-display-active body:has(#viewBattle.active) .app-header {
   padding-left: max(12px, env(safe-area-inset-left, 0px));
   padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+
+/* 短高度橫向（手機橫放 375px–540px 高）安全排版：避免裁切與溢出，不影響桌面版 */
+@media (orientation: landscape) and (max-height: 540px) {
+  body:not(:has(#viewBattle.active)) {
+    padding:
+      max(8px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .game-container {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .app-header {
+    --header-height: 52px;
+    height: 52px;
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .app-header .brand-name {
+    font-size: clamp(14px, 2.4vw, 18px);
+    white-space: nowrap;
+  }
+
+  .app-header .brand-caption {
+    display: none;
+  }
+
+  .modal-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding:
+      max(8px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(8px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .modal-overlay .modal-card:not(.inventory-modal-card) {
+    margin: auto;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+  }
 }
 
 /* 系統選單內的全螢幕切換項目 */

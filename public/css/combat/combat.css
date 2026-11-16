@@ -958,6 +958,7 @@ body:has(#viewBattle.active) .main-content{padding:0;border:0;box-shadow:none;ba
 }
 @media(min-width:651px) and (max-width:1550px){#viewBattle #battleEnemiesStage{bottom:calc(39vh + 100px)}}
 @media(max-height:540px) and (min-width:651px){#viewBattle #playerActionCard{max-height:48vh}.battle-hud-player{bottom:12px}.sage-equation-terminal{bottom:150px}#viewBattle #battleEnemiesStage{--enemy-cap:calc(51vh - 20px);bottom:calc(48vh + 70px);top:18%}}
+@media(orientation:landscape) and (max-height:500px){body:has(#viewBattle.active) .app-header{height:46px;padding:4px 12px}#viewBattle #battleEnemiesStage{--enemy-cap:calc(48vh - 12px);top:50px;bottom:calc(42vh + 52px)}#viewBattle #playerActionCard{max-height:42vh;bottom:max(8px,env(safe-area-inset-bottom,0px))}#viewBattle .battle-hud-player{bottom:max(8px,env(safe-area-inset-bottom,0px))}#viewBattle .teammates-card{bottom:12px}#viewBattle #battleLogCard{top:52px}}
 @media(prefers-reduced-motion:reduce){#viewBattle *,#viewBattle *::before,#viewBattle *::after{animation-duration:1ms;transition-duration:1ms;transition-delay:0ms}}
 
 /* Sage resources sit below their portrait, above the party HP bar. */

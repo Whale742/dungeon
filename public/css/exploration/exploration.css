@@ -802,6 +802,23 @@ body.presentation-floor-active .narrative-controls,
     text-align: center;
   }
 }
+@media (orientation: landscape) and (max-height: 540px) {
+  .story-view {
+    min-height: 0;
+    align-items: flex-start;
+  }
+  .map-layout {
+    min-height: unset;
+    gap: 12px;
+  }
+  .map-story {
+    min-height: unset;
+    padding: 14px 16px;
+  }
+  .map-side {
+    padding: 12px;
+  }
+}
  .route-travel-closeup {
   position: fixed; inset: 0; z-index: 9999; overflow: hidden; pointer-events: none;
   background: radial-gradient(circle at 45% 50%, rgba(22, 45, 66, .98), rgba(9, 17, 26, .99) 80%);

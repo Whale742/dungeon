@@ -803,6 +803,25 @@
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
+  .inventory-modal-body.inventory-dual-column {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .inventory-modal-card {
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 10px 14px !important;
+  }
+  .inv-player-stats-bar {
+    margin: 6px 0 !important;
+  }
+  .inventory-modal-body.inventory-dual-column {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
 }
 
 /* Native drag image contains the item only, never the hex frame or its glow. */
