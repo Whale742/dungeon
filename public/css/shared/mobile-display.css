@@ -1,0 +1,190 @@
+/* ==========================================================================
+   Dungeon Abyss — Mobile Landscape & Immersive Fullscreen Overlay
+   ========================================================================== */
+
+.mobile-orientation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(20px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(20px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
+  background: radial-gradient(circle at 50% 42%, rgba(22, 26, 34, 0.97) 0%, #07090d 70%, #030406 100%);
+  color: var(--light, #f2e7d3);
+  text-align: center;
+  cursor: pointer;
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+.mobile-orientation-overlay.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 180ms ease, visibility 0s linear 0s;
+}
+
+.mobile-orientation-overlay[hidden] {
+  display: none;
+}
+
+.mobile-orientation-content {
+  width: 100%;
+  max-width: min(360px, 88vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 16px;
+}
+
+/* 古典奇幻細線框與手機旋轉 SVG 動畫 */
+.mobile-orientation-icon-wrap {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold, #D7B86E);
+  filter: drop-shadow(0 0 14px rgba(215, 184, 110, 0.22));
+}
+
+.mobile-orientation-svg {
+  width: 60px;
+  height: 60px;
+  overflow: visible;
+}
+
+.mobile-orientation-phone {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mobileRotateToLandscape 2.4s cubic-bezier(0.45, 0.05, 0.35, 1) infinite;
+}
+
+.mobile-orientation-arc {
+  opacity: 0.72;
+}
+
+@keyframes mobileRotateToLandscape {
+  0%, 18% {
+    transform: rotate(0deg);
+  }
+  52%, 78% {
+    transform: rotate(-90deg);
+  }
+  94%, 100% {
+    transform: rotate(0deg);
+  }
+}
+
+.mobile-orientation-title {
+  margin: 0;
+  font-family: var(--font-display, "Cinzel", "Noto Serif TC", serif);
+  font-size: clamp(20px, 5.4vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--light, #f2e7d3);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+.mobile-orientation-desc {
+  margin: 0;
+  font-family: var(--font-body, "Noto Sans TC", sans-serif);
+  font-size: clamp(14px, 3.8vw, 15px);
+  line-height: 1.65;
+  color: var(--secondary, #c8bda7);
+}
+
+.mobile-orientation-ios-guide {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(215, 184, 110, 0.28);
+  border-radius: var(--radius-sm, 2px);
+  background: rgba(16, 19, 25, 0.75);
+  font-family: var(--font-body, "Noto Sans TC", sans-serif);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ornament, #CBB98A);
+}
+
+.mobile-orientation-ios-guide[hidden] {
+  display: none;
+}
+
+.mobile-orientation-hint {
+  margin: 10px 0 0;
+  font-family: var(--font-body, "Noto Sans TC", sans-serif);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--gold, #D7B86E);
+  opacity: 0.88;
+}
+
+/* 極小尺寸手機調整 */
+@media (max-height: 460px), (max-width: 340px) {
+  .mobile-orientation-content {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .mobile-orientation-icon-wrap {
+    width: 56px;
+    height: 56px;
+  }
+
+  .mobile-orientation-svg {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* Reduced Motion 支援 */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-orientation-overlay,
+  .mobile-orientation-overlay.is-visible {
+    transition: none;
+  }
+
+  .mobile-orientation-phone {
+    animation: none;
+    transform: rotate(-90deg);
+  }
+}
+
+/* ==========================================================================
+   手機橫向安全區域與全螢幕高度相容（僅作用於行動裝置）
+   ========================================================================== */
+html.mobile-display-active body {
+  min-height: 100dvh;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
+
+html.mobile-display-active .game-container {
+  min-height: calc(100dvh - 24px);
+}
+
+html.mobile-display-active:has(#viewBattle.active) .app-header,
+html.mobile-display-active body:has(#viewBattle.active) .app-header {
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+
+/* 系統選單內的全螢幕切換項目 */
+.burger-display-section.hidden,
+#btnToggleFullscreen.hidden {
+  display: none;
+}
